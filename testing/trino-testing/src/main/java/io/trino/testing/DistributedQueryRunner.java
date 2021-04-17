@@ -36,6 +36,7 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
+import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -99,7 +100,8 @@ public class DistributedQueryRunner
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            List<SystemAccessControl> systemAccessControls)
+            List<SystemAccessControl> systemAccessControls,
+            List<EventListener> eventListeners)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
@@ -124,6 +126,7 @@ public class DistributedQueryRunner
                         environment,
                         additionalModule,
                         baseDataDir,
+                        ImmutableList.of(),
                         ImmutableList.of()));
                 servers.add(worker);
             }
@@ -146,7 +149,8 @@ public class DistributedQueryRunner
                     environment,
                     additionalModule,
                     baseDataDir,
-                    systemAccessControls));
+                    systemAccessControls,
+                    eventListeners));
             servers.add(coordinator);
             if (backupCoordinatorProperties.isPresent()) {
                 Map<String, String> extraBackupCoordinatorProperties = new HashMap<>();
@@ -159,7 +163,8 @@ public class DistributedQueryRunner
                         environment,
                         additionalModule,
                         baseDataDir,
-                        systemAccessControls)));
+                        systemAccessControls,
+                        eventListeners)));
                 servers.add(backupCoordinator.get());
             }
             else {
@@ -197,7 +202,8 @@ public class DistributedQueryRunner
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            List<SystemAccessControl> systemAccessControls)
+            List<SystemAccessControl> systemAccessControls,
+            List<EventListener> eventListeners)
     {
         long start = System.nanoTime();
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.<String, String>builder()
@@ -232,6 +238,7 @@ public class DistributedQueryRunner
                 .setAdditionalModule(additionalModule)
                 .setBaseDataDir(baseDataDir)
                 .setSystemAccessControls(systemAccessControls)
+                .setEventListeners(eventListeners)
                 .build();
 
         String nodeRole = coordinator ? "coordinator" : "worker";
@@ -253,6 +260,7 @@ public class DistributedQueryRunner
                     ENVIRONMENT,
                     EMPTY_MODULE,
                     Optional.empty(),
+                    ImmutableList.of(),
                     ImmutableList.of()));
             serverBuilder.add(server);
             // add functions
@@ -564,6 +572,7 @@ public class DistributedQueryRunner
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
         private List<SystemAccessControl> systemAccessControls = ImmutableList.of();
+        private List<EventListener> eventListeners = ImmutableList.of();
 
         protected Builder(Session defaultSession)
         {
@@ -648,6 +657,19 @@ public class DistributedQueryRunner
             return this;
         }
 
+        @SuppressWarnings("unused")
+        public Builder setEventListener(EventListener eventListener)
+        {
+            return setEventListeners(ImmutableList.of(requireNonNull(eventListener, "eventListener is null")));
+        }
+
+        @SuppressWarnings("unused")
+        public Builder setEventListeners(List<EventListener> eventListeners)
+        {
+            this.eventListeners = ImmutableList.copyOf(requireNonNull(eventListeners, "eventListeners is null"));
+            return this;
+        }
+
         public Builder enableBackupCoordinator()
         {
             if (backupCoordinatorProperties.isEmpty()) {
@@ -668,7 +690,8 @@ public class DistributedQueryRunner
                     environment,
                     additionalModule,
                     baseDataDir,
-                    systemAccessControls);
+                    systemAccessControls,
+                    eventListeners);
         }
     }
 }

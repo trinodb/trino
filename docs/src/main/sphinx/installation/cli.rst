@@ -25,6 +25,10 @@ make it executable with ``chmod +x``, then run it:
 
 Run the CLI with the ``--help`` option to see the available options.
 
+The CLI uses the HTTP protocol and the
+:doc:`Trino client REST API </develop/client-protocol>` to communicate
+with Trino.
+
 Authentication
 --------------
 

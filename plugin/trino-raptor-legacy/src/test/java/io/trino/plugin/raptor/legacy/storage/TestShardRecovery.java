@@ -42,7 +42,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
-import static io.trino.plugin.raptor.legacy.storage.OrcStorageManager.xxhash64;
+import static io.trino.plugin.raptor.legacy.storage.RaptorStorageManager.xxhash64;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.io.File.createTempFile;
 import static java.lang.String.format;

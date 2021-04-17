@@ -40,6 +40,8 @@ import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryStateInfo
@@ -110,14 +112,14 @@ public class TestQueryStateInfo
                         DateTime.parse("1991-09-06T05:01-05:30"),
                         DateTime.parse("1991-09-06T05:02-05:30"),
                         DateTime.parse("1991-09-06T06:00-05:30"),
-                        Duration.valueOf("10s"),
-                        Duration.valueOf("8m"),
-                        Duration.valueOf("7m"),
-                        Duration.valueOf("34m"),
-                        Duration.valueOf("9m"),
-                        Duration.valueOf("10m"),
-                        Duration.valueOf("11m"),
-                        Duration.valueOf("12m"),
+                        new Duration(10, SECONDS),
+                        new Duration(8, MINUTES),
+                        new Duration(7, MINUTES),
+                        new Duration(34, MINUTES),
+                        new Duration(9, MINUTES),
+                        new Duration(10, MINUTES),
+                        new Duration(11, MINUTES),
+                        new Duration(12, MINUTES),
                         13,
                         14,
                         15,
@@ -138,14 +140,14 @@ public class TestQueryStateInfo
                         DataSize.valueOf("28GB"),
                         DataSize.valueOf("29GB"),
                         true,
-                        Duration.valueOf("23m"),
-                        Duration.valueOf("24m"),
-                        Duration.valueOf("26m"),
+                        new Duration(23, MINUTES),
+                        new Duration(24, MINUTES),
+                        new Duration(26, MINUTES),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
                         DataSize.valueOf("271GB"),
                         281,
-                        Duration.valueOf("26m"),
+                        new Duration(26, MINUTES),
                         DataSize.valueOf("272GB"),
                         282,
                         DataSize.valueOf("27GB"),

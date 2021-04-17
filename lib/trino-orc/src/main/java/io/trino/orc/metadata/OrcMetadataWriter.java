@@ -18,6 +18,7 @@ import com.google.common.io.CountingOutputStream;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.orc.OrcWriterOptions.WriterIdentification;
 import io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
 import io.trino.orc.metadata.Stream.StreamKind;
@@ -42,24 +43,32 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.orc.metadata.PostScript.MAGIC;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class OrcMetadataWriter
         implements MetadataWriter
 {
     // see https://github.com/trinodb/orc-protobuf/blob/master/src/main/protobuf/orc_proto.proto
-    private static final int PRESTO_WRITER_ID = 2;
+    public static final int TRINO_WRITER_ID = 4;
+    // in order to change this value, the master Apache ORC proto file must be updated
+    private static final int TRINO_WRITER_VERSION = 6;
+
+    // see https://github.com/trinodb/orc-protobuf/blob/master/src/main/protobuf/orc_proto.proto
+    public static final int PRESTO_WRITER_ID = 2;
     // in order to change this value, the master Apache ORC proto file must be updated
     private static final int PRESTO_WRITER_VERSION = 6;
+
     // maximum version readable by Hive 2.x before the ORC-125 fix
     private static final int HIVE_LEGACY_WRITER_VERSION = 4;
+
     private static final List<Integer> ORC_METADATA_VERSION = ImmutableList.of(0, 12);
 
-    private final boolean useLegacyVersion;
+    private final WriterIdentification writerIdentification;
 
-    public OrcMetadataWriter(boolean useLegacyVersion)
+    public OrcMetadataWriter(WriterIdentification writerIdentification)
     {
-        this.useLegacyVersion = useLegacyVersion;
+        this.writerIdentification = requireNonNull(writerIdentification, "writerIdentification is null");
     }
 
     @Override
@@ -78,11 +87,24 @@ public class OrcMetadataWriter
                 .setMetadataLength(metadataLength)
                 .setCompression(toCompression(compression))
                 .setCompressionBlockSize(compressionBlockSize)
-                .setWriterVersion(useLegacyVersion ? HIVE_LEGACY_WRITER_VERSION : PRESTO_WRITER_VERSION)
+                .setWriterVersion(getOrcWriterVersion())
                 .setMagic(MAGIC.toStringUtf8())
                 .build();
 
         return writeProtobufObject(output, postScriptProtobuf);
+    }
+
+    private int getOrcWriterVersion()
+    {
+        switch (writerIdentification) {
+            case LEGACY_HIVE_COMPATIBLE:
+                return HIVE_LEGACY_WRITER_VERSION;
+            case PRESTO:
+                return PRESTO_WRITER_VERSION;
+            case TRINO:
+                return TRINO_WRITER_VERSION;
+        }
+        throw new IllegalStateException("Unexpected value: " + writerIdentification);
     }
 
     @Override
@@ -128,11 +150,26 @@ public class OrcMetadataWriter
                         .map(OrcMetadataWriter::toUserMetadata)
                         .collect(toList()));
 
-        if (!useLegacyVersion) {
-            builder.setWriter(PRESTO_WRITER_ID);
-        }
+        setWriter(builder);
 
         return writeProtobufObject(output, builder.build());
+    }
+
+    private void setWriter(OrcProto.Footer.Builder builder)
+    {
+        switch (writerIdentification) {
+            case LEGACY_HIVE_COMPATIBLE:
+                return;
+
+            case PRESTO:
+                builder.setWriter(PRESTO_WRITER_ID);
+                return;
+
+            case TRINO:
+                builder.setWriter(TRINO_WRITER_ID);
+                return;
+        }
+        throw new IllegalStateException("Unexpected value: " + writerIdentification);
     }
 
     private static OrcProto.StripeInformation toStripeInformation(StripeInformation stripe)

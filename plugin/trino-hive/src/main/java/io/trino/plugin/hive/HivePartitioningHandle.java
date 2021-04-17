@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 
@@ -82,11 +83,13 @@ public class HivePartitioningHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
+        ToStringHelper helper = toStringHelper(this)
                 .add("buckets", bucketCount)
-                .add("hiveTypes", hiveTypes)
-                .add("usePartitionedBucketing", usePartitionedBucketing)
-                .toString();
+                .add("hiveTypes", hiveTypes);
+        if (usePartitionedBucketing) {
+            helper.add("usePartitionedBucketing", usePartitionedBucketing);
+        }
+        return helper.toString();
     }
 
     @Override

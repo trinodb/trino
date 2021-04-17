@@ -23,6 +23,7 @@ import io.trino.tests.product.launcher.env.common.HadoopKerberos;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.Kafka;
+import io.trino.tests.product.launcher.env.common.KafkaSsl;
 import io.trino.tests.product.launcher.env.common.SeleniumChrome;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
@@ -64,6 +65,7 @@ public final class EnvironmentModule
         binder.bind(HadoopKerberosKms.class).in(SINGLETON);
         binder.bind(HydraIdentityProvider.class).in(SINGLETON);
         binder.bind(Kafka.class).in(SINGLETON);
+        binder.bind(KafkaSsl.class).in(SINGLETON);
         binder.bind(SeleniumChrome.class).in(SINGLETON);
         binder.bind(Standard.class).in(SINGLETON);
         binder.bind(StandardMultinode.class).in(SINGLETON);

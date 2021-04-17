@@ -2904,18 +2904,30 @@ public class TestSqlParser
         return QualifiedName.of(parts);
     }
 
+    /**
+     * @deprecated use {@link ParserAssert#statement(String)} instead
+     */
+    @Deprecated
     private static void assertStatement(String query, Statement expected)
     {
         assertParsed(query, expected, SQL_PARSER.createStatement(query, new ParsingOptions()));
         assertFormattedSql(SQL_PARSER, expected);
     }
 
+    /**
+     * @deprecated use {@link ParserAssert#statement(String)} instead
+     */
+    @Deprecated
     private static void assertInvalidStatement(String statement, String expectedErrorMessageRegex)
     {
         assertThatThrownBy(() -> SQL_PARSER.createStatement(statement, new ParsingOptions()))
                 .isInstanceOfSatisfying(ParsingException.class, e -> assertTrue(e.getErrorMessage().matches(expectedErrorMessageRegex)));
     }
 
+    /**
+     * @deprecated use {@link ParserAssert#expression(String)} instead
+     */
+    @Deprecated
     private static void assertExpression(String expression, Expression expected)
     {
         requireNonNull(expression, "expression is null");

@@ -118,4 +118,22 @@ public class TestHiveViews
                         row("nothing", null),
                         row("zero", null)));
     }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testLateralViewJsonTupleAs()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS test_json_tuple_table");
+        onTrino().executeQuery("" +
+                "CREATE TABLE test_json_tuple_table WITH (format='TEXTFILE') AS " +
+                "SELECT 3 id, CAST('{\"user_id\": 1000, \"first.name\": \"Mateusz\", \"Last Name\": \"Gajewski\", \".NET\": true, \"aNull\": null}' AS varchar) jsonstr");
+
+        onHive().executeQuery("DROP VIEW IF EXISTS test_json_tuple_view");
+        onHive().executeQuery("CREATE VIEW test_json_tuple_view AS " +
+                "SELECT `t`.`id`, `x`.`a`, `x`.`b`, `x`.`c`, `x`.`d`, `x`.`e`, `x`.`f` FROM test_json_tuple_table AS `t` " +
+                "LATERAL VIEW json_tuple(`t`.`jsonstr`, \"first.name\", \"Last Name\", '.NET', \"user_id\", \"aNull\", \"nonexistentField\") `x` AS `a`, `b`, `c`, `d`, `e`, `f`");
+
+        assertViewQuery(
+                "SELECT * FROM test_json_tuple_view",
+                queryAssert -> queryAssert.containsOnly(row(3, "Mateusz", "Gajewski", "true", "1000", null, null)));
+    }
 }

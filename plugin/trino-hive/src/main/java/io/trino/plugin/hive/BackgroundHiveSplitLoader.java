@@ -497,8 +497,14 @@ public class BackgroundHiveSplitLoader
                         ? directory.getBaseDirectory()
                         : (directory.getCurrentDirectories().size() > 0 ? directory.getCurrentDirectories().get(0).getPath() : null);
 
-                if (baseOrDeltaPath != null && AcidUtils.OrcAcidVersion.getAcidVersionFromMetaFile(baseOrDeltaPath, fs) < 2) {
-                    throw new TrinoException(NOT_SUPPORTED, "Hive transactional tables are supported with Hive 3.0 and only after a major compaction has been run");
+                if (baseOrDeltaPath != null && AcidUtils.OrcAcidVersion.getAcidVersionFromMetaFile(baseOrDeltaPath, fs) >= 2) {
+                    // Trino cannot read ORC ACID tables with version < 2 (written by Hive older than 3.0)
+                    // See https://github.com/trinodb/trino/issues/2790#issuecomment-591901728 for more context
+
+                    // We perform initial version check based on _orc_acid_version file here.
+                    // If we cannot verify the version (the _orc_acid_version file may not exist),
+                    // we will do extra check based on ORC datafile metadata in OrcPageSourceFactory.
+                    acidInfoBuilder.setOrcAcidVersionValidated(true);
                 }
             }
 
@@ -538,6 +544,8 @@ public class BackgroundHiveSplitLoader
             }
         }
         else {
+            // TODO https://github.com/trinodb/trino/issues/7603 - we should not referece acidInfoBuilder at allwhen we are not reading from non-ACID table
+            acidInfoBuilder.setOrcAcidVersionValidated(true); // no ACID; no further validation needed
             readPaths = ImmutableList.of(path);
         }
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping

@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -24,15 +25,17 @@ public class QueryOutputMetadata
     private final String catalogName;
     private final String schema;
     private final String table;
+    private final Optional<List<OutputColumnMetadata>> columns;
 
     private final Optional<String> connectorOutputMetadata;
     private final Optional<Boolean> jsonLengthLimitExceeded;
 
-    public QueryOutputMetadata(String catalogName, String schema, String table, Optional<String> connectorOutputMetadata, Optional<Boolean> jsonLengthLimitExceeded)
+    public QueryOutputMetadata(String catalogName, String schema, String table, Optional<List<OutputColumnMetadata>> columns, Optional<String> connectorOutputMetadata, Optional<Boolean> jsonLengthLimitExceeded)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
+        this.columns = requireNonNull(columns, "columns is null");
         this.connectorOutputMetadata = requireNonNull(connectorOutputMetadata, "connectorOutputMetadata is null");
         this.jsonLengthLimitExceeded = requireNonNull(jsonLengthLimitExceeded, "jsonLengthLimitExceeded is null");
     }
@@ -53,6 +56,12 @@ public class QueryOutputMetadata
     public String getTable()
     {
         return table;
+    }
+
+    @JsonProperty
+    public Optional<List<OutputColumnMetadata>> getColumns()
+    {
+        return columns;
     }
 
     @JsonProperty

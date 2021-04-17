@@ -2,6 +2,14 @@
 Security
 ********
 
+Introduction
+============
+
+.. toctree::
+   :maxdepth: 1
+
+   security/overview
+
 Cluster access security
 =======================
 
@@ -9,6 +17,9 @@ Cluster access security
   :maxdepth: 1
 
   security/tls
+  security/inspect-pem
+  security/inspect-jks
+  security/authentication-types
   security/ldap
   security/password-file
   security/salesforce

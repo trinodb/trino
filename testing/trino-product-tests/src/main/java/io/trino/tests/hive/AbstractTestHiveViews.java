@@ -19,6 +19,7 @@ import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequiremen
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
+import io.trino.testng.services.Flaky;
 import io.trino.tests.utils.QueryExecutors;
 import org.testng.annotations.Test;
 
@@ -168,6 +169,7 @@ public abstract class AbstractTestHiveViews
      * Test view containing IF, IN, LIKE, BETWEEN, CASE, COALESCE, operators, delimited and non-delimited columns, an inline comment
      */
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/7535", match = "FAILED: Execution Error, return code 2 from org.apache.hadoop.hive.ql.exec.mr.MapRedTask")
     public void testRichSqlSyntax()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_rich_syntax");
@@ -297,7 +299,8 @@ public abstract class AbstractTestHiveViews
     public void testTimestampHiveView()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS timestamp_hive_table");
-        onHive().executeQuery("CREATE TABLE timestamp_hive_table AS SELECT cast('1990-01-02 12:13:14.123456789' AS timestamp) ts");
+        onHive().executeQuery("CREATE TABLE timestamp_hive_table (ts timestamp)");
+        onHive().executeQuery("INSERT INTO timestamp_hive_table (ts) values ('1990-01-02 12:13:14.123456789')");
         onHive().executeQuery("DROP VIEW IF EXISTS timestamp_hive_view");
         onHive().executeQuery("CREATE VIEW timestamp_hive_view AS SELECT * FROM timestamp_hive_table");
 

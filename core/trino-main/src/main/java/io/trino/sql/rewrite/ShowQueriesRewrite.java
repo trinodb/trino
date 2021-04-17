@@ -474,6 +474,35 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowCreate(ShowCreate node, Void context)
         {
+            if (node.getType() == MATERIALIZED_VIEW) {
+                QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+                Optional<ConnectorMaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
+
+                if (viewDefinition.isEmpty()) {
+                    if (metadata.getView(session, objectName).isPresent()) {
+                        throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a materialized view", objectName);
+                    }
+
+                    if (metadata.getTableHandle(session, objectName).isPresent()) {
+                        throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a materialized view", objectName);
+                    }
+
+                    throw semanticException(TABLE_NOT_FOUND, node, "Materialized view '%s' does not exist", objectName);
+                }
+
+                Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
+                List<Identifier> parts = Lists.reverse(node.getName().getOriginalParts());
+                Identifier tableName = parts.get(0);
+                Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
+                Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());
+
+                accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+
+                String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
+                        query, false, false, new ArrayList<>(), viewDefinition.get().getComment())).trim();
+                return singleValueQuery("Create Materialized View", sql);
+            }
+
             if (node.getType() == VIEW) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
 
@@ -503,35 +532,14 @@ final class ShowQueriesRewrite
                 return singleValueQuery("Create View", sql);
             }
 
-            if (node.getType() == MATERIALIZED_VIEW) {
-                QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
-                Optional<ConnectorMaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
-
-                if (viewDefinition.isEmpty()) {
-                    if (metadata.getTableHandle(session, objectName).isPresent()) {
-                        throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a materialized view", objectName);
-                    }
-                    throw semanticException(TABLE_NOT_FOUND, node, "View '%s' does not exist", objectName);
-                }
-
-                Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-                List<Identifier> parts = Lists.reverse(node.getName().getOriginalParts());
-                Identifier tableName = parts.get(0);
-                Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
-                Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());
-
-                accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
-
-                String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
-                        query, false, false, new ArrayList<>(), viewDefinition.get().getComment())).trim();
-                return singleValueQuery("Create Materialized View", sql);
-            }
-
             if (node.getType() == TABLE) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
-                Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
-                if (viewDefinition.isPresent()) {
+                if (metadata.getMaterializedView(session, objectName).isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a table", objectName);
+                }
+
+                if (metadata.getView(session, objectName).isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
                 }
 

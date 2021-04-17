@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class RedisConnectorConfig
 {
@@ -62,7 +63,7 @@ public class RedisConnectorConfig
     /**
      * Timeout to connect to Redis.
      */
-    private Duration redisConnectTimeout = Duration.valueOf("2000ms");
+    private Duration redisConnectTimeout = new Duration(2000, MILLISECONDS);
 
     /**
      * The schema name to use in the connector.

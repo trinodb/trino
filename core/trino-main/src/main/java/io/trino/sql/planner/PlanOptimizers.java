@@ -580,23 +580,23 @@ public class PlanOptimizers
                                 new PruneTableScanColumns(metadata),
                                 new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))));
 
+        Set<Rule<?>> pushIntoTableScanRulesExceptJoins = ImmutableSet.<Rule<?>>builder()
+                .addAll(columnPruningRules)
+                .addAll(projectionPushdownRules)
+                .add(new PushProjectionIntoTableScan(metadata, typeAnalyzer))
+                .add(new RemoveRedundantIdentityProjections())
+                .add(new PushLimitIntoTableScan(metadata))
+                .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
+                .add(new PushSampleIntoTableScan(metadata))
+                .add(new PushAggregationIntoTableScan(metadata))
+                .add(new PushDistinctLimitIntoTableScan(metadata))
+                .add(new PushTopNIntoTableScan(metadata))
+                .build();
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                ImmutableSet.<Rule<?>>builder()
-                        .addAll(columnPruningRules)
-                        .addAll(projectionPushdownRules)
-                        .add(new PushProjectionIntoTableScan(metadata, typeAnalyzer))
-                        .add(new RemoveRedundantIdentityProjections())
-                        .add(new PushLimitIntoTableScan(metadata))
-                        .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
-                        .add(new PushSampleIntoTableScan(metadata))
-                        .add(new PushJoinIntoTableScan(metadata))
-                        .add(new PushAggregationIntoTableScan(metadata))
-                        .add(new PushDistinctLimitIntoTableScan(metadata))
-                        .add(new PushTopNIntoTableScan(metadata))
-                        .build());
+                pushIntoTableScanRulesExceptJoins);
         builder.add(pushIntoTableScanOptimizer);
         builder.add(new UnaliasSymbolReferences(metadata));
         builder.add(pushIntoTableScanOptimizer); // TODO (https://github.com/trinodb/trino/issues/811) merge with the above after migrating UnaliasSymbolReferences to rules
@@ -734,7 +734,8 @@ public class PlanOptimizers
                         new CreatePartialTopN(),
                         new PushTopNThroughProject(),
                         new PushTopNThroughOuterJoin(),
-                        new PushTopNThroughUnion())));
+                        new PushTopNThroughUnion(),
+                        new PushTopNIntoTableScan(metadata))));
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
@@ -768,6 +769,21 @@ public class PlanOptimizers
                             // Must run before AddExchanges and after ReplicateSemiJoinInDelete
                             // to avoid temporarily having an invalid plan
                             new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator)))));
+
+            builder.add(new IterativeOptimizer(
+                    ruleStats,
+                    statsCalculator,
+                    estimatedExchangesCostCalculator,
+                    ImmutableSet.<Rule<?>>builder()
+                            .addAll(pushIntoTableScanRulesExceptJoins)
+                            // PushJoinIntoTableScan must run after ReorderJoins (and DetermineJoinDistributionType)
+                            // otherwise too early pushdown could prevent optimal plan from being selected.
+                            .add(new PushJoinIntoTableScan(metadata))
+                            // DetermineTableScanNodePartitioning is needed to needs to ensure all table handles have proper partitioning determined
+                            // Must run before AddExchanges
+                            .add(new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator))
+                            .build()));
+
             builder.add(
                     new IterativeOptimizer(
                             ruleStats,

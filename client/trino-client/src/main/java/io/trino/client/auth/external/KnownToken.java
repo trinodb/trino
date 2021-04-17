@@ -11,18 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.kafka;
+package io.trino.client.auth.external;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
+import java.util.Optional;
+import java.util.function.Supplier;
 
-public class KafkaProducerModule
-        implements Module
+public interface KnownToken
 {
-    @Override
-    public void configure(Binder binder)
+    Optional<Token> getToken();
+
+    void setupToken(Supplier<Optional<Token>> tokenSource);
+
+    static KnownToken local()
     {
-        binder.bind(KafkaProducerFactory.class).to(PlainTextKafkaProducerFactory.class).in(Scopes.SINGLETON);
+        return new LocalKnownToken();
+    }
+
+    static KnownToken memoryCached()
+    {
+        return MemoryCachedKnownToken.INSTANCE;
     }
 }

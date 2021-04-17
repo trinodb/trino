@@ -57,7 +57,9 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -147,7 +149,7 @@ public class HiveRecordCursor
                 }
                 else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
                     // used for $file_modified_time
-                    longs[columnIndex] = packDateTimeWithZone(timestampPartitionKey(columnValue, name), DateTimeZone.getDefault().getID());
+                    longs[columnIndex] = packDateTimeWithZone(floorDiv(timestampPartitionKey(columnValue, name), MICROSECONDS_PER_MILLISECOND), DateTimeZone.getDefault().getID());
                 }
                 else if (isShortDecimal(type)) {
                     longs[columnIndex] = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);

@@ -36,6 +36,8 @@ import java.util.OptionalDouble;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestBasicQueryInfo
@@ -59,14 +61,14 @@ public class TestBasicQueryInfo
                                 DateTime.parse("1991-09-06T05:01-05:30"),
                                 DateTime.parse("1991-09-06T05:02-05:30"),
                                 DateTime.parse("1991-09-06T06:00-05:30"),
-                                Duration.valueOf("8m"),
-                                Duration.valueOf("7m"),
-                                Duration.valueOf("34m"),
-                                Duration.valueOf("35m"),
-                                Duration.valueOf("44m"),
-                                Duration.valueOf("9m"),
-                                Duration.valueOf("99s"),
-                                Duration.valueOf("12m"),
+                                new Duration(8, MINUTES),
+                                new Duration(7, MINUTES),
+                                new Duration(35, MINUTES),
+                                new Duration(35, MINUTES),
+                                new Duration(44, MINUTES),
+                                new Duration(9, MINUTES),
+                                new Duration(99, SECONDS),
+                                new Duration(12, MINUTES),
                                 13,
                                 14,
                                 15,
@@ -87,14 +89,14 @@ public class TestBasicQueryInfo
                                 DataSize.valueOf("28GB"),
                                 DataSize.valueOf("29GB"),
                                 true,
-                                Duration.valueOf("23m"),
-                                Duration.valueOf("24m"),
-                                Duration.valueOf("26m"),
+                                new Duration(23, MINUTES),
+                                new Duration(24, MINUTES),
+                                new Duration(26, MINUTES),
                                 true,
                                 ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY),
                                 DataSize.valueOf("271GB"),
                                 281,
-                                Duration.valueOf("20m"),
+                                new Duration(20, MINUTES),
                                 DataSize.valueOf("272GB"),
                                 282,
                                 DataSize.valueOf("27GB"),
@@ -146,8 +148,8 @@ public class TestBasicQueryInfo
 
         assertEquals(basicInfo.getQueryStats().getCreateTime(), DateTime.parse("1991-09-06T05:00-05:30"));
         assertEquals(basicInfo.getQueryStats().getEndTime(), DateTime.parse("1991-09-06T06:00-05:30"));
-        assertEquals(basicInfo.getQueryStats().getElapsedTime(), Duration.valueOf("8m"));
-        assertEquals(basicInfo.getQueryStats().getExecutionTime(), Duration.valueOf("44m"));
+        assertEquals(basicInfo.getQueryStats().getElapsedTime(), new Duration(8, MINUTES));
+        assertEquals(basicInfo.getQueryStats().getExecutionTime(), new Duration(44, MINUTES));
 
         assertEquals(basicInfo.getQueryStats().getTotalDrivers(), 16);
         assertEquals(basicInfo.getQueryStats().getQueuedDrivers(), 17);
@@ -158,7 +160,7 @@ public class TestBasicQueryInfo
         assertEquals(basicInfo.getQueryStats().getUserMemoryReservation(), DataSize.valueOf("21GB"));
         assertEquals(basicInfo.getQueryStats().getTotalMemoryReservation(), DataSize.valueOf("23GB"));
         assertEquals(basicInfo.getQueryStats().getPeakUserMemoryReservation(), DataSize.valueOf("24GB"));
-        assertEquals(basicInfo.getQueryStats().getTotalCpuTime(), Duration.valueOf("24m"));
+        assertEquals(basicInfo.getQueryStats().getTotalCpuTime(), new Duration(24, MINUTES));
 
         assertEquals(basicInfo.getQueryStats().isFullyBlocked(), true);
         assertEquals(basicInfo.getQueryStats().getBlockedReasons(), ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY));

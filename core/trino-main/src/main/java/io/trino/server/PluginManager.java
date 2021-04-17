@@ -42,6 +42,7 @@ import javax.inject.Inject;
 
 import java.net.URL;
 import java.util.List;
+import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -67,7 +68,7 @@ public class PluginManager
     private final MetadataManager metadataManager;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
-    private final PasswordAuthenticatorManager passwordAuthenticatorManager;
+    private final Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager;
     private final CertificateAuthenticatorManager certificateAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final GroupProviderManager groupProviderManager;
@@ -82,7 +83,7 @@ public class PluginManager
             MetadataManager metadataManager,
             ResourceGroupManager<?> resourceGroupManager,
             AccessControlManager accessControlManager,
-            PasswordAuthenticatorManager passwordAuthenticatorManager,
+            Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager,
             CertificateAuthenticatorManager certificateAuthenticatorManager,
             EventListenerManager eventListenerManager,
             GroupProviderManager groupProviderManager,
@@ -191,10 +192,12 @@ public class PluginManager
             accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         }
 
-        for (PasswordAuthenticatorFactory authenticatorFactory : plugin.getPasswordAuthenticatorFactories()) {
-            log.info("Registering password authenticator %s", authenticatorFactory.getName());
-            passwordAuthenticatorManager.addPasswordAuthenticatorFactory(authenticatorFactory);
-        }
+        passwordAuthenticatorManager.ifPresent(authenticationManager -> {
+            for (PasswordAuthenticatorFactory authenticatorFactory : plugin.getPasswordAuthenticatorFactories()) {
+                log.info("Registering password authenticator %s", authenticatorFactory.getName());
+                authenticationManager.addPasswordAuthenticatorFactory(authenticatorFactory);
+            }
+        });
 
         for (CertificateAuthenticatorFactory authenticatorFactory : plugin.getCertificateAuthenticatorFactories()) {
             log.info("Registering certificate authenticator %s", authenticatorFactory.getName());

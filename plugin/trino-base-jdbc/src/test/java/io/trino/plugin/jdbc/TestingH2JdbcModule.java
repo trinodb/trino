@@ -25,10 +25,23 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class TestingH2JdbcModule
         implements Module
 {
+    private final TestingH2JdbcClientFactory testingH2JdbcClientFactory;
+
+    public TestingH2JdbcModule()
+    {
+        this((config, connectionFactory) -> new TestingH2JdbcClient(config, connectionFactory));
+    }
+
+    public TestingH2JdbcModule(TestingH2JdbcClientFactory testingH2JdbcClientFactory)
+    {
+        this.testingH2JdbcClientFactory = requireNonNull(testingH2JdbcClientFactory, "testingH2JdbcClientFactory is null");
+    }
+
     @Override
     public void configure(Binder binder) {}
 
@@ -36,7 +49,7 @@ public class TestingH2JdbcModule
     @ForBaseJdbc
     public JdbcClient provideJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        return new TestingH2JdbcClient(config, connectionFactory);
+        return testingH2JdbcClientFactory.create(config, connectionFactory);
     }
 
     @Provides
@@ -52,5 +65,10 @@ public class TestingH2JdbcModule
         return ImmutableMap.<String, String>builder()
                 .put("connection-url", format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime() + ThreadLocalRandom.current().nextLong()))
                 .build();
+    }
+
+    public interface TestingH2JdbcClientFactory
+    {
+        TestingH2JdbcClient create(BaseJdbcConfig config, ConnectionFactory connectionFactory);
     }
 }

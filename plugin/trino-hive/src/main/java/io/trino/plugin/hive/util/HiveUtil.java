@@ -59,6 +59,7 @@ import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
+import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
@@ -434,7 +435,7 @@ public final class HiveUtil
             return ParquetHiveSerDe.class;
         }
 
-        if ("org.apache.hadoop.hive.serde2.avro.AvroSerDe".equals(name)) {
+        if (AvroSerDe.class.getName().equals(name)) {
             return TrinoAvroSerDe.class;
         }
 

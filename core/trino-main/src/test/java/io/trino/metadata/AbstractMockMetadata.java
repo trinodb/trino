@@ -164,6 +164,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public TableSchema getTableSchema(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();

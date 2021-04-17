@@ -23,6 +23,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.Principal;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -47,9 +50,13 @@ public class TestTrinoDriverImpersonateUser
 
     @BeforeClass
     public void setup()
+            throws IOException
     {
+        Path passwordConfigDummy = Files.createTempFile("passwordConfigDummy", null);
+        passwordConfigDummy.toFile().deleteOnExit();
         server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.type", "password")
                         .put("http-server.https.enabled", "true")
                         .put("http-server.https.keystore.path", getResource("localhost.keystore").getPath())
@@ -57,7 +64,7 @@ public class TestTrinoDriverImpersonateUser
                         .build())
                 .build();
 
-        server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestTrinoDriverImpersonateUser::authenticate);
+        server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestTrinoDriverImpersonateUser::authenticate);
     }
 
     private static Principal authenticate(String user, String password)

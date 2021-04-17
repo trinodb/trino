@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>107</version>
+        <version>110</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>355-SNAPSHOT</version>
+    <version>356-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -47,7 +47,7 @@
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.9</dep.antlr.version>
-        <dep.airlift.version>203</dep.airlift.version>
+        <dep.airlift.version>204</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.11.946</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
@@ -61,7 +61,7 @@
         <dep.errorprone.version>2.5.1</dep.errorprone.version>
         <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
         <dep.docker-java.version>3.2.7</dep.docker-java.version>
-        <dep.coral.version>1.0.33</dep.coral.version>
+        <dep.coral.version>1.0.42</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
 
         <!--
@@ -780,7 +780,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.29</version>
+                <version>1.30</version>
             </dependency>
 
             <dependency>
@@ -1065,7 +1065,7 @@
 
             <dependency>
                 <groupId>com.linkedin.coral</groupId>
-                <artifactId>coral-presto</artifactId>
+                <artifactId>coral-trino</artifactId>
                 <version>${dep.coral.version}</version>
             </dependency>
 
@@ -1251,6 +1251,13 @@
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
                 <version>5.1.48</version>
+            </dependency>
+
+            <!-- force newer version to be used for dependencies -->
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>1.10.22</version>
             </dependency>
 
             <dependency>

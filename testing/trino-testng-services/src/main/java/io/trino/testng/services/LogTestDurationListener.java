@@ -43,6 +43,8 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.trino.testng.services.Listeners.reportListenerFailure;
 import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getThreadMXBean;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 
 public class LogTestDurationListener
@@ -50,10 +52,10 @@ public class LogTestDurationListener
 {
     private static final Logger LOG = Logger.get(LogTestDurationListener.class);
 
-    private static final Duration SINGLE_TEST_LOGGING_THRESHOLD = Duration.valueOf("30s");
-    private static final Duration CLASS_LOGGING_THRESHOLD = Duration.valueOf("1m");
+    private static final Duration SINGLE_TEST_LOGGING_THRESHOLD = new Duration(30, SECONDS);
+    private static final Duration CLASS_LOGGING_THRESHOLD = new Duration(1, MINUTES);
     // Must be below Travis "no output" timeout (10m). E.g. TestElasticsearchIntegrationSmokeTest is known to take ~5-6m.
-    private static final Duration GLOBAL_IDLE_LOGGING_THRESHOLD = Duration.valueOf("8m");
+    private static final Duration GLOBAL_IDLE_LOGGING_THRESHOLD = new Duration(8, MINUTES);
 
     private final boolean enabled;
     private final ScheduledExecutorService scheduledExecutorService;

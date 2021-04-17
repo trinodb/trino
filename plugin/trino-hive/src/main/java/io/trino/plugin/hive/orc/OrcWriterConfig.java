@@ -16,9 +16,11 @@ package io.trino.plugin.hive.orc;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.orc.OrcWriterOptions;
+import io.trino.orc.OrcWriterOptions.WriterIdentification;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
@@ -31,7 +33,6 @@ public class OrcWriterConfig
     private OrcWriterOptions options = new OrcWriterOptions();
 
     private double defaultBloomFilterFpp = 0.05;
-    private boolean useLegacyVersion;
     private double validationPercentage;
     private OrcWriteValidationMode validationMode = OrcWriteValidationMode.BOTH;
 
@@ -137,16 +138,31 @@ public class OrcWriterConfig
         return this;
     }
 
+    @Deprecated
     public boolean isUseLegacyVersion()
     {
-        return useLegacyVersion;
+        return options.getWriterIdentification() == WriterIdentification.LEGACY_HIVE_COMPATIBLE;
     }
 
-    @Config("hive.orc.writer.use-legacy-version-number")
+    @Deprecated
+    @LegacyConfig(value = "hive.orc.writer.use-legacy-version-number", replacedBy = "hive.orc.writer.writer-identification")
     @ConfigDescription("Write ORC files with a version number that is readable by Hive 2.0.0 to 2.2.0")
     public OrcWriterConfig setUseLegacyVersion(boolean useLegacyVersion)
     {
-        this.useLegacyVersion = useLegacyVersion;
+        this.options = options.withWriterIdentification(useLegacyVersion ? WriterIdentification.LEGACY_HIVE_COMPATIBLE : WriterIdentification.TRINO);
+        return this;
+    }
+
+    @NotNull
+    public WriterIdentification getWriterIdentification()
+    {
+        return options.getWriterIdentification();
+    }
+
+    @Config("hive.orc.writer.writer-identification")
+    public OrcWriterConfig setWriterIdentification(WriterIdentification writerIdentification)
+    {
+        options = options.withWriterIdentification(writerIdentification);
         return this;
     }
 

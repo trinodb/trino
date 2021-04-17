@@ -21,6 +21,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -130,7 +131,10 @@ class TestingH2JdbcClient
                 return Optional.of(timeColumnMapping(TIME_MILLIS));
 
             case Types.TIMESTAMP:
-                return Optional.of(timestampColumnMapping(TIMESTAMP_MILLIS));
+                TimestampType timestampType = typeHandle.getDecimalDigits()
+                        .map(TimestampType::createTimestampType)
+                        .orElse(TIMESTAMP_MILLIS);
+                return Optional.of(timestampColumnMapping(timestampType));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {

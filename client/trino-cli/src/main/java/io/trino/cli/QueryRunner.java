@@ -20,6 +20,7 @@ import io.trino.client.OkHttpUtil;
 import io.trino.client.StatementClient;
 import io.trino.client.auth.external.ExternalAuthenticator;
 import io.trino.client.auth.external.HttpTokenPoller;
+import io.trino.client.auth.external.KnownToken;
 import io.trino.client.auth.external.RedirectHandler;
 import io.trino.client.auth.external.TokenPoller;
 import okhttp3.OkHttpClient;
@@ -34,7 +35,6 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.client.ClientSession.stripTransactionId;
 import static io.trino.client.OkHttpUtil.basicAuth;
-import static io.trino.client.OkHttpUtil.setupChannelSocket;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
 import static io.trino.client.OkHttpUtil.setupHttpProxy;
 import static io.trino.client.OkHttpUtil.setupKerberos;
@@ -93,7 +93,6 @@ public class QueryRunner
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 
-        setupChannelSocket(builder);
         setupTimeouts(builder, 30, SECONDS);
         setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
@@ -195,6 +194,7 @@ public class QueryRunner
         ExternalAuthenticator authenticator = new ExternalAuthenticator(
                 redirectHandler,
                 poller,
+                KnownToken.local(),
                 Duration.ofMinutes(10));
 
         builder.authenticator(authenticator);

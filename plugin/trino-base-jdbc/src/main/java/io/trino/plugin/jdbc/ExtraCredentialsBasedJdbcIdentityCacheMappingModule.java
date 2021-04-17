@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.kafka;
+package io.trino.plugin.jdbc;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-public class KafkaConsumerModule
+public class ExtraCredentialsBasedJdbcIdentityCacheMappingModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(KafkaConsumerFactory.class).to(PlainTextKafkaConsumerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcIdentityCacheMapping.class).to(ExtraCredentialsBasedJdbcIdentityCacheMapping.class).in(Scopes.SINGLETON);
     }
 }

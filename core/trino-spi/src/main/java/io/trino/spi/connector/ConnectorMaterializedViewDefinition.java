@@ -44,15 +44,16 @@ public class ConnectorMaterializedViewDefinition
             @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("columns") List<Column> columns,
             @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("owner") Optional<String> owner,
+            @JsonProperty("owner") String owner,
             @JsonProperty("properties") Map<String, Object> properties)
     {
-        this(originalSql, requireNonNull(storageTable, "storageTable is null").orElse(null), catalog, schema, columns, comment, owner, properties);
+        this(originalSql, requireNonNull(storageTable, "storageTable is null").orElse(null), catalog, schema, columns, comment, Optional.of(owner), properties);
     }
 
     /*
      * This constructor is for JSON deserialization only. Do not use.
      */
+    // TODO: Simplify this constructor and getters: https://github.com/trinodb/trino/issues/7537
     @Deprecated
     @JsonCreator
     public ConnectorMaterializedViewDefinition(
@@ -79,6 +80,10 @@ public class ConnectorMaterializedViewDefinition
         this.properties = requireNonNull(properties, "properties are null");
         if (columns.isEmpty()) {
             throw new IllegalArgumentException("columns list is empty");
+        }
+
+        if (owner.isEmpty()) {
+            throw new IllegalArgumentException("owner must be present");
         }
     }
 

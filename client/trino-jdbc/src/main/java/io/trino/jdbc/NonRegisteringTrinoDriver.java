@@ -24,7 +24,6 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 
-import static io.trino.client.OkHttpUtil.setupChannelSocket;
 import static io.trino.client.OkHttpUtil.userAgent;
 import static io.trino.jdbc.DriverInfo.DRIVER_NAME;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION;
@@ -112,9 +111,6 @@ public class NonRegisteringTrinoDriver
     {
         OkHttpClient.Builder builder = new OkHttpClient.Builder()
                 .addInterceptor(userAgent(DRIVER_NAME + "/" + DRIVER_VERSION));
-
-        // Enable socket factory only for pre JDK 11
-        setupChannelSocket(builder);
         return builder.build();
     }
 }

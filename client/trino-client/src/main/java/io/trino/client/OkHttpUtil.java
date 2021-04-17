@@ -14,16 +14,12 @@
 package io.trino.client;
 
 import com.google.common.base.CharMatcher;
-import com.google.common.base.Splitter;
-import com.google.common.base.StandardSystemProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.security.pem.PemReader;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
-import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
 
@@ -243,26 +239,6 @@ public final class OkHttpUtil
         }
         catch (GeneralSecurityException | IOException e) {
             throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
-        }
-    }
-
-    public static void setupChannelSocket(OkHttpClient.Builder clientBuilder)
-    {
-        // Enable socket factory only for pre JDK 11
-        if (!isAtLeastJava11()) {
-            clientBuilder.socketFactory(new SocketChannelSocketFactory());
-            clientBuilder.protocols(ImmutableList.of(Protocol.HTTP_1_1));
-        }
-    }
-
-    private static boolean isAtLeastJava11()
-    {
-        String feature = Splitter.on(".").split(StandardSystemProperty.JAVA_VERSION.value()).iterator().next();
-        try {
-            return Integer.parseInt(feature) >= 11;
-        }
-        catch (NumberFormatException e) {
-            return false;
         }
     }
 

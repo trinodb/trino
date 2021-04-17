@@ -13,11 +13,13 @@
  */
 package io.trino.sql.analyzer;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
@@ -32,6 +34,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
@@ -121,9 +124,6 @@ public class Analysis
     // a map of users to the columns per table that they access
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
 
-    // Track referenced fields from source relation node
-    private final Multimap<NodeRef<? extends Node>, Field> referencedFields = HashMultimap.create();
-
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, GroupingSetAnalysis> groupingSets = new LinkedHashMap<>();
@@ -194,6 +194,8 @@ public class Analysis
 
     // row id field for update/delete queries
     private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
+    private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
+    private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
@@ -216,14 +218,14 @@ public class Analysis
     {
         return target.map(target -> {
             QualifiedObjectName name = target.getName();
-            return new Output(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
+            return new Output(name.getCatalogName(), name.getSchemaName(), name.getObjectName(), target.getColumns());
         });
     }
 
-    public void setUpdateType(String updateType, QualifiedObjectName targetName, Optional<Table> targetTable)
+    public void setUpdateType(String updateType, QualifiedObjectName targetName, Optional<Table> targetTable, Optional<List<OutputColumn>> targetColumns)
     {
         this.updateType = updateType;
-        this.target = Optional.of(new UpdateTarget(targetName, targetTable));
+        this.target = Optional.of(new UpdateTarget(targetName, targetTable, targetColumns));
     }
 
     public void resetUpdateType()
@@ -850,11 +852,6 @@ public class Analysis
         tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
     }
 
-    public void addReferencedFields(Multimap<NodeRef<Node>, Field> references)
-    {
-        referencedFields.putAll(references);
-    }
-
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
     {
         return tableColumnReferences;
@@ -963,6 +960,28 @@ public class Analysis
         return resolvedFunctions.entrySet().stream()
                 .map(entry -> new RoutineInfo(entry.getValue().function.getSignature().getName(), entry.getValue().getAuthorization()))
                 .collect(toImmutableList());
+    }
+
+    public void addSourceColumns(Field field, Set<SourceColumn> sourceColumn)
+    {
+        originColumnDetails.putAll(field, sourceColumn);
+    }
+
+    public Set<SourceColumn> getSourceColumns(Field field)
+    {
+        return ImmutableSet.copyOf(originColumnDetails.get(field));
+    }
+
+    public void addExpressionFields(Expression expression, Collection<Field> fields)
+    {
+        fieldLineage.putAll(NodeRef.of(expression), fields);
+    }
+
+    public Set<SourceColumn> getExpressionSourceColumns(Expression expression)
+    {
+        return fieldLineage.get(NodeRef.of(expression)).stream()
+                .flatMap(field -> getSourceColumns(field).stream())
+                .collect(toImmutableSet());
     }
 
     public void setRowIdField(Table table, FieldReference field)
@@ -1487,6 +1506,56 @@ public class Analysis
         }
     }
 
+    public static class SourceColumn
+    {
+        private final QualifiedObjectName tableName;
+        private final String columnName;
+
+        @JsonCreator
+        public SourceColumn(@JsonProperty("tableName") QualifiedObjectName tableName, @JsonProperty("columnName") String columnName)
+        {
+            this.tableName = requireNonNull(tableName, "tableName is null");
+            this.columnName = requireNonNull(columnName, "columnName is null");
+        }
+
+        @JsonProperty
+        public QualifiedObjectName getTableName()
+        {
+            return tableName;
+        }
+
+        @JsonProperty
+        public String getColumnName()
+        {
+            return columnName;
+        }
+
+        public ColumnDetail getColumnDetail()
+        {
+            return new ColumnDetail(tableName.getCatalogName(), tableName.getSchemaName(), tableName.getObjectName(), columnName);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(tableName, columnName);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (obj == this) {
+                return true;
+            }
+            if ((obj == null) || (getClass() != obj.getClass())) {
+                return false;
+            }
+            SourceColumn entry = (SourceColumn) obj;
+            return Objects.equals(tableName, entry.tableName) &&
+                    Objects.equals(columnName, entry.columnName);
+        }
+    }
+
     private static class RoutineEntry
     {
         private final ResolvedFunction function;
@@ -1513,11 +1582,13 @@ public class Analysis
     {
         private final QualifiedObjectName name;
         private final Optional<Table> table;
+        private final Optional<List<OutputColumn>> columns;
 
-        public UpdateTarget(QualifiedObjectName name, Optional<Table> table)
+        public UpdateTarget(QualifiedObjectName name, Optional<Table> table, Optional<List<OutputColumn>> columns)
         {
             this.name = requireNonNull(name, "name is null");
             this.table = requireNonNull(table, "table is null");
+            this.columns = requireNonNull(columns, "columns is null").map(ImmutableList::copyOf);
         }
 
         public QualifiedObjectName getName()
@@ -1528,6 +1599,11 @@ public class Analysis
         public Optional<Table> getTable()
         {
             return table;
+        }
+
+        public Optional<List<OutputColumn>> getColumns()
+        {
+            return columns;
         }
     }
 }

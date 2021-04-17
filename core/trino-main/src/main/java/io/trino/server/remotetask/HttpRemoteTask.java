@@ -159,6 +159,7 @@ public final class HttpRemoteTask
 
     private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
+    private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean aborting = new AtomicBoolean(false);
 
     public HttpRemoteTask(
@@ -318,6 +319,7 @@ public final class HttpRemoteTask
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             // to start we just need to trigger an update
+            started.set(true);
             scheduleUpdate();
 
             dynamicFiltersFetcher.start();
@@ -493,9 +495,9 @@ public final class HttpRemoteTask
                 pendingSourceSplitCount -= removed;
             }
         }
-        updateSplitQueueSpace();
-
+        // Update node level split tracker before split queue space to ensure it's up to date before waking up the scheduler
         partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+        updateSplitQueueSpace();
     }
 
     private void updateTaskInfo(TaskInfo taskInfo)
@@ -513,7 +515,7 @@ public final class HttpRemoteTask
     {
         TaskStatus taskStatus = getTaskStatus();
         // don't update if the task hasn't been started yet or if it is already finished
-        if (!needsUpdate.get() || taskStatus.getState().isDone()) {
+        if (!started.get() || !needsUpdate.get() || taskStatus.getState().isDone()) {
             return;
         }
 

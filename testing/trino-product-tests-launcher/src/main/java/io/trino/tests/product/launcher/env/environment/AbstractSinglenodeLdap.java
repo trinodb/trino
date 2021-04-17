@@ -39,7 +39,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public abstract class AbstractSinglenodeLdap
         extends EnvironmentProvider
 {
-    private final DockerFiles dockerFiles;
+    protected final DockerFiles dockerFiles;
     private final PortBinder portBinder;
     private final String imagesVersion;
 

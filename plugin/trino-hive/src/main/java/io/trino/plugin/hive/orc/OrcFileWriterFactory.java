@@ -85,14 +85,12 @@ public class OrcFileWriterFactory
     private final FileFormatDataSourceStats readStats;
     private final OrcWriterStats stats = new OrcWriterStats();
     private final OrcWriterOptions orcWriterOptions;
-    private final boolean writeLegacyVersion;
 
     @Inject
     public OrcFileWriterFactory(
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            OrcWriterConfig orcWriterConfig,
             FileFormatDataSourceStats readStats,
             OrcWriterConfig config)
     {
@@ -100,7 +98,6 @@ public class OrcFileWriterFactory
                 hdfsEnvironment,
                 typeManager,
                 nodeVersion,
-                requireNonNull(orcWriterConfig, "orcWriterConfig is null").isUseLegacyVersion(),
                 readStats,
                 requireNonNull(config, "config is null").toOrcWriterOptions());
     }
@@ -109,14 +106,12 @@ public class OrcFileWriterFactory
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            boolean writeLegacyVersion,
             FileFormatDataSourceStats readStats,
             OrcWriterOptions orcWriterOptions)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
-        this.writeLegacyVersion = writeLegacyVersion;
         this.readStats = requireNonNull(readStats, "readStats is null");
         this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
     }
@@ -215,7 +210,6 @@ public class OrcFileWriterFactory
                             .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
                             .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
-                    writeLegacyVersion,
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())

@@ -68,6 +68,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -120,6 +121,7 @@ import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.gen.JoinCompiler;
@@ -293,6 +295,8 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
@@ -771,8 +775,8 @@ public abstract class AbstractTestHive
                         hdfsEnvironment,
                         false)),
                 executor,
-                Duration.valueOf("1m"),
-                Optional.of(Duration.valueOf("15s")),
+                new Duration(1, MINUTES),
+                Optional.of(new Duration(15, SECONDS)),
                 10000);
 
         setup(databaseName, hiveConfig, metastore, hdfsEnvironment);
@@ -817,6 +821,25 @@ public abstract class AbstractTestHive
                             new CatalogSchemaTableName("hive", databaseName, "mock_redirection_target"),
                             ImmutableMap.of(),
                             TupleDomain.all()));
+                },
+                new NoneHiveMaterializedViewMetadata()
+                {
+                    @Override
+                    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+                    {
+                        if (!viewName.getTableName().contains("materialized_view_tester")) {
+                            return Optional.empty();
+                        }
+                        return Optional.of(new ConnectorMaterializedViewDefinition(
+                                "dummy_view_sql",
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"))),
+                                Optional.empty(),
+                                "alice",
+                                ImmutableMap.of()));
+                    }
                 },
                 SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
@@ -3357,6 +3380,28 @@ public abstract class AbstractTestHive
         }
     }
 
+    @Test
+    public void testMaterializedViewMetadata()
+            throws Exception
+    {
+        SchemaTableName sourceTableName = temporaryTable("materialized_view_tester");
+        doCreateEmptyTable(sourceTableName, ORC, CREATE_TABLE_COLUMNS);
+        SchemaTableName tableName = temporaryTable("mock_table");
+        doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            assertThat(metadata.getMaterializedView(session, tableName)).isEmpty();
+            Optional<ConnectorMaterializedViewDefinition> result = metadata.getMaterializedView(session, sourceTableName);
+            assertThat(result).isPresent();
+            assertThat(result.get().getOriginalSql()).isEqualTo("dummy_view_sql");
+        }
+        finally {
+            dropTable(sourceTableName);
+            dropTable(tableName);
+        }
+    }
+
     private ConnectorSession sampleSize(int sampleSize)
     {
         return getHiveSession(getHiveConfig()
@@ -3881,7 +3926,7 @@ public abstract class AbstractTestHive
         FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
         if (fileSystem.exists(path)) {
             for (FileStatus fileStatus : fileSystem.listStatus(path)) {
-                if (fileStatus.getPath().getName().startsWith(".presto")) {
+                if (fileStatus.getPath().getName().startsWith(".trino")) {
                     // skip hidden files
                 }
                 else if (fileStatus.isFile()) {
@@ -4976,7 +5021,7 @@ public abstract class AbstractTestHive
         return Arrays.stream(fileSystem.listStatus(path))
                 .map(FileStatus::getPath)
                 .map(Path::getName)
-                .filter(name -> !name.startsWith(".presto"))
+                .filter(name -> !name.startsWith(".trino"))
                 .collect(toList());
     }
 

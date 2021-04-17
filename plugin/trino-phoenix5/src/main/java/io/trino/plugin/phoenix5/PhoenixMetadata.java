@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -83,19 +84,32 @@ public class PhoenixMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
-    {
-        return getTableMetadata(session, table, false);
-    }
-
-    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table, boolean rowkeyRequired)
+    public ConnectorTableSchema getTableSchema(ConnectorSession session, ConnectorTableHandle table)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
-        List<ColumnMetadata> columnMetadata = phoenixClient.getColumns(session, handle).stream()
-                .filter(column -> rowkeyRequired || !ROWKEY.equalsIgnoreCase(column.getColumnName()))
+        return new ConnectorTableSchema(
+                getSchemaTableName(handle),
+                getColumnMetadata(session, handle).stream()
+                        .map(ColumnMetadata::getColumnSchema)
+                        .collect(toImmutableList()));
+    }
+
+    @Override
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
+    {
+        JdbcTableHandle handle = (JdbcTableHandle) table;
+        return new ConnectorTableMetadata(
+                getSchemaTableName(handle),
+                getColumnMetadata(session, handle),
+                phoenixClient.getTableProperties(session, handle));
+    }
+
+    private List<ColumnMetadata> getColumnMetadata(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return phoenixClient.getColumns(session, handle).stream()
+                .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .map(JdbcColumnHandle::getColumnMetadata)
                 .collect(toImmutableList());
-        return new ConnectorTableMetadata(handle.getRequiredNamedRelation().getSchemaTableName(), columnMetadata, phoenixClient.getTableProperties(session, handle));
     }
 
     @Override

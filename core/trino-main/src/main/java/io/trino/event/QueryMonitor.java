@@ -44,6 +44,7 @@ import io.trino.operator.TableFinishInfo;
 import io.trino.operator.TaskStats;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.QueryId;
+import io.trino.spi.eventlistener.OutputColumnMetadata;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryContext;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
@@ -56,6 +57,7 @@ import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.StageCpuDistribution;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
@@ -76,6 +78,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
@@ -362,11 +366,21 @@ public class QueryMonitor
                     .map(TableFinishInfo.class::cast)
                     .findFirst();
 
+            Optional<List<OutputColumnMetadata>> outputColumnsMetadata = queryInfo.getOutput().get().getColumns()
+                    .map(columns -> columns.stream()
+                            .map(column -> new OutputColumnMetadata(
+                                    column.getColumn().getName(),
+                                    column.getSourceColumns().stream()
+                                            .map(Analysis.SourceColumn::getColumnDetail)
+                                            .collect(toImmutableSet())))
+                            .collect(toImmutableList()));
+
             output = Optional.of(
                     new QueryOutputMetadata(
                             queryInfo.getOutput().get().getCatalogName(),
                             queryInfo.getOutput().get().getSchema(),
                             queryInfo.getOutput().get().getTable(),
+                            outputColumnsMetadata,
                             tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),
                             tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded)));
         }

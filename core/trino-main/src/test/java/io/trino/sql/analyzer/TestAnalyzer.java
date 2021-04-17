@@ -15,6 +15,7 @@ package io.trino.sql.analyzer;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
@@ -35,6 +36,7 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableHandle;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
@@ -42,6 +44,8 @@ import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -56,6 +60,7 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.TestingMetadata;
+import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.assertions.TrinoExceptionAssert;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
@@ -66,6 +71,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
 import static io.trino.cost.StatsCalculatorModule.createNewStatsCalculator;
@@ -144,6 +150,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestAnalyzer
@@ -2465,6 +2472,17 @@ public class TestAnalyzer
     {
         assertFails("CREATE OR REPLACE VIEW v1 AS SELECT * FROM v1")
                 .hasErrorCode(VIEW_IS_RECURSIVE);
+        assertFails("CREATE OR REPLACE VIEW mv1 AS SELECT * FROM mv1")
+                .hasErrorCode(VIEW_IS_RECURSIVE);
+    }
+
+    @Test
+    public void testCreateMaterializedRecursiveView()
+    {
+        assertFails("CREATE OR REPLACE MATERIALIZED VIEW v1 AS SELECT * FROM v1")
+                .hasErrorCode(VIEW_IS_RECURSIVE);
+        assertFails("CREATE OR REPLACE MATERIALIZED VIEW mv1 AS SELECT * FROM mv1")
+                .hasErrorCode(VIEW_IS_RECURSIVE);
     }
 
     @Test
@@ -2486,6 +2504,44 @@ public class TestAnalyzer
                 .hasErrorCode(NOT_SUPPORTED);
         assertFails("SHOW CREATE VIEW none")
                 .hasErrorCode(TABLE_NOT_FOUND);
+    }
+
+    // This test validates object resolution order (materialized view, view and table).
+    // The order is arbitrary (connector should not return different object types with same name).
+    // However, "SHOW CREATE" command should be consistent with how object resolution is performed
+    // during table scan.
+    @Test
+    public void testShowCreateDuplicateNames()
+    {
+        analyze("SHOW CREATE MATERIALIZED VIEW table_view_and_materialized_view");
+        assertFails("SHOW CREATE VIEW table_view_and_materialized_view")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Relation 'tpch.s1.table_view_and_materialized_view' is a materialized view, not a view");
+        assertFails("SHOW CREATE TABLE table_view_and_materialized_view")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Relation 'tpch.s1.table_view_and_materialized_view' is a materialized view, not a table");
+
+        analyze("SHOW CREATE VIEW table_and_view");
+        assertFails("SHOW CREATE TABLE table_and_view")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Relation 'tpch.s1.table_and_view' is a view, not a table");
+    }
+
+    // This test validates object resolution order (materialized view, view and table).
+    // The order is arbitrary (connector should not return different object types with same name)
+    // and can be changed along with test.
+    @Test
+    public void testAnalysisDuplicateNames()
+    {
+        // Materialized view redirects to "t1"
+        Analysis analysis = analyze("SELECT * FROM table_view_and_materialized_view");
+        TableHandle handle = getOnlyElement(analysis.getTables());
+        assertThat(((TestingTableHandle) handle.getConnectorHandle()).getTableName().getTableName()).isEqualTo("t1");
+
+        // View redirects to "t2"
+        analysis = analyze("SELECT * FROM table_and_view");
+        handle = getOnlyElement(analysis.getTables());
+        assertThat(((TestingTableHandle) handle.getConnectorHandle()).getTableName().getTableName()).isEqualTo("t2");
     }
 
     @Test
@@ -3034,6 +3090,18 @@ public class TestAnalyzer
                         new ColumnMetadata("d", new ArrayType(DOUBLE)))),
                 false));
 
+        // materialized view referencing table in same schema
+        ConnectorMaterializedViewDefinition materializedViewData1 = new ConnectorMaterializedViewDefinition(
+                "select a from t1",
+                Optional.empty(),
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
+                "user",
+                ImmutableMap.of());
+        inSetupTransaction(session -> metadata.createMaterializedView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"), materializedViewData1, false, true));
+
         // valid view referencing table in same schema
         ConnectorViewDefinition viewData1 = new ConnectorViewDefinition(
                 "select a from t1",
@@ -3151,6 +3219,56 @@ public class TestAnalyzer
                 new ConnectorTableMetadata(t5, ImmutableList.of(
                         new ColumnMetadata("b", singleFieldRowType))),
                 false));
+
+        QualifiedObjectName tableViewAndMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "table_view_and_materialized_view");
+        inSetupTransaction(session -> metadata.createMaterializedView(
+                session,
+                tableViewAndMaterializedView,
+                new ConnectorMaterializedViewDefinition(
+                        "SELECT a FROM t1",
+                        Optional.of("t1"),
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new Column("a", BIGINT.getTypeId())),
+                        Optional.empty(),
+                        "some user",
+                        ImmutableMap.of()),
+                false,
+                false));
+        ConnectorViewDefinition viewDefinition = new ConnectorViewDefinition(
+                "SELECT a FROM t2",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.empty(),
+                Optional.empty(),
+                false);
+        inSetupTransaction(session -> metadata.createView(
+                session,
+                tableViewAndMaterializedView,
+                viewDefinition,
+                false));
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(
+                        tableViewAndMaterializedView.asSchemaTableName(),
+                        ImmutableList.of(new ColumnMetadata("a", BIGINT))),
+                false));
+
+        QualifiedObjectName tableAndView = new QualifiedObjectName(TPCH_CATALOG, "s1", "table_and_view");
+        inSetupTransaction(session -> metadata.createView(
+                session,
+                tableAndView,
+                viewDefinition,
+                false));
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(
+                        tableAndView.asSchemaTableName(),
+                        ImmutableList.of(new ColumnMetadata("a", BIGINT))),
+                false));
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
@@ -3176,21 +3294,21 @@ public class TestAnalyzer
                 createNewStatsCalculator(metadata, new TypeAnalyzer(SQL_PARSER, metadata)));
     }
 
-    private void analyze(@Language("SQL") String query)
+    private Analysis analyze(@Language("SQL") String query)
     {
-        analyze(CLIENT_SESSION, query);
+        return analyze(CLIENT_SESSION, query);
     }
 
-    private void analyze(Session clientSession, @Language("SQL") String query)
+    private Analysis analyze(Session clientSession, @Language("SQL") String query)
     {
-        transaction(transactionManager, accessControl)
+        return transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
                 .execute(clientSession, session -> {
                     Analyzer analyzer = createAnalyzer(session, metadata);
                     Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions(
                             new FeaturesConfig().isParseDecimalLiteralsAsDouble() ? AS_DOUBLE : AS_DECIMAL));
-                    analyzer.analyze(statement);
+                    return analyzer.analyze(statement);
                 });
     }
 

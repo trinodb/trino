@@ -256,6 +256,7 @@ public class ExpressionAnalyzer
     private final CorrelationSupport correlationSupport;
     private final Function<Expression, Type> getPreanalyzedType;
     private final Function<FunctionCall, ResolvedWindow> getResolvedWindow;
+    private final List<Field> sourceFields = new ArrayList<>();
 
     public ExpressionAnalyzer(
             Metadata metadata,
@@ -401,6 +402,11 @@ public class ExpressionAnalyzer
         return referencedFields;
     }
 
+    public List<Field> getSourceFields()
+    {
+        return sourceFields;
+    }
+
     private class Visitor
             extends StackableAstVisitor<Type, Context>
     {
@@ -506,6 +512,8 @@ public class ExpressionAnalyzer
             if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
                 tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get());
             }
+
+            sourceFields.add(field);
 
             fieldId.getRelationId()
                     .getSourceNode()
@@ -1571,6 +1579,8 @@ public class ExpressionAnalyzer
                 scalarSubqueries.add(NodeRef.of(node));
             }
 
+            sourceFields.add(queryScope.getRelationType().getFieldByIndex(0));
+
             Type type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
             return setExpressionType(node, type);
         }
@@ -1973,6 +1983,7 @@ public class ExpressionAnalyzer
         analyzer.analyze(expression, scope);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
+        analysis.addExpressionFields(expression, analyzer.getSourceFields());
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
@@ -2030,7 +2041,6 @@ public class ExpressionAnalyzer
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());
-        analysis.addReferencedFields(analyzer.getReferencedFields());
     }
 
     public static ExpressionAnalyzer create(

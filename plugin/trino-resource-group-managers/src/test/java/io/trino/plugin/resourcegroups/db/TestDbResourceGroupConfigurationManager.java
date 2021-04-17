@@ -297,7 +297,7 @@ public class TestDbResourceGroupConfigurationManager
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 (poolId, listener) -> {},
-                new DbResourceGroupConfig().setMaxRefreshInterval(io.airlift.units.Duration.valueOf("1ms")),
+                new DbResourceGroupConfig().setMaxRefreshInterval(new io.airlift.units.Duration(1, MILLISECONDS)),
                 daoProvider.get(),
                 ENVIRONMENT);
 
@@ -317,7 +317,7 @@ public class TestDbResourceGroupConfigurationManager
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 (poolId, listener) -> {},
-                new DbResourceGroupConfig().setMaxRefreshInterval(io.airlift.units.Duration.valueOf("1ms")),
+                new DbResourceGroupConfig().setMaxRefreshInterval(new io.airlift.units.Duration(1, MILLISECONDS)),
                 daoProvider.get(),
                 ENVIRONMENT);
 

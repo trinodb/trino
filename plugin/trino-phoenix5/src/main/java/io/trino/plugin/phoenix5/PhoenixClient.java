@@ -17,10 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.BaseJdbcClient;
+import io.trino.plugin.jdbc.BaseJdbcClient.TopNFunction;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -185,6 +187,7 @@ public class PhoenixClient
         extends BaseJdbcClient
 {
     private static final String ROWKEY = "ROWKEY";
+    private static final long MAX_TOPN_LIMIT = 2000000;
 
     private final Configuration configuration;
 
@@ -244,15 +247,12 @@ public class PhoenixClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
             throws SQLException
     {
-        PreparedQuery preparedQuery = prepareQuery(
+        PreparedStatement query = prepareStatement(
                 session,
                 connection,
                 table,
-                Optional.empty(),
                 columnHandles,
-                ImmutableMap.of(),
                 Optional.of(split));
-        PreparedStatement query = new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
         QueryPlan queryPlan = getQueryPlan((PhoenixPreparedStatement) query);
         ResultSet resultSet = getResultSet(((PhoenixSplit) split).getPhoenixInputSplit(), queryPlan);
         return new DelegatePreparedStatement(query)
@@ -265,6 +265,52 @@ public class PhoenixClient
         };
     }
 
+    public PreparedStatement prepareStatement(
+            ConnectorSession session,
+            Connection connection,
+            JdbcTableHandle table,
+            List<JdbcColumnHandle> columns,
+            Optional<JdbcSplit> split)
+            throws SQLException
+    {
+        PreparedQuery preparedQuery = prepareQuery(
+                session,
+                connection,
+                table,
+                Optional.empty(),
+                columns,
+                ImmutableMap.of(),
+                split);
+        return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        return true;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            // TODO: Remove when this is fixed in Phoenix.
+            // Phoenix severely over-estimates the memory
+            // required to execute a topN query.
+            // https://issues.apache.org/jira/browse/PHOENIX-6436
+            if (limit > MAX_TOPN_LIMIT) {
+                return query;
+            }
+            return TopNFunction.sqlStandard(this::quoted).apply(query, sortItems, limit);
+        });
+    }
+
+    @Override
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    {
+        return false;
+    }
+
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
@@ -274,7 +320,6 @@ public class PhoenixClient
     @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
-        // Note that limit exceeding Integer.MAX_VALUE gets completely ignored.
         return false;
     }
 

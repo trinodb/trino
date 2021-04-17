@@ -31,6 +31,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.Principal;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -51,16 +54,20 @@ public class TestTestingTrinoClient
 
     @BeforeClass
     public void setup()
+            throws IOException
     {
+        Path passwordConfigDummy = Files.createTempFile("passwordConfigDummy", "");
+        passwordConfigDummy.toFile().deleteOnExit();
         server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.allow-insecure-over-http", "false")
                         .put("http-server.process-forwarded", "true")
                         .build())
                 .build();
 
-        server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestTestingTrinoClient::authenticate);
+        server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestTestingTrinoClient::authenticate);
     }
 
     private static Principal authenticate(String user, String password)

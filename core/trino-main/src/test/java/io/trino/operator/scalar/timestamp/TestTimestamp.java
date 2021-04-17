@@ -63,19 +63,20 @@ public class TestTimestamp
     @Test
     public void testToUnixTime()
     {
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56')")).matches("1589114096e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("1589114096.1e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("1589114096.12e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123')")).matches("1589114096.123e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("1589114096.1234e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("1589114096.12345e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("1589114096.123456e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("1589114096.1234567e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("1589114096.1234567e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123456789')")).matches("1589114096.1234567e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("1589114096.1234567e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("1589114096.1234567e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("1589114096.1234567e0");
+        // to_unixtime is defined for timestamp(p) with time zone, so here we test to_unixtime + required implicit casts
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56')")).matches("1589067296e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("1589067296.1e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("1589067296.12e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123')")).matches("1589067296.123e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("1589067296.1234e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("1589067296.1234498e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("1589067296.123456e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("1589067296.1234567e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("1589067296.1234567e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123456789')")).matches("1589067296.1234567e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("1589067296.1234567e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("1589067296.1234567e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("1589067296.1234567e0");
     }
 
     @Test

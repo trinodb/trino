@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import io.trino.server.security.Authenticator;
+import io.trino.server.security.PasswordAuthenticatorConfig;
 import io.trino.server.security.PasswordAuthenticatorManager;
 
 import static com.google.inject.Scopes.SINGLETON;
@@ -37,10 +38,11 @@ public class FormUiAuthenticatorModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(PasswordAuthenticatorManager.class).in(SINGLETON);
         binder.bind(FormWebUiAuthenticationFilter.class).in(SINGLETON);
         binder.bind(WebUiAuthenticationFilter.class).to(FormWebUiAuthenticationFilter.class).in(SINGLETON);
         if (usePasswordManager) {
+            binder.bind(PasswordAuthenticatorManager.class).in(SINGLETON);
+            configBinder(binder).bindConfig(PasswordAuthenticatorConfig.class);
             binder.bind(FormAuthenticator.class).to(PasswordManagerFormAuthenticator.class).in(SINGLETON);
         }
         else {

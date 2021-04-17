@@ -60,6 +60,8 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.time.Instant.ofEpochMilli;
 import static java.time.ZoneOffset.UTC;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.http.client.utils.URLEncodedUtils.parse;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
@@ -505,9 +507,9 @@ public class TestPrometheusSplit
     {
         PrometheusConnectorConfig config = new PrometheusConnectorConfig();
         config.setPrometheusURI(dataUri);
-        config.setMaxQueryRangeDuration(io.airlift.units.Duration.valueOf("21d"));
-        config.setQueryChunkSizeDuration(io.airlift.units.Duration.valueOf("1d"));
-        config.setCacheDuration(io.airlift.units.Duration.valueOf("30s"));
+        config.setMaxQueryRangeDuration(new io.airlift.units.Duration(21, DAYS));
+        config.setQueryChunkSizeDuration(new io.airlift.units.Duration(1, DAYS));
+        config.setCacheDuration(new io.airlift.units.Duration(30, SECONDS));
         return config;
     }
 }

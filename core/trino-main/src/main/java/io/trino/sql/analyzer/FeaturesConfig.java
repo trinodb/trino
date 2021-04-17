@@ -906,6 +906,7 @@ public class FeaturesConfig
     }
 
     @Config("max-recursion-depth")
+    @ConfigDescription("Maximum recursion depth for recursive common table expression")
     public FeaturesConfig setMaxRecursionDepth(int maxRecursionDepth)
     {
         this.maxRecursionDepth = maxRecursionDepth;

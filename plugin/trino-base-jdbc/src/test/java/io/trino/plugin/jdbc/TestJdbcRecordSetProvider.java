@@ -36,10 +36,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -62,6 +65,8 @@ public class TestJdbcRecordSetProvider
     private JdbcColumnHandle textShortColumn;
     private JdbcColumnHandle valueColumn;
 
+    private ExecutorService executor;
+
     @BeforeClass
     public void setUp()
             throws Exception
@@ -75,20 +80,24 @@ public class TestJdbcRecordSetProvider
         textColumn = columns.get("text");
         textShortColumn = columns.get("text_short");
         valueColumn = columns.get("value");
+
+        executor = newDirectExecutorService();
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
-        database.close();
+        closeAll(
+                database,
+                () -> executor.shutdownNow());
     }
 
     @Test
     public void testGetRecordSet()
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
-        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
+        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient, executor);
         RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, table, ImmutableList.of(textColumn, textShortColumn, valueColumn));
         assertNotNull(recordSet, "recordSet is null");
 
@@ -196,7 +205,7 @@ public class TestJdbcRecordSetProvider
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
-        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
+        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient, executor);
         RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, jdbcTableHandle, columns);
 
         return recordSet.cursor();
