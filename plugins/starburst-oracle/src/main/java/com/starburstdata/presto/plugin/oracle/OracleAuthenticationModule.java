@@ -42,6 +42,7 @@ import oracle.net.ano.AnoServices;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS_PASS_THROUGH;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD;
@@ -155,7 +156,7 @@ public class OracleAuthenticationModule
         @Override
         protected void setup(Binder binder)
         {
-            install(new PasswordPassThroughModule());
+            install(new PasswordPassThroughModule<>(StarburstOracleConfig.class, StarburstOracleConfig::isImpersonationEnabled));
         }
 
         @Provides
@@ -179,6 +180,9 @@ public class OracleAuthenticationModule
         {
             install(new CredentialProviderModule());
             configBinder(binder).bindConfig(OracleConfig.class);
+            checkState(
+                    !buildConfigObject(StarburstOracleConfig.class).isImpersonationEnabled(),
+                    "Impersonation is not allowed when using credentials pass-through");
         }
 
         @Provides
@@ -244,6 +248,9 @@ public class OracleAuthenticationModule
         public void setup(Binder binder)
         {
             install(new ConnectorKerberosManagerModule());
+            checkState(
+                    !buildConfigObject(StarburstOracleConfig.class).isImpersonationEnabled(),
+                    "Impersonation is not allowed when using credentials pass-through");
         }
 
         @Provides

@@ -18,6 +18,8 @@ import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Resources.getResource;
+import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS_PASS_THROUGH;
+import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD_PASS_THROUGH;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.expectThrows;
 
@@ -139,5 +141,59 @@ public class TestStarburstOraclePlugin
                         new TestingConnectorContext())
                         .shutdown())
                 .hasMessageContaining("Valid license required to use the feature: oracle-extensions");
+    }
+
+    @Test
+    public void testImpersonationNotAllowedWithPasswordPassThrough()
+    {
+        Plugin plugin = new TestingStarburstOraclePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", "jdbc:greenplum:test")
+                        .put("oracle.impersonation.enabled", "true")
+                        .put("oracle.authentication.type", PASSWORD_PASS_THROUGH.name())
+                        .build(),
+                new TestingConnectorContext()))
+                .isInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("Impersonation is not allowed when using credentials pass-through");
+    }
+
+    @Test
+    public void testImpersonationNotAllowedWithPasswordPassThroughAndConnectionPooling()
+    {
+        Plugin plugin = new TestingStarburstOraclePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", "jdbc:greenplum:test")
+                        .put("oracle.impersonation.enabled", "true")
+                        .put("oracle.authentication.type", PASSWORD_PASS_THROUGH.name())
+                        .build(),
+                new TestingConnectorContext()))
+                .isInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("Impersonation is not allowed when using credentials pass-through");
+    }
+
+    @Test
+    public void testImpersonationNotAllowedWithKerberosPassThrough()
+    {
+        Plugin plugin = new TestingStarburstOraclePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", "jdbc:greenplum:test")
+                        .put("oracle.impersonation.enabled", "true")
+                        .put("oracle.authentication.type", KERBEROS_PASS_THROUGH.name())
+                        .put("http.authentication.krb5.config", ".")
+                        .put("http-server.authentication.krb5.service-name", "starburst")
+                        .put("internal-communication.shared-secret", "I can't tell, it is a secret")
+                        .build(),
+                new TestingConnectorContext()))
+                .isInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("Impersonation is not allowed when using credentials pass-through");
     }
 }
