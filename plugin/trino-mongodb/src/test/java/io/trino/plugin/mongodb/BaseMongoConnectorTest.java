@@ -18,17 +18,17 @@ import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import io.trino.sql.planner.plan.LimitNode;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
-import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedRow;
-import io.trino.testing.QueryRunner;
+import io.trino.testing.*;
+import io.trino.testing.sql.TestTable;
 import org.bson.Document;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Optional;
 
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
@@ -39,14 +39,14 @@ import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 
 @Test(singleThreaded = true)
-public class TestMongoIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+public abstract class BaseMongoConnectorTest
+        extends BaseConnectorTest //changing from AbstractTestDistributedQueries to BaseConnectorTest
 {
     private MongoServer server;
     private MongoClient client;
@@ -379,5 +379,62 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(results.getRowCount(), 1);
         assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
         assertNotNull(results.getMaterializedRows().get(0).getField(0));
+    }
+
+    /*
+     * Content Merge from BaseMongoDistributedQueries.java
+     * supportsDelete() supportsViews() supportsCommentOnTable() supportsCommentOnColumn() not include
+     * These functions are already final, can't be override
+     */
+
+    public void testCreateSchema()
+    {
+        // the connector does not support creating schemas
+    }
+
+    public void testRenameTable()
+    {
+        // the connector does not support renaming tables
+    }
+
+    public void testRenameColumn()
+    {
+        // the connector does not support renaming columns
+    }
+
+    public void testDropColumn()
+    {
+        // the connector does not support dropping columns
+    }
+
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("test disabled for Mongo");
+    }
+
+    @Test(dataProvider = "testColumnNameDataProvider")
+    public void testColumnName(String columnName)
+    {
+        if (columnName.equals("a.dot")) {
+            // TODO (https://github.com/trinodb/trino/issues/3460)
+            assertThatThrownBy(() -> super.testColumnName(columnName))
+                    .hasStackTraceContaining("TableWriterOperator") // during INSERT
+                    .hasMessage("Invalid BSON field name a.dot");
+            throw new SkipException("Insert would fail");
+        }
+
+        super.testColumnName(columnName);
+    }
+
+    @Override
+    protected Optional<AbstractTestDistributedQueries.DataMappingTestSetup> filterDataMappingSmokeTestData(AbstractTestDistributedQueries.DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("time")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 }
