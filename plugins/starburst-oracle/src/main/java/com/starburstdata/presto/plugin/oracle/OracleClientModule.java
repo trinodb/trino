@@ -69,7 +69,7 @@ public class OracleClientModule
         configBinder(binder).bindConfig(StarburstOracleConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
 
-        install(new OracleAuthenticationModule(catalogName));
+        install(new OracleAuthenticationModule());
 
         install(new DynamicFilteringModule(catalogName, licenseManager));
 

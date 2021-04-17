@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import io.airlift.log.Logger;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcIdentity;
@@ -53,7 +54,7 @@ public class OraclePoolingConnectionFactory
     private final OracleAuthenticationType authenticationType;
 
     public OraclePoolingConnectionFactory(
-            String catalogName,
+            CatalogName catalogName,
             BaseJdbcConfig config,
             Properties properties,
             Optional<CredentialProvider> credentialProvider,

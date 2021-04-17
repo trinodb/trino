@@ -26,6 +26,7 @@ import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConfig;
 import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.kerberos.PassThroughKerberosConnectionFactory;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
@@ -48,7 +49,6 @@ import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PA
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static java.util.Objects.requireNonNull;
 import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS;
 import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_REPORT_REMARKS;
 import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_RESTRICT_GETTABLES;
@@ -56,13 +56,6 @@ import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_RESTRICT_GETTABLE
 public class OracleAuthenticationModule
         extends AbstractConfigurationAwareModule
 {
-    private final String catalogName;
-
-    public OracleAuthenticationModule(String catalogName)
-    {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-    }
-
     @Override
     protected void setup(Binder binder)
     {
@@ -100,10 +93,11 @@ public class OracleAuthenticationModule
                 new KerberosPassThroughModule()));
     }
 
-    private ConnectionFactory createBasicConnectionFactory(BaseJdbcConfig config,
+    private static ConnectionFactory createBasicConnectionFactory(BaseJdbcConfig config,
             StarburstOracleConfig starburstOracleConfig,
             OracleConfig oracleConfig,
-            CredentialProvider credentialProvider)
+            CredentialProvider credentialProvider,
+            CatalogName catalogName)
     {
         if (oracleConfig.isConnectionPoolEnabled()) {
             return new OraclePoolingConnectionFactory(
@@ -148,9 +142,10 @@ public class OracleAuthenticationModule
         public ConnectionFactory getConnectionFactory(BaseJdbcConfig config,
                 StarburstOracleConfig starburstOracleConfig,
                 OracleConfig oracleConfig,
-                CredentialProvider credentialProvider)
+                CredentialProvider credentialProvider,
+                CatalogName catalogName)
         {
-            return createBasicConnectionFactory(config, starburstOracleConfig, oracleConfig, credentialProvider);
+            return createBasicConnectionFactory(config, starburstOracleConfig, oracleConfig, credentialProvider, catalogName);
         }
     }
 
@@ -189,7 +184,12 @@ public class OracleAuthenticationModule
         @Provides
         @Singleton
         @ForAuthentication
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig, StarburstOracleConfig starburstOracleConfig, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory(
+                BaseJdbcConfig config,
+                OracleConfig oracleConfig,
+                StarburstOracleConfig starburstOracleConfig,
+                CredentialProvider credentialProvider,
+                CatalogName catalogName)
         {
             // pass-through credentials are be handled by OraclePoolingConnectionFactory
             return new OraclePoolingConnectionFactory(
@@ -202,7 +202,7 @@ public class OracleAuthenticationModule
         }
     }
 
-    private class KerberosModule
+    private static class KerberosModule
             implements Module
     {
         @Override
@@ -220,7 +220,8 @@ public class OracleAuthenticationModule
                 BaseJdbcConfig baseJdbcConfig,
                 StarburstOracleConfig starburstOracleConfig,
                 OracleConfig oracleConfig,
-                KerberosConfig kerberosConfig)
+                KerberosConfig kerberosConfig,
+                CatalogName catalogName)
         {
             if (oracleConfig.isConnectionPoolEnabled()) {
                 ConnectionFactory connectionFactory = new OraclePoolingConnectionFactory(
