@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.starburstdata.trino.plugin.starburstremote.StarburstRemoteAuthenticationType.PASSWORD_PASS_THROUGH;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStarburstRemotePlugin
@@ -119,6 +120,19 @@ public class TestStarburstRemotePlugin
                         "starburst.authentication.type", "PASSWORD_PASS_THROUGH")))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("property 'auth-to-local.config-file' was not used");
+    }
+
+    @Test
+    public void testImpersonationNotAllowedWithPasswordPassThrough()
+    {
+        assertThatThrownBy(() -> createTestingPlugin(
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", "jdbc:trino://localhost:8080/test")
+                        .put("starburst.impersonation.enabled", "true")
+                        .put("starburst.authentication.type", PASSWORD_PASS_THROUGH.name())
+                        .build()))
+                .isInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("Impersonation is not allowed when using credentials pass-through");
     }
 
     @Test

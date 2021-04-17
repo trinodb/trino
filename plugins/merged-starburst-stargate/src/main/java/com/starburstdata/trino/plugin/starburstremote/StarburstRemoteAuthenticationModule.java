@@ -77,7 +77,7 @@ public class StarburstRemoteAuthenticationModule
         @Override
         protected void setup(Binder binder)
         {
-            install(new PasswordPassThroughModule());
+            install(new PasswordPassThroughModule<>(StarburstRemoteConfig.class, StarburstRemoteConfig::isImpersonationEnabled));
         }
 
         @Provides
