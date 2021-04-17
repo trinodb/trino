@@ -127,11 +127,11 @@ public class OracleAuthenticationModule
         }
     }
 
-    private class UserPasswordModule
-            implements Module
+    private static class UserPasswordModule
+            extends AbstractConfigurationAwareModule
     {
         @Override
-        public void configure(Binder binder)
+        public void setup(Binder binder)
         {
             install(new CredentialProviderModule());
         }
@@ -171,11 +171,11 @@ public class OracleAuthenticationModule
         }
     }
 
-    private class PasswordPassThroughWithPoolingModule
-            implements Module
+    private static class PasswordPassThroughWithPoolingModule
+            extends AbstractConfigurationAwareModule
     {
         @Override
-        public void configure(Binder binder)
+        public void setup(Binder binder)
         {
             install(new CredentialProviderModule());
             configBinder(binder).bindConfig(OracleConfig.class);
@@ -238,12 +238,12 @@ public class OracleAuthenticationModule
     }
 
     private static class KerberosPassThroughModule
-            implements Module
+            extends AbstractConfigurationAwareModule
     {
         @Override
-        public void configure(Binder binder)
+        public void setup(Binder binder)
         {
-            binder.install(new ConnectorKerberosManagerModule());
+            install(new ConnectorKerberosManagerModule());
         }
 
         @Provides
