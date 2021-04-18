@@ -144,9 +144,10 @@ public class BigQueryMetadata
 
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String remoteSchemaName : remoteSchemaNames) {
-            for (Table table : bigQueryClient.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW)) {
+            Iterable<Table> tables = bigQueryClient.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW);
+            for (Table table : tables) {
                 // filter ambiguous tables
-                boolean isAmbiguous = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH))
+                boolean isAmbiguous = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
                         .filter(RemoteDatabaseObject::isAmbiguous)
                         .isPresent();
                 if (!isAmbiguous) {
