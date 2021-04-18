@@ -30,7 +30,16 @@ public class TestSnowflakeDynamicFiltering
     }
 
     @Override
-    @Test
+    // TODO: investigate to fix TNT-18
+    @Test(enabled = false)
+    public void testDynamicFilteringWithAggregationAggregateColumn()
+    {
+        super.testDynamicFilteringWithAggregationAggregateColumn();
+    }
+
+    @Override
+    // TODO: investigate to fix TNT-18
+    @Test(enabled = false)
     @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "java.lang.AssertionError: .*expected:<2> to be greater than <2>")
     public void testDynamicFiltering()
     {
