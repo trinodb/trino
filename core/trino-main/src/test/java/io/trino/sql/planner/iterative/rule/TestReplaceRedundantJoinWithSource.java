@@ -237,6 +237,32 @@ public class TestReplaceRedundantJoinWithSource
                                 expression("b > 0")))
                 .matches(
                         values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new NullLiteral()))));
+
+        // Right source is scalar with no outputs. Left source cannot be determined to be at least scalar.
+        // In such case, FULL join cannot be replaced with left source. The result would be incorrect
+        // if left source was empty.
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p ->
+                        p.join(
+                                FULL,
+                                p.filter(
+                                        expression("a > 5"),
+                                        p.values(10, p.symbol("a"))),
+                                p.values(1)))
+                .doesNotFire();
+
+        // Left source is scalar with no outputs. Right source cannot be determined to be at least scalar.
+        // In such case, FULL join cannot be replaced with right source. The result would be incorrect
+        // if right source was empty.
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p ->
+                        p.join(
+                                FULL,
+                                p.values(1),
+                                p.filter(
+                                        expression("a > 5"),
+                                        p.values(10, p.symbol("a")))))
+                .doesNotFire();
     }
 
     @Test
