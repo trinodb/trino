@@ -300,8 +300,14 @@ public abstract class BaseSqlServerTypeMapping
         LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
         checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
+        // BC dates not supported by SQL Server
         SqlDataTypeTest testsSqlServer = SqlDataTypeTest.create()
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
+                // first day of AD
+                .addRoundTrip("date", "'0001-01-01'", DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", "'0012-12-12'", DATE, "DATE '0012-12-12'")
+                // before julian->gregorian switch
+                .addRoundTrip("date", "'1500-01-01'", DATE, "DATE '1500-01-01'")
                 // before epoch
                 .addRoundTrip("date", "'1952-04-03'", DATE, "DATE '1952-04-03'")
                 .addRoundTrip("date", "'1970-01-01'", DATE, "DATE '1970-01-01'")
@@ -316,6 +322,11 @@ public abstract class BaseSqlServerTypeMapping
 
         SqlDataTypeTest testsTrino = SqlDataTypeTest.create()
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
+                // first day of AD
+                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", "DATE '0012-12-12'", DATE, "DATE '0012-12-12'")
+                // before julian->gregorian switch
+                .addRoundTrip("date", "DATE '1500-01-01'", DATE, "DATE '1500-01-01'")
                 // before epoch
                 .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'")
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
