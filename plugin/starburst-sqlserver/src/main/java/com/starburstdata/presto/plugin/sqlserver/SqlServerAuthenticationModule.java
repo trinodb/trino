@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -19,6 +18,7 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithCredentialProvider;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 
 public class SqlServerAuthenticationModule
@@ -33,7 +33,7 @@ public class SqlServerAuthenticationModule
                 SqlServerConfig.class,
                 SqlServerConfig::isImpersonationEnabled,
                 new ImpersonationModule(),
-                new NoImpersonationModule()));
+                noImpersonationModuleWithCredentialProvider()));
     }
 
     private static class ImpersonationModule
