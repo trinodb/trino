@@ -1470,7 +1470,6 @@ class StatementAnalyzer
 
         private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ConnectorViewDefinition view)
         {
-            checkArgument(view.isRunAsInvoker() || view.getOwner().isPresent(), "owner must be defined with a view with SECURITY DEFINER mode");
             return createScopeForView(table, name, scope, view.getOriginalSql(), view.getCatalog(), view.getSchema(), view.getOwner(), view.getColumns());
         }
 
