@@ -68,11 +68,11 @@ public class StarburstSynapseAuthenticationModule
         }
     }
 
-    private class ActiveDirectoryPasswordModule
-            implements Module
+    private static class ActiveDirectoryPasswordModule
+            extends AbstractConfigurationAwareModule
     {
         @Override
-        public void configure(Binder binder)
+        protected void setup(Binder binder)
         {
             install(new CredentialProviderModule());
         }
@@ -99,11 +99,11 @@ public class StarburstSynapseAuthenticationModule
         }
     }
 
-    private class PasswordModule
-            implements Module
+    private static class PasswordModule
+            extends AbstractConfigurationAwareModule
     {
         @Override
-        public void configure(Binder binder)
+        protected void setup(Binder binder)
         {
             install(new CredentialProviderModule());
         }
