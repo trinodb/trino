@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.MERGE_PROJECT_WITH_VALUES;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -43,7 +44,7 @@ public class TestDereferencePushDown
     @Test
     public void testDereferencePushdownMultiLevel()
     {
-        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE)))) " +
+        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))), ROW(CAST(ROW(3, 4.0) AS ROW(x BIGINT, y DOUBLE)))) " +
                         "SELECT a.msg.x, a.msg, b.msg.y FROM t a CROSS JOIN t b",
                 output(ImmutableList.of("a_msg_x", "a_msg", "b_msg_y"),
                         strictProject(
@@ -53,20 +54,28 @@ public class TestDereferencePushDown
                                         "b_msg_y", PlanMatchPattern.expression("b_msg_y")),
                                 join(INNER, ImmutableList.of(),
                                         values("a_msg"),
-                                        values(ImmutableList.of("b_msg_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"))))))));
+                                        values(ImmutableList.of("b_msg_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")), ImmutableList.of(new DoubleLiteral("4e0"))))))));
     }
 
     @Test
     public void testDereferencePushdownJoin()
     {
+        // dereference pushdown + constant folding
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT b.msg.x " +
                         "FROM t a, t b " +
                         "WHERE a.msg.y = b.msg.y",
-                output(ImmutableList.of("b_x"),
-                        join(INNER, ImmutableList.of(),
-                                values(),
-                                values(ImmutableList.of("b_x"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")))))));
+                output(
+                        project(
+                                ImmutableMap.of("b_x", expression("b_x")),
+                                filter(
+                                        "a_y = b_y",
+                                        values(
+                                                ImmutableList.of("b_y", "b_x", "a_y"),
+                                                ImmutableList.of(ImmutableList.of(
+                                                        new DoubleLiteral("2e0"),
+                                                        new GenericLiteral("BIGINT", "1"),
+                                                        new DoubleLiteral("2e0"))))))));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT a.msg.y " +
@@ -96,14 +105,23 @@ public class TestDereferencePushDown
     @Test
     public void testDereferencePushdownFilter()
     {
+        // dereference pushdown + constant folding
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT a.msg.y, b.msg.x " +
                         "FROM t a CROSS JOIN t b " +
                         "WHERE a.msg.x = 7 OR IS_FINITE(b.msg.y)",
-                anyTree(
-                        join(INNER, ImmutableList.of(),
-                                values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")))),
-                                values(ImmutableList.of("b_x"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")))))));
+                any(
+                        project(
+                                ImmutableMap.of("a_y", expression("a_y"), "b_x", expression("b_x")),
+                                filter(
+                                        "((a_x = BIGINT '7') OR is_finite(b_y))",
+                                        values(
+                                                ImmutableList.of("b_y", "b_x", "a_y", "a_x"),
+                                                ImmutableList.of(ImmutableList.of(
+                                                        new DoubleLiteral("2e0"),
+                                                        new GenericLiteral("BIGINT", "1"),
+                                                        new DoubleLiteral("2e0"),
+                                                        new GenericLiteral("BIGINT", "1"))))))));
     }
 
     @Test
@@ -186,14 +204,25 @@ public class TestDereferencePushDown
                                         strictProject(ImmutableMap.of("msg_x", expression("msg.x")),
                                                 values("msg"))))));
 
+        // dereference pushdown + constant folding
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT b.msg.x " +
                         "FROM t a, t b " +
                         "WHERE a.msg.y = b.msg.y " +
                         "LIMIT 100",
-                anyTree(join(INNER, ImmutableList.of(),
-                        values(),
-                        values(ImmutableList.of("b_x"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")))))));
+                output(
+                        limit(
+                                100,
+                                project(
+                                        ImmutableMap.of("b_x", expression("b_x")),
+                                        filter(
+                                                "a_y = b_y",
+                                                values(
+                                                        ImmutableList.of("b_y", "b_x", "a_y"),
+                                                        ImmutableList.of(ImmutableList.of(
+                                                                new DoubleLiteral("2e0"),
+                                                                new GenericLiteral("BIGINT", "1"),
+                                                                new DoubleLiteral("2e0")))))))));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT a.msg.y " +
