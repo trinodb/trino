@@ -19,7 +19,6 @@ import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.regex.Pattern;
 
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
@@ -301,20 +300,5 @@ public abstract class BaseConnectorSmokeTest
         assertThat(query(format("SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = 'region'", getSession().getSchema().orElseThrow())))
                 .skippingTypesCheck()
                 .matches("VALUES 'regionkey', 'name', 'comment'");
-    }
-
-    @Test
-    public void testShowCreateTable()
-    {
-        // SHOW CREATE TABLE exercises table properties and comments, which may be skipped during regular SELECT execution
-        assertThat((String) computeActual("SHOW CREATE TABLE region").getOnlyValue())
-                .matches(format(
-                        "CREATE TABLE %s.%s.region \\(\n" +
-                                "   regionkey (bigint|decimal\\(19, 0\\)),\n" +
-                                "   name varchar(\\(\\d+\\))?,\n" +
-                                "   comment varchar(\\(\\d+\\))?\n" +
-                                "\\)",
-                        Pattern.quote(getSession().getCatalog().orElseThrow()),
-                        Pattern.quote(getSession().getSchema().orElseThrow())));
     }
 }
