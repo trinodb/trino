@@ -104,21 +104,6 @@ This property is optional; the default is ``1m``.
 Enable or disable using the address published by Elasticsearch to connect for
 queries.
 
-``elasticsearch.security``
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Allows setting ``password`` security to authenticate to Elasticsearch.
-
-``elasticsearch.auth.user``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-User name to use to authenticate to Elasticsearch nodes.
-
-``elasticsearch.auth.password``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Password to use to authenticate to Elasticsearch nodes.
-
 TLS security
 ------------
 
@@ -289,3 +274,15 @@ Property Name                                    Description
 ``elasticsearch.aws.secret-key``                 AWS secret key to use to connect to the Elasticsearch domain.
 ================================================ ==================================================================
 
+Password authentication
+-----------------------
+
+To enable password authentication, the ``elasticsearch.security`` option needs to be set to ``PASSWORD``.
+Additionally the following options need to be configured appropriately:
+
+================================================ ==================================================================
+Property Name                                    Description
+================================================ ==================================================================
+``elasticsearch.auth.user``                      User name to use to connect to Elasticsearch.
+``elasticsearch.auth.password``                  Password to use to connect to Elasticsearch.
+================================================ ==================================================================
