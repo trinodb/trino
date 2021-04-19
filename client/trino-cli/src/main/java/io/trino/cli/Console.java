@@ -31,6 +31,7 @@ import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedStringBuilder;
+import org.jline.utils.InfoCmp;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
@@ -259,6 +260,11 @@ public class Console
                     case "exit":
                     case "quit":
                         return;
+                    case "clear":
+                        Terminal terminal = reader.getTerminal();
+                        terminal.puts(InfoCmp.Capability.clear_screen);
+                        terminal.flush();
+                        continue;
                     case "history":
                         for (History.Entry entry : reader.getHistory()) {
                             System.out.println(new AttributedStringBuilder()
