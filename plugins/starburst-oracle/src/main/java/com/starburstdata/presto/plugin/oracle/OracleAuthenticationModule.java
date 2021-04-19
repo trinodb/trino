@@ -11,15 +11,14 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.inject.Binder;
 import com.google.inject.Inject;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.kerberos.ConnectorKerberosManagerModule;
 import com.starburstdata.presto.kerberos.KerberosManager;
 import com.starburstdata.presto.license.LicenseManager;
+import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedJdbcIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
-import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
 import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConfig;
@@ -43,6 +42,8 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithCredentialProvider;
+import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithKerberos;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS_PASS_THROUGH;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD;
@@ -61,12 +62,6 @@ public class OracleAuthenticationModule
     protected void setup(Binder binder)
     {
         OracleConfig oracleConfig = buildConfigObject(OracleConfig.class);
-
-        install(installModuleIf(
-                StarburstOracleConfig.class,
-                StarburstOracleConfig::isImpersonationEnabled,
-                new ImpersonationModule(),
-                new NoImpersonationModule()));
 
         install(installModuleIf(
                 StarburstOracleConfig.class,
@@ -118,13 +113,14 @@ public class OracleAuthenticationModule
     }
 
     private static class ImpersonationModule
-            implements Module
+            extends AbstractConfigurationAwareModule
     {
         @Override
-        public void configure(Binder binder)
+        public void setup(Binder binder)
         {
-            binder.install(new AuthToLocalModule());
+            install(new AuthToLocalModule());
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(OracleImpersonatingConnectionFactory.class).in(Scopes.SINGLETON);
+            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
         }
     }
 
@@ -135,6 +131,11 @@ public class OracleAuthenticationModule
         public void setup(Binder binder)
         {
             install(new CredentialProviderModule());
+            install(installModuleIf(
+                    StarburstOracleConfig.class,
+                    StarburstOracleConfig::isImpersonationEnabled,
+                    new ImpersonationModule(),
+                    noImpersonationModuleWithCredentialProvider()));
         }
 
         @Provides
@@ -161,7 +162,7 @@ public class OracleAuthenticationModule
 
         @Provides
         @Singleton
-        @ForAuthentication
+        @ForBaseJdbc
         public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig, CredentialProvider credentialProvider)
         {
             return new DriverConnectionFactory(
@@ -183,11 +184,12 @@ public class OracleAuthenticationModule
             checkState(
                     !buildConfigObject(StarburstOracleConfig.class).isImpersonationEnabled(),
                     "Impersonation is not allowed when using credentials pass-through");
+            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
         }
 
         @Provides
         @Singleton
-        @ForAuthentication
+        @ForBaseJdbc
         public ConnectionFactory getConnectionFactory(
                 BaseJdbcConfig config,
                 OracleConfig oracleConfig,
@@ -207,12 +209,17 @@ public class OracleAuthenticationModule
     }
 
     private static class KerberosModule
-            implements Module
+            extends AbstractConfigurationAwareModule
     {
         @Override
-        public void configure(Binder binder)
+        public void setup(Binder binder)
         {
             configBinder(binder).bindConfig(KerberosConfig.class);
+            install(installModuleIf(
+                    StarburstOracleConfig.class,
+                    StarburstOracleConfig::isImpersonationEnabled,
+                    new ImpersonationModule(),
+                    noImpersonationModuleWithKerberos()));
         }
 
         @Inject
@@ -251,11 +258,12 @@ public class OracleAuthenticationModule
             checkState(
                     !buildConfigObject(StarburstOracleConfig.class).isImpersonationEnabled(),
                     "Impersonation is not allowed when using credentials pass-through");
+            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
         }
 
         @Provides
         @Singleton
-        @ForAuthentication
+        @ForBaseJdbc
         public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, OracleConfig oracleConfig, StarburstOracleConfig starburstOracleConfig, KerberosManager kerberosManager)
         {
             if (oracleConfig.isConnectionPoolEnabled()) {
