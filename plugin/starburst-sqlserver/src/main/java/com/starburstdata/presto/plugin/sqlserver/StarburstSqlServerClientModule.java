@@ -16,7 +16,7 @@ import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
-import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
+import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
@@ -72,7 +72,7 @@ public class StarburstSqlServerClientModule
 
     @Provides
     @Singleton
-    @ForAuthentication
+    @ForImpersonation
     public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, SqlServerConfig connectorConfig, CredentialProvider credentialProvider)
     {
         ConnectionFactory factory = new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider);
