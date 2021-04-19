@@ -15,7 +15,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
-import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
+import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.sqlserver.SqlServerImpersonatingConnectionFactory;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -79,7 +79,7 @@ public class StarburstSynapseAuthenticationModule
 
         @Provides
         @Singleton
-        @ForAuthentication
+        @ForImpersonation
         public ConnectionFactory getConnectionFactory(
                 BaseJdbcConfig baseJdbcConfig,
                 CredentialProvider credentialProvider)
@@ -110,7 +110,7 @@ public class StarburstSynapseAuthenticationModule
 
         @Provides
         @Singleton
-        @ForAuthentication
+        @ForImpersonation
         public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, CredentialProvider credentialProvider)
         {
             return new DriverConnectionFactory(new SQLServerDriver(), baseJdbcConfig, credentialProvider);

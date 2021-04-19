@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.snowflake.jdbc;
 
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
-import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
+import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcIdentity;
@@ -31,7 +31,7 @@ public class SnowflakeImpersonationConnectionFactory
     private final AuthToLocal authToLocal;
 
     @Inject
-    public SnowflakeImpersonationConnectionFactory(@ForAuthentication ConnectionFactory connectionFactory, AuthToLocal authToLocal)
+    public SnowflakeImpersonationConnectionFactory(@ForImpersonation ConnectionFactory connectionFactory, AuthToLocal authToLocal)
     {
         super(connectionFactory);
         this.authToLocal = requireNonNull(authToLocal, "authToLocal is null");

@@ -17,7 +17,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.presto.plugin.jdbc.PoolingConnectionFactory;
-import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
+import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
@@ -133,7 +133,7 @@ public class SnowflakeJdbcClientModule
 
     @Provides
     @Singleton
-    @ForAuthentication
+    @ForImpersonation
     public ConnectionFactory getBaseConnectionFactory(BaseJdbcConfig config, JdbcConnectionPoolConfig connectionPoolingConfig, CredentialProvider credentialProvider, SnowflakeConfig snowflakeConfig)
     {
         if (connectionPoolingConfig.isConnectionPoolEnabled()) {
@@ -291,7 +291,7 @@ public class SnowflakeJdbcClientModule
             @Provides
             @Singleton
             @ForBaseJdbc
-            public ConnectionFactory getConnectionFactory(@ForAuthentication ConnectionFactory connectionFactory)
+            public ConnectionFactory getConnectionFactory(@ForImpersonation ConnectionFactory connectionFactory)
             {
                 return connectionFactory;
             }
