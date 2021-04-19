@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -36,6 +37,7 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -162,6 +164,7 @@ public class IcebergMetadata
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
     public static final String DEPENDS_ON_TABLES = "dependsOnTables";
+    private final CatalogName catalogName;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
@@ -172,11 +175,13 @@ public class IcebergMetadata
     private Transaction transaction;
 
     public IcebergMetadata(
+            CatalogName catalogName,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -858,7 +863,8 @@ public class IcebergMetadata
                 .setParameters(viewProperties)
                 .withStorage(storage -> storage.setStorageFormat(VIEW_STORAGE_FORMAT))
                 .withStorage(storage -> storage.setLocation(""))
-                .setViewOriginalText(Optional.of(encodeMaterializedViewData(definition)))
+                .setViewOriginalText(Optional.of(encodeMaterializedViewData(
+                        definition.withStorageTable(new CatalogSchemaTableName(catalogName.toString(), storageTable)))))
                 .setViewExpandedText(Optional.of("/* Presto Materialized View */"));
         Table table = tableBuilder.build();
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
@@ -997,7 +1003,10 @@ public class IcebergMetadata
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, new SchemaTableName(viewName.getSchemaName(), storageTable));
         return Optional.of(new ConnectorMaterializedViewDefinition(
                 definition.getOriginalSql(),
-                Optional.of(storageTable),
+                definition.getStorageTable().map(table -> new CatalogSchemaTableName(
+                        catalogName.toString(),
+                        table.getSchemaTableName().getSchemaName(),
+                        storageTable)),
                 definition.getCatalog(),
                 Optional.of(viewName.getSchemaName()),
                 definition.getColumns(),
@@ -1060,8 +1069,11 @@ public class IcebergMetadata
             return viewToken;
         }
 
-        String storageTableName = Optional.ofNullable(materializedViewDefinition.get().getStorageTable()).orElse("");
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, new SchemaTableName(name.getSchemaName(), storageTableName));
+        Optional<SchemaTableName> storageTableName = materializedViewDefinition.get().getStorageTable().map(CatalogSchemaTableName::getSchemaTableName);
+        if (storageTableName.isEmpty()) {
+            return viewToken;
+        }
+        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, storageTableName.get());
         String dependsOnTables = icebergTable.currentSnapshot().summary().getOrDefault(DEPENDS_ON_TABLES, "");
         if (!dependsOnTables.isEmpty()) {
             Map<String, String> tableToSnapshotIdMap = Splitter.on(',').withKeyValueSeparator('=').split(dependsOnTables);

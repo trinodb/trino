@@ -17,8 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.TypeId;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorMaterializedViewDefinition
 {
     private final String originalSql;
-    private final String storageTable;
+    private final Optional<CatalogSchemaTableName> storageTable;
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final List<Column> columns;
@@ -39,7 +37,7 @@ public class ConnectorMaterializedViewDefinition
 
     public ConnectorMaterializedViewDefinition(
             @JsonProperty("originalSql") String originalSql,
-            @JsonProperty("storageTable") Optional<String> storageTable,
+            @JsonProperty("storageTable") Optional<CatalogSchemaTableName> storageTable,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("columns") List<Column> columns,
@@ -47,7 +45,7 @@ public class ConnectorMaterializedViewDefinition
             @JsonProperty("owner") String owner,
             @JsonProperty("properties") Map<String, Object> properties)
     {
-        this(originalSql, requireNonNull(storageTable, "storageTable is null").orElse(null), catalog, schema, columns, comment, Optional.of(owner), properties);
+        this(originalSql, storageTable, catalog, schema, columns, comment, Optional.of(owner), properties);
     }
 
     /*
@@ -58,7 +56,7 @@ public class ConnectorMaterializedViewDefinition
     @JsonCreator
     public ConnectorMaterializedViewDefinition(
             @JsonProperty("originalSql") String originalSql,
-            @JsonProperty("storageTable") @Nullable String storageTable,
+            @JsonProperty("storageTable") Optional<CatalogSchemaTableName> storageTable,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("columns") List<Column> columns,
@@ -67,7 +65,7 @@ public class ConnectorMaterializedViewDefinition
             @JsonProperty("properties") Map<String, Object> properties)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
-        this.storageTable = storageTable;
+        this.storageTable = requireNonNull(storageTable, "storageTable is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
@@ -94,8 +92,7 @@ public class ConnectorMaterializedViewDefinition
     }
 
     @JsonProperty
-    @Nullable
-    public String getStorageTable()
+    public Optional<CatalogSchemaTableName> getStorageTable()
     {
         return storageTable;
     }
@@ -136,12 +133,17 @@ public class ConnectorMaterializedViewDefinition
         return properties;
     }
 
+    public ConnectorMaterializedViewDefinition withStorageTable(CatalogSchemaTableName storageTable)
+    {
+        return new ConnectorMaterializedViewDefinition(originalSql, Optional.of(storageTable), catalog, schema, columns, comment, owner, properties);
+    }
+
     @Override
     public String toString()
     {
         StringJoiner joiner = new StringJoiner(", ", "[", "]");
         joiner.add("originalSql=[" + originalSql + "]");
-        joiner.add("storageTable=[" + storageTable + "]");
+        storageTable.ifPresent(value -> joiner.add("storageTable=" + value));
         catalog.ifPresent(value -> joiner.add("catalog=" + value));
         schema.ifPresent(value -> joiner.add("schema=" + value));
         joiner.add("columns=" + columns);

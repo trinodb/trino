@@ -41,6 +41,7 @@ import io.trino.security.ViewAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
@@ -48,6 +49,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
@@ -509,7 +511,7 @@ class StatementAnalyzer
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Materialized view '%s' does not exist", name);
             }
 
-            Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalView.get(), name);
+            Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalView.get());
 
             if (storageName.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Storage Table '%s' for materialized view '%s' does not exist", storageName, name);
@@ -1225,16 +1227,17 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
 
-        private Optional<QualifiedName> getMaterializedViewStorageTableName(ConnectorMaterializedViewDefinition viewDefinition, QualifiedObjectName name)
+        private Optional<QualifiedName> getMaterializedViewStorageTableName(ConnectorMaterializedViewDefinition viewDefinition)
         {
-            String storageTable = viewDefinition.getStorageTable();
-            if (storageTable == null || storageTable.isEmpty()) {
+            if (viewDefinition.getStorageTable().isEmpty()) {
                 return Optional.empty();
             }
-            Identifier catalogName = new Identifier(name.getCatalogName(), true);
-            Identifier schemaName = new Identifier(name.getSchemaName(), true);
-            Identifier tableName = new Identifier(storageTable, true);
-            return Optional.of(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)));
+            CatalogSchemaTableName catalogSchemaTableName = viewDefinition.getStorageTable().get();
+            SchemaTableName schemaTableName = catalogSchemaTableName.getSchemaTableName();
+            return Optional.of(QualifiedName.of(ImmutableList.of(
+                    new Identifier(catalogSchemaTableName.getCatalogName(), true),
+                    new Identifier(schemaTableName.getSchemaName(), true),
+                    new Identifier(schemaTableName.getTableName(), true))));
         }
 
         @Override
@@ -1267,7 +1270,7 @@ class StatementAnalyzer
             if (optionalMaterializedView.isPresent()) {
                 if (metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh()) {
                     // If materialized view is current, answer the query using the storage table
-                    Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalMaterializedView.get(), name);
+                    Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalMaterializedView.get());
                     if (storageName.isPresent()) {
                         tableHandle = metadata.getTableHandle(session, createQualifiedObjectName(session, table, storageName.get()));
                     }
