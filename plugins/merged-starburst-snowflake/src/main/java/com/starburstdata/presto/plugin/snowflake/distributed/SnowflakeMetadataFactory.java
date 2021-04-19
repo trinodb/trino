@@ -13,7 +13,9 @@ import io.airlift.units.Duration;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.CachingJdbcClient;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcIdentityCacheMapping;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.SingletonJdbcIdentityCacheMapping;
 
 import javax.inject.Inject;
 
@@ -32,11 +34,12 @@ public class SnowflakeMetadataFactory
     public SnowflakeMetadataFactory(
             SnowflakeConnectionManager connectionManager,
             JdbcClient jdbcClient,
+            JdbcIdentityCacheMapping identityMapping,
             JdbcMetadataConfig config,
             BaseJdbcConfig cachingConfig)
     {
         this.connectionManager = requireNonNull(connectionManager, "connectionManager is null");
-        this.jdbcClient = new CachingJdbcClient(requireNonNull(jdbcClient, "jdbcClient is null"), Set.of(), cachingConfig);
+        this.jdbcClient = new CachingJdbcClient(requireNonNull(jdbcClient, "jdbcClient is null"), Set.of(), identityMapping, cachingConfig);
         requireNonNull(config, "config is null");
         this.allowDropTable = config.isAllowDropTable();
     }
@@ -45,7 +48,7 @@ public class SnowflakeMetadataFactory
     {
         return new SnowflakeMetadata(
                 connectionManager,
-                new CachingJdbcClient(jdbcClient, Set.of(), new Duration(1, TimeUnit.DAYS), true),
+                new CachingJdbcClient(jdbcClient, Set.of(), new SingletonJdbcIdentityCacheMapping(), new Duration(1, TimeUnit.DAYS), true),
                 allowDropTable);
     }
 }

@@ -16,7 +16,6 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
-import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.sqlserver.SqlServerImpersonatingConnectionFactory;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -30,6 +29,7 @@ import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithCredentialProvider;
 import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.ACTIVE_DIRECTORY_PASSWORD;
 import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.PASSWORD;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
@@ -44,7 +44,7 @@ public class StarburstSynapseAuthenticationModule
                 SynapseConfig.class,
                 SynapseConfig::isImpersonationEnabled,
                 new ImpersonationModule(),
-                new NoImpersonationModule()));
+                noImpersonationModuleWithCredentialProvider()));
 
         install(installModuleIf(
                 SynapseConfig.class,
