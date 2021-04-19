@@ -10,12 +10,14 @@
 package com.starburstdata.presto.plugin.synapse;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
+import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.sqlserver.SqlServerImpersonatingConnectionFactory;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -29,9 +31,12 @@ import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.inject.Scopes.SINGLETON;
 import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithCredentialProvider;
 import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.ACTIVE_DIRECTORY_PASSWORD;
+import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.ACTIVE_DIRECTORY_PASSWORD_PASS_THROUGH;
 import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.PASSWORD;
+import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.PASSWORD_PASS_THROUGH;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 
 public class StarburstSynapseAuthenticationModule
@@ -42,19 +47,53 @@ public class StarburstSynapseAuthenticationModule
     {
         install(installModuleIf(
                 SynapseConfig.class,
-                SynapseConfig::isImpersonationEnabled,
-                new ImpersonationModule(),
-                noImpersonationModuleWithCredentialProvider()));
-
-        install(installModuleIf(
-                SynapseConfig.class,
                 config -> config.getAuthenticationType() == ACTIVE_DIRECTORY_PASSWORD,
-                new ActiveDirectoryPasswordModule()));
+                moduleBinder -> {
+                    install(new CredentialProviderModule());
+                    install(new ActiveDirectoryPasswordModule());
+                    install(installModuleIf(
+                            SynapseConfig.class,
+                            SynapseConfig::isImpersonationEnabled,
+                            new ImpersonationModule(),
+                            noImpersonationModuleWithCredentialProvider()));
+                }));
 
         install(installModuleIf(
                 SynapseConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD,
-                new PasswordModule()));
+                moduleBinder -> {
+                    install(new CredentialProviderModule());
+                    install(new PasswordModule());
+                    install(installModuleIf(
+                            SynapseConfig.class,
+                            SynapseConfig::isImpersonationEnabled,
+                            new ImpersonationModule(),
+                            noImpersonationModuleWithCredentialProvider()));
+                }));
+
+        install(installModuleIf(
+                SynapseConfig.class,
+                config -> config.getAuthenticationType() == ACTIVE_DIRECTORY_PASSWORD_PASS_THROUGH,
+                moduleBinder -> {
+                    install(new PasswordPassThroughModule<>(SynapseConfig.class, SynapseConfig::isImpersonationEnabled));
+                    install(new ActiveDirectoryPasswordModule());
+                    moduleBinder.bind(ConnectionFactory.class)
+                            .annotatedWith(ForBaseJdbc.class)
+                            .to(Key.get(ConnectionFactory.class, ForImpersonation.class))
+                            .in(SINGLETON);
+                }));
+
+        install(installModuleIf(
+                SynapseConfig.class,
+                config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH,
+                moduleBinder -> {
+                    install(new PasswordPassThroughModule<>(SynapseConfig.class, SynapseConfig::isImpersonationEnabled));
+                    install(new PasswordModule());
+                    moduleBinder.bind(ConnectionFactory.class)
+                            .annotatedWith(ForBaseJdbc.class)
+                            .to(Key.get(ConnectionFactory.class, ForImpersonation.class))
+                            .in(SINGLETON);
+                }));
     }
 
     private static class ImpersonationModule
@@ -74,7 +113,6 @@ public class StarburstSynapseAuthenticationModule
         @Override
         protected void setup(Binder binder)
         {
-            install(new CredentialProviderModule());
         }
 
         @Provides
@@ -105,7 +143,6 @@ public class StarburstSynapseAuthenticationModule
         @Override
         protected void setup(Binder binder)
         {
-            install(new CredentialProviderModule());
         }
 
         @Provides

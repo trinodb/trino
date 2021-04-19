@@ -23,7 +23,8 @@ public class SynapseConfig
     {
         ACTIVE_DIRECTORY_PASSWORD,
         PASSWORD,
-        /**/;
+        ACTIVE_DIRECTORY_PASSWORD_PASS_THROUGH,
+        PASSWORD_PASS_THROUGH,
     }
 
     public boolean isImpersonationEnabled()
