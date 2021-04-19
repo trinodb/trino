@@ -13,14 +13,23 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 
+import javax.annotation.PostConstruct;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
+
 public class SalesforceConfig
 {
+    // Temporary hack until license management system can support CData use case
+    // Users will have to enter this value for "salesforce.key" in the connector configuration
+    // TODO https://starburstdata.atlassian.net/browse/SEP-5892
+    public static final String SALESFORCE_CONNECTOR_KEY_VALUE = "Cnvui77iTrjMqy_FqW~j";
+
+    private String key;
     private String user;
     private String password;
     private String securityToken;
@@ -29,6 +38,20 @@ public class SalesforceConfig
     private String driverLoggingLocation = System.getProperty("java.io.tmpdir") + "/salesforce.log";
     private int driverLoggingVerbosity = 3;
     private Optional<String> extraJdbcProperties = Optional.empty();
+
+    @NotNull
+    public String getKey()
+    {
+        return key;
+    }
+
+    @Config("salesforce.key")
+    @ConfigDescription("Key to unlock the Salesforce connector")
+    public SalesforceConfig setKey(String key)
+    {
+        this.key = key;
+        return this;
+    }
 
     @NotNull
     public String getUser()
@@ -139,5 +162,12 @@ public class SalesforceConfig
     {
         this.extraJdbcProperties = Optional.ofNullable(extraJdbcProperties);
         return this;
+    }
+
+    @PostConstruct
+    public void validate()
+    {
+        checkState(getKey() != null && getKey().equals(SALESFORCE_CONNECTOR_KEY_VALUE),
+                "Users must specify a correct value for 'salesforce.key' in the connector config to use the Salesforce connector. Contact Starburst Support for details.");
     }
 }

@@ -14,9 +14,11 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SALESFORCE_CONNECTOR_KEY_VALUE;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSalesforceConfig
 {
@@ -24,6 +26,7 @@ public class TestSalesforceConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SalesforceConfig.class)
+                .setKey(null)
                 .setUser(null)
                 .setPassword(null)
                 .setSecurityToken(null)
@@ -38,6 +41,7 @@ public class TestSalesforceConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("salesforce.key", SALESFORCE_CONNECTOR_KEY_VALUE)
                 .put("salesforce.user", "user")
                 .put("salesforce.password", "password")
                 .put("salesforce.security-token", "foobar")
@@ -49,6 +53,7 @@ public class TestSalesforceConfig
                 .build();
 
         SalesforceConfig expected = new SalesforceConfig()
+                .setKey(SALESFORCE_CONNECTOR_KEY_VALUE)
                 .setUser("user")
                 .setPassword("password")
                 .setSecurityToken("foobar")
@@ -59,5 +64,21 @@ public class TestSalesforceConfig
                 .setExtraJdbcProperties("foo=bar;");
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testNullKey()
+    {
+        assertThatThrownBy(() -> new SalesforceConfig().validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Users must specify a correct value for 'salesforce.key' in the connector config to use the Salesforce connector. Contact Starburst Support for details.");
+    }
+
+    @Test
+    public void testIncorrectKey()
+    {
+        assertThatThrownBy(() -> new SalesforceConfig().setKey("foobar").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Users must specify a correct value for 'salesforce.key' in the connector config to use the Salesforce connector. Contact Starburst Support for details.");
     }
 }
