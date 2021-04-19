@@ -12,7 +12,7 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.inject.Inject;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
-import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
+import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcIdentity;
@@ -32,7 +32,7 @@ public class OracleImpersonatingConnectionFactory
     private final AuthToLocal authToLocal;
 
     @Inject
-    public OracleImpersonatingConnectionFactory(LicenseManager licenseManager, @ForAuthentication ConnectionFactory connectionFactory, AuthToLocal authToLocal)
+    public OracleImpersonatingConnectionFactory(LicenseManager licenseManager, @ForImpersonation ConnectionFactory connectionFactory, AuthToLocal authToLocal)
     {
         super(connectionFactory);
         licenseManager.checkFeature(JDBC_IMPERSONATION);

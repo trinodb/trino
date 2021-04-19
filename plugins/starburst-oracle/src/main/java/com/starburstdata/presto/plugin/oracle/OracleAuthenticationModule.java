@@ -18,7 +18,7 @@ import com.starburstdata.presto.kerberos.ConnectorKerberosManagerModule;
 import com.starburstdata.presto.kerberos.KerberosManager;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedJdbcIdentityCacheMappingModule;
-import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
+import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConfig;
@@ -140,7 +140,7 @@ public class OracleAuthenticationModule
 
         @Provides
         @Singleton
-        @ForAuthentication
+        @ForImpersonation
         public ConnectionFactory getConnectionFactory(BaseJdbcConfig config,
                 StarburstOracleConfig starburstOracleConfig,
                 OracleConfig oracleConfig,
@@ -225,7 +225,7 @@ public class OracleAuthenticationModule
         @Inject
         @Provides
         @Singleton
-        @ForAuthentication
+        @ForImpersonation
         public ConnectionFactory getConnectionFactory(
                 LicenseManager licenseManager,
                 BaseJdbcConfig baseJdbcConfig,
