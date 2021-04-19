@@ -76,7 +76,7 @@ public class IcebergMaterializedViewDefinition
                         .map(column -> new Column(column.getName(), column.getType()))
                         .collect(toImmutableList()),
                 definition.getComment(),
-                definition.getOwner().orElseThrow(() -> new IllegalArgumentException("owner must be present")));
+                definition.getOwner());
     }
 
     @JsonCreator

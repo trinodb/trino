@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -36,6 +37,7 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -102,6 +104,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -164,6 +167,7 @@ public class IcebergMetadata
     private static final Logger log = Logger.get(IcebergMetadata.class);
     public static final String DEPENDS_ON_TABLES = "dependsOnTables";
 
+    private final CatalogName catalogName;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
@@ -174,11 +178,13 @@ public class IcebergMetadata
     private Transaction transaction;
 
     public IcebergMetadata(
+            CatalogName catalogName,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -992,15 +998,17 @@ public class IcebergMetadata
         }
 
         Table materializedView = tableOptional.get();
+        String storageTable = materializedView.getParameters().get(STORAGE_TABLE);
+        checkState(storageTable != null, "Storage table missing in definition of materialized view " + viewName);
 
         IcebergMaterializedViewDefinition definition = decodeMaterializedViewData(materializedView.getViewOriginalText()
                 .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
 
-        String storageTable = materializedView.getParameters().getOrDefault(STORAGE_TABLE, "");
-        ConnectorTableMetadata tableMetadata = getTableMetadata(session, new SchemaTableName(viewName.getSchemaName(), storageTable));
+        SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), storageTable);
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, storageTableName);
         return Optional.of(new ConnectorMaterializedViewDefinition(
                 definition.getOriginalSql(),
-                Optional.of(storageTable),
+                Optional.of(new CatalogSchemaTableName(catalogName.toString(), storageTableName)),
                 definition.getCatalog(),
                 definition.getSchema(),
                 definition.getColumns().stream()
@@ -1065,8 +1073,11 @@ public class IcebergMetadata
             return viewToken;
         }
 
-        String storageTableName = Optional.ofNullable(materializedViewDefinition.get().getStorageTable()).orElse("");
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, new SchemaTableName(name.getSchemaName(), storageTableName));
+        SchemaTableName storageTableName = materializedViewDefinition.get().getStorageTable()
+                .map(CatalogSchemaTableName::getSchemaTableName)
+                .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + name));
+
+        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, storageTableName);
         String dependsOnTables = icebergTable.currentSnapshot().summary().getOrDefault(DEPENDS_ON_TABLES, "");
         if (!dependsOnTables.isEmpty()) {
             Map<String, String> tableToSnapshotIdMap = Splitter.on(',').withKeyValueSeparator('=').split(dependsOnTables);
