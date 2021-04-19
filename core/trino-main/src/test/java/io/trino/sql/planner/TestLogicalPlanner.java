@@ -1501,13 +1501,12 @@ public class TestLogicalPlanner
                         filter("REGIONKEY > BIGINT '1'",
                                 tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey")))));
 
-        //TODO (https://github.com/trinodb/trino/issues/2480) Inline constants
         assertPlan("SELECT * FROM nation, (SELECT 1 as a) temp WHERE regionkey = a",
                 output(
-                        node(JoinNode.class,
+                        project(
+                                ImmutableMap.of("expr", expression("1")),
                                 filter("REGIONKEY = BIGINT '1'",
-                                        tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey"))),
-                                values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))))));
+                                        tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey"))))));
     }
 
     @Test
@@ -1542,15 +1541,6 @@ public class TestLogicalPlanner
     public void testMergeProjectWithValues()
     {
         assertPlan(
-                "SELECT * FROM nation, (SELECT a * 2 FROM (VALUES 1) t(a))",
-                anyTree(
-                        join(
-                                INNER,
-                                ImmutableList.of(),
-                                tableScan("nation"),
-                                values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("2")))))));
-
-        assertPlan(
                 "SELECT * FROM nation, (SELECT a * 2 FROM (VALUES 1, 2, 3) t(a))",
                 anyTree(
                         join(
@@ -1561,24 +1551,6 @@ public class TestLogicalPlanner
                                         ImmutableList.of(new LongLiteral("2")),
                                         ImmutableList.of(new LongLiteral("4")),
                                         ImmutableList.of(new LongLiteral("6")))))));
-
-        assertPlan(
-                "SELECT * FROM nation, (SELECT b * 3 FROM (SELECT a * 2 FROM (VALUES 1) t1(a)) t2(b))",
-                anyTree(
-                        join(
-                                INNER,
-                                ImmutableList.of(),
-                                tableScan("nation"),
-                                values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("6")))))));
-
-        assertPlan(
-                "SELECT * FROM nation, (SELECT b * 3 FROM (SELECT a * 2 FROM (SELECT 1) t1(a)) t2(b))",
-                anyTree(
-                        join(
-                                INNER,
-                                ImmutableList.of(),
-                                tableScan("nation"),
-                                values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("6")))))));
 
         // Constraint is enforced on table scan, based on constant value in the other branch of the join.
         // The scalar constant branch of the join becomes obsolete, and join is removed.
@@ -1632,6 +1604,24 @@ public class TestLogicalPlanner
                                                 "orders",
                                                 ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
                                                 ImmutableMap.of()))))));
+    }
+
+    @Test
+    public void testReplaceJoinWithProject()
+    {
+        assertPlan(
+                "SELECT * FROM nation, (SELECT a * 2 FROM (VALUES 1) t(a))",
+                any(
+                        project(
+                                ImmutableMap.of("expr", expression("2")),
+                                tableScan("nation"))));
+
+        assertPlan(
+                "SELECT * FROM nation, (SELECT b * 3 FROM (SELECT a * 2 FROM (VALUES 1) t1(a)) t2(b))",
+                any(
+                        project(
+                                ImmutableMap.of("expr", expression("6")),
+                                tableScan("nation"))));
     }
 
     @Test
