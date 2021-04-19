@@ -707,11 +707,14 @@ with keys ``p2_value1, p2_value2``.
 Note that if statistics were previously collected for all columns, they need to be dropped
 before re-analyzing just a subset::
 
-    CALL system.drop_stats(schema_name, table_name)
+    CALL system.drop_stats('schema_name', 'table_name')
 
 You can also drop statistics for selected partitions only::
 
-    CALL system.drop_stats(schema_name, table_name, ARRAY[ARRAY['p2_value1', 'p2_value2']])
+    CALL system.drop_stats(
+        schema_name => 'schema', 
+        table_name => 'table', 
+        partition_values => ARRAY[ARRAY['p2_value1', 'p2_value2']])
 
 .. _hive_dynamic_filtering:
 
