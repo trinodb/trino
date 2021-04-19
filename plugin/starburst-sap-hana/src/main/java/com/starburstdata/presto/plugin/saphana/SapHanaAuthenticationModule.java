@@ -15,12 +15,14 @@ import com.google.inject.Singleton;
 import com.sap.db.jdbc.Driver;
 import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.presto.plugin.jdbc.PoolingConnectionFactory;
+import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedJdbcIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedJdbcIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
@@ -53,6 +55,7 @@ public class SapHanaAuthenticationModule
         {
             install(new CredentialProviderModule());
             configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
+            install(new ExtraCredentialsBasedJdbcIdentityCacheMappingModule());
         }
 
         @Provides
@@ -72,6 +75,7 @@ public class SapHanaAuthenticationModule
         {
             configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
             install(new PasswordPassThroughModule<>(SapHanaAuthenticationConfig.class, config -> false));
+            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
         }
 
         @Provides
