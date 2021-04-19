@@ -42,6 +42,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -3226,7 +3227,7 @@ public class TestAnalyzer
                 tableViewAndMaterializedView,
                 new ConnectorMaterializedViewDefinition(
                         "SELECT a FROM t1",
-                        Optional.of("t1"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new Column("a", BIGINT.getTypeId())),
