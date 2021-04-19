@@ -12,7 +12,9 @@ package com.starburstdata.trino.plugin.starburstremote;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedJdbcIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
+import com.starburstdata.presto.plugin.jdbc.auth.SingletonJdbcIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -20,6 +22,7 @@ import io.trino.jdbc.TrinoDriver;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedJdbcIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.credential.CredentialConfig;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
@@ -78,6 +81,7 @@ public class StarburstRemoteAuthenticationModule
         protected void setup(Binder binder)
         {
             install(new PasswordPassThroughModule<>(StarburstRemoteConfig.class, StarburstRemoteConfig::isImpersonationEnabled));
+            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
         }
 
         @Provides
@@ -104,6 +108,7 @@ public class StarburstRemoteAuthenticationModule
         protected void setup(Binder binder)
         {
             install(new CredentialProviderModule());
+            install(new ExtraCredentialsBasedJdbcIdentityCacheMappingModule());
             configBinder(binder).bindConfig(StarburstRemoteCredentialConfig.class);
         }
 
@@ -133,6 +138,7 @@ public class StarburstRemoteAuthenticationModule
         {
             install(new AuthToLocalModule());
             install(new CredentialProviderModule());
+            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
             configBinder(binder).bindConfig(StarburstRemoteCredentialConfig.class);
         }
 
@@ -207,6 +213,7 @@ public class StarburstRemoteAuthenticationModule
         {
             super.setup(binder);
             configBinder(binder).bindConfig(CredentialConfig.class);
+            install(new SingletonJdbcIdentityCacheMappingModule());
         }
 
         @Provides
@@ -239,6 +246,7 @@ public class StarburstRemoteAuthenticationModule
         {
             super.setup(binder);
             install(new AuthToLocalModule());
+            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
         }
 
         @Provides
