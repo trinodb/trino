@@ -25,7 +25,6 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testng.services.Flaky;
 import io.trino.testing.sql.TestTable;
-import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 import org.testng.SkipException;
