@@ -62,7 +62,7 @@ public class DropMaterializedViewTask
             return immediateFuture(null);
         }
 
-        accessControl.checkCanDropView(session.toSecurityContext(), name);
+        accessControl.checkCanDropMaterializedView(session.toSecurityContext(), name);
 
         metadata.dropMaterializedView(session, name);
 

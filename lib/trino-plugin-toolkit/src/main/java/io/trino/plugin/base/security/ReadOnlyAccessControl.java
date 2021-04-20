@@ -28,6 +28,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyCreateView;
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
+import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -179,6 +180,12 @@ public class ReadOnlyAccessControl
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         // allow
+    }
+
+    @Override
+    public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        denyDropMaterializedView(materializedViewName.toString());
     }
 
     @Override

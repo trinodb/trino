@@ -227,6 +227,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        delegate().checkCanDropMaterializedView(context, materializedViewName);
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
         delegate().checkCanSetCatalogSessionProperty(context, propertyName);
