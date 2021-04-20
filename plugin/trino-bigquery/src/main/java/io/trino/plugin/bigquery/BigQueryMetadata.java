@@ -15,6 +15,7 @@ package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.DatasetId;
+import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardTableDefinition;
@@ -44,12 +45,14 @@ import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -64,6 +67,7 @@ import java.util.stream.Stream;
 
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.bigquery.BigQueryType.toField;
@@ -144,9 +148,10 @@ public class BigQueryMetadata
 
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String remoteSchemaName : remoteSchemaNames) {
-            for (Table table : bigQueryClient.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW)) {
+            Iterable<Table> tables = bigQueryClient.listTables(DatasetId.of(projectId, remoteSchemaName), TABLE, VIEW);
+            for (Table table : tables) {
                 // filter ambiguous tables
-                boolean isAmbiguous = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH))
+                boolean isAmbiguous = bigQueryClient.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
                         .filter(RemoteDatabaseObject::isAmbiguous)
                         .isPresent();
                 if (!isAmbiguous) {
@@ -290,6 +295,23 @@ public class BigQueryMetadata
     {
         log.debug("getTableProperties(session=%s, prefix=%s)", session, table);
         return new ConnectorTableProperties();
+    }
+
+    @Override
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    {
+        checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
+        DatasetInfo datasetInfo = DatasetInfo.newBuilder(schemaName).build();
+        bigQueryClient.createSchema(datasetInfo);
+    }
+
+    @Override
+    public void dropSchema(ConnectorSession session, String schemaName)
+    {
+        String remoteSchemaName = bigQueryClient.toRemoteDataset(projectId, schemaName)
+                .map(RemoteDatabaseObject::getOnlyRemoteName)
+                .orElseThrow(() -> new SchemaNotFoundException(schemaName));
+        bigQueryClient.dropSchema(DatasetId.of(remoteSchemaName));
     }
 
     @Override

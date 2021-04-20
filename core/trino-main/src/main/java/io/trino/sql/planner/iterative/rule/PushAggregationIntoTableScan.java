@@ -102,10 +102,9 @@ public class PushAggregationIntoTableScan
 
     private static boolean hasNoMasks(AggregationNode node)
     {
-        return !node.getAggregations()
+        return node.getAggregations()
                 .values().stream()
-                .map(aggregation -> aggregation.getMask().isPresent())
-                .anyMatch(isMaskPresent -> isMaskPresent);
+                .allMatch(aggregation -> aggregation.getMask().isEmpty());
     }
 
     @Override

@@ -149,6 +149,9 @@ public class CassandraRecordCursor
     @Override
     public boolean isNull(int i)
     {
+        if (getCassandraType(i) == TIMESTAMP) {
+            return currentRow.getTimestamp(i) == null;
+        }
         return currentRow.isNull(i);
     }
 }

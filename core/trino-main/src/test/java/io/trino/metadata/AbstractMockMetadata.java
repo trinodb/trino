@@ -808,6 +808,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ColumnPropertyManager getColumnPropertyManager()
     {
         throw new UnsupportedOperationException();

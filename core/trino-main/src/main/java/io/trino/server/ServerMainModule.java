@@ -74,6 +74,7 @@ import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.SchemaPropertyManager;
@@ -221,6 +222,9 @@ public class ServerMainModule
 
         // table properties
         binder.bind(TablePropertyManager.class).in(Scopes.SINGLETON);
+
+        // materialized view properties
+        binder.bind(MaterializedViewPropertyManager.class).in(Scopes.SINGLETON);
 
         // column properties
         binder.bind(ColumnPropertyManager.class).in(Scopes.SINGLETON);

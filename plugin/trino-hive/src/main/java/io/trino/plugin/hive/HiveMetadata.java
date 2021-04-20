@@ -66,7 +66,6 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
@@ -2009,13 +2008,6 @@ public class HiveMetadata
     }
 
     @Override
-    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
-    {
-        HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        return handle.getTableParameters().isEmpty() || !isFullAcidTable(handle.getTableParameters().get());
-    }
-
-    @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
@@ -2155,7 +2147,10 @@ public class HiveMetadata
     @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
-        return Optional.of(handle);
+        Map<String, String> parameters = ((HiveTableHandle) handle).getTableParameters()
+                .orElseThrow(() -> new IllegalStateException("tableParameters missing from handle"));
+
+        return isFullAcidTable(parameters) ? Optional.empty() : Optional.of(handle);
     }
 
     @Override
