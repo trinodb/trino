@@ -79,6 +79,12 @@ The following is an example of a JDBC URL used to create a connection:
 This example JDBC URL locates a Trino instance running on port ``8080`` on
 ``example.net``, with the catalog ``hive`` and the schema ``sales`` defined.
 
+.. note::
+  
+  Typically, the JDBC driver classname is configured automatically by your
+  client. If it is not, use ``io.trino.jdbc.TrinoDriver`` wherever a driver
+  classname is required.
+
 Connection parameters
 ---------------------
 
