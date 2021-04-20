@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.QueryManagerConfig;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
@@ -863,7 +863,7 @@ public class TestCostCalculator
 
     private SubPlan fragment(Plan plan)
     {
-        return inTransaction(session -> planFragmenter.createSubPlans(session, plan, false, WarningCollector.NOOP));
+        return inTransaction(session -> planFragmenter.createSubPlans(session, plan, false, EventCollector.NOOP));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)

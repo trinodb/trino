@@ -15,7 +15,7 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
@@ -55,7 +55,7 @@ public class CommentTask
             AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         Session session = stateMachine.getSession();
 

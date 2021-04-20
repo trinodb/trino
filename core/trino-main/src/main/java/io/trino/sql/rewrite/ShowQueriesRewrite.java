@@ -22,7 +22,7 @@ import com.google.common.primitives.Primitives;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsCalculator;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Metadata;
@@ -161,7 +161,7 @@ final class ShowQueriesRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             GroupProvider groupProvider,
             AccessControl accessControl,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             StatsCalculator statsCalculator)
     {
         return (Statement) new Visitor(metadata, parser, session, accessControl).process(node, null);

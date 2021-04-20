@@ -24,7 +24,7 @@ import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Column;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Metadata;
@@ -292,7 +292,7 @@ class StatementAnalyzer
     private final SqlParser sqlParser;
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
-    private final WarningCollector warningCollector;
+    private final EventCollector eventCollector;
     private final CorrelationSupport correlationSupport;
 
     public StatementAnalyzer(
@@ -302,7 +302,7 @@ class StatementAnalyzer
             GroupProvider groupProvider,
             AccessControl accessControl,
             Session session,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             CorrelationSupport correlationSupport)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
@@ -312,7 +312,7 @@ class StatementAnalyzer
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
-        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.eventCollector = requireNonNull(eventCollector, "eventCollector is null");
         this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
     }
 
@@ -323,13 +323,13 @@ class StatementAnalyzer
 
     public Scope analyze(Node node, Optional<Scope> outerQueryScope)
     {
-        return new Visitor(outerQueryScope, warningCollector, Optional.empty())
+        return new Visitor(outerQueryScope, eventCollector, Optional.empty())
                 .process(node, Optional.empty());
     }
 
     public Scope analyzeForUpdate(Table table, Optional<Scope> outerQueryScope, UpdateKind updateKind)
     {
-        return new Visitor(outerQueryScope, warningCollector, Optional.of(updateKind))
+        return new Visitor(outerQueryScope, eventCollector, Optional.of(updateKind))
                 .process(table, Optional.empty());
     }
 
@@ -348,13 +348,13 @@ class StatementAnalyzer
             extends AstVisitor<Scope, Optional<Scope>>
     {
         private final Optional<Scope> outerQueryScope;
-        private final WarningCollector warningCollector;
+        private final EventCollector eventCollector;
         private final Optional<UpdateKind> updateKind;
 
-        private Visitor(Optional<Scope> outerQueryScope, WarningCollector warningCollector, Optional<UpdateKind> updateKind)
+        private Visitor(Optional<Scope> outerQueryScope, EventCollector eventCollector, Optional<UpdateKind> updateKind)
         {
             this.outerQueryScope = requireNonNull(outerQueryScope, "outerQueryScope is null");
-            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.eventCollector = requireNonNull(eventCollector, "eventCollector is null");
             this.updateKind = requireNonNull(updateKind, "updateKind is null");
         }
 
@@ -664,7 +664,7 @@ class StatementAnalyzer
                     groupProvider,
                     new AllowAllAccessControl(),
                     session,
-                    warningCollector,
+                    eventCollector,
                     CorrelationSupport.ALLOWED);
 
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.DELETE);
@@ -832,7 +832,7 @@ class StatementAnalyzer
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, eventCollector, CorrelationSupport.ALLOWED);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -905,7 +905,7 @@ class StatementAnalyzer
         protected Scope visitProperty(Property node, Optional<Scope> scope)
         {
             // Property value expressions must be constant
-            createConstantAnalyzer(metadata, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
+            createConstantAnalyzer(metadata, accessControl, session, analysis.getParameters(), EventCollector.NOOP, analysis.isDescribe())
                     .analyze(node.getValue(), createScope(scope));
             return createAndAssignScope(node, scope);
         }
@@ -1028,7 +1028,7 @@ class StatementAnalyzer
             }
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, eventCollector, CorrelationSupport.ALLOWED);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -1139,7 +1139,7 @@ class StatementAnalyzer
                 if (queryBodyScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(node.getOrderBy().get());
-                    warningCollector.add(new TrinoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
+                    eventCollector.add(new TrinoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
                 }
             }
             analysis.setOrderByExpressions(node, orderByExpressions);
@@ -1220,7 +1220,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, eventCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1579,7 +1579,7 @@ class StatementAnalyzer
                     TypeProvider.empty(),
                     ImmutableList.of(samplePercentage),
                     analysis.getParameters(),
-                    WarningCollector.NOOP,
+                    EventCollector.NOOP,
                     analysis.isDescribe())
                     .getExpressionTypes();
 
@@ -1622,7 +1622,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, eventCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1657,7 +1657,7 @@ class StatementAnalyzer
                 if (sourceScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(orderBy);
-                    warningCollector.add(new TrinoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
+                    eventCollector.add(new TrinoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
                 }
             }
             analysis.setOrderByExpressions(node, orderByExpressions);
@@ -1933,7 +1933,7 @@ class StatementAnalyzer
                     groupProvider,
                     new AllowAllAccessControl(),
                     session,
-                    warningCollector,
+                    eventCollector,
                     CorrelationSupport.ALLOWED);
 
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.UPDATE);
@@ -2258,7 +2258,7 @@ class StatementAnalyzer
                     sqlParser,
                     scope,
                     analysis,
-                    WarningCollector.NOOP,
+                    EventCollector.NOOP,
                     correlationSupport,
                     window,
                     originalNode);
@@ -2912,7 +2912,7 @@ class StatementAnalyzer
                 // TODO: record path in view definition (?) (check spec) and feed it into the session object we use to evaluate the query defined by the view
                 Session viewSession = createViewSession(catalog, schema, identity, session.getPath());
 
-                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, viewAccessControl, viewSession, warningCollector, CorrelationSupport.ALLOWED);
+                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, viewAccessControl, viewSession, eventCollector, CorrelationSupport.ALLOWED);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
@@ -2996,7 +2996,7 @@ class StatementAnalyzer
                     scope,
                     analysis,
                     expression,
-                    warningCollector,
+                    eventCollector,
                     correlationSupport);
         }
 
@@ -3011,7 +3011,7 @@ class StatementAnalyzer
                     scope,
                     analysis,
                     expression,
-                    warningCollector,
+                    eventCollector,
                     correlationSupport);
         }
 
@@ -3044,7 +3044,7 @@ class StatementAnalyzer
                         scope,
                         analysis,
                         expression,
-                        warningCollector,
+                        eventCollector,
                         correlationSupport);
             }
             catch (TrinoException e) {
@@ -3100,7 +3100,7 @@ class StatementAnalyzer
                         scope,
                         analysis,
                         expression,
-                        warningCollector,
+                        eventCollector,
                         correlationSupport);
             }
             catch (TrinoException e) {
@@ -3518,7 +3518,7 @@ class StatementAnalyzer
                         orderByScope,
                         analysis,
                         expression,
-                        WarningCollector.NOOP,
+                        EventCollector.NOOP,
                         correlationSupport);
                 analysis.recordSubqueries(node, expressionAnalysis);
 

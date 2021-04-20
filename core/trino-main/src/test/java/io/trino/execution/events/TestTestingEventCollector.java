@@ -11,23 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.warnings;
+package io.trino.execution.events;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoWarning;
-import io.trino.testing.TestingWarningCollector;
-import io.trino.testing.TestingWarningCollectorConfig;
+import io.trino.testing.TestingEventCollector;
+import io.trino.testing.TestingEventCollectorConfig;
 import org.testng.annotations.Test;
 
-import static io.trino.testing.TestingWarningCollector.createTestWarning;
+import static io.trino.testing.TestingEventCollector.createTestWarning;
 import static org.testng.Assert.assertEquals;
 
-public class TestTestingWarningCollector
+public class TestTestingEventCollector
 {
     @Test
     public void testAddWarnings()
     {
-        TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
+        TestingEventCollector collector = new TestingEventCollector(new EventCollectorConfig(), new TestingEventCollectorConfig().setAddWarnings(true));
         ImmutableList.Builder<TrinoWarning> expectedWarningsBuilder = ImmutableList.builder();
         expectedWarningsBuilder.add(createTestWarning(1));
         assertEquals(collector.getWarnings(), expectedWarningsBuilder.build());

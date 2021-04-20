@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.trino.Session;
 import io.trino.block.BlockSerdeUtil;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
@@ -245,7 +245,7 @@ public class TestSpatialJoinPlanning
         LocalQueryRunner queryRunner = getQueryRunner();
         try {
             queryRunner.inTransaction(session, transactionSession -> {
-                queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
+                queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, false, EventCollector.NOOP);
                 return null;
             });
             fail(format("Expected query to fail: %s", sql));

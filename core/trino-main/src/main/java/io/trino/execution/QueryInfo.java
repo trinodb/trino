@@ -22,6 +22,7 @@ import io.trino.SessionRepresentation;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoEvent;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
@@ -76,6 +77,7 @@ public class QueryInfo
     private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final List<TrinoWarning> warnings;
+    private final List<TrinoEvent> events;
     private final Set<Input> inputs;
     private final Optional<Output> output;
     private final boolean completeInfo;
@@ -109,6 +111,7 @@ public class QueryInfo
             @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("warnings") List<TrinoWarning> warnings,
+            @JsonProperty("events") List<TrinoEvent> events,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
             @JsonProperty("referencedTables") List<TableInfo> referencedTables,
@@ -140,6 +143,7 @@ public class QueryInfo
         requireNonNull(routines, "routines is null");
         requireNonNull(resourceGroupId, "resourceGroupId is null");
         requireNonNull(warnings, "warnings is null");
+        requireNonNull(events, "events is null");
         requireNonNull(queryType, "queryType is null");
 
         this.queryId = queryId;
@@ -168,6 +172,7 @@ public class QueryInfo
         this.errorType = errorCode == null ? null : errorCode.getType();
         this.errorCode = errorCode;
         this.warnings = ImmutableList.copyOf(warnings);
+        this.events = ImmutableList.copyOf(events);
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
         this.referencedTables = ImmutableList.copyOf(referencedTables);
@@ -335,6 +340,12 @@ public class QueryInfo
     public List<TrinoWarning> getWarnings()
     {
         return warnings;
+    }
+
+    @JsonProperty
+    public List<TrinoEvent> getEvents()
+    {
+        return events;
     }
 
     @JsonProperty

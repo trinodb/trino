@@ -14,7 +14,7 @@
 package io.trino.sql.planner.sanity;
 
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -41,7 +41,7 @@ public class NoDuplicatePlanNodeIdsChecker
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         Map<PlanNodeId, PlanNode> planNodeIds = new HashMap<>();
         searchFrom(planNode)

@@ -18,14 +18,17 @@ import io.airlift.configuration.ConfigDescription;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class TestingWarningCollectorConfig
+public class TestingEventCollectorConfig
 {
     private int preloadedWarnings;
     private boolean addWarnings;
 
-    @Config("testing-warning-collector.preloaded-warnings")
-    @ConfigDescription("Preloads warning collector with test warnings")
-    public TestingWarningCollectorConfig setPreloadedWarnings(int preloadedWarnings)
+    private int preloadedEvents;
+    private boolean addEvents;
+
+    @Config("testing-event-collector.preloaded-warnings")
+    @ConfigDescription("Preloads event collector with test warnings")
+    public TestingEventCollectorConfig setPreloadedWarnings(int preloadedWarnings)
     {
         checkArgument(preloadedWarnings >= 0, "preloadedWarnings must be >= 0");
         this.preloadedWarnings = preloadedWarnings;
@@ -37,9 +40,9 @@ public class TestingWarningCollectorConfig
         return preloadedWarnings;
     }
 
-    @Config("testing-warning-collector.add-warnings")
+    @Config("testing-event-collector.add-warnings")
     @ConfigDescription("Adds a warning each time getWarnings is called")
-    public TestingWarningCollectorConfig setAddWarnings(boolean addWarnings)
+    public TestingEventCollectorConfig setAddWarnings(boolean addWarnings)
     {
         this.addWarnings = addWarnings;
         return this;
@@ -48,5 +51,32 @@ public class TestingWarningCollectorConfig
     public boolean getAddWarnings()
     {
         return addWarnings;
+    }
+
+    @Config("testing-event-collector.preloaded-events")
+    @ConfigDescription("Preloads event collector with test events")
+    public TestingEventCollectorConfig setPreloadedEvents(int preloadedEvents)
+    {
+        checkArgument(preloadedEvents >= 0, "preloadedEvents must be >= 0");
+        this.preloadedEvents = preloadedEvents;
+        return this;
+    }
+
+    public int getPreloadedEvents()
+    {
+        return preloadedEvents;
+    }
+
+    @Config("testing-event-collector.add-events")
+    @ConfigDescription("Adds an event each time getEvents is called")
+    public TestingEventCollectorConfig setAddEvents(boolean addEvents)
+    {
+        this.addEvents = addEvents;
+        return this;
+    }
+
+    public boolean getAddEvents()
+    {
+        return addEvents;
     }
 }

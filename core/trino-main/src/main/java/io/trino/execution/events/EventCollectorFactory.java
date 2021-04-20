@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.warnings;
+package io.trino.execution.events;
 
-public interface WarningCollectorFactory
+public interface EventCollectorFactory
 {
-    WarningCollector create();
+    EventCollector create();
 }

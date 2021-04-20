@@ -16,13 +16,14 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session.SessionBuilder;
 import io.trino.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
-import io.trino.execution.warnings.WarningCollectorConfig;
+import io.trino.execution.events.EventCollectorConfig;
+import io.trino.spi.TrinoEvent;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingWarningCollector;
-import io.trino.testing.TestingWarningCollectorConfig;
+import io.trino.testing.TestingEventCollector;
+import io.trino.testing.TestingEventCollectorConfig;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -43,6 +44,7 @@ public class TestCompletedEventWarnings
 {
     private static final int EXPECTED_EVENTS = 3;
     private static final int TEST_WARNINGS = 5;
+    private static final int TEST_EVENTS = 7;
     private QueryRunner queryRunner;
     private EventsCollector generatedEvents;
 
@@ -53,7 +55,9 @@ public class TestCompletedEventWarnings
         SessionBuilder sessionBuilder = testSessionBuilder();
         generatedEvents = new EventsCollector();
         queryRunner = DistributedQueryRunner.builder(sessionBuilder.build())
-                .setExtraProperties(ImmutableMap.of("testing-warning-collector.preloaded-warnings", String.valueOf(TEST_WARNINGS)))
+                .setExtraProperties(ImmutableMap.of(
+                        "testing-event-collector.preloaded-warnings", String.valueOf(TEST_WARNINGS),
+                        "testing-event-collector.preloaded-events", String.valueOf(TEST_EVENTS)))
                 .setNodeCount(1)
                 .build();
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
@@ -72,13 +76,27 @@ public class TestCompletedEventWarnings
     public void testCompletedEventWarnings()
             throws InterruptedException
     {
-        TestingWarningCollectorConfig warningCollectorConfig = new TestingWarningCollectorConfig().setPreloadedWarnings(TEST_WARNINGS);
-        TestingWarningCollector testingWarningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
+        TestingEventCollectorConfig eventCollectorConfig = new TestingEventCollectorConfig().setPreloadedWarnings(TEST_WARNINGS);
+        TestingEventCollector testingEventCollector = new TestingEventCollector(new EventCollectorConfig(), eventCollectorConfig);
         assertWarnings(
                 "select 1",
                 ImmutableMap.of(),
-                testingWarningCollector.getWarnings().stream()
+                testingEventCollector.getWarnings().stream()
                         .map(TrinoWarning::getWarningCode)
+                        .collect(toImmutableList()));
+    }
+
+    @Test
+    public void testCompletedEvents()
+            throws InterruptedException
+    {
+        TestingEventCollectorConfig eventCollectorConfig = new TestingEventCollectorConfig().setPreloadedEvents(TEST_EVENTS);
+        TestingEventCollector testingEventCollector = new TestingEventCollector(new EventCollectorConfig(), eventCollectorConfig);
+        assertEvents(
+                "select 1",
+                ImmutableMap.of(),
+                testingEventCollector.getEvents().stream()
+                        .map(TrinoEvent::getMessage)
                         .collect(toImmutableList()));
     }
 
@@ -100,6 +118,28 @@ public class TestCompletedEventWarnings
         for (WarningCode warningCode : expectedWarnings) {
             if (!warnings.contains(warningCode)) {
                 fail("Expected warning: " + warningCode);
+            }
+        }
+    }
+
+    private void assertEvents(@Language("SQL") String sql, Map<String, String> sessionProperties, List<String> expectedEvents)
+            throws InterruptedException
+    {
+        // Task concurrency must be 1 otherwise these tests fail due to change in the number of EXPECTED_EVENTS
+        SessionBuilder sessionBuilder = testSessionBuilder()
+                .setSystemProperty("task_concurrency", "1");
+        sessionProperties.forEach(sessionBuilder::setSystemProperty);
+        queryRunner.execute(sessionBuilder.build(), sql);
+        generatedEvents.waitForEvents(10);
+
+        Set<String> events = getOnlyElement(generatedEvents.getQueryCompletedEvents())
+                .getEvents()
+                .stream()
+                .map(TrinoEvent::getMessage)
+                .collect(toImmutableSet());
+        for (String expectedEvent : expectedEvents) {
+            if (!events.contains(expectedEvent)) {
+                fail("Expected warning: " + expectedEvent);
             }
         }
     }

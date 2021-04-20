@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.Metadata;
@@ -302,7 +302,7 @@ public class TestLiteralEncoder
                             TypeProvider.empty(),
                             emptyMap(),
                             node -> new IllegalStateException("Unexpected node: " + node),
-                            WarningCollector.NOOP,
+                            EventCollector.NOOP,
                             false);
                     expressionAnalyzer.analyze(expression, Scope.create());
                     Map<NodeRef<Expression>, Type> expressionTypes = expressionAnalyzer.getExpressionTypes();

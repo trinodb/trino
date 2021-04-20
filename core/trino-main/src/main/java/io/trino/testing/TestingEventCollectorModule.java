@@ -11,30 +11,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.warnings;
+package io.trino.testing;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import io.trino.execution.events.EventCollectorConfig;
+import io.trino.execution.events.EventCollectorFactory;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
-public class WarningCollectorModule
+public class TestingEventCollectorModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfig(WarningCollectorConfig.class);
+        configBinder(binder).bindConfig(EventCollectorConfig.class);
+        configBinder(binder).bindConfig(TestingEventCollectorConfig.class);
     }
 
     @Provides
     @Singleton
-    public WarningCollectorFactory createWarningCollectorFactory(WarningCollectorConfig config)
+    public EventCollectorFactory createEventCollectorFactory(EventCollectorConfig config, TestingEventCollectorConfig testConfig)
     {
         requireNonNull(config, "config is null");
-        return () -> new DefaultWarningCollector(config);
+        requireNonNull(testConfig, "testConfig is null");
+        return () -> new TestingEventCollector(config, testConfig);
     }
 }

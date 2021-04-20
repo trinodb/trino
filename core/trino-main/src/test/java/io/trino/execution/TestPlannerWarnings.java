@@ -17,12 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.execution.warnings.DefaultWarningCollector;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.execution.warnings.WarningCollectorConfig;
+import io.trino.execution.events.DefaultEventCollector;
+import io.trino.execution.events.EventCollector;
+import io.trino.execution.events.EventCollectorConfig;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.TrinoEvent;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
@@ -87,28 +88,20 @@ public class TestPlannerWarnings
         assertPlannerWarnings(queryRunner, "SELECT * FROM NATION", ImmutableMap.of(), warningCodes, Optional.of(ImmutableList.of(new TestWarningsRule(warnings))));
     }
 
+    @Test
+    public void testEvent()
+    {
+        List<TrinoEvent> events = createTestEvents(5);
+        List<String> eventMessages = events.stream()
+                .map(TrinoEvent::getMessage)
+                .collect(toImmutableList());
+        assertPlannerEvents(queryRunner, "SELECT * FROM NATION", ImmutableMap.of(), eventMessages, Optional.of(ImmutableList.of(new TestEventsRule(events))));
+    }
+
     public static void assertPlannerWarnings(LocalQueryRunner queryRunner, @Language("SQL") String sql, Map<String, String> sessionProperties, List<WarningCode> expectedWarnings, Optional<List<Rule<?>>> rules)
     {
-        Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                .setCatalog(queryRunner.getDefaultSession().getCatalog().get())
-                .setSchema(queryRunner.getDefaultSession().getSchema().get());
-        sessionProperties.forEach(sessionBuilder::setSystemProperty);
-        WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig());
-        try {
-            queryRunner.inTransaction(sessionBuilder.build(), transactionSession -> {
-                if (rules.isPresent()) {
-                    createPlan(queryRunner, transactionSession, sql, warningCollector, rules.get());
-                }
-                else {
-                    queryRunner.createPlan(transactionSession, sql, OPTIMIZED, false, warningCollector);
-                }
-                return null;
-            });
-        }
-        catch (TrinoException e) {
-            // ignore
-        }
-        Set<WarningCode> warnings = warningCollector.getWarnings().stream()
+        EventCollector eventCollector = planWithEventCollector(queryRunner, sql, sessionProperties, rules);
+        Set<WarningCode> warnings = eventCollector.getWarnings().stream()
                 .map(TrinoWarning::getWarningCode)
                 .collect(toImmutableSet());
         for (WarningCode expectedWarning : expectedWarnings) {
@@ -118,7 +111,44 @@ public class TestPlannerWarnings
         }
     }
 
-    private static Plan createPlan(LocalQueryRunner queryRunner, Session session, String sql, WarningCollector warningCollector, List<Rule<?>> rules)
+    public static void assertPlannerEvents(LocalQueryRunner queryRunner, @Language("SQL") String sql, Map<String, String> sessionProperties, List<String> expectedEvents, Optional<List<Rule<?>>> rules)
+    {
+        EventCollector eventCollector = planWithEventCollector(queryRunner, sql, sessionProperties, rules);
+        Set<String> events = eventCollector.getEvents().stream()
+                .map(TrinoEvent::getMessage)
+                .collect(toImmutableSet());
+        for (String expectedEvent : expectedEvents) {
+            if (!events.contains(expectedEvent)) {
+                fail("Expected event: " + expectedEvent);
+            }
+        }
+    }
+
+    private static EventCollector planWithEventCollector(LocalQueryRunner queryRunner, @Language("SQL") String sql, Map<String, String> sessionProperties, Optional<List<Rule<?>>> rules)
+    {
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
+                .setCatalog(queryRunner.getDefaultSession().getCatalog().get())
+                .setSchema(queryRunner.getDefaultSession().getSchema().get());
+        sessionProperties.forEach(sessionBuilder::setSystemProperty);
+        EventCollector eventCollector = new DefaultEventCollector(new EventCollectorConfig());
+        try {
+            queryRunner.inTransaction(sessionBuilder.build(), transactionSession -> {
+                if (rules.isPresent()) {
+                    createPlan(queryRunner, transactionSession, sql, eventCollector, rules.get());
+                }
+                else {
+                    queryRunner.createPlan(transactionSession, sql, OPTIMIZED, false, eventCollector);
+                }
+                return null;
+            });
+        }
+        catch (TrinoException e) {
+            // ignore
+        }
+        return eventCollector;
+    }
+
+    private static Plan createPlan(LocalQueryRunner queryRunner, Session session, String sql, EventCollector eventCollector, List<Rule<?>> rules)
     {
         // Warnings from testing rules will be added
         PlanOptimizer optimizer = new IterativeOptimizer(
@@ -127,7 +157,7 @@ public class TestPlannerWarnings
                 queryRunner.getCostCalculator(),
                 ImmutableSet.copyOf(rules));
 
-        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), OPTIMIZED, warningCollector);
+        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), OPTIMIZED, eventCollector);
     }
 
     public static List<TrinoWarning> createTestWarnings(int numberOfWarnings)
@@ -136,6 +166,16 @@ public class TestPlannerWarnings
         ImmutableList.Builder<TrinoWarning> builder = ImmutableList.builder();
         range(1, numberOfWarnings)
                 .mapToObj(code -> new TrinoWarning(new WarningCode(code, "testWarning"), "Test warning " + code))
+                .forEach(builder::add);
+        return builder.build();
+    }
+
+    private static List<TrinoEvent> createTestEvents(int numberOfEvents)
+    {
+        checkArgument(numberOfEvents > 0, "numberOfEvents must be > 0");
+        ImmutableList.Builder<TrinoEvent> builder = ImmutableList.builder();
+        range(1, numberOfEvents)
+                .mapToObj(code -> new TrinoEvent("testEvent"))
                 .forEach(builder::add);
         return builder.build();
     }
@@ -160,7 +200,31 @@ public class TestPlannerWarnings
         public Result apply(ProjectNode node, Captures captures, Context context)
         {
             warnings.stream()
-                    .forEach(context.getWarningCollector()::add);
+                    .forEach(context.getEventCollector()::add);
+            return Result.empty();
+        }
+    }
+
+    private static class TestEventsRule
+            implements Rule<ProjectNode>
+    {
+        private final List<TrinoEvent> events;
+
+        public TestEventsRule(List<TrinoEvent> events)
+        {
+            this.events = ImmutableList.copyOf(requireNonNull(events, "events is null"));
+        }
+
+        @Override
+        public Pattern<ProjectNode> getPattern()
+        {
+            return project();
+        }
+
+        @Override
+        public Result apply(ProjectNode node, Captures captures, Context context)
+        {
+            events.forEach(context.getEventCollector()::add);
             return Result.empty();
         }
     }

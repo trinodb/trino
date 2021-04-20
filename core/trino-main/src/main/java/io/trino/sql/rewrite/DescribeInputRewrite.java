@@ -16,7 +16,7 @@ package io.trino.sql.rewrite;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
@@ -71,10 +71,10 @@ final class DescribeInputRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             GroupProvider groupProvider,
             AccessControl accessControl,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             StatsCalculator statsCalculator)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, groupProvider, accessControl, eventCollector, statsCalculator).process(node, null);
     }
 
     private static final class Visitor
@@ -88,7 +88,7 @@ final class DescribeInputRewrite
         private final Map<NodeRef<Parameter>, Expression> parameterLookup;
         private final GroupProvider groupProvider;
         private final AccessControl accessControl;
-        private final WarningCollector warningCollector;
+        private final EventCollector eventCollector;
         private final StatsCalculator statsCalculator;
 
         public Visitor(
@@ -100,7 +100,7 @@ final class DescribeInputRewrite
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
                 GroupProvider groupProvider,
                 AccessControl accessControl,
-                WarningCollector warningCollector,
+                EventCollector eventCollector,
                 StatsCalculator statsCalculator)
         {
             this.session = requireNonNull(session, "session is null");
@@ -111,7 +111,7 @@ final class DescribeInputRewrite
             this.accessControl = accessControl;
             this.parameters = parameters;
             this.parameterLookup = parameterLookup;
-            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.eventCollector = requireNonNull(eventCollector, "eventCollector is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         }
 
@@ -122,7 +122,7 @@ final class DescribeInputRewrite
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
             // create  analysis for the query we are describing.
-            Analyzer analyzer = new Analyzer(session, metadata, parser, groupProvider, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, statsCalculator);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, groupProvider, accessControl, queryExplainer, parameters, parameterLookup, eventCollector, statsCalculator);
             Analysis analysis = analyzer.analyze(statement, true);
 
             // get all parameters in query

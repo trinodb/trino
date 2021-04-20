@@ -15,7 +15,7 @@ package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ListMultimap;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
@@ -55,7 +55,7 @@ public final class TypeValidator
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         plan.accept(new Visitor(session, metadata, typeAnalyzer, types), null);
     }

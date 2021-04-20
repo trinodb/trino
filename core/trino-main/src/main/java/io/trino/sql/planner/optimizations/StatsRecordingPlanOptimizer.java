@@ -14,7 +14,7 @@
 package io.trino.sql.planner.optimizations;
 
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.sql.planner.OptimizerStatsRecorder;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
@@ -43,13 +43,13 @@ public final class StatsRecordingPlanOptimizer
             TypeProvider types,
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         PlanNode result;
         long duration;
         try {
             long start = System.nanoTime();
-            result = delegate.optimize(plan, session, types, symbolAllocator, idAllocator, warningCollector);
+            result = delegate.optimize(plan, session, types, symbolAllocator, idAllocator, eventCollector);
             duration = System.nanoTime() - start;
         }
         catch (RuntimeException e) {

@@ -15,7 +15,7 @@ package io.trino.sql;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.security.AllowAllAccessControl;
@@ -118,7 +118,7 @@ public final class ExpressionTestUtils
                 typeProvider,
                 ImmutableMap.of(),
                 node -> semanticException(EXPRESSION_NOT_CONSTANT, node, "Constant expression cannot contain a subquery"),
-                WarningCollector.NOOP,
+                EventCollector.NOOP,
                 false);
         analyzer.analyze(expression, scope);
 

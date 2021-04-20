@@ -20,7 +20,7 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -245,7 +245,7 @@ public class TestTableScanRedirectionWithPushdown
             // but dest_col_a has mismatched type compared to source domain
             transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                     .execute(MOCK_SESSION, session -> {
-                        assertThatThrownBy(() -> queryRunner.createPlan(session, "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'", WarningCollector.NOOP))
+                        assertThatThrownBy(() -> queryRunner.createPlan(session, "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'", EventCollector.NOOP))
                                 .isInstanceOf(TrinoException.class)
                                 // TODO report source column name instead of ColumnHandle toString
                                 .hasMessageMatching("Redirected column mock_catalog.target_schema.target_table.destination_col_a has type integer, " +
@@ -431,7 +431,7 @@ public class TestTableScanRedirectionWithPushdown
         List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
 
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, OPTIMIZED_AND_VALIDATED, EventCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             return null;
         });

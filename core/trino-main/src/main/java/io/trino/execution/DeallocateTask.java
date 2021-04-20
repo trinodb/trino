@@ -14,7 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.Deallocate;
@@ -42,7 +42,7 @@ public class DeallocateTask
             AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         String statementName = statement.getName().getValue();
         stateMachine.removePreparedStatement(statementName);

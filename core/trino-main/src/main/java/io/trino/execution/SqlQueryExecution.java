@@ -27,11 +27,11 @@ import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.events.EventCollector;
 import io.trino.execution.scheduler.ExecutionPolicy;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.SqlQueryScheduler;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.memory.VersionedMemoryPoolId;
 import io.trino.metadata.Metadata;
@@ -155,7 +155,7 @@ public class SqlQueryExecution
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             DynamicFilterService dynamicFilterService,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -183,7 +183,7 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
             // analyze query
-            this.analysis = analyze(preparedQuery, stateMachine, metadata, groupProvider, accessControl, sqlParser, queryExplainer, warningCollector);
+            this.analysis = analyze(preparedQuery, stateMachine, metadata, groupProvider, accessControl, sqlParser, queryExplainer, eventCollector);
 
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
@@ -244,7 +244,7 @@ public class SqlQueryExecution
             AccessControl accessControl,
             SqlParser sqlParser,
             QueryExplainer queryExplainer,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         stateMachine.beginAnalysis();
 
@@ -258,7 +258,7 @@ public class SqlQueryExecution
                 Optional.of(queryExplainer),
                 preparedQuery.getParameters(),
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
-                warningCollector,
+                eventCollector,
                 statsCalculator);
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
 
@@ -759,7 +759,7 @@ public class SqlQueryExecution
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 Slug slug,
-                WarningCollector warningCollector)
+                EventCollector eventCollector)
         {
             String executionPolicyName = SystemSessionProperties.getExecutionPolicy(stateMachine.getSession());
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
@@ -791,7 +791,7 @@ public class SqlQueryExecution
                     statsCalculator,
                     costCalculator,
                     dynamicFilterService,
-                    warningCollector);
+                    eventCollector);
         }
     }
 }

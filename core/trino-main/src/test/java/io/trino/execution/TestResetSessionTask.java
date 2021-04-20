@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
@@ -103,7 +103,7 @@ public class TestResetSessionTask
                 accessControl,
                 executor,
                 metadata,
-                WarningCollector.NOOP,
+                EventCollector.NOOP,
                 Optional.empty());
 
         getFutureValue(new ResetSessionTask().execute(
@@ -113,7 +113,7 @@ public class TestResetSessionTask
                 accessControl,
                 stateMachine,
                 emptyList(),
-                WarningCollector.NOOP));
+                EventCollector.NOOP));
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
         assertEquals(sessionProperties, ImmutableSet.of("catalog.baz"));

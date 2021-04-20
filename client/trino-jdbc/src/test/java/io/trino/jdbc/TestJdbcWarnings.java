@@ -17,13 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import io.trino.client.Warning;
-import io.trino.execution.warnings.WarningCollectorConfig;
+import io.trino.execution.events.EventCollectorConfig;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
-import io.trino.testing.TestingWarningCollector;
-import io.trino.testing.TestingWarningCollectorConfig;
+import io.trino.testing.TestingEventCollector;
+import io.trino.testing.TestingEventCollectorConfig;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -73,8 +73,8 @@ public class TestJdbcWarnings
     {
         server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
-                        .put("testing-warning-collector.add-warnings", "true")
-                        .put("testing-warning-collector.preloaded-warnings", String.valueOf(PRELOADED_WARNINGS))
+                        .put("testing-event-collector.add-warnings", "true")
+                        .put("testing-event-collector.preloaded-warnings", String.valueOf(PRELOADED_WARNINGS))
                         .build())
                 .build();
         server.installPlugin(new BlackHolePlugin());
@@ -128,9 +128,9 @@ public class TestJdbcWarnings
         assertFalse(statement.execute("CREATE SCHEMA blackhole.test_schema"));
         SQLWarning warning = statement.getWarnings();
         assertNotNull(warning);
-        TestingWarningCollectorConfig warningCollectorConfig = new TestingWarningCollectorConfig().setPreloadedWarnings(PRELOADED_WARNINGS);
-        TestingWarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
-        List<TrinoWarning> expectedWarnings = warningCollector.getWarnings();
+        TestingEventCollectorConfig eventCollectorConfig = new TestingEventCollectorConfig().setPreloadedWarnings(PRELOADED_WARNINGS);
+        TestingEventCollector eventCollector = new TestingEventCollector(new EventCollectorConfig(), eventCollectorConfig);
+        List<TrinoWarning> expectedWarnings = eventCollector.getWarnings();
         assertStartsWithExpectedWarnings(warning, fromTrinoWarnings(expectedWarnings));
         statement.clearWarnings();
         assertNull(statement.getWarnings());
@@ -174,9 +174,9 @@ public class TestJdbcWarnings
                 assertWarnings(statement.getWarnings(), currentWarnings);
             }
 
-            TestingWarningCollectorConfig warningCollectorConfig = new TestingWarningCollectorConfig().setPreloadedWarnings(PRELOADED_WARNINGS).setAddWarnings(true);
-            TestingWarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
-            List<TrinoWarning> expectedWarnings = warningCollector.getWarnings();
+            TestingEventCollectorConfig eventCollectorConfig = new TestingEventCollectorConfig().setPreloadedWarnings(PRELOADED_WARNINGS).setAddWarnings(true);
+            TestingEventCollector eventCollector = new TestingEventCollector(new EventCollectorConfig(), eventCollectorConfig);
+            List<TrinoWarning> expectedWarnings = eventCollector.getWarnings();
             for (TrinoWarning trinoWarning : expectedWarnings) {
                 assertTrue(currentWarnings.contains(new WarningEntry(toTrinoSqlWarning(trinoWarning))));
             }

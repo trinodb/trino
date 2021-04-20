@@ -13,6 +13,7 @@
  */
 package io.trino.spi.eventlistener;
 
+import io.trino.spi.TrinoEvent;
 import io.trino.spi.TrinoWarning;
 
 import java.time.Instant;
@@ -30,6 +31,7 @@ public class QueryCompletedEvent
     private final QueryIOMetadata ioMetadata;
     private final Optional<QueryFailureInfo> failureInfo;
     private final List<TrinoWarning> warnings;
+    private final List<TrinoEvent> events;
 
     private final Instant createTime;
     private final Instant executionStartTime;
@@ -42,6 +44,7 @@ public class QueryCompletedEvent
             QueryIOMetadata ioMetadata,
             Optional<QueryFailureInfo> failureInfo,
             List<TrinoWarning> warnings,
+            List<TrinoEvent> events,
             Instant createTime,
             Instant executionStartTime,
             Instant endTime)
@@ -52,6 +55,7 @@ public class QueryCompletedEvent
         this.ioMetadata = requireNonNull(ioMetadata, "ioMetadata is null");
         this.failureInfo = requireNonNull(failureInfo, "failureInfo is null");
         this.warnings = requireNonNull(warnings, "warnings is null");
+        this.events = requireNonNull(events, "events is null");
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.executionStartTime = requireNonNull(executionStartTime, "executionStartTime is null");
         this.endTime = requireNonNull(endTime, "endTime is null");
@@ -85,6 +89,11 @@ public class QueryCompletedEvent
     public List<TrinoWarning> getWarnings()
     {
         return warnings;
+    }
+
+    public List<TrinoEvent> getEvents()
+    {
+        return events;
     }
 
     public Instant getCreateTime()

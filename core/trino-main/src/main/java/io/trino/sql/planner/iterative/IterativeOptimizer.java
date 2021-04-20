@@ -23,7 +23,7 @@ import io.trino.cost.CostCalculator;
 import io.trino.cost.CostProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.matching.Capture;
 import io.trino.matching.Match;
 import io.trino.matching.Pattern;
@@ -80,12 +80,12 @@ public class IterativeOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, EventCollector eventCollector)
     {
         // only disable new rules if we have legacy rules to fall back to
         if (useLegacyRules.test(session) && !legacyRules.isEmpty()) {
             for (PlanOptimizer optimizer : legacyRules) {
-                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
+                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, eventCollector);
             }
 
             return plan;
@@ -95,7 +95,7 @@ public class IterativeOptimizer
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
-        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session, warningCollector);
+        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session, eventCollector);
         exploreGroup(memo.getRootGroup(), context);
 
         return memo.extract();
@@ -248,9 +248,9 @@ public class IterativeOptimizer
             }
 
             @Override
-            public WarningCollector getWarningCollector()
+            public EventCollector getEventCollector()
             {
-                return context.warningCollector;
+                return context.eventCollector;
             }
         };
     }
@@ -264,7 +264,7 @@ public class IterativeOptimizer
         private final long startTimeInNanos;
         private final long timeoutInMilliseconds;
         private final Session session;
-        private final WarningCollector warningCollector;
+        private final EventCollector eventCollector;
 
         public Context(
                 Memo memo,
@@ -274,7 +274,7 @@ public class IterativeOptimizer
                 long startTimeInNanos,
                 long timeoutInMilliseconds,
                 Session session,
-                WarningCollector warningCollector)
+                EventCollector eventCollector)
         {
             checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
 
@@ -285,7 +285,7 @@ public class IterativeOptimizer
             this.startTimeInNanos = startTimeInNanos;
             this.timeoutInMilliseconds = timeoutInMilliseconds;
             this.session = session;
-            this.warningCollector = warningCollector;
+            this.eventCollector = eventCollector;
         }
 
         public void checkTimeoutNotExhausted()

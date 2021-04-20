@@ -16,7 +16,7 @@ package io.trino.sql.planner.sanity;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -69,9 +69,9 @@ public final class PlanSanityChecker
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
-        checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, typeOperators, typeAnalyzer, types, warningCollector));
+        checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, typeOperators, typeAnalyzer, types, eventCollector));
     }
 
     public void validateIntermediatePlan(PlanNode planNode,
@@ -80,9 +80,9 @@ public final class PlanSanityChecker
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
-        checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, typeOperators, typeAnalyzer, types, warningCollector));
+        checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, typeOperators, typeAnalyzer, types, eventCollector));
     }
 
     public interface Checker
@@ -93,7 +93,7 @@ public final class PlanSanityChecker
                 TypeOperators typeOperators,
                 TypeAnalyzer typeAnalyzer,
                 TypeProvider types,
-                WarningCollector warningCollector);
+                EventCollector eventCollector);
     }
 
     private enum Stage

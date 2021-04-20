@@ -14,7 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
@@ -67,7 +67,7 @@ public class PrepareTask
             AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         Statement statement = prepare.getStatement();
         if ((statement instanceof Prepare) || (statement instanceof Execute) || (statement instanceof Deallocate)) {

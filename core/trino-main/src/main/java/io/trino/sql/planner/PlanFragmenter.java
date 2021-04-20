@@ -20,8 +20,8 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryManagerConfig;
+import io.trino.execution.events.EventCollector;
 import io.trino.execution.scheduler.BucketNodeMap;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties.TablePartitioning;
@@ -103,7 +103,7 @@ public class PlanFragmenter
         this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
     }
 
-    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, WarningCollector warningCollector)
+    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, EventCollector eventCollector)
     {
         Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes(), plan.getStatsAndCosts());
 
@@ -120,12 +120,12 @@ public class PlanFragmenter
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
         // TODO: Remove query_max_stage_count session property and use queryManagerConfig.getMaxStageCount() here
-        sanityCheckFragmentedPlan(subPlan, warningCollector, getQueryMaxStageCount(session), config.getStageCountWarningThreshold());
+        sanityCheckFragmentedPlan(subPlan, eventCollector, getQueryMaxStageCount(session), config.getStageCountWarningThreshold());
 
         return subPlan;
     }
 
-    private void sanityCheckFragmentedPlan(SubPlan subPlan, WarningCollector warningCollector, int maxStageCount, int stageCountSoftLimit)
+    private void sanityCheckFragmentedPlan(SubPlan subPlan, EventCollector eventCollector, int maxStageCount, int stageCountSoftLimit)
     {
         subPlan.sanityCheck();
         int fragmentCount = subPlan.getAllFragments().size();
@@ -137,7 +137,7 @@ public class PlanFragmenter
                     TOO_MANY_STAGES_MESSAGE));
         }
         if (fragmentCount > stageCountSoftLimit) {
-            warningCollector.add(new TrinoWarning(TOO_MANY_STAGES, format(
+            eventCollector.add(new TrinoWarning(TOO_MANY_STAGES, format(
                     "Number of stages in the query (%s) exceeds the soft limit (%s). %s",
                     fragmentCount,
                     stageCountSoftLimit,

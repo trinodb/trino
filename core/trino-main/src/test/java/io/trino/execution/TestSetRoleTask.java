@@ -15,7 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
@@ -120,9 +120,9 @@ public class TestSetRoleTask
                 accessControl,
                 executor,
                 metadata,
-                WarningCollector.NOOP,
+                EventCollector.NOOP,
                 Optional.empty());
-        new SetRoleTask().execute(setRole, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        new SetRoleTask().execute(setRole, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of(), EventCollector.NOOP);
         return stateMachine;
     }
 }

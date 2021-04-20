@@ -20,8 +20,9 @@ import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.TrinoEvent;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -101,7 +102,8 @@ public class TestApplyTableScanRedirection
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A));
                     })
                     .withSession(MOCK_SESSION)
-                    .doesNotFire();
+                    .doesNotFire()
+                    .doesNotProduceEvents();
         }
     }
 
@@ -159,7 +161,7 @@ public class TestApplyTableScanRedirection
 
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(MOCK_SESSION, session -> {
-                        assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP))
+                        assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", EventCollector.NOOP))
                                 .isInstanceOf(TrinoException.class)
                                 // TODO report source column name instead of ColumnHandle toString
                                 .hasMessageMatching("Redirected column mock_catalog.target_schema.target_table.destination_col_c has type bigint, " +
@@ -191,7 +193,9 @@ public class TestApplyTableScanRedirection
                             tableScan(
                                     equalTo(new MockConnectorTableHandle(DESTINATION_TABLE)),
                                     TupleDomain.all(),
-                                    ImmutableMap.of("DEST_COL", equalTo(DESTINATION_COLUMN_HANDLE_A))));
+                                    ImmutableMap.of("DEST_COL", equalTo(DESTINATION_COLUMN_HANDLE_A))))
+                    .producesEvents(
+                            new TrinoEvent("Table scan on 'mock_catalog.test_schema.test_table' redirected to 'mock_catalog.target_schema.target_table'"));
         }
     }
 

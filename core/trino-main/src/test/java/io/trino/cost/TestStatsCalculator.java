@@ -14,7 +14,7 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
@@ -65,7 +65,7 @@ public class TestStatsCalculator
     private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage, EventCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             return null;
         });

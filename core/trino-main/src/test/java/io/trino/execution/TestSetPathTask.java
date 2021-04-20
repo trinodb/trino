@@ -14,7 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
@@ -102,7 +102,7 @@ public class TestSetPathTask
                 accessControl,
                 executor,
                 metadata,
-                WarningCollector.NOOP,
+                EventCollector.NOOP,
                 Optional.empty());
     }
 
@@ -115,6 +115,6 @@ public class TestSetPathTask
                 accessControl,
                 stateMachine,
                 emptyList(),
-                WarningCollector.NOOP));
+                EventCollector.NOOP));
     }
 }

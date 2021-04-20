@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.OutputNode;
@@ -63,7 +63,7 @@ final class MetricComparator
     private static List<OptionalDouble> getEstimatedValuesInternal(List<Metric> metrics, String query, QueryRunner runner, Session session)
     // TODO inline back this method
     {
-        Plan queryPlan = runner.createPlan(session, query, WarningCollector.NOOP);
+        Plan queryPlan = runner.createPlan(session, query, EventCollector.NOOP);
         OutputNode outputNode = (OutputNode) queryPlan.getRoot();
         PlanNodeStatsEstimate outputNodeStats = queryPlan.getStatsAndCosts().getStats().getOrDefault(queryPlan.getRoot().getId(), PlanNodeStatsEstimate.unknown());
         StatsContext statsContext = buildStatsContext(queryPlan, outputNode);

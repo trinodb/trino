@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -138,7 +138,7 @@ public class TestCallTask
                         accessControl,
                         stateMachine(transactionManager, metadata, accessControl),
                         ImmutableList.of(),
-                        WarningCollector.NOOP);
+                        EventCollector.NOOP);
     }
 
     private TransactionManager createTransactionManager()
@@ -168,7 +168,7 @@ public class TestCallTask
                 accessControl,
                 executor,
                 metadata,
-                WarningCollector.NOOP,
+                EventCollector.NOOP,
                 Optional.empty());
     }
 

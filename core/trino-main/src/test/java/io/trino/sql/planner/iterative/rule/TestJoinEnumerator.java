@@ -23,7 +23,7 @@ import io.trino.cost.CostComparator;
 import io.trino.cost.CostProvider;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.StatsProvider;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -167,9 +167,9 @@ public class TestJoinEnumerator
             public void checkTimeoutNotExhausted() {}
 
             @Override
-            public WarningCollector getWarningCollector()
+            public EventCollector getEventCollector()
             {
-                return WarningCollector.NOOP;
+                return EventCollector.NOOP;
             }
         };
     }

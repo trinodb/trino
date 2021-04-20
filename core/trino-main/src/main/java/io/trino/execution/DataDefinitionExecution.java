@@ -21,7 +21,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.memory.VersionedMemoryPoolId;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
@@ -59,7 +59,7 @@ public class DataDefinitionExecution<T extends Statement>
     private final AccessControl accessControl;
     private final QueryStateMachine stateMachine;
     private final List<Expression> parameters;
-    private final WarningCollector warningCollector;
+    private final EventCollector eventCollector;
 
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
@@ -70,7 +70,7 @@ public class DataDefinitionExecution<T extends Statement>
             AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         this.task = requireNonNull(task, "task is null");
         this.statement = requireNonNull(statement, "statement is null");
@@ -80,7 +80,7 @@ public class DataDefinitionExecution<T extends Statement>
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.parameters = parameters;
-        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.eventCollector = requireNonNull(eventCollector, "eventCollector is null");
     }
 
     @Override
@@ -167,7 +167,7 @@ public class DataDefinitionExecution<T extends Statement>
                 return;
             }
 
-            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters, warningCollector);
+            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters, eventCollector);
             Futures.addCallback(future, new FutureCallback<Object>()
             {
                 @Override
@@ -310,9 +310,9 @@ public class DataDefinitionExecution<T extends Statement>
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 Slug slug,
-                WarningCollector warningCollector)
+                EventCollector eventCollector)
         {
-            return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug, warningCollector);
+            return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug, eventCollector);
         }
 
         private <T extends Statement> DataDefinitionExecution<T> createDataDefinitionExecution(
@@ -320,14 +320,14 @@ public class DataDefinitionExecution<T extends Statement>
                 List<Expression> parameters,
                 QueryStateMachine stateMachine,
                 Slug slug,
-                WarningCollector warningCollector)
+                EventCollector eventCollector)
         {
             @SuppressWarnings("unchecked")
             DataDefinitionTask<T> task = (DataDefinitionTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
             stateMachine.setUpdateType(task.getName());
-            return new DataDefinitionExecution<>(task, statement, slug, transactionManager, metadata, accessControl, stateMachine, parameters, warningCollector);
+            return new DataDefinitionExecution<>(task, statement, slug, transactionManager, metadata, accessControl, stateMachine, parameters, eventCollector);
         }
     }
 }

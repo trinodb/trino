@@ -15,8 +15,9 @@ package io.trino.testing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.execution.warnings.WarningCollectorConfig;
+import io.trino.execution.events.EventCollector;
+import io.trino.execution.events.EventCollectorConfig;
+import io.trino.spi.TrinoEvent;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 
@@ -24,25 +25,31 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class TestingWarningCollector
-        implements WarningCollector
+public class TestingEventCollector
+        implements EventCollector
 {
     @GuardedBy("this")
     private final Map<WarningCode, TrinoWarning> warnings = new LinkedHashMap<>();
-    private final WarningCollectorConfig config;
+
+    @GuardedBy("this")
+    private final Set<TrinoEvent> events = new LinkedHashSet<>();
+
+    private final EventCollectorConfig config;
 
     private final boolean addWarnings;
     private final AtomicInteger warningCode = new AtomicInteger();
 
-    public TestingWarningCollector(WarningCollectorConfig config, TestingWarningCollectorConfig testConfig)
+    public TestingEventCollector(EventCollectorConfig config, TestingEventCollectorConfig testConfig)
     {
         this.config = requireNonNull(config, "config is null");
         requireNonNull(testConfig, "testConfig is null");
@@ -70,6 +77,21 @@ public class TestingWarningCollector
             add(createTestWarning(warningCode.incrementAndGet()));
         }
         return ImmutableList.copyOf(warnings.values());
+    }
+
+    @Override
+    public void add(TrinoEvent event)
+    {
+        requireNonNull(events, "event is null");
+        if (events.size() < config.getMaxEvents()) {
+            events.add(event);
+        }
+    }
+
+    @Override
+    public List<TrinoEvent> getEvents()
+    {
+        return ImmutableList.copyOf(events);
     }
 
     @VisibleForTesting

@@ -15,7 +15,7 @@ package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList.Builder;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.TypeOperators;
@@ -43,7 +43,7 @@ public final class AllFunctionsResolved
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         ExpressionExtractor.forEachExpression(planNode, AllFunctionsResolved::validate);
     }

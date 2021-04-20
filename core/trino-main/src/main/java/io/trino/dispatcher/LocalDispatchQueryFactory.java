@@ -24,8 +24,8 @@ import io.trino.execution.QueryExecution.QueryExecutionFactory;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.QueryStateMachine;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.execution.warnings.WarningCollectorFactory;
+import io.trino.execution.events.EventCollector;
+import io.trino.execution.events.EventCollectorFactory;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.server.protocol.Slug;
@@ -57,7 +57,7 @@ public class LocalDispatchQueryFactory
     private final ClusterSizeMonitor clusterSizeMonitor;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
-    private final WarningCollectorFactory warningCollectorFactory;
+    private final EventCollectorFactory eventCollectorFactory;
     private final ListeningExecutorService executor;
 
     @Inject
@@ -69,7 +69,7 @@ public class LocalDispatchQueryFactory
             QueryMonitor queryMonitor,
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
-            WarningCollectorFactory warningCollectorFactory,
+            EventCollectorFactory eventCollectorFactory,
             ClusterSizeMonitor clusterSizeMonitor,
             DispatchExecutor dispatchExecutor)
     {
@@ -80,7 +80,7 @@ public class LocalDispatchQueryFactory
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
-        this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
+        this.eventCollectorFactory = requireNonNull(eventCollectorFactory, "eventCollectorFactory is null");
 
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
 
@@ -95,7 +95,7 @@ public class LocalDispatchQueryFactory
             Slug slug,
             ResourceGroupId resourceGroup)
     {
-        WarningCollector warningCollector = warningCollectorFactory.create();
+        EventCollector eventCollector = eventCollectorFactory.create();
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 query,
                 preparedQuery.getPrepareSql(),
@@ -107,7 +107,7 @@ public class LocalDispatchQueryFactory
                 accessControl,
                 executor,
                 metadata,
-                warningCollector,
+                eventCollector,
                 StatementUtils.getQueryType(preparedQuery.getStatement().getClass()));
 
         // It is important that `queryCreatedEvent` is called here. Moving it past the `executor.submit` below
@@ -126,7 +126,7 @@ public class LocalDispatchQueryFactory
             }
 
             try {
-                return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, warningCollector);
+                return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, eventCollector);
             }
             catch (Throwable e) {
                 stateMachine.transitionToFailed(e);

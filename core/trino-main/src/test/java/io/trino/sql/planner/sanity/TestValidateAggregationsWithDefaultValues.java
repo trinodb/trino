@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.connector.CatalogName;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
@@ -200,7 +200,7 @@ public class TestValidateAggregationsWithDefaultValues
                     typeOperators,
                     new TypeAnalyzer(new SqlParser(), metadata),
                     TypeProvider.empty(),
-                    WarningCollector.NOOP);
+                    EventCollector.NOOP);
             return null;
         });
     }

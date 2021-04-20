@@ -14,7 +14,7 @@
 package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -42,7 +42,7 @@ public class TestVerifyOnlyOneOutputNode
                                         idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()),
                                 Assignments.of()
                         ), ImmutableList.of(), ImmutableList.of());
-        new VerifyOnlyOneOutputNode().validate(root, null, null, typeOperators, null, null, WarningCollector.NOOP);
+        new VerifyOnlyOneOutputNode().validate(root, null, null, typeOperators, null, null, EventCollector.NOOP);
     }
 
     @Test(expectedExceptions = IllegalStateException.class)
@@ -62,6 +62,6 @@ public class TestVerifyOnlyOneOutputNode
                                 ImmutableList.of(),
                                 false),
                         ImmutableList.of(), ImmutableList.of());
-        new VerifyOnlyOneOutputNode().validate(root, null, null, typeOperators, null, null, WarningCollector.NOOP);
+        new VerifyOnlyOneOutputNode().validate(root, null, null, typeOperators, null, null, EventCollector.NOOP);
     }
 }

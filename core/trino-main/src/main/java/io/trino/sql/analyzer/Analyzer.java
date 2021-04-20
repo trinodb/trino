@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
@@ -51,7 +51,7 @@ public class Analyzer
     private final Optional<QueryExplainer> queryExplainer;
     private final List<Expression> parameters;
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
-    private final WarningCollector warningCollector;
+    private final EventCollector eventCollector;
     private final StatsCalculator statsCalculator;
 
     public Analyzer(
@@ -63,7 +63,7 @@ public class Analyzer
             Optional<QueryExplainer> queryExplainer,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             StatsCalculator statsCalculator)
     {
         this.session = requireNonNull(session, "session is null");
@@ -74,7 +74,7 @@ public class Analyzer
         this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
         this.parameters = parameters;
         this.parameterLookup = parameterLookup;
-        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.eventCollector = requireNonNull(eventCollector, "eventCollector is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
     }
 
@@ -85,9 +85,9 @@ public class Analyzer
 
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator);
+        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, groupProvider, accessControl, eventCollector, statsCalculator);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, eventCollector, CorrelationSupport.ALLOWED);
         analyzer.analyze(rewrittenStatement, Optional.empty());
 
         // check column access permissions for each table
