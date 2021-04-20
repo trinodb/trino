@@ -49,12 +49,6 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
-import static io.trino.plugin.oracle.OracleDataTypes.MAX_CHAR_ON_READ;
-import static io.trino.plugin.oracle.OracleDataTypes.MAX_CHAR_ON_WRITE;
-import static io.trino.plugin.oracle.OracleDataTypes.MAX_NCHAR;
-import static io.trino.plugin.oracle.OracleDataTypes.MAX_NVARCHAR2;
-import static io.trino.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_READ;
-import static io.trino.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_WRITE;
 import static io.trino.plugin.oracle.OracleDataTypes.dateDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.trinoTimestampWithTimeZoneDataType;
@@ -80,6 +74,15 @@ import static java.time.ZoneOffset.UTC;
 public abstract class AbstractTestOracleTypeMapping
         extends AbstractTestQueryFramework
 {
+    protected static final int MAX_CHAR_ON_READ = 2000;
+    protected static final int MAX_CHAR_ON_WRITE = 500;
+
+    protected static final int MAX_VARCHAR2_ON_READ = 4000;
+    protected static final int MAX_VARCHAR2_ON_WRITE = 1000;
+
+    protected static final int MAX_NCHAR = 1000;
+    protected static final int MAX_NVARCHAR2 = 2000;
+
     private static final String NO_SUPPORTED_COLUMNS = "Table '.*' has no supported columns \\(all \\d+ columns are not supported\\)";
 
     private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
