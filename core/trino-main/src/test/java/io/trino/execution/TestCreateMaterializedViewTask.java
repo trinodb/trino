@@ -30,6 +30,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TableSchema;
+import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
@@ -41,6 +42,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.security.AccessDeniedException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -50,6 +52,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingGroupProvider;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
@@ -75,11 +78,15 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -180,6 +187,27 @@ public class TestCreateMaterializedViewTask
                 .hasMessage("Catalog 'catalog' does not support materialized view property 'baz'");
 
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 0);
+    }
+
+    @Test
+    public void testCreateDenyPermission()
+    {
+        CreateMaterializedView statement = new CreateMaterializedView(
+                Optional.empty(),
+                QualifiedName.of("test_mv"),
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("catalog", "schema", "mock_table"))),
+                false,
+                true,
+                ImmutableList.of(),
+                Optional.empty());
+        TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, emptyEventListenerManager());
+        accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        accessControl.deny(privilege("test_mv", CREATE_MATERIALIZED_VIEW));
+
+        assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(parser, new TestingGroupProvider(), statsCalculator)
+                .execute(statement, transactionManager, metadata, accessControl, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Cannot create materialized view catalog.schema.test_mv");
     }
 
     private QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl)

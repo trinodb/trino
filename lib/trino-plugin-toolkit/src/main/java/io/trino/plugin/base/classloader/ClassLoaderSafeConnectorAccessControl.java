@@ -284,6 +284,14 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.checkCanCreateMaterializedView(context, materializedViewName);
+        }
+    }
+
+    @Override
     public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

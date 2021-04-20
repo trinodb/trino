@@ -29,6 +29,7 @@ import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyCreateView;
@@ -491,6 +492,16 @@ public interface SystemAccessControl
     default void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         denyCreateViewWithSelect(table.toString(), context.getIdentity());
+    }
+
+    /**
+     * Check if identity is allowed to create the specified materialized view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        denyCreateMaterializedView(materializedView.toString());
     }
 
     /**
