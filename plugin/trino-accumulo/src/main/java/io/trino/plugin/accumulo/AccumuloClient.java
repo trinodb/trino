@@ -472,7 +472,7 @@ public class AccumuloClient
     public void renameTable(SchemaTableName oldName, SchemaTableName newName)
     {
         if (!oldName.getSchemaName().equals(newName.getSchemaName())) {
-            throw new TrinoException(NOT_SUPPORTED, "Accumulo does not support renaming tables to different namespaces (schemas)");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
         AccumuloTable oldTable = getTable(oldName);
