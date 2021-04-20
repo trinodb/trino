@@ -64,6 +64,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -125,7 +126,7 @@ public class ShowStatsRewrite
 
             Query query = getRelation(node);
             QuerySpecification specification = (QuerySpecification) query.getQueryBody();
-            Plan plan = queryExplainer.get().getLogicalPlan(session, query(specification), parameters, warningCollector);
+            Plan plan = queryExplainer.get().getLogicalPlan(disablePartialAggregation(session), query(specification), parameters, warningCollector);
             CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, plan.getTypes());
             PlanNodeStatsEstimate stats = cachingStatsProvider.getStats(plan.getRoot());
             return rewriteShowStats(plan, stats);
@@ -183,6 +184,15 @@ public class ShowStatsRewrite
         protected Node visitNode(Node node, Void context)
         {
             return node;
+        }
+
+        private static Session disablePartialAggregation(Session session)
+        {
+            // Disabling prefer_partial_aggregation allows estimates
+            // to be propagated through the aggregate node.
+            return Session.builderFromTransaction(session)
+                    .setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false")
+                    .build();
         }
 
         private static List<String> buildColumnsNames()

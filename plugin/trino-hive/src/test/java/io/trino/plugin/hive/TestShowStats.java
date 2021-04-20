@@ -337,12 +337,11 @@ public class TestShowStats
     @Test
     public void testShowStatsWithGroupBy()
     {
-        // TODO calculate row count - https://github.com/trinodb/trino/issues/6323
         assertQuery(
                 "SHOW STATS FOR (SELECT avg(totalprice) AS x FROM orders GROUP BY orderkey)",
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   (null, null, null, null, 15000.0, null, null)");
     }
 
     @Test
@@ -352,32 +351,30 @@ public class TestShowStats
                 "SHOW STATS FOR (SELECT count(nationkey) AS x FROM nation_partitioned GROUP BY regionkey HAVING regionkey > 0)",
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   (null, null, null, null, 4.0, null, null)");
     }
 
     @Test
     public void testShowStatsWithSelectDistinct()
     {
-        // TODO calculate row count - https://github.com/trinodb/trino/issues/6323
         assertQuery(
                 "SHOW STATS FOR (SELECT DISTINCT * FROM orders)",
                 "VALUES " +
-                        "   ('orderkey', null, null, null, null, null, null), " +
-                        "   ('custkey', null, null, null, null, null, null), " +
-                        "   ('orderstatus', null, null, null, null, null, null), " +
-                        "   ('totalprice', null, null, null, null, null, null), " +
-                        "   ('orderdate', null, null, null, null, null, null), " +
-                        "   ('orderpriority', null, null, null, null, null, null), " +
-                        "   ('clerk', null, null, null, null, null, null), " +
-                        "   ('shippriority', null, null, null, null, null, null), " +
-                        "   ('comment', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
-        // TODO calculate row count - https://github.com/trinodb/trino/issues/6323
+                        "   ('orderkey', null, 15000.0, 0.0, null, '1', '60000'), " +
+                        "   ('custkey',  null, 990.0, 0.0, null, '1', '1499'), " +
+                        "   ('orderstatus', 15000.0, 3.0, 0.0, null, null, null), " +
+                        "   ('totalprice', null, 15000.0, 0.0, null, '874.89', '466001.28'), " +
+                        "   ('orderdate', null, 2406.0, 0.0, null, '1992-01-01', '1998-08-02'), " +
+                        "   ('orderpriority', 126188.0, 5.0, 0.0, null, null, null), " +
+                        "   ('clerk', 225000.0, 995.0, 0.0, null, null, null), " +
+                        "   ('shippriority', null, 1.0, 0.0, null, '0', '0'), " +
+                        "   ('comment', 727364.0, 15000.0, 0.0, null, null, null), " +
+                        "   (null, null, null, null, 15000.0, null, null)");
         assertQuery(
                 "SHOW STATS FOR (SELECT DISTINCT regionkey FROM region)",
                 "VALUES " +
-                        "   ('regionkey', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
+                        "   (null, null, null, null, 5.0, null, null)");
     }
 
     @Test
@@ -388,12 +385,11 @@ public class TestShowStats
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
                         "   (null, null, null, null, 15000, null, null)");
-        // TODO - row count should be 1 - https://github.com/trinodb/trino/issues/6323
         assertQuery(
                 "SHOW STATS FOR (SELECT count(*) AS x FROM orders)",
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   (null, null, null, null, 1.0, null, null)");
     }
 
     @Test

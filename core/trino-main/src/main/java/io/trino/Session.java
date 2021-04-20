@@ -529,7 +529,12 @@ public final class Session
     @VisibleForTesting
     public static SessionBuilder builder(Session session)
     {
-        return new SessionBuilder(session);
+        return new SessionBuilder(session, false);
+    }
+
+    public static SessionBuilder builderFromTransaction(Session session)
+    {
+        return new SessionBuilder(session, true);
     }
 
     public SecurityContext toSecurityContext()
@@ -568,10 +573,17 @@ public final class Session
             this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         }
 
-        private SessionBuilder(Session session)
+        private SessionBuilder(Session session, boolean copyTransactionId)
         {
             requireNonNull(session, "session is null");
-            checkArgument(session.getTransactionId().isEmpty(), "Session builder cannot be created from a session in a transaction");
+
+            if (copyTransactionId) {
+                this.transactionId = session.getRequiredTransactionId();
+            }
+            else {
+                checkArgument(session.getTransactionId().isEmpty(), "Session builder cannot be created from a session in a transaction");
+            }
+
             this.sessionPropertyManager = session.sessionPropertyManager;
             this.queryId = session.queryId;
             this.transactionId = session.transactionId.orElse(null);
