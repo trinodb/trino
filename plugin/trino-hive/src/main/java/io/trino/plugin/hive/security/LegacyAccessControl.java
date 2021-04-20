@@ -253,6 +253,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+    }
+
+    @Override
     public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
     }

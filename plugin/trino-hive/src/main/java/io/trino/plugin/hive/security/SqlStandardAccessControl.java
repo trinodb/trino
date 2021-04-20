@@ -55,6 +55,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyCreateTable;
@@ -346,6 +347,14 @@ public class SqlStandardAccessControl
         // TODO implement column level access control
         if (!checkTablePermission(context, tableName, SELECT, true)) {
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+        }
+    }
+
+    @Override
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        if (!isDatabaseOwner(context, materializedViewName.getSchemaName())) {
+            denyCreateMaterializedView(materializedViewName.toString());
         }
     }
 

@@ -224,6 +224,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
+    {
+    }
+
+    @Override
     public void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
     {
     }

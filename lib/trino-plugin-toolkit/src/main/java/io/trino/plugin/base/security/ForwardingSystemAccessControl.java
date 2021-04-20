@@ -297,6 +297,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        delegate().checkCanCreateMaterializedView(context, materializedView);
+    }
+
+    @Override
     public void checkCanDropMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
         delegate().checkCanDropMaterializedView(context, materializedView);

@@ -43,6 +43,7 @@ import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyCreateTable;
@@ -392,6 +393,15 @@ public class FileBasedAccessControl
         }
         if (!rule.getPrivileges().contains(GRANT_SELECT)) {
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+        }
+    }
+
+    @Override
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        // check if user will be an owner of the view after creation
+        if (!checkTablePermission(context, materializedViewName, OWNERSHIP)) {
+            denyCreateMaterializedView(materializedViewName.toString());
         }
     }
 

@@ -647,14 +647,14 @@ public class TestFileBasedSystemAccessControl
                     SecurityContext nonAsciiContext = new SecurityContext(transactionId, nonAsciiUser, queryId);
 
                     // User alice is allowed access to alice-catalog
-                    accessControlManager.checkCanCreateView(aliceContext, aliceMaterializedView);
+                    accessControlManager.checkCanCreateMaterializedView(aliceContext, aliceMaterializedView);
                     accessControlManager.checkCanDropMaterializedView(aliceContext, aliceMaterializedView);
 
                     // User alice is part of staff group which is allowed access to staff-catalog
-                    accessControlManager.checkCanCreateView(aliceContext, staffMaterializedView);
+                    accessControlManager.checkCanCreateMaterializedView(aliceContext, staffMaterializedView);
                     accessControlManager.checkCanDropMaterializedView(aliceContext, staffMaterializedView);
 
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateView(bobContext, aliceMaterializedView))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateMaterializedView(bobContext, aliceMaterializedView))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
                     assertThatThrownBy(() -> accessControlManager.checkCanDropMaterializedView(bobContext, aliceMaterializedView))
@@ -662,10 +662,10 @@ public class TestFileBasedSystemAccessControl
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
 
                     // User bob is part of staff group which is allowed access to staff-catalog
-                    accessControlManager.checkCanCreateView(bobContext, staffMaterializedView);
+                    accessControlManager.checkCanCreateMaterializedView(bobContext, staffMaterializedView);
                     accessControlManager.checkCanDropMaterializedView(bobContext, staffMaterializedView);
 
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateView(nonAsciiContext, aliceMaterializedView))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateMaterializedView(nonAsciiContext, aliceMaterializedView))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
                     assertThatThrownBy(() -> accessControlManager.checkCanDropMaterializedView(nonAsciiContext, aliceMaterializedView))
@@ -688,9 +688,9 @@ public class TestFileBasedSystemAccessControl
                 });
 
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId), aliceMaterializedView);
+            accessControlManager.checkCanCreateMaterializedView(new SecurityContext(transactionId, alice, queryId), aliceMaterializedView);
         })).isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot create view alice-catalog.schema.materialized-view");
+                .hasMessage("Access Denied: Cannot create materialized view alice-catalog.schema.materialized-view");
 
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
             accessControlManager.checkCanDropMaterializedView(new SecurityContext(transactionId, alice, queryId), aliceMaterializedView);
@@ -698,7 +698,7 @@ public class TestFileBasedSystemAccessControl
                 .hasMessage("Access Denied: Cannot drop materialized view alice-catalog.schema.materialized-view");
 
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateView(new SecurityContext(transactionId, bob, queryId), aliceMaterializedView);
+            accessControlManager.checkCanCreateMaterializedView(new SecurityContext(transactionId, bob, queryId), aliceMaterializedView);
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot access catalog alice-catalog");
     }
