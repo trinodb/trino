@@ -312,6 +312,9 @@ public class SapHanaClient
     {
         return implementJoinCostAware(
                 session,
+                joinType,
+                leftSource,
+                rightSource,
                 statistics,
                 () -> super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
     }
