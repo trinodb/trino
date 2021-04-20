@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch.client;
 
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -22,18 +23,25 @@ import static org.testng.Assert.assertEquals;
 
 public class TestExtractAddress
 {
-    @Test
-    public void test()
+    @Test(dataProvider = "extractAddressValues")
+    public void test(String nodeAddress, String address)
     {
-        assertEquals(extractAddress("node/1.2.3.4:9200"), Optional.of("node:9200"));
-        assertEquals(extractAddress("1.2.3.4:9200"), Optional.of("1.2.3.4:9200"));
-        assertEquals(extractAddress("node/1.2.3.4:9200"), Optional.of("node:9200"));
-        assertEquals(extractAddress("node/[fe80::1]:9200"), Optional.of("node:9200"));
-        assertEquals(extractAddress("[fe80::1]:9200"), Optional.of("[fe80::1]:9200"));
+        assertEquals(extractAddress(nodeAddress), Optional.ofNullable(address));
+    }
 
-        assertEquals(extractAddress(""), Optional.empty());
-        assertEquals(extractAddress("node/1.2.3.4"), Optional.empty());
-        assertEquals(extractAddress("node/1.2.3.4:xxxx"), Optional.empty());
-        assertEquals(extractAddress("1.2.3.4:xxxx"), Optional.empty());
+    @DataProvider
+    public static Object[][] extractAddressValues()
+    {
+        return new Object[][] {
+                {"node/1.2.3.4:9200", "node:9200"},
+                {"1.2.3.4:9200", "1.2.3.4:9200"},
+                {"node/1.2.3.4:9200", "node:9200"},
+                {"node/[fe80::1]:9200", "node:9200"},
+                {"[fe80::1]:9200", "[fe80::1]:9200"},
+                {"", null},
+                {"node/1.2.3.4", null},
+                {"node/1.2.3.4:xxxx", null},
+                {"1.2.3.4:xxxx", null}
+        };
     }
 }
