@@ -279,6 +279,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
+    {
+        delegate().checkCanCreateMaterializedView(context, materializedViewName);
+    }
+
+    @Override
     public void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
     {
         delegate().checkCanDropMaterializedView(context, materializedViewName);

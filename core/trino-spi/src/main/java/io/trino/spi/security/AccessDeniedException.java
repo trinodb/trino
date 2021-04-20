@@ -388,6 +388,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot select from view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCreateMaterializedView(String materializedViewName)
+    {
+        denyCreateMaterializedView(materializedViewName, null);
+    }
+
+    public static void denyCreateMaterializedView(String materializedViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create materialized view %s%s", materializedViewName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropMaterializedView(String materializedViewName)
     {
         denyDropMaterializedView(materializedViewName, null);

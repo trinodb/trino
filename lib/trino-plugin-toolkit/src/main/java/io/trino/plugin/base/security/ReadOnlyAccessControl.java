@@ -24,6 +24,7 @@ import java.util.Set;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyCreateView;
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
@@ -180,6 +181,12 @@ public class ReadOnlyAccessControl
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         // allow
+    }
+
+    @Override
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        denyCreateMaterializedView(materializedViewName.toString());
     }
 
     @Override

@@ -698,6 +698,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanCreateMaterializedView(SecurityContext securityContext, QualifiedObjectName materializedViewName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(materializedViewName, "materializedViewName is null");
+
+        checkCanAccessCatalog(securityContext, materializedViewName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanCreateMaterializedView(securityContext.toSystemSecurityContext(), materializedViewName.asCatalogSchemaTableName()));
+
+        catalogAuthorizationCheck(materializedViewName.getCatalogName(), securityContext, (control, context) -> control.checkCanCreateMaterializedView(context, materializedViewName.asSchemaTableName()));
+    }
+
+    @Override
     public void checkCanDropMaterializedView(SecurityContext securityContext, QualifiedObjectName materializedViewName)
     {
         requireNonNull(securityContext, "securityContext is null");
