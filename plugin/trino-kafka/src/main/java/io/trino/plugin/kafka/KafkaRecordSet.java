@@ -34,6 +34,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.Headers;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -41,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
@@ -93,13 +95,9 @@ public class KafkaRecordSet
 
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
 
-        ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
-
-        for (DecoderColumnHandle handle : columnHandles) {
-            typeBuilder.add(handle.getType());
-        }
-
-        this.columnTypes = typeBuilder.build();
+        this.columnTypes = columnHandles.stream()
+                .map(KafkaColumnHandle::getType)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -158,7 +156,7 @@ public class KafkaRecordSet
                 if (kafkaConsumer.position(topicPartition) >= split.getMessagesRange().getEnd()) {
                     return false;
                 }
-                records = kafkaConsumer.poll(CONSUMER_POLL_TIMEOUT).iterator();
+                records = kafkaConsumer.poll(Duration.ofMillis(CONSUMER_POLL_TIMEOUT)).iterator();
                 return advanceNextPosition();
             }
 
