@@ -14,16 +14,19 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.spi.type.Type;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.assertions.Assert;
-import org.testng.annotations.AfterClass;
+import io.trino.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
@@ -32,6 +35,7 @@ import java.sql.Timestamp;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
@@ -60,10 +64,6 @@ import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertContainsEventually;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -72,9 +72,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
-public class TestCassandraIntegrationSmokeTest
-        // TODO extend BaseConnectorTest and merge with TestCassandraDistributedQueries
-        extends AbstractTestIntegrationSmokeTest
+public class TestCassandraConnectorTest
+        extends BaseConnectorTest
 {
     private static final String KEYSPACE = "smoke_test";
     private static final Session SESSION = createCassandraSession(KEYSPACE);
@@ -85,19 +84,131 @@ public class TestCassandraIntegrationSmokeTest
     private CassandraSession session;
 
     @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_CREATE_SCHEMA:
+                return false;
+
+            case SUPPORTS_CREATE_VIEW:
+                return false;
+
+            case SUPPORTS_RENAME_TABLE:
+                return false;
+
+            case SUPPORTS_ARRAY:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = new CassandraServer();
+        server = closeAfterClass(new CassandraServer());
         session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
-        return createCassandraQueryRunner(server, CUSTOMER, NATION, ORDERS, REGION);
+        return createCassandraQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
+    @Override
+    protected TestTable createTableWithDefaultColumns()
     {
-        server.close();
+        throw new SkipException("Cassandra connector does not support column default values");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("time")
+                || typeName.equals("timestamp")
+                || typeName.equals("decimal(5,3)")
+                || typeName.equals("decimal(15,3)")
+                || typeName.equals("char(3)")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("char(1)")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected String dataMappingTableName(String trinoTypeName)
+    {
+        return "tmp_trino_" + System.nanoTime();
+    }
+
+    @Test
+    @Override
+    public void testRenameTable()
+    {
+        assertThatThrownBy(super::testRenameTable).hasMessage("This connector does not support renaming tables");
+        throw new SkipException("This connector does not support renaming tables");
+    }
+
+    @Test
+    @Override
+    public void testAddColumn()
+    {
+        assertThatThrownBy(super::testAddColumn).hasMessage("This connector does not support adding columns");
+        throw new SkipException("This connector does not support adding columns");
+    }
+
+    @Override
+    public void testRenameColumn()
+    {
+        assertThatThrownBy(super::testRenameColumn).hasMessage("This connector does not support renaming columns");
+        throw new SkipException("This connector does not support renaming columns");
+    }
+
+    @Test
+    @Override
+    public void testDropColumn()
+    {
+        assertThatThrownBy(super::testDropColumn).hasMessage("This connector does not support dropping columns");
+        throw new SkipException("This connector does not support dropping columns");
+    }
+
+    @Test
+    @Override
+    public void testShowColumns()
+    {
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("clerk", "varchar", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar", "", "")
+                .build();
+
+        Assert.assertEquals(actual, expectedParametrizedVarchar);
     }
 
     @Test
@@ -119,6 +230,7 @@ public class TestCassandraIntegrationSmokeTest
         Assert.assertEquals(actualColumns, expectedColumns);
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -599,7 +711,7 @@ public class TestCassandraIntegrationSmokeTest
     }
 
     @Test
-    public void testInsert()
+    public void testAllTypesInsert()
     {
         String sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
                 "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
@@ -703,6 +815,7 @@ public class TestCassandraIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testDelete()
     {
         String keyspaceAndTable = format("%s.%s", KEYSPACE, TABLE_DELETE_DATA);
