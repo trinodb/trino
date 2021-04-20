@@ -35,6 +35,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
+import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
@@ -490,6 +491,16 @@ public interface SystemAccessControl
     default void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         denyCreateViewWithSelect(table.toString(), context.getIdentity());
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified materialized view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDropMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        denyDropMaterializedView(materializedView.toString());
     }
 
     /**

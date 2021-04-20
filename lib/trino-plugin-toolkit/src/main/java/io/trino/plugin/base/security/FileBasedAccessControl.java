@@ -50,6 +50,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
+import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
@@ -391,6 +392,14 @@ public class FileBasedAccessControl
         }
         if (!rule.getPrivileges().contains(GRANT_SELECT)) {
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+        }
+    }
+
+    @Override
+    public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        if (!checkTablePermission(context, materializedViewName, OWNERSHIP)) {
+            denyDropMaterializedView(materializedViewName.toString());
         }
     }
 

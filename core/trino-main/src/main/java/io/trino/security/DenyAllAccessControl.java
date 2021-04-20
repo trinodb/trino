@@ -36,6 +36,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
+import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
@@ -308,6 +309,12 @@ public class DenyAllAccessControl
     public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
         denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+    }
+
+    @Override
+    public void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
+    {
+        denyDropMaterializedView(materializedViewName.toString());
     }
 
     @Override
