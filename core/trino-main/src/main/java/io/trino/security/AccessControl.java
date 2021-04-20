@@ -314,6 +314,13 @@ public interface AccessControl
     void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames);
 
     /**
+     * Check if identity is allowed to drop the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
+
+    /**
      * Check if identity is allowed to create a view that executes the function.
      *
      * @throws AccessDeniedException if not allowed

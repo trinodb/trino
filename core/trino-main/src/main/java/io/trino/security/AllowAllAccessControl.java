@@ -224,6 +224,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
+    {
+    }
+
+    @Override
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
     {
     }

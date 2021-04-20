@@ -70,6 +70,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
+import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
@@ -724,6 +725,14 @@ public class FileBasedSystemAccessControl
         }
         if (!rule.getPrivileges().contains(GRANT_SELECT)) {
             denyCreateViewWithSelect(table.toString(), context.getIdentity());
+        }
+    }
+
+    @Override
+    public void checkCanDropMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        if (!checkTablePermission(context, materializedView, OWNERSHIP)) {
+            denyDropMaterializedView(materializedView.toString());
         }
     }
 

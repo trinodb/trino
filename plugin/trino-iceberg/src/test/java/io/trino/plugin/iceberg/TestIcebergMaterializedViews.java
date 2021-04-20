@@ -26,6 +26,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertFalse;
 import static io.trino.testing.assertions.Assert.assertTrue;
@@ -91,6 +93,17 @@ public class TestIcebergMaterializedViews
     {
         assertThat(computeActual("SELECT * FROM system.metadata.materialized_view_properties WHERE catalog_name = 'iceberg'"))
                 .contains(new MaterializedRow(DEFAULT_PRECISION, "iceberg", "partitioning", "[]", "array(varchar)", "Partition transforms"));
+    }
+
+    @Test
+    public void testDropDenyPermission()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_drop_deny AS SELECT * FROM base_table1");
+        assertAccessDenied(
+                "DROP MATERIALIZED VIEW materialized_view_drop_deny",
+                "Cannot drop materialized view .*.materialized_view_drop_deny.*",
+                privilege("materialized_view_drop_deny", DROP_MATERIALIZED_VIEW));
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_drop_deny");
     }
 
     @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892

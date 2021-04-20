@@ -698,6 +698,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanDropMaterializedView(SecurityContext securityContext, QualifiedObjectName materializedViewName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(materializedViewName, "materializedViewName is null");
+
+        checkCanAccessCatalog(securityContext, materializedViewName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanDropMaterializedView(securityContext.toSystemSecurityContext(), materializedViewName.asCatalogSchemaTableName()));
+
+        catalogAuthorizationCheck(materializedViewName.getCatalogName(), securityContext, (control, context) -> control.checkCanDropMaterializedView(context, materializedViewName.asSchemaTableName()));
+    }
+
+    @Override
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext securityContext, String functionName, Identity grantee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");
