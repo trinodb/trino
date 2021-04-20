@@ -32,27 +32,9 @@ public class ConnectorMaterializedViewDefinition
     private final Optional<String> schema;
     private final List<Column> columns;
     private final Optional<String> comment;
-    private final Optional<String> owner;
+    private final String owner;
     private final Map<String, Object> properties;
 
-    public ConnectorMaterializedViewDefinition(
-            @JsonProperty("originalSql") String originalSql,
-            @JsonProperty("storageTable") Optional<CatalogSchemaTableName> storageTable,
-            @JsonProperty("catalog") Optional<String> catalog,
-            @JsonProperty("schema") Optional<String> schema,
-            @JsonProperty("columns") List<Column> columns,
-            @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("owner") String owner,
-            @JsonProperty("properties") Map<String, Object> properties)
-    {
-        this(originalSql, storageTable, catalog, schema, columns, comment, Optional.of(owner), properties);
-    }
-
-    /*
-     * This constructor is for JSON deserialization only. Do not use.
-     */
-    // TODO: Simplify this constructor and getters: https://github.com/trinodb/trino/issues/7537
-    @Deprecated
     @JsonCreator
     public ConnectorMaterializedViewDefinition(
             @JsonProperty("originalSql") String originalSql,
@@ -61,7 +43,7 @@ public class ConnectorMaterializedViewDefinition
             @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("columns") List<Column> columns,
             @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("owner") Optional<String> owner,
+            @JsonProperty("owner") String owner,
             @JsonProperty("properties") Map<String, Object> properties)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
@@ -122,7 +104,7 @@ public class ConnectorMaterializedViewDefinition
     }
 
     @JsonProperty
-    public Optional<String> getOwner()
+    public String getOwner()
     {
         return owner;
     }
@@ -148,7 +130,7 @@ public class ConnectorMaterializedViewDefinition
         schema.ifPresent(value -> joiner.add("schema=" + value));
         joiner.add("columns=" + columns);
         comment.ifPresent(value -> joiner.add("comment=" + value));
-        owner.ifPresent(value -> joiner.add("owner=" + value));
+        joiner.add("owner=" + owner);
         joiner.add("properties=" + properties);
         return getClass().getSimpleName() + joiner.toString();
     }

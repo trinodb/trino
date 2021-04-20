@@ -1450,7 +1450,6 @@ class StatementAnalyzer
 
         private Scope createScopeForMaterializedView(Table table, QualifiedObjectName name, Optional<Scope> scope, ConnectorMaterializedViewDefinition view)
         {
-            checkArgument(view.getOwner().isPresent(), "owner must be present");
             return createScopeForView(
                     table,
                     name,
@@ -1458,7 +1457,7 @@ class StatementAnalyzer
                     view.getOriginalSql(),
                     view.getCatalog(),
                     view.getSchema(),
-                    view.getOwner(),
+                    Optional.of(view.getOwner()),
                     translateMaterializedViewColumns(view.getColumns()));
         }
 
