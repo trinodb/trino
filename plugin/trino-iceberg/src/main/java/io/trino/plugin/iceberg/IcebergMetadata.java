@@ -94,6 +94,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -103,6 +104,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -152,7 +154,6 @@ import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
@@ -371,11 +372,16 @@ public class IcebergMetadata
         List<SchemaTableName> tablesList = schemaName.map(Collections::singletonList)
                 .orElseGet(metastore::getAllDatabases)
                 .stream()
-                .flatMap(schema -> metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE).stream()
-                        .map(table -> new SchemaTableName(schema, table))
-                        .collect(toList())
-                        .stream())
-                .collect(toList());
+                .flatMap(schema -> Stream.concat(
+                        // Get tables with parameter table_type set to  "ICEBERG" or "iceberg". This is required because
+                        // Trino uses lowercase value whereas Spark and Flink use uppercase.
+                        // TODO: use one metastore call to pass both the filters: https://github.com/trinodb/trino/issues/7710
+                        metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toLowerCase(Locale.ENGLISH)).stream()
+                                .map(table -> new SchemaTableName(schema, table)),
+                        metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(Locale.ENGLISH)).stream()
+                                .map(table -> new SchemaTableName(schema, table)))
+                        .distinct())  // distinct() to avoid duplicates for case-insensitive HMS backends
+                .collect(toImmutableList());
 
         schemaName.map(Collections::singletonList)
                 .orElseGet(metastore::getAllDatabases).stream()
