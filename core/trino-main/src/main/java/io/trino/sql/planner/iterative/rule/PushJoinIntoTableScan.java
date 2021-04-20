@@ -206,13 +206,13 @@ public class PushJoinIntoTableScan
             @Override
             public Optional<BasicRelationStatistics> getLeftStatistics()
             {
-                return getBasicRelationStats(left, join.getLeftOutputSymbols(), context);
+                return getBasicRelationStats(left, left.getOutputSymbols(), context);
             }
 
             @Override
             public Optional<BasicRelationStatistics> getRightStatistics()
             {
-                return getBasicRelationStats(right, join.getRightOutputSymbols(), context);
+                return getBasicRelationStats(right, right.getOutputSymbols(), context);
             }
 
             @Override
