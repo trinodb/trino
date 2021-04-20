@@ -25,6 +25,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.setCodePointAt;
@@ -118,6 +119,20 @@ public final class CharacterStringCasts
 
         verify(codePoints.getInt(codePoints.size() - 1) != ' '); // no trailing spaces to trim
 
+        return codePointsToSliceUtf8(codePoints);
+    }
+
+    @ScalarOperator(OperatorType.SATURATED_FLOOR_CAST)
+    @SqlType("varchar(y)")
+    @LiteralParameters({"x", "y"})
+    public static Slice varcharToVarcharSaturatedFloorCast(@LiteralParameter("y") long y, @SqlType("varchar(x)") Slice slice)
+    {
+        if (countCodePoints(slice) <= y) {
+            return slice;
+        }
+
+        IntList codePoints = toCodePoints(slice);
+        codePoints.size(toIntExact(y));
         return codePointsToSliceUtf8(codePoints);
     }
 
