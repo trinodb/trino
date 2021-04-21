@@ -22,6 +22,7 @@ import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.SkipException;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -37,6 +38,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 
 public class TestStarburstRemoteTableStatisticsWithPostgreSql
@@ -61,7 +63,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
                         "connection-user", postgreSqlServer.getUser(),
                         "connection-password", postgreSqlServer.getPassword(),
                         "case-insensitive-name-matching", "true"),
-                ImmutableList.of(ORDERS, NATION),
+                ImmutableList.of(ORDERS, NATION, REGION),
                 Optional.empty()));
         remoteSession = testSessionBuilder()
                 .setCatalog("postgresql")
@@ -74,6 +76,13 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
                         "connection-url", starburstRemoteConnectionUrl(remoteStarburst, "postgresql"),
                         "allow-drop-table", "true",
                         "case-insensitive-name-matching", "true"));
+    }
+
+    @BeforeClass
+    public void setUp()
+    {
+        gatherStats("orders");
+        gatherStats("nation");
     }
 
     @Test(invocationCount = 10, successPercentage = 50) // PostgreSQL can auto-analyze data before we SHOW STATS
@@ -383,8 +392,6 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
     @Test
     public void testShowStatsWithWhere()
     {
-        gatherStats("nation");
-
         assertLocalAndRemoteStatistics(
                 "SHOW STATS FOR nation",
                 "VALUES " +
@@ -403,6 +410,66 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
                         "('regionkey', null, 5.0, 0.0, null, null, null), " +
                         "('comment', 1875.0, 25.0, 0.0, null, null, null), " +
                         "(null, null, null, null, 25.0, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithCount()
+    {
+        // TODO: Fix expected values after https://starburstdata.atlassian.net/browse/SEP-5938
+        assertQuery(
+                "SHOW STATS FOR (SELECT COUNT(*) AS x FROM orders)",
+                "VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithGroupBy()
+    {
+        // TODO: Fix expected values after https://starburstdata.atlassian.net/browse/SEP-5938
+        assertQuery(
+                "SHOW STATS FOR (SELECT avg(totalprice) AS x FROM orders GROUP BY orderkey)",
+                "VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithFilterGroupBy()
+    {
+        // TODO: Fix expected values after https://starburstdata.atlassian.net/browse/SEP-5938
+        assertQuery(
+                "SHOW STATS FOR (SELECT count(nationkey) AS x FROM nation WHERE regionkey > 0 GROUP BY regionkey)",
+                "VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithSelectDistinct()
+    {
+        // TODO: Fix expected values after https://starburstdata.atlassian.net/browse/SEP-5938
+        assertQuery(
+                "SHOW STATS FOR (SELECT DISTINCT * FROM orders)",
+                "VALUES " +
+                        "   ('orderkey', null, null, null, null, null, null), " +
+                        "   ('custkey', null, null, null, null, null, null), " +
+                        "   ('orderstatus', null, null, null, null, null, null), " +
+                        "   ('totalprice', null, null, null, null, null, null), " +
+                        "   ('orderdate', null, null, null, null, null, null), " +
+                        "   ('orderpriority', null, null, null, null, null, null), " +
+                        "   ('clerk', null, null, null, null, null, null), " +
+                        "   ('shippriority', null, null, null, null, null, null), " +
+                        "   ('comment', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
+
+        gatherStats("region");
+
+        assertQuery(
+                "SHOW STATS FOR (SELECT DISTINCT regionkey FROM region)",
+                "VALUES " +
+                        "   ('regionkey', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
     }
 
     private void assertLocalAndRemoteStatistics(String showStatsQuery, String expectedValues)
