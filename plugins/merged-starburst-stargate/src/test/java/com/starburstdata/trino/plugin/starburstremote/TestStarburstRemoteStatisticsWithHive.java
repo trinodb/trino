@@ -19,6 +19,7 @@ import io.trino.testing.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -36,6 +37,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 
@@ -56,7 +58,7 @@ public class TestStarburstRemoteStatisticsWithHive
         remoteStarburst = closeAfterClass(createStarburstRemoteQueryRunnerWithHive(
                 tempDir,
                 Map.of(),
-                ImmutableList.of(ORDERS, NATION),
+                ImmutableList.of(ORDERS, NATION, REGION),
                 Optional.empty()));
         remoteSession = testSessionBuilder()
                 .setCatalog("hive")
@@ -68,6 +70,13 @@ public class TestStarburstRemoteStatisticsWithHive
                 Map.of(
                         "connection-url", starburstRemoteConnectionUrl(remoteStarburst, "hive"),
                         "allow-drop-table", "true"));
+    }
+
+    @BeforeClass
+    public void setUp()
+    {
+        executeInRemoteStarburst("CREATE TABLE nation_partitioned(nationkey BIGINT, name VARCHAR, comment VARCHAR, regionkey BIGINT) WITH (partitioned_by = ARRAY['regionkey'])");
+        executeInRemoteStarburst("INSERT INTO nation_partitioned SELECT nationkey, name, comment, regionkey FROM tpch.tiny.nation");
     }
 
     @Test
@@ -397,6 +406,74 @@ public class TestStarburstRemoteStatisticsWithHive
                         "('regionkey', null, 1.0, 0.0, null, 1, 1), " +
                         "('comment', 371.4, 5.0, 0.0, null, null, null), " +
                         "(null, null, null, null, 5.0, null, null)");
+
+        assertLocalAndRemoteStatistics(
+                "SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey = 1)",
+                "VALUES " +
+                        "('nationkey', null, 5.0, 0.0, null, 1, 24), " +
+                        "('name', 38, 5.0, 0.0, null, null, null), " +
+                        "('regionkey', null, 1.0, 0.0, null, 1, 1), " +
+                        "('comment', 500, 5.0, 0.0, null, null, null), " +
+                        "(null, null, null, null, 5.0, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithCount()
+    {
+        assertQuery(
+                "SHOW STATS FOR (SELECT COUNT(*) AS x FROM orders)",
+                "VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, 1, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithGroupBy()
+    {
+        assertQuery(
+                "SHOW STATS FOR (SELECT avg(totalprice) AS x FROM orders GROUP BY orderkey)",
+                "VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, 15000.0, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithFilterGroupBy()
+    {
+        assertQuery(
+                "SHOW STATS FOR (SELECT count(nationkey) AS x FROM nation_partitioned WHERE regionkey > 0 GROUP BY regionkey)",
+                "VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, 4.0, null, null)");
+
+        assertQuery(
+                "SHOW STATS FOR (SELECT count(nationkey) AS x FROM nation WHERE regionkey > 0 GROUP BY regionkey)",
+                "VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, 5.0, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithSelectDistinct()
+    {
+        assertQuery(
+                "SHOW STATS FOR (SELECT DISTINCT * FROM orders)",
+                "VALUES " +
+                        "   ('orderkey', null, 15000.0, 0.0, null, '1', '60000'), " +
+                        "   ('custkey',  null, 990.0, 0.0, null, '1', '1499'), " +
+                        "   ('orderstatus', 15000.0, 3.0, 0.0, null, null, null), " +
+                        "   ('totalprice', null, 15000.0, 0.0, null, '874.89', '466001.28'), " +
+                        "   ('orderdate', null, 2406.0, 0.0, null, '1992-01-01', '1998-08-02'), " +
+                        "   ('orderpriority', 126188.0, 5.0, 0.0, null, null, null), " +
+                        "   ('clerk', 225000.0, 995.0, 0.0, null, null, null), " +
+                        "   ('shippriority', null, 1.0, 0.0, null, '0', '0'), " +
+                        "   ('comment', 727364.0, 15000.0, 0.0, null, null, null), " +
+                        "   (null, null, null, null, 15000.0, null, null)");
+        assertQuery(
+                "SHOW STATS FOR (SELECT DISTINCT regionkey FROM region)",
+                "VALUES " +
+                        "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
+                        "   (null, null, null, null, 5.0, null, null)");
     }
 
     private void assertLocalAndRemoteStatistics(String showStatsQuery, String expectedValues)

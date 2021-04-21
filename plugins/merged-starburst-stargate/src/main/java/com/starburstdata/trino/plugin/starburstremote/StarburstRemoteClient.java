@@ -19,6 +19,7 @@ import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.jdbc.TrinoConnection;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -657,16 +658,11 @@ public class StarburstRemoteClient
     private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
-        if (!table.isNamedRelation()) {
-            // TODO(https://starburstdata.atlassian.net/browse/SEP-4856) retrieve statistics for base table and derive statistics for the aggregation
-            return TableStatistics.empty();
-        }
-
         List<JdbcColumnHandle> jdbcColumnHandles = getColumns(session, table);
         Map<String, JdbcColumnHandle> columnHandles = jdbcColumnHandles.stream()
                 .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
 
-        try (Connection connection = connectionFactory.openConnection(session);
+        try (Connection connection = configureConnectionForShowStats(connectionFactory.openConnection(session));
                 PreparedStatement statement = getShowStatsStatement(session, connection, table, jdbcColumnHandles);
                 ResultSet resultSet = statement.executeQuery()) {
             TableStatistics.Builder tableStatisticsBuilder = TableStatistics.builder();
@@ -703,6 +699,21 @@ public class StarburstRemoteClient
             }
 
             return tableStatisticsBuilder.build();
+        }
+    }
+
+    private static Connection configureConnectionForShowStats(Connection connection) throws SQLException
+    {
+        try {
+            TrinoConnection remoteConnection = connection.unwrap(TrinoConnection.class);
+            // Disabling prefer_partial_aggregation allows estimates
+            // to be propagated through the aggregate node.
+            remoteConnection.setSessionProperty("prefer_partial_aggregation", "false");
+            return connection;
+        }
+        catch (SQLException e) {
+            connection.close();
+            throw e;
         }
     }
 
