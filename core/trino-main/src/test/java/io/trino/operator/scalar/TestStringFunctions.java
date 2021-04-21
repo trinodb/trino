@@ -1077,19 +1077,19 @@ public class TestStringFunctions
     @Test
     public void testSoundex()
     {
-        assertFunction("soundex('jim')", VARCHAR, "J500");
-        assertFunction("soundex('jIM')", VARCHAR, "J500");
-        assertFunction("soundex('JIM')", VARCHAR, "J500");
-        assertFunction("soundex('Jim')", VARCHAR, "J500");
-        assertFunction("soundex('John')", VARCHAR, "J500");
-        assertFunction("soundex('johannes')", VARCHAR, "J520");
-        assertFunction("soundex('Sarah')", VARCHAR, "S600");
-        assertFunction("soundex(null)", VARCHAR, null);
-        assertFunction("soundex('')", VARCHAR, "");
-        assertFunction("soundex('123')", VARCHAR, "");
-        assertFunction("soundex('\uD83D\uDE80')", VARCHAR, "");
-        assertFunction("soundex('j~im')", VARCHAR, "J500");
+        assertFunction("soundex('jim')", createVarcharType(4), "J500");
+        assertFunction("soundex('jIM')", createVarcharType(4), "J500");
+        assertFunction("soundex('JIM')", createVarcharType(4), "J500");
+        assertFunction("soundex('Jim')", createVarcharType(4), "J500");
+        assertFunction("soundex('John')", createVarcharType(4), "J500");
+        assertFunction("soundex('johannes')", createVarcharType(4), "J520");
+        assertFunction("soundex('Sarah')", createVarcharType(4), "S600");
+        assertFunction("soundex(null)", createVarcharType(4), null);
+        assertFunction("soundex('')", createVarcharType(4), "");
+        assertFunction("soundex('123')", createVarcharType(4), "");
+        assertFunction("soundex('\uD83D\uDE80')", createVarcharType(4), "");
+        assertFunction("soundex('j~im')", createVarcharType(4), "J500");
         assertInvalidFunction("soundex('jąmes')", "The character is not mapped: Ą (index=195)");
-        assertFunction("soundex('x123')", VARCHAR, "X000");
+        assertFunction("soundex('x123')", createVarcharType(4), "X000");
     }
 }
