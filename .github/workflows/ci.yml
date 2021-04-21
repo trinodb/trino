@@ -245,7 +245,7 @@ jobs:
           - ":trino-oracle"
           - ":trino-kudu"
           - ":trino-iceberg,:trino-druid"
-          # TODO (https://github.com/trinodb/trino/issues/7534) - ":trino-phoenix,:trino-phoenix5"
+          - ":trino-phoenix,:trino-phoenix5"
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
