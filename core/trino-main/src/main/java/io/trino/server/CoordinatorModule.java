@@ -74,6 +74,7 @@ import io.trino.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import io.trino.metadata.CatalogManager;
 import io.trino.operator.ForScheduler;
 import io.trino.server.protocol.ExecutingStatementResource;
+import io.trino.server.protocol.QueryInfoUrlFactory;
 import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
@@ -136,6 +137,7 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
+        binder.bind(QueryInfoUrlFactory.class).in(Scopes.SINGLETON);
 
         // allow large prepared statements in headers
         configBinder(binder).bindConfigDefaults(HttpServerConfig.class, config -> {

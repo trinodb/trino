@@ -16,6 +16,10 @@ package io.trino.server;
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 
+import javax.validation.constraints.NotNull;
+
+import java.util.Optional;
+
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ServerConfig
@@ -24,6 +28,7 @@ public class ServerConfig
     private boolean includeExceptionInResponse = true;
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean queryResultsCompressionEnabled = true;
+    private Optional<String> queryInfoUrlTemplate = Optional.empty();
 
     public boolean isCoordinator()
     {
@@ -70,6 +75,19 @@ public class ServerConfig
     public ServerConfig setQueryResultsCompressionEnabled(boolean queryResultsCompressionEnabled)
     {
         this.queryResultsCompressionEnabled = queryResultsCompressionEnabled;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getQueryInfoUrlTemplate()
+    {
+        return queryInfoUrlTemplate;
+    }
+
+    @Config("query.info-url-template")
+    public ServerConfig setQueryInfoUrlTemplate(String queryInfoUrlTemplate)
+    {
+        this.queryInfoUrlTemplate = Optional.ofNullable(queryInfoUrlTemplate);
         return this;
     }
 }
