@@ -14,7 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.DataProvider;
@@ -33,9 +33,25 @@ import static org.testng.Assert.assertTrue;
 @Test
 public class TestBigQueryIntegrationSmokeTest
         // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     private BigQuerySqlExecutor bigQuerySqlExecutor;
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_CREATE_TABLE:
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_DELETE:
+            case SUPPORTS_CANCELLATION:
+            case SUPPORTS_JOIN_PUSHDOWN:
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
