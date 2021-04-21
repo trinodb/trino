@@ -66,4 +66,10 @@ public class TestSnowflakeDynamicFiltering
     {
         return true;
     }
+
+    @Override
+    protected boolean isJoinPushdownEnabledByDefault()
+    {
+        return false;
+    }
 }
