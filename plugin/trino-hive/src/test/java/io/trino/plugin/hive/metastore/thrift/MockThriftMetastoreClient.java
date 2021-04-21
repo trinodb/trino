@@ -485,7 +485,7 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public String get_config_value(String name, String defaultValue)
+    public String getConfigValue(String name, String defaultValue)
     {
         throw new UnsupportedOperationException();
     }

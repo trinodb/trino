@@ -1760,7 +1760,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getConfigValueFromServer", () -> {
                         try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            return Optional.ofNullable(metastoreClient.get_config_value(name, null));
+                            return Optional.ofNullable(metastoreClient.getConfigValue(name, null));
                         }
                     });
         }
