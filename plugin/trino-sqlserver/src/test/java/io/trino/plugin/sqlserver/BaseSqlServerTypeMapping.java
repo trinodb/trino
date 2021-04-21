@@ -176,8 +176,6 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("char(32)", "CAST('攻殻機動隊' AS char(32))", createCharType(32), "CAST('攻殻機動隊' AS char(32))")
                 .addRoundTrip("char(20)", "CAST('😂' AS char(20))", createCharType(20), "CAST('😂' AS char(20))")
                 .addRoundTrip("char(77)", "CAST('Ну, погоди!' AS char(77))", createCharType(77), "CAST('Ну, погоди!' AS char(77))")
-                // testing mapping char > 4000 -> varchar(max)
-                .addRoundTrip("char(4001)", "'text_c'", createUnboundedVarcharType(), "CAST('text_c' AS varchar)")
                 .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_char"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
     }
