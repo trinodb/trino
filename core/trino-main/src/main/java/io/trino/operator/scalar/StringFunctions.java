@@ -962,7 +962,7 @@ public final class StringFunctions
     public static Slice soundex(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         try {
-            return utf8Slice(new Soundex().encode(slice.toStringUtf8()));
+            return utf8Slice(Soundex.US_ENGLISH.encode(slice.toStringUtf8()));
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
