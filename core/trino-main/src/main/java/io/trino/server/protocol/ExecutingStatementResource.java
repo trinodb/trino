@@ -86,6 +86,7 @@ public class ExecutingStatementResource
     private final QueryManager queryManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
     private final BlockEncodingSerde blockEncodingSerde;
+    private final QueryInfoUrlFactory queryInfoUrlFactory;
     private final BoundedExecutor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
@@ -98,6 +99,7 @@ public class ExecutingStatementResource
             QueryManager queryManager,
             ExchangeClientSupplier exchangeClientSupplier,
             BlockEncodingSerde blockEncodingSerde,
+            QueryInfoUrlFactory queryInfoUrlTemplate,
             @ForStatementResource BoundedExecutor responseExecutor,
             @ForStatementResource ScheduledExecutorService timeoutExecutor,
             ServerConfig serverConfig)
@@ -105,6 +107,7 @@ public class ExecutingStatementResource
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.queryInfoUrlFactory = requireNonNull(queryInfoUrlTemplate, "queryInfoUrlTemplate is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
@@ -185,6 +188,7 @@ public class ExecutingStatementResource
                     session,
                     querySlug,
                     queryManager,
+                    queryInfoUrlFactory.getQueryInfoUrl(queryId),
                     exchangeClient,
                     responseExecutor,
                     timeoutExecutor,
