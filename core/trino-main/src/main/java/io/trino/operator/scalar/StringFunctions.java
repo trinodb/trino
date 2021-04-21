@@ -958,7 +958,7 @@ public final class StringFunctions
 
     @Description("Encodes a string into a Soundex value")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType("varchar(4)")
     public static Slice soundex(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         try {
