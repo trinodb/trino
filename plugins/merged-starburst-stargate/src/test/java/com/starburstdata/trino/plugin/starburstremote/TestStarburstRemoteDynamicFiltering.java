@@ -52,6 +52,12 @@ public class TestStarburstRemoteDynamicFiltering
     }
 
     @Override
+    protected boolean isJoinPushdownEnabledByDefault()
+    {
+        return true;
+    }
+
+    @Override
     public void testDynamicFilteringDomainCompactionThreshold()
     {
         assertThatThrownBy(super::testDynamicFilteringDomainCompactionThreshold)

@@ -48,4 +48,10 @@ public class TestStarburstRemoteDynamicFilteringWritesEnabled
         // TODO https://starburstdata.atlassian.net/browse/SEP-4769 revisit in parallel Starburst Remote connector
         return false;
     }
+
+    @Override
+    protected boolean isJoinPushdownEnabledByDefault()
+    {
+        return true;
+    }
 }
