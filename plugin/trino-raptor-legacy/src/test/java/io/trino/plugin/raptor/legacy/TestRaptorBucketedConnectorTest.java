@@ -24,7 +24,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestRaptorBucketedConnectorTest
         extends TestRaptorConnectorTest
 {
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception

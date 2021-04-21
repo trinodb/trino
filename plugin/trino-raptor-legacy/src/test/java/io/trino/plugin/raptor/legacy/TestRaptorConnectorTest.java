@@ -18,26 +18,26 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.SetMultimap;
 import io.trino.spi.type.ArrayType;
-import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
 import org.testng.SkipException;
+import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.stream.IntStream;
-import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -63,7 +63,6 @@ import static org.testng.Assert.assertNotNull;
 public class TestRaptorConnectorTest
         extends BaseConnectorTest
 {
-
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -833,6 +832,4 @@ public class TestRaptorConnectorTest
         }
         return Optional.of(dataMappingTestSetup);
     }
-
 }
-
