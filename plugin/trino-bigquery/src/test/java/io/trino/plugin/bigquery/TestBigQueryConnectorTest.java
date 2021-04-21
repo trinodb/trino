@@ -31,7 +31,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test
-public class TestBigQueryConnectorTest
+public class TestBigQueryIntegrationSmokeTest
         // TODO extend BaseConnectorTest
         extends BaseConnectorTest
 {
