@@ -36,4 +36,10 @@ public class TestOracleDynamicFiltering
     {
         return false; // Dynamic filters do not allow Oracle to eliminate splits
     }
+
+    @Override
+    protected boolean isJoinPushdownEnabledByDefault()
+    {
+        return true;
+    }
 }
