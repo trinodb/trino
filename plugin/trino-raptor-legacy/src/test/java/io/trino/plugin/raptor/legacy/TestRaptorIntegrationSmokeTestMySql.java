@@ -31,7 +31,7 @@ import static java.lang.String.format;
 
 @Test
 public class TestRaptorIntegrationSmokeTestMySql
-        extends TestRaptorIntegrationSmokeTest
+        extends BaseRaptorConnectorTest
 {
     private MySQLContainer<?> mysqlContainer;
 
