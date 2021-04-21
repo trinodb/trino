@@ -39,4 +39,10 @@ public class TestSapHanaDynamicFiltering
     {
         return false;
     }
+
+    @Override
+    protected boolean isJoinPushdownEnabledByDefault()
+    {
+        return true;
+    }
 }
