@@ -171,6 +171,11 @@ Name                                                         Description
 ``externalAuthentication``                                   Use a local web browser to authenticate with an identity provider (IdP)
                                                              that has been configured for the Trino coordinator.
                                                              See :doc:`/security/oauth2` for more details.
+``externalAuthenticationTokenCache``                         Allows the sharing of external authentication tokens between different
+                                                             connections for the same authenticated user until the cache is
+                                                             invalidated, such as when a client is restarted or when the classloader
+                                                             reloads the JDBC driver. This is disabled by default, with a value of
+                                                             ``NONE``. To enable, set the value to ``MEMORY``.
 ``disableCompression``                                       Whether compression should be enabled.
 ``assumeLiteralNamesInMetadataCallsForNonConformingClients`` When enabled, the name patterns passed to ``DatabaseMetaData`` methods
                                                              are treated as literals. You can use this as a workaround for
