@@ -347,9 +347,18 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-checkstyle-plugin</artifactId>
-                    <configuration>
-                        <excludes>**/org/apache/hadoop/fs/azure/*</excludes>
-                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>checkstyle</id>
+                            <phase>validate</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                            <configuration>
+                                <suppressionsLocation>conf/checkstyle-suppressions.xml</suppressionsLocation>
+                            </configuration>
+                        </execution>
+                    </executions>
                 </plugin>
                 <plugin>
                     <groupId>org.basepom.maven</groupId>
