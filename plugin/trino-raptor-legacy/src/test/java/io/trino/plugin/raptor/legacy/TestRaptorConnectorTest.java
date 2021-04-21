@@ -60,7 +60,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 
-public class BaseRaptorConnectorTest
+public class TestRaptorConnectorTest
         extends BaseConnectorTest
 {
 
