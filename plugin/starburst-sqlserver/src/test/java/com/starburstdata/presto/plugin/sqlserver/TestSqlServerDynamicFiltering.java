@@ -46,4 +46,10 @@ public class TestSqlServerDynamicFiltering
         // JDBC connectors always generate single split
         return false;
     }
+
+    @Override
+    protected boolean isJoinPushdownEnabledByDefault()
+    {
+        return true;
+    }
 }
