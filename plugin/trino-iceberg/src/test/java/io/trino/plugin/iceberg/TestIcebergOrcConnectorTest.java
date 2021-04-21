@@ -15,10 +15,10 @@ package io.trino.plugin.iceberg;
 
 import static org.apache.iceberg.FileFormat.ORC;
 
-public class TestIcebergOrcSmoke
-        extends AbstractTestIcebergSmoke
+public class TestIcebergOrcConnectorTest
+        extends BaseTestIcebergConnectorTest
 {
-    public TestIcebergOrcSmoke()
+    public TestIcebergOrcConnectorTest()
     {
         super(ORC);
     }
