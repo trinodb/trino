@@ -50,6 +50,8 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 
 public abstract class BaseSqlServerTypeMapping
@@ -346,6 +348,22 @@ public abstract class BaseSqlServerTypeMapping
             testsSqlServer.execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_date"));
             testsTrino.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
             testsTrino.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
+        }
+    }
+
+    @Test
+    public void testSqlServerDateUnsupported()
+    {
+        // SQL Server does not support > 4 digit years, this test will fail once > 4 digit years support will be added
+        String unsupportedDate = "\'11111-01-01\'";
+        String tableName = "test_date_unsupported" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (test_date date)", tableName));
+        try {
+            assertQueryFails(format("INSERT INTO %s VALUES (date %s)", tableName, unsupportedDate),
+                    "Failed to insert data: Conversion failed when converting date and/or time from character string.");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
         }
     }
 
