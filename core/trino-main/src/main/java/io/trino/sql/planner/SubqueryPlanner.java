@@ -104,27 +104,27 @@ class SubqueryPlanner
         this.recursiveSubqueries = recursiveSubqueries;
     }
 
-    public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node)
+    public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Analysis.SubqueryAnalysis subqueries)
     {
         for (Expression expression : expressions) {
-            builder = handleSubqueries(builder, expression, node);
+            builder = handleSubqueries(builder, expression, subqueries);
         }
         return builder;
     }
 
-    public PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node)
+    public PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Analysis.SubqueryAnalysis subqueries)
     {
-        for (Cluster<InPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, analysis.getInPredicateSubqueries(node)))) {
-            builder = planInPredicate(builder, cluster, node);
+        for (Cluster<InPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getInPredicatesSubqueries()))) {
+            builder = planInPredicate(builder, cluster, subqueries);
         }
-        for (Cluster<SubqueryExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, analysis.getScalarSubqueries(node)))) {
+        for (Cluster<SubqueryExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getScalarSubqueries()))) {
             builder = planScalarSubquery(builder, cluster);
         }
-        for (Cluster<ExistsPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, analysis.getExistsSubqueries(node)))) {
+        for (Cluster<ExistsPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getExistsSubqueries()))) {
             builder = planExists(builder, cluster);
         }
-        for (Cluster<QuantifiedComparisonExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, analysis.getQuantifiedComparisonSubqueries(node)))) {
-            builder = planQuantifiedComparison(builder, cluster, node);
+        for (Cluster<QuantifiedComparisonExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getQuantifiedComparisonSubqueries()))) {
+            builder = planQuantifiedComparison(builder, cluster, subqueries);
         }
 
         return builder;
@@ -172,7 +172,7 @@ class SubqueryPlanner
                 .collect(toImmutableList());
     }
 
-    private PlanBuilder planInPredicate(PlanBuilder subPlan, Cluster<InPredicate> cluster, Node node)
+    private PlanBuilder planInPredicate(PlanBuilder subPlan, Cluster<InPredicate> cluster, Analysis.SubqueryAnalysis subqueries)
     {
         // Plan one of the predicates from the cluster
         InPredicate predicate = cluster.getRepresentative();
@@ -181,7 +181,7 @@ class SubqueryPlanner
         SubqueryExpression subquery = (SubqueryExpression) predicate.getValueList();
         Symbol output = symbolAllocator.newSymbol(predicate, BOOLEAN);
 
-        subPlan = handleSubqueries(subPlan, value, node);
+        subPlan = handleSubqueries(subPlan, value, subqueries);
         subPlan = planInPredicate(subPlan, value, subquery, output, predicate);
 
         return new PlanBuilder(
@@ -292,7 +292,7 @@ class SubqueryPlanner
                 .process(subquery, null);
     }
 
-    private PlanBuilder planQuantifiedComparison(PlanBuilder subPlan, Cluster<QuantifiedComparisonExpression> cluster, Node node)
+    private PlanBuilder planQuantifiedComparison(PlanBuilder subPlan, Cluster<QuantifiedComparisonExpression> cluster, Analysis.SubqueryAnalysis subqueries)
     {
         // Plan one of the predicates from the cluster
         QuantifiedComparisonExpression quantifiedComparison = cluster.getRepresentative();
@@ -302,7 +302,7 @@ class SubqueryPlanner
         Expression value = quantifiedComparison.getValue();
         SubqueryExpression subquery = (SubqueryExpression) quantifiedComparison.getSubquery();
 
-        subPlan = handleSubqueries(subPlan, value, node);
+        subPlan = handleSubqueries(subPlan, value, subqueries);
 
         Symbol output = symbolAllocator.newSymbol(quantifiedComparison, BOOLEAN);
 

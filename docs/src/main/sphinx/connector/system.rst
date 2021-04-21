@@ -50,6 +50,12 @@ that can be set when creating a new schema.
 The table properties table contains the list of available properties
 that can be set when creating a new table.
 
+``metadata.materialized_view_properties``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The materialized view properties table contains the list of available properties
+that can be set when creating a new materialized view.
+
 ``metadata.table_comments``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

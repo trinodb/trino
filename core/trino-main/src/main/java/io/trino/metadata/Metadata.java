@@ -607,6 +607,8 @@ public interface Metadata
 
     TablePropertyManager getTablePropertyManager();
 
+    MaterializedViewPropertyManager getMaterializedViewPropertyManager();
+
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();

@@ -16,7 +16,7 @@ package io.trino;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.jdbc.BaseTestJdbcResultSet;
-import org.testcontainers.containers.PrestoContainer;
+import org.testcontainers.containers.TrinoContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -50,7 +50,7 @@ public class TestJdbcResultSetCompatibilityOldServer
      * Empty means that we could not obtain current Trino version and tests defined here will be marked as failed.
      */
     private final Optional<String> testedTrinoVersion;
-    private PrestoContainer<?> trinoContainer;
+    private TrinoContainer trinoContainer;
 
     @Factory(dataProvider = "testedTrinoVersions")
     public TestJdbcResultSetCompatibilityOldServer(Optional<String> testedTrinoVersion)
@@ -97,11 +97,10 @@ public class TestJdbcResultSetCompatibilityOldServer
             throw new AssertionError("Could not determine current Trino version");
         }
 
-        // TODO: add TrinoContainer to Testcontainers
         DockerImageName image = DockerImageName.parse("trinodb/trino")
                 .withTag(testedTrinoVersion.get())
                 .asCompatibleSubstituteFor("prestosql/presto");
-        trinoContainer = new PrestoContainer<>(image);
+        trinoContainer = new TrinoContainer(image);
         trinoContainer.start();
 
         // verify that version reported by Trino server matches requested one.

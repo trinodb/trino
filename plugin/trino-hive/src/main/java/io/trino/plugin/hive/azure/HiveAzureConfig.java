@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.azure;
 
+import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
 
@@ -27,6 +28,7 @@ public class HiveAzureConfig
     private String adlClientId;
     private String adlCredential;
     private String adlRefreshUrl;
+    private HostAndPort adlProxyHost;
     private String abfsOAuthClientEndpoint;
     private String abfsOAuthClientId;
     private String abfsOAuthClientSecret;
@@ -120,6 +122,18 @@ public class HiveAzureConfig
     {
         this.adlRefreshUrl = adlRefreshUrl;
         return this;
+    }
+
+    @Config("hive.azure.adl-proxy-host")
+    public HiveAzureConfig setAdlProxyHost(HostAndPort adlProxyHost)
+    {
+        this.adlProxyHost = adlProxyHost;
+        return this;
+    }
+
+    public Optional<HostAndPort> getAdlProxyHost()
+    {
+        return Optional.ofNullable(adlProxyHost);
     }
 
     @ConfigSecuritySensitive
