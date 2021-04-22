@@ -371,7 +371,7 @@ Property Name                                      Description                  
                                                    will be used for staging while writing sorted tables which
                                                    can be inefficient when writing to object stores like S3.
 
-``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/${USER}``
+``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/presto-${USER}``
                                                    is used for write operations. The ``${USER}`` placeholder
                                                    can be used to use a different location for each user.
 
