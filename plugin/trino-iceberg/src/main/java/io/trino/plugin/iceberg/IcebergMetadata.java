@@ -999,7 +999,7 @@ public class IcebergMetadata
                 definition.getOriginalSql(),
                 Optional.of(storageTable),
                 definition.getCatalog(),
-                Optional.of(viewName.getSchemaName()),
+                definition.getSchema(),
                 definition.getColumns(),
                 definition.getComment(),
                 materializedView.getOwner(),
