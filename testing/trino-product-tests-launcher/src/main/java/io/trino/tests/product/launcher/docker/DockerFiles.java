@@ -15,6 +15,8 @@ package io.trino.tests.product.launcher.docker;
 
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -48,13 +50,13 @@ public final class DockerFiles
     @PreDestroy
     @Override
     public synchronized void close()
-            throws IOException
     {
         if (closed) {
             return;
         }
         if (dockerFilesHostPath != null) {
-            deleteRecursively(dockerFilesHostPath, ALLOW_INSECURE);
+            Failsafe.with(new RetryPolicy<>().withMaxAttempts(5))
+                    .run(() -> deleteRecursively(dockerFilesHostPath, ALLOW_INSECURE));
             dockerFilesHostPath = null;
         }
         closed = true;
