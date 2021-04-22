@@ -1,20 +1,7 @@
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.DataProvider;
@@ -31,11 +18,27 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test
-public class TestBigQueryIntegrationSmokeTest
+public class TestBigQueryConnectorTest
         // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     private BigQuerySqlExecutor bigQuerySqlExecutor;
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_CREATE_TABLE:
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_DELETE:
+            case SUPPORTS_CANCELLATION:
+            case SUPPORTS_JOIN_PUSHDOWN:
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
