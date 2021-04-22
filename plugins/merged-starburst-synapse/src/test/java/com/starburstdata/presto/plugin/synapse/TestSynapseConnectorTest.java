@@ -67,26 +67,19 @@ public class TestSynapseConnectorTest
     }
 
     @Test
-    @Override
-    public void testInsertUnicode()
-    {
-        // TODO(https://starburstdata.atlassian.net/browse/SEP-5085) Test varchars with unicode with data setup done by synapse
-    }
-
-    @Test
-    @Override
-    public void testSelectInformationSchemaTables()
-    {
-        // TODO(https://starburstdata.atlassian.net/browse/SEP-5089)
-        throw new SkipException("long execution");
-    }
-
-    @Test
-    @Override
+    @Override // default test execution too long due to wildcards in LIKE clause
     public void testSelectInformationSchemaColumns()
     {
-        // TODO(https://starburstdata.atlassian.net/browse/SEP-5089)
-        throw new SkipException("long execution");
+        String schema = getSession().getSchema().get();
+        assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'region'"))
+                .skippingTypesCheck()
+                .matches("VALUES 'regionkey', 'name', 'comment'");
+        assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '_egion'"))
+                .skippingTypesCheck()
+                .matches("VALUES 'regionkey', 'name', 'comment'");
+        assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%egio%'"))
+                .skippingTypesCheck()
+                .matches("VALUES 'regionkey', 'name', 'comment'");
     }
 
     @Test
