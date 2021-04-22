@@ -242,7 +242,6 @@ public class TestExternalAuthenticator
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
                 .sleepOnRedirect(Duration.ofSeconds(1));
 
-        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, (uri, duration) -> TokenPollResult.pending(uri), KnownToken.memoryCached(), Duration.ofMillis(1));
         List<Future<Request>> requests = times(
                 2,
                 () -> new ExternalAuthenticator(redirectHandler, (uri, duration) -> TokenPollResult.pending(uri), KnownToken.memoryCached(), Duration.ofMillis(1))
