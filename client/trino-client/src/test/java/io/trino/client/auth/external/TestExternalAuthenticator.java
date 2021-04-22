@@ -52,6 +52,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Test(singleThreaded = true)
 public class TestExternalAuthenticator
 {
     private static final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(TestExternalAuthenticator.class.getName() + "-%d"));
@@ -239,18 +240,19 @@ public class TestExternalAuthenticator
     public void testAuthenticationFromMultipleThreadsWithCachedTokenAfterAuthenticateTimesOut()
     {
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
-                .sleepOnRedirect(Duration.ofMillis(5));
+                .sleepOnRedirect(Duration.ofSeconds(1));
 
         ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, (uri, duration) -> TokenPollResult.pending(uri), KnownToken.memoryCached(), Duration.ofMillis(1));
         List<Future<Request>> requests = times(
-                4,
-                () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
+                2,
+                () -> new ExternalAuthenticator(redirectHandler, (uri, duration) -> TokenPollResult.pending(uri), KnownToken.memoryCached(), Duration.ofMillis(1))
+                        .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());
 
         ConcurrentRequestAssertion assertion = new ConcurrentRequestAssertion(requests);
         assertion.requests()
-                .containsExactly(null, null, null, null);
+                .containsExactly(null, null);
         assertion.assertThatNoExceptionsHasBeenThrown();
         assertThat(redirectHandler.getRedirectionCount()).isEqualTo(1);
     }
