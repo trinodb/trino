@@ -48,7 +48,7 @@ import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedRange;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.TableColumnInfo;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
@@ -58,6 +58,7 @@ import io.trino.testing.sql.TestTable;
 import io.trino.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -130,6 +131,7 @@ import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.ABOVE;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
+import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
@@ -156,6 +158,7 @@ import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.data.Offset.offset;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -164,9 +167,8 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertFile;
 
-public class TestHiveIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+public class TestHiveConnectorTest
+        extends BaseConnectorTest
 {
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS");
     private final String catalog;
@@ -196,6 +198,64 @@ public class TestHiveIntegrationSmokeTest
                 "hive",
                 ImmutableMap.of("hive.timestamp-precision", "NANOSECONDS"));
         return queryRunner;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Hive connector does not support column default values");
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return true;
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // Hive connector supports row-by-row delete only for ACID tables
+        // but these currently cannot be used with file metastore.
+    }
+
+    @Test
+    public void testExplainOfCreateTableAs()
+    {
+        String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
+        MaterializedResult result = computeActual("EXPLAIN " + query);
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, DISTRIBUTED));
+    }
+
+    @Override
+    public void testColumnName(String columnName)
+    {
+        if (columnName.equals("atrailingspace ") || columnName.equals(" aleadingspace")) {
+            // TODO (https://github.com/trinodb/trino/issues/3461)
+            assertThatThrownBy(() -> super.testColumnName(columnName))
+                    .hasMessageMatching("Table '.*' does not have columns \\[" + columnName + "]");
+            throw new SkipException("works incorrectly, column name is trimmed");
+        }
+        if (columnName.equals("a,comma")) {
+            // TODO (https://github.com/trinodb/trino/issues/3537)
+            assertThatThrownBy(() -> super.testColumnName(columnName))
+                    .hasMessageMatching("Table '.*' does not have columns \\[a,comma]");
+            throw new SkipException("works incorrectly");
+        }
+
+        super.testColumnName(columnName);
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("time")
+                || typeName.equals("timestamp(3) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 
     @Test
