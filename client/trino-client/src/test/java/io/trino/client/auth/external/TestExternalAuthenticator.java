@@ -52,6 +52,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Test(singleThreaded = true)
 public class TestExternalAuthenticator
 {
     private static final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(TestExternalAuthenticator.class.getName() + "-%d"));
@@ -191,11 +192,11 @@ public class TestExternalAuthenticator
         MockTokenPoller tokenPoller = new MockTokenPoller()
                 .withResult(URI.create("http://token.uri"), successful(new Token("valid-token")));
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
-                .sleepOnRedirect(Duration.ofMillis(10));
+                .sleepOnRedirect(Duration.ofSeconds(1));
 
         ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(), Duration.ofSeconds(1));
         List<Future<Request>> requests = times(
-                4,
+                2,
                 () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());
@@ -216,7 +217,7 @@ public class TestExternalAuthenticator
                 .withResult(URI.create("http://token.uri"), TokenPollResult.successful(new Token("first-token")))
                 .withResult(URI.create("http://token.uri"), TokenPollResult.failed("external authentication error"));
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
-                .sleepOnRedirect(Duration.ofMillis(10));
+                .sleepOnRedirect(Duration.ofMillis(500));
 
         ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(), Duration.ofSeconds(1));
         Request firstRequest = authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\""));
@@ -228,7 +229,7 @@ public class TestExternalAuthenticator
                 .collect(toImmutableList());
 
         ConcurrentRequestAssertion assertion = new ConcurrentRequestAssertion(requests);
-        assertion.requests().containsExactly(null, null, null);
+        assertion.requests().containsOnlyNulls();
         assertion.firstException().hasMessage("external authentication error")
                 .isInstanceOf(ClientException.class);
 
@@ -239,18 +240,18 @@ public class TestExternalAuthenticator
     public void testAuthenticationFromMultipleThreadsWithCachedTokenAfterAuthenticateTimesOut()
     {
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
-                .sleepOnRedirect(Duration.ofMillis(5));
+                .sleepOnRedirect(Duration.ofSeconds(1));
 
         ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, (uri, duration) -> TokenPollResult.pending(uri), KnownToken.memoryCached(), Duration.ofMillis(1));
         List<Future<Request>> requests = times(
-                4,
+                2,
                 () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());
 
         ConcurrentRequestAssertion assertion = new ConcurrentRequestAssertion(requests);
         assertion.requests()
-                .containsExactly(null, null, null, null);
+                .containsExactly(null, null);
         assertion.assertThatNoExceptionsHasBeenThrown();
         assertThat(redirectHandler.getRedirectionCount()).isEqualTo(1);
     }
@@ -352,8 +353,14 @@ public class TestExternalAuthenticator
 
         void assertThatNoExceptionsHasBeenThrown()
         {
-            assertThat(exceptions)
-                    .isEmpty();
+            if (!exceptions.isEmpty()) {
+                Throwable firstException = exceptions.get(0);
+                AssertionError assertionError = new AssertionError("Expected no exceptions, but some exceptions has been thrown", firstException);
+                for (int i = 1; i < exceptions.size(); i++) {
+                    assertionError.addSuppressed(exceptions.get(i));
+                }
+                throw assertionError;
+            }
         }
 
         ListAssert<Request> requests()
