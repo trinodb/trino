@@ -84,6 +84,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     private static final String TRINO_CLIENT_ID = "trino-client";
     private static final String TRINO_CLIENT_SECRET = "trino-secret";
     private static final String TRINO_AUDIENCE = EXPOSED_SERVER_URL + "/ui";
+    private static final String TRINO_PRINCIPAL_FIELD = "principalField";
     private static final String TRUSTED_CLIENT_ID = "trusted-client";
     private static final String TRUSTED_CLIENT_SECRET = "trusted-secret";
     private static final String UNTRUSTED_CLIENT_ID = "untrusted-client";
@@ -146,6 +147,7 @@ public class TestOAuth2WebUiAuthenticationFilter
                         .put("http-server.authentication.oauth2.jwks-url", format("https://localhost:%s/.well-known/jwks.json", hydraIdP.getHydraPort()))
                         .put("http-server.authentication.oauth2.client-id", TRINO_CLIENT_ID)
                         .put("http-server.authentication.oauth2.client-secret", TRINO_CLIENT_SECRET)
+                        .put("http-server.authentication.oauth2.principal-field", TRINO_PRINCIPAL_FIELD)
                         .put("http-server.authentication.oauth2.audience", format("https://host.testcontainers.internal:%d/ui", HTTPS_PORT))
                         .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)(@.*)?")
                         .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
@@ -207,7 +209,7 @@ public class TestOAuth2WebUiAuthenticationFilter
                                         .put("jti", UUID.randomUUID())
                                         .put("nbf", now)
                                         .put("scp", ImmutableList.of("openid"))
-                                        .put("sub", "foo@bar.com")
+                                        .put(TRINO_PRINCIPAL_FIELD, "foo@bar.com")
                                         .build()))
                 .signWith(signatureAlgorithm, keyGenerator.generateKeyPair().getPrivate())
                 .compact();
