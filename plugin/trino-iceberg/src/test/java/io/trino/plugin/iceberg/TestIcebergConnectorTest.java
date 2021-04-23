@@ -100,7 +100,7 @@ public abstract class TestIcebergConnectorTest
 
     private final FileFormat format;
 
-    protected BaseTestIcebergConnectorTest(FileFormat format)
+    protected TestIcebergConnectorTest(FileFormat format)
     {
         this.format = requireNonNull(format, "format is null");
     }
@@ -118,10 +118,19 @@ public abstract class TestIcebergConnectorTest
         throw new SkipException("Iceberg connector does not support column default values");
     }
 
+    @Test
     @Override
     public void testRenameTable()
     {
         assertQueryFails("ALTER TABLE orders RENAME TO rename_orders", "Rename not supported for Iceberg tables");
+    }
+
+    @Test
+    public void testCreateArrayTable()
+    {
+        assertUpdate("CREATE TABLE array_test AS SELECT ARRAY [1, 2, 3] AS c", 1);
+        assertQuery("SELECT cardinality(c) FROM array_test", "SELECT 3");
+        assertUpdate("DROP TABLE array_test");
     }
 
     @Test
@@ -1738,7 +1747,7 @@ public abstract class TestIcebergConnectorTest
 
         // Write altered metadata
         try (OutputStream out = fs.create(manifestFilePath);
-             DataFileWriter<GenericData.Record> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
+                DataFileWriter<GenericData.Record> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
             dataFileWriter.create(schema, out);
             dataFileWriter.append(entry);
         }
@@ -1755,4 +1764,3 @@ public abstract class TestIcebergConnectorTest
         dropTable("test_iceberg_file_size");
     }
 }
-
