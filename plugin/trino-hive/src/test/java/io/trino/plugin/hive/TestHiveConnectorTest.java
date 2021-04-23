@@ -207,12 +207,6 @@ public class TestHiveConnectorTest
     }
 
     @Override
-    protected boolean supportsCommentOnColumn()
-    {
-        return true;
-    }
-
-    @Override
     public void testDelete()
     {
         // Hive connector supports row-by-row delete only for ACID tables
@@ -227,6 +221,7 @@ public class TestHiveConnectorTest
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, DISTRIBUTED));
     }
 
+    @Test
     @Override
     public void testColumnName(String columnName)
     {
