@@ -174,7 +174,7 @@ public class TestHiveConnectorTest
     private final String catalog;
     private final Session bucketedSession;
 
-    public TestHiveIntegrationSmokeTest()
+    public TestHiveConnectorTest()
     {
         this.catalog = HIVE_CATALOG;
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
