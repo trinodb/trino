@@ -16,17 +16,29 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.transaction.TransactionId;
+import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.REFRESH_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertFalse;
@@ -124,6 +136,35 @@ public class TestIcebergMaterializedViews
                 "Cannot drop materialized view .*.materialized_view_drop_deny.*",
                 privilege("materialized_view_drop_deny", DROP_MATERIALIZED_VIEW));
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_drop_deny");
+    }
+
+    @Test
+    public void testRefreshDenyPermission()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh_deny AS SELECT * FROM base_table1");
+        assertAccessDenied(
+                "REFRESH MATERIALIZED VIEW materialized_view_refresh_deny",
+                "Cannot refresh materialized view .*.materialized_view_refresh_deny.*",
+                privilege("materialized_view_refresh_deny", REFRESH_MATERIALIZED_VIEW));
+
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_refresh_deny");
+    }
+
+    @Test
+    public void testRefreshAllowedWithRestrictedStorageTable()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh AS SELECT * FROM base_table1");
+        SchemaTableName storageTable = getStorageTable(
+            new QualifiedObjectName("iceberg", "tpch", "materialized_view_refresh"));
+
+        assertAccessAllowed(
+                "REFRESH MATERIALIZED VIEW materialized_view_refresh",
+                privilege(storageTable.getTableName(), INSERT_TABLE),
+                privilege(storageTable.getTableName(), DELETE_TABLE),
+                privilege(storageTable.getTableName(), UPDATE_TABLE),
+                privilege(storageTable.getTableName(), SELECT_COLUMN));
+
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_refresh");
     }
 
     @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
@@ -382,5 +423,16 @@ public class TestIcebergMaterializedViews
         for (MaterializedRow row : baseResult.getMaterializedRows()) {
             assertUpdate("DROP TABLE IF EXISTS " + row.getField(0).toString());
         }
+    }
+
+    private SchemaTableName getStorageTable(QualifiedObjectName materializedViewName)
+    {
+        TransactionManager transactionManager = getQueryRunner().getTransactionManager();
+        TransactionId transactionId = transactionManager.beginTransaction(false);
+        Session session = getSession().beginTransactionId(transactionId, transactionManager, getQueryRunner().getAccessControl());
+        Optional<ConnectorMaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
+                .getMaterializedView(session, materializedViewName);
+        assertThat(materializedView).isPresent();
+        return materializedView.get().getStorageTable().get().getSchemaTableName();
     }
 }
