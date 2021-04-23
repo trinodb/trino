@@ -187,6 +187,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+    }
+
+    @Override
     public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
     }

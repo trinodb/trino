@@ -265,6 +265,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanRefreshMaterializedView(securityContext, getQualifiedObjectName(materializedViewName));
+    }
+
+    @Override
     public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
         checkArgument(context == null, "context must be null");

@@ -34,6 +34,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
@@ -187,6 +188,12 @@ public class ReadOnlyAccessControl
     public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
         denyCreateMaterializedView(materializedViewName.toString());
+    }
+
+    @Override
+    public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        denyRefreshMaterializedView(materializedViewName.toString());
     }
 
     @Override

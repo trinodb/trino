@@ -276,6 +276,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanRefreshMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+    }
+
+    @Override
     public void checkCanDropMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
     }

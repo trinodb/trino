@@ -60,6 +60,7 @@ import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
@@ -402,6 +403,14 @@ public class FileBasedAccessControl
         // check if user will be an owner of the view after creation
         if (!checkTablePermission(context, materializedViewName, OWNERSHIP)) {
             denyCreateMaterializedView(materializedViewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        if (!checkTablePermission(context, materializedViewName, UPDATE)) {
+            denyRefreshMaterializedView(materializedViewName.toString());
         }
     }
 
