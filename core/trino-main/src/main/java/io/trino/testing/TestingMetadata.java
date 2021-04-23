@@ -33,6 +33,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -238,6 +239,14 @@ public class TestingMetadata
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.ofNullable(materializedViews.get(viewName));
+    }
+
+    @Override
+    public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        if (materializedViews.remove(viewName) == null) {
+            throw new MaterializedViewNotFoundException(viewName);
+        }
     }
 
     @Override
