@@ -49,6 +49,7 @@ import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivileg
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
@@ -502,6 +503,16 @@ public interface SystemAccessControl
     default void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
         denyCreateMaterializedView(materializedView.toString());
+    }
+
+    /**
+     * Check if identity is allowed to refresh the specified materialized view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanRefreshMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        denyRefreshMaterializedView(materializedView.toString());
     }
 
     /**

@@ -80,6 +80,7 @@ import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivileg
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
@@ -735,6 +736,14 @@ public class FileBasedSystemAccessControl
         // check if user will be an owner of the materialize view after creation
         if (!checkTablePermission(context, materializedView, OWNERSHIP)) {
             denyCreateMaterializedView(materializedView.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRefreshMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        if (!checkTablePermission(context, materializedView, UPDATE)) {
+            denyRefreshMaterializedView(materializedView.toString());
         }
     }
 

@@ -11,7 +11,7 @@
     },
     {
       "user": "admin",
-      "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+      "privileges": ["SELECT", "INSERT", "UPDATE", "DELETE", "OWNERSHIP"]
     },
     {
       "user": "alice",

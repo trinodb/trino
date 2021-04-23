@@ -303,6 +303,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanRefreshMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        delegate().checkCanRefreshMaterializedView(context, materializedView);
+    }
+
+    @Override
     public void checkCanDropMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
         delegate().checkCanDropMaterializedView(context, materializedView);
