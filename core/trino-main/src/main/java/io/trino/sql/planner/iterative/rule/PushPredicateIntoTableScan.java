@@ -161,6 +161,10 @@ public class PushPredicateIntoTableScan
             TypeAnalyzer typeAnalyzer,
             DomainTranslator domainTranslator)
     {
+        if (!isAllowPushdownIntoConnectors(session)) {
+            return Optional.empty();
+        }
+
         // don't include non-deterministic predicates
         Expression deterministicPredicate = filterDeterministicConjuncts(metadata, predicate);
         Expression nonDeterministicPredicate = filterNonDeterministicConjuncts(metadata, predicate);
