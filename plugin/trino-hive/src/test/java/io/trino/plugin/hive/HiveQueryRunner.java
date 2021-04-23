@@ -88,6 +88,7 @@ public final class HiveQueryRunner
     public static class Builder
             extends DistributedQueryRunner.Builder
     {
+        private boolean skipTimezoneSetup;
         private Map<String, String> hiveProperties = ImmutableMap.of();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
@@ -120,6 +121,12 @@ public final class HiveQueryRunner
             return (Builder) super.addExtraProperty(key, value);
         }
 
+        public Builder setSkipTimezoneSetup(boolean skipTimezoneSetup)
+        {
+            this.skipTimezoneSetup = skipTimezoneSetup;
+            return this;
+        }
+
         public Builder setHiveProperties(Map<String, String> hiveProperties)
         {
             this.hiveProperties = ImmutableMap.copyOf(requireNonNull(hiveProperties, "hiveProperties is null"));
@@ -148,7 +155,6 @@ public final class HiveQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
             setupLogging();
 
             DistributedQueryRunner queryRunner = super.build();
@@ -160,15 +166,15 @@ public final class HiveQueryRunner
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
                 queryRunner.installPlugin(new TestingHivePlugin(metastore, module));
 
-                Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
-                        .put("hive.rcfile.time-zone", TIME_ZONE.getID())
-                        .put("hive.parquet.time-zone", TIME_ZONE.getID())
-                        .put("hive.max-partitions-per-scan", "1000")
-                        .build();
-
-                hiveProperties = new HashMap<>(hiveProperties);
+                Map<String, String> hiveProperties = new HashMap<>();
+                if (!skipTimezoneSetup) {
+                    assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
+                    hiveProperties.put("hive.rcfile.time-zone", TIME_ZONE.getID());
+                    hiveProperties.put("hive.parquet.time-zone", TIME_ZONE.getID());
+                }
+                hiveProperties.put("hive.max-partitions-per-scan", "1000");
+                hiveProperties.put("hive.security", "sql-standard");
                 hiveProperties.putAll(this.hiveProperties);
-                hiveProperties.putIfAbsent("hive.security", "sql-standard");
 
                 Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                         .putAll(hiveProperties)
@@ -312,6 +318,7 @@ public final class HiveQueryRunner
 
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .setSkipTimezoneSetup(true)
                 .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())
                 .setBaseDataDir(baseDataDir)
