@@ -248,7 +248,7 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testPartitionFilterIncluded()
+    public void testRequiredPartitionFilter()
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
@@ -273,7 +273,7 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testPartitionFilterIncluded2()
+    public void testIsNullAsRequiredPartitionFilter()
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
