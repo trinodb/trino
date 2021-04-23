@@ -107,7 +107,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.roundRobinExchange;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
@@ -501,10 +500,19 @@ public class AddExchanges
         public PlanWithProperties visitFilter(FilterNode node, PreferredProperties preferredProperties)
         {
             if (node.getSource() instanceof TableScanNode) {
-                Optional<PlanWithProperties> plan = planTableScan((TableScanNode) node.getSource(), node.getPredicate());
-
+                Optional<PlanNode> plan = PushPredicateIntoTableScan.pushFilterIntoTableScan(
+                        (TableScanNode) node.getSource(),
+                        node.getPredicate(),
+                        true,
+                        session,
+                        types,
+                        idAllocator,
+                        metadata,
+                        typeOperators,
+                        typeAnalyzer,
+                        domainTranslator);
                 if (plan.isPresent()) {
-                    return plan.get();
+                    return new PlanWithProperties(plan.get(), derivePropertiesRecursively(plan.get()));
                 }
             }
 
@@ -514,8 +522,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableScan(TableScanNode node, PreferredProperties preferredProperties)
         {
-            return planTableScan(node, TRUE_LITERAL)
-                    .orElseGet(() -> new PlanWithProperties(node, deriveProperties(node, ImmutableList.of())));
+            return new PlanWithProperties(node, deriveProperties(node, ImmutableList.of()));
         }
 
         @Override
@@ -543,12 +550,6 @@ public class AddExchanges
                         source.getProperties());
             }
             return rebaseAndDeriveProperties(node, source);
-        }
-
-        private Optional<PlanWithProperties> planTableScan(TableScanNode node, Expression predicate)
-        {
-            return PushPredicateIntoTableScan.pushFilterIntoTableScan(node, predicate, true, session, types, idAllocator, metadata, typeOperators, typeAnalyzer, domainTranslator)
-                    .map(plan -> new PlanWithProperties(plan, derivePropertiesRecursively(plan)));
         }
 
         @Override
