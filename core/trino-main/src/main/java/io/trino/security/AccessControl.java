@@ -321,6 +321,13 @@ public interface AccessControl
     void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
 
     /**
+     * Check if identity is allowed to refresh the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRefreshMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
+
+    /**
      * Check if identity is allowed to drop the specified materialized view.
      *
      * @throws AccessDeniedException if not allowed

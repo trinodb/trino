@@ -53,6 +53,7 @@ import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
@@ -316,6 +317,12 @@ public class DenyAllAccessControl
     public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
     {
         denyCreateMaterializedView(materializedViewName.toString());
+    }
+
+    @Override
+    public void checkCanRefreshMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
+    {
+        denyRefreshMaterializedView(materializedViewName.toString());
     }
 
     @Override

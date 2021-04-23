@@ -233,6 +233,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        delegate().checkCanRefreshMaterializedView(context, materializedViewName);
+    }
+
+    @Override
     public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
         delegate().checkCanDropMaterializedView(context, materializedViewName);

@@ -71,6 +71,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
@@ -355,6 +356,14 @@ public class SqlStandardAccessControl
     {
         if (!isDatabaseOwner(context, materializedViewName.getSchemaName())) {
             denyCreateMaterializedView(materializedViewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        if (!checkTablePermission(context, materializedViewName, UPDATE, false)) {
+            denyRefreshMaterializedView(materializedViewName.toString());
         }
     }
 
