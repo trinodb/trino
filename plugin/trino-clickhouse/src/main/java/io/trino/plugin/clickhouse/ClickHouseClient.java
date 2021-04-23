@@ -50,6 +50,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.trino.plugin.jdbc.ConnectionMetadataUtils.storesUpperCaseIdentifiers;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -190,7 +191,7 @@ public class ClickHouseClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             String columnName = column.getName();
-            if (connection.getMetaData().storesUpperCaseIdentifiers()) {
+            if (storesUpperCaseIdentifiers(connection)) {
                 columnName = columnName.toUpperCase(ENGLISH);
             }
             String sql = format(
@@ -208,8 +209,7 @@ public class ClickHouseClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (storesUpperCaseIdentifiers(connection)) {
                 newColumnName = newColumnName.toUpperCase(ENGLISH);
             }
             String sql = format("ALTER TABLE %s RENAME COLUMN %s TO %s ",

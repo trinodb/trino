@@ -106,6 +106,7 @@ import java.util.function.BiFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.jdbc.ConnectionMetadataUtils.storesUpperCaseIdentifiers;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -524,7 +525,7 @@ public class PhoenixClient
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
-            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
+            boolean uppercase = storesUpperCaseIdentifiers(connection);
             if (uppercase) {
                 schema = schema.map(schemaName -> schemaName.toUpperCase(ENGLISH));
                 table = table.toUpperCase(ENGLISH);

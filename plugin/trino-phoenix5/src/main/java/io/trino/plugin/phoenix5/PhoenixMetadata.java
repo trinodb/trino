@@ -46,6 +46,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.jdbc.ConnectionMetadataUtils.storesUpperCaseIdentifiers;
 import static io.trino.plugin.phoenix5.MetadataUtil.getEscapedTableName;
 import static io.trino.plugin.phoenix5.MetadataUtil.toPrestoSchemaName;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
@@ -134,7 +135,7 @@ public class PhoenixMetadata
     private String toMetadataCasing(ConnectorSession session, String schemaName)
     {
         try (Connection connection = phoenixClient.getConnection(session)) {
-            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
+            boolean uppercase = storesUpperCaseIdentifiers(connection);
             if (uppercase) {
                 schemaName = schemaName.toUpperCase(ENGLISH);
             }

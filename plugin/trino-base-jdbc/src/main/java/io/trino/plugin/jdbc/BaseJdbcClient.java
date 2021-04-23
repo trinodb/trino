@@ -69,6 +69,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.jdbc.ConnectionMetadataUtils.storesUpperCaseIdentifiers;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -548,7 +549,7 @@ public abstract class BaseJdbcClient
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
-            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
+            boolean uppercase = storesUpperCaseIdentifiers(connection);
             String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
             String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
             if (uppercase) {
@@ -609,7 +610,7 @@ public abstract class BaseJdbcClient
         JdbcIdentity identity = JdbcIdentity.from(session);
 
         try (Connection connection = connectionFactory.openConnection(session)) {
-            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
+            boolean uppercase = storesUpperCaseIdentifiers(connection);
             String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
             String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
             String tableName = generateTemporaryTableName();
@@ -682,7 +683,7 @@ public abstract class BaseJdbcClient
         try (Connection connection = connectionFactory.openConnection(session)) {
             String newSchemaName = newTable.getSchemaName();
             String newTableName = newTable.getTableName();
-            if (connection.getMetaData().storesUpperCaseIdentifiers()) {
+            if (storesUpperCaseIdentifiers(connection)) {
                 newSchemaName = newSchemaName.toUpperCase(ENGLISH);
                 newTableName = newTableName.toUpperCase(ENGLISH);
             }
@@ -728,7 +729,7 @@ public abstract class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             String columnName = column.getName();
-            if (connection.getMetaData().storesUpperCaseIdentifiers()) {
+            if (storesUpperCaseIdentifiers(connection)) {
                 columnName = columnName.toUpperCase(ENGLISH);
             }
             String sql = format(
@@ -746,7 +747,7 @@ public abstract class BaseJdbcClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            if (connection.getMetaData().storesUpperCaseIdentifiers()) {
+            if (storesUpperCaseIdentifiers(connection)) {
                 newColumnName = newColumnName.toUpperCase(ENGLISH);
             }
             String sql = format(
@@ -866,8 +867,7 @@ public abstract class BaseJdbcClient
         }
 
         try {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (storesUpperCaseIdentifiers(connection)) {
                 return schemaName.toUpperCase(ENGLISH);
             }
             return schemaName;
@@ -913,8 +913,7 @@ public abstract class BaseJdbcClient
         }
 
         try {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (storesUpperCaseIdentifiers(connection)) {
                 return tableName.toUpperCase(ENGLISH);
             }
             return tableName;
