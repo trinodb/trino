@@ -6070,4 +6070,15 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         return ZONED_DATE_TIME_FORMAT.parse(value, ZonedDateTime::from);
     }
+
+    @Test
+    public void testNonOrderableType()
+    {
+        assertQuerySucceeds("SELECT b.mapped FROM (SELECT 'trino' AS name) a\n" +
+                "LEFT JOIN (\n" +
+                "  SELECT \n" +
+                "    SPLIT(CAST(JSON '{\"key\": {\"name\": \"trino\"}}' AS MAP(VARCHAR, MAP(VARCHAR, VARCHAR)))['key']['name'], ',') AS names,\n" +
+                "    CAST(JSON '{\"key\": {\"name\": \"trino\"}}' AS MAP(VARCHAR, MAP(VARCHAR, VARCHAR)))['key'] mapped\n" +
+                ") b ON CONTAINS(b.names, a.name)");
+    }
 }
