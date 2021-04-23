@@ -92,7 +92,7 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public abstract class BaseTestIcebergConnectorTest
+public abstract class TestIcebergConnectorTest
         // TODO extend BaseConnectorTest
         extends BaseConnectorTest
 {
@@ -1738,7 +1738,7 @@ public abstract class BaseTestIcebergConnectorTest
 
         // Write altered metadata
         try (OutputStream out = fs.create(manifestFilePath);
-                DataFileWriter<GenericData.Record> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
+             DataFileWriter<GenericData.Record> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
             dataFileWriter.create(schema, out);
             dataFileWriter.append(entry);
         }
@@ -1755,3 +1755,4 @@ public abstract class BaseTestIcebergConnectorTest
         dropTable("test_iceberg_file_size");
     }
 }
+
