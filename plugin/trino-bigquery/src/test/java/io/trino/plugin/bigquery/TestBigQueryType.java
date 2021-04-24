@@ -25,22 +25,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestBigQueryType
 {
     @Test
-    public void testTimeToStringConverter1()
-    {
-        assertThat(BigQueryType.timeToStringConverter(
-                Long.valueOf(303497217647L)))
-                .isEqualTo("'10:01:56'");
-    }
-
-    @Test
-    public void testDateToStringConverter1()
-    {
-        assertThat(BigQueryType.dateToStringConverter(
-                Long.valueOf(17463)))
-                .isEqualTo("'2017-10-24'");
-    }
-
-    @Test
     public void testTimeToStringConverter()
     {
         assertThat(BigQueryType.timeToStringConverter(

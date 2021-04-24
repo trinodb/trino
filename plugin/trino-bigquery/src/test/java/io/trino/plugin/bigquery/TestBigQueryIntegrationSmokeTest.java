@@ -47,39 +47,6 @@ public class TestBigQueryIntegrationSmokeTest
                 ImmutableMap.of());
     }
 
-    @Test
-    public void testCreateSchema()
-    {
-        String schemaName = "test_create_schema";
-
-        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
-
-        assertUpdate("CREATE SCHEMA " + schemaName);
-        assertUpdate("CREATE SCHEMA IF NOT EXISTS " + schemaName);
-
-        assertQueryFails(
-                "CREATE SCHEMA " + schemaName,
-                format("\\Qline 1:1: Schema 'bigquery.%s' already exists\\E", schemaName));
-
-        assertUpdate("DROP SCHEMA " + schemaName);
-    }
-
-    @Test
-    public void testDropSchema()
-    {
-        String schemaName = "test_drop_schema";
-
-        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
-        assertUpdate("CREATE SCHEMA " + schemaName);
-
-        assertUpdate("DROP SCHEMA " + schemaName);
-        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
-
-        assertQueryFails(
-                "DROP SCHEMA " + schemaName,
-                format("\\Qline 1:1: Schema 'bigquery.%s' does not exist\\E", schemaName));
-    }
-
     @Override
     public void testDescribeTable()
     {

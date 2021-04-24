@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
@@ -5,7 +18,16 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
+import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -16,22 +38,6 @@ public class TestBigQueryConnectorTest
     private BigQuerySqlExecutor bigQuerySqlExecutor;
 
     @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        switch (connectorBehavior) {
-            case SUPPORTS_CREATE_TABLE:
-            case SUPPORTS_CREATE_VIEW:
-            case SUPPORTS_DELETE:
-            case SUPPORTS_CANCELLATION:
-            case SUPPORTS_JOIN_PUSHDOWN:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
-    }
-
-    @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
@@ -39,6 +45,39 @@ public class TestBigQueryConnectorTest
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of());
+    }
+
+    @Test
+    public void testCreateSchema()
+    {
+        String schemaName = "test_create_schema";
+
+        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS " + schemaName);
+
+        assertQueryFails(
+                "CREATE SCHEMA " + schemaName,
+                format("\\Qline 1:1: Schema 'bigquery.%s' already exists\\E", schemaName));
+
+        assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
+    @Test
+    public void testDropSchema()
+    {
+        String schemaName = "test_drop_schema";
+
+        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        assertUpdate("CREATE SCHEMA " + schemaName);
+
+        assertUpdate("DROP SCHEMA " + schemaName);
+        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+
+        assertQueryFails(
+                "DROP SCHEMA " + schemaName,
+                format("\\Qline 1:1: Schema 'bigquery.%s' does not exist\\E", schemaName));
     }
 
     @Override
