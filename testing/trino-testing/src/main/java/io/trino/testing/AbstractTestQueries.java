@@ -157,9 +157,34 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SELECT orderkey FROM orders LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
-
         assertEquals(actual.getMaterializedRows().size(), 10);
         assertContains(all, actual);
+
+        actual = computeActual(
+                "(SELECT orderkey, custkey FROM orders ORDER BY orderkey) UNION ALL " +
+                        "SELECT orderkey, custkey FROM orders WHERE orderstatus = 'F' UNION ALL " +
+                        "(SELECT orderkey, custkey FROM orders ORDER BY orderkey LIMIT 20) UNION ALL " +
+                        "(SELECT orderkey, custkey FROM orders LIMIT 5) UNION ALL " +
+                        "SELECT orderkey, custkey FROM orders LIMIT 10");
+        all = computeExpected("SELECT orderkey, custkey FROM orders", actual.getTypes());
+        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertContains(all, actual);
+
+        // with ORDER BY
+        assertQuery("SELECT name FROM nation ORDER BY nationkey LIMIT 3");
+        assertQuery("SELECT name FROM nation ORDER BY regionkey LIMIT 5"); // query is deterministic because first peer group in regionkey order has 5 rows
+
+        // global aggregation, LIMIT should be removed (and connector should not prevent this from happening)
+        assertQuery("SELECT max(regionkey) FROM nation LIMIT 5");
+
+        // with aggregation
+        assertQuery("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5");
+
+        // with DISTINCT (can be expressed as DistinctLimitNode and handled differently)
+        assertQuery("SELECT DISTINCT regionkey FROM nation LIMIT 5");
+
+        // with filter and aggregation
+        assertQuery("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3");
     }
 
     @Test
@@ -418,37 +443,6 @@ public abstract class AbstractTestQueries
         assertQueryOrdered(
                 "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC, custkey ASC LIMIT 10",
                 "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS LAST, custkey ASC LIMIT 10");
-    }
-
-    @Test
-    public void testLimitPushDown()
-    {
-        MaterializedResult actual = computeActual(
-                "(TABLE orders ORDER BY orderkey) UNION ALL " +
-                        "SELECT * FROM orders WHERE orderstatus = 'F' UNION ALL " +
-                        "(TABLE orders ORDER BY orderkey LIMIT 20) UNION ALL " +
-                        "(TABLE orders LIMIT 5) UNION ALL " +
-                        "TABLE orders LIMIT 10");
-        MaterializedResult all = computeExpected("SELECT * FROM orders", actual.getTypes());
-
-        assertEquals(actual.getMaterializedRows().size(), 10);
-        assertContains(all, actual);
-
-        // with ORDER BY
-        assertQuery("SELECT name FROM nation ORDER BY nationkey LIMIT 3");
-        assertQuery("SELECT name FROM nation ORDER BY regionkey LIMIT 5"); // query is deterministic because first peer group in regionkey order has 5 rows
-
-        // global aggregation, LIMIT should be removed (and connector should not prevent this from happening)
-        assertQuery("SELECT max(regionkey) FROM nation LIMIT 5");
-
-        // with aggregation
-        assertQuery("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5");
-
-        // with DISTINCT (can be expressed as DistinctLimitNode and handled differently)
-        assertQuery("SELECT DISTINCT regionkey FROM nation LIMIT 5");
-
-        // with filter and aggregation
-        assertQuery("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3");
     }
 
     @Test

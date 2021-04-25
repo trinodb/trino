@@ -294,7 +294,6 @@ public abstract class BaseDruidConnectorTest
     }
 
     @Test
-    @Override
     public void testLimitPushDown()
     {
         assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
