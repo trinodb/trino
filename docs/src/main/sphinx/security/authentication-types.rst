@@ -14,7 +14,7 @@ and authenticators are available:
 * ``OAUTH2`` for :doc:`oauth2`
 * ``CERTIFICATE`` for certificate authentication
 * ``JWT`` for Java Web Token (JWT) authentication
-* ``KERBEROS`` for :doc:`Kerberos authentication <server>`
+* ``KERBEROS`` for :doc:`kerberos`
 
 Get started with a basic password authentication configuration backed by a
 :doc:`password file <password-file>`:

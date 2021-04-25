@@ -87,7 +87,7 @@ provider.
 * :doc:`LDAP authentication <ldap>`
 * :doc:`OAuth 2.0 authentication <oauth2>`
 * :doc:`Salesforce authentication <salesforce>`
-* :doc:`Kerberos authentication <server>`
+* :doc:`Kerberos authentication <kerberos>`
 
 .. _user-name-management:
 
