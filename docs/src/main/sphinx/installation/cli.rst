@@ -46,8 +46,14 @@ The recommended TLS implementation is to use a globally trusted certificate. In
 this case, no other options are necessary, since the JVM running the CLI
 recognizes these certificates.
 
+When Trino is configured using custom certificate, invoking CLI requires additional options
+such as ``--keystore-*`` or ``--truststore-*`` to secure TLS connection.
+The simplest way to invoke the CLI is with a wrapper script.
+
 Authentication
 --------------
+Password/LDAP Authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can override your username with the ``--user`` option. It defaults to your
 operating system username. If your Trino server requires password
@@ -55,8 +61,44 @@ authentication, use the ``--password`` option to have the CLI prompt for a
 password. You can set the ``TRINO_PASSWORD`` environment variable with the
 password value to avoid the prompt.
 
+.. code-block:: text
+
+    #!/bin/bash
+    ./trino \
+    --server https://trino-coordinator.example.com:8443 \
+    --catalog <catalog> \
+    --schema <schema> \
+    --user <LDAP user> \
+    --password
+
+Trino CLI options
+-----------------
+
+=============================== =========================================================================
+Option                          Description
+=============================== =========================================================================
+``--server``                    The address and port of the Trino coordinator.  The port must
+                                be set to the port the Trino coordinator is listening for HTTPS
+                                connections on. Trino CLI does not support using ``http`` scheme for
+                                the URL when using LDAP authentication.
+``--keystore-path``             The location of the Java Keystore file that will be used
+                                to secure TLS.
+``--keystore-password``         The password for the keystore. This must match the
+                                password you specified when creating the keystore.
+``--truststore-path``           The location of the Java truststore file that will be used
+                                to secure TLS.
+``--truststore-password``       The password for the truststore. This must match the
+                                password you specified when creating the truststore.
+``--user``                      The LDAP username. For Active Directory this should be your
+                                ``sAMAccountName`` and for OpenLDAP this should be the ``uid`` of
+                                the user. This is the username which is
+                                used to replace the ``${USER}`` placeholder pattern in the properties
+                                specified in ``config.properties``.
+``--password``                  Prompts for a password for the ``user``.
+=============================== =========================================================================
+
 Use ``--help`` to see information about specifying the keystore, truststore, and
-other authentication details as required. If using Kerberos, see :doc:`/security/cli`.
+other authentication details as required. 
 
 Pagination
 ----------
