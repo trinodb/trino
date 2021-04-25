@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
+import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -93,6 +94,7 @@ public abstract class BaseElasticsearchConnectorTest
             case SUPPORTS_INSERT:
                 return false;
 
+            case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
@@ -746,14 +748,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testLimitPushdown()
             throws IOException
     {
-        String indexName = "limit_pushdown";
-
-        index(indexName, ImmutableMap.of("c1", "v1"));
-        index(indexName, ImmutableMap.of("c1", "v2"));
-        index(indexName, ImmutableMap.of("c1", "v3"));
-        assertEquals(computeActual("SELECT * FROM limit_pushdown").getRowCount(), 3);
-        assertEquals(computeActual("SELECT * FROM limit_pushdown LIMIT 1").getRowCount(), 1);
-        assertEquals(computeActual("SELECT * FROM limit_pushdown LIMIT 2").getRowCount(), 2);
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class); // Use high limit for result determinism
     }
 
     @Test
