@@ -71,12 +71,12 @@ B
 - :func:`bit_count`
 - :func:`bitwise_and`
 - :func:`bitwise_and_agg`
-- ``bitwise_left_shift``
+- :func:`bitwise_left_shift`
 - :func:`bitwise_not`
 - :func:`bitwise_or`
 - :func:`bitwise_or_agg`
-- ``bitwise_right_shift``
-- ``bitwise_right_shift_arithmetic``
+- :func:`bitwise_right_shift`
+- :func:`bitwise_right_shift_arithmetic`
 - :func:`bitwise_xor`
 - :func:`bool_and`
 - :func:`bool_or`
