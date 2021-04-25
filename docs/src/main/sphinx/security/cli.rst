@@ -2,8 +2,8 @@
 CLI Kerberos authentication
 ===========================
 
-The Trino :doc:`/installation/cli` can connect to a :doc:`Trino coordinator
-</security/server>`, that has Kerberos authentication enabled.
+The Trino :doc:`/installation/cli` can connect to a Trino cluster that has
+:doc:`kerberos` enabled.
 
 Environment configuration
 -------------------------

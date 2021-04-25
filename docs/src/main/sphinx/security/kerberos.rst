@@ -1,6 +1,6 @@
-===================================
-Coordinator Kerberos authentication
-===================================
+=======================
+Kerberos authentication
+=======================
 
 Trino can be configured to enable Kerberos authentication over HTTPS for
 clients, such as the :doc:`Trino CLI </security/cli>`, or the JDBC and ODBC
