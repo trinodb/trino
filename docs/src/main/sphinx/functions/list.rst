@@ -500,7 +500,7 @@ U
 - :func:`url_extract_host`
 - :func:`url_extract_parameter`
 - :func:`url_extract_path`
-- ``url_extract_protocol``
+- :func:`url_extract_protocol`
 - :func:`url_extract_port`
 - :func:`url_extract_query`
 - :func:`uuid`
