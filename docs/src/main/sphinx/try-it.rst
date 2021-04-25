@@ -1,5 +1,5 @@
 Try Trino with Docker
-=====================
+======================
 
 The Trino command line interface (CLI) provides a terminal-based,
 interactive shell for running queries and inspecting catalog structures
