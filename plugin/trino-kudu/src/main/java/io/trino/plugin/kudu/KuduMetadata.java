@@ -208,32 +208,17 @@ public class KuduMetadata
         try {
             KuduTable table = clientSession.openTable(schemaTableName);
             OptionalInt bucketCount = OptionalInt.empty();
-            if (isKuduGroupedExecutionEnabled(session)) {
-                bucketCount = getTableBucketCount(table);
+            List<HashBucketSchema> bucketSchemas = table.getPartitionSchema().getHashBucketSchemas();
+            if (!bucketSchemas.isEmpty()) {
+                bucketCount = OptionalInt.of(bucketSchemas.stream()
+                        .mapToInt(HashBucketSchema::getNumBuckets)
+                        .reduce(1, Math::multiplyExact));
             }
             return new KuduTableHandle(schemaTableName, table, TupleDomain.all(), Optional.empty(), false, bucketCount, OptionalLong.empty());
         }
         catch (NotFoundException e) {
             return null;
         }
-    }
-
-    private OptionalInt getTableBucketCount(KuduTable table)
-    {
-        int rangePartitionCount = getRangePartitions(table).size();
-        return OptionalInt.of(getHashPartitionCount(table) * (rangePartitionCount == 0 ? 1 : rangePartitionCount));
-    }
-
-    private int getHashPartitionCount(KuduTable table)
-    {
-        int hashBucketCount = 1;
-        List<HashBucketSchema> bucketSchemas = table.getPartitionSchema().getHashBucketSchemas();
-        if (bucketSchemas != null && !bucketSchemas.isEmpty()) {
-            hashBucketCount = bucketSchemas.stream()
-                    .mapToInt(HashBucketSchema::getNumBuckets)
-                    .reduce(1, Math::multiplyExact);
-        }
-        return hashBucketCount;
     }
 
     @Override
