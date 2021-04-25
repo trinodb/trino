@@ -19,8 +19,11 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -121,6 +124,86 @@ public abstract class BaseJdbcConnectorTest
     }
 
     // TODO move common tests from connector-specific classes here
+
+    @Test
+    public void testLimitPushdown()
+    {
+        if (!hasBehavior(SUPPORTS_LIMIT_PUSHDOWN)) {
+            assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class); // Use high limit for result determinism
+            return;
+        }
+
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
+
+        // with filter over numeric column
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
+
+        // with filter over varchar column
+        PlanMatchPattern filterOverTableScan = node(FilterNode.class, node(TableScanNode.class));
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT name FROM nation WHERE name < 'EEE' LIMIT 5",
+                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
+                filterOverTableScan);
+
+        // with aggregation
+        PlanMatchPattern aggregationOverTableScan = node(AggregationNode.class, anyTree(node(TableScanNode.class)));
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT max(regionkey) FROM nation LIMIT 5", // global aggregation, LIMIT removed
+                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
+                aggregationOverTableScan);
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5",
+                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
+                aggregationOverTableScan);
+
+        // distinct limit can be pushed down even without aggregation pushdown
+        assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
+
+        // with aggregation and filter over numeric column
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3",
+                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
+                aggregationOverTableScan);
+        // with aggregation and filter over varchar column
+        if (hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
+            assertConditionallyPushedDown(
+                    getSession(),
+                    "SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3",
+                    hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
+                    aggregationOverTableScan);
+        }
+
+        // with TopN over numeric column
+        PlanMatchPattern topnOverTableScan = node(TopNNode.class, anyTree(node(TableScanNode.class)));
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5",
+                hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
+                topnOverTableScan);
+        // with TopN over varchar column
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5",
+                hasBehavior(SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR),
+                topnOverTableScan);
+
+        // with join
+        PlanMatchPattern joinOverTableScans = node(JoinNode.class,
+                anyTree(node(TableScanNode.class)),
+                anyTree(node(TableScanNode.class)));
+        assertConditionallyPushedDown(
+                joinPushdownEnabled(getSession()),
+                "SELECT n.name, r.name " +
+                        "FROM nation n " +
+                        "LEFT JOIN region r USING (regionkey) " +
+                        "LIMIT 30",
+                hasBehavior(SUPPORTS_JOIN_PUSHDOWN),
+                joinOverTableScans);
+    }
 
     @Test
     public void testTopNPushdownDisabled()

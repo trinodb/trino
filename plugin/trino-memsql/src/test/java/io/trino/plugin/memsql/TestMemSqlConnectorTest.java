@@ -278,18 +278,6 @@ public class TestMemSqlConnectorTest
     }
 
     @Test
-    public void testLimitPushdown()
-    {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
-
-        // with filter over numeric column
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
-
-        // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(FilterNode.class);
-    }
-
-    @Test
     public void testColumnComment()
     {
         // TODO add support for setting comments on existing column and replace the test with io.trino.testing.AbstractTestDistributedQueries#testCommentColumn

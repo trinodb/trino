@@ -57,7 +57,10 @@ public class TestClickHouseConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
+            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
             case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:

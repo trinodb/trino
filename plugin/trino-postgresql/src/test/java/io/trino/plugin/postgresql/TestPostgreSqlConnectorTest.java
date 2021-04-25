@@ -749,40 +749,6 @@ public class TestPostgreSqlConnectorTest
         }
     }
 
-    @Test
-    public void testLimitPushdown()
-    {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
-
-        // with filter over numeric column
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
-
-        // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(FilterNode.class);
-
-        // with aggregation
-        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
-        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isFullyPushedDown();
-        assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
-
-        // with filter and aggregation
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(FilterNode.class);
-
-        // with TopN over numeric column
-        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
-        // with TopN over varchar column
-        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
-
-        // LIMIT with JOIN
-        assertThat(query(joinPushdownEnabled(getSession()), "" +
-                "SELECT n.name, r.name " +
-                "FROM nation n " +
-                "LEFT JOIN region r USING (regionkey) " +
-                "LIMIT 30"))
-                .isFullyPushedDown();
-    }
-
     /**
      * This test helps to tune TupleDomain simplification threshold.
      */
