@@ -6,7 +6,6 @@ Trino documentation
     :titlesonly:
 
     overview
-    try-it 
     installation
     client
     security
