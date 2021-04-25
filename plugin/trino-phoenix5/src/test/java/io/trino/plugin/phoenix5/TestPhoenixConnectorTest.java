@@ -59,11 +59,11 @@ public class TestPhoenixConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
-            case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
             case SUPPORTS_RENAME_TABLE:
