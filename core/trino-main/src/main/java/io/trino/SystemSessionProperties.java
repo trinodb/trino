@@ -114,6 +114,7 @@ public final class SystemSessionProperties
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
     public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
+    public static final String STATISTICS_PRECALCULATION_FOR_PUSHDOWN_ENABLED = "statistics_precalculation_for_pushdown_enabled";
     public static final String COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES = "collect_plan_statistics_for_all_queries";
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
@@ -506,6 +507,11 @@ public final class SystemSessionProperties
                         ENABLE_STATS_CALCULATOR,
                         "Enable statistics calculator",
                         featuresConfig.isEnableStatsCalculator(),
+                        false),
+                booleanProperty(
+                        STATISTICS_PRECALCULATION_FOR_PUSHDOWN_ENABLED,
+                        "Enable statistics precalculation for pushdown",
+                        featuresConfig.isStatisticsPrecalculationForPushdownEnabled(),
                         false),
                 booleanProperty(
                         COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES,
@@ -1016,6 +1022,11 @@ public final class SystemSessionProperties
     public static boolean isEnableStatsCalculator(Session session)
     {
         return session.getSystemProperty(ENABLE_STATS_CALCULATOR, Boolean.class);
+    }
+
+    public static boolean isStatisticsPrecalculationForPushdownEnabled(Session session)
+    {
+        return session.getSystemProperty(STATISTICS_PRECALCULATION_FOR_PUSHDOWN_ENABLED, Boolean.class);
     }
 
     public static boolean isCollectPlanStatisticsForAllQueries(Session session)

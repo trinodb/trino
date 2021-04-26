@@ -419,6 +419,7 @@ public class MemoryMetadata
 
         return Optional.of(new LimitApplicationResult<>(
                 new MemoryTableHandle(table.getId(), OptionalLong.of(limit), OptionalDouble.empty()),
+                true,
                 true));
     }
 
@@ -431,6 +432,8 @@ public class MemoryMetadata
             return Optional.empty();
         }
 
-        return Optional.of(new SampleApplicationResult<>(new MemoryTableHandle(table.getId(), table.getLimit(), OptionalDouble.of(table.getSampleRatio().orElse(1) * sampleRatio))));
+        return Optional.of(new SampleApplicationResult<>(
+                new MemoryTableHandle(table.getId(), table.getLimit(), OptionalDouble.of(table.getSampleRatio().orElse(1) * sampleRatio)),
+                true));
     }
 }

@@ -111,6 +111,7 @@ public class FeaturesConfig
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean enableStatsCalculator = true;
+    private boolean statisticsPrecalculationForPushdownEnabled;
     private boolean collectPlanStatisticsForAllQueries;
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean defaultFilterFactorEnabled;
@@ -614,6 +615,18 @@ public class FeaturesConfig
     public FeaturesConfig setEnableStatsCalculator(boolean enableStatsCalculator)
     {
         this.enableStatsCalculator = enableStatsCalculator;
+        return this;
+    }
+
+    public boolean isStatisticsPrecalculationForPushdownEnabled()
+    {
+        return statisticsPrecalculationForPushdownEnabled;
+    }
+
+    @Config("statistics-precalculation-for-pushdown.enabled")
+    public FeaturesConfig setStatisticsPrecalculationForPushdownEnabled(boolean statisticsPrecalculationForPushdownEnabled)
+    {
+        this.statisticsPrecalculationForPushdownEnabled = statisticsPrecalculationForPushdownEnabled;
         return this;
     }
 

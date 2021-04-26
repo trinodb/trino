@@ -388,10 +388,10 @@ public class TestPushPredicateIntoTableScan
         builder
                 .withApplyFilter((session, tableHandle, constraint) -> {
                     if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED)) {
-                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_UNPARTITIONED_TABLE_HANDLE, TupleDomain.all()));
+                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_UNPARTITIONED_TABLE_HANDLE, TupleDomain.all(), false));
                     }
                     if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE)) {
-                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_PARTITIONED_TABLE_HANDLE, TupleDomain.all()));
+                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_PARTITIONED_TABLE_HANDLE, TupleDomain.all(), false));
                     }
                     return Optional.empty();
                 })

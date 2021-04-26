@@ -449,7 +449,7 @@ public class ElasticsearchMetadata
                 handle.getQuery(),
                 OptionalLong.of(limit));
 
-        return Optional.of(new LimitApplicationResult<>(handle, false));
+        return Optional.of(new LimitApplicationResult<>(handle, false, false));
     }
 
     @Override
@@ -491,7 +491,7 @@ public class ElasticsearchMetadata
                 handle.getQuery(),
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported)));
+        return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), false));
     }
 
     private static boolean isPassthroughQuery(ElasticsearchTableHandle table)

@@ -21,6 +21,7 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SortItem;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -33,6 +34,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static io.trino.sql.planner.plan.Patterns.topN;
@@ -83,11 +85,17 @@ public class PushTopNIntoTableScan
 
         return metadata.applyTopN(context.getSession(), tableScan.getTable(), topNCount, sortItems, assignments)
                 .map(result -> {
-                    PlanNode node = TableScanNode.newInstance(
+                    PlanNode node = new TableScanNode(
                             context.getIdAllocator().getNextId(),
                             result.getHandle(),
                             tableScan.getOutputSymbols(),
                             tableScan.getAssignments(),
+                            TupleDomain.all(),
+                            deriveTableStatisticsForPushdown(
+                                    context.getStatsProvider(),
+                                    context.getSession(),
+                                    result.isPrecalculateStatistics(),
+                                    result.isTopNGuaranteed() ? topNNode : tableScan),
                             tableScan.isUpdateTarget(),
                             // table scan partitioning might have changed with new table handle
                             Optional.empty());

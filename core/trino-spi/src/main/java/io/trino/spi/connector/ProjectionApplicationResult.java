@@ -24,12 +24,14 @@ public class ProjectionApplicationResult<T>
     private final T handle;
     private final List<ConnectorExpression> projections;
     private final List<Assignment> assignments;
+    private final boolean precalculateStatistics;
 
-    public ProjectionApplicationResult(T handle, List<ConnectorExpression> projections, List<Assignment> assignments)
+    public ProjectionApplicationResult(T handle, List<ConnectorExpression> projections, List<Assignment> assignments, boolean precalculateStatistics)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.projections = List.copyOf(requireNonNull(projections, "projections is null"));
         this.assignments = List.copyOf(requireNonNull(assignments, "assignments is null"));
+        this.precalculateStatistics = precalculateStatistics;
     }
 
     public T getHandle()
@@ -45,5 +47,10 @@ public class ProjectionApplicationResult<T>
     public List<Assignment> getAssignments()
     {
         return assignments;
+    }
+
+    public boolean isPrecalculateStatistics()
+    {
+        return precalculateStatistics;
     }
 }
