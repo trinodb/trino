@@ -11,9 +11,9 @@ package com.starburstdata.trino.plugin.starburstremote;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.starburstdata.presto.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.Session;
 import io.trino.plugin.postgresql.TestingPostgreSqlServer;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.H2QueryRunner;
 import io.trino.testing.QueryAssertions;
@@ -42,7 +42,7 @@ import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 
 public class TestStarburstRemoteTableStatisticsWithPostgreSql
-        extends AbstractTestQueryFramework
+        extends BaseJdbcTableStatisticsTest
 {
     private TestingPostgreSqlServer postgreSqlServer;
     private DistributedQueryRunner remoteStarburst;
@@ -85,6 +85,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         gatherStats("nation");
     }
 
+    @Override
     @Test(invocationCount = 10, successPercentage = 50) // PostgreSQL can auto-analyze data before we SHOW STATS
     public void testNotAnalyzed()
     {
@@ -111,6 +112,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         }
     }
 
+    @Override
     @Test
     public void testBasic()
     {
@@ -138,6 +140,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         }
     }
 
+    @Override
     @Test
     public void testEmptyTable()
     {
@@ -160,6 +163,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         }
     }
 
+    @Override
     @Test
     public void testAllNulls()
     {
@@ -183,6 +187,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         }
     }
 
+    @Override
     @Test
     public void testNullsFraction()
     {
@@ -211,6 +216,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         }
     }
 
+    @Override
     @Test
     public void testAverageColumnLength()
     {
@@ -246,6 +252,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         }
     }
 
+    @Override
     @Test
     public void testPartitionedTable()
     {
@@ -258,6 +265,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-5011"); // TODO https://starburstdata.atlassian.net/browse/SEP-5011
     }
 
+    @Override
     @Test
     public void testView()
     {
@@ -279,6 +287,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         }
     }
 
+    @Override
     @Test
     public void testMaterializedView()
     {
@@ -303,6 +312,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         }
     }
 
+    @Override
     @Test(dataProvider = "testCaseColumnNamesDataProvider")
     public void testCaseColumnNames(String tableName)
     {
@@ -334,6 +344,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         }
     }
 
+    @Override
     @DataProvider
     public Object[][] testCaseColumnNamesDataProvider()
     {
@@ -347,6 +358,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         };
     }
 
+    @Override
     @Test
     public void testNumericCornerCases()
     {

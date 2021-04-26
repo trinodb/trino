@@ -11,8 +11,8 @@ package com.starburstdata.trino.plugin.starburstremote;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.starburstdata.presto.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.Session;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.H2QueryRunner;
 import io.trino.testing.QueryAssertions;
@@ -42,7 +42,7 @@ import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 
 public class TestStarburstRemoteStatisticsWithHive
-        extends AbstractTestQueryFramework
+        extends BaseJdbcTableStatisticsTest
 {
     private DistributedQueryRunner remoteStarburst;
     private Session remoteSession;
@@ -79,6 +79,7 @@ public class TestStarburstRemoteStatisticsWithHive
         executeInRemoteStarburst("INSERT INTO nation_partitioned SELECT nationkey, name, comment, regionkey FROM tpch.tiny.nation");
     }
 
+    @Override
     @Test
     public void testNotAnalyzed()
     {
@@ -106,6 +107,7 @@ public class TestStarburstRemoteStatisticsWithHive
         }
     }
 
+    @Override
     @Test
     public void testBasic()
     {
@@ -133,6 +135,7 @@ public class TestStarburstRemoteStatisticsWithHive
         }
     }
 
+    @Override
     @Test
     public void testEmptyTable()
     {
@@ -155,6 +158,7 @@ public class TestStarburstRemoteStatisticsWithHive
         }
     }
 
+    @Override
     @Test
     public void testAllNulls()
     {
@@ -178,6 +182,7 @@ public class TestStarburstRemoteStatisticsWithHive
         }
     }
 
+    @Override
     @Test
     public void testNullsFraction()
     {
@@ -206,6 +211,7 @@ public class TestStarburstRemoteStatisticsWithHive
         }
     }
 
+    @Override
     @Test
     public void testAverageColumnLength()
     {
@@ -241,6 +247,7 @@ public class TestStarburstRemoteStatisticsWithHive
         }
     }
 
+    @Override
     @Test
     public void testPartitionedTable()
     {
@@ -307,6 +314,7 @@ public class TestStarburstRemoteStatisticsWithHive
         throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-5011"); // TODO https://starburstdata.atlassian.net/browse/SEP-5011
     }
 
+    @Override
     @Test
     public void testView()
     {
@@ -327,12 +335,14 @@ public class TestStarburstRemoteStatisticsWithHive
         }
     }
 
+    @Override
     @Test
     public void testMaterializedView()
     {
         throw new SkipException("Hive < 3.0 doesn't have materialized views");
     }
 
+    @Override
     @Test(dataProvider = "testCaseColumnNamesDataProvider")
     public void testCaseColumnNames(String tableName)
     {
@@ -364,6 +374,7 @@ public class TestStarburstRemoteStatisticsWithHive
         }
     }
 
+    @Override
     @DataProvider
     public Object[][] testCaseColumnNamesDataProvider()
     {
@@ -377,6 +388,7 @@ public class TestStarburstRemoteStatisticsWithHive
         };
     }
 
+    @Override
     @Test
     public void testNumericCornerCases()
     {
