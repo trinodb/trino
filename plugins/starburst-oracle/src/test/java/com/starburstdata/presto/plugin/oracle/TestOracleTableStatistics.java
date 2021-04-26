@@ -11,7 +11,7 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestQueryFramework;
+import com.starburstdata.presto.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
@@ -28,7 +28,7 @@ import static java.lang.String.format;
 
 @Test(singleThreaded = true)
 public class TestOracleTableStatistics
-        extends AbstractTestQueryFramework
+        extends BaseJdbcTableStatisticsTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -43,6 +43,7 @@ public class TestOracleTableStatistics
                 .build();
     }
 
+    @Override
     @Test
     public void testNotAnalyzed()
     {
@@ -69,6 +70,7 @@ public class TestOracleTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testBasic()
     {
@@ -96,6 +98,7 @@ public class TestOracleTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testEmptyTable()
     {
@@ -118,6 +121,7 @@ public class TestOracleTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testAllNulls()
     {
@@ -141,6 +145,7 @@ public class TestOracleTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testNullsFraction()
     {
@@ -169,6 +174,7 @@ public class TestOracleTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testAverageColumnLength()
     {
@@ -204,6 +210,7 @@ public class TestOracleTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testPartitionedTable()
     {
@@ -231,6 +238,7 @@ public class TestOracleTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testView()
     {
@@ -252,6 +260,7 @@ public class TestOracleTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testMaterializedView()
     {
@@ -276,6 +285,7 @@ public class TestOracleTableStatistics
         }
     }
 
+    @Override
     @Test(dataProvider = "testCaseColumnNamesDataProvider")
     public void testCaseColumnNames(String tableName)
     {
@@ -307,6 +317,7 @@ public class TestOracleTableStatistics
         }
     }
 
+    @Override
     @DataProvider
     public Object[][] testCaseColumnNamesDataProvider()
     {
@@ -347,6 +358,7 @@ public class TestOracleTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testNumericCornerCases()
     {
