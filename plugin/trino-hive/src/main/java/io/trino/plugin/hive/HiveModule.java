@@ -91,7 +91,7 @@ public class HiveModule
                 .setDefault().to(NoneHiveRedirectionsProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, HiveMaterializedViewMetadata.class)
                 .setDefault().to(NoneHiveMaterializedViewMetadata.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder,TransactionalMetadataFactory.class)
+        newOptionalBinder(binder, TransactionalMetadataFactory.class)
                 .setDefault().to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
