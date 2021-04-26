@@ -48,7 +48,7 @@ such as ``:`` or ``?``.
     If input ``url`` is not valid, then the behavior is undefined. e.g:
 
     * url_extract_protocol(``http://``) and url_extract_protocol(``127.0.0.1:8080/req_path``)
-        returns ``NULL``
+        return ``NULL``
     * url_extract_protocol(``localhost:8080/req_path``) returns ``localhost``.
 
 .. function:: url_extract_query(url) -> varchar
