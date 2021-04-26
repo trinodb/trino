@@ -11,8 +11,8 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.starburstdata.presto.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.plugin.sqlserver.TestingSqlServer;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.Handle;
@@ -35,7 +35,7 @@ import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
 public class TestSqlServerTableStatistics
-        extends AbstractTestQueryFramework
+        extends BaseJdbcTableStatisticsTest
 {
     private TestingSqlServer sqlServer;
 
@@ -58,6 +58,7 @@ public class TestSqlServerTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testNotAnalyzed()
     {
@@ -84,6 +85,7 @@ public class TestSqlServerTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testBasic()
     {
@@ -111,6 +113,7 @@ public class TestSqlServerTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testEmptyTable()
     {
@@ -133,6 +136,7 @@ public class TestSqlServerTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testAllNulls()
     {
@@ -156,6 +160,7 @@ public class TestSqlServerTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testNullsFraction()
     {
@@ -184,6 +189,7 @@ public class TestSqlServerTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testAverageColumnLength()
     {
@@ -219,12 +225,14 @@ public class TestSqlServerTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testPartitionedTable()
     {
         throw new SkipException("Not implemented"); // TODO
     }
 
+    @Override
     @Test
     public void testView()
     {
@@ -244,6 +252,12 @@ public class TestSqlServerTableStatistics
         finally {
             sqlServer.execute("DROP VIEW " + tableName);
         }
+    }
+
+    @Override
+    public void testMaterializedView()
+    {
+        throw new SkipException("see testIndexedView");
     }
 
     @Test
@@ -278,6 +292,7 @@ public class TestSqlServerTableStatistics
         }
     }
 
+    @Override
     @Test(dataProvider = "testCaseColumnNamesDataProvider")
     public void testCaseColumnNames(String tableName)
     {
@@ -309,6 +324,7 @@ public class TestSqlServerTableStatistics
         }
     }
 
+    @Override
     @DataProvider
     public Object[][] testCaseColumnNamesDataProvider()
     {
@@ -322,6 +338,7 @@ public class TestSqlServerTableStatistics
         };
     }
 
+    @Override
     @Test
     public void testNumericCornerCases()
     {
