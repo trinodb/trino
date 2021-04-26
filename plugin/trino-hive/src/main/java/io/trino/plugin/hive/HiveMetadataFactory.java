@@ -63,7 +63,6 @@ public class HiveMetadataFactory
     private final ScheduledExecutorService heartbeatService;
 
     @Inject
-    @SuppressWarnings("deprecation")
     public HiveMetadataFactory(
             CatalogName catalogName,
             HiveConfig hiveConfig,
