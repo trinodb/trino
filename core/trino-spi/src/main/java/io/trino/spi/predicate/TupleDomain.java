@@ -412,28 +412,25 @@ public final class TupleDomain<T>
     public String toString()
     {
         if (isAll()) {
-            return "TupleDomain{ALL}";
+            return "ALL";
         }
         if (isNone()) {
-            return "TupleDomain{NONE}";
+            return "NONE";
         }
-        return "TupleDomain{...}";
+        return "{...}";
     }
 
     public String toString(ConnectorSession session)
     {
-        StringBuilder buffer = new StringBuilder();
         if (isAll()) {
-            buffer.append("ALL");
+            return "ALL";
         }
-        else if (isNone()) {
-            buffer.append("NONE");
+        if (isNone()) {
+            return "NONE";
         }
-        else {
-            buffer.append(domains.get().entrySet().stream()
-                    .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString(session))));
-        }
-        return buffer.toString();
+        return domains.orElseThrow().entrySet().stream()
+                .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString(session)))
+                .toString();
     }
 
     public TupleDomain<T> filter(BiPredicate<T, Domain> predicate)
