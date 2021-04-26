@@ -297,10 +297,7 @@ public class EquatableValueSet
     @Override
     public String toString()
     {
-        return format(
-                "%s[... (%d elements) ...]",
-                inclusive ? "" : "EXCLUDES",
-                entries.size());
+        return toString(ToStringSession.INSTANCE);
     }
 
     @Override

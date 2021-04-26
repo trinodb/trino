@@ -308,7 +308,7 @@ public final class Domain
     @Override
     public String toString()
     {
-        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString() + " ]";
+        return toString(ToStringSession.INSTANCE);
     }
 
     public String toString(ConnectorSession session)
