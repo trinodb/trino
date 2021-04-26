@@ -271,6 +271,37 @@ public class TestStarburstRemoteStatisticsWithHive
     }
 
     @Test
+    public void testUnevenPartitionedTable()
+    {
+        String tableName = "test_stats_uneven_partitioned_table";
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        executeInRemoteStarburst("CREATE TABLE " + tableName + "(col BIGINT, pk BIGINT) WITH (partitioned_by = ARRAY['pk'])");
+        executeInRemoteStarburst("INSERT INTO " + tableName + "(col, pk) SELECT nationkey, least(regionkey, 1) FROM nation");
+
+        try {
+            gatherStats(tableName);
+
+            assertLocalAndRemoteStatistics(
+                    "SHOW STATS FOR (SELECT * FROM " + tableName + " WHERE pk = 1)",
+                    "VALUES " +
+                            "('col', null, 20.0, 0, null, '1', '24')," +
+                            "('pk', null, 1.0, 0, null, '1', '1')," +
+                            "(null, null, null, null, 20.0, null, null)");
+
+            assertLocalAndRemoteStatistics(
+                    "SHOW STATS FOR (SELECT * FROM " + tableName + " WHERE pk = 0)",
+                    "VALUES " +
+                            "('col', null, 5.0, 0, null, '0', '16')," +
+                            "('pk', null, 1.0, 0, null, '0', '0')," +
+                            "(null, null, null, null, 5.0, null, null)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     public void testPartitionedTableWithPredicate()
     {
         throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-5011"); // TODO https://starburstdata.atlassian.net/browse/SEP-5011
