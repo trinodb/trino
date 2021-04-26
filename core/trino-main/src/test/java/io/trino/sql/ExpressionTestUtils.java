@@ -139,6 +139,7 @@ public final class ExpressionTestUtils
                         rewritten.getOrderBy(),
                         rewritten.isDistinct(),
                         rewritten.getNullTreatment(),
+                        rewritten.getProcessingMode(),
                         rewritten.getArguments());
                 return coerceIfNecessary(node, newFunctionCall);
             }

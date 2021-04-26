@@ -178,6 +178,7 @@ public class TestImplementFilteredAggregations
                 Optional.empty(),
                 false,
                 Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of(argument.toSymbolReference()));
     }
 }

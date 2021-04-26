@@ -44,6 +44,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -419,6 +420,59 @@ public class AddLocalExchanges
                     node.getHashSymbol(),
                     prePartitionedInputs,
                     preSortedOrderPrefix);
+
+            return deriveProperties(result, child.getProperties());
+        }
+
+        @Override
+        public PlanWithProperties visitPatternRecognition(PatternRecognitionNode node, StreamPreferredProperties parentPreferences)
+        {
+            StreamPreferredProperties childRequirements = parentPreferences
+                    .constrainTo(node.getSource().getOutputSymbols())
+                    .withDefaultParallelism(session)
+                    .withPartitioning(node.getPartitionBy());
+
+            PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
+
+            List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
+            if (!node.getPartitionBy().isEmpty()) {
+                desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            }
+            node.getOrderingScheme().ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
+            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
+
+            Set<Symbol> prePartitionedInputs = ImmutableSet.of();
+            if (!node.getPartitionBy().isEmpty()) {
+                Optional<LocalProperty<Symbol>> groupingRequirement = matchIterator.next();
+                Set<Symbol> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
+                prePartitionedInputs = node.getPartitionBy().stream()
+                        .filter(symbol -> !unPartitionedInputs.contains(symbol))
+                        .collect(toImmutableSet());
+            }
+
+            int preSortedOrderPrefix = 0;
+            if (prePartitionedInputs.equals(ImmutableSet.copyOf(node.getPartitionBy()))) {
+                while (matchIterator.hasNext() && matchIterator.next().isEmpty()) {
+                    preSortedOrderPrefix++;
+                }
+            }
+
+            PatternRecognitionNode result = new PatternRecognitionNode(
+                    node.getId(),
+                    child.getNode(),
+                    node.getSpecification(),
+                    node.getHashSymbol(),
+                    prePartitionedInputs,
+                    preSortedOrderPrefix,
+                    node.getMeasures(),
+                    node.getCommonBaseFrame(),
+                    node.getRowsPerMatch(),
+                    node.getSkipToLabel(),
+                    node.getSkipToPosition(),
+                    node.isInitial(),
+                    node.getPattern(),
+                    node.getSubsets(),
+                    node.getVariableDefinitions());
 
             return deriveProperties(result, child.getProperties());
         }

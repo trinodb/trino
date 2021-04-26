@@ -69,6 +69,7 @@ Keyword                        SQL:2016      SQL-92
 ``RIGHT``                      reserved      reserved
 ``ROLLUP``                     reserved
 ``SELECT``                     reserved      reserved
+``SKIP``                       reserved
 ``TABLE``                      reserved      reserved
 ``THEN``                       reserved      reserved
 ``TRUE``                       reserved      reserved

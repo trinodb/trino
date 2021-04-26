@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.tree.DereferenceExpression;
@@ -27,6 +28,7 @@ import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.NodeRef;
@@ -45,6 +47,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -207,6 +210,26 @@ class TranslationMap
             @Override
             public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
+                if (analysis.isPatternRecognitionFunction(node)) {
+                    List<Expression> rewrittenArguments = node.getArguments().stream()
+                            .map(argument -> treeRewriter.rewrite(argument, null))
+                            .collect(toImmutableList());
+                    // Pattern recognition functions are special constructs, passed using the form of FunctionCall.
+                    // They are not resolved like regular function calls. They are processed in LogicalIndexExtractor.
+                    return coerceIfNecessary(node, new FunctionCall(
+                            Optional.empty(),
+                            node.getName(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            false,
+                            Optional.empty(),
+                            node.getProcessingMode(),
+                            rewrittenArguments));
+                }
+
+                // TODO handle aggregation in pattern recognition context (and handle its processingMode)
+
                 Optional<Expression> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
@@ -224,6 +247,7 @@ class TranslationMap
                         rewritten.getOrderBy(),
                         rewritten.isDistinct(),
                         rewritten.getNullTreatment(),
+                        rewritten.getProcessingMode(),
                         rewritten.getArguments());
                 return coerceIfNecessary(node, rewritten);
             }
@@ -231,6 +255,13 @@ class TranslationMap
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
+                LabelPrefixedReference labelDereference = analysis.getLabelDereference(node);
+                if (labelDereference != null) {
+                    Expression rewritten = treeRewriter.rewrite(labelDereference.getColumn(), null);
+                    checkState(rewritten instanceof SymbolReference, "expected symbol reference, got: " + rewritten);
+                    return coerceIfNecessary(node, new LabelDereference(labelDereference.getLabel(), (SymbolReference) rewritten));
+                }
+
                 Optional<Expression> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());

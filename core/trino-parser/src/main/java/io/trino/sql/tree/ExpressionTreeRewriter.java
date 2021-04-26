@@ -547,7 +547,16 @@ public final class ExpressionTreeRewriter<C>
 
             if (!sameElements(node.getArguments(), arguments) || !sameElements(rewrittenWindow, node.getWindow())
                     || !sameElements(filter, node.getFilter())) {
-                return new FunctionCall(node.getLocation(), node.getName(), rewrittenWindow, filter, node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)), node.isDistinct(), node.getNullTreatment(), arguments);
+                return new FunctionCall(
+                        node.getLocation(),
+                        node.getName(),
+                        rewrittenWindow,
+                        filter,
+                        node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)),
+                        node.isDistinct(),
+                        node.getNullTreatment(),
+                        node.getProcessingMode(),
+                        arguments);
             }
             return node;
         }
@@ -1028,6 +1037,24 @@ public final class ExpressionTreeRewriter<C>
             List<Expression> arguments = rewrite(node.getArguments(), context);
             if (!sameElements(node.getArguments(), arguments)) {
                 return new Format(arguments);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitLabelDereference(LabelDereference node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteLabelDereference(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            SymbolReference reference = rewrite(node.getReference(), context.get());
+            if (node.getReference() != reference) {
+                return new LabelDereference(node.getLabel(), reference);
             }
 
             return node;
