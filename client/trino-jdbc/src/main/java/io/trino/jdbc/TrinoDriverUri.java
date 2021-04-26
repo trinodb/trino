@@ -70,6 +70,7 @@ import static io.trino.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.trino.jdbc.ConnectionProperties.PASSWORD;
+import static io.trino.jdbc.ConnectionProperties.PREPROCESSOR_CLASS;
 import static io.trino.jdbc.ConnectionProperties.ROLES;
 import static io.trino.jdbc.ConnectionProperties.SESSION_PROPERTIES;
 import static io.trino.jdbc.ConnectionProperties.SESSION_USER;
@@ -235,6 +236,12 @@ public final class TrinoDriverUri
             throws SQLException
     {
         return DISABLE_COMPRESSION.getValue(properties).orElse(false);
+    }
+
+    public Optional<String> getPreprocessorClass()
+            throws SQLException
+    {
+        return PREPROCESSOR_CLASS.getValue(properties);
     }
 
     public boolean isAssumeLiteralNamesInMetadataCallsForNonConformingClients()

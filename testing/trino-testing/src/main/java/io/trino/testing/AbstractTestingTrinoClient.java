@@ -172,7 +172,8 @@ public abstract class AbstractTestingTrinoClient<T>
                 session.getIdentity().getExtraCredentials(),
                 session.getTransactionId().map(Object::toString).orElse(null),
                 clientRequestTimeout,
-                true);
+                true,
+                Optional.empty());
     }
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)

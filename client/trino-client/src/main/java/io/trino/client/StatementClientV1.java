@@ -31,6 +31,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -122,10 +123,27 @@ class StatementClientV1
             throw new ClientException("Invalid server URL: " + session.getServer());
         }
         url = url.newBuilder().encodedPath("/v1/statement").build();
+        Request.Builder builder;
+        if (session.getPreprocessorClass().isPresent()) {
+            try {
+                Class<QueryPreprocessor> preprocessorClazz = (Class<QueryPreprocessor>) Class.forName(
+                        session.getPreprocessorClass().get(),
+                        true,
+                        this.getClass().getClassLoader());
 
-        Request.Builder builder = prepareRequest(url)
-                .post(RequestBody.create(MEDIA_TYPE_TEXT, query));
-
+                QueryPreprocessor preprocessor = preprocessorClazz.getDeclaredConstructor().newInstance();
+                builder = prepareRequest(url)
+                        .post(RequestBody.create(MEDIA_TYPE_TEXT, preprocessor.preprocess(query)));
+            }
+            catch (IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException | ClassNotFoundException e) {
+                e.printStackTrace();
+                throw new RuntimeException("Error loading Preprocessor Class " + session.getPreprocessorClass(), e);
+            }
+        }
+        else {
+            builder = prepareRequest(url)
+                    .post(RequestBody.create(MEDIA_TYPE_TEXT, query));
+        }
         if (session.getSource() != null) {
             builder.addHeader(TRINO_HEADERS.requestSource(), session.getSource());
         }
