@@ -2241,7 +2241,8 @@ public class HiveMetadata
         if (handle.getPartitions().equals(newHandle.getPartitions()) &&
                 handle.getCompactEffectivePredicate().equals(newHandle.getCompactEffectivePredicate()) &&
                 handle.getBucketFilter().equals(newHandle.getBucketFilter()) &&
-                handle.getConstraintColumns().equals(newHandle.getConstraintColumns())) {
+                handle.getConstraintColumns().equals(newHandle.getConstraintColumns()) &&
+                partitionResult.getUnenforcedConstraint().equals(constraint.getSummary())) {
             return Optional.empty();
         }
 

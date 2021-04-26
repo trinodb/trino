@@ -192,7 +192,7 @@ public class TestHivePlans
                                                                 filter("R_INT_COL IN (2, 3, 4)",
                                                                         tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
 
-        // Test that the partition filter is fully subsumed (TODO it's not) into the partitioned table, while also being propagated into the other Join side, in the presence
+        // Test that the partition filter is fully subsumed into the partitioned table, while also being propagated into the other Join side, in the presence
         // of other pushdown-able filter.
         assertDistributedPlan(
                 "SELECT l.str_col, r.str_col FROM table_int_partitioned l JOIN table_unpartitioned r ON l.int_part = r.int_col " +
@@ -203,7 +203,7 @@ public class TestHivePlans
                                 join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        filter("L_STR_COL != 'three' AND L_INT_PART IN (2, 3, 4)", // TODO the L_INT_PART filter is redundant
+                                                        filter("L_STR_COL != 'three'",
                                                                 tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
                                         exchange(LOCAL, REPARTITION,
                                                 exchange(REMOTE, REPARTITION,
