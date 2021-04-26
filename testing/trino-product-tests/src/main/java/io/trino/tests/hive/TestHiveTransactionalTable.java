@@ -708,6 +708,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testBucketedPartitionedDelete(HiveOrPresto inserter, HiveOrPresto deleter)
     {
         withTemporaryTable("bucketed_partitioned_delete", true, true, NONE, tableName -> {
