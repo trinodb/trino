@@ -3,34 +3,38 @@ Try Trino with Docker
 
 This guide focuses on your first ten minutes
 using Trino, and relies on Docker to simplify the installation and
-ensure that the CLI runs on your platform of choice.
+ensure that the :doc:`CLI </installation/cli>` runs on your platform of choice.
 
 This Docker container includes both the Trino server and the 
 Trino command line interface (CLI), which provides a terminal-based,
 interactive shell for running queries and inspecting catalog structures
 in large data clusters. In production, it's unlikely that your server 
 and client will reside in the same location. However, to keep this guide 
-short and sweet, we are going to run both from your machine.
+simple, we're going to run both from your machine.
 
-In this guide, you'll learn how to:
+This guide shows you how to:
 
--  Install and run the Trino Interactive CLI
--  Call Trino from the terminal
+-  Install and run the Trino CLI
+-  Start Trino from the terminal
 
 Prerequisites
 -------------
 
-Trino runs best on Linux. Our Docker container is built on 
-Linux, which means that you can run this guide from Linux, 
-macOS, or Windows.
+This quickstart runs the Trino server and Trino CLI from a Docker container, 
+which means that you can run this guide from Linux, macOS, or Windows. 
+
+Our container encapsulates Trino on Linux for 64-bit Intel platforms. While 
+you can evaluate, test, and get started on any of the listed platforms, Trino 
+should be run on a Linux host for a production environment.
+
+Visit the following page to install Docker for your operating system.
 
 -  `Install Docker <https://docs.docker.com/get-docker/>`__
 
 Pull Trino from Docker
 ------------------------------
 
-Once Docker is installed, the next step is to pull the Trino container
-from Docker. This container contains both the server and the CLI.
+After you've installed Docker, pull the Trino container from Docker Hub.
 
 From your terminal, run:
 
@@ -41,15 +45,14 @@ From your terminal, run:
 Start the Trino server
 ----------------------
 
-After you've pulled the container, you'll need to start your Trino server. 
-You're going to make calls against this server (and it's data) throughout 
-this guide. 
+Start the Trino server with the following command. The Docker container includes connections 
+to sample databases whose data you can query throughout this guide.
 
 .. code-block:: shell
 
-   docker run -p 8080:8080 --name trino trinodb/trino
+   docker run -p 8080:8080 --name trino-container trinodb/trino
 
-When the server is ready, you'll see this message:
+Look for the following message in the logs, which tells you the Trino server is ready:
 
 .. code-block:: text
 
@@ -58,31 +61,30 @@ When the server is ready, you'll see this message:
 Start the Trino CLI
 --------------------
 
-In a new terminal window or tab, run this command to start the Trino
-Interactive CLI:
+In a new terminal window or tab, run the following command to start the Trino CLI:
 
 .. code-block:: shell
 
-    docker exec -it trino trino
+    docker exec -it trino-container trino
 
-When the Trino Interactive CLI is ready to use, you should see:
+When the Trino CLI is ready to use, look for:
 
 .. code-block:: shell
 
     trino>
 
-You can exit the Trino Interactive CLI at any time, run:
+You can exit the Trino CLI at any time with the following command or Ctrl+D:
 
 .. code-block:: shell
 
-    trino> EXIT;
+    trino> exit;
 
 How to get help
 ~~~~~~~~~~~~~~~
 
 One of the most important things you need to know when learning a new
 tool is where to find help. With Trino, it's as easy as passing
-``help;`` to the interactive CLI.
+``help;`` to the CLI.
 
 .. code-block:: shell
 
@@ -91,15 +93,14 @@ tool is where to find help. With Trino, it's as easy as passing
 Show configured resources
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Now that your server is running and you've started the CLI, let's make a
-few calls. We're going to start by listing configured resources
-(``CATALOGS``).
+Now that your server is running and you've started the CLI, let's get a 
+list of conigured resources:
 
 .. code-block:: shell
 
     trino> SHOW CATALOGS;
 
-The server included with the Docker image will return this response:
+The Docker image's server is configured with the following catalogs:
 
 .. code-block:: text
 
@@ -115,7 +116,7 @@ The server included with the Docker image will return this response:
 Explore a catalog
 ~~~~~~~~~~~~~~~~~
 
-Start with the ``tpch`` catalog, which lets you to test the capabilities
+Start with the ``tpch`` catalog, which lets you test the capabilities
 and query syntax of Trino without configuring access to an external data
 source.
 
@@ -133,7 +134,7 @@ command:
 
     trino> USE tpch.sf100;
 
-Now you should see:
+Now look for:
 
 .. code-block:: shell
 
@@ -142,7 +143,7 @@ Now you should see:
 Show table data
 ~~~~~~~~~~~~~~~
 
-To view the tables in sf100, run:
+To view the tables in the ``sf100`` schema, run:
 
 .. code-block:: shell
 
@@ -164,8 +165,7 @@ Which returns:
      supplier
     (8 rows)
 
-With this list of tables, you can continue to drill-down. Let's look at
-customer data:
+Continue to drill down into the ``customer`` table:
 
 .. code-block:: shell
 
@@ -190,7 +190,7 @@ Which returns:
 Run a SQL script
 ~~~~~~~~~~~~~~~~
 
-From the interactive terminal you can run SQL queries. Run:
+From the Trino prompt you can run SQL queries. Try:
 
 .. code-block:: shell
 
@@ -214,7 +214,7 @@ Which returns:
 Call Trino from terminal
 -------------------------
 
-Using the Trino Interactive CLI isn't required. You can call Trino
+Using the Trino CLI isn't required. You can call Trino
 directly from your terminal session. Let's look at a few
 examples.
 
@@ -222,12 +222,12 @@ Pass SQL queries to Trino
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the previous section, you learned how to run a SQL query from the
-Trino Interactive CLI. You can also pass a query directly to Trino. From
+Trino CLI. You can also pass a query directly to Trino. From
 the terminal, run:
 
 .. code-block:: shell
 
-    docker exec -it trino trino --execute 'SELECT custkey, name, phone, acctbal FROM tpch.sf100.customer LIMIT 7'
+    docker exec -it trino-container trino --execute 'SELECT custkey, name, phone, acctbal FROM tpch.sf100.customer LIMIT 7'
 
 Which returns:
 
@@ -248,16 +248,16 @@ Run SQL scripts with Trino
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Two TPCH scripts are included with the sample files for the `O’Reilly
-book Presto: The Definitive
+book Trino: The Definitive
 Guide <https://www.starburst.io/oreilly-presto-guide-download/>`__.
 
 To use these scripts, download the book’s samples from their `GitHub
-location <https://github.com/trinodb/presto-the-definitive-guide>`__
+location <https://github.com/trinodb/trino-the-definitive-guide>`__
 either as a zip file or a git clone.
 
 .. code-block:: shell
 
-    docker exec -it trino trino -f filename.sql
+    docker exec -it trino-container trino -f filename.sql
 
 Next steps
 ----------
