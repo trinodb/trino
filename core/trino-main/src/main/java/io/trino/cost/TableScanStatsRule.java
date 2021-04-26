@@ -32,7 +32,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Verify.verifyNotNull;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.lang.Double.NaN;
 import static java.util.Objects.requireNonNull;
@@ -63,7 +62,6 @@ public class TableScanStatsRule
         Constraint constraint = new Constraint(TupleDomain.all());
 
         TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
-        verifyNotNull(tableStatistics, "tableStatistics is null for %s", node);
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
 
         for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
