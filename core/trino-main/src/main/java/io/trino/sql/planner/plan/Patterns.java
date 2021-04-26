@@ -188,6 +188,11 @@ public final class Patterns
         return typeOf(WindowNode.class);
     }
 
+    public static Pattern<PatternRecognitionNode> patternRecognition()
+    {
+        return typeOf(PatternRecognitionNode.class);
+    }
+
     public static Pattern<RowNumberNode> rowNumber()
     {
         return typeOf(RowNumberNode.class);

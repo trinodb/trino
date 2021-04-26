@@ -117,8 +117,19 @@ import io.trino.operator.index.IndexLookupSourceFactory;
 import io.trino.operator.index.IndexSourceOperator;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
+import io.trino.operator.project.PageProjection;
 import io.trino.operator.window.FrameInfo;
+import io.trino.operator.window.PartitionerSupplier;
+import io.trino.operator.window.PatternRecognitionPartitionerSupplier;
+import io.trino.operator.window.RegularPartitionerSupplier;
 import io.trino.operator.window.WindowFunctionSupplier;
+import io.trino.operator.window.matcher.IrRowPatternToProgramRewriter;
+import io.trino.operator.window.matcher.Matcher;
+import io.trino.operator.window.matcher.Program;
+import io.trino.operator.window.pattern.LabelEvaluator.EvaluationSupplier;
+import io.trino.operator.window.pattern.LogicalIndexNavigation;
+import io.trino.operator.window.pattern.MeasureComputation.MeasureComputationSupplier;
+import io.trino.operator.window.pattern.PhysicalValuePointer;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -167,6 +178,8 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
@@ -193,6 +206,10 @@ import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Frame;
+import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ValuePointer;
+import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.relational.LambdaDefinitionExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
@@ -263,10 +280,13 @@ import static io.trino.operator.TableWriterOperator.STATS_START_CHANNEL;
 import static io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static io.trino.operator.WindowFunctionDefinition.window;
 import static io.trino.operator.unnest.UnnestOperator.UnnestOperatorFactory;
+import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
+import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
@@ -292,8 +312,12 @@ import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
+import static io.trino.sql.tree.SkipTo.Position.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.SpatialJoinUtils.ST_CONTAINS;
 import static io.trino.util.SpatialJoinUtils.ST_DISTANCE;
@@ -985,7 +1009,6 @@ public class LocalExecutionPlanner
                     sortKeyChannel = Optional.of(sortChannels.get(0));
                     ordering = Optional.of(sortOrder.get(0).isAscending() ? ASCENDING : DESCENDING);
                 }
-
                 FrameInfo frameInfo = new FrameInfo(
                         frame.getType(),
                         frame.getStartType(),
@@ -1054,9 +1077,241 @@ public class LocalExecutionPlanner
                     pagesIndexFactory,
                     isSpillEnabled(session) && isSpillWindowOperator(session),
                     spillerFactory,
-                    orderingCompiler);
+                    orderingCompiler,
+                    ImmutableList.of(),
+                    new RegularPartitionerSupplier());
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
+        }
+
+        @Override
+        public PhysicalOperation visitPatternRecognition(PatternRecognitionNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            List<Symbol> partitionBySymbols = node.getPartitionBy();
+            List<Integer> partitionChannels = ImmutableList.copyOf(getChannelsForSymbols(partitionBySymbols, source.getLayout()));
+            List<Integer> preGroupedChannels = ImmutableList.copyOf(getChannelsForSymbols(ImmutableList.copyOf(node.getPrePartitionedInputs()), source.getLayout()));
+
+            List<Integer> sortChannels = ImmutableList.of();
+            List<SortOrder> sortOrder = ImmutableList.of();
+
+            if (node.getOrderingScheme().isPresent()) {
+                OrderingScheme orderingScheme = node.getOrderingScheme().get();
+                sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), source.getLayout());
+                sortOrder = orderingScheme.getOrderingList();
+            }
+
+            // The output order for pattern recognition operation is defined as follows:
+            // - for ONE ROW PER MATCH: partition by symbols, then measures,
+            // - for ALL ROWS PER MATCH: partition by symbols, order by symbols, measures, remaining input symbols,
+            // - for WINDOW: all input symbols, then window functions (including measures).
+            // The operator produces output in the following order:
+            // - for ONE ROW PER MATCH: partition by symbols, then measures,
+            // - otherwise all input symbols, then window functions and measures.
+            // There is no need to shuffle channels for output. Any upstream operator will pick them in preferred order using output mappings.
+
+            // input channels to be passed directly to output
+            ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
+
+            // all output symbols mapped to output channels
+            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+
+            int nextOutputChannel;
+
+            if (node.getRowsPerMatch() == ONE) {
+                outputChannels.addAll(partitionChannels);
+                nextOutputChannel = partitionBySymbols.size();
+                for (int i = 0; i < partitionBySymbols.size(); i++) {
+                    outputMappings.put(partitionBySymbols.get(i), i);
+                }
+            }
+            else {
+                outputChannels.addAll(IntStream.range(0, source.getTypes().size())
+                        .boxed()
+                        .collect(toImmutableList()));
+                nextOutputChannel = source.getTypes().size();
+                outputMappings.putAll(source.getLayout());
+            }
+
+            // measures go in remaining channels starting after the last channel from the source operator, one per channel
+            for (Map.Entry<Symbol, Measure> measure : node.getMeasures().entrySet()) {
+                outputMappings.put(measure.getKey(), nextOutputChannel);
+                nextOutputChannel++;
+            }
+
+            // TODO here go window functions in the following channels, similarly to measures
+
+            // prepare structures specific to PatternRecognitionNode
+            // 1. establish a two-way mapping of IrLabels to `int`
+            List<IrLabel> primaryLabels = ImmutableList.copyOf(node.getVariableDefinitions().keySet());
+            ImmutableList.Builder<String> labelNamesBuilder = ImmutableList.builder();
+            ImmutableMap.Builder<IrLabel, Integer> mappingBuilder = ImmutableMap.builder();
+            for (int i = 0; i < primaryLabels.size(); i++) {
+                IrLabel label = primaryLabels.get(i);
+                labelNamesBuilder.add(label.getName());
+                mappingBuilder.put(label, i);
+            }
+            Map<IrLabel, Integer> mapping = mappingBuilder.build();
+            List<String> labelNames = labelNamesBuilder.build();
+
+            // 2. rewrite pattern to program
+            Program program = IrRowPatternToProgramRewriter.rewrite(node.getPattern(), mapping);
+
+            // 3. prepare common base frame for pattern matching in window
+            Optional<FrameInfo> frame = node.getCommonBaseFrame()
+                    .map(baseFrame -> {
+                        checkArgument(
+                                baseFrame.getType() == ROWS &&
+                                        baseFrame.getEndType() == CURRENT_ROW,
+                                "invalid base frame");
+                        return new FrameInfo(
+                                baseFrame.getType(),
+                                baseFrame.getStartType(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                baseFrame.getEndType(),
+                                baseFrame.getEndValue().map(source.getLayout()::get),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty());
+                    });
+
+            ConnectorSession connectorSession = session.toConnectorSession();
+            // 4. prepare label evaluations (LabelEvaluator is to be instantiated once per Partition)
+            List<EvaluationSupplier> labelEvaluations = node.getVariableDefinitions().values().stream()
+                    .map(expressionAndValuePointers -> {
+                        // compile the rewritten expression
+                        Supplier<PageProjection> pageProjectionSupplier = prepareProjection(expressionAndValuePointers, context);
+
+                        // prepare physical value accessors to provide input for the expression
+                        List<PhysicalValuePointer> physicalValuePointers = preparePhysicalValuePointers(expressionAndValuePointers, mapping, source.getLayout(), context);
+
+                        // build label evaluation
+                        return new EvaluationSupplier(pageProjectionSupplier, physicalValuePointers, labelNames, connectorSession);
+                    })
+                    .collect(toImmutableList());
+
+            // 5. prepare measures computations
+            List<MeasureComputationSupplier> measureComputations = node.getMeasures().values().stream()
+                    .map(measure -> {
+                        ExpressionAndValuePointers expressionAndValuePointers = measure.getExpressionAndValuePointers();
+
+                        // compile the rewritten expression
+                        Supplier<PageProjection> pageProjectionSupplier = prepareProjection(expressionAndValuePointers, context);
+
+                        // prepare physical value accessors to provide input for the expression
+                        List<PhysicalValuePointer> physicalValuePointers = preparePhysicalValuePointers(expressionAndValuePointers, mapping, source.getLayout(), context);
+
+                        // build measure computation
+                        return new MeasureComputationSupplier(pageProjectionSupplier, physicalValuePointers, measure.getType(), labelNames, connectorSession);
+                    })
+                    .collect(toImmutableList());
+
+            // 6. prepare SKIP TO navigation
+            Optional<LogicalIndexNavigation> skipToNavigation = node.getSkipToLabel().map(label -> {
+                Set<IrLabel> labels = node.getSubsets().get(label);
+                if (labels == null) {
+                    labels = ImmutableSet.of(label);
+                }
+                boolean last = node.getSkipToPosition().equals(LAST);
+                return new LogicalIndexPointer(labels, last, false, 0, 0).toLogicalIndexNavigation(mapping);
+            });
+
+            // 7. pass additional info like: rowsPerMatch, skipToPosition, initial to the WindowPartition factory supplier
+            PartitionerSupplier partitionerSupplier = new PatternRecognitionPartitionerSupplier(
+                    measureComputations,
+                    frame,
+                    node.getRowsPerMatch(),
+                    skipToNavigation,
+                    node.getSkipToPosition(),
+                    node.isInitial(),
+                    new Matcher(program),
+                    labelEvaluations);
+
+            OperatorFactory operatorFactory = new WindowOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    source.getTypes(),
+                    outputChannels.build(),
+                    ImmutableList.of(), // TODO support window functions
+                    partitionChannels,
+                    preGroupedChannels,
+                    sortChannels,
+                    sortOrder,
+                    node.getPreSortedOrderPrefix(),
+                    10_000,
+                    pagesIndexFactory,
+                    isSpillEnabled(session) && isSpillWindowOperator(session),
+                    spillerFactory,
+                    orderingCompiler,
+                    node.getMeasures().values().stream()
+                            .map(Measure::getType)
+                            .collect(toImmutableList()),
+                    partitionerSupplier);
+
+            return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
+        }
+
+        private Supplier<PageProjection> prepareProjection(ExpressionAndValuePointers expressionAndValuePointers, LocalExecutionPlanContext context)
+        {
+            Expression rewritten = expressionAndValuePointers.getExpression();
+            List<Symbol> inputSymbols = expressionAndValuePointers.getLayout();
+            List<ValuePointer> valuePointers = expressionAndValuePointers.getValuePointers();
+            Set<Symbol> classifierSymbols = expressionAndValuePointers.getClassifierSymbols();
+            Set<Symbol> matchNumberSymbols = expressionAndValuePointers.getMatchNumberSymbols();
+
+            // prepare input layout and type provider for compilation
+            ImmutableMap.Builder<Symbol, Type> inputTypes = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Integer> inputLayout = ImmutableMap.builder();
+            for (int i = 0; i < inputSymbols.size(); i++) {
+                if (classifierSymbols.contains(inputSymbols.get(i))) {
+                    inputTypes.put(inputSymbols.get(i), VARCHAR);
+                }
+                else if (matchNumberSymbols.contains(inputSymbols.get(i))) {
+                    inputTypes.put(inputSymbols.get(i), BIGINT);
+                }
+                else {
+                    inputTypes.put(inputSymbols.get(i), context.getTypes().get(valuePointers.get(i).getInputSymbol()));
+                }
+                inputLayout.put(inputSymbols.get(i), i);
+            }
+
+            // compile expression using input layout and input types
+            RowExpression rowExpression = toRowExpression(rewritten, typeAnalyzer.getTypes(session, TypeProvider.viewOf(inputTypes.build()), rewritten), inputLayout.build());
+            return pageFunctionCompiler.compileProjection(rowExpression, Optional.empty());
+        }
+
+        private List<PhysicalValuePointer> preparePhysicalValuePointers(
+                ExpressionAndValuePointers expressionAndValuePointers,
+                Map<IrLabel, Integer> mapping,
+                Map<Symbol, Integer> sourceLayout,
+                LocalExecutionPlanContext context)
+        {
+            List<ValuePointer> valuePointers = expressionAndValuePointers.getValuePointers();
+            Set<Symbol> classifierSymbols = expressionAndValuePointers.getClassifierSymbols();
+            Set<Symbol> matchNumberSymbols = expressionAndValuePointers.getMatchNumberSymbols();
+
+            return valuePointers.stream()
+                    .map(pointer -> {
+                        if (classifierSymbols.contains(pointer.getInputSymbol())) {
+                            return new PhysicalValuePointer(
+                                    CLASSIFIER,
+                                    VARCHAR,
+                                    pointer.getLogicalIndexPointer().toLogicalIndexNavigation(mapping));
+                        }
+                        if (matchNumberSymbols.contains(pointer.getInputSymbol())) {
+                            return new PhysicalValuePointer(
+                                    MATCH_NUMBER,
+                                    BIGINT,
+                                    pointer.getLogicalIndexPointer().toLogicalIndexNavigation(mapping));
+                        }
+                        return new PhysicalValuePointer(
+                                getOnlyElement(getChannelsForSymbols(ImmutableList.of(pointer.getInputSymbol()), sourceLayout)),
+                                context.getTypes().get(pointer.getInputSymbol()),
+                                pointer.getLogicalIndexPointer().toLogicalIndexNavigation(mapping));
+                    })
+                    .collect(toImmutableList());
         }
 
         @Override
