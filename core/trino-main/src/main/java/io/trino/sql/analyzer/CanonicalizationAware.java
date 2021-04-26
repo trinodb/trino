@@ -20,7 +20,6 @@ import java.util.OptionalInt;
 
 import static io.trino.sql.util.AstUtils.treeEqual;
 import static io.trino.sql.util.AstUtils.treeHash;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CanonicalizationAware<T extends Node>
@@ -74,7 +73,7 @@ public class CanonicalizationAware<T extends Node>
             Identifier leftIdentifier = (Identifier) left;
             Identifier rightIdentifier = (Identifier) right;
 
-            return canonicalize(leftIdentifier).equals((canonicalize(rightIdentifier)));
+            return leftIdentifier.getCanonicalValue().equals(rightIdentifier.getCanonicalValue());
         }
 
         return null;
@@ -83,20 +82,11 @@ public class CanonicalizationAware<T extends Node>
     public static OptionalInt canonicalizationAwareHash(Node node)
     {
         if (node instanceof Identifier) {
-            return OptionalInt.of(canonicalize((Identifier) node).hashCode());
+            return OptionalInt.of(((Identifier) node).getCanonicalValue().hashCode());
         }
         else if (node.getChildren().isEmpty()) {
             return OptionalInt.of(node.hashCode());
         }
         return OptionalInt.empty();
-    }
-
-    public static String canonicalize(Identifier identifier)
-    {
-        if (identifier.isDelimited()) {
-            return identifier.getValue();
-        }
-
-        return identifier.getValue().toUpperCase(ENGLISH);
     }
 }

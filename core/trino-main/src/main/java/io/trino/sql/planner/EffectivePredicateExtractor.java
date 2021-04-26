@@ -32,6 +32,7 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -265,6 +266,13 @@ public class EffectivePredicateExtractor
         public Expression visitWindow(WindowNode node, Void context)
         {
             return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Expression visitPatternRecognition(PatternRecognitionNode node, Void context)
+        {
+            Expression sourcePredicate = node.getSource().accept(this, context);
+            return pullExpressionThroughSymbols(sourcePredicate, node.getOutputSymbols());
         }
 
         @Override

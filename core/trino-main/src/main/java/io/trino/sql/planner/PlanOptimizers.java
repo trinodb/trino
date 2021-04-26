@@ -73,6 +73,7 @@ import io.trino.sql.planner.iterative.rule.MergeLimits;
 import io.trino.sql.planner.iterative.rule.MergeUnion;
 import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import io.trino.sql.planner.iterative.rule.OptimizeDuplicateInsensitiveJoins;
+import io.trino.sql.planner.iterative.rule.OptimizeRowPattern;
 import io.trino.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.trino.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneApplyColumns;
@@ -420,7 +421,10 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new CanonicalizeExpressions(metadata, typeAnalyzer).rules()),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new CanonicalizeExpressions(metadata, typeAnalyzer).rules())
+                                .add(new OptimizeRowPattern())
+                                .build()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,

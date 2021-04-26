@@ -53,6 +53,7 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -270,6 +271,18 @@ public class UnaliasSymbolReferences
             WindowNode rewrittenWindow = mapper.map(node, rewrittenSource.getRoot());
 
             return new PlanAndMappings(rewrittenWindow, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitPatternRecognition(PatternRecognitionNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            PatternRecognitionNode rewrittenPatternRecognition = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenPatternRecognition, mapping);
         }
 
         @Override
