@@ -147,6 +147,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -562,7 +563,9 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
-        return metadata.getTableStatistics(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), constraint);
+        TableStatistics tableStatistics = metadata.getTableStatistics(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), constraint);
+        verifyNotNull(tableStatistics, "%s returned null tableStatistics for %s", metadata, tableHandle);
+        return tableStatistics;
     }
 
     @Override
