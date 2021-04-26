@@ -40,16 +40,25 @@ such as ``:`` or ``?``.
 
 .. function:: url_extract_protocol(url) -> varchar
 
-    Returns the protocol from ``url``. For example:
+    Returns the protocol from ``url``. e.g:
+    Extract ``http`` protocol::
 
-    * url_extract_protocol(``'http://localhost:8080/req_path'``) returns ``http``
-    * url_extract_protocol(``'https://127.0.0.1:8080/req_path'``) returns ``https``.
+        SELECT url_extract_protocol('http://localhost:8080/req_path');
+
+    Extract ``https`` protocol::
+
+        SELECT url_extract_protocol('https://127.0.0.1:8080/req_path');
 
     If input ``url`` is not valid, then the behavior is undefined. e.g:
 
-    * url_extract_protocol(``http://``) and url_extract_protocol(``127.0.0.1:8080/req_path``)
-        return ``NULL``
-    * url_extract_protocol(``localhost:8080/req_path``) returns ``localhost``.
+    Invalid ``url`` return ``NULL``::
+
+        SELECT url_extract_protocol('http://');
+        SELECT url_extract_protocol('127.0.0.1:8080/req_path');
+
+    Invalid ``url`` return ``localhost``::
+
+        SELECT url_extract_protocol('localhost:8080/req_path');
 
 .. function:: url_extract_query(url) -> varchar
 
