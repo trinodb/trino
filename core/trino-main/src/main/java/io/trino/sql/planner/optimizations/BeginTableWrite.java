@@ -284,6 +284,7 @@ public class BeginTableWrite
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
                         scan.getEnforcedConstraint(),
+                        scan.getStatistics(),
                         scan.isUpdateTarget(),
                         // partitioning should not change with write table handle
                         scan.getUseConnectorNodePartitioning());

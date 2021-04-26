@@ -147,6 +147,7 @@ public class ApplyTableScanRedirection
                             ImmutableList.copyOf(newAssignments.keySet()),
                             newAssignments,
                             TupleDomain.all(),
+                            Optional.empty(), // TODO consider carrying over table statistics from the source table
                             scanNode.isUpdateTarget(),
                             Optional.empty())));
         }
@@ -202,6 +203,7 @@ public class ApplyTableScanRedirection
                 ImmutableList.copyOf(newAssignments.keySet()),
                 newAssignments,
                 TupleDomain.all(),
+                Optional.empty(), // TODO consider carrying over table statistics from the source table
                 scanNode.isUpdateTarget(),
                 Optional.empty());
 

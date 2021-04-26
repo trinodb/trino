@@ -2264,7 +2264,7 @@ public class HiveMetadata
             return Optional.empty();
         }
 
-        return Optional.of(new ConstraintApplicationResult<>(newHandle, partitionResult.getUnenforcedConstraint()));
+        return Optional.of(new ConstraintApplicationResult<>(newHandle, partitionResult.getUnenforcedConstraint(), false));
     }
 
     @Override
@@ -2324,7 +2324,8 @@ public class HiveMetadata
             return Optional.of(new ProjectionApplicationResult<>(
                     hiveTableHandle.withProjectedColumns(projectedColumns),
                     projections,
-                    assignmentsList));
+                    assignmentsList,
+                    false));
         }
 
         Map<String, Assignment> newAssignments = new HashMap<>();
@@ -2370,7 +2371,8 @@ public class HiveMetadata
         return Optional.of(new ProjectionApplicationResult<>(
                 hiveTableHandle.withProjectedColumns(projectedColumnsBuilder.build()),
                 newProjections,
-                outputAssignments));
+                outputAssignments,
+                false));
     }
 
     private HiveColumnHandle createProjectedColumnHandle(HiveColumnHandle column, List<Integer> indices)

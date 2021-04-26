@@ -219,6 +219,7 @@ public class TestPruneTableScanColumns
                                         variable.getName(),
                                         assignments.get(variable.getName()),
                                         ((MockConnectorColumnHandle) assignments.get(variable.getName())).getType()))
-                                .collect(toImmutableList())));
+                                .collect(toImmutableList()),
+                        false));
     }
 }

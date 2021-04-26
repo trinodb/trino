@@ -326,7 +326,8 @@ public class RaptorMetadata
                         newDomain.intersect(table.getConstraint()),
                         table.getBucketAssignments(),
                         table.isDelete()),
-                constraint.getSummary()));
+                constraint.getSummary(),
+                false));
     }
 
     @Override

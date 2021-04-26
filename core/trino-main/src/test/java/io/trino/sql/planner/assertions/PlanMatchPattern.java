@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
@@ -158,7 +159,16 @@ public final class PlanMatchPattern
             TupleDomain<Predicate<ColumnHandle>> enforcedConstraints,
             Map<String, Predicate<ColumnHandle>> expectedColumns)
     {
-        PlanMatchPattern pattern = ConnectorAwareTableScanMatcher.create(expectedTable, enforcedConstraints);
+        return tableScan(expectedTable, enforcedConstraints, expectedColumns, statistics -> true);
+    }
+
+    public static PlanMatchPattern tableScan(
+            Predicate<ConnectorTableHandle> expectedTable,
+            TupleDomain<Predicate<ColumnHandle>> enforcedConstraints,
+            Map<String, Predicate<ColumnHandle>> expectedColumns,
+            Predicate<Optional<PlanNodeStatsEstimate>> expectedStatistics)
+    {
+        PlanMatchPattern pattern = ConnectorAwareTableScanMatcher.create(expectedTable, enforcedConstraints, expectedStatistics);
         expectedColumns.entrySet().forEach(column -> pattern.withAlias(column.getKey(), new ColumnHandleMatcher(column.getValue())));
         return pattern;
     }

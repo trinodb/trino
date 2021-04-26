@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.cost.StatsProvider;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -60,6 +61,7 @@ import static io.trino.metadata.TableLayoutResult.computeEnforced;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static io.trino.sql.ExpressionUtils.filterNonDeterministicConjuncts;
+import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
@@ -117,6 +119,7 @@ public class PushPredicateIntoTableScan
                 metadata,
                 typeOperators,
                 typeAnalyzer,
+                context.getStatsProvider(),
                 domainTranslator);
 
         if (rewritten.isEmpty() || arePlansSame(filterNode, tableScan, rewritten.get())) {
@@ -156,6 +159,7 @@ public class PushPredicateIntoTableScan
             Metadata metadata,
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
+            StatsProvider statsProvider,
             DomainTranslator domainTranslator)
     {
         if (!isAllowPushdownIntoConnectors(session)) {
@@ -207,6 +211,7 @@ public class PushPredicateIntoTableScan
         TableHandle newTable;
         Optional<TablePartitioning> newTablePartitioning;
         TupleDomain<ColumnHandle> remainingFilter;
+        boolean precalculateStatistics;
         if (!metadata.usesLegacyTableLayouts(session, node.getTable())) {
             // check if new domain is wider than domain already provided by table scan
             if (constraint.predicate().isEmpty() && newDomain.contains(node.getEnforcedConstraint())) {
@@ -245,6 +250,7 @@ public class PushPredicateIntoTableScan
             }
 
             remainingFilter = result.get().getRemainingFilter();
+            precalculateStatistics = result.get().isPrecalculateStatistics();
         }
         else {
             Optional<TableLayoutResult> layout = metadata.getLayout(
@@ -262,6 +268,7 @@ public class PushPredicateIntoTableScan
             newTable = layout.get().getNewTableHandle();
             newTablePartitioning = layout.get().getTableProperties().getTablePartitioning();
             remainingFilter = layout.get().getUnenforcedConstraint();
+            precalculateStatistics = false;
         }
 
         verifyTablePartitioning(session, metadata, node, newTablePartitioning);
@@ -272,6 +279,8 @@ public class PushPredicateIntoTableScan
                 node.getOutputSymbols(),
                 node.getAssignments(),
                 computeEnforced(newDomain, remainingFilter),
+                // TODO (https://github.com/trinodb/trino/issues/8144) distinguish between predicate pushed down and remaining
+                deriveTableStatisticsForPushdown(statsProvider, session, precalculateStatistics, filterNode),
                 node.isUpdateTarget(),
                 node.getUseConnectorNodePartitioning());
 

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import io.trino.connector.CatalogName;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.IndexHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -581,6 +582,7 @@ public class PlanBuilder
         private List<Symbol> symbols;
         private Map<Symbol, ColumnHandle> assignments;
         private TupleDomain<ColumnHandle> enforcedConstraint = TupleDomain.all();
+        private Optional<PlanNodeStatsEstimate> statistics = Optional.empty();
         private boolean updateTarget;
         private Optional<Boolean> useConnectorNodePartitioning = Optional.empty();
 
@@ -618,6 +620,12 @@ public class PlanBuilder
             return this;
         }
 
+        public TableScanBuilder setStatistics(Optional<PlanNodeStatsEstimate> statistics)
+        {
+            this.statistics = statistics;
+            return this;
+        }
+
         public TableScanBuilder setUpdateTarget(boolean updateTarget)
         {
             this.updateTarget = updateTarget;
@@ -638,6 +646,7 @@ public class PlanBuilder
                     symbols,
                     assignments,
                     enforcedConstraint,
+                    statistics,
                     updateTarget,
                     useConnectorNodePartitioning);
         }
