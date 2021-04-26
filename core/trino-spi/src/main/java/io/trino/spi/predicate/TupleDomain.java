@@ -411,13 +411,7 @@ public final class TupleDomain<T>
     @Override
     public String toString()
     {
-        if (isAll()) {
-            return "ALL";
-        }
-        if (isNone()) {
-            return "NONE";
-        }
-        return "{...}";
+        return toString(ToStringSession.INSTANCE);
     }
 
     public String toString(ConnectorSession session)
