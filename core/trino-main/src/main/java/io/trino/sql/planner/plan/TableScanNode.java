@@ -14,6 +14,7 @@
 package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +24,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Symbol;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
@@ -42,6 +44,7 @@ public class TableScanNode
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
 
+    @Nullable // null on workers
     private final TupleDomain<ColumnHandle> enforcedConstraint;
     private final boolean updateTarget;
     private final Optional<Boolean> useConnectorNodePartitioning;
@@ -130,6 +133,7 @@ public class TableScanNode
      * This field is used to make sure that predicates which were previously pushed down
      * do not get lost in subsequent refinements of the table layout.
      */
+    @JsonIgnore
     public TupleDomain<ColumnHandle> getEnforcedConstraint()
     {
         // enforcedConstraint can be pretty complex. As a result, it may incur a significant cost to serialize, store, and transport.
