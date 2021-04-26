@@ -10,12 +10,12 @@
 package com.starburstdata.presto.plugin.synapse;
 
 import com.google.common.collect.ImmutableMap;
+import com.starburstdata.presto.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.from;
 import static org.assertj.core.api.Assertions.withinPercentage;
 
 public class TestSynapseTableStatistics
-        extends AbstractTestQueryFramework
+        extends BaseJdbcTableStatisticsTest
 {
     private SynapseServer synapseServer;
 
@@ -54,6 +54,7 @@ public class TestSynapseTableStatistics
         return createSynapseQueryRunner(synapseServer, true, Map.of(), List.of(NATION));
     }
 
+    @Override
     @Test
     public void testNotAnalyzed()
     {
@@ -75,6 +76,7 @@ public class TestSynapseTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testBasic()
     {
@@ -97,6 +99,7 @@ public class TestSynapseTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testEmptyTable()
     {
@@ -119,6 +122,7 @@ public class TestSynapseTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testAllNulls()
     {
@@ -142,6 +146,7 @@ public class TestSynapseTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testNullsFraction()
     {
@@ -168,6 +173,7 @@ public class TestSynapseTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testAverageColumnLength()
     {
@@ -202,6 +208,7 @@ public class TestSynapseTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testPartitionedTable()
     {
@@ -227,6 +234,7 @@ public class TestSynapseTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testView()
     {
@@ -249,12 +257,14 @@ public class TestSynapseTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testMaterializedView()
     {
         throw new SkipException("Synapse does not support statistics on materialized views");
     }
 
+    @Override
     @Test(dataProvider = "testCaseColumnNamesDataProvider")
     public void testCaseColumnNames(String tableName)
     {
@@ -287,6 +297,7 @@ public class TestSynapseTableStatistics
         }
     }
 
+    @Override
     @DataProvider
     public Object[][] testCaseColumnNamesDataProvider()
     {
@@ -300,6 +311,7 @@ public class TestSynapseTableStatistics
         };
     }
 
+    @Override
     @Test
     public void testNumericCornerCases()
     {
