@@ -11,7 +11,7 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestQueryFramework;
+import com.starburstdata.presto.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
@@ -26,7 +26,7 @@ import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
 public abstract class AbstractTestSapHanaTableStatistics
-        extends AbstractTestQueryFramework
+        extends BaseJdbcTableStatisticsTest
 {
     protected TestingSapHanaServer sapHanaServer;
 
@@ -44,6 +44,7 @@ public abstract class AbstractTestSapHanaTableStatistics
                 ImmutableList.of(ORDERS));
     }
 
+    @Override
     @Test
     public void testNotAnalyzed()
     {
@@ -71,6 +72,7 @@ public abstract class AbstractTestSapHanaTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testBasic()
     {
@@ -98,6 +100,7 @@ public abstract class AbstractTestSapHanaTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testEmptyTable()
     {
@@ -120,6 +123,7 @@ public abstract class AbstractTestSapHanaTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testAllNulls()
     {
@@ -143,6 +147,7 @@ public abstract class AbstractTestSapHanaTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testNullsFraction()
     {
@@ -170,12 +175,14 @@ public abstract class AbstractTestSapHanaTableStatistics
         }
     }
 
+    @Override
     @Test
     public void testAverageColumnLength()
     {
         throw new SkipException("SAP HANA connector does not report average column length");
     }
 
+    @Override
     @Test
     public void testPartitionedTable()
     {
@@ -183,12 +190,14 @@ public abstract class AbstractTestSapHanaTableStatistics
         throw new SkipException("Not implemented");
     }
 
+    @Override
     @Test
     public void testView()
     {
         throw new SkipException("SAP HANA doesn't support statistics for views");
     }
 
+    @Override
     @Test
     public void testMaterializedView()
     {
@@ -202,6 +211,7 @@ public abstract class AbstractTestSapHanaTableStatistics
         throw new SkipException("Not implemented");
     }
 
+    @Override
     @Test(dataProvider = "testCaseColumnNamesDataProvider")
     public void testCaseColumnNames(String tableName)
     {
@@ -234,6 +244,7 @@ public abstract class AbstractTestSapHanaTableStatistics
         }
     }
 
+    @Override
     @DataProvider
     public Object[][] testCaseColumnNamesDataProvider()
     {
@@ -247,6 +258,7 @@ public abstract class AbstractTestSapHanaTableStatistics
         };
     }
 
+    @Override
     @Test
     public void testNumericCornerCases()
     {
