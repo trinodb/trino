@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.cost.ScalarStatsCalculator;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
@@ -131,7 +132,10 @@ public class TestConnectorPushdownRulesWithHive
     public void testProjectionPushdown()
     {
         String tableName = "projection_test";
-        PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(tester().getMetadata(), tester().getTypeAnalyzer());
+        PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(
+                tester().getMetadata(),
+                tester().getTypeAnalyzer(),
+                new ScalarStatsCalculator(tester().getMetadata(), tester().getTypeAnalyzer()));
 
         tester().getQueryRunner().execute(format(
                 "CREATE TABLE  %s (struct_of_int) AS " +

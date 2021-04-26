@@ -139,7 +139,8 @@ public class TestPushJoinIntoTableScan
                 return Optional.of(new JoinApplicationResult<>(
                         JOIN_CONNECTOR_TABLE_HANDLE,
                         JOIN_TABLE_A_COLUMN_MAPPING,
-                        JOIN_TABLE_B_COLUMN_MAPPING));
+                        JOIN_TABLE_B_COLUMN_MAPPING,
+                        false));
             });
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, connectorFactory, ImmutableMap.of());
@@ -394,7 +395,8 @@ public class TestPushJoinIntoTableScan
             MockConnectorFactory connectorFactory = createMockConnectorFactory((session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> Optional.of(new JoinApplicationResult<>(
                     JOIN_CONNECTOR_TABLE_HANDLE,
                     JOIN_TABLE_A_COLUMN_MAPPING,
-                    JOIN_TABLE_B_COLUMN_MAPPING)));
+                    JOIN_TABLE_B_COLUMN_MAPPING,
+                    false)));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, connectorFactory, ImmutableMap.of());
 
@@ -538,7 +540,8 @@ public class TestPushJoinIntoTableScan
                     JOIN_CONNECTOR_TABLE_HANDLE,
                     ImmutableMap.of(COLUMN_A1_HANDLE, JOIN_COLUMN_A1_HANDLE, COLUMN_A2_HANDLE, JOIN_COLUMN_A2_HANDLE),
                     // mapping for COLUMN_B1_HANDLE is missing
-                    ImmutableMap.of())));
+                    ImmutableMap.of(),
+                    false)));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, connectorFactory, ImmutableMap.of());
 

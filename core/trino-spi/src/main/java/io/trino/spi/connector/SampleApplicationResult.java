@@ -18,14 +18,25 @@ import static java.util.Objects.requireNonNull;
 public class SampleApplicationResult<T>
 {
     private final T handle;
+    private final boolean precalculateStatistics;
 
-    public SampleApplicationResult(T handle)
+    /**
+     * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
+     * as the connector may be unable to provide good table statistics for {@code handle}.
+     */
+    public SampleApplicationResult(T handle, boolean precalculateStatistics)
     {
         this.handle = requireNonNull(handle, "handle is null");
+        this.precalculateStatistics = precalculateStatistics;
     }
 
     public T getHandle()
     {
         return handle;
+    }
+
+    public boolean isPrecalculateStatistics()
+    {
+        return precalculateStatistics;
     }
 }

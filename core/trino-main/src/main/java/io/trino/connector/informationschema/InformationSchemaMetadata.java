@@ -186,7 +186,8 @@ public class InformationSchemaMetadata
 
         return Optional.of(new LimitApplicationResult<>(
                 new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), table.getPrefixes(), table.getRoles(), table.getGrantees(), OptionalLong.of(limit)),
-                true));
+                true,
+                false));
     }
 
     @Override
@@ -211,7 +212,7 @@ public class InformationSchemaMetadata
         }
 
         table = new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), prefixes, roles, grantees, table.getLimit());
-        return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), false));
     }
 
     public static Set<QualifiedTablePrefix> defaultPrefixes(String catalogName)

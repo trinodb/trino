@@ -21,11 +21,17 @@ public class ConstraintApplicationResult<T>
 {
     private final T handle;
     private final TupleDomain<ColumnHandle> remainingFilter;
+    private final boolean precalculateStatistics;
 
-    public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter)
+    /**
+     * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
+     * as the connector may be unable to provide good table statistics for {@code handle}.
+     */
+    public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, boolean precalculateStatistics)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.remainingFilter = requireNonNull(remainingFilter, "remainingFilter is null");
+        this.precalculateStatistics = precalculateStatistics;
     }
 
     public T getHandle()
@@ -36,5 +42,10 @@ public class ConstraintApplicationResult<T>
     public TupleDomain<ColumnHandle> getRemainingFilter()
     {
         return remainingFilter;
+    }
+
+    public boolean isPrecalculateStatistics()
+    {
+        return precalculateStatistics;
     }
 }

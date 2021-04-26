@@ -239,7 +239,8 @@ public class CassandraMetadata
                         handle.getTableName(),
                         Optional.of(partitionResult.getPartitions()),
                         clusteringKeyPredicates),
-                        unenforcedConstraint));
+                        unenforcedConstraint,
+                        false));
     }
 
     @Override

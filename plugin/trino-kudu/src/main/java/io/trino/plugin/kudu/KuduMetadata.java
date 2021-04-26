@@ -480,7 +480,7 @@ public class KuduMetadata
                 handle.getBucketCount(),
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
     }
 
     /**
@@ -538,7 +538,7 @@ public class KuduMetadata
                 handle.getBucketCount(),
                 handle.getLimit());
 
-        return Optional.of(new ProjectionApplicationResult<>(handle, projections, assignmentList.build()));
+        return Optional.of(new ProjectionApplicationResult<>(handle, projections, assignmentList.build(), false));
     }
 
     @Override
@@ -559,7 +559,7 @@ public class KuduMetadata
                 handle.getBucketCount(),
                 OptionalLong.of(limit));
 
-        return Optional.of(new LimitApplicationResult<>(handle, false));
+        return Optional.of(new LimitApplicationResult<>(handle, false, false));
     }
 
     private static Optional<List<KuduRangePartition>> getKuduRangePartitions(KuduTable table)

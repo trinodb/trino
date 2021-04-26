@@ -29,6 +29,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.OrderingScheme;
@@ -54,6 +55,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.Patterns.Aggregation.step;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -110,7 +112,7 @@ public class PushAggregationIntoTableScan
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        return pushAggregationIntoTableScan(metadata, context, captures.get(TABLE_SCAN), node.getAggregations(), node.getGroupingSets().getGroupingKeys())
+        return pushAggregationIntoTableScan(metadata, context, node, captures.get(TABLE_SCAN), node.getAggregations(), node.getGroupingSets().getGroupingKeys())
                 .map(Rule.Result::ofPlanNode)
                 .orElseGet(Rule.Result::empty);
     }
@@ -118,6 +120,7 @@ public class PushAggregationIntoTableScan
     public static Optional<PlanNode> pushAggregationIntoTableScan(
             Metadata metadata,
             Context context,
+            PlanNode aggregationNode,
             TableScanNode tableScan,
             Map<Symbol, AggregationNode.Aggregation> aggregations,
             List<Symbol> groupingKeys)
@@ -198,11 +201,13 @@ public class PushAggregationIntoTableScan
         return Optional.of(
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
-                        TableScanNode.newInstance(
+                        new TableScanNode(
                                 context.getIdAllocator().getNextId(),
                                 result.getHandle(),
                                 newScanOutputs.build(),
                                 scanAssignments,
+                                TupleDomain.all(),
+                                deriveTableStatisticsForPushdown(context.getStatsProvider(), context.getSession(), result.isPrecalculateStatistics(), aggregationNode),
                                 tableScan.isUpdateTarget(),
                                 // table scan partitioning might have changed with new table handle
                                 Optional.empty()),

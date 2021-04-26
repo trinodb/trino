@@ -274,7 +274,8 @@ public class MongoMetadata
 
         return Optional.of(new LimitApplicationResult<>(
                 new MongoTableHandle(handle.getSchemaTableName(), handle.getConstraint(), OptionalInt.of(toIntExact(limit))),
-                true));
+                true,
+                false));
     }
 
     @Override
@@ -293,7 +294,7 @@ public class MongoMetadata
                 newDomain,
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
     }
 
     private void setRollback(Runnable action)

@@ -22,15 +22,22 @@ public final class JoinApplicationResult<T>
     private final T tableHandle;
     private final Map<ColumnHandle, ColumnHandle> leftColumnHandles;
     private final Map<ColumnHandle, ColumnHandle> rightColumnHandles;
+    private final boolean precalculateStatistics;
 
+    /**
+     * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
+     * as the connector may be unable to provide good table statistics for {@code handle}.
+     */
     public JoinApplicationResult(
             T tableHandle,
             Map<ColumnHandle, ColumnHandle> leftColumnHandles,
-            Map<ColumnHandle, ColumnHandle> rightColumnHandles)
+            Map<ColumnHandle, ColumnHandle> rightColumnHandles,
+            boolean precalculateStatistics)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.leftColumnHandles = Map.copyOf(leftColumnHandles);
         this.rightColumnHandles = Map.copyOf(rightColumnHandles);
+        this.precalculateStatistics = precalculateStatistics;
     }
 
     public T getTableHandle()
@@ -46,5 +53,10 @@ public final class JoinApplicationResult<T>
     public Map<ColumnHandle, ColumnHandle> getRightColumnHandles()
     {
         return rightColumnHandles;
+    }
+
+    public boolean isPrecalculateStatistics()
+    {
+        return precalculateStatistics;
     }
 }

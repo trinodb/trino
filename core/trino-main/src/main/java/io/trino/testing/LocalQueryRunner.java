@@ -238,6 +238,7 @@ public class LocalQueryRunner
     private final BlockTypeOperators blockTypeOperators;
     private final MetadataManager metadata;
     private final StatsCalculator statsCalculator;
+    private final ScalarStatsCalculator scalarStatsCalculator;
     private final CostCalculator costCalculator;
     private final CostCalculator estimatedExchangesCostCalculator;
     private final TaskCountEstimator taskCountEstimator;
@@ -339,6 +340,7 @@ public class LocalQueryRunner
         this.joinCompiler = new JoinCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
         this.statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(sqlParser, metadata));
+        this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, new TypeAnalyzer(sqlParser, metadata));
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
@@ -881,6 +883,7 @@ public class LocalQueryRunner
                 splitManager,
                 pageSourceManager,
                 statsCalculator,
+                scalarStatsCalculator,
                 costCalculator,
                 estimatedExchangesCostCalculator,
                 featuresConfig,
@@ -954,6 +957,7 @@ public class LocalQueryRunner
                 SplitManager splitManager,
                 PageSourceManager pageSourceManager,
                 StatsCalculator statsCalculator,
+                ScalarStatsCalculator scalarStatsCalculator,
                 CostCalculator costCalculator,
                 CostCalculator estimatedExchangesCostCalculator,
                 FeaturesConfig featuresConfig,
@@ -979,6 +983,7 @@ public class LocalQueryRunner
                 splitManager,
                 pageSourceManager,
                 statsCalculator,
+                scalarStatsCalculator,
                 costCalculator,
                 estimatedExchangesCostCalculator,
                 featuresConfig,
@@ -993,6 +998,7 @@ public class LocalQueryRunner
                         splitManager,
                         pageSourceManager,
                         statsCalculator,
+                        scalarStatsCalculator,
                         costCalculator,
                         estimatedExchangesCostCalculator,
                         new CostComparator(featuresConfig),

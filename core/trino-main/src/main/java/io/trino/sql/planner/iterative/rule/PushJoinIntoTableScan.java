@@ -60,6 +60,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
@@ -193,6 +194,7 @@ public class PushJoinIntoTableScan
                                 ImmutableList.copyOf(assignments.keySet()),
                                 assignments,
                                 newEnforcedConstraint,
+                                deriveTableStatisticsForPushdown(context.getStatsProvider(), context.getSession(), joinApplicationResult.get().isPrecalculateStatistics(), joinNode),
                                 false,
                                 Optional.empty()),
                         Assignments.identity(joinNode.getOutputSymbols())));

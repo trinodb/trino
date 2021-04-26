@@ -513,7 +513,8 @@ public class TpchMetadata
                         handle.getTableName(),
                         handle.getScaleFactor(),
                         oldDomain.intersect(predicate)),
-                unenforcedConstraint));
+                unenforcedConstraint,
+                false));
     }
 
     @Override

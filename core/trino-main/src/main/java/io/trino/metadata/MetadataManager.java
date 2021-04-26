@@ -1317,7 +1317,8 @@ public final class MetadataManager
         return metadata.applyLimit(connectorSession, table.getConnectorHandle(), limit)
                 .map(result -> new LimitApplicationResult<>(
                         new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
-                        result.isLimitGuaranteed()));
+                        result.isLimitGuaranteed(),
+                        result.isPrecalculateStatistics()));
     }
 
     @Override
@@ -1336,7 +1337,8 @@ public final class MetadataManager
                         catalogName,
                         result.getHandle(),
                         table.getTransaction(),
-                        Optional.empty())));
+                        Optional.empty()),
+                        result.isPrecalculateStatistics()));
     }
 
     @Override
@@ -1366,7 +1368,8 @@ public final class MetadataManager
                             new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
                             result.getProjections(),
                             result.getAssignments(),
-                            result.getGroupingColumnMapping());
+                            result.getGroupingColumnMapping(),
+                            result.isPrecalculateStatistics());
                 });
     }
 
@@ -1427,7 +1430,8 @@ public final class MetadataManager
                             transaction,
                             Optional.empty()),
                     result.getLeftColumnHandles(),
-                    result.getRightColumnHandles());
+                    result.getRightColumnHandles(),
+                    result.isPrecalculateStatistics());
         });
     }
 
@@ -1450,7 +1454,8 @@ public final class MetadataManager
         return metadata.applyTopN(connectorSession, table.getConnectorHandle(), topNCount, sortItems, assignments)
                 .map(result -> new TopNApplicationResult<>(
                         new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
-                        result.isTopNGuaranteed()));
+                        result.isTopNGuaranteed(),
+                        result.isPrecalculateStatistics()));
     }
 
     private void verifyProjection(TableHandle table, List<ConnectorExpression> projections, List<Assignment> assignments, int expectedProjectionSize)
@@ -1498,7 +1503,8 @@ public final class MetadataManager
         return metadata.applyFilter(connectorSession, table.getConnectorHandle(), constraint)
                 .map(result -> new ConstraintApplicationResult<>(
                         new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
-                        result.getRemainingFilter()));
+                        result.getRemainingFilter(),
+                        result.isPrecalculateStatistics()));
     }
 
     @Override
@@ -1519,7 +1525,8 @@ public final class MetadataManager
                     return new ProjectionApplicationResult<>(
                             new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
                             result.getProjections(),
-                            result.getAssignments());
+                            result.getAssignments(),
+                            result.isPrecalculateStatistics());
                 });
     }
 

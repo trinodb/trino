@@ -70,7 +70,7 @@ public class TestPushSampleIntoTableScan
         public Optional<SampleApplicationResult<TableHandle>> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio)
         {
             if (samplePushdown) {
-                return Optional.of(new SampleApplicationResult<>(table));
+                return Optional.of(new SampleApplicationResult<>(table, false));
             }
             return Optional.empty();
         }

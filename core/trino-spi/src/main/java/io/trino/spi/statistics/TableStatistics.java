@@ -55,6 +55,11 @@ public final class TableStatistics
         return columnStatistics;
     }
 
+    public boolean isEmpty()
+    {
+        return equals(empty());
+    }
+
     @Override
     public boolean equals(Object o)
     {

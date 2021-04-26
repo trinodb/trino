@@ -821,7 +821,8 @@ public class IcebergMetadata
                         table.getSnapshotId(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint),
-                newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast)));
+                newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast),
+                false));
     }
 
     private static Set<Integer> identityPartitionColumnsInAllSpecs(org.apache.iceberg.Table table)
