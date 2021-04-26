@@ -827,30 +827,27 @@ public final class SortedRangeSet
     @Override
     public String toString()
     {
-        return new StringJoiner(", ", SortedRangeSet.class.getSimpleName() + "[", "]")
-                .add("type=" + type)
-                .add("ranges=" + getRangeCount())
-                .add(formatRanges(10))
-                .toString();
-    }
-
-    private String formatRanges(int limit)
-    {
-        return Stream.concat(
-                IntStream.range(0, min(getRangeCount(), limit))
-                        .mapToObj(this::getRangeView)
-                        .map(RangeView::formatRange),
-                limit < getRangeCount() ? Stream.of("...") : Stream.of())
-                .collect(joining(", ", "{", "}"));
+        return toString(ToStringSession.INSTANCE);
     }
 
     @Override
     public String toString(ConnectorSession session)
     {
-        return IntStream.range(0, getRangeCount())
-                .mapToObj(this::getRange)
-                .map(range -> range.toString(session))
-                .collect(joining(", ", "[", "]"));
+        return new StringJoiner(", ", SortedRangeSet.class.getSimpleName() + "[", "]")
+                .add("type=" + type)
+                .add("ranges=" + getRangeCount())
+                .add(formatRanges(session, 10))
+                .toString();
+    }
+
+    private String formatRanges(ConnectorSession session, int limit)
+    {
+        return Stream.concat(
+                IntStream.range(0, min(getRangeCount(), limit))
+                        .mapToObj(this::getRangeView)
+                        .map(rangeView -> rangeView.formatRange(session)),
+                limit < getRangeCount() ? Stream.of("...") : Stream.of())
+                .collect(joining(", ", "{", "}"));
     }
 
     static class Builder
@@ -1147,18 +1144,18 @@ public final class SortedRangeSet
         public String toString()
         {
             return new StringJoiner(", ", RangeView.class.getSimpleName() + "[", "]")
-                    .add(formatRange())
+                    .add(formatRange(ToStringSession.INSTANCE))
                     .add("type=" + type.getDisplayName())
                     .toString();
         }
 
-        public String formatRange()
+        public String formatRange(ConnectorSession session)
         {
             return format(
                     "%s%s,%s%s",
                     lowInclusive ? "[" : "(",
-                    type.getObjectValue(ToStringSession.INSTANCE, lowValueBlock, lowValuePosition),
-                    type.getObjectValue(ToStringSession.INSTANCE, highValueBlock, highValuePosition),
+                    type.getObjectValue(session, lowValueBlock, lowValuePosition),
+                    type.getObjectValue(session, highValueBlock, highValuePosition),
                     highInclusive ? "]" : ")");
         }
     }
