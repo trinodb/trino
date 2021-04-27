@@ -58,10 +58,10 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestJdbcMetadata
+public class TestDefaultJdbcMetadata
 {
     private TestingDatabase database;
-    private JdbcMetadata metadata;
+    private DefaultJdbcMetadata metadata;
     private JdbcTableHandle tableHandle;
 
     @BeforeMethod
@@ -69,7 +69,7 @@ public class TestJdbcMetadata
             throws Exception
     {
         database = new TestingDatabase();
-        metadata = new JdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient()), false);
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient()), false);
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
@@ -229,7 +229,7 @@ public class TestJdbcMetadata
                 .hasErrorCode(PERMISSION_DENIED)
                 .hasMessage("DROP TABLE is disabled in this catalog");
 
-        metadata = new JdbcMetadata(database.getJdbcClient(), true);
+        metadata = new DefaultJdbcMetadata(database.getJdbcClient(), true);
         metadata.dropTable(SESSION, tableHandle);
 
         assertTrinoExceptionThrownBy(() -> metadata.getTableMetadata(SESSION, tableHandle))

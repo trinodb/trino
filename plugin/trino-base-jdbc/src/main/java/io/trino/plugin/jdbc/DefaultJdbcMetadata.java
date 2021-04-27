@@ -80,7 +80,7 @@ import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
-public class JdbcMetadata
+public class DefaultJdbcMetadata
         implements ConnectorMetadata
 {
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
@@ -90,7 +90,7 @@ public class JdbcMetadata
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public JdbcMetadata(JdbcClient jdbcClient, boolean allowDropTable)
+    public DefaultJdbcMetadata(JdbcClient jdbcClient, boolean allowDropTable)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.allowDropTable = allowDropTable;
