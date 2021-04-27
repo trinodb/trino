@@ -18,6 +18,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
+import org.testng.SkipException;
 
 import java.util.List;
 import java.util.Map;
@@ -62,6 +63,12 @@ public class TestStarburstRemoteAutomaticJoinPushdown
                 Map.of(
                         "connection-url", starburstRemoteConnectionUrl(remoteStarburst, "postgresql"),
                         "allow-drop-table", "true"));
+    }
+
+    @Override
+    public void testJoinPushdownWithEmptyStatsInitially()
+    {
+        throw new SkipException("Remote with PostgreSQL statistics are automatically collected");
     }
 
     @Override
