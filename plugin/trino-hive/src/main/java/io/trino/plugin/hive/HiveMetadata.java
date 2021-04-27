@@ -132,7 +132,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -2260,10 +2259,10 @@ public class HiveMetadata
                 if (referencedColumns.isEmpty() || Collections.disjoint(referencedColumns.get(), partitionColumns)) {
                     String partitionColumnNames = partitionColumns.stream()
                             .map(HiveColumnHandle::getName)
-                            .collect(Collectors.joining(","));
+                            .collect(joining(", "));
                     throw new TrinoException(
                             StandardErrorCode.QUERY_REJECTED,
-                            format("Filter required on %s.%s for at least one partition column: %s ", handle.getSchemaName(), handle.getTableName(), partitionColumnNames));
+                            format("Filter required on %s.%s for at least one partition column: %s", handle.getSchemaName(), handle.getTableName(), partitionColumnNames));
                 }
             }
         }

@@ -34,6 +34,10 @@ standaloneType
     : type EOF
     ;
 
+standaloneRowPattern
+    : rowPattern EOF
+    ;
+
 statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
@@ -191,7 +195,7 @@ limitRowCount
 
 rowCount
     : INTEGER_VALUE
-    | PARAMETER
+    | QUESTION_MARK
     ;
 
 queryTerm
@@ -284,7 +288,7 @@ joinCriteria
     ;
 
 sampledRelation
-    : aliasedRelation (
+    : patternRecognition (
         TABLESAMPLE sampleType '(' percentage=expression ')'
       )?
     ;
@@ -292,6 +296,53 @@ sampledRelation
 sampleType
     : BERNOULLI
     | SYSTEM
+    ;
+
+patternRecognition
+    : aliasedRelation (
+        MATCH_RECOGNIZE '('
+                (PARTITION BY partition+=expression (',' partition+=expression)*)?
+                (ORDER BY sortItem (',' sortItem)*)?
+                (MEASURES measureDefinition (',' measureDefinition)*)?
+                rowsPerMatch?
+                (AFTER MATCH skipTo)?
+                (INITIAL | SEEK)?
+                PATTERN '(' rowPattern ')'
+                (SUBSET subsetDefinition (',' subsetDefinition)*)?
+                DEFINE variableDefinition (',' variableDefinition)*
+            ')'
+        (AS? identifier columnAliases?)?)?
+    ;
+
+measureDefinition
+    : expression AS identifier
+    ;
+
+rowsPerMatch
+    : ONE ROW PER MATCH
+    | ALL ROWS PER MATCH emptyMatchHandling?
+    ;
+
+emptyMatchHandling
+    : SHOW EMPTY MATCHES
+    | OMIT EMPTY MATCHES
+    | WITH UNMATCHED ROWS
+    ;
+
+skipTo
+    : 'SKIP' TO NEXT ROW
+    | 'SKIP' PAST LAST ROW
+    | 'SKIP' TO FIRST identifier
+    | 'SKIP' TO LAST identifier
+    | 'SKIP' TO identifier
+    ;
+
+subsetDefinition
+    : name=identifier EQ '(' union+=identifier (',' union+=identifier)* ')'
+    ;
+
+variableDefinition
+    : identifier AS expression
     ;
 
 aliasedRelation
@@ -351,12 +402,12 @@ primaryExpression
     | booleanValue                                                                        #booleanLiteral
     | string                                                                              #stringLiteral
     | BINARY_LITERAL                                                                      #binaryLiteral
-    | PARAMETER                                                                           #parameter
+    | QUESTION_MARK                                                                       #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
-    | qualifiedName '(' (setQuantifier? expression (',' expression)*)?
+    | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
         (ORDER BY sortItem (',' sortItem)*)? ')' filter? (nullTreatment? over)?           #functionCall
     | identifier '->' expression                                                          #lambda
     | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
@@ -383,6 +434,11 @@ primaryExpression
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
     | '(' expression ')'                                                                  #parenthesizedExpression
     | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
+    ;
+
+processingMode
+    : RUNNING
+    | FINAL
     ;
 
 nullTreatment
@@ -484,6 +540,30 @@ frameBound
     | expression boundType=(PRECEDING | FOLLOWING)  #boundedFrame
     ;
 
+rowPattern
+    : patternPrimary patternQuantifier?                 #quantifiedPrimary
+    | rowPattern rowPattern                             #patternConcatenation
+    | rowPattern '|' rowPattern                         #patternAlternation
+    ;
+
+patternPrimary
+    : identifier                                        #patternVariable
+    | '(' ')'                                           #emptyPattern
+    | PERMUTE '(' rowPattern (',' rowPattern)* ')'      #patternPermutation
+    | '(' rowPattern ')'                                #groupedPattern
+    | '^'                                               #partitionStartAnchor
+    | '$'                                               #partitionEndAnchor
+    | '{-' rowPattern '-}'                              #excludedPattern
+    ;
+
+patternQuantifier
+    : ASTERISK (reluctant=QUESTION_MARK)?                                                       #zeroOrMoreQuantifier
+    | PLUS (reluctant=QUESTION_MARK)?                                                           #oneOrMoreQuantifier
+    | QUESTION_MARK (reluctant=QUESTION_MARK)?                                                  #zeroOrOneQuantifier
+    | '{' exactly=INTEGER_VALUE '}' (reluctant=QUESTION_MARK)?                                  #rangeQuantifier
+    | '{' (atLeast=INTEGER_VALUE)? ',' (atMost=INTEGER_VALUE)? '}' (reluctant=QUESTION_MARK)?   #rangeQuantifier
+    ;
+
 updateAssignment
     : identifier EQ expression
     ;
@@ -559,26 +639,26 @@ number
 
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
-    : ADD | ADMIN | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
+    : ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
     | BERNOULLI
     | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT
-    | DATA | DATE | DAY | DEFINER | DESC | DISTRIBUTED | DOUBLE
-    | EXCLUDING | EXPLAIN
-    | FETCH | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTIONS
+    | DATA | DATE | DAY | DEFINE | DEFINER | DESC | DISTRIBUTED | DOUBLE
+    | EMPTY | EXCLUDING | EXPLAIN
+    | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTIONS
     | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
-    | IF | IGNORE | INCLUDING | INPUT | INTERVAL | INVOKER | IO | ISOLATION
+    | IF | IGNORE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
     | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
-    | MAP | MATCHED | MATERIALIZED | MERGE | MINUTE | MONTH
+    | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
-    | OFFSET | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
-    | PARTITION | PARTITIONS | PATH | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES
-    | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
-    | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS
-    | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM
+    | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
+    | PARTITION | PARTITIONS | PAST | PATH | PATTERN | PER | PERMUTE | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES
+    | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
+    | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
+    | SHOW | SOME | START | STATS | SUBSET | SUBSTRING | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TIES | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
-    | UNBOUNDED | UNCOMMITTED | UPDATE | USE | USER
+    | UNBOUNDED | UNCOMMITTED | UNMATCHED | UPDATE | USE | USER
     | VALIDATE | VERBOSE | VIEW
     | WINDOW | WITHOUT | WORK | WRITE
     | YEAR
@@ -587,6 +667,7 @@ nonReserved
 
 ADD: 'ADD';
 ADMIN: 'ADMIN';
+AFTER: 'AFTER';
 ALL: 'ALL';
 ALTER: 'ALTER';
 ANALYZE: 'ANALYZE';
@@ -629,11 +710,13 @@ DEFINER: 'DEFINER';
 DELETE: 'DELETE';
 DESC: 'DESC';
 DESCRIBE: 'DESCRIBE';
+DEFINE: 'DEFINE';
 DISTINCT: 'DISTINCT';
 DISTRIBUTED: 'DISTRIBUTED';
 DOUBLE: 'DOUBLE';
 DROP: 'DROP';
 ELSE: 'ELSE';
+EMPTY: 'EMPTY';
 END: 'END';
 ESCAPE: 'ESCAPE';
 EXCEPT: 'EXCEPT';
@@ -645,6 +728,7 @@ EXTRACT: 'EXTRACT';
 FALSE: 'FALSE';
 FETCH: 'FETCH';
 FILTER: 'FILTER';
+FINAL: 'FINAL';
 FIRST: 'FIRST';
 FOLLOWING: 'FOLLOWING';
 FOR: 'FOR';
@@ -665,6 +749,7 @@ IF: 'IF';
 IGNORE: 'IGNORE';
 IN: 'IN';
 INCLUDING: 'INCLUDING';
+INITIAL: 'INITIAL';
 INNER: 'INNER';
 INPUT: 'INPUT';
 INSERT: 'INSERT';
@@ -687,8 +772,12 @@ LOCALTIME: 'LOCALTIME';
 LOCALTIMESTAMP: 'LOCALTIMESTAMP';
 LOGICAL: 'LOGICAL';
 MAP: 'MAP';
+MATCH: 'MATCH';
 MATCHED: 'MATCHED';
+MATCHES: 'MATCHES';
+MATCH_RECOGNIZE: 'MATCH_RECOGNIZE';
 MATERIALIZED: 'MATERIALIZED';
+MEASURES: 'MEASURES';
 MERGE: 'MERGE';
 MINUTE: 'MINUTE';
 MONTH: 'MONTH';
@@ -706,7 +795,9 @@ NULL: 'NULL';
 NULLIF: 'NULLIF';
 NULLS: 'NULLS';
 OFFSET: 'OFFSET';
+OMIT: 'OMIT';
 ON: 'ON';
+ONE: 'ONE';
 ONLY: 'ONLY';
 OPTION: 'OPTION';
 OR: 'OR';
@@ -717,7 +808,11 @@ OUTPUT: 'OUTPUT';
 OVER: 'OVER';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
+PAST: 'PAST';
 PATH: 'PATH';
+PATTERN: 'PATTERN';
+PER: 'PER';
+PERMUTE: 'PERMUTE';
 POSITION: 'POSITION';
 PRECEDING: 'PRECEDING';
 PRECISION: 'PRECISION';
@@ -742,10 +837,12 @@ ROLLBACK: 'ROLLBACK';
 ROLLUP: 'ROLLUP';
 ROW: 'ROW';
 ROWS: 'ROWS';
+RUNNING: 'RUNNING';
 SCHEMA: 'SCHEMA';
 SCHEMAS: 'SCHEMAS';
 SECOND: 'SECOND';
 SECURITY: 'SECURITY';
+SEEK: 'SEEK';
 SELECT: 'SELECT';
 SERIALIZABLE: 'SERIALIZABLE';
 SESSION: 'SESSION';
@@ -755,6 +852,7 @@ SHOW: 'SHOW';
 SOME: 'SOME';
 START: 'START';
 STATS: 'STATS';
+SUBSET: 'SUBSET';
 SUBSTRING: 'SUBSTRING';
 SYSTEM: 'SYSTEM';
 TABLE: 'TABLE';
@@ -774,6 +872,7 @@ UESCAPE: 'UESCAPE';
 UNBOUNDED: 'UNBOUNDED';
 UNCOMMITTED: 'UNCOMMITTED';
 UNION: 'UNION';
+UNMATCHED: 'UNMATCHED';
 UNNEST: 'UNNEST';
 UPDATE: 'UPDATE';
 USE: 'USE';
@@ -806,6 +905,7 @@ ASTERISK: '*';
 SLASH: '/';
 PERCENT: '%';
 CONCAT: '||';
+QUESTION_MARK : '?';
 
 STRING
     : '\'' ( ~'\'' | '\'\'' )* '\''
@@ -874,10 +974,6 @@ BRACKETED_COMMENT
 
 WS
     : [ \r\n\t]+ -> channel(HIDDEN)
-    ;
-
-PARAMETER
-    : '?'
     ;
 
 // Catch-all for anything we can't recognize.

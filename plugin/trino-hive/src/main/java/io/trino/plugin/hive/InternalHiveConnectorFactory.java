@@ -122,7 +122,7 @@ public final class InternalHiveConnectorFactory
                     .initialize();
 
             LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
-            HiveMetadataFactory metadataFactory = injector.getInstance(HiveMetadataFactory.class);
+            TransactionalMetadataFactory metadataFactory = injector.getInstance(TransactionalMetadataFactory.class);
             HiveTransactionManager transactionManager = injector.getInstance(HiveTransactionManager.class);
             ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);

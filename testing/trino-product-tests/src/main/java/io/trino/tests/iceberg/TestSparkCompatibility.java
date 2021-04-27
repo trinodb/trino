@@ -42,6 +42,7 @@ public class TestSparkCompatibility
     // see spark-defaults.conf
     private static final String SPARK_CATALOG = "iceberg_test";
     private static final String PRESTO_CATALOG = "iceberg";
+    private static final String TEST_SCHEMA_NAME = "default";
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testPrestoReadingSparkData()
@@ -406,14 +407,30 @@ public class TestSparkCompatibility
         assertEquals(result.column(1).get(0), expected.getValues().get(0));
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoShowingSparkCreatedTables()
+    {
+        String sparkTable = "test_table_listing_for_spark";
+        String trinoTable = "test_table_listing_for_trino";
+
+        onSpark().executeQuery(format("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG", sparkTableName(sparkTable)));
+        onTrino().executeQuery(format("CREATE TABLE %s (_integer INTEGER )", prestoTableName(trinoTable)));
+
+        assertThat(onTrino().executeQuery(format("SHOW TABLES FROM %s LIKE '%s'", TEST_SCHEMA_NAME, "test_table_listing_for_%")))
+                .containsOnly(row(sparkTable), row(trinoTable));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName(sparkTable));
+        onTrino().executeQuery("DROP TABLE " + prestoTableName(trinoTable));
+    }
+
     private static String sparkTableName(String tableName)
     {
-        return format("%s.default.%s", SPARK_CATALOG, tableName);
+        return format("%s.%s.%s", SPARK_CATALOG, TEST_SCHEMA_NAME, tableName);
     }
 
     private static String prestoTableName(String tableName)
     {
-        return format("%s.default.%s", PRESTO_CATALOG, tableName);
+        return format("%s.%s.%s", PRESTO_CATALOG, TEST_SCHEMA_NAME, tableName);
     }
 
     private io.trino.jdbc.Row.Builder rowBuilder()

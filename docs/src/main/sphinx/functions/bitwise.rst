@@ -32,6 +32,24 @@ Bitwise functions
 
     Returns the left shifted value of ``value``.
 
+    Shifting ``1`` (binary: ``001``) by two bits results in ``4`` (binary: ``00100``)::
+
+      SELECT bitwise_left_shift(1, 2); -- 4
+
+    Shifting ``5`` (binary: ``0101``) by two bits results in ``20`` (binary: ``010100``)::
+
+      SELECT bitwise_left_shift(5, 2); -- 20
+
+    Shifting a ``value`` by ``0`` always results in the original ``value``::
+
+      SELECT bitwise_left_shift(20 , 0); -- 20
+      SELECT bitwise_left_shift(42 , 0); -- 42
+
+    Shifting ``0`` by a ``value`` always results in ``0``::
+
+      SELECT bitwise_left_shift(0, 1); -- 0
+      SELECT bitwise_left_shift(0, 2); -- 0
+
 .. function:: bitwise_right_shift(value, shift, digits) -> [same as value]
 
     Returns the logical right shifted value of ``value``.

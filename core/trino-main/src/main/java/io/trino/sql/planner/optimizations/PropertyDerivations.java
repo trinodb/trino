@@ -56,6 +56,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -102,6 +103,9 @@ import static io.trino.sql.planner.optimizations.ActualProperties.Global.singleS
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
+import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -278,6 +282,60 @@ public final class PropertyDerivations
             }
 
             orderingScheme.ifPresent(ordering -> localProperties.addAll(ordering.toLocalProperties()));
+
+            return ActualProperties.builderFrom(properties)
+                    .local(LocalProperties.normalizeAndPrune(localProperties.build()))
+                    .build();
+        }
+
+        @Override
+        public ActualProperties visitPatternRecognition(PatternRecognitionNode node, List<ActualProperties> inputProperties)
+        {
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            // If the input is completely pre-partitioned and sorted, then the original input properties will be respected is some cases.
+            // ALL ROW PER MATCH with overlapping matches might shuffle rows and break the order.
+            // Otherwise, partitioning and sorting will be respected.
+            Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
+            if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs())
+                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().getOrderBy().size())) {
+                if (node.getRowsPerMatch() == WINDOW || (!node.getRowsPerMatch().isOneRow() && node.getSkipToPosition() == PAST_LAST)) {
+                    return properties;
+                }
+                if (node.getRowsPerMatch() == ONE) {
+                    // Crop properties to output columns.
+                    return properties.translate(symbol -> node.getOutputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+                }
+            }
+
+            ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
+
+            // If the PatternRecognitionNode has pre-partitioned inputs, then it will not change the order of those inputs at output,
+            // so we should just propagate those underlying local properties that guarantee the pre-partitioning.
+            // TODO: come up with a more general form of this operation for other streaming operators
+            if (!node.getPrePartitionedInputs().isEmpty()) {
+                GroupingProperty<Symbol> prePartitionedProperty = new GroupingProperty<>(node.getPrePartitionedInputs());
+                for (LocalProperty<Symbol> localProperty : properties.getLocalProperties()) {
+                    if (!prePartitionedProperty.isSimplifiedBy(localProperty)) {
+                        break;
+                    }
+                    localProperties.add(localProperty);
+                }
+            }
+
+            if (!node.getPartitionBy().isEmpty()) {
+                localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            }
+
+            // Sorted properties should be propagated only in certain cases.
+            // ALL ROW PER MATCH with overlapping matches might shuffle rows.
+            if (node.getRowsPerMatch().isOneRow() || node.getSkipToPosition() == PAST_LAST) {
+                Set<Symbol> outputs = ImmutableSet.copyOf(node.getOutputSymbols());
+                orderingScheme.ifPresent(ordering ->
+                        ordering.toLocalProperties().stream()
+                                .filter(property -> outputs.containsAll(property.getColumns()))
+                                .forEach(localProperties::add));
+            }
 
             return ActualProperties.builderFrom(properties)
                     .local(LocalProperties.normalizeAndPrune(localProperties.build()))

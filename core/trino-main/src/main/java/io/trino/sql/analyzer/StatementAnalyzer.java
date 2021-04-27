@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
@@ -41,6 +42,7 @@ import io.trino.security.ViewAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
@@ -48,6 +50,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
@@ -63,6 +66,7 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.SqlPath;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
+import io.trino.sql.analyzer.Analysis.Range;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
@@ -99,6 +103,7 @@ import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Except;
+import io.trino.sql.tree.ExcludedPattern;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainType;
@@ -122,6 +127,7 @@ import io.trino.sql.tree.JoinUsing;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Node;
@@ -129,11 +135,13 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
+import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.RenameColumn;
@@ -155,11 +163,13 @@ import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.SimpleGroupBy;
 import io.trino.sql.tree.SingleColumn;
+import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Union;
@@ -168,6 +178,7 @@ import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Use;
 import io.trino.sql.tree.Values;
+import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.WindowFrame;
@@ -204,6 +215,7 @@ import static io.trino.SystemSessionProperties.getMaxGroupingSets;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.FunctionKind.WINDOW;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
@@ -217,11 +229,15 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LABEL;
 import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_PARTITION_BY;
+import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
+import static io.trino.spi.StandardErrorCode.INVALID_RANGE;
 import static io.trino.spi.StandardErrorCode.INVALID_RECURSIVE_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
+import static io.trino.spi.StandardErrorCode.INVALID_ROW_PATTERN;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_REFERENCE;
@@ -231,6 +247,7 @@ import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_GROUP_BY;
 import static io.trino.spi.StandardErrorCode.MISSING_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.NESTED_RECURSIVE;
+import static io.trino.spi.StandardErrorCode.NESTED_ROW_PATTERN_RECOGNITION;
 import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -238,6 +255,7 @@ import static io.trino.spi.StandardErrorCode.NULL_TREATMENT_NOT_ALLOWED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.TABLE_HAS_NO_COLUMNS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_GROUPING_SETS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
@@ -255,7 +273,6 @@ import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregation
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static io.trino.sql.analyzer.CanonicalizationAware.canonicalizationAwareKey;
-import static io.trino.sql.analyzer.CanonicalizationAware.canonicalize;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
@@ -267,11 +284,13 @@ import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
 import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.trino.sql.tree.Join.Type.FULL;
 import static io.trino.sql.tree.Join.Type.INNER;
 import static io.trino.sql.tree.Join.Type.LEFT;
 import static io.trino.sql.tree.Join.Type.RIGHT;
+import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
 import static io.trino.sql.util.AstUtils.preOrder;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.MoreLists.mappedCopy;
@@ -509,7 +528,7 @@ class StatementAnalyzer
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Materialized view '%s' does not exist", name);
             }
 
-            Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalView.get(), name);
+            Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalView.get());
 
             if (storageName.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Storage Table '%s' for materialized view '%s' does not exist", storageName, name);
@@ -1225,16 +1244,17 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
 
-        private Optional<QualifiedName> getMaterializedViewStorageTableName(ConnectorMaterializedViewDefinition viewDefinition, QualifiedObjectName name)
+        private Optional<QualifiedName> getMaterializedViewStorageTableName(ConnectorMaterializedViewDefinition viewDefinition)
         {
-            String storageTable = viewDefinition.getStorageTable();
-            if (storageTable == null || storageTable.isEmpty()) {
+            if (viewDefinition.getStorageTable().isEmpty()) {
                 return Optional.empty();
             }
-            Identifier catalogName = new Identifier(name.getCatalogName(), true);
-            Identifier schemaName = new Identifier(name.getSchemaName(), true);
-            Identifier tableName = new Identifier(storageTable, true);
-            return Optional.of(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)));
+            CatalogSchemaTableName catalogSchemaTableName = viewDefinition.getStorageTable().get();
+            SchemaTableName schemaTableName = catalogSchemaTableName.getSchemaTableName();
+            return Optional.of(QualifiedName.of(ImmutableList.of(
+                    new Identifier(catalogSchemaTableName.getCatalogName(), true),
+                    new Identifier(schemaTableName.getSchemaName(), true),
+                    new Identifier(schemaTableName.getTableName(), true))));
         }
 
         @Override
@@ -1267,7 +1287,7 @@ class StatementAnalyzer
             if (optionalMaterializedView.isPresent()) {
                 if (metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh()) {
                     // If materialized view is current, answer the query using the storage table
-                    Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalMaterializedView.get(), name);
+                    Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalMaterializedView.get());
                     if (storageName.isPresent()) {
                         tableHandle = metadata.getTableHandle(session, createQualifiedObjectName(session, table, storageName.get()));
                     }
@@ -1447,7 +1467,6 @@ class StatementAnalyzer
 
         private Scope createScopeForMaterializedView(Table table, QualifiedObjectName name, Optional<Scope> scope, ConnectorMaterializedViewDefinition view)
         {
-            checkArgument(view.getOwner().isPresent(), "owner must be present");
             return createScopeForView(
                     table,
                     name,
@@ -1455,7 +1474,7 @@ class StatementAnalyzer
                     view.getOriginalSql(),
                     view.getCatalog(),
                     view.getSchema(),
-                    view.getOwner(),
+                    Optional.of(view.getOwner()),
                     translateMaterializedViewColumns(view.getColumns()));
         }
 
@@ -1534,6 +1553,303 @@ class StatementAnalyzer
 
             outputFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
             return createAndAssignScope(table, scope, outputFields);
+        }
+
+        @Override
+        protected Scope visitPatternRecognitionRelation(PatternRecognitionRelation relation, Optional<Scope> scope)
+        {
+            Scope inputScope = process(relation.getInput(), scope);
+
+            // check that input table column names are not ambiguous
+            // Note: This check is not compliant with SQL identifier semantics. Quoted identifiers should have different comparison rules than unquoted identifiers.
+            // However, field names do not contain the information about quotation, and so every comparison is case-insensitive. For example, if there are fields named
+            // 'a' and 'A' (quoted), they should be considered non-ambiguous. However, their names will be compared case-insensitive and will cause failure as ambiguous.
+            Set<String> inputNames = new HashSet<>();
+            for (Field field : inputScope.getRelationType().getAllFields()) {
+                field.getName().ifPresent(name -> {
+                    if (!inputNames.add(name.toUpperCase(ENGLISH))) {
+                        throw semanticException(AMBIGUOUS_NAME, relation.getInput(), "ambiguous column: %s in row pattern input relation", name);
+                    }
+                });
+            }
+
+            // analyze PARTITION BY
+            for (Expression expression : relation.getPartitionBy()) {
+                // The PARTITION BY clause is a list of columns of the row pattern input table.
+                validateAndGetInputField(expression, inputScope);
+                Type type = analyzeExpression(expression, inputScope).getType(expression);
+                if (!type.isComparable()) {
+                    throw semanticException(TYPE_MISMATCH, expression, "%s is not comparable, and therefore cannot be used in PARTITION BY", type);
+                }
+            }
+
+            // analyze ORDER BY
+            for (SortItem sortItem : getSortItemsFromOrderBy(relation.getOrderBy())) {
+                // The ORDER BY clause is a list of columns of the row pattern input table.
+                Expression expression = sortItem.getSortKey();
+                validateAndGetInputField(expression, inputScope);
+                Type type = analyzeExpression(expression, inputScope).getType(sortItem.getSortKey());
+                if (!type.isOrderable()) {
+                    throw semanticException(TYPE_MISMATCH, sortItem, "%s is not orderable, and therefore cannot be used in ORDER BY", type);
+                }
+            }
+
+            // extract label names (Identifiers) from PATTERN and SUBSET clauses. create labels respecting SQL identifier semantics
+            Set<String> primaryLabels = extractExpressions(ImmutableList.of(relation.getPattern()), Identifier.class).stream()
+                    .map(this::label)
+                    .collect(toImmutableSet());
+            List<String> unionLabels = relation.getSubsets().stream()
+                    .map(SubsetDefinition::getName)
+                    .map(this::label)
+                    .collect(toImmutableList());
+
+            // analyze SUBSET
+            Set<String> unique = new HashSet<>();
+            for (SubsetDefinition subset : relation.getSubsets()) {
+                String label = label(subset.getName());
+                if (primaryLabels.contains(label)) {
+                    throw semanticException(INVALID_LABEL, subset.getName(), "union pattern variable name: %s is a duplicate of primary pattern variable name", subset.getName());
+                }
+                if (!unique.add(label)) {
+                    throw semanticException(INVALID_LABEL, subset.getName(), "union pattern variable name: %s is declared twice", subset.getName());
+                }
+                for (Identifier element : subset.getIdentifiers()) {
+                    // TODO can there be repetitions in the list of subset elements? (currently repetitions are supported)
+                    if (!primaryLabels.contains(label(element))) {
+                        throw semanticException(INVALID_LABEL, element, "subset element: %s is not a primary pattern variable", element);
+                    }
+                }
+            }
+
+            // analyze DEFINE
+            unique = new HashSet<>();
+            for (VariableDefinition definition : relation.getVariableDefinitions()) {
+                String label = label(definition.getName());
+                if (!primaryLabels.contains(label)) {
+                    throw semanticException(INVALID_LABEL, definition.getName(), "defined variable: %s is not a primary pattern variable", definition.getName());
+                }
+                if (!unique.add(label)) {
+                    throw semanticException(INVALID_LABEL, definition.getName(), "pattern variable with name: %s is defined twice", definition.getName());
+                }
+            }
+            // record primary labels without definitions. they are implicitly associated with `true` condition
+            Set<String> undefinedLabels = Sets.difference(primaryLabels, unique);
+            analysis.setUndefinedLabels(relation, undefinedLabels);
+
+            // Notes on potential name ambiguity between pattern labels and other identifiers:
+            // Labels are allowed in expressions of MEASURES and DEFINE clauses. In those expressions, qualifying column names with table name is not allowed.
+            // Theoretically, user might define pattern label "T" where input table name was "T". Then a dereference "T.column" would refer to:
+            // - input table's column, if it was in PARTITION BY or ORDER BY clause,
+            // - subset of rows matched with label "T", if it was in MEASURES or DEFINE clause.
+            // There could be a check to catch such non-intuitive situation and produce a warning.
+            // Similarly, it is possible to define pattern label with the same name as some input column. However, this causes no ambiguity, as labels can only
+            // appear as column name's prefix, and column names in pattern recognition context cannot be dereferenced.
+
+            // analyze expressions in MEASURES and DEFINE (with set of all labels passed as context)
+            Set<String> allLabels = ImmutableSet.<String>builder()
+                    .addAll(primaryLabels)
+                    .addAll(unionLabels)
+                    .build();
+            for (VariableDefinition variableDefinition : relation.getVariableDefinitions()) {
+                Expression expression = variableDefinition.getExpression();
+                // DEFINE clause only supports RUNNING semantics which is default
+                extractExpressions(ImmutableList.of(expression), FunctionCall.class).stream()
+                        .filter(functionCall -> functionCall.getProcessingMode().map(mode -> mode.getMode() == FINAL).orElse(false))
+                        .findFirst()
+                        .ifPresent(functionCall -> {
+                            throw semanticException(INVALID_PROCESSING_MODE, functionCall.getProcessingMode().get(), "FINAL semantics is not supported in DEFINE clause");
+                        });
+                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, allLabels);
+                Type type = expressionAnalysis.getType(expression);
+                if (!type.equals(BOOLEAN)) {
+                    throw semanticException(TYPE_MISMATCH, expression, "Expression defining a label must be boolean (actual type: %s)", type);
+                }
+            }
+            ImmutableMap.Builder<NodeRef<Node>, Type> measureTypesBuilder = ImmutableMap.builder();
+            for (MeasureDefinition measureDefinition : relation.getMeasures()) {
+                // TODO should measure names be unique? Currently it is not required. Ambiguous measure names are not an issue in MATCH_RECOGNIZE,
+                //  but cannot be supported in WINDOW where they are exposed as function names to be called over the window.
+                Expression expression = measureDefinition.getExpression();
+                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, allLabels);
+                measureTypesBuilder.put(NodeRef.of(expression), expressionAnalysis.getType(expression));
+            }
+            Map<NodeRef<Node>, Type> measureTypes = measureTypesBuilder.build();
+
+            // INITIAL or SEEK modifier is not supported in MATCH_RECOGNIZE clause
+            relation.getPatternSearchMode().ifPresent(mode -> {
+                throw semanticException(NOT_SUPPORTED, mode, "Pattern search modifier: %s is not allowed in MATCH_RECOGNIZE clause", mode.getMode());
+            });
+
+            // validate pattern quantifiers
+            preOrder(relation.getPattern())
+                    .filter(RangeQuantifier.class::isInstance)
+                    .map(RangeQuantifier.class::cast)
+                    .forEach(quantifier -> {
+                        Optional<Long> atLeast = quantifier.getAtLeast().map(LongLiteral::getValue);
+                        atLeast.ifPresent(value -> {
+                            if (value < 0) {
+                                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, quantifier, "Pattern quantifier lower bound must be greater than or equal to 0");
+                            }
+                            if (value > Integer.MAX_VALUE) {
+                                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, quantifier, "Pattern quantifier lower bound must not exceed " + Integer.MAX_VALUE);
+                            }
+                        });
+                        Optional<Long> atMost = quantifier.getAtMost().map(LongLiteral::getValue);
+                        atMost.ifPresent(value -> {
+                            if (value < 1) {
+                                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, quantifier, "Pattern quantifier upper bound must be greater than or equal to 1");
+                            }
+                            if (value > Integer.MAX_VALUE) {
+                                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, quantifier, "Pattern quantifier upper bound must not exceed " + Integer.MAX_VALUE);
+                            }
+                        });
+                        if (atLeast.isPresent() && atMost.isPresent()) {
+                            if (atLeast.get() > atMost.get()) {
+                                throw semanticException(INVALID_RANGE, quantifier, "Pattern quantifier lower bound must not exceed upper bound");
+                            }
+                        }
+                        analysis.setRange(quantifier, new Range(atLeast.map(Math::toIntExact), atMost.map(Math::toIntExact)));
+                    });
+
+            // validate pattern exclusions
+            // exclusion syntax is not allowed in row pattern if ALL ROWS PER MATCH WITH UNMATCHED ROWS is specified
+            if (relation.getRowsPerMatch().isPresent() && relation.getRowsPerMatch().get().isUnmatchedRows()) {
+                preOrder(relation.getPattern())
+                        .filter(ExcludedPattern.class::isInstance)
+                        .findFirst()
+                        .ifPresent(exclusion -> {
+                            throw semanticException(INVALID_ROW_PATTERN, exclusion, "Pattern exclusion syntax is not allowed when ALL ROWS PER MATCH WITH UNMATCHED ROWS is specified");
+                        });
+            }
+
+            // validate AFTER MATCH SKIP
+            relation.getAfterMatchSkipTo()
+                    .flatMap(SkipTo::getIdentifier)
+                    .ifPresent(identifier -> {
+                        String label = label(identifier);
+                        if (!allLabels.contains(label)) {
+                            throw semanticException(INVALID_LABEL, identifier, "%s is not a primary or union pattern variable", identifier);
+                        }
+                    });
+
+            // check no prohibited nesting: cannot nest one row pattern recognition within another
+            List<Expression> expressions = Streams.concat(
+                    relation.getMeasures().stream()
+                            .map(MeasureDefinition::getExpression),
+                    relation.getVariableDefinitions().stream()
+                            .map(VariableDefinition::getExpression))
+                    .collect(toImmutableList());
+            expressions.forEach(expression -> preOrder(expression)
+                    .filter(PatternRecognitionRelation.class::isInstance)
+                    .findFirst()
+                    .ifPresent(nested -> {
+                        throw semanticException(NESTED_ROW_PATTERN_RECOGNITION, nested, "nested row pattern recognition in row pattern recognition");
+                    }));
+
+            // create output scope
+            // ONE ROW PER MATCH: PARTITION BY columns, then MEASURES columns in order of declaration
+            // ALL ROWS PER MATCH: PARTITION BY columns, ORDER BY columns, MEASURES columns, then any remaining input table columns in order of declaration
+            // Note: row pattern input table name should not be exposed on output
+            boolean oneRowPerMatch = relation.getRowsPerMatch().isEmpty() || relation.getRowsPerMatch().get().isOneRow();
+            ImmutableSet.Builder<Field> inputFieldsOnOutputBuilder = ImmutableSet.builder();
+            ImmutableList.Builder<Field> outputFieldsBuilder = ImmutableList.builder();
+
+            for (Expression expression : relation.getPartitionBy()) {
+                Field inputField = validateAndGetInputField(expression, inputScope);
+                outputFieldsBuilder.add(unqualifiedVisible(inputField));
+                inputFieldsOnOutputBuilder.add(inputField);
+            }
+            if (!oneRowPerMatch) {
+                for (SortItem sortItem : getSortItemsFromOrderBy(relation.getOrderBy())) {
+                    Field inputField = validateAndGetInputField(sortItem.getSortKey(), inputScope);
+                    outputFieldsBuilder.add(unqualifiedVisible(inputField));
+                    inputFieldsOnOutputBuilder.add(inputField); // might have duplicates (ORDER BY a ASC, a DESC)
+                }
+            }
+            for (MeasureDefinition measureDefinition : relation.getMeasures()) {
+                outputFieldsBuilder.add(Field.newUnqualified(
+                        measureDefinition.getName().getValue(),
+                        measureTypes.get(NodeRef.of(measureDefinition.getExpression()))));
+            }
+            if (!oneRowPerMatch) {
+                Set<Field> inputFieldsOnOutput = inputFieldsOnOutputBuilder.build();
+                for (Field inputField : inputScope.getRelationType().getAllFields()) {
+                    if (!inputFieldsOnOutput.contains(inputField)) {
+                        outputFieldsBuilder.add(unqualified(inputField));
+                    }
+                }
+            }
+            // pattern recognition output must have at least 1 column
+            List<Field> outputFields = outputFieldsBuilder.build();
+            if (outputFields.isEmpty()) {
+                throw semanticException(TABLE_HAS_NO_COLUMNS, relation, "pattern recognition output table has no columns");
+            }
+
+            return createAndAssignScope(relation, scope, outputFields);
+        }
+
+        private Field validateAndGetInputField(Expression expression, Scope inputScope)
+        {
+            QualifiedName qualifiedName;
+            if (expression instanceof Identifier) {
+                qualifiedName = QualifiedName.of(ImmutableList.of((Identifier) expression));
+            }
+            else if (expression instanceof DereferenceExpression) {
+                qualifiedName = getQualifiedName((DereferenceExpression) expression);
+            }
+            else {
+                throw semanticException(INVALID_COLUMN_REFERENCE, expression, "Expected column reference. Actual: " + expression);
+            }
+            Optional<ResolvedField> field = inputScope.tryResolveField(expression, qualifiedName);
+            if (field.isEmpty() || !field.get().isLocal()) {
+                throw semanticException(COLUMN_NOT_FOUND, expression, "Column %s is not present in the input relation", expression);
+            }
+
+            return field.get().getField();
+        }
+
+        private Field unqualifiedVisible(Field field)
+        {
+            return new Field(
+                    Optional.empty(),
+                    field.getName(),
+                    field.getType(),
+                    false,
+                    field.getOriginTable(),
+                    field.getOriginColumnName(),
+                    field.isAliased());
+        }
+
+        private Field unqualified(Field field)
+        {
+            return new Field(
+                    Optional.empty(),
+                    field.getName(),
+                    field.getType(),
+                    field.isHidden(),
+                    field.getOriginTable(),
+                    field.getOriginColumnName(),
+                    field.isAliased());
+        }
+
+        private ExpressionAnalysis analyzePatternRecognitionExpression(Expression expression, Scope scope, Set<String> labels)
+        {
+            return ExpressionAnalyzer.analyzePatternRecognitionExpression(
+                    session,
+                    metadata,
+                    groupProvider,
+                    accessControl,
+                    sqlParser,
+                    scope,
+                    analysis,
+                    expression,
+                    warningCollector,
+                    labels);
+        }
+
+        private String label(Identifier identifier)
+        {
+            return identifier.getCanonicalValue();
         }
 
         @Override
@@ -2543,7 +2859,7 @@ class StatementAnalyzer
 
                         Optional<String> name;
                         if (!allColumns.getAliases().isEmpty()) {
-                            name = Optional.of(canonicalize(allColumns.getAliases().get(i)));
+                            name = Optional.of((allColumns.getAliases().get(i)).getCanonicalValue());
                         }
                         else {
                             name = field.getName();
@@ -3160,6 +3476,13 @@ class StatementAnalyzer
 
                 boolean isRecursive = false;
                 if (with.isRecursive()) {
+                    // cannot nest pattern recognition within recursive query
+                    preOrder(withQuery.getQuery())
+                            .filter(PatternRecognitionRelation.class::isInstance)
+                            .findFirst()
+                            .ifPresent(nested -> {
+                                throw semanticException(NESTED_ROW_PATTERN_RECOGNITION, nested, "nested row pattern recognition in recursive query");
+                            });
                     isRecursive = tryProcessRecursiveQuery(withQuery, name, withScopeBuilder);
                     // WITH query is not shaped accordingly to the rules for expandable query and will be processed like a plain WITH query.
                     // Since RECURSIVE is specified, any reference to WITH query name is considered a recursive reference and is not allowed.

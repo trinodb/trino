@@ -72,6 +72,7 @@ import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.Property;
@@ -89,6 +90,7 @@ import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.Row;
+import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
@@ -120,7 +122,6 @@ import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Values;
-import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
 
@@ -131,6 +132,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
@@ -139,6 +141,7 @@ import static io.trino.sql.ExpressionFormatter.formatGroupBy;
 import static io.trino.sql.ExpressionFormatter.formatOrderBy;
 import static io.trino.sql.ExpressionFormatter.formatStringLiteral;
 import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
+import static io.trino.sql.RowPatternFormatter.formatPattern;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -183,6 +186,14 @@ public final class SqlFormatter
         {
             checkArgument(indent == 0, "visitExpression should only be called at root");
             builder.append(formatExpression(node));
+            return null;
+        }
+
+        @Override
+        protected Void visitRowPattern(RowPattern node, Integer indent)
+        {
+            checkArgument(indent == 0, "visitRowPattern should only be called at root");
+            builder.append(formatPattern(node));
             return null;
         }
 
@@ -327,21 +338,9 @@ public final class SqlFormatter
 
             if (!node.getWindows().isEmpty()) {
                 append(indent, "WINDOW");
-                if (node.getWindows().size() == 1) {
-                    builder.append(" ")
-                            .append(formatWindowDefinition(node.getWindows().get(0)))
-                            .append("\n");
-                }
-                else {
-                    int size = node.getWindows().size();
-                    builder.append("\n");
-                    for (int i = 0; i < size - 1; i++) {
-                        append(indent + 1, formatWindowDefinition(node.getWindows().get(i)))
-                                .append(",\n");
-                    }
-                    append(indent + 1, formatWindowDefinition(node.getWindows().get(size - 1)))
-                            .append("\n");
-                }
+                formatDefinitionList(node.getWindows().stream()
+                        .map(definition -> formatExpression(definition.getName()) + " AS " + formatWindowSpecification(definition.getWindow()))
+                        .collect(toImmutableList()), indent + 1);
             }
 
             if (node.getOrderBy().isPresent()) {
@@ -356,11 +355,6 @@ public final class SqlFormatter
                 process(node.getLimit().get(), indent);
             }
             return null;
-        }
-
-        private String formatWindowDefinition(WindowDefinition definition)
-        {
-            return formatExpression(definition.getName()) + " AS " + formatWindowSpecification(definition.getWindow());
         }
 
         @Override
@@ -527,6 +521,97 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitPatternRecognitionRelation(PatternRecognitionRelation node, Integer indent)
+        {
+            processRelationSuffix(node.getInput(), indent);
+
+            builder.append(" MATCH_RECOGNIZE (\n");
+            if (!node.getPartitionBy().isEmpty()) {
+                append(indent + 1, "PARTITION BY ")
+                        .append(node.getPartitionBy().stream()
+                                .map(ExpressionFormatter::formatExpression)
+                                .collect(joining(", ")))
+                        .append("\n");
+            }
+            if (node.getOrderBy().isPresent()) {
+                process(node.getOrderBy().get(), indent + 1);
+            }
+            if (!node.getMeasures().isEmpty()) {
+                append(indent + 1, "MEASURES");
+                formatDefinitionList(node.getMeasures().stream()
+                        .map(measure -> formatExpression(measure.getExpression()) + " AS " + formatExpression(measure.getName()))
+                        .collect(toImmutableList()), indent + 2);
+            }
+            if (node.getRowsPerMatch().isPresent()) {
+                String rowsPerMatch;
+                switch (node.getRowsPerMatch().get()) {
+                    case ONE:
+                        rowsPerMatch = "ONE ROW PER MATCH";
+                        break;
+                    case ALL_SHOW_EMPTY:
+                        rowsPerMatch = "ALL ROWS PER MATCH SHOW EMPTY MATCHES";
+                        break;
+                    case ALL_OMIT_EMPTY:
+                        rowsPerMatch = "ALL ROWS PER MATCH OMIT EMPTY MATCHES";
+                        break;
+                    case ALL_WITH_UNMATCHED:
+                        rowsPerMatch = "ALL ROWS PER MATCH WITH UNMATCHED ROWS";
+                        break;
+                    default:
+                        // RowsPerMatch of type WINDOW cannot occur in MATCH_RECOGNIZE clause
+                        throw new IllegalStateException("unexpected rowsPerMatch: " + node.getRowsPerMatch().get());
+                }
+                append(indent + 1, rowsPerMatch)
+                        .append("\n");
+            }
+            if (node.getAfterMatchSkipTo().isPresent()) {
+                String skipTo;
+                switch (node.getAfterMatchSkipTo().get().getPosition()) {
+                    case PAST_LAST:
+                        skipTo = "AFTER MATCH SKIP PAST LAST ROW";
+                        break;
+                    case NEXT:
+                        skipTo = "AFTER MATCH SKIP TO NEXT ROW";
+                        break;
+                    case LAST:
+                        checkState(node.getAfterMatchSkipTo().get().getIdentifier().isPresent(), "missing identifier in AFTER MATCH SKIP TO LAST");
+                        skipTo = "AFTER MATCH SKIP TO LAST " + formatExpression(node.getAfterMatchSkipTo().get().getIdentifier().get());
+                        break;
+                    case FIRST:
+                        checkState(node.getAfterMatchSkipTo().get().getIdentifier().isPresent(), "missing identifier in AFTER MATCH SKIP TO FIRST");
+                        skipTo = "AFTER MATCH SKIP TO FIRST " + formatExpression(node.getAfterMatchSkipTo().get().getIdentifier().get());
+                        break;
+                    default:
+                        throw new IllegalStateException("unexpected skipTo: " + node.getAfterMatchSkipTo().get());
+                }
+                append(indent + 1, skipTo)
+                        .append("\n");
+            }
+            if (node.getPatternSearchMode().isPresent()) {
+                append(indent + 1, node.getPatternSearchMode().get().getMode().name())
+                        .append("\n");
+            }
+            append(indent + 1, "PATTERN (")
+                    .append(formatPattern(node.getPattern()))
+                    .append(")\n");
+            if (!node.getSubsets().isEmpty()) {
+                append(indent + 1, "SUBSET");
+                formatDefinitionList(node.getSubsets().stream()
+                        .map(subset -> formatExpression(subset.getName()) + " = " + subset.getIdentifiers().stream()
+                                .map(ExpressionFormatter::formatExpression).collect(joining(", ", "(", ")")))
+                        .collect(toImmutableList()), indent + 2);
+            }
+            append(indent + 1, "DEFINE");
+            formatDefinitionList(node.getVariableDefinitions().stream()
+                    .map(variable -> formatExpression(variable.getName()) + " AS " + formatExpression(variable.getExpression()))
+                    .collect(toImmutableList()), indent + 2);
+
+            builder.append(")");
+
+            return null;
+        }
+
+        @Override
         protected Void visitSampledRelation(SampledRelation node, Integer indent)
         {
             processRelationSuffix(node.getRelation(), indent);
@@ -542,7 +627,7 @@ public final class SqlFormatter
 
         private void processRelationSuffix(Relation relation, Integer indent)
         {
-            if ((relation instanceof AliasedRelation) || (relation instanceof SampledRelation)) {
+            if ((relation instanceof AliasedRelation) || (relation instanceof SampledRelation) || (relation instanceof PatternRecognitionRelation)) {
                 builder.append("( ");
                 process(relation, indent + 1);
                 append(indent, ")");
@@ -1688,6 +1773,24 @@ public final class SqlFormatter
         private static String indentString(int indent)
         {
             return Strings.repeat(INDENT, indent);
+        }
+
+        private void formatDefinitionList(List<String> elements, int indent)
+        {
+            if (elements.size() == 1) {
+                builder.append(" ")
+                        .append(getOnlyElement(elements))
+                        .append("\n");
+            }
+            else {
+                builder.append("\n");
+                for (int i = 0; i < elements.size() - 1; i++) {
+                    append(indent, elements.get(i))
+                            .append(",\n");
+                }
+                append(indent, elements.get(elements.size() - 1))
+                        .append("\n");
+            }
         }
     }
 

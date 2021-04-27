@@ -11,27 +11,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.elasticsearch;
+package io.trino.operator.window.matcher;
 
-import static java.lang.String.format;
-
-public class TestElasticsearch7IntegrationSmokeTest
-        extends BaseElasticsearchSmokeTest
+class Done
+        implements Instruction
 {
-    public TestElasticsearch7IntegrationSmokeTest()
+    @Override
+    public Type type()
     {
-        super("elasticsearch:7.0.0");
+        return Type.DONE;
     }
 
     @Override
-    protected String indexEndpoint(String index, String docId)
+    public String toString()
     {
-        return format("/%s/_doc/%s", index, docId);
+        return "done";
     }
 
     @Override
-    protected String indexMapping(String properties)
+    public boolean equals(Object obj)
     {
-        return "{\"mappings\": " + properties + "}";
+        if (this == obj) {
+            return true;
+        }
+        return (obj != null) && (getClass() == obj.getClass());
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
     }
 }

@@ -5004,6 +5004,149 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testMatchRecognize()
+    {
+        // find customers with a sequence of 6+ orders with rising prices
+        assertQuery(
+                "SELECT m.custkey, m.matchno, m.lowest_price, m.highest_price " +
+                        "          FROM orders " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   PARTITION BY custkey " +
+                        "                   ORDER BY orderdate " +
+                        "                   MEASURES " +
+                        "                            A.totalprice AS lowest_price, " +
+                        "                            FINAL LAST(R.totalprice) AS highest_price, " +
+                        "                            MATCH_NUMBER() AS matchno " +
+                        "                   ONE ROW PER MATCH " +
+                        "                   PATTERN (A R{5,}) " +
+                        "                   DEFINE R AS R.totalprice > PREV(R.totalprice) " +
+                        "                ) AS m",
+                " VALUES " +
+                        "(223, 1, 35243.42, 272842.24), " +
+                        "(364, 1, 98466.62, 190993.28), " +
+                        "(806, 1, 67625.86, 265458.02), " +
+                        "(874, 1, 57276.82, 300848.95), " +
+                        "(1180, 1, 28357.41, 222579.79), " +
+                        "(1198, 1, 29882.15, 170142.7), " +
+                        "(1411, 1, 5618.66, 178192.17) ");
+
+        // find customers doing small orders after a big order
+        assertQuery(
+                "SELECT m.custkey, m.matchno, m.classy, m.totalprice, m.time_since_last " +
+                        "          FROM orders " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   PARTITION BY custkey " +
+                        "                   ORDER BY orderdate " +
+                        "                   MEASURES " +
+                        "                            CAST(SMALL.orderdate - PREV(orderdate) AS varchar) AS time_since_last, " +
+                        "                            CLASSIFIER() AS classy, " +
+                        "                            MATCH_NUMBER() AS matchno " +
+                        "                   ALL ROWS PER MATCH " +
+                        "                   PATTERN (BIG SMALL+) " +
+                        "                   DEFINE SMALL AS SMALL.totalprice < BIG.totalprice * 0.005 " +
+                        "                ) AS m",
+                "VALUES " +
+                        "(1436, 1, 'BIG', 291066.38, null), " +
+                        "(1436, 1, 'SMALL', 1258.33, '28 00:00:00.000'), " +
+                        "(1400, 1, 'BIG', 319491.64, null), " +
+                        "(1400, 1, 'SMALL', 1301.08, '85 00:00:00.000') ");
+    }
+
+    @Test
+    public void testLongPatternMatch()
+    {
+        // test the capacity of pattern matching algorithm with a big table and a trivial pattern that matches all rows
+        assertQuery(
+                "SELECT count() " +
+                        "          FROM (SELECT * FROM lineitem " +
+                        "                UNION ALL " +
+                        "                SELECT * FROM lineitem) big_input " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   MEASURES CLASSIFIER() AS classy " +
+                        "                   ALL ROWS PER MATCH " +
+                        "                   PATTERN (A*) " +
+                        "                   DEFINE A AS true " +
+                        "                ) ",
+                "SELECT 120350 ");
+    }
+
+    @Test
+    public void testUnsuccessfulPatternMatch()
+    {
+        // test a pattern which potential of exponential backtracking
+        assertQueryReturnsEmptyResult(
+                "SELECT match " +
+                        "          FROM (SELECT * FROM lineitem " +
+                        "                UNION ALL " +
+                        "                SELECT * FROM lineitem) big_input " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   MEASURES MATCH_NUMBER() AS match " +
+                        "                   ONE ROW PER MATCH " +
+                        "                   PATTERN (^(A+)+B$) " +
+                        "                   DEFINE " +
+                        "                       A AS true, " +
+                        "                       B AS false " +
+                        "                ) ");
+    }
+
+    @Test
+    public void testJoinedPatternMatch()
+    {
+        assertQuery(
+                "SELECT m.custkey, c.name, m.highest_price " +
+                        "          FROM orders " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   PARTITION BY custkey " +
+                        "                   ORDER BY orderdate " +
+                        "                   MEASURES FINAL LAST(R.totalprice) AS highest_price " +
+                        "                   ONE ROW PER MATCH " +
+                        "                   PATTERN (A R{5,}) " +
+                        "                   DEFINE R AS R.totalprice > PREV(R.totalprice) " +
+                        "                ) AS m" +
+                        "                JOIN customer c ON c.custkey = m.custkey ",
+                "VALUES " +
+                        "(223, 'Customer#000000223', 272842.24), " +
+                        "(364, 'Customer#000000364', 190993.28), " +
+                        "(806, 'Customer#000000806', 265458.02), " +
+                        "(874, 'Customer#000000874', 300848.95), " +
+                        "(1180, 'Customer#000001180', 222579.79), " +
+                        "(1198, 'Customer#000001198', 170142.7), " +
+                        "(1411, 'Customer#000001411', 178192.17) ");
+    }
+
+    @Test
+    public void testChainedPatternMatch()
+    {
+        assertQuery(
+                "SELECT lowest_delta, highest_delta, date " +
+                        "           FROM (SELECT * FROM orders " +
+                        "                 MATCH_RECOGNIZE ( " + // find customers with a sequence of 6+ orders with rising prices
+                        "                       PARTITION BY custkey " +
+                        "                       ORDER BY orderdate " +
+                        "                       MEASURES " +
+                        "                                FINAL LAST(R.orderdate) AS final_date, " +
+                        "                                A.totalprice AS lowest_price, " +
+                        "                                FINAL LAST(R.totalprice) AS highest_price " +
+                        "                       ONE ROW PER MATCH " +
+                        "                       PATTERN (A R{5,}) " +
+                        "                       DEFINE R AS R.totalprice > PREV(R.totalprice) " +
+                        "                       ) " +
+                        "                ) MATCH_RECOGNIZE ( " + // among those sequences find sequences of rising delta price
+                        "                        ORDER BY final_date " +
+                        "                        MEASURES " +
+                        "                                 FINAL LAST(D.highest_price - D.lowest_price) AS highest_delta, " +
+                        "                                 A.highest_price - A.lowest_price AS lowest_delta, " +
+                        "                                 CAST(FINAL LAST(D.final_date) AS varchar) AS date " +
+                        "                        ONE ROW PER MATCH " +
+                        "                        PATTERN (A D+) " +
+                        "                        DEFINE D AS D.highest_price - D.lowest_price > PREV(D.highest_price - D.lowest_price) " +
+                        "                        ) ",
+                "VALUES " +
+                        "     (172573.51, 237598.82, '1995-02-25'), " +
+                        "     (92526.66, 140260.55000000002, '1998-06-23') ");
+    }
+
+    @Test
     public void testShowSession()
     {
         Session session = new Session(

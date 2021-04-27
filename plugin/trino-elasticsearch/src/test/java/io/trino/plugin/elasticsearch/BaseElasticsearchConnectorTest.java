@@ -18,9 +18,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.tpch.TpchTable;
 import org.apache.http.HttpHost;
 import org.apache.http.entity.ContentType;
@@ -39,6 +41,7 @@ import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElast
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -46,15 +49,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public abstract class BaseElasticsearchSmokeTest
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+public abstract class BaseElasticsearchConnectorTest
+        extends BaseConnectorTest
 {
     private final String image;
     private ElasticsearchServer elasticsearch;
     protected RestHighLevelClient client;
 
-    BaseElasticsearchSmokeTest(String image)
+    BaseElasticsearchConnectorTest(String image)
     {
         this.image = image;
     }
@@ -69,6 +71,56 @@ public abstract class BaseElasticsearchSmokeTest
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
         return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables(), ImmutableMap.of(), ImmutableMap.of());
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
+            case SUPPORTS_CREATE_TABLE:
+                return false;
+
+            case SUPPORTS_CREATE_SCHEMA:
+                return false;
+
+            case SUPPORTS_RENAME_TABLE:
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
+            case SUPPORTS_INSERT:
+                return false;
+
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    /**
+     * This method overrides the default values used for the data provider
+     * of the test {@link AbstractTestQueries#testLargeIn(int)} by taking
+     * into account that by default Elasticsearch supports only up to `1024`
+     * clauses in query.
+     * <p>
+     * Consult `index.query.bool.max_clause_count` elasticsearch.yml setting
+     * for more details.
+     *
+     * @return the amount of clauses to be used in large queries
+     */
+    @Override
+    protected Object[][] largeInValuesCountData()
+    {
+        return new Object[][] {
+                {200},
+                {500},
+                {1000}
+        };
     }
 
     @AfterClass(alwaysRun = true)
@@ -87,6 +139,10 @@ public abstract class BaseElasticsearchSmokeTest
         assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
     }
 
+    /**
+     * The column metadata for the Elasticsearch connector tables are provided
+     * based on the column name in alphabetical order.
+     */
     @Test
     @Override
     public void testDescribeTable()
@@ -106,6 +162,68 @@ public abstract class BaseElasticsearchSmokeTest
         assertEquals(actualColumns, expectedColumns);
     }
 
+    @Test
+    @Override
+    public void testPredicateReflectedInExplain()
+    {
+        // The format of the string representation of what gets shown in the table scan is connector-specific
+        // and there's no requirement that the conform to a specific shape or contain certain keywords.
+
+        assertExplain(
+                "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
+                "nationkey::bigint", "::\\s\\[\\[42\\]\\]");
+    }
+
+    @Test
+    @Override
+    public void testSortItemsReflectedInExplain()
+    {
+        // The format of the string representation of what gets shown in the table scan is connector-specific
+        // and there's no requirement that the conform to a specific shape or contain certain keywords.
+        assertExplain(
+                "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
+                "TopNPartial\\[5 by \\(nationkey DESC");
+    }
+
+    @Test
+    @Override
+    public void testLimitPushDown()
+    {
+        // The column metadata for the Elasticsearch connector tables are provided
+        // based on the column name in alphabetical order.
+        // This is why when computing the expected result from H2, instead of using
+        // the wildcard query `SELECT * FROM orders`, it is imposed to specify
+        // explicitly the column names to select so that they match `actual.getTypes()`
+        MaterializedResult actual = computeActual(
+                "(TABLE orders ORDER BY orderkey) UNION ALL " +
+                        "SELECT * FROM orders WHERE orderstatus = 'F' UNION ALL " +
+                        "(TABLE orders ORDER BY orderkey LIMIT 20) UNION ALL " +
+                        "(TABLE orders LIMIT 5) UNION ALL " +
+                        "TABLE orders LIMIT 10");
+        MaterializedResult all = computeExpected(
+                "SELECT clerk, comment, custkey,orderdate, orderkey, orderpriority, orderstatus, shippriority, totalprice " +
+                        "FROM orders", actual.getTypes());
+
+        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertContains(all, actual);
+
+        // with ORDER BY
+        assertQuery("SELECT name FROM nation ORDER BY nationkey LIMIT 3");
+        assertQuery("SELECT name FROM nation ORDER BY regionkey LIMIT 5"); // query is deterministic because first peer group in regionkey order has 5 rows
+
+        // global aggregation, LIMIT should be removed (and connector should not prevent this from happening)
+        assertQuery("SELECT max(regionkey) FROM nation LIMIT 5");
+
+        // with aggregation
+        assertQuery("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5");
+
+        // with DISTINCT (can be expressed as DistinctLimitNode and handled differently)
+        assertQuery("SELECT DISTINCT regionkey FROM nation LIMIT 5");
+
+        // with filter and aggregation
+        assertQuery("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3");
+    }
+
     @Override
     public void testShowCreateTable()
     {
@@ -121,6 +239,26 @@ public abstract class BaseElasticsearchSmokeTest
                         "   shippriority bigint,\n" +
                         "   totalprice real\n" +
                         ")");
+    }
+
+    @Test
+    @Override
+    public void testShowColumns()
+    {
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("clerk", "varchar", "", "")
+                .row("comment", "varchar", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderdate", "timestamp(3)", "", "")
+                .row("orderkey", "bigint", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("shippriority", "bigint", "", "")
+                .row("totalprice", "real", "", "")
+                .build();
+
+        assertEquals(expected, actual);
     }
 
     @Test

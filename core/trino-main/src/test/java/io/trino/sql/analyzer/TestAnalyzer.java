@@ -42,6 +42,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -90,15 +91,22 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LABEL;
 import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.StandardErrorCode.INVALID_NAVIGATION_NESTING;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
 import static io.trino.spi.StandardErrorCode.INVALID_PARTITION_BY;
+import static io.trino.spi.StandardErrorCode.INVALID_PATTERN_RECOGNITION_FUNCTION;
+import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
+import static io.trino.spi.StandardErrorCode.INVALID_RANGE;
 import static io.trino.spi.StandardErrorCode.INVALID_RECURSIVE_REFERENCE;
+import static io.trino.spi.StandardErrorCode.INVALID_ROW_PATTERN;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_REFERENCE;
@@ -112,12 +120,14 @@ import static io.trino.spi.StandardErrorCode.MISSING_OVER;
 import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.NESTED_AGGREGATION;
 import static io.trino.spi.StandardErrorCode.NESTED_RECURSIVE;
+import static io.trino.spi.StandardErrorCode.NESTED_ROW_PATTERN_RECOGNITION;
 import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NULL_TREATMENT_NOT_ALLOWED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.trino.spi.StandardErrorCode.TABLE_HAS_NO_COLUMNS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_GROUPING_SETS;
@@ -3007,6 +3017,988 @@ public class TestAnalyzer
         analyze("VALUES 'a', ('a'), ROW('a'), CAST(ROW('a') AS row(char(5)))");
     }
 
+    // TEST ROW PATTERN RECOGNITION: MATCH_RECOGNIZE CLAUSE
+    @Test
+    public void testInputColumnNames()
+    {
+        // ambiguous columns in row pattern recognition input table
+        String query = "SELECT * " +
+                "          FROM (VALUES (1, 2, 3)) Ticker(%s) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY y " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) AS M";
+        assertFails(format(query, "x, X, y"))
+                .hasErrorCode(AMBIGUOUS_NAME);
+
+        // TODO This should not fail according to SQL identifier semantics.
+        //  Fix column name resolution so that fields contain canonical name.
+        assertFails(format(query, "\"x\", \"X\", y"))
+                .hasErrorCode(AMBIGUOUS_NAME);
+
+        assertFails(format(query, "x, \"X\", y"))
+                .hasErrorCode(AMBIGUOUS_NAME);
+
+        // using original column names from input table
+        analyze("SELECT a " +
+                "          FROM t1 " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY a " +
+                "                   ORDER BY b " +
+                "                   MEASURES X.d AS m " +
+                "                   PATTERN (X Y+) " +
+                "                   DEFINE Y AS Y.c > 5 " +
+                "                 ) AS M");
+
+        // column aliases of input table are visible inside MATCH_RECOGNIZE clause and in its output
+        analyze("SELECT q " +
+                "          FROM t1 AS t(q, r, s, t) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY q " +
+                "                   ORDER BY r " +
+                "                   MEASURES X.t AS m " +
+                "                   PATTERN (X Y+) " +
+                "                   DEFINE Y AS Y.s > 5 " +
+                "                 ) AS M");
+
+        assertFails("SELECT * " +
+                "          FROM t1 AS t(q, r, s, t)" +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY a " +
+                "                   PATTERN (X Y+) " +
+                "                   DEFINE Y AS true " +
+                "                 ) AS M")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:111: Column a is not present in the input relation");
+
+        assertFails("SELECT * " +
+                "          FROM t1 AS t(q, r, s, t)" +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY q " +
+                "                   PATTERN (X Y+) " +
+                "                   DEFINE Y AS Y.a > 5 " +
+                "                 ) AS M")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:178: Column a prefixed with label Y cannot be resolved");
+
+        // label-prefixed column references are recognized case-insensitive
+        analyze("SELECT * " +
+                "          FROM t1 AS t(q, r, S, T) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES " +
+                "                       X.Q AS m1, " +
+                "                       X.r AS m2" +
+                "                   PATTERN (X Y+) " +
+                "                   DEFINE " +
+                "                       X AS Y.S > 5, " +
+                "                       Y AS Y.t < 5 " +
+                "                 ) AS M");
+    }
+
+    @Test
+    public void testInputTableNameVisibility()
+    {
+        // the input table name is 'Ticker'
+        String query = "SELECT %s " +
+                "          FROM (VALUES (1, 2, 3)) Ticker(x, y, z) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY y " +
+                "                   MEASURES CLASSIFIER() AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) %s";
+
+        // input table name is not visible in SELECT clause when output name is not specified
+        assertFails(format(query, "Ticker.Measure", ""))
+                .hasErrorCode(COLUMN_NOT_FOUND);
+        assertFails(format(query, "Ticker.*", ""))
+                .hasErrorCode(TABLE_NOT_FOUND);
+        assertFails(format(query, "Ticker.y", ""))
+                .hasErrorCode(COLUMN_NOT_FOUND);
+        // input table name is not visible in SELECT clause when output name is specified
+        assertFails(format(query, "Ticker.Measure", "AS M"))
+                .hasErrorCode(COLUMN_NOT_FOUND);
+
+        // input table name is visible in PARTITION BY and ORDER BY clauses
+        analyze("SELECT * " +
+                "          FROM (VALUES (1, 2, 3)) Ticker(x, y, z) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY Ticker.x  " +
+                "                   ORDER BY Ticker.y  " +
+                "                   MEASURES CLASSIFIER() AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) ");
+
+        // input table name is not visible in MEASURES and DEFINE clauses
+        query = "SELECT * " +
+                "          FROM (VALUES (1, 2, 3)) Ticker(x, y, z) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY Ticker.x " +
+                "                   MEASURES %s " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE %s " +
+                "                 ) ";
+
+        assertFails(format(query, "A.Ticker.x AS Measure", "B AS true"))
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:164: Column ticker.x prefixed with label A cannot be resolved");
+        assertFails(format(query, "Ticker.A.x AS Measure", "B AS true"))
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:164: Column 'ticker.a.x' cannot be resolved");
+        assertFails(format(query, "1 AS Measure", "B AS Ticker.x > 0"))
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:242: Column 'ticker.x' cannot be resolved");
+
+        // for non-aliased input relation, the same rules apply to its original name
+        analyze("SELECT * " +
+                "          FROM t1 " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY t1.a " +
+                "                   ORDER BY t1.b " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                  ) ");
+
+        assertFails(format(query, "A.t1.x AS Measure", "B AS true"))
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:164: Column t1.x prefixed with label A cannot be resolved");
+        assertFails(format(query, "t1.A.x AS Measure", "B AS true"))
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:164: Column 't1.a.x' cannot be resolved");
+        assertFails(format(query, "1 AS Measure", "B AS t1.x > 0"))
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:242: Column 't1.x' cannot be resolved");
+    }
+
+    @Test
+    public void testOutputTableNameAndAliases()
+    {
+        String query = "SELECT %s " +
+                "          FROM (VALUES (1, 2, 3)) Ticker(x, y, z) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY y " +
+                "                   MEASURES CLASSIFIER() AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) %s";
+
+        analyze(format(query, "M.Measure", "AS M"));
+
+        assertFails(format(query, "M.renamed", "AS M (renamed)"))
+                .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
+                .hasMessage("line 1:33: Column alias list has 1 entries but 'M' has 2 columns available");
+
+        assertFails(format(query, "M.Measure", "AS M (partition, renamed)"))
+                .hasErrorCode(COLUMN_NOT_FOUND);
+
+        analyze(format(query, "M.renamed", "AS M (partition, renamed)"));
+    }
+
+    @Test
+    public void testPartitionBy()
+    {
+        // PARTITION BY expressions must be input columns
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x + 1 " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) ")
+                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+
+        assertFails("SELECT * " +
+                "          FROM (VALUES approx_set(1)) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) ")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testOrderBy()
+    {
+        // ORDER BY expressions must be input columns
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   ORDER BY x + 1 " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) ")
+                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+
+        assertFails("SELECT * " +
+                "          FROM (VALUES approx_set(1)) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   ORDER BY x " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) ")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testLabelNames()
+    {
+        // pattern variables names (labels) are compared using SQL identifier semantics
+        String query = "SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   %s " + // PATTERN
+                "                   %s " + // DEFINE
+                "                 ) ";
+
+        analyze(format(query, "PATTERN(A)", "DEFINE a AS true"));
+        analyze(format(query, "PATTERN(a)", "DEFINE A AS true"));
+        analyze(format(query, "PATTERN(\"A\")", "DEFINE a AS true"));
+
+        assertFails(format(query, "PATTERN(a)", "DEFINE \"a\" AS true"))
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:171: defined variable: \"a\" is not a primary pattern variable");
+
+        assertFails(format(query, "PATTERN(A)", "DEFINE \"a\" AS true"))
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:171: defined variable: \"a\" is not a primary pattern variable");
+
+        analyze(format(query, "PATTERN(A \"a\")", "DEFINE A AS true, \"a\" as false"));
+        analyze(format(query, "PATTERN(A \"a\")", "DEFINE a AS true, \"a\" as false"));
+
+        assertFails(format(query, "PATTERN(A \"a\")", "DEFINE A AS true, a as false"))
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:186: pattern variable with name: a is defined twice");
+
+        assertFails(format(query, "PATTERN(A \"a\")", "DEFINE \"a\" AS true, \"a\" as false"))
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:188: pattern variable with name: \"a\" is defined twice");
+
+        // delimited label names identical to anchor pattern tokens '^' and '$'
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   AFTER MATCH SKIP TO LAST \"^\" " +
+                "                   PATTERN (A B+ \"$\") " +
+                "                   SUBSET \"^\" = (A, \"$\") " +
+                "                   DEFINE \"$\" AS true " +
+                "                 ) ");
+
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (b, \"a\") " +
+                "                   DEFINE A AS true " +
+                "                 ) ")
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:183: subset element: \"a\" is not a primary pattern variable");
+
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   AFTER MATCH SKIP TO LAST \"A\" " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (a, b) " +
+                "                   DEFINE A AS true " +
+                "                 ) ");
+
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES " +
+                "                       LAST(A.x) AS uppercase_measure, " +
+                "                       LAST(a.x) AS lowercase_measure, " +
+                "                       LAST(\"A\".x) AS delimited_measure " +
+                "                   PATTERN (A+) " +
+                "                   DEFINE A AS true " +
+                "                 ) ");
+    }
+
+    @Test
+    public void testLabelNamesInExpressions()
+    {
+        analyze("SELECT M.Measure1, M.Measure2, M.Measure3, M.Measure4, M.Measure5, M.Measure6 " +
+                "          FROM (VALUES (1, 1, 9), (1, 2, 8)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES " +
+                "                       CLASSIFIER(A) AS Measure1, " +
+                "                       LAST(a.Tradeday) AS Measure2, " +
+                "                       FIRST(\"A\".Price) AS Measure3, " +
+                "                       B.Symbol + 4 AS Measure4, " +
+                "                       b.Symbol + 5 AS Measure5, " +
+                "                       lower(CLASSIFIER(\"B\")) AS Measure6 " +
+                "                   PATTERN (a B+) " +
+                "                   DEFINE B AS true " +
+                "                ) AS M");
+    }
+
+    @Test
+    public void testSubsetClause()
+    {
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET A = (B) " +
+                "                   DEFINE B AS true " +
+                "                 ) ")
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:175: union pattern variable name: A is a duplicate of primary pattern variable name");
+
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   PATTERN (A B+ C) " +
+                "                   SUBSET S = (B), " +
+                "                          S = (C) " +
+                "                   DEFINE B AS true " +
+                "                 ) ")
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:212: union pattern variable name: S is declared twice");
+
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   PATTERN (A B+ C) " +
+                "                   SUBSET S = (B, X) " +
+                "                   DEFINE B AS true " +
+                "                 ) ")
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:185: subset element: X is not a primary pattern variable");
+    }
+
+    @Test
+    public void testDefineClause()
+    {
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true, " +
+                "                          X AS false " +
+                "                 ) ")
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:212: defined variable: X is not a primary pattern variable");
+
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true, " +
+                "                          B AS false " +
+                "                 ) ")
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:212: pattern variable with name: B is defined twice");
+
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS A.x " +
+                "                 ) ")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:180: Expression defining a label must be boolean (actual type: integer)");
+
+        // FINAL semantics is not supported in DEFINE clause. RUNNING semantics is supported
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS FINAL LAST(A.x) > 5 " +
+                "                 ) ")
+                .hasErrorCode(INVALID_PROCESSING_MODE)
+                .hasMessage("line 1:180: FINAL semantics is not supported in DEFINE clause");
+
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS RUNNING LAST(A.x) > 5 " +
+                "                 ) ");
+    }
+
+    @Test
+    public void testNoInitialOrSeek()
+    {
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   INITIAL PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:134: Pattern search modifier: INITIAL is not allowed in MATCH_RECOGNIZE clause");
+
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   SEEK PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:134: Pattern search modifier: SEEK is not allowed in MATCH_RECOGNIZE clause");
+    }
+
+    @Test
+    public void testPatternExclusions()
+    {
+        String query = "SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   %s " +
+                "                   PATTERN ({- A -} B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) ";
+
+        analyze(format(query, ""));
+        analyze(format(query, "ONE ROW PER MATCH"));
+        analyze(format(query, "ALL ROWS PER MATCH"));
+        analyze(format(query, "ALL ROWS PER MATCH SHOW EMPTY MATCHES"));
+        analyze(format(query, "ALL ROWS PER MATCH OMIT EMPTY MATCHES"));
+
+        assertFails(format(query, "ALL ROWS PER MATCH WITH UNMATCHED ROWS"))
+                .hasErrorCode(INVALID_ROW_PATTERN)
+                .hasMessage("line 1:201: Pattern exclusion syntax is not allowed when ALL ROWS PER MATCH WITH UNMATCHED ROWS is specified");
+    }
+
+    @Test
+    public void testPatternQuantifiers()
+    {
+        String query = "SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   PATTERN (A %s) " +
+                "                   DEFINE A AS true " +
+                "                 ) ";
+
+        analyze(format(query, "*"));
+        analyze(format(query, "*?"));
+        analyze(format(query, "+"));
+        analyze(format(query, "+?"));
+        analyze(format(query, "?"));
+        analyze(format(query, "??"));
+        analyze(format(query, "{,}"));
+        analyze(format(query, "{5}"));
+        assertFails(format(query, "{0}"))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:145: Pattern quantifier upper bound must be greater than or equal to 1");
+        assertFails(format(query, "{3000000000}"))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:145: Pattern quantifier lower bound must not exceed 2147483647");
+        analyze(format(query, "{5,}"));
+        analyze(format(query, "{0,}"));
+        assertFails(format(query, "{3000000000,}"))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:145: Pattern quantifier lower bound must not exceed 2147483647");
+        analyze(format(query, "{0,5}"));
+        assertFails(format(query, "{0,0}"))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:145: Pattern quantifier upper bound must be greater than or equal to 1");
+        assertFails(format(query, "{5, 3000000000}"))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:145: Pattern quantifier upper bound must not exceed 2147483647");
+        assertFails(format(query, "{5,1}"))
+                .hasErrorCode(INVALID_RANGE)
+                .hasMessage("line 1:145: Pattern quantifier lower bound must not exceed upper bound");
+        analyze(format(query, "{,5}"));
+        assertFails(format(query, "{,0}"))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:145: Pattern quantifier upper bound must be greater than or equal to 1");
+        assertFails(format(query, "{,3000000000}"))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:145: Pattern quantifier upper bound must not exceed 2147483647");
+    }
+
+    @Test
+    public void testAfterMatchSkipClause()
+    {
+        String query = "SELECT * " +
+                "          FROM (VALUES 1) Ticker(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PARTITION BY x " +
+                "                   %s " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) ";
+
+        analyze(format(query, ""));
+        analyze(format(query, "AFTER MATCH SKIP PAST LAST ROW"));
+        analyze(format(query, "AFTER MATCH SKIP TO NEXT ROW"));
+        analyze(format(query, "AFTER MATCH SKIP TO FIRST B"));
+        analyze(format(query, "AFTER MATCH SKIP TO LAST B"));
+        analyze(format(query, "AFTER MATCH SKIP TO B"));
+
+        assertFails(format(query, "AFTER MATCH SKIP TO LAST \"^\""))
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:159: \"^\" is not a primary or union pattern variable");
+
+        assertFails(format(query, "AFTER MATCH SKIP TO LAST X"))
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:159: X is not a primary or union pattern variable");
+    }
+
+    @Test
+    public void testPatternRecognitionNesting()
+    {
+        // in DEFINE clause
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES CLASSIFIER() AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS EXISTS " +
+                "                                   (SELECT c FROM (VALUES 2) t(a)" +
+                "                                                    MATCH_RECOGNIZE ( " +
+                "                                                      MEASURES CLASSIFIER() AS c " +
+                "                                                      PATTERN (X*) " +
+                "                                                      DEFINE X AS true " +
+                "                                                    ) t2 " +
+                "                                    ) " +
+                "                 ) ")
+                .hasErrorCode(NESTED_ROW_PATTERN_RECOGNITION)
+                .hasMessage("line 1:239: nested row pattern recognition in row pattern recognition");
+
+        // in MEASURES clause
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES EXISTS " +
+                "                                (SELECT c FROM (VALUES 2) t(a)" +
+                "                                                 MATCH_RECOGNIZE ( " +
+                "                                                   MEASURES CLASSIFIER() AS c " +
+                "                                                   PATTERN (X*) " +
+                "                                                   DEFINE X AS true " +
+                "                                                 ) t2 " +
+                "                                 ) AS c" +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true" +
+                "                ) ")
+                .hasErrorCode(NESTED_ROW_PATTERN_RECOGNITION)
+                .hasMessage("line 1:153: nested row pattern recognition in row pattern recognition");
+
+        // in RECURSIVE query
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1 " +
+                "          UNION ALL" +
+                "          SELECT n + 2 FROM t MATCH_RECOGNIZE ( " +
+                "                                MEASURES CLASSIFIER() AS c " +
+                "                                PATTERN (X*) " +
+                "                                DEFINE X AS true " +
+                "                              ) " +
+                "          WHERE n < 6" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(NESTED_ROW_PATTERN_RECOGNITION)
+                .hasMessage("line 1:91: nested row pattern recognition in recursive query");
+    }
+
+    @Test
+    public void testCorrelation()
+    {
+        // outer query references are not allowed in DEFINE clause
+        assertFails("SELECT (SELECT * " +
+                "                   FROM (VALUES 1) Ticker(x) " +
+                "                         MATCH_RECOGNIZE ( " +
+                "                           PARTITION BY x " +
+                "                           PATTERN (A B+) " +
+                "                           DEFINE B AS t1.a > PREV(B.x) " +
+                "                         ) " +
+                "                  ) FROM t1")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:229: Column 't1.a' cannot be resolved");
+
+        // outer query references are not allowed in MEASURES clause
+        assertFails("SELECT (SELECT * " +
+                "                   FROM (VALUES 1) Ticker(x) " +
+                "                         MATCH_RECOGNIZE ( " +
+                "                           MEASURES t1.a - PREV(B.x) AS m " +
+                "                           PATTERN (A B+) " +
+                "                           DEFINE B AS true " +
+                "                         ) " +
+                "                  ) FROM t1")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:142: Column 't1.a' cannot be resolved");
+
+        // in this example, "B.x" is not an outer reference but a label dereference
+        analyze("SELECT (SELECT * " +
+                "                   FROM (VALUES 1) Ticker(x) " +
+                "                         MATCH_RECOGNIZE ( " +
+                "                           MEASURES FIRST(B.x) AS m " +
+                "                           PATTERN (A B+) " +
+                "                           DEFINE B AS true " +
+                "                         ) " +
+                "                  ) FROM (VALUES 2) b");
+    }
+
+    @Test
+    public void testSubqueries()
+    {
+        // subqueries are supported in MEASURES and DEFINE clauses
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES (SELECT 1) AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS (SELECT true) " +
+                "                 ) ");
+
+        // subqueries must not use pattern variables
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES (SELECT A.x) AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) ")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:112: Column 'a.x' cannot be resolved");
+
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS (SELECT A.x > 5) " +
+                "                 ) ")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:184: Column 'a.x' cannot be resolved");
+
+        // subqueries must not use outer scope references (in this case, reference to row pattern input table)
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS (SELECT t.x > 5)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:184: Reference to column 't.x' from outer scope not allowed in this context");
+    }
+
+    @Test
+    public void testPatternRecognitionConcatenation()
+    {
+        analyze("SELECT * " +
+                "           FROM (SELECT * " +
+                "                 FROM (VALUES 1) " +
+                "                       MATCH_RECOGNIZE ( " +
+                "                         MEASURES 1 AS c" +
+                "                         PATTERN (A B+) " +
+                "                         DEFINE B AS true" +
+                "                       ) " +
+                "                 ) MATCH_RECOGNIZE ( " +
+                "                     MEASURES 1 AS c" +
+                "                     PATTERN (A B+) " +
+                "                     DEFINE B AS true" +
+                "                   ) ");
+    }
+
+    @Test
+    public void testNoOutputColumns()
+    {
+        assertFails("SELECT 1 " +
+                "          FROM (VALUES 2) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) ")
+                .hasErrorCode(TABLE_HAS_NO_COLUMNS)
+                .hasMessage("line 1:25: pattern recognition output table has no columns");
+    }
+
+    @Test
+    public void testRowPatternRecognitionFunctions()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 9), (1, 2, 8)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   ORDER BY Tradeday " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS %s " +
+                "                 ) AS M";
+
+        // test illegal clauses in MEASURES
+        String define = "true";
+        assertFails(format(query, "LAST(Tradeday) OVER ()", define))
+                .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
+                .hasMessage("line 1:195: Cannot use OVER with last pattern recognition function");
+
+        assertFails(format(query, "LAST(Tradeday) FILTER (WHERE true)", define))
+                .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
+                .hasMessage("line 1:195: Cannot use FILTER with last pattern recognition function");
+
+        assertFails(format(query, "LAST(Tradeday ORDER BY Tradeday)", define))
+                .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
+                .hasMessage("line 1:195: Cannot use ORDER BY with last pattern recognition function");
+
+        assertFails(format(query, "LAST(DISTINCT Tradeday)", define))
+                .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
+                .hasMessage("line 1:195: Cannot use DISTINCT with last pattern recognition function");
+
+        // test illegal clauses in DEFINE
+        String measure = "true";
+        assertFails(format(query, measure, "CLASSIFIER(Tradeday) OVER () > 0"))
+                .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
+                .hasMessage("line 1:313: Cannot use OVER with classifier pattern recognition function");
+
+        assertFails(format(query, measure, "CLASSIFIER(Tradeday) FILTER (WHERE true) > 0"))
+                .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
+                .hasMessage("line 1:313: Cannot use FILTER with classifier pattern recognition function");
+
+        assertFails(format(query, measure, "CLASSIFIER(Tradeday ORDER BY Tradeday) > 0"))
+                .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
+                .hasMessage("line 1:313: Cannot use ORDER BY with classifier pattern recognition function");
+
+        assertFails(format(query, measure, "CLASSIFIER(DISTINCT Tradeday) > 0"))
+                .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
+                .hasMessage("line 1:313: Cannot use DISTINCT with classifier pattern recognition function");
+
+        // test quoted pattern recognition function name
+        assertFails(format(query, "true", "\"PREV\"(Price)"))
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessage("line 1:313: Function 'prev' not registered");
+
+        assertFails(format(query, "\"NEXT\"(Price) > 0", "true"))
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessage("line 1:195: Function 'next' not registered");
+
+        assertFails(format(query, "true", "\"FIRST\"(Price)"))
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessage("line 1:313: Function 'first' not registered");
+
+        assertFails(format(query, "\"LAST\"(Price) > 0", "true"))
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessage("line 1:195: Function 'last' not registered");
+
+        assertFails(format(query, "true", "\"CLASSIFIER\"()"))
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessage("line 1:313: Function 'classifier' not registered");
+
+        assertFails(format(query, "\"MATCH_NUMBER\"() > 0", "true"))
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessage("line 1:195: Function 'match_number' not registered");
+    }
+
+    @Test
+    public void testRunningAndFinalSemantics()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 9), (1, 2, 8)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   ORDER BY Tradeday " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS %s " +
+                "                ) AS M";
+
+        // pattern recognition functions in MEASURES
+        String define = "true";
+        analyze(format(query, "FINAL FIRST(Tradeday)", define));
+        analyze(format(query, "FINAL LAST(Tradeday)", define));
+
+        assertFails(format(query, "FINAL PREV(Tradeday)", define))
+                .hasErrorCode(INVALID_PROCESSING_MODE)
+                .hasMessage("line 1:195: FINAL semantics is not supported with prev pattern recognition function");
+
+        assertFails(format(query, "FINAL NEXT(Tradeday)", define))
+                .hasErrorCode(INVALID_PROCESSING_MODE)
+                .hasMessage("line 1:195: FINAL semantics is not supported with next pattern recognition function");
+
+        assertFails(format(query, "FINAL CLASSIFIER(Tradeday)", define))
+                .hasErrorCode(INVALID_PROCESSING_MODE)
+                .hasMessage("line 1:195: FINAL semantics is not supported with classifier pattern recognition function");
+
+        assertFails(format(query, "FINAL MATCH_NUMBER(Tradeday)", define))
+                .hasErrorCode(INVALID_PROCESSING_MODE)
+                .hasMessage("line 1:195: FINAL semantics is not supported with match_number pattern recognition function");
+
+        // aggregation function in pattern recognition context
+        assertFails(format(query, "FINAL avg(Tradeday)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:195: Aggregations in pattern recognition context are not yet supported");
+
+        // scalar function in pattern recognition context
+        assertFails(format(query, "FINAL lower(Tradeday)", define))
+                .hasErrorCode(INVALID_PROCESSING_MODE)
+                .hasMessage("line 1:195: FINAL semantics is supported only for FIRST(), LAST() and aggregation functions. Actual: lower");
+
+        // out of pattern recognition context
+        assertFails("SELECT FINAL avg(x) FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_PROCESSING_MODE)
+                .hasMessage("line 1:8: FINAL semantics is not supported out of pattern recognition context");
+    }
+
+    @Test
+    public void testPatternNavigationFunctions()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 9), (1, 2, 8)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   ORDER BY Tradeday " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS true " +
+                "                ) AS M";
+
+        assertFails(format(query, "PREV()"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:195: prev pattern recognition function requires 1 or 2 arguments");
+
+        assertFails(format(query, "PREV(Tradeday, 1, 'another')"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:195: prev pattern recognition function requires 1 or 2 arguments");
+
+        assertFails(format(query, "PREV(Tradeday, 'text')"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:195: prev pattern recognition navigation function requires a number as the second argument");
+
+        assertFails(format(query, "PREV(Tradeday, -5)"))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:195: prev pattern recognition navigation function requires a non-negative number as the second argument (actual: -5)");
+
+        assertFails(format(query, "PREV(Tradeday, 3000000000)"))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:195: The second argument of prev pattern recognition navigation function must not exceed 2147483647 (actual: 3000000000)");
+
+        // nested navigations
+        assertFails(format(query, "LAST(NEXT(Tradeday, 2))"))
+                .hasErrorCode(INVALID_NAVIGATION_NESTING)
+                .hasMessage("line 1:200: Cannot nest next pattern navigation function inside last pattern navigation function");
+
+        assertFails(format(query, "PREV(NEXT(Tradeday, 2))"))
+                .hasErrorCode(INVALID_NAVIGATION_NESTING)
+                .hasMessage("line 1:200: Cannot nest next pattern navigation function inside prev pattern navigation function");
+
+        analyze(format(query, "PREV(LAST(Tradeday, 2), 3)"));
+
+        assertFails(format(query, "PREV(LAST(Tradeday, 2) + LAST(Tradeday, 3))"))
+                .hasErrorCode(INVALID_NAVIGATION_NESTING)
+                .hasMessage("line 1:220: Cannot nest multiple pattern navigation functions inside prev pattern navigation function");
+
+        assertFails(format(query, "PREV(LAST(Tradeday, 2) + 5)"))
+                .hasErrorCode(INVALID_NAVIGATION_NESTING)
+                .hasMessage("line 1:200: Immediate nesting is required for pattern navigation functions");
+
+        // navigation function must column reference or CLASSIFIER()
+        assertFails(format(query, "PREV(LAST('no_column'))"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:200: Pattern navigation function last must contain at least one column reference or CLASSIFIER()");
+
+        analyze(format(query, "PREV(LAST(Tradeday + 1))"));
+        analyze(format(query, "PREV(LAST(lower(CLASSIFIER())))"));
+
+        // labels inside pattern navigation function (as column prefixes and CLASSIFIER arguments) must be consistent
+        analyze(format(query, "PREV(LAST(length(CLASSIFIER(A)) + A.Tradeday + 1))"));
+        analyze(format(query, "PREV(LAST(length(CLASSIFIER()) + Tradeday + 1))"));
+        // mixed labels are allowed when not nested in navigation or aggregation
+        analyze(format(query, "PREV(LAST(A.Tradeday)) + length(CLASSIFIER(B)) + Price + U.Price"));
+
+        assertFails(format(query, "PREV(LAST(A.Tradeday + Price))"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:205: Column references inside pattern navigation function last must all either be prefixed with the same label or be not prefixed");
+
+        assertFails(format(query, "PREV(LAST(A.Tradeday + B.Price))"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:205: Column references inside pattern navigation function last must all either be prefixed with the same label or be not prefixed");
+
+        assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER())))"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:200: CLASSIFIER() calls inside pattern navigation function last must all either have the same label as the argument or have no arguments");
+
+        assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER(B))))"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:200: CLASSIFIER() calls inside pattern navigation function last must all either have the same label as the argument or have no arguments");
+
+        assertFails(format(query, "PREV(LAST(Tradeday + length(CLASSIFIER(B))))"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:200: Column references inside pattern navigation function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+
+        assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER(B))))"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:200: Column references inside pattern navigation function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+
+        assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER())))"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:200: Column references inside pattern navigation function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+    }
+
+    @Test
+    public void testClassifierFunction()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 9), (1, 2, 8)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   ORDER BY Tradeday " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS true " +
+                "                ) AS M";
+
+        analyze(format(query, "CLASSIFIER(A)"));
+        analyze(format(query, "CLASSIFIER(U)"));
+        analyze(format(query, "CLASSIFIER()"));
+
+        assertFails(format(query, "CLASSIFIER(A, B)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:195: CLASSIFIER pattern recognition function takes no arguments or 1 argument");
+
+        assertFails(format(query, "CLASSIFIER(A.x)"))
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:206: CLASSIFIER function argument should be primary pattern variable or subset name. Actual: DereferenceExpression");
+
+        assertFails(format(query, "CLASSIFIER(\"$\")"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:206: $ is not a primary pattern variable or subset name");
+
+        assertFails(format(query, "CLASSIFIER(C)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:206: C is not a primary pattern variable or subset name");
+    }
+
+    @Test
+    public void testMatchNumberFunction()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 9), (1, 2, 8)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   ORDER BY Tradeday " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS true " +
+                "                ) AS M";
+
+        analyze(format(query, "MATCH_NUMBER()"));
+
+        assertFails(format(query, "MATCH_NUMBER(A)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:195: MATCH_NUMBER pattern recognition function takes no arguments");
+    }
+
     @BeforeClass
     public void setup()
     {
@@ -3226,7 +4218,7 @@ public class TestAnalyzer
                 tableViewAndMaterializedView,
                 new ConnectorMaterializedViewDefinition(
                         "SELECT a FROM t1",
-                        Optional.of("t1"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new Column("a", BIGINT.getTypeId())),

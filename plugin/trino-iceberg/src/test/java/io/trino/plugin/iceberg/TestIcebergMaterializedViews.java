@@ -96,6 +96,26 @@ public class TestIcebergMaterializedViews
     }
 
     @Test
+    public void testSessionCatalogSchema()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalog("tpch")
+                .setSchema("tiny")
+                .build();
+        assertUpdate(session, "CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_session_test AS SELECT * FROM nation");
+        assertQuery(session, "SELECT COUNT(*) FROM iceberg.tpch.materialized_view_session_test", "VALUES 25");
+        assertUpdate(session, "DROP MATERIALIZED VIEW iceberg.tpch.materialized_view_session_test");
+
+        session = Session.builder(getSession())
+                .setCatalog(null)
+                .setSchema(null)
+                .build();
+        assertUpdate(session, "CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_session_test AS SELECT * FROM iceberg.tpch.base_table1");
+        assertQuery(session, "SELECT COUNT(*) FROM iceberg.tpch.materialized_view_session_test", "VALUES 6");
+        assertUpdate(session, "DROP MATERIALIZED VIEW iceberg.tpch.materialized_view_session_test");
+    }
+
+    @Test
     public void testDropDenyPermission()
     {
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_drop_deny AS SELECT * FROM base_table1");

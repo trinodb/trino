@@ -73,6 +73,7 @@ import io.trino.sql.planner.iterative.rule.MergeLimits;
 import io.trino.sql.planner.iterative.rule.MergeUnion;
 import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import io.trino.sql.planner.iterative.rule.OptimizeDuplicateInsensitiveJoins;
+import io.trino.sql.planner.iterative.rule.OptimizeRowPattern;
 import io.trino.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.trino.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneApplyColumns;
@@ -228,7 +229,6 @@ import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.optimizations.WindowFilterPushDown;
 import org.weakref.jmx.MBeanExporter;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
@@ -238,11 +238,14 @@ import java.util.Set;
 import static io.trino.SystemSessionProperties.isIterativeRuleBasedColumnPruning;
 
 public class PlanOptimizers
+        implements PlanOptimizersFactory
 {
     private final List<PlanOptimizer> optimizers;
     private final RuleStatsRecorder ruleStats;
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
     private final MBeanExporter exporter;
+
+    private boolean initialized;
 
     @Inject
     public PlanOptimizers(
@@ -276,13 +279,6 @@ public class PlanOptimizers
                 taskCountEstimator,
                 ruleStats,
                 nodePartitioningManager);
-    }
-
-    @PostConstruct
-    public void initialize()
-    {
-        ruleStats.export(exporter);
-        optimizerStats.export(exporter);
     }
 
     @PreDestroy
@@ -425,7 +421,10 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new CanonicalizeExpressions(metadata, typeAnalyzer).rules()),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new CanonicalizeExpressions(metadata, typeAnalyzer).rules())
+                                .add(new OptimizeRowPattern())
+                                .build()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -892,8 +891,21 @@ public class PlanOptimizers
         this.optimizers = builder.build();
     }
 
+    @Override
     public List<PlanOptimizer> get()
     {
+        initialize();
         return optimizers;
+    }
+
+    private synchronized void initialize()
+    {
+        if (initialized) {
+            return;
+        }
+
+        ruleStats.export(exporter);
+        optimizerStats.export(exporter);
+        initialized = true;
     }
 }

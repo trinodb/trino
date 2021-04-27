@@ -19,11 +19,20 @@ Cluster access security
   security/tls
   security/inspect-pem
   security/inspect-jks
+
+Authentication
+==============
+
+.. toctree::
+  :maxdepth: 1
+
   security/authentication-types
   security/ldap
   security/password-file
   security/salesforce
   security/oauth2
+  security/kerberos
+  security/cli
 
 User name management
 ====================
@@ -42,8 +51,6 @@ Access control
 
   security/built-in-system-access-control
   security/file-system-access-control
-  security/server
-  security/cli
 
 Security inside the cluster
 ===========================

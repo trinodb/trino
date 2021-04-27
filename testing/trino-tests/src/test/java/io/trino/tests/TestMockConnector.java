@@ -19,6 +19,7 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
@@ -54,7 +55,7 @@ public class TestMockConnector
                                         new SchemaTableName("default", "test_materialized_view"),
                                         new ConnectorMaterializedViewDefinition(
                                                 "SELECT nationkey FROM mock.default.test_table",
-                                                Optional.of("test_storage"),
+                                                Optional.of(new CatalogSchemaTableName("mock", "default", "test_storage")),
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
                                                 ImmutableList.of(new Column("nationkey", BIGINT.getTypeId())),

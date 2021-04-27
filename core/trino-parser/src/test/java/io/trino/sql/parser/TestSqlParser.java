@@ -22,6 +22,7 @@ import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.AllRows;
 import io.trino.sql.tree.Analyze;
+import io.trino.sql.tree.AnchorPattern;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArrayConstructor;
 import io.trino.sql.tree.AtTimeZone;
@@ -58,6 +59,7 @@ import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
+import io.trino.sql.tree.EmptyPattern;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Explain;
@@ -106,17 +108,24 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Offset;
+import io.trino.sql.tree.OneOrMoreQuantifier;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.PathElement;
 import io.trino.sql.tree.PathSpecification;
+import io.trino.sql.tree.PatternAlternation;
+import io.trino.sql.tree.PatternConcatenation;
+import io.trino.sql.tree.PatternVariable;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
+import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.tree.QuantifiedPattern;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
+import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameSchema;
@@ -172,6 +181,8 @@ import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
 import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
+import io.trino.sql.tree.ZeroOrMoreQuantifier;
+import io.trino.sql.tree.ZeroOrOneQuantifier;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -195,6 +206,7 @@ import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.parser.ParserAssert.expression;
+import static io.trino.sql.parser.ParserAssert.rowPattern;
 import static io.trino.sql.parser.ParserAssert.statement;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static io.trino.sql.parser.TreeNodes.columnDefinition;
@@ -210,6 +222,8 @@ import static io.trino.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.positive;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
+import static io.trino.sql.tree.ProcessingMode.Mode.RUNNING;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
@@ -645,6 +659,113 @@ public class TestSqlParser
                 simpleQuery(
                         selectList(new AllColumns()),
                         subquery(valuesQuery)));
+    }
+
+    @Test
+    public void testRowPattern()
+    {
+        assertThat(rowPattern("(A B)* | CC+? DD?? E | (F | G)"))
+                .isEqualTo(
+                        new PatternAlternation(
+                                location(1, 1),
+                                ImmutableList.of(
+                                        new PatternAlternation(
+                                                location(1, 1),
+                                                ImmutableList.of(
+                                                        new QuantifiedPattern(
+                                                                location(1, 1),
+                                                                new PatternConcatenation(
+                                                                        location(1, 2),
+                                                                        ImmutableList.of(
+                                                                                new PatternVariable(location(1, 2), new Identifier(location(1, 2), "A", false)),
+                                                                                new PatternVariable(location(1, 4), new Identifier(location(1, 4), "B", false)))),
+                                                                new ZeroOrMoreQuantifier(location(1, 6), true)),
+                                                        new PatternConcatenation(
+                                                                location(1, 10),
+                                                                ImmutableList.of(
+                                                                        new PatternConcatenation(
+                                                                                location(1, 10),
+                                                                                ImmutableList.of(
+                                                                                        new QuantifiedPattern(location(1, 10), new PatternVariable(location(1, 10), new Identifier(location(1, 10), "CC", false)), new OneOrMoreQuantifier(location(1, 12), false)),
+                                                                                        new QuantifiedPattern(location(1, 15), new PatternVariable(location(1, 15), new Identifier(location(1, 15), "DD", false)), new ZeroOrOneQuantifier(location(1, 17), false)))),
+                                                                        new PatternVariable(location(1, 20), new Identifier(location(1, 20), "E", false)))))),
+                                        new PatternAlternation(
+                                                location(1, 25),
+                                                ImmutableList.of(
+                                                        new PatternVariable(location(1, 25), new Identifier(location(1, 25), "F", false)),
+                                                        new PatternVariable(location(1, 29), new Identifier(location(1, 29), "G", false)))))));
+
+        assertThat(rowPattern("A | B | C D E F"))
+                .isEqualTo(
+                        new PatternAlternation(
+                                location(1, 1),
+                                ImmutableList.of(
+                                        new PatternAlternation(
+                                                location(1, 1),
+                                                ImmutableList.of(
+                                                        new PatternVariable(location(1, 1), new Identifier(location(1, 1), "A", false)),
+                                                        new PatternVariable(location(1, 5), new Identifier(location(1, 5), "B", false)))),
+                                        new PatternConcatenation(
+                                                location(1, 9),
+                                                ImmutableList.of(
+                                                        new PatternConcatenation(
+                                                                location(1, 9),
+                                                                ImmutableList.of(
+                                                                        new PatternConcatenation(
+                                                                                location(1, 9),
+                                                                                ImmutableList.of(
+                                                                                        new PatternVariable(location(1, 9), new Identifier(location(1, 9), "C", false)),
+                                                                                        new PatternVariable(location(1, 11), new Identifier(location(1, 11), "D", false)))),
+                                                                        new PatternVariable(location(1, 13), new Identifier(location(1, 13), "E", false)))),
+                                                        new PatternVariable(location(1, 15), new Identifier(location(1, 15), "F", false)))))));
+
+        assertThatThrownBy(() -> SQL_PARSER.createRowPattern("A!"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 1:2: mismatched input '!'.*");
+
+        assertThatThrownBy(() -> SQL_PARSER.createRowPattern("A**"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 1:3: mismatched input '*'.*");
+
+        assertThat(rowPattern("A??"))
+                .isEqualTo(new QuantifiedPattern(
+                        location(1, 1),
+                        new PatternVariable(location(1, 1), new Identifier(location(1, 1), "A", false)),
+                        new ZeroOrOneQuantifier(location(1, 2), false)));
+
+        assertThat(rowPattern("^$"))
+                .isEqualTo(new PatternConcatenation(
+                        location(1, 1),
+                        ImmutableList.of(
+                                new AnchorPattern(location(1, 1), AnchorPattern.Type.PARTITION_START),
+                                new AnchorPattern(location(1, 2), AnchorPattern.Type.PARTITION_END))));
+
+        assertThat(rowPattern("()"))
+                .isEqualTo(new EmptyPattern(location(1, 1)));
+
+        assertThat(rowPattern("A{3}"))
+                .isEqualTo(new QuantifiedPattern(
+                        location(1, 1),
+                        new PatternVariable(location(1, 1), new Identifier(location(1, 1), "A", false)),
+                        new RangeQuantifier(location(1, 2), true, Optional.of(new LongLiteral(location(1, 3), "3")), Optional.of(new LongLiteral(location(1, 3), "3")))));
+
+        assertThat(rowPattern("A{3,}"))
+                .isEqualTo(new QuantifiedPattern(
+                        location(1, 1),
+                        new PatternVariable(location(1, 1), new Identifier(location(1, 1), "A", false)),
+                        new RangeQuantifier(location(1, 2), true, Optional.of(new LongLiteral(location(1, 3), "3")), Optional.empty())));
+
+        assertThat(rowPattern("A{,3}"))
+                .isEqualTo(new QuantifiedPattern(
+                        location(1, 1),
+                        new PatternVariable(location(1, 1), new Identifier(location(1, 1), "A", false)),
+                        new RangeQuantifier(location(1, 2), true, Optional.empty(), Optional.of(new LongLiteral(location(1, 4), "3")))));
+
+        assertThat(rowPattern("A{3,4}"))
+                .isEqualTo(new QuantifiedPattern(
+                        location(1, 1),
+                        new PatternVariable(location(1, 1), new Identifier(location(1, 1), "A", false)),
+                        new RangeQuantifier(location(1, 2), true, Optional.of(new LongLiteral(location(1, 3), "3")), Optional.of(new LongLiteral(location(1, 5), "4")))));
     }
 
     @Test
@@ -2462,6 +2583,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 false,
                                 Optional.empty(),
+                                Optional.empty(),
                                 ImmutableList.of(new Identifier("x"))))));
     }
 
@@ -2500,6 +2622,7 @@ public class TestSqlParser
                         Optional.of(new OrderBy(ImmutableList.of(new SortItem(identifier("x"), DESCENDING, UNDEFINED)))),
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of(identifier("x"))));
         assertStatement("SELECT array_agg(x ORDER BY t.y) FROM t",
                 simpleQuery(
@@ -2510,6 +2633,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(new DereferenceExpression(new Identifier("t"), identifier("y")), ASCENDING, UNDEFINED)))),
                                 false,
+                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(new Identifier("x")))),
                         table(QualifiedName.of("t"))));
@@ -2778,6 +2902,7 @@ public class TestSqlParser
                         Optional.empty(),
                         false,
                         Optional.of(NullTreatment.IGNORE),
+                        Optional.empty(),
                         ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
         assertExpression("lead(x, 1) respect nulls over()",
                 new FunctionCall(
@@ -2788,6 +2913,34 @@ public class TestSqlParser
                         Optional.empty(),
                         false,
                         Optional.of(NullTreatment.RESPECT),
+                        Optional.empty(),
+                        ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
+    }
+
+    @Test
+    public void testProcessingMode()
+    {
+        assertExpression("RUNNING LAST(x, 1)",
+                new FunctionCall(
+                        Optional.empty(),
+                        QualifiedName.of("LAST"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        Optional.of(new ProcessingMode(Optional.empty(), RUNNING)),
+                        ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
+        assertExpression("FINAL FIRST(x, 1)",
+                new FunctionCall(
+                        Optional.empty(),
+                        QualifiedName.of("FIRST"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        Optional.of(new ProcessingMode(Optional.empty(), FINAL)),
                         ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
     }
 
@@ -2802,6 +2955,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         false,
+                        Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
 
@@ -2818,6 +2972,7 @@ public class TestSqlParser
                         Optional.empty(),
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of()));
 
         assertExpression("rank() OVER (PARTITION BY x ORDER BY y ROWS CURRENT ROW)",
@@ -2832,6 +2987,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         false,
+                        Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
     }
