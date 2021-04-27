@@ -388,7 +388,7 @@ public abstract class AbstractTestQueryFramework
 
     protected String formatSqlText(String sql)
     {
-        return formatSql(sqlParser.createStatement(sql, createParsingOptions(queryRunner.getDefaultSession())));
+        return formatSql(sqlParser.createStatement(sql, createParsingOptions(getSession())));
     }
 
     //TODO: should WarningCollector be added?
@@ -397,7 +397,7 @@ public abstract class AbstractTestQueryFramework
         QueryExplainer explainer = getQueryExplainer();
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
-                .execute(queryRunner.getDefaultSession(), session -> {
+                .execute(getSession(), session -> {
                     return explainer.getPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
                 });
     }

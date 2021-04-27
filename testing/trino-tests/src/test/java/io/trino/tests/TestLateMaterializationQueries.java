@@ -106,14 +106,14 @@ public class TestLateMaterializationQueries
 
     private Session lateMaterialization()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(LATE_MATERIALIZATION, "true")
                 .build();
     }
 
     private Session noLateMaterialization()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(LATE_MATERIALIZATION, "false")
                 .build();
     }

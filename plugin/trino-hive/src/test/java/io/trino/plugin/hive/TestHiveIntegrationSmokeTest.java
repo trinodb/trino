@@ -201,7 +201,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testRequiredPartitionFilter()
     {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
@@ -247,7 +247,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testRequiredPartitionFilterInferred()
     {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
@@ -324,7 +324,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testIsNotNullWithNestedData()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
@@ -342,7 +342,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testSchemaOperations()
     {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
@@ -362,7 +362,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testSchemaAuthorizationForUser()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
@@ -410,7 +410,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testSchemaAuthorizationForRole()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
@@ -458,7 +458,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreateSchemaWithAuthorizationForUser()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
@@ -495,7 +495,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreateSchemaWithAuthorizationForRole()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
@@ -549,7 +549,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testSchemaAuthorization()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
@@ -575,7 +575,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testTableAuthorization()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setCatalog(getSession().getCatalog().get())
                 .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
@@ -602,7 +602,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testTableAuthorizationForRole()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setCatalog(getSession().getCatalog().get())
                 .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
@@ -635,7 +635,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testViewAuthorization()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setCatalog(getSession().getCatalog().get())
                 .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
@@ -664,7 +664,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testViewAuthorizationSecurityDefiner()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setCatalog(getSession().getCatalog().get())
                 .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
@@ -695,7 +695,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testViewAuthorizationSecurityInvoker()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setCatalog(getSession().getCatalog().get())
                 .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
@@ -726,7 +726,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testViewAuthorizationForRole()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setCatalog(getSession().getCatalog().get())
                 .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
@@ -763,7 +763,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testShowCreateSchema()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
@@ -1062,7 +1062,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testIoExplainNoFilter()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
@@ -1107,7 +1107,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testIoExplainFilterOnAgg()
     {
-        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+        Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
@@ -7619,7 +7619,7 @@ public class TestHiveIntegrationSmokeTest
     public void testUseColumnNames(HiveStorageFormat format, boolean formatUseColumnNames)
     {
         String lowerCaseFormat = format.name().toLowerCase(Locale.ROOT);
-        Session.SessionBuilder builder = Session.builder(getQueryRunner().getDefaultSession());
+        Session.SessionBuilder builder = Session.builder(getSession());
         if (format == HiveStorageFormat.ORC || format == HiveStorageFormat.PARQUET) {
             builder.setCatalogSessionProperty(catalog, lowerCaseFormat + "_use_column_names", String.valueOf(formatUseColumnNames));
         }
@@ -7650,7 +7650,7 @@ public class TestHiveIntegrationSmokeTest
     public void testUseColumnAddDrop(HiveStorageFormat format, boolean formatUseColumnNames)
     {
         String lowerCaseFormat = format.name().toLowerCase(Locale.ROOT);
-        Session.SessionBuilder builder = Session.builder(getQueryRunner().getDefaultSession());
+        Session.SessionBuilder builder = Session.builder(getSession());
         if (format == HiveStorageFormat.ORC || format == HiveStorageFormat.PARQUET) {
             builder.setCatalogSessionProperty(catalog, lowerCaseFormat + "_use_column_names", String.valueOf(formatUseColumnNames));
         }

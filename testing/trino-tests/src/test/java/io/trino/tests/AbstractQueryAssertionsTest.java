@@ -71,7 +71,7 @@ public abstract class AbstractQueryAssertionsTest
             throw new RuntimeException(e);
         }
 
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), List.of(NATION));
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, getSession(), List.of(NATION));
 
         Map<String, String> jdbcWithAggregationPushdownDisabledConfigurationProperties = ImmutableMap.<String, String>builder()
                 .putAll(jdbcConfigurationProperties)
