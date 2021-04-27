@@ -6048,7 +6048,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test(timeOut = 30_000)
     public void testLateMaterializationOuterJoin()
     {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setSystemProperty(LATE_MATERIALIZATION, "true")
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.toString())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.toString())

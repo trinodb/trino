@@ -385,7 +385,7 @@ public class TestCoordinatorDynamicFiltering
 
     private Session withBroadcastJoin()
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .build();
     }

@@ -91,7 +91,7 @@ public class TestKuduIntegrationDynamicFilter
         QueryRunner runner = getQueryRunner();
         TransactionManager transactionManager = runner.getTransactionManager();
         TransactionId transactionId = transactionManager.beginTransaction(false);
-        Session session = Session.builder(runner.getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("kudu", "dynamic_filtering_wait_timeout", "1s")
                 .build()
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
@@ -179,14 +179,14 @@ public class TestKuduIntegrationDynamicFilter
 
     private Session withBroadcastJoin()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .build();
     }
 
     private Session withBroadcastJoinNonReordering()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .build();
