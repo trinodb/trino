@@ -27,5 +27,9 @@ public enum SnowflakeImpersonationType
      * As above, but additionally map role using auth-to-local
      */
     ROLE_OKTA_LDAP_PASSTHROUGH,
+    /**
+     * Use the token submitted by the user with the query
+     */
+    OAUTH2_PASSTHROUGH,
     /**/;
 }

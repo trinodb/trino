@@ -17,6 +17,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.presto.plugin.jdbc.PoolingConnectionFactory;
+import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedJdbcIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
@@ -117,6 +118,12 @@ public class SnowflakeJdbcClientModule
                 SnowflakeConfig.class,
                 config -> config.getImpersonationType() == SnowflakeImpersonationType.ROLE_OKTA_LDAP_PASSTHROUGH,
                 oauthImpersonationModule(true)));
+
+        install(installModuleIf(
+                SnowflakeConfig.class,
+                config -> config.getImpersonationType() == SnowflakeImpersonationType.OAUTH2_PASSTHROUGH,
+                oauth2PassthroughModule()));
+
         install(new JdbcTableScanRedirectionModule());
     }
 
@@ -260,6 +267,42 @@ public class SnowflakeJdbcClientModule
             public OauthToLocal getAuthToLocal(SnowflakeOauthService snowflakeOauthService)
             {
                 return new OauthToLocal(snowflakeOauthService);
+            }
+        };
+    }
+
+    private Module oauth2PassthroughModule()
+    {
+        return new AbstractConfigurationAwareModule()
+        {
+            @Override
+            protected void setup(Binder binder)
+            {
+                install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
+            }
+
+            @Provides
+            @Singleton
+            @ForBaseJdbc
+            public ConnectionFactory getConnectionFactory(
+                    BaseJdbcConfig config,
+                    JdbcConnectionPoolConfig connectionPoolingConfig,
+                    SnowflakeConfig snowflakeConfig)
+            {
+                if (connectionPoolingConfig.isConnectionPoolEnabled()) {
+                    return new PoolingConnectionFactory(
+                            catalogName,
+                            SnowflakeDriver.class,
+                            getConnectionProperties(snowflakeConfig),
+                            config,
+                            connectionPoolingConfig,
+                            new SnowflakeOAuth2TokenPassthroughProvider());
+                }
+                return new DriverConnectionFactory(
+                        new SnowflakeDriver(),
+                        config.getConnectionUrl(),
+                        getConnectionProperties(snowflakeConfig),
+                        new SnowflakeOAuth2TokenPassthroughProvider());
             }
         };
     }
