@@ -21,6 +21,7 @@ import com.google.common.collect.Sets;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.spi.TrinoException;
@@ -48,6 +49,7 @@ import java.util.Set;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
@@ -86,6 +88,14 @@ public class ApplyTableScanRedirection
         }
 
         CatalogSchemaTableName destinationTable = tableScanRedirectApplicationResult.get().getDestinationTable();
+
+        QualifiedObjectName destinationObjectName = convertFromSchemaTableName(destinationTable.getCatalogName()).apply(destinationTable.getSchemaTableName());
+        Optional<QualifiedObjectName> redirectedObjectName = metadata.getRedirectionAwareTableHandle(context.getSession(), destinationObjectName).getRedirectedTableName();
+
+        redirectedObjectName.ifPresent(name -> {
+            throw new TrinoException(NOT_SUPPORTED, format("Further redirection of destination table '%s' to '%s' is not supported", destinationObjectName, name));
+        });
+
         TableMetadata tableMetadata = metadata.getTableMetadata(context.getSession(), scanNode.getTable());
         CatalogSchemaTableName sourceTable = new CatalogSchemaTableName(tableMetadata.getCatalogName().getCatalogName(), tableMetadata.getTable());
         if (destinationTable.equals(sourceTable)) {

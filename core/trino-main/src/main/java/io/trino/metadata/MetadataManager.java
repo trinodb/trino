@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.trino.Session;
@@ -91,6 +92,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
@@ -144,6 +146,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -155,6 +158,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.primitives.Primitives.wrap;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
+import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
+import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
 import static io.trino.metadata.Signature.mangleOperatorName;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
@@ -164,6 +169,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -190,6 +196,9 @@ import static java.util.Objects.requireNonNull;
 public final class MetadataManager
         implements Metadata
 {
+    @VisibleForTesting
+    public static final int MAX_TABLE_REDIRECTIONS = 10;
+
     private final FunctionRegistry functions;
     private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
@@ -637,12 +646,14 @@ public final class MetadataManager
     }
 
     @Override
-    public Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public Map<CatalogName, List<TableColumnsMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
-        Map<QualifiedObjectName, List<ColumnMetadata>> tableColumns = new HashMap<>();
+
+        // Track column metadata for every object name to resolve ties between table and view
+        Map<SchemaTableName, Optional<List<ColumnMetadata>>> tableColumns = new HashMap<>();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
 
@@ -651,15 +662,12 @@ public final class MetadataManager
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-                for (Entry<SchemaTableName, List<ColumnMetadata>> entry : metadata.listTableColumns(connectorSession, tablePrefix).entrySet()) {
-                    QualifiedObjectName tableName = new QualifiedObjectName(
-                            prefix.getCatalogName(),
-                            entry.getKey().getSchemaName(),
-                            entry.getKey().getTableName());
-                    tableColumns.put(tableName, entry.getValue());
-                }
 
-                // if table and view names overlap, the view wins
+                // Collect column metadata from tables
+                metadata.streamTableColumns(connectorSession, tablePrefix)
+                        .forEach(columnsMetadata -> tableColumns.put(columnsMetadata.getTable(), columnsMetadata.getColumns()));
+
+                // Collect column metadata from views. if table and view names overlap, the view wins
                 for (Entry<QualifiedObjectName, ConnectorViewDefinition> entry : getViews(session, prefix).entrySet()) {
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
                     for (ViewColumn column : entry.getValue().getColumns()) {
@@ -670,11 +678,15 @@ public final class MetadataManager
                             throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
                         }
                     }
-                    tableColumns.put(entry.getKey(), columns.build());
+                    tableColumns.put(entry.getKey().asSchemaTableName(), Optional.of(columns.build()));
                 }
             }
         }
-        return ImmutableMap.copyOf(tableColumns);
+        return ImmutableMap.of(
+                new CatalogName(prefix.getCatalogName()),
+                tableColumns.entrySet().stream()
+                        .map(entry -> new TableColumnsMetadata(entry.getKey(), entry.getValue()))
+                        .collect(toImmutableList()));
     }
 
     @Override
@@ -1288,6 +1300,71 @@ public final class MetadataManager
         return metadata.applyTableScanRedirect(connectorSession, tableHandle.getConnectorHandle());
     }
 
+    private QualifiedObjectName getRedirectedTableName(Session session, QualifiedObjectName originalTableName)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(originalTableName, "originalTableName is null");
+
+        QualifiedObjectName tableName = originalTableName;
+        Set<QualifiedObjectName> visitedTableNames = new LinkedHashSet<>();
+        visitedTableNames.add(tableName);
+
+        for (int count = 0; count < MAX_TABLE_REDIRECTIONS; count++) {
+            Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
+
+            if (catalog.isEmpty()) {
+                // Stop redirection
+                return tableName;
+            }
+
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogName catalogName = catalogMetadata.getConnectorId(session, tableName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+
+            Optional<QualifiedObjectName> redirectedTableName = metadata.redirectTable(session.toConnectorSession(catalogName), tableName.asSchemaTableName())
+                    .map(name -> convertFromSchemaTableName(name.getCatalogName()).apply(name.getSchemaTableName()));
+
+            if (redirectedTableName.isEmpty()) {
+                return tableName;
+            }
+
+            tableName = redirectedTableName.get();
+
+            // Check for loop in redirection
+            if (!visitedTableNames.add(tableName)) {
+                throw new TrinoException(TABLE_REDIRECTION_ERROR,
+                        format("Table redirections form a loop: %s",
+                                Streams.concat(visitedTableNames.stream(), Stream.of(tableName))
+                                        .map(QualifiedObjectName::toString)
+                                        .collect(Collectors.joining(" -> "))));
+            }
+        }
+        throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table redirected too many times (%d): %s", MAX_TABLE_REDIRECTIONS, visitedTableNames));
+    }
+
+    @Override
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName)
+    {
+        QualifiedObjectName targetTableName = getRedirectedTableName(session, tableName);
+        if (targetTableName.equals(tableName)) {
+            return noRedirection(getTableHandle(session, tableName));
+        }
+
+        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName);
+        if (tableHandle.isPresent()) {
+            return withRedirectionTo(targetTableName, tableHandle.get());
+        }
+
+        // Redirected table must exist
+        if (getCatalogHandle(session, targetTableName.getCatalogName()).isEmpty()) {
+            throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target catalog '%s' does not exist", tableName, targetTableName, targetTableName.getCatalogName()));
+        }
+        if (!schemaExists(session, new CatalogSchemaName(targetTableName.getCatalogName(), targetTableName.getSchemaName()))) {
+            throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target schema '%s' does not exist", tableName, targetTableName, targetTableName.getSchemaName()));
+        }
+        throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target table '%s' does not exist", tableName, targetTableName, targetTableName));
+    }
+
     @Override
     public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
@@ -1684,6 +1761,7 @@ public final class MetadataManager
         metadata.revokeSchemaPrivileges(session.toConnectorSession(catalogName), schemaName.getSchemaName(), privileges, grantee, grantOption);
     }
 
+    // TODO support table redirection
     @Override
     public List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix)
     {

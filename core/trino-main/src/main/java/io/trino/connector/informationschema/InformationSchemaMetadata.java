@@ -22,6 +22,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -65,6 +66,7 @@ import static io.trino.connector.informationschema.InformationSchemaTable.TABLES
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.trino.connector.informationschema.InformationSchemaTable.VIEWS;
 import static io.trino.metadata.MetadataUtil.findColumnMetadata;
+import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
@@ -354,7 +356,27 @@ public class InformationSchemaMetadata
                     .flatMap(prefix -> tables.get().stream()
                             .filter(this::isLowerCase)
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
-                    .filter(objectName -> !isColumnsEnumeratingTable(informationSchemaTable) || metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
+                    .filter(objectName -> {
+                        if (!isColumnsEnumeratingTable(informationSchemaTable) || metadata.getView(session, objectName).isPresent()) {
+                            return true;
+                        }
+
+                        // This is a columns enumerating table and the object is not a view
+                        try {
+                            // Table redirection to enumerate columns from target table happens later in
+                            // MetadataListing#listTableColumns, but also applying it here to avoid incorrect
+                            // filtering in case the source table does not exist or there is a problem with redirection.
+                            return metadata.getRedirectionAwareTableHandle(session, objectName).getTableHandle().isPresent();
+                        }
+                        catch (TrinoException e) {
+                            if (e.getErrorCode().equals(TABLE_REDIRECTION_ERROR.toErrorCode())) {
+                                // Ignore redirection errors for listing, treat as if the table does not exist
+                                return false;
+                            }
+
+                            throw e;
+                        }
+                    })
                     .filter(objectName -> predicate.isEmpty() || predicate.get().test(asFixedValues(objectName)))
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
                     .collect(toImmutableSet());

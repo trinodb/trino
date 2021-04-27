@@ -23,6 +23,7 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.security.AccessControl;
@@ -75,6 +76,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static java.lang.String.format;
 
 public class CreateTableTask
         implements DataDefinitionTask<CreateTable>
@@ -166,15 +168,23 @@ public class CreateTableTask
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
-                QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
-                if (metadata.getCatalogHandle(session, likeTableName.getCatalogName()).isEmpty()) {
-                    throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", likeTableName.getCatalogName());
+                QualifiedObjectName originalLikeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
+                if (metadata.getCatalogHandle(session, originalLikeTableName.getCatalogName()).isEmpty()) {
+                    throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", originalLikeTableName.getCatalogName());
                 }
+
+                RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalLikeTableName);
+                TableHandle likeTable = redirection.getTableHandle()
+                        .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "LIKE table '%s' does not exist", originalLikeTableName));
+
+                QualifiedObjectName likeTableName = redirection.getRedirectedTableName().orElse(originalLikeTableName);
                 if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
-                    throw semanticException(NOT_SUPPORTED, statement, "LIKE table across catalogs is not supported");
+                    String message = "CREATE TABLE LIKE across catalogs is not supported";
+                    if (!originalLikeTableName.equals(likeTableName)) {
+                        message += format(". LIKE table '%s' redirected to '%s'.", originalLikeTableName, likeTableName);
+                    }
+                    throw semanticException(NOT_SUPPORTED, statement, message);
                 }
-                TableHandle likeTable = metadata.getTableHandle(session, likeTableName)
-                        .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "LIKE table '%s' does not exist", likeTableName));
 
                 TableMetadata likeTableMetadata = metadata.getTableMetadata(session, likeTable);
 
