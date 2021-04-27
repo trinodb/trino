@@ -131,7 +131,7 @@ access to the data in Trino, can be enabled with
 ``hive.legacy-hive-view-translation=true``.
 
 For temporary usage of the legacy behavior for a specific catalog, you can set
-the``legacy_hive_view_translation`` :doc:`catalog session property
+the ``legacy_hive_view_translation`` :doc:`catalog session property
 </sql/set-session>` to ``true``.
 
 This legacy behavior interprets any HiveQL query that defines a view as if it
