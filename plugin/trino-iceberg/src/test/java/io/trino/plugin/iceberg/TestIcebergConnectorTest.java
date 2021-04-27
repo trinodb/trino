@@ -30,10 +30,11 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.TableStatistics;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import io.trino.transaction.TransactionBuilder;
 import org.apache.avro.Schema;
@@ -46,6 +47,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -90,15 +92,15 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public abstract class AbstractTestIcebergSmoke
+public abstract class TestIcebergConnectorTest
         // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
     private final FileFormat format;
 
-    protected AbstractTestIcebergSmoke(FileFormat format)
+    protected TestIcebergConnectorTest(FileFormat format)
     {
         this.format = requireNonNull(format, "format is null");
     }
@@ -107,7 +109,28 @@ public abstract class AbstractTestIcebergSmoke
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), format);
+        return createIcebergQueryRunner(ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Iceberg connector does not support column default values");
+    }
+
+    @Test
+    @Override
+    public void testRenameTable()
+    {
+        assertQueryFails("ALTER TABLE orders RENAME TO rename_orders", "Rename not supported for Iceberg tables");
+    }
+
+    @Test
+    public void testCreateArrayTable()
+    {
+        assertUpdate("CREATE TABLE array_test AS SELECT ARRAY [1, 2, 3] AS c", 1);
+        assertQuery("SELECT cardinality(c) FROM array_test", "SELECT 3");
+        assertUpdate("DROP TABLE array_test");
     }
 
     @Test
@@ -165,6 +188,49 @@ public abstract class AbstractTestIcebergSmoke
                         "WITH (\n" +
                         "   format = '" + format.name() + "'\n" +
                         ")");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("tinyint")
+                || typeName.equals("smallint")
+                || typeName.startsWith("char(")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        if (typeName.startsWith("decimal(")
+                || typeName.equals("time")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        if (typeName.equals("timestamp")) {
+            return Optional.of(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999999'"));
+        }
+
+        if (typeName.equals("timestamp(3) with time zone")) {
+            return Optional.of(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999999 +12:00'"));
+        }
+
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("char(1)")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // TODO (https://github.com/trinodb/trino/pull/4639#issuecomment-700737583)
     }
 
     @Test
