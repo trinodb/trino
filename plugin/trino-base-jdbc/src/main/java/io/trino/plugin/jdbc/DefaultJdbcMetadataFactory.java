@@ -41,11 +41,16 @@ public class DefaultJdbcMetadataFactory
     {
         // Session stays the same per transaction, therefore session properties don't need to
         // be a part of cache keys in CachingJdbcClient.
-        return new DefaultJdbcMetadata(new CachingJdbcClient(
-                jdbcClient,
-                Set.of(),
-                new SingletonJdbcIdentityCacheMapping(),
-                new Duration(1, DAYS), true),
+        return create(new CachingJdbcClient(
+                        jdbcClient,
+                        Set.of(),
+                        new SingletonJdbcIdentityCacheMapping(),
+                        new Duration(1, DAYS), true),
                 allowDropTable);
+    }
+
+    protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient, boolean allowDropTable)
+    {
+        return new DefaultJdbcMetadata(transactionCachingJdbcClient, allowDropTable);
     }
 }
