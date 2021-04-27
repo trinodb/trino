@@ -60,7 +60,7 @@ public class JdbcModule
         procedureBinder(binder);
         tablePropertiesProviderBinder(binder);
 
-        binder.bind(DefaultJdbcMetadataFactory.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcMetadataFactory.class).to(DefaultJdbcMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorSplitManager.class).setDefault().to(JdbcSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorRecordSetProvider.class).setDefault().to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorPageSinkProvider.class).setDefault().to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);

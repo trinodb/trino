@@ -23,6 +23,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 
 public class DefaultJdbcMetadataFactory
+        implements JdbcMetadataFactory
 {
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
@@ -35,7 +36,8 @@ public class DefaultJdbcMetadataFactory
         this.allowDropTable = config.isAllowDropTable();
     }
 
-    public DefaultJdbcMetadata create()
+    @Override
+    public JdbcMetadata create(JdbcTransactionHandle transaction)
     {
         // Session stays the same per transaction, therefore session properties don't need to
         // be a part of cache keys in CachingJdbcClient.
