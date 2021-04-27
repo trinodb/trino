@@ -13,8 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.TypeId;
 
 import java.util.List;
@@ -35,16 +33,15 @@ public class ConnectorMaterializedViewDefinition
     private final String owner;
     private final Map<String, Object> properties;
 
-    @JsonCreator
     public ConnectorMaterializedViewDefinition(
-            @JsonProperty("originalSql") String originalSql,
-            @JsonProperty("storageTable") Optional<CatalogSchemaTableName> storageTable,
-            @JsonProperty("catalog") Optional<String> catalog,
-            @JsonProperty("schema") Optional<String> schema,
-            @JsonProperty("columns") List<Column> columns,
-            @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("owner") String owner,
-            @JsonProperty("properties") Map<String, Object> properties)
+            String originalSql,
+            Optional<CatalogSchemaTableName> storageTable,
+            Optional<String> catalog,
+            Optional<String> schema,
+            List<Column> columns,
+            Optional<String> comment,
+            String owner,
+            Map<String, Object> properties)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.storageTable = requireNonNull(storageTable, "storageTable is null");
@@ -63,49 +60,41 @@ public class ConnectorMaterializedViewDefinition
         }
     }
 
-    @JsonProperty
     public String getOriginalSql()
     {
         return originalSql;
     }
 
-    @JsonProperty
     public Optional<CatalogSchemaTableName> getStorageTable()
     {
         return storageTable;
     }
 
-    @JsonProperty
     public Optional<String> getCatalog()
     {
         return catalog;
     }
 
-    @JsonProperty
     public Optional<String> getSchema()
     {
         return schema;
     }
 
-    @JsonProperty
     public List<Column> getColumns()
     {
         return columns;
     }
 
-    @JsonProperty
     public Optional<String> getComment()
     {
         return comment;
     }
 
-    @JsonProperty
     public String getOwner()
     {
         return owner;
     }
 
-    @JsonProperty
     public Map<String, Object> getProperties()
     {
         return properties;
@@ -131,22 +120,17 @@ public class ConnectorMaterializedViewDefinition
         private final String name;
         private final TypeId type;
 
-        @JsonCreator
-        public Column(
-                @JsonProperty("name") String name,
-                @JsonProperty("type") TypeId type)
+        public Column(String name, TypeId type)
         {
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
         }
 
-        @JsonProperty
         public String getName()
         {
             return name;
         }
 
-        @JsonProperty
         public TypeId getType()
         {
             return type;
