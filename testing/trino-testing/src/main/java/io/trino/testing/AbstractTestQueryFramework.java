@@ -146,7 +146,7 @@ public abstract class AbstractTestQueryFramework
 
     protected AssertProvider<QueryAssert> query(@Language("SQL") String sql)
     {
-        return queryAssertions.query(sql);
+        return query(getSession(), sql);
     }
 
     protected AssertProvider<QueryAssert> query(Session session, @Language("SQL") String sql)
