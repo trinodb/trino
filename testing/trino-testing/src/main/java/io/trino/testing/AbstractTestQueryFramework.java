@@ -53,6 +53,7 @@ import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.util.AutoCloseableCloser;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
+import org.testng.Assert.ThrowingRunnable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -64,9 +65,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -74,6 +77,7 @@ import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -85,6 +89,8 @@ public abstract class AbstractTestQueryFramework
     private SqlParser sqlParser;
     private final AutoCloseableCloser afterClassCloser = AutoCloseableCloser.create();
     private io.trino.sql.query.QueryAssertions queryAssertions;
+
+    private final ThreadLocal<Optional<CallMutator>> callMutatorThreadLocal = ThreadLocal.withInitial(Optional::empty);
 
     @BeforeClass
     public void init()
@@ -121,7 +127,13 @@ public abstract class AbstractTestQueryFramework
 
     protected Session getSession()
     {
-        return queryRunner.getDefaultSession();
+        Optional<CallMutator> callMutator = callMutatorThreadLocal.get();
+        Optional<Function<Session, Session>> sessionMutator = callMutator.flatMap(CallMutator::getSessionMutator);
+        Session session = queryRunner.getDefaultSession();
+        if (sessionMutator.isPresent()) {
+            session = sessionMutator.get().apply(session);
+        }
+        return session;
     }
 
     protected final int getNodeCount()
@@ -518,5 +530,44 @@ public abstract class AbstractTestQueryFramework
     protected final <T extends AutoCloseable> T closeAfterClass(T resource)
     {
         return afterClassCloser.register(resource);
+    }
+
+    protected CallMutator withModifiedSession(Function<Session, Session> sessionMutator)
+    {
+        return new CallMutator().withModifiedSession(sessionMutator);
+    }
+
+    protected class CallMutator
+    {
+        private Optional<Function<Session, Session>> sessionMutator = Optional.empty();
+
+        public CallMutator withModifiedSession(Function<Session, Session> sessionMutator)
+        {
+            requireNonNull(sessionMutator, "sessionMutator is null");
+            this.sessionMutator = Optional.of(sessionMutator.compose(this.sessionMutator.orElse(Function.identity())));
+            return this;
+        }
+
+        public void call(ThrowingRunnable action)
+        {
+            callMutatorThreadLocal.set(Optional.of(this));
+            try {
+                try {
+                    action.run();
+                }
+                catch (Throwable throwable) {
+                    throwIfUnchecked(throwable);
+                    throw new RuntimeException(throwable);
+                }
+            }
+            finally {
+                callMutatorThreadLocal.remove();
+            }
+        }
+
+        public Optional<Function<Session, Session>> getSessionMutator()
+        {
+            return sessionMutator;
+        }
     }
 }
