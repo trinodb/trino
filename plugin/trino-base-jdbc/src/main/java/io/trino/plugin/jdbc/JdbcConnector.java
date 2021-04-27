@@ -48,7 +48,7 @@ public class JdbcConnector
         implements Connector
 {
     private final LifeCycleManager lifeCycleManager;
-    private final JdbcMetadataFactory jdbcMetadataFactory;
+    private final DefaultJdbcMetadataFactory jdbcMetadataFactory;
     private final ConnectorSplitManager jdbcSplitManager;
     private final ConnectorRecordSetProvider jdbcRecordSetProvider;
     private final ConnectorPageSinkProvider jdbcPageSinkProvider;
@@ -57,12 +57,12 @@ public class JdbcConnector
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> tableProperties;
 
-    private final ConcurrentMap<ConnectorTransactionHandle, JdbcMetadata> transactions = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorTransactionHandle, DefaultJdbcMetadata> transactions = new ConcurrentHashMap<>();
 
     @Inject
     public JdbcConnector(
             LifeCycleManager lifeCycleManager,
-            JdbcMetadataFactory jdbcMetadataFactory,
+            DefaultJdbcMetadataFactory jdbcMetadataFactory,
             ConnectorSplitManager jdbcSplitManager,
             ConnectorRecordSetProvider jdbcRecordSetProvider,
             ConnectorPageSinkProvider jdbcPageSinkProvider,
@@ -104,7 +104,7 @@ public class JdbcConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
     {
-        JdbcMetadata metadata = transactions.get(transaction);
+        DefaultJdbcMetadata metadata = transactions.get(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         return metadata;
     }
@@ -118,7 +118,7 @@ public class JdbcConnector
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
-        JdbcMetadata metadata = transactions.remove(transaction);
+        DefaultJdbcMetadata metadata = transactions.remove(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         metadata.rollback();
     }
