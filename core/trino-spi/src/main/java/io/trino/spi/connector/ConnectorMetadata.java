@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -228,10 +229,22 @@ public interface ConnectorMetadata
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
+     * @deprecated use {@link #streamTableColumns} which handles redirected tables
      */
+    @Deprecated
     default Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyMap();
+    }
+
+    /**
+     * Gets the metadata for all columns that match the specified table prefix. Redirected table names are included, but
+     * the column metadata for them is not.
+     */
+    default Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return listTableColumns(session, prefix).entrySet().stream()
+                .map(entry -> TableColumnsMetadata.forTable(entry.getKey(), entry.getValue()));
     }
 
     /**
@@ -1142,6 +1155,17 @@ public interface ConnectorMetadata
     }
 
     default Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Redirects table to other table which may or may not be in the same catalog.
+     * Currently the engine tries to do redirection only for table reads and metadata listing.
+     *
+     * Also consider implementing streamTableColumns to support redirection for listing.
+     */
+    default Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
     {
         return Optional.empty();
     }

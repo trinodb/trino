@@ -48,6 +48,7 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
@@ -78,6 +79,7 @@ import java.util.Set;
 
 import static io.trino.metadata.FunctionId.toFunctionId;
 import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 
@@ -200,7 +202,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public Map<CatalogName, List<TableColumnsMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();
     }
@@ -865,5 +867,11 @@ public abstract class AbstractMockMetadata
     public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName)
+    {
+        return noRedirection(getTableHandle(session, tableName));
     }
 }
