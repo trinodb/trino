@@ -396,5 +396,5 @@ jobs:
           rm -rf ~/.m2/repository
       - name: Product Tests
         run: |
-          testing/trino-product-tests-launcher/bin/run-launcher suite run \
+          bin/ptl suite run \
             --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --no-bind --logs-dir logs/ --timeout 2h
