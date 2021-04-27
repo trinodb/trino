@@ -41,7 +41,7 @@ import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 
-public class TestStarburstRemoteStatisticsWithHive
+public class TestStarburstRemoteTableStatisticsWithHive
         extends BaseJdbcTableStatisticsTest
 {
     private DistributedQueryRunner remoteStarburst;
