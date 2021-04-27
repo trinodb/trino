@@ -175,7 +175,8 @@ the following table must be entered in uppercase. The default value is ``CSV``.
 Examples
 ^^^^^^^^
 
-Consider the following command run as shown, or with ``--output-format CSV``:
+Consider the following command run as shown, or with the
+``--output-format=CSV`` option, which is the default for non-interactive usage:
 
 .. code-block:: text
 
@@ -189,7 +190,7 @@ The output is as follows:
     "1","ARGENTINA","1"
     "2","BRAZIL","1"
 
-The output with ``--output-format JSON`` is:
+The output with the ``--output-format=JSON`` option:
 
 .. code-block:: json
 
@@ -197,7 +198,8 @@ The output with ``--output-format JSON`` is:
     {"nationkey":1,"name":"ARGENTINA","regionkey":1}
     {"nationkey":2,"name":"BRAZIL","regionkey":1}
 
-The output with ``--output-format ALIGNED`` is:
+The output with the ``--output-format=ALIGNED`` option, which is the default
+for interactive usage:
 
 .. code-block:: text
 
@@ -207,7 +209,7 @@ The output with ``--output-format ALIGNED`` is:
             1 | ARGENTINA |         1
             2 | BRAZIL    |         1
 
-The output with ``--output-format VERTICAL`` is:
+The output with the ``--output-format=VERTICAL`` option:
 
 .. code-block:: text
 
@@ -224,7 +226,7 @@ The output with ``--output-format VERTICAL`` is:
     name      | BRAZIL
     regionkey | 1
 
-The preceding command with ``--output-format NULL`` produces no output.
+The preceding command with ``--output-format=NULL`` produces no output.
 However, if you have an error in the query, such as incorrectly using
 ``region`` instead of ``regionkey``, the command has an exit status of 1
 and displays an error message (which is unaffected by the output format):
