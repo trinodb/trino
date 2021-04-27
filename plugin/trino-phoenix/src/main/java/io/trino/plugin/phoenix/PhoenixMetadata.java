@@ -14,8 +14,8 @@
 package io.trino.plugin.phoenix;
 
 import io.airlift.slice.Slice;
+import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.TrinoException;
@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
 
 public class PhoenixMetadata
-        extends JdbcMetadata
+        extends DefaultJdbcMetadata
 {
     // Maps to Phoenix's default empty schema
     public static final String DEFAULT_SCHEMA = "default";
