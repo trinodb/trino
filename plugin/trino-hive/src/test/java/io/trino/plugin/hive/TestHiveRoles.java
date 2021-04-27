@@ -349,25 +349,25 @@ public class TestHiveRoles
         executeFromAdmin("GRANT set_role_2 TO ROLE set_role_1");
         executeFromAdmin("GRANT set_role_3 TO ROLE set_role_2");
 
-        Session unsetRole = Session.builder(getQueryRunner().getDefaultSession())
+        Session unsetRole = Session.builder(getSession())
                 .setIdentity(Identity.ofUser("set_user_1"))
                 .build();
-        Session setRoleAll = Session.builder(getQueryRunner().getDefaultSession())
+        Session setRoleAll = Session.builder(getSession())
                 .setIdentity(Identity.forUser("set_user_1").withRole("hive", new SelectedRole(SelectedRole.Type.ALL, Optional.empty())).build())
                 .build();
-        Session setRoleNone = Session.builder(getQueryRunner().getDefaultSession())
+        Session setRoleNone = Session.builder(getSession())
                 .setIdentity(Identity.forUser("set_user_1").withRole("hive", new SelectedRole(SelectedRole.Type.NONE, Optional.empty())).build())
                 .build();
-        Session setRole1 = Session.builder(getQueryRunner().getDefaultSession())
+        Session setRole1 = Session.builder(getSession())
                 .setIdentity(Identity.forUser("set_user_1").withRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_1"))).build())
                 .build();
-        Session setRole2 = Session.builder(getQueryRunner().getDefaultSession())
+        Session setRole2 = Session.builder(getSession())
                 .setIdentity(Identity.forUser("set_user_1").withRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_2"))).build())
                 .build();
-        Session setRole3 = Session.builder(getQueryRunner().getDefaultSession())
+        Session setRole3 = Session.builder(getSession())
                 .setIdentity(Identity.forUser("set_user_1").withRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_3"))).build())
                 .build();
-        Session setRole4 = Session.builder(getQueryRunner().getDefaultSession())
+        Session setRole4 = Session.builder(getSession())
                 .setIdentity(Identity.forUser("set_user_1").withRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_4"))).build())
                 .build();
 
@@ -455,7 +455,7 @@ public class TestHiveRoles
         List<Type> types = ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType());
         int rowLength = types.size();
         checkArgument(values.length % rowLength == 0);
-        MaterializedResult.Builder result = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), types);
+        MaterializedResult.Builder result = MaterializedResult.resultBuilder(getSession(), types);
         Object[] row = null;
         for (int i = 0; i < values.length; i++) {
             if (i % rowLength == 0) {
@@ -485,14 +485,14 @@ public class TestHiveRoles
 
     private Session createAdminSession()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setIdentity(Identity.forUser("admin").withRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin"))).build())
                 .build();
     }
 
     private Session createUserSession(String user)
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setIdentity(Identity.ofUser(user))
                 .build();
     }

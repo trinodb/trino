@@ -194,7 +194,7 @@ public abstract class BaseConnectorSmokeTest
     {
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
             assertQueryFails("CREATE SCHEMA xxxxxx", "This connector does not support creating schemas");
-            getQueryRunner().getDefaultSession().getSchema().ifPresent(
+            getSession().getSchema().ifPresent(
                     s -> assertQueryFails("DROP SCHEMA " + s, "This connector does not support dropping schemas"));
             return;
         }
