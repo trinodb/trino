@@ -25,7 +25,6 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
-import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -81,7 +80,7 @@ import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultJdbcMetadata
-        implements ConnectorMetadata
+        implements JdbcMetadata
 {
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
 
@@ -627,6 +626,7 @@ public class DefaultJdbcMetadata
         checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
     }
 
+    @Override
     public void rollback()
     {
         Optional.ofNullable(rollbackAction.getAndSet(null)).ifPresent(Runnable::run);
