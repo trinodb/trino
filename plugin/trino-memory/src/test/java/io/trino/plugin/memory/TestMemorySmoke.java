@@ -350,14 +350,14 @@ public class TestMemorySmoke
 
     private Session withBroadcastJoin()
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .build();
     }
 
     private Session withLargeDynamicFilters()
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "true")
                 .build();
@@ -365,7 +365,7 @@ public class TestMemorySmoke
 
     private Session withBroadcastJoinNonReordering()
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .build();
@@ -373,7 +373,7 @@ public class TestMemorySmoke
 
     private Session withPartitionedJoin()
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .build();
     }

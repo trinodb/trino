@@ -139,7 +139,7 @@ public abstract class BaseDruidConnectorTest
     @Override
     public void testDescribeTable()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")
@@ -261,7 +261,7 @@ public abstract class BaseDruidConnectorTest
         copyAndIngestTpchData(materializedRows, druidServer, datasourceB);
 
         // Assert that only columns from datsourceA are returned
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")
@@ -277,7 +277,7 @@ public abstract class BaseDruidConnectorTest
         Assert.assertEquals(actualColumns, expectedColumns);
 
         // Assert that only columns from datsourceB are returned
-        expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk_x", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment_x", "varchar", "", "")

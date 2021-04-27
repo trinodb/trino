@@ -264,7 +264,7 @@ public class TestAccumuloConnectorTest
     @Override
     public void testDescribeTable()
     {
-        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "Accumulo row ID")
                 .row("custkey", "bigint", "", "Accumulo column custkey:custkey. Indexed: false")
                 .row("orderstatus", "varchar(1)", "", "Accumulo column orderstatus:orderstatus. Indexed: false")

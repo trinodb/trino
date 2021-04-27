@@ -799,7 +799,7 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip(timestampDataType(), timeGapInVilnius)
                 .addRoundTrip(timestampDataType(), timeGapInKathmandu);
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
                 .build();
 
@@ -950,7 +950,7 @@ public abstract class AbstractTestOracleTypeMapping
      */
     private void runLegacyTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
     {
-        Session.SessionBuilder session = Session.builder(getQueryRunner().getDefaultSession());
+        Session.SessionBuilder session = Session.builder(getSession());
         if (zone != null) {
             session.setTimeZoneKey(getTimeZoneKey(zone));
         }
@@ -964,7 +964,7 @@ public abstract class AbstractTestOracleTypeMapping
      */
     private void runTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
     {
-        Session.SessionBuilder session = Session.builder(getQueryRunner().getDefaultSession());
+        Session.SessionBuilder session = Session.builder(getSession());
         if (zone != null) {
             session.setTimeZoneKey(getTimeZoneKey(zone));
         }
