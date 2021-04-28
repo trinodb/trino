@@ -231,20 +231,8 @@ jobs:
       fail-fast: false
       matrix:
         modules:
-          - ":trino-main"
-          - ":trino-tests"
-          - ":trino-tests -P ci-only"
-          - ":trino-raptor-legacy"
-          - ":trino-accumulo"
-          - ":trino-cassandra"
-          - ":trino-hive,:trino-orc"
-          - ":trino-hive,:trino-parquet -P test-parquet"
-          - ":trino-mongodb,:trino-kafka,:trino-elasticsearch"
-          - ":trino-redis"
-          - ":trino-sqlserver,:trino-postgresql,:trino-mysql"
-          - ":trino-oracle"
-          - ":trino-kudu"
-          - ":trino-iceberg,:trino-druid"
+          - ":trino-client"
+        i: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
           # TODO (https://github.com/trinodb/trino/issues/7534) - ":trino-phoenix,:trino-phoenix5"
     timeout-minutes: 60
     steps:
@@ -311,90 +299,90 @@ jobs:
             ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
           fi
 
-  pt:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - default
-          - hdp3
-          - cdh5
-        suite:
-          - suite-1
-          - suite-2
-          - suite-3
-          # suite-4 does not exist
-          - suite-5
-          - suite-6-non-generic
-          - suite-7-non-generic
-          - suite-8-non-generic
-          - suite-tpcds
-          - suite-oauth2
-        exclude:
-          - config: cdh5
-            ignore exclusion if: >-
-              ${{ github.event_name != 'pull_request'
-               || contains(github.event.pull_request.labels.*.name, 'tests:all')
-               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
-               }}
-
-          - config: default
-            ignore exclusion if: >-
-              ${{ github.event_name != 'pull_request'
-               || contains(github.event.pull_request.labels.*.name, 'tests:all')
-               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
-               }}
-
-          - config: hdp3
-            suite: suite-6-non-generic
-          - config: hdp3
-            suite: suite-7-non-generic
-          - config: hdp3
-            suite: suite-8-non-generic
-          - config: hdp3
-            suite: suite-tpcds
-          - config: hdp3
-            suite: suite-oauth2
-
-          - config: cdh5
-            suite: suite-6-non-generic
-          - config: cdh5
-            suite: suite-7-non-generic
-          - config: cdh5
-            suite: suite-8-non-generic
-          - config: cdh5
-            suite: suite-tpcds
-          - config: cdh5
-            suite: suite-oauth2
-        ignore exclusion if:
-          # Do not use this property outside of the matrix configuration.
-          #
-          # This is added to all matrix entries so they may be conditionally
-          # excluded by adding them to the excludes list with a GHA expression
-          # for this property.
-          # - If the expression evaluates to true, it will never match the a
-          #   actual value of the property, and will therefore not be excluded.
-          # - If the expression evaluates to false, it will match the actual
-          #   value of the property, and the exclusion will apply normally.
-          - false
-    # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
-    timeout-minutes: 140
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v1
-        with:
-          java-version: 11
-      - name: Maven Install
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
-      - name: Free Disk Space
-        run: |
-          docker image prune -af
-          sudo apt-get clean
-          rm -rf ~/.m2/repository
-      - name: Product Tests
-        run: |
-          testing/trino-product-tests-launcher/bin/run-launcher suite run \
-            --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --no-bind --logs-dir logs/ --timeout 2h
+#  pt:
+#    runs-on: ubuntu-latest
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        config:
+#          - default
+#          - hdp3
+#          - cdh5
+#        suite:
+#          - suite-1
+#          - suite-2
+#          - suite-3
+#          # suite-4 does not exist
+#          - suite-5
+#          - suite-6-non-generic
+#          - suite-7-non-generic
+#          - suite-8-non-generic
+#          - suite-tpcds
+#          - suite-oauth2
+#        exclude:
+#          - config: cdh5
+#            ignore exclusion if: >-
+#              ${{ github.event_name != 'pull_request'
+#               || contains(github.event.pull_request.labels.*.name, 'tests:all')
+#               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
+#               }}
+#
+#          - config: default
+#            ignore exclusion if: >-
+#              ${{ github.event_name != 'pull_request'
+#               || contains(github.event.pull_request.labels.*.name, 'tests:all')
+#               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
+#               }}
+#
+#          - config: hdp3
+#            suite: suite-6-non-generic
+#          - config: hdp3
+#            suite: suite-7-non-generic
+#          - config: hdp3
+#            suite: suite-8-non-generic
+#          - config: hdp3
+#            suite: suite-tpcds
+#          - config: hdp3
+#            suite: suite-oauth2
+#
+#          - config: cdh5
+#            suite: suite-6-non-generic
+#          - config: cdh5
+#            suite: suite-7-non-generic
+#          - config: cdh5
+#            suite: suite-8-non-generic
+#          - config: cdh5
+#            suite: suite-tpcds
+#          - config: cdh5
+#            suite: suite-oauth2
+#        ignore exclusion if:
+#          # Do not use this property outside of the matrix configuration.
+#          #
+#          # This is added to all matrix entries so they may be conditionally
+#          # excluded by adding them to the excludes list with a GHA expression
+#          # for this property.
+#          # - If the expression evaluates to true, it will never match the a
+#          #   actual value of the property, and will therefore not be excluded.
+#          # - If the expression evaluates to false, it will match the actual
+#          #   value of the property, and the exclusion will apply normally.
+#          - false
+#    # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
+#    timeout-minutes: 140
+#    steps:
+#      - uses: actions/checkout@v2
+#      - uses: actions/setup-java@v1
+#        with:
+#          java-version: 11
+#      - name: Maven Install
+#        run: |
+#          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+#          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
+#      - name: Free Disk Space
+#        run: |
+#          docker image prune -af
+#          sudo apt-get clean
+#          rm -rf ~/.m2/repository
+#      - name: Product Tests
+#        run: |
+#          testing/trino-product-tests-launcher/bin/run-launcher suite run \
+#            --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --no-bind --logs-dir logs/ --timeout 2h
