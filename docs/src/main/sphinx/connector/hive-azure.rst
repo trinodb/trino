@@ -115,6 +115,9 @@ catalog configuration.
     - Value of the new client (application) secret created
   * - ``hive.azure.adl-refresh-url``
     - OAuth 2.0 token endpoint url
+  * - ``hive.azure.adl-proxy-host``
+    - Proxy host and port in ``host:port`` format. Use this property to connect
+      to an ADLS endpoint via a SOCKS proxy.
 
 Accessing Azure Storage data
 ----------------------------
