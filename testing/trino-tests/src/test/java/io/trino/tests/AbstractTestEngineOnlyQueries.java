@@ -6045,17 +6045,6 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails(pivotQuery(255), "Too many arguments for array constructor");
     }
 
-    @Test(timeOut = 30_000)
-    public void testLateMaterializationOuterJoin()
-    {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(LATE_MATERIALIZATION, "true")
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.toString())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.toString())
-                .build();
-        assertQuery(session, "SELECT * FROM (SELECT * FROM nation WHERE nationkey < -1) a RIGHT JOIN nation b ON a.nationkey = b.nationkey");
-    }
-
     private static String pivotQuery(int columnsCount)
     {
         String values = IntStream.range(0, columnsCount)
@@ -6067,6 +6056,17 @@ public abstract class AbstractTestEngineOnlyQueries
                 .collect(joining(", "));
 
         return format("SELECT * FROM (SELECT %s) a(%s) INNER JOIN unnest(ARRAY[%1$s], ARRAY[%2$s]) b(b1, b2) ON true", values, columns);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testLateMaterializationOuterJoin()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(LATE_MATERIALIZATION, "true")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.toString())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.toString())
+                .build();
+        assertQuery(session, "SELECT * FROM (SELECT * FROM nation WHERE nationkey < -1) a RIGHT JOIN nation b ON a.nationkey = b.nationkey");
     }
 
     private static ZonedDateTime zonedDateTime(String value)
