@@ -100,26 +100,17 @@ public class TestSynapseTableStatistics
     }
 
     @Override
-    @Test
-    public void testEmptyTable()
+    protected void checkEmptyTableStats(String tableName)
     {
-        String tableName = "test_stats_table_empty_" + randomTableSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation WHERE false", tableName));
-        try {
-            gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
-                    "VALUES " +
-                            "('nationkey', 0, 0, 1, null, null, null)," +
-                            "('name', 0, 0, 1, null, null, null)," +
-                            "('regionkey', 0, 0, 1, null, null, null)," +
-                            "('comment', 0, 0, 1, null, null, null)," +
-                            "(null, null, null, null, 1, null, null)");
-        }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
-        }
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('orderkey', 0, 0, 1, null, null, null)," +
+                        "('custkey', 0, 0, 1, null, null, null)," +
+                        "('orderpriority', 0, 0, 1, null, null, null)," +
+                        "('comment', 0, 0, 1, null, null, null)," +
+                        // TODO: Empty tables should have total row count as 0 (https://starburstdata.atlassian.net/browse/SEP-5963)
+                        "(null, null, null, null, 1, null, null)");
     }
 
     @Override
@@ -354,7 +345,8 @@ public class TestSynapseTableStatistics
         return Estimate.of((Double) value);
     }
 
-    private void gatherStats(String tableName)
+    @Override
+    protected void gatherStats(String tableName)
     {
         List<String> columnNames = stream(computeActual("SHOW COLUMNS FROM " + tableName))
                 .map(row -> (String) row.getField(0))
