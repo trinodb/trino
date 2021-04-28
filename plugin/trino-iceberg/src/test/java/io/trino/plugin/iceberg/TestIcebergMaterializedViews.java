@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -31,7 +32,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
@@ -67,6 +70,22 @@ public class TestIcebergMaterializedViews
         assertUpdate("CREATE TABLE base_table2 (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
         assertUpdate("INSERT INTO base_table2 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
         assertQuery("SELECT count(*) FROM base_table2", "VALUES 3");
+    }
+
+    @Test
+    public void testShowTables()
+    {
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_show_tables_test AS SELECT * FROM base_table1");
+        SchemaTableName storageTableName = getStorageTable("iceberg", "tpch", "materialized_view_show_tables_test");
+
+        Set<String> expectedTables = ImmutableSet.of("base_table1", "base_table2", "materialized_view_show_tables_test", storageTableName.getTableName());
+        Set<String> actualTables = computeActual("SHOW TABLES").getOnlyColumnAsSet().stream()
+                .map(String.class::cast)
+                .collect(toImmutableSet());
+        // containsAll rather than isEqualTo as the test is not singleThreaded
+        assertThat(actualTables).containsAll(expectedTables);
+
+        assertUpdate("DROP MATERIALIZED VIEW materialized_view_show_tables_test");
     }
 
     @Test
