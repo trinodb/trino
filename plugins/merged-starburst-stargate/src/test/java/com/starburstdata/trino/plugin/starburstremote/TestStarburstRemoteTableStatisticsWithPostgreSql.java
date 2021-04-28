@@ -11,7 +11,6 @@ package com.starburstdata.trino.plugin.starburstremote;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.Session;
 import io.trino.plugin.postgresql.TestingPostgreSqlServer;
 import io.trino.testing.DistributedQueryRunner;
@@ -42,7 +41,7 @@ import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 
 public class TestStarburstRemoteTableStatisticsWithPostgreSql
-        extends BaseJdbcTableStatisticsTest
+        extends BaseStarburstRemoteTableStatisticsTest
 {
     private TestingPostgreSqlServer postgreSqlServer;
     private DistributedQueryRunner remoteStarburst;
@@ -380,6 +379,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
     }
 
     @Test
+    @Override
     public void testShowStatsWithWhere()
     {
         assertLocalAndRemoteStatistics(
@@ -391,73 +391,71 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
                         "('comment', 1875.0, 25.0, 0.0, null, null, null), " +
                         "(null, null, null, null, 25.0, null, null)");
 
-        // TODO: Fix values after adding filter handling to PostgreSQL connector stats (https://github.com/trinodb/trino/pull/844)
         assertLocalAndRemoteStatistics(
                 "SHOW STATS FOR (SELECT * FROM nation WHERE regionkey = 1)",
                 "VALUES " +
-                        "('nationkey', null, 25.0, 0.0, null, null, null), " +
-                        "('name', 200.0, 25.0, 0.0, null, null, null), " +
-                        "('regionkey', null, 5.0, 0.0, null, null, null), " +
-                        "('comment', 1875.0, 25.0, 0.0, null, null, null), " +
-                        "(null, null, null, null, 25.0, null, null)");
+                        "('nationkey', null, 5.0, 0.0, null, null, null), " +
+                        "('name', 40.0, 5.0, 0.0, null, null, null), " +
+                        "('regionkey', null, 1.0, 0.0, null, 1, 1), " +
+                        "('comment', 375.0, 5.0, 0.0, null, null, null), " +
+                        "(null, null, null, null, 5.0, null, null)");
     }
 
     @Test
+    @Override
     public void testShowStatsWithCount()
     {
-        // TODO: Fix expected values after https://starburstdata.atlassian.net/browse/SEP-5938
         assertQuery(
                 "SHOW STATS FOR (SELECT COUNT(*) AS x FROM orders)",
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   (null, null, null, null, 1, null, null)");
     }
 
     @Test
+    @Override
     public void testShowStatsWithGroupBy()
     {
-        // TODO: Fix expected values after https://starburstdata.atlassian.net/browse/SEP-5938
         assertQuery(
                 "SHOW STATS FOR (SELECT avg(totalprice) AS x FROM orders GROUP BY orderkey)",
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   (null, null, null, null, 15000.0, null, null)");
     }
 
     @Test
+    @Override
     public void testShowStatsWithFilterGroupBy()
     {
-        // TODO: Fix expected values after https://starburstdata.atlassian.net/browse/SEP-5938
         assertQuery(
                 "SHOW STATS FOR (SELECT count(nationkey) AS x FROM nation WHERE regionkey > 0 GROUP BY regionkey)",
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   (null, null, null, null, 2.5, null, null)"); // 4 is the actual row count
     }
 
     @Test
+    @Override
     public void testShowStatsWithSelectDistinct()
     {
-        // TODO: Fix expected values after https://starburstdata.atlassian.net/browse/SEP-5938
         assertQuery(
                 "SHOW STATS FOR (SELECT DISTINCT * FROM orders)",
                 "VALUES " +
-                        "   ('orderkey', null, null, null, null, null, null), " +
-                        "   ('custkey', null, null, null, null, null, null), " +
-                        "   ('orderstatus', null, null, null, null, null, null), " +
-                        "   ('totalprice', null, null, null, null, null, null), " +
-                        "   ('orderdate', null, null, null, null, null, null), " +
-                        "   ('orderpriority', null, null, null, null, null, null), " +
-                        "   ('clerk', null, null, null, null, null, null), " +
-                        "   ('shippriority', null, null, null, null, null, null), " +
-                        "   ('comment', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
-
+                        "   ('orderkey', null, 15000.0, 0.0, null, null, null), " +
+                        "   ('custkey',  null, 1000.0, 0.0, null, null, null), " +
+                        "   ('orderstatus', 30000.0, 3.0, 0.0, null, null, null), " +
+                        "   ('totalprice', null, 14996.0, 0.0, null, null, null), " +
+                        "   ('orderdate', null, 2401.0, 0.0, null, null, null), " +
+                        "   ('orderpriority', 135000.0, 5.0, 0.0, null, null, null), " +
+                        "   ('clerk', 240000.0, 1000.0, 0.0, null, null, null), " +
+                        "   ('shippriority', null, 1.0, 0.0, null, null, null), " +
+                        "   ('comment', 735000.0, 14995.0, 0.0, null, null, null), " +
+                        "   (null, null, null, null, 15000.0, null, null)");
         assertQuery(
                 "SHOW STATS FOR (SELECT DISTINCT regionkey FROM region)",
                 "VALUES " +
-                        "   ('regionkey', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   ('regionkey', null, 5.0, 0.0, null, null, null), " +
+                        "   (null, null, null, null, 5.0, null, null)");
     }
 
     private void assertLocalAndRemoteStatistics(String showStatsQuery, String expectedValues)

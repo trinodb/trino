@@ -13,7 +13,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
-import com.starburstdata.presto.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.Session;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.H2QueryRunner;
@@ -45,7 +44,7 @@ import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStarburstRemoteTableStatisticsWithHive
-        extends BaseJdbcTableStatisticsTest
+        extends BaseStarburstRemoteTableStatisticsTest
 {
     private DistributedQueryRunner remoteStarburst;
     private Session remoteSession;
@@ -410,125 +409,20 @@ public class TestStarburstRemoteTableStatisticsWithHive
     }
 
     @Override
-    protected String testStatsWithPredicatePushdownExpectedResult()
-    {
-        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
-        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithPredicatePushdownExpectedResult()))
-                .isEqualTo(HashCode.fromString("9ac933675b1a70ad8bafa38670c64aad"));
-
-        // These results are actually correct. The super expects _wrong_ results, see a comment there.
-        return "VALUES " +
-                "('nationkey', 5e0, 0e0, null)," +
-                "('name', 5e0, 0e0, null)," +
-                "('regionkey', 1e0, 0e0, null)," +
-                "('comment', 5e0, 0e0, null)," +
-                "(null, null, null, 5e0)";
-    }
-
-    @Override
-    protected String testStatsWithLimitPushdownExpectedResult()
-    {
-        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
-        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithLimitPushdownExpectedResult()))
-                .isEqualTo(HashCode.fromString("74e9bbbffec330c99624761e566a7af1"));
-
-        return "VALUES " +
-                "('regionkey', 2e0, 0e0, null)," +
-                "('nationkey', 2e0, 0e0, null)," +
-                "(null, null, null, 2e0)";
-    }
-
-    @Override
-    protected String testStatsWithTopNPushdownExpectedResult()
-    {
-        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
-        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithTopNPushdownExpectedResult()))
-                .isEqualTo(HashCode.fromString("74e9bbbffec330c99624761e566a7af1"));
-
-        return "VALUES " +
-                "('regionkey', 2e0, 0e0, null)," +
-                "('nationkey', 2e0, 0e0, null)," +
-                "(null, null, null, 2e0)";
-    }
-
-    @Override
-    protected String testStatsWithAggregationPushdownExpectedResult()
-    {
-        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
-        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithAggregationPushdownExpectedResult()))
-                .isEqualTo(HashCode.fromString("3b2baf04d8448f48815fd44c8f19931b"));
-
-        // Remote Hive doesn't accept aggregation pushdown, so the remote cluster can calculate the regionkey stats, and the row count.
-        return "VALUES " +
-                "('regionkey', 5e0, 0e0, null)," +
-                "('max_nationkey', null, null, null)," +
-                "('c', null, null, null)," +
-                "(null, null, null, 5e0)";
-    }
-
-    @Override
-    protected String testStatsWithDistinctPushdownExpectedResult()
-    {
-        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
-        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithDistinctPushdownExpectedResult()))
-                .isEqualTo(HashCode.fromString("000789c529e02f4718f64e240e2413a0"));
-
-        // Remote Hive doesn't accept aggregation pushdown, so the remote cluster can calculate the stats
-        return "VALUES " +
-                "('regionkey', 5e0, 0e0, null)," +
-                "(null, null, null, 5e0)";
-    }
-
-    @Override
     protected String testStatsWithDistinctLimitPushdownExpectedResult()
     {
         // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
         assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithDistinctLimitPushdownExpectedResult()))
-                .isEqualTo(HashCode.fromString("000789c529e02f4718f64e240e2413a0"));
+                .isEqualTo(HashCode.fromString("3b6d7e10c747ca72467d43910fe9bc21"));
 
-        // Remote Hive doesn't accept aggregation pushdown, so the remote cluster can calculate the stats
-        // TODO https://starburstdata.atlassian.net/browse/SEP-6185 stats regressed when LIMIT also pushed into remote
+        // TODO (https://starburstdata.atlassian.net/browse/SEP-6235) add stats rule for DistinctLimit
         return "VALUES " +
                 "('regionkey', null, null, null)," +
                 "(null, null, null, null)";
     }
 
-    @Override
-    protected String testStatsWithSimpleJoinPushdownExpectedResults()
-    {
-        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
-        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithSimpleJoinPushdownExpectedResults()))
-                .isEqualTo(HashCode.fromString("6ac1b84b47f4cb718a1fe7ca744821fc"));
-
-        // Remote Hive doesn't accept join pushdown, so the remote cluster can calculate the stats correctly.
-        return "VALUES " +
-                "('n_name', 5e0, 0e0, null)," +
-                "(null, null, null, 5e0)";
-    }
-
-    @Override
-    public void testStatsWithJoinPushdown()
-    {
-        // TODO for some reason join gets pushed down even without any changes yet
-        testStatsWithJoinPushdown(true);
-    }
-
-    @Override
-    protected String testStatsWithJoinPushdownExpectedResult()
-    {
-        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
-        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithJoinPushdownExpectedResult()))
-                .isEqualTo(HashCode.fromString("3a144d39f5782d1c211154c55a6b5cd6"));
-
-        // Remote Hive doesn't accept join pushdown, so the remote cluster can calculate the stats correctly.
-        return "VALUES " +
-                "('regionkey', 1e0, 0e0, null)," +
-                "('r_name', 1e0, 0e0, null)," +
-                "('n_name', 1e0, 0e0, null)," +
-                "(null, null, null, 1e0)";
-    }
-
     @Test
+    @Override
     public void testShowStatsWithWhere()
     {
         assertLocalAndRemoteStatistics(
@@ -560,6 +454,7 @@ public class TestStarburstRemoteTableStatisticsWithHive
     }
 
     @Test
+    @Override
     public void testShowStatsWithCount()
     {
         assertQuery(
@@ -570,6 +465,7 @@ public class TestStarburstRemoteTableStatisticsWithHive
     }
 
     @Test
+    @Override
     public void testShowStatsWithGroupBy()
     {
         assertQuery(
@@ -580,6 +476,7 @@ public class TestStarburstRemoteTableStatisticsWithHive
     }
 
     @Test
+    @Override
     public void testShowStatsWithFilterGroupBy()
     {
         assertQuery(
@@ -592,10 +489,11 @@ public class TestStarburstRemoteTableStatisticsWithHive
                 "SHOW STATS FOR (SELECT count(nationkey) AS x FROM nation WHERE regionkey > 0 GROUP BY regionkey)",
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, 5.0, null, null)");
+                        "   (null, null, null, null, 5.0, null, null)"); // 4 is the actual row count
     }
 
     @Test
+    @Override
     public void testShowStatsWithSelectDistinct()
     {
         assertQuery(
