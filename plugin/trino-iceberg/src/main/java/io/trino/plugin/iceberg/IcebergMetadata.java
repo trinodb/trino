@@ -369,7 +369,8 @@ public class IcebergMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        List<SchemaTableName> tablesList = schemaName.map(Collections::singletonList)
+        ImmutableList.Builder<SchemaTableName> tablesListBuilder = ImmutableList.builder();
+        schemaName.map(Collections::singletonList)
                 .orElseGet(metastore::getAllDatabases)
                 .stream()
                 .flatMap(schema -> Stream.concat(
@@ -381,14 +382,14 @@ public class IcebergMetadata
                         metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(Locale.ENGLISH)).stream()
                                 .map(table -> new SchemaTableName(schema, table)))
                         .distinct())  // distinct() to avoid duplicates for case-insensitive HMS backends
-                .collect(toImmutableList());
+                .forEach(tablesListBuilder::add);
 
         schemaName.map(Collections::singletonList)
                 .orElseGet(metastore::getAllDatabases).stream()
                 .flatMap(schema -> metastore.getAllViews(schema).stream()
                         .map(table -> new SchemaTableName(schema, table)))
-                .forEach(schemaTableName -> tablesList.add(schemaTableName));
-        return tablesList;
+                .forEach(tablesListBuilder::add);
+        return tablesListBuilder.build();
     }
 
     @Override
