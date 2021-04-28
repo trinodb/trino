@@ -961,6 +961,18 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testInlineCountOverConstantExpression()
+    {
+        assertPlan(
+                "SELECT regionkey, count(1) FROM nation GROUP BY regionkey",
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("count_0", functionCall("count", ImmutableList.of())),
+                                PARTIAL,
+                                tableScan("nation", ImmutableMap.of("regionkey", "regionkey")))));
+    }
+
+    @Test
     public void testPickTableLayoutWithFilter()
     {
         assertPlan(

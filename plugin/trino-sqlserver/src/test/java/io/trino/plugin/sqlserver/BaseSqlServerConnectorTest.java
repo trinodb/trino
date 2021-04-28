@@ -131,6 +131,10 @@ public abstract class BaseSqlServerConnectorTest
 
         assertThat(query("SELECT count(*) FROM orders")).isFullyPushedDown();
         assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(1) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT count() FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT custkey, count(1) FROM orders GROUP BY custkey")).isFullyPushedDown();
+
         assertThat(query("SELECT min(totalprice) FROM orders")).isFullyPushedDown();
 
         // GROUP BY

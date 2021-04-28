@@ -453,6 +453,7 @@ public class TestPostgreSqlConnectorTest
         assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, count(1) FROM nation GROUP BY regionkey")).isFullyPushedDown();
 
         // GROUP BY
         assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
