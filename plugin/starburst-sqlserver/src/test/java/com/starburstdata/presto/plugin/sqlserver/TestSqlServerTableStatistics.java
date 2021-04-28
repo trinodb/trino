@@ -114,26 +114,17 @@ public class TestSqlServerTableStatistics
     }
 
     @Override
-    @Test
-    public void testEmptyTable()
+    protected void checkEmptyTableStats(String tableName)
     {
-        String tableName = "test_stats_table_empty";
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
-        try {
-            gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
-                    "VALUES " +
-                            "('orderkey', null, null, null, null, null, null)," +
-                            "('custkey', null, null, null, null, null, null)," +
-                            "('orderpriority', null, null, null, null, null, null)," +
-                            "('comment', null, null, null, null, null, null)," +
-                            "(null, null, null, null, null, null, null)");
-        }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
-        }
+        // TODO: Empty tables should have NDV as 0 and nulls fraction as 1 (https://starburstdata.atlassian.net/browse/SEP-5963)
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('orderkey', null, null, null, null, null, null)," +
+                        "('custkey', null, null, null, null, null, null)," +
+                        "('orderpriority', null, null, null, null, null, null)," +
+                        "('comment', null, null, null, null, null, null)," +
+                        "(null, null, null, null, null, null, null)");
     }
 
     @Override
@@ -382,7 +373,8 @@ public class TestSqlServerTableStatistics
         }
     }
 
-    private void gatherStats(String tableName)
+    @Override
+    protected void gatherStats(String tableName)
     {
         List<String> columnNames = stream(computeActual("SHOW COLUMNS FROM " + tableName))
                 .map(row -> (String) row.getField(0))
