@@ -457,7 +457,6 @@ public class SnowflakeClient
             return TableStatistics.empty();
         }
         if (!handle.isNamedRelation()) {
-            // TODO retrieve statistics for base table and derive statistics for the aggregation
             return TableStatistics.empty();
         }
         try {
