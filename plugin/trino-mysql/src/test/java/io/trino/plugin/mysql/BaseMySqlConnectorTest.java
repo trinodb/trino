@@ -316,6 +316,7 @@ public abstract class BaseMySqlConnectorTest
         assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, count(1) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();

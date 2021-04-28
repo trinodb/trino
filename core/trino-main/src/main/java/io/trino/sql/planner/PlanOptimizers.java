@@ -421,6 +421,7 @@ public class PlanOptimizers
                                 .addAll(projectionPushdownRules)
                                 .addAll(ImmutableSet.of(
                                         new MergeFilters(metadata),
+                                        new InlineProjections(),
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),

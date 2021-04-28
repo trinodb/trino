@@ -15,10 +15,10 @@ final aggregation over ()
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["ss_item_sk"])
                                         partial aggregation over (ss_item_sk)
-                                            final aggregation over (d_date_2, ss_item_sk, substr)
+                                            final aggregation over (d_date_2, ss_item_sk, substr$gid)
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["d_date_2", "ss_item_sk", "substr"])
-                                                        partial aggregation over (d_date_2, ss_item_sk, substr)
+                                                    remote exchange (REPARTITION, HASH, ["d_date_2", "ss_item_sk", "substr$gid"])
+                                                        partial aggregation over (d_date_2, ss_item_sk, substr$gid)
                                                             join (INNER, REPLICATED):
                                                                 join (INNER, REPLICATED):
                                                                     scan store_sales
@@ -72,10 +72,10 @@ final aggregation over ()
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["ss_item_sk_157"])
                                         partial aggregation over (ss_item_sk_157)
-                                            final aggregation over (d_date_180, ss_item_sk_157, substr_228)
+                                            final aggregation over (d_date_180, ss_item_sk_157, substr$gid_231)
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["d_date_180", "ss_item_sk_157", "substr_228"])
-                                                        partial aggregation over (d_date_180, ss_item_sk_157, substr_228)
+                                                    remote exchange (REPARTITION, HASH, ["d_date_180", "ss_item_sk_157", "substr$gid_231"])
+                                                        partial aggregation over (d_date_180, ss_item_sk_157, substr$gid_231)
                                                             join (INNER, REPLICATED):
                                                                 join (INNER, REPLICATED):
                                                                     scan store_sales
