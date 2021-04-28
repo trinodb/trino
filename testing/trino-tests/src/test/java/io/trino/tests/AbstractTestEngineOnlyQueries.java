@@ -2333,9 +2333,6 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         assertQuery("SELECT count(*) FROM (SELECT (SELECT 1))");
         assertQuery("SELECT * FROM (SELECT (SELECT 1))");
-        assertQueryFails(
-                "SELECT * FROM (SELECT (SELECT 1, 2))",
-                "line 1:23: Multiple columns returned by subquery are not yet supported. Found 2");
     }
 
     @Test
@@ -3583,9 +3580,6 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryOrdered(
                 "SELECT (SELECT t.* FROM (VALUES 1)) FROM (SELECT name FROM nation ORDER BY regionkey, name LIMIT 5) t(a)",
                 "SELECT name FROM nation ORDER BY regionkey, name LIMIT 5");
-        assertQueryFails(
-                "SELECT (SELECT t.* FROM (VALUES 1)) FROM (SELECT name, regionkey FROM nation) t(a, b)",
-                ".* Multiple columns returned by subquery are not yet supported. Found 2");
         // alias/table name shadowing
         assertQuery("SELECT(SELECT region.* FROM (VALUES 1) region) FROM region", "SELECT 1 FROM region");
         assertQuery("SELECT(SELECT r.* FROM (VALUES 1) r) FROM region r", "SELECT 1 FROM region");
