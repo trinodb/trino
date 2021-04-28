@@ -9,11 +9,11 @@
  */
 package com.starburstdata.trino.plugin.starburstremote;
 
-import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -48,7 +48,7 @@ public class TestStarburstRemoteWithWritesEnabledExtraTests
                         "allow-drop-table", "true"));
     }
 
-    @Test(dataProvider = "largeInValuesCount", dataProviderClass = AbstractTestDistributedQueries.class)
+    @Test(dataProvider = "largeInValuesCount")
     public void testLargeInLongColumnName(int valuesCount)
     {
         String tableName = "test_large_column_name_" + randomTableSuffix();
@@ -64,5 +64,16 @@ public class TestStarburstRemoteWithWritesEnabledExtraTests
 
         assertQuery(format("SELECT * FROM %s WHERE %s IN (mod(1000, %s), %s)", tableName, columnName, columnName, longValues), "SELECT 1 WHERE 1=2");
         assertQuery(format("SELECT * FROM %s WHERE %s NOT IN (mod(1000, %s), %s)", tableName, columnName, columnName, longValues), "SELECT 1 WHERE 1=2");
+    }
+
+    @DataProvider
+    public static Object[][] largeInValuesCount()
+    {
+        return new Object[][] {
+                {200},
+                {500},
+                {1000},
+                {5000}
+        };
     }
 }
