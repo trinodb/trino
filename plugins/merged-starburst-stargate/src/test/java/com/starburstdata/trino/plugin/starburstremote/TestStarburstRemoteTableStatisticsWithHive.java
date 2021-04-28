@@ -137,29 +137,6 @@ public class TestStarburstRemoteTableStatisticsWithHive
 
     @Override
     @Test
-    public void testEmptyTable()
-    {
-        String tableName = "test_stats_table_empty";
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
-        try {
-            gatherStats(tableName);
-            assertLocalAndRemoteStatistics(
-                    "SHOW STATS FOR " + tableName,
-                    "VALUES " +
-                            "('orderkey', 0, 0, 1, null, null, null)," +
-                            "('custkey', 0, 0, 1, null, null, null)," +
-                            "('orderpriority', 0, 0, 1, null, null, null)," +
-                            "('comment', 0, 0, 1, null, null, null)," +
-                            "(null, null, null, null, 0, null, null)");
-        }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
-        }
-    }
-
-    @Override
-    @Test
     public void testAllNulls()
     {
         String tableName = "test_stats_table_all_nulls";
@@ -530,7 +507,8 @@ public class TestStarburstRemoteTableStatisticsWithHive
         remoteStarburst.execute(remoteSession, sql);
     }
 
-    private void gatherStats(String tableName)
+    @Override
+    protected void gatherStats(String tableName)
     {
         executeInRemoteStarburst("ANALYZE " + tableName);
     }
