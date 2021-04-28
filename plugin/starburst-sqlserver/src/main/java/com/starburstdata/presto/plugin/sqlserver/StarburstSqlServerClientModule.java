@@ -12,10 +12,12 @@ package com.starburstdata.presto.plugin.sqlserver;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
+import com.starburstdata.presto.plugin.jdbc.StarburstJdbcMetadataFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
@@ -26,6 +28,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcRecordSetProvider;
 import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
@@ -53,6 +56,7 @@ public class StarburstSqlServerClientModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(io.trino.plugin.sqlserver.SqlServerConfig.class);
+        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(StarburstJdbcMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstSqlServerClient.class).in(SINGLETON);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
 
