@@ -1842,8 +1842,45 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSubqueryExpression(SubqueryExpression node, StackableAstVisitorContext<Context> context)
         {
-            Type type = analyzeSubquery(node, context);
+            Type type = analyzeScalarSubquery(node, context);
             subqueries.add(NodeRef.of(node));
+            return type;
+        }
+
+        private Type analyzeScalarSubquery(SubqueryExpression node, StackableAstVisitorContext<Context> context)
+        {
+            if (context.getContext().isInLambda()) {
+                throw semanticException(NOT_SUPPORTED, node, "Lambda expression cannot contain subqueries");
+            }
+            StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
+            Scope subqueryScope = Scope.builder()
+                    .withParent(context.getContext().getScope())
+                    .build();
+            Scope queryScope = analyzer.analyze(node.getQuery(), subqueryScope);
+
+            Type type;
+            if (queryScope.getRelationType().getVisibleFieldCount() == 1) {
+                type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
+            }
+            else {
+                ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
+                for (int i = 0; i < queryScope.getRelationType().getAllFieldCount(); i++) {
+                    Field field = queryScope.getRelationType().getFieldByIndex(i);
+                    if (!field.isHidden()) {
+                        if (field.getName().isPresent()) {
+                            fields.add(RowType.field(field.getName().get(), field.getType()));
+                        }
+                        else {
+                            fields.add(RowType.field(field.getType()));
+                        }
+                    }
+                }
+
+                type = RowType.from(fields.build());
+            }
+
+            sourceFields.addAll(queryScope.getRelationType().getVisibleFields());
+            setExpressionType(node, type);
             return type;
         }
 
