@@ -92,6 +92,25 @@ public final class TypeCoercion
             return sameDecimalSubtype && sameScale && sourcePrecisionIsLessOrEqualToResultPrecision;
         }
 
+        if (source instanceof RowType && result instanceof RowType) {
+            RowType sourceType = (RowType) source;
+            RowType resultType = (RowType) result;
+
+            List<Field> sourceFields = sourceType.getFields();
+            List<Field> resultFields = resultType.getFields();
+            if (sourceFields.size() != resultFields.size()) {
+                return false;
+            }
+
+            for (int i = 0; i < sourceFields.size(); i++) {
+                if (!isTypeOnlyCoercion(sourceFields.get(i).getType(), resultFields.get(i).getType())) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         String sourceTypeBase = source.getBaseName();
         String resultTypeBase = result.getBaseName();
 
