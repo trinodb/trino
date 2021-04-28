@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
+import com.starburstdata.presto.testing.SessionMutator;
 import io.trino.Session;
 import io.trino.plugin.sqlserver.BaseSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.DataCompression;
@@ -25,12 +26,14 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_ENABLED;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSynapseConnectorTest
         extends BaseSqlServerConnectorTest
 {
+    private final SessionMutator sessionMutator = new SessionMutator(super::getSession);
     private SynapseServer synapseServer;
 
     @Override
@@ -45,6 +48,12 @@ public class TestSynapseConnectorTest
                 Function.identity(),
                 Map.of(),
                 TpchTable.getTables());
+    }
+
+    @Override
+    protected Session getSession()
+    {
+        return sessionMutator.getSession();
     }
 
     @Override
@@ -171,6 +180,18 @@ public class TestSynapseConnectorTest
     public void testShowCreateForUniqueConstraintCompressedTable()
     {
         throw new SkipException("data_compression not supported in Synapse");
+    }
+
+    @Override
+    public void testJoinPushdownDisabled()
+    {
+        // disabling join pushdown as Synapse collects stats by default and AUTOMATIC join pushdown triggers
+        // failing assertions defined in OSS, where join pushdown is disabled.
+        sessionMutator.withModifiedSession(
+                session -> Session.builder(session)
+                        .setCatalogSessionProperty(session.getCatalog().orElseThrow(), JOIN_PUSHDOWN_ENABLED, "false")
+                        .build())
+                .call(super::testJoinPushdownDisabled);
     }
 
     @Override
