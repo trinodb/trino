@@ -15,10 +15,11 @@ package io.trino.operator;
 
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.util.Optional;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
@@ -32,12 +33,31 @@ public class EnforceSingleRowOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
+        private final Page nullValuesPage;
+
         private boolean closed;
 
-        public EnforceSingleRowOperatorFactory(int operatorId, PlanNodeId planNodeId)
+        public EnforceSingleRowOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> types)
+        {
+            this(operatorId, planNodeId, makeNullValuesPage(types));
+        }
+
+        private EnforceSingleRowOperatorFactory(int operatorId, PlanNodeId planNodeId, Page nullValuesPage)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.nullValuesPage = requireNonNull(nullValuesPage, "nullValuesPage is null");
+        }
+
+        private static Page makeNullValuesPage(List<Type> types)
+        {
+            Block[] columns = new Block[types.size()];
+            for (int i = 0; i < types.size(); i++) {
+                columns[i] = types.get(i).createBlockBuilder(null, 1)
+                        .appendNull()
+                        .build();
+            }
+            return new Page(1, columns);
         }
 
         @Override
@@ -45,7 +65,7 @@ public class EnforceSingleRowOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, EnforceSingleRowOperator.class.getSimpleName());
-            return new EnforceSingleRowOperator(operatorContext);
+            return new EnforceSingleRowOperator(operatorContext, nullValuesPage);
         }
 
         @Override
@@ -57,19 +77,19 @@ public class EnforceSingleRowOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new EnforceSingleRowOperatorFactory(operatorId, planNodeId);
+            return new EnforceSingleRowOperatorFactory(operatorId, planNodeId, nullValuesPage);
         }
     }
 
-    private static final Page SINGLE_NULL_VALUE_PAGE = new Page(1, new ByteArrayBlock(1, Optional.of(new boolean[] {true}), new byte[1]));
-
     private final OperatorContext operatorContext;
+    private final Page nullValuePage;
     private boolean finishing;
     private Page page;
 
-    public EnforceSingleRowOperator(OperatorContext operatorContext)
+    public EnforceSingleRowOperator(OperatorContext operatorContext, Page nullValuePage)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.nullValuePage = requireNonNull(nullValuePage, "nullValuePage is null");
     }
 
     @Override
@@ -82,7 +102,7 @@ public class EnforceSingleRowOperator
     public void finish()
     {
         if (!finishing && page == null) {
-            this.page = SINGLE_NULL_VALUE_PAGE;
+            this.page = nullValuePage;
         }
         finishing = true;
     }
