@@ -52,6 +52,10 @@ import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
+// Use io.trino.tests.product.launcher.env.common.StandardMultinode instead
+// Product tests should mimic production like use case.
+// Single node environment does not do it well enough and some issues are only exposed with multi node installations.
+@Deprecated
 public final class Standard
         implements EnvironmentExtender
 {
