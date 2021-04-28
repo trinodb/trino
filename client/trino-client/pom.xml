@@ -74,7 +74,7 @@
             <artifactId>failsafe</artifactId>
         </dependency>
 
-        <!-- for testing -->
+        <!-- for testing    -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
