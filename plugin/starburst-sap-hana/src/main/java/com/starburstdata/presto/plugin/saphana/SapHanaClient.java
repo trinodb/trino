@@ -720,7 +720,6 @@ public class SapHanaClient
             return TableStatistics.empty();
         }
         if (!handle.isNamedRelation()) {
-            // TODO(https://starburstdata.atlassian.net/browse/SEP-4856) retrieve statistics for base table and derive statistics for the aggregation
             return TableStatistics.empty();
         }
         try {
