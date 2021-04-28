@@ -1,10 +1,10 @@
 remote exchange (GATHER, SINGLE, [])
     local exchange (GATHER, UNKNOWN, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
-            final aggregation over (substr)
+            final aggregation over (substr$gid)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["substr"])
-                        partial aggregation over (substr)
+                    remote exchange (REPARTITION, HASH, ["substr$gid"])
+                        partial aggregation over (substr$gid)
                             join (LEFT, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, ["custkey"])
                                     cross join:

@@ -1,9 +1,9 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
-        final aggregation over (sm_type, substr, web_name)
+        final aggregation over (sm_type, substr$gid, web_name)
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPARTITION, HASH, ["sm_type", "substr", "web_name"])
-                    partial aggregation over (sm_type, substr, web_name)
+                remote exchange (REPARTITION, HASH, ["sm_type", "substr$gid", "web_name"])
+                    partial aggregation over (sm_type, substr$gid, web_name)
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
