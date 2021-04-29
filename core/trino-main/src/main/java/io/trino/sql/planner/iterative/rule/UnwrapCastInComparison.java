@@ -22,6 +22,7 @@ import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -212,6 +213,10 @@ public class UnwrapCastInComparison
             if (targetType instanceof TimestampWithTimeZoneType) {
                 // Note: two TIMESTAMP WITH TIME ZONE values differing in zone only (same instant) are considered equal.
                 right = withTimeZone(((TimestampWithTimeZoneType) targetType), right, session.getTimeZoneKey());
+            }
+
+            if (sourceType instanceof TimestampType && targetType instanceof DateType) {
+                return unwrapTimestampToDateCast((TimestampType) sourceType, (DateType) targetType, operator, cast.getExpression(), (long) right).orElse(expression);
             }
 
             if (!hasInjectiveImplicitCoercion(sourceType, targetType, right)) {
@@ -406,6 +411,38 @@ public class UnwrapCastInComparison
             }
 
             return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+        }
+
+        private Optional<Expression> unwrapTimestampToDateCast(TimestampType sourceType, DateType targetType, ComparisonExpression.Operator operator, Expression timestampExpression, long dateLiteral)
+        {
+            ResolvedFunction targetToSource;
+            try {
+                targetToSource = metadata.getCoercion(targetType, sourceType);
+            }
+            catch (OperatorNotFoundException e) {
+                return Optional.empty();
+            }
+
+            Expression dateTimestamp = literalEncoder.toExpression(coerce(dateLiteral, targetToSource), sourceType);
+            Expression nextDateTimestamp = literalEncoder.toExpression(coerce(dateLiteral + 1, targetToSource), sourceType);
+
+            switch (operator) {
+                case EQUAL:
+                    return Optional.of(
+                            and(
+                                    new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp),
+                                    new ComparisonExpression(LESS_THAN, timestampExpression, nextDateTimestamp)));
+                case LESS_THAN:
+                    return Optional.of(new ComparisonExpression(LESS_THAN, timestampExpression, dateTimestamp));
+                case LESS_THAN_OR_EQUAL:
+                    return Optional.of(new ComparisonExpression(LESS_THAN, timestampExpression, nextDateTimestamp));
+                case GREATER_THAN:
+                    return Optional.of(new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp));
+                case GREATER_THAN_OR_EQUAL:
+                    return Optional.of(new ComparisonExpression(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp));
+                default:
+                    return Optional.empty();
+            }
         }
 
         private boolean hasInjectiveImplicitCoercion(Type source, Type target, Object value)

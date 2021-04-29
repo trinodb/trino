@@ -71,6 +71,40 @@ public class TestUnwrapCastInComparison
     }
 
     @Test
+    public void testUnwrapCastTimestampAsDate()
+    {
+        // equal
+        testUnwrap("timestamp(3)", "CAST(a AS DATE) = DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000' AND a < TIMESTAMP '1981-06-23 00:00:00.000'");
+        testUnwrap("timestamp(6)", "CAST(a AS DATE) = DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000000' AND a < TIMESTAMP '1981-06-23 00:00:00.000000'");
+        testUnwrap("timestamp(9)", "CAST(a AS DATE) = DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000000000' AND a < TIMESTAMP '1981-06-23 00:00:00.000000000'");
+        testUnwrap("timestamp(12)", "CAST(a AS DATE) = DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000000000000' AND a < TIMESTAMP '1981-06-23 00:00:00.000000000000'");
+
+        // less than
+        testUnwrap("timestamp(3)", "CAST(a AS DATE) < DATE '1981-06-22'", "a < TIMESTAMP '1981-06-22 00:00:00.000'");
+        testUnwrap("timestamp(6)", "CAST(a AS DATE) < DATE '1981-06-22'", "a < TIMESTAMP '1981-06-22 00:00:00.000000'");
+        testUnwrap("timestamp(9)", "CAST(a AS DATE) < DATE '1981-06-22'", "a < TIMESTAMP '1981-06-22 00:00:00.000000000'");
+        testUnwrap("timestamp(12)", "CAST(a AS DATE) < DATE '1981-06-22'", "a < TIMESTAMP '1981-06-22 00:00:00.000000000000'");
+
+        // less than or equal
+        testUnwrap("timestamp(3)", "CAST(a AS DATE) <= DATE '1981-06-22'", "a < TIMESTAMP '1981-06-23 00:00:00.000'");
+        testUnwrap("timestamp(6)", "CAST(a AS DATE) <= DATE '1981-06-22'", "a < TIMESTAMP '1981-06-23 00:00:00.000000'");
+        testUnwrap("timestamp(9)", "CAST(a AS DATE) <= DATE '1981-06-22'", "a < TIMESTAMP '1981-06-23 00:00:00.000000000'");
+        testUnwrap("timestamp(12)", "CAST(a AS DATE) <= DATE '1981-06-22'", "a < TIMESTAMP '1981-06-23 00:00:00.000000000000'");
+
+        // greater than
+        testUnwrap("timestamp(3)", "CAST(a AS DATE) > DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-23 00:00:00.000'");
+        testUnwrap("timestamp(6)", "CAST(a AS DATE) > DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-23 00:00:00.000000'");
+        testUnwrap("timestamp(9)", "CAST(a AS DATE) > DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-23 00:00:00.000000000'");
+        testUnwrap("timestamp(12)", "CAST(a AS DATE) > DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-23 00:00:00.000000000000'");
+
+        // greater than or equal
+        testUnwrap("timestamp(3)", "CAST(a AS DATE) >= DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000'");
+        testUnwrap("timestamp(6)", "CAST(a AS DATE) >= DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000000'");
+        testUnwrap("timestamp(9)", "CAST(a AS DATE) >= DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000000000'");
+        testUnwrap("timestamp(12)", "CAST(a AS DATE) >= DATE '1981-06-22'", "a >= TIMESTAMP '1981-06-22 00:00:00.000000000000'");
+    }
+
+    @Test
     public void testNotEquals()
     {
         // representable
