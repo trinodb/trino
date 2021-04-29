@@ -1823,6 +1823,9 @@ public class ExpressionAnalyzer
                 analyzeSubquery((SubqueryExpression) valueList, context);
                 coerceToSingleType(context, node, "value and result of subquery must be of the same type for IN expression: %s vs %s", value, valueList);
             }
+            else {
+                throw new IllegalArgumentException("Unexpected value list type for InPredicate: " + node.getValueList().getClass().getName());
+            }
 
             return setExpressionType(node, BOOLEAN);
         }
