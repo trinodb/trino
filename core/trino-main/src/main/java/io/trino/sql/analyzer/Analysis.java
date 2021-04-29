@@ -438,7 +438,7 @@ public class Analysis
     {
         SubqueryAnalysis subqueries = this.subqueries.computeIfAbsent(NodeRef.of(node), key -> new SubqueryAnalysis());
         subqueries.addInPredicates(dereference(expressionAnalysis.getSubqueryInPredicates()));
-        subqueries.addScalarSubqueries(dereference(expressionAnalysis.getScalarSubqueries()));
+        subqueries.addSubqueries(dereference(expressionAnalysis.getSubqueries()));
         subqueries.addExistsSubqueries(dereference(expressionAnalysis.getExistsSubqueries()));
         subqueries.addQuantifiedComparisons(dereference(expressionAnalysis.getQuantifiedComparisons()));
     }
@@ -1317,7 +1317,7 @@ public class Analysis
     public static class SubqueryAnalysis
     {
         private final List<InPredicate> inPredicatesSubqueries = new ArrayList<>();
-        private final List<SubqueryExpression> scalarSubqueries = new ArrayList<>();
+        private final List<SubqueryExpression> subqueries = new ArrayList<>();
         private final List<ExistsPredicate> existsSubqueries = new ArrayList<>();
         private final List<QuantifiedComparisonExpression> quantifiedComparisonSubqueries = new ArrayList<>();
 
@@ -1326,9 +1326,9 @@ public class Analysis
             inPredicatesSubqueries.addAll(expressions);
         }
 
-        public void addScalarSubqueries(List<SubqueryExpression> expressions)
+        public void addSubqueries(List<SubqueryExpression> expressions)
         {
-            scalarSubqueries.addAll(expressions);
+            subqueries.addAll(expressions);
         }
 
         public void addExistsSubqueries(List<ExistsPredicate> expressions)
@@ -1346,9 +1346,9 @@ public class Analysis
             return Collections.unmodifiableList(inPredicatesSubqueries);
         }
 
-        public List<SubqueryExpression> getScalarSubqueries()
+        public List<SubqueryExpression> getSubqueries()
         {
-            return Collections.unmodifiableList(scalarSubqueries);
+            return Collections.unmodifiableList(subqueries);
         }
 
         public List<ExistsPredicate> getExistsSubqueries()
