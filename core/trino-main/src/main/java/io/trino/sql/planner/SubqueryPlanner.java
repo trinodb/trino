@@ -117,7 +117,7 @@ class SubqueryPlanner
         for (Cluster<InPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getInPredicatesSubqueries()))) {
             builder = planInPredicate(builder, cluster, subqueries);
         }
-        for (Cluster<SubqueryExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getScalarSubqueries()))) {
+        for (Cluster<SubqueryExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getSubqueries()))) {
             builder = planScalarSubquery(builder, cluster);
         }
         for (Cluster<ExistsPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getExistsSubqueries()))) {
