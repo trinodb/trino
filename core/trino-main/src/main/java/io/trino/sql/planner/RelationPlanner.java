@@ -832,7 +832,7 @@ class RelationPlanner
 
         PlanBuilder planBuilder = subqueryPlanner.appendCorrelatedJoin(
                 leftPlanBuilder,
-                rightPlanBuilder,
+                rightPlanBuilder.getRoot(),
                 lateral.getQuery(),
                 CorrelatedJoinNode.Type.typeConvert(join.getType()),
                 rewrittenFilterCondition,
