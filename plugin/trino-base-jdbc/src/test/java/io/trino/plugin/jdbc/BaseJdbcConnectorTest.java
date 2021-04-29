@@ -45,6 +45,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_ENABLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -302,8 +303,9 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testJoinPushdownDisabled()
     {
-        // If join pushdown gets enabled by default, this test should use a session with join pushdown disabled
         Session noJoinPushdown = Session.builder(getSession())
+                // Explicitly disable join pushdown
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), JOIN_PUSHDOWN_ENABLED, "false")
                 // Disable dynamic filtering so that expected plans in case of no pushdown remain "simple"
                 .setSystemProperty("enable_dynamic_filtering", "false")
                 // Disable optimized hash generation so that expected plans in case of no pushdown remain "simple"
