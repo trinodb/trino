@@ -1810,9 +1810,8 @@ public class ExpressionAnalyzer
             process(value, context);
 
             Expression valueList = node.getValueList();
-            process(valueList, context);
-
             if (valueList instanceof InListExpression) {
+                process(valueList, context);
                 InListExpression inListExpression = (InListExpression) valueList;
 
                 coerceToSingleType(context,
@@ -1820,6 +1819,8 @@ public class ExpressionAnalyzer
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
             }
             else if (valueList instanceof SubqueryExpression) {
+                subqueryInPredicates.add(NodeRef.of(node));
+                analyzeSubquery((SubqueryExpression) valueList, context);
                 coerceToSingleType(context, node, "value and result of subquery must be of the same type for IN expression: %s vs %s", value, valueList);
             }
 
@@ -1838,6 +1839,13 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSubqueryExpression(SubqueryExpression node, StackableAstVisitorContext<Context> context)
         {
+            Type type = analyzeSubquery(node, context);
+            subqueries.add(NodeRef.of(node));
+            return type;
+        }
+
+        private Type analyzeSubquery(SubqueryExpression node, StackableAstVisitorContext<Context> context)
+        {
             if (context.getContext().isInLambda()) {
                 throw semanticException(NOT_SUPPORTED, node, "Lambda expression cannot contain subqueries");
             }
@@ -1855,21 +1863,11 @@ public class ExpressionAnalyzer
                         queryScope.getRelationType().getVisibleFieldCount());
             }
 
-            Node previousNode = context.getPreviousNode().orElse(null);
-            if (previousNode instanceof InPredicate && ((InPredicate) previousNode).getValue() != node) {
-                subqueryInPredicates.add(NodeRef.of((InPredicate) previousNode));
-            }
-            else if (previousNode instanceof QuantifiedComparisonExpression) {
-                quantifiedComparisons.add(NodeRef.of((QuantifiedComparisonExpression) previousNode));
-            }
-            else {
-                subqueries.add(NodeRef.of(node));
-            }
-
             sourceFields.add(queryScope.getRelationType().getFieldByIndex(0));
 
             Type type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
-            return setExpressionType(node, type);
+            setExpressionType(node, type);
+            return type;
         }
 
         @Override
@@ -1903,11 +1901,13 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
+            quantifiedComparisons.add(NodeRef.of(node));
+
             Expression value = node.getValue();
             process(value, context);
 
             Expression subquery = node.getSubquery();
-            process(subquery, context);
+            analyzeSubquery((SubqueryExpression) subquery, context);
 
             Type comparisonType = coerceToSingleType(context, node, "Value expression and result of subquery must be of the same type for quantified comparison: %s vs %s", value, subquery);
 
