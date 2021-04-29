@@ -1301,4 +1301,24 @@ public class TestSubqueries
                         "ON TRUE "))
                 .matches("VALUES 1, 2, 3, 4, 5, null");
     }
+
+    @Test
+    public void testQuantifiedComparison()
+    {
+        assertThat(assertions.query(
+                "SELECT (SELECT 2) > ALL (SELECT 1)"))
+                .matches("VALUES true");
+    }
+
+    @Test
+    public void testInPredicate()
+    {
+        assertThat(assertions.query(
+                "SELECT (SELECT 1) IN (SELECT 1)"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT 2) IN (SELECT 1)"))
+                .matches("VALUES false");
+    }
 }
