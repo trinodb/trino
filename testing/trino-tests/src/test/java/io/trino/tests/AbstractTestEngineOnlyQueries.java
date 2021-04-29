@@ -132,8 +132,6 @@ public abstract class AbstractTestEngineOnlyQueries
                     99.0,
                     false));
 
-    private static final int ARRAY_CONSTRUCTION_LIMIT = 254;
-
     @Test
     public void testDateLiterals()
     {
@@ -6028,18 +6026,20 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testLargePivot()
     {
-        MaterializedResult result = computeActual(pivotQuery(ARRAY_CONSTRUCTION_LIMIT));
+        int arrayConstructionLimit = 254;
+
+        MaterializedResult result = computeActual(pivotQuery(arrayConstructionLimit));
         assertThat(result.getRowCount())
                 .as("row count")
-                .isEqualTo(ARRAY_CONSTRUCTION_LIMIT);
+                .isEqualTo(arrayConstructionLimit);
 
         MaterializedRow row = result.getMaterializedRows().get(0);
         assertThat(row.getFieldCount())
                 .as("field count")
-                .isEqualTo(ARRAY_CONSTRUCTION_LIMIT + 2);
+                .isEqualTo(arrayConstructionLimit + 2);
 
-        // Verify that ARRAY_CONSTRUCTION_LIMIT is the current limit so that the test stays relevant and prevents regression if we improve in the future.
-        assertQueryFails(pivotQuery(ARRAY_CONSTRUCTION_LIMIT + 1), "Too many arguments for array constructor");
+        // Verify that arrayConstructionLimit is the current limit so that the test stays relevant and prevents regression if we improve in the future.
+        assertQueryFails(pivotQuery(arrayConstructionLimit + 1), "Too many arguments for array constructor");
     }
 
     private static String pivotQuery(int columnsCount)
