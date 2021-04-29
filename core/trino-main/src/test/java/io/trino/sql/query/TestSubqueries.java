@@ -1330,6 +1330,46 @@ public class TestSubqueries
         assertThat(assertions.query(
                 "SELECT (SELECT 2) > ALL (SELECT 1)"))
                 .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(2) > ALL (VALUES ROW(ROW(0)), ROW(ROW(1)))"))
+                .describedAs("Single-element row type, non-null and non-indeterminate values")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(2) > ALL (VALUES ROW(ROW(0)), ROW(ROW(1)), ROW(ROW(NULL)))"))
+                .describedAs("Single-element row type, indeterminate value")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(2) > ALL (VALUES ROW(ROW(0)), ROW(ROW(1)), NULL)"))
+                .describedAs("Single-element row type, null value")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(2) > ALL (SELECT ROW(0) WHERE false)"))
+                .describedAs("Single-element row type, with empty set")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT NULL > ALL (VALUES ROW(ROW(0)), ROW(ROW(1)))"))
+                .describedAs("Single-element row type, null value, non-null and non-indeterminate elements")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT NULL > ALL (VALUES ROW(ROW(0)), ROW(ROW(NULL)))"))
+                .describedAs("Single-element row type, null value, indeterminate element")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT NULL > ALL (VALUES ROW(ROW(0)), NULL)"))
+                .describedAs("Single-element row type, null value, null element")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT NULL > ALL (SELECT ROW(ROW(0)) WHERE false)"))
+                .describedAs("Single-element row type, null value, empty set")
+                .matches("VALUES true");
     }
 
     @Test
@@ -1341,6 +1381,61 @@ public class TestSubqueries
 
         assertThat(assertions.query(
                 "SELECT (SELECT 2) IN (SELECT 1)"))
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (VALUES ROW(ROW(0)), ROW(ROW(1)))"))
+                .describedAs("Single-element row type, non-null and non-indeterminate values, present")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (VALUES ROW(ROW(1)), ROW(ROW(2)))"))
+                .describedAs("Single-element row type, non-null and non-indeterminate values, not present")
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (VALUES ROW(ROW(0)), ROW(ROW(NULL)))"))
+                .describedAs("Single-element row type, indeterminate element, present")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (VALUES ROW(ROW(1)), ROW(ROW(NULL)))"))
+                .describedAs("Single-element row type, indeterminate element, not present")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (VALUES ROW(ROW(0)), NULL)"))
+                .describedAs("Single-element row type, null element, present")
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (VALUES ROW(ROW(1)), NULL)"))
+                .describedAs("Single-element row type, null element, not present")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT ROW(0) IN (SELECT ROW(0) WHERE false)"))
+                .describedAs("Single-element row type, with empty set")
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT NULL IN (VALUES ROW(ROW(0)))"))
+                .describedAs("Single-element row type, null value, non-null and non-indeterminate elements")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT NULL IN (VALUES ROW(ROW(0)), ROW(ROW(NULL)))"))
+                .describedAs("Single-element row type, null value, indeterminate element")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT NULL IN (VALUES ROW(ROW(0)), NULL)"))
+                .describedAs("Single-element row type, null value, null element")
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query(
+                "SELECT NULL IN (SELECT ROW(ROW(0)) WHERE false)"))
+                .describedAs("Single-element row type, null value, empty set")
                 .matches("VALUES false");
     }
 

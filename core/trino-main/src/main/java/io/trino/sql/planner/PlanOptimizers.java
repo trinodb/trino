@@ -216,6 +216,7 @@ import io.trino.sql.planner.iterative.rule.TransformFilteringSemiJoinToInnerJoin
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
+import io.trino.sql.planner.iterative.rule.UnwrapSingleColumnRowInApply;
 import io.trino.sql.planner.optimizations.AddExchanges;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.BeginTableWrite;
@@ -427,7 +428,9 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(columnPruningRules)
                                 .addAll(projectionPushdownRules)
+                                .addAll(new DesugarRowSubscript(typeAnalyzer).rules())
                                 .addAll(ImmutableSet.of(
+                                        new UnwrapSingleColumnRowInApply(typeAnalyzer),
                                         new MergeFilters(metadata),
                                         new InlineProjections(),
                                         new RemoveRedundantIdentityProjections(),
