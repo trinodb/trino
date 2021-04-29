@@ -194,7 +194,8 @@ public class MySqlClient
     @Override
     protected boolean filterSchema(String schemaName)
     {
-        if (schemaName.equalsIgnoreCase("mysql")) {
+        if (schemaName.equalsIgnoreCase("mysql")
+                || schemaName.equalsIgnoreCase("sys")) {
             return false;
         }
         return super.filterSchema(schemaName);
