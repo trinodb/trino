@@ -60,6 +60,7 @@ import static io.trino.spi.type.TimeWithTimeZoneParametricType.TIME_WITH_TIME_ZO
 import static io.trino.spi.type.TimestampParametricType.TIMESTAMP;
 import static io.trino.spi.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.ArrayParametricType.ARRAY;
@@ -77,7 +78,6 @@ import static io.trino.type.MapParametricType.MAP;
 import static io.trino.type.RowParametricType.ROW;
 import static io.trino.type.TDigestType.TDIGEST;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.type.UuidType.UUID;
 import static io.trino.type.setdigest.SetDigestType.SET_DIGEST;
 import static java.util.Objects.requireNonNull;
 

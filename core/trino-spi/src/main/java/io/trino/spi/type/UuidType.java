@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.type;
+package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -25,12 +25,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.ScalarOperator;
-import io.trino.spi.type.AbstractType;
-import io.trino.spi.type.FixedWidthType;
-import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.TypeOperatorDeclaration;
-import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.UUID;
 
