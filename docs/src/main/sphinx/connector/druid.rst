@@ -32,3 +32,21 @@ secured by basic authentication by updating the URL and adding credentials:
 
 Now you can access your Druid database in Trino with the ``druiddb`` catalog
 name from the properties file.
+
+.. _druid-pushdown:
+
+Pushdown
+--------
+
+The connector supports pushdown for a number of operations:
+
+* :ref:`join-pushdown`
+* :ref:`limit-pushdown`
+* :ref:`topn-pushdown`
+
+:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+* :func:`avg`
+* :func:`count`
+* :func:`max`
+* :func:`min`
