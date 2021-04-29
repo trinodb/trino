@@ -675,10 +675,6 @@ public class CachingHiveMetastore
     @Override
     public Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter)
     {
-        if (partitionKeysFilter.isNone()) {
-            return Optional.of(ImmutableList.of());
-        }
-
         return get(partitionFilterCache, new WithIdentity<>(updateIdentity(identity), partitionFilter(databaseName, tableName, columnNames, partitionKeysFilter)));
     }
 

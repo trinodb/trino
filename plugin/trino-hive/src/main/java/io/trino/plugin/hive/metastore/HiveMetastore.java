@@ -93,13 +93,13 @@ public interface HiveMetastore
     Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues);
 
     /**
-     * return a list of partition names where partitionKeysFilter is used as a hint to each implementation.
+     * Return a list of partition names, with optional filtering (hint to improve performance if possible).
      *
      * @param databaseName the name of the database
      * @param tableName the name of the table
      * @param columnNames the list of partition column names
-     * @param partitionKeysFilter map of filters (Domain) for each partition column
-     * @return optionally, a list of strings where each entry is in the form of {key}={value}
+     * @param partitionKeysFilter optional filter for the partition column values
+     * @return a list of partition names as created by {@link MetastoreUtil#toPartitionName}
      * @see TupleDomain
      */
     Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter);
