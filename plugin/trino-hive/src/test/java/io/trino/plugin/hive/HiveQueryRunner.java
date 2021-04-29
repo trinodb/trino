@@ -98,8 +98,7 @@ public final class HiveQueryRunner
                     new MetastoreConfig(),
                     new FileHiveMetastoreConfig()
                             .setCatalogDirectory(baseDir.toURI().toString())
-                            .setMetastoreUser("test")
-                            .setAssumeCanonicalPartitionKeys(true));
+                            .setMetastoreUser("test"));
         };
         private Module module = EMPTY_MODULE;
 
