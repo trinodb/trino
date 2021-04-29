@@ -154,8 +154,7 @@ public class TestIcebergMaterializedViews
     public void testRefreshAllowedWithRestrictedStorageTable()
     {
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh AS SELECT * FROM base_table1");
-        SchemaTableName storageTable = getStorageTable(
-            new QualifiedObjectName("iceberg", "tpch", "materialized_view_refresh"));
+        SchemaTableName storageTable = getStorageTable("iceberg", "tpch", "materialized_view_refresh");
 
         assertAccessAllowed(
                 "REFRESH MATERIALIZED VIEW materialized_view_refresh",
@@ -425,13 +424,13 @@ public class TestIcebergMaterializedViews
         }
     }
 
-    private SchemaTableName getStorageTable(QualifiedObjectName materializedViewName)
+    private SchemaTableName getStorageTable(String catalogName, String schemaName, String objectName)
     {
         TransactionManager transactionManager = getQueryRunner().getTransactionManager();
         TransactionId transactionId = transactionManager.beginTransaction(false);
         Session session = getSession().beginTransactionId(transactionId, transactionManager, getQueryRunner().getAccessControl());
         Optional<ConnectorMaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
-                .getMaterializedView(session, materializedViewName);
+                .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, objectName));
         assertThat(materializedView).isPresent();
         return materializedView.get().getStorageTable().get().getSchemaTableName();
     }
