@@ -669,4 +669,9 @@ public interface Metadata
      * Get the target table handle after performing redirection.
      */
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName);
+
+    /**
+     * Canonicalizes the provided SQL identifier according to connector-specific rules
+     */
+    NameCanonicalizer getNameCanonicalizer(Session session, String catalogName);
 }

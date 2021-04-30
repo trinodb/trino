@@ -160,6 +160,7 @@ import static com.google.common.primitives.Primitives.wrap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
+import static io.trino.metadata.NameCanonicalizer.LEGACY_NAME_CANONICALIZER;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
@@ -2458,6 +2459,17 @@ public final class MetadataManager
     public AnalyzePropertyManager getAnalyzePropertyManager()
     {
         return analyzePropertyManager;
+    }
+
+    @Override
+    public NameCanonicalizer getNameCanonicalizer(Session session, String catalogName)
+    {
+        Optional<CatalogMetadata> metadata = getOptionalCatalogMetadata(session, catalogName);
+        if (metadata.isPresent()) {
+            return (identifier, delimited) ->
+                    metadata.get().getMetadata().canonicalize(session.toConnectorSession(metadata.get().getCatalogName()), identifier, delimited);
+        }
+        return LEGACY_NAME_CANONICALIZER;
     }
 
     //
