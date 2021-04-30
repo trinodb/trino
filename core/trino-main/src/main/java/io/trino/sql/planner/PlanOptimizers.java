@@ -28,6 +28,7 @@ import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.iterative.RuleStats;
 import io.trino.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import io.trino.sql.planner.iterative.rule.AddIntermediateAggregations;
 import io.trino.sql.planner.iterative.rule.ApplyTableScanRedirection;
@@ -218,6 +219,7 @@ import io.trino.sql.planner.optimizations.IndexJoinOptimizer;
 import io.trino.sql.planner.optimizations.LimitPushDown;
 import io.trino.sql.planner.optimizations.MetadataQueryOptimizer;
 import io.trino.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
+import io.trino.sql.planner.optimizations.OptimizerStats;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.optimizations.PredicatePushDown;
 import io.trino.sql.planner.optimizations.PruneUnreferencedOutputs;
@@ -229,10 +231,10 @@ import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.optimizations.WindowFilterPushDown;
 import org.weakref.jmx.MBeanExporter;
 
-import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static io.trino.SystemSessionProperties.isIterativeRuleBasedColumnPruning;
@@ -241,11 +243,8 @@ public class PlanOptimizers
         implements PlanOptimizersFactory
 {
     private final List<PlanOptimizer> optimizers;
-    private final RuleStatsRecorder ruleStats;
+    private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
-    private final MBeanExporter exporter;
-
-    private boolean initialized;
 
     @Inject
     public PlanOptimizers(
@@ -261,7 +260,6 @@ public class PlanOptimizers
             @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
-            RuleStatsRecorder ruleStats,
             NodePartitioningManager nodePartitioningManager)
     {
         this(metadata,
@@ -277,15 +275,7 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 costComparator,
                 taskCountEstimator,
-                ruleStats,
                 nodePartitioningManager);
-    }
-
-    @PreDestroy
-    public void destroy()
-    {
-        ruleStats.unexport(exporter);
-        optimizerStats.unexport(exporter);
     }
 
     public PlanOptimizers(
@@ -302,11 +292,8 @@ public class PlanOptimizers
             CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
-            RuleStatsRecorder ruleStats,
             NodePartitioningManager nodePartitioningManager)
     {
-        this.ruleStats = ruleStats;
-        this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(
@@ -894,18 +881,18 @@ public class PlanOptimizers
     @Override
     public List<PlanOptimizer> get()
     {
-        initialize();
         return optimizers;
     }
 
-    private synchronized void initialize()
+    @Override
+    public Map<Class<?>, OptimizerStats> getOptimizerStats()
     {
-        if (initialized) {
-            return;
-        }
+        return optimizerStats.getStats();
+    }
 
-        ruleStats.export(exporter);
-        optimizerStats.export(exporter);
-        initialized = true;
+    @Override
+    public Map<Class<?>, RuleStats> getRuleStats()
+    {
+        return ruleStats.getStats();
     }
 }
