@@ -16,7 +16,7 @@ which returns a ``Set<String>`` of group names.
 This set of group names becomes part of the ``Identity`` and ``ConnectorIdentity``
 objects representing the user, and can then be used by :doc:`system-access-control`.
 
-The implementation of ``GroupProvider`` and it's corresponding ``GroupProviderFactory``
+The implementation of ``GroupProvider`` and its corresponding ``GroupProviderFactory``
 must be wrapped as a Trino plugin and installed on the cluster.
 
 Configuration
