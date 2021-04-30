@@ -147,7 +147,6 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizers;
-import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -874,7 +873,6 @@ public class LocalQueryRunner
                 estimatedExchangesCostCalculator,
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
-                new RuleStatsRecorder(),
                 nodePartitioningManager).get();
     }
 

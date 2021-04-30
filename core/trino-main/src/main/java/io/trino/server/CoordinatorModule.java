@@ -81,10 +81,10 @@ import io.trino.server.ui.WorkerResource;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.security.SelectedRole;
 import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.planner.OptimizerStatsMBeanExporter;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
 import io.trino.sql.planner.PlanOptimizersFactory;
-import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.transaction.ForTransactionManager;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -216,8 +216,8 @@ public class CoordinatorModule
         newOptionalBinder(binder, PlanOptimizersFactory.class)
                 .setDefault().to(PlanOptimizers.class).in(Scopes.SINGLETON);
 
-        // Rule Stats Recorder
-        binder.bind(RuleStatsRecorder.class).in(Scopes.SINGLETON);
+        // Optimizer/Rule Stats exporter
+        binder.bind(OptimizerStatsMBeanExporter.class).in(Scopes.SINGLETON);
 
         // query explainer
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
