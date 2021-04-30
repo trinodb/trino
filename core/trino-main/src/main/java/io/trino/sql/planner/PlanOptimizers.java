@@ -229,7 +229,9 @@ import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.optimizations.WindowFilterPushDown;
 import org.weakref.jmx.MBeanExporter;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.util.List;
@@ -245,6 +247,7 @@ public class PlanOptimizers
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
     private final MBeanExporter exporter;
 
+    @GuardedBy("this")
     private boolean initialized;
 
     @Inject
@@ -281,11 +284,24 @@ public class PlanOptimizers
                 nodePartitioningManager);
     }
 
-    @PreDestroy
-    public void destroy()
+    @PostConstruct
+    public synchronized void initialize()
     {
-        ruleStats.unexport(exporter);
-        optimizerStats.unexport(exporter);
+        if (!initialized) {
+            ruleStats.export(exporter);
+            optimizerStats.export(exporter);
+            initialized = true;
+        }
+    }
+
+    @PreDestroy
+    public synchronized void destroy()
+    {
+        if (initialized) {
+            ruleStats.unexport(exporter);
+            optimizerStats.unexport(exporter);
+            initialized = false;
+        }
     }
 
     public PlanOptimizers(
@@ -894,18 +910,6 @@ public class PlanOptimizers
     @Override
     public List<PlanOptimizer> get()
     {
-        initialize();
         return optimizers;
-    }
-
-    private synchronized void initialize()
-    {
-        if (initialized) {
-            return;
-        }
-
-        ruleStats.export(exporter);
-        optimizerStats.export(exporter);
-        initialized = true;
     }
 }
