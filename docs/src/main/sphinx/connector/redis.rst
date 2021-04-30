@@ -165,8 +165,8 @@ For tables without a table definition file, the ``_key_corrupt`` and
 Table definition files
 ----------------------
 
-With the Redis connector it's possible to further reduce Redis key/value pairs into
-granular cells provided the key/value sting follow a particular format. This process
+With the Redis connector it is possible to further reduce Redis key/value pairs into
+granular cells, provided the key/value string follows a particular format. This process
 defines new columns that can be further queried from Trino.
 
 A table definition file consists of a JSON definition for a table. The
