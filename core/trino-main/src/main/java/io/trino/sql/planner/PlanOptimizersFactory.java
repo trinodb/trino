@@ -13,11 +13,18 @@
  */
 package io.trino.sql.planner;
 
+import io.trino.sql.planner.iterative.RuleStats;
+import io.trino.sql.planner.optimizations.OptimizerStats;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 
 import java.util.List;
+import java.util.Map;
 
 public interface PlanOptimizersFactory
 {
     List<PlanOptimizer> get();
+
+    Map<Class<?>, OptimizerStats> getOptimizerStats();
+
+    Map<Class<?>, RuleStats> getRuleStats();
 }
