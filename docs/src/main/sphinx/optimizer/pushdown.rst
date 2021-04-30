@@ -154,7 +154,7 @@ source, and therefore for each connector.
 .. _limit-pushdown:
 
 Limit pushdown
-^^^^^^^^^^^^^^
+--------------
 
 A :ref:`limit-clause` reduces the number of returned records for a statement.
 Limit pushdown enables a connector to push processing of such queries of
@@ -171,7 +171,7 @@ Implementation and support is connector-specific since different data sources ha
 .. _topn-pushdown:
 
 Top-N pushdown
-^^^^^^^^^^^^^^
+--------------
 
 The combination of a :ref:`limit-clause` with an :ref:`order-by-clause` creates
 a small set of records to return out of a large sorted dataset. It relies on the
