@@ -188,7 +188,6 @@ public class TestExternalAuthenticator
     @Test(timeOut = 2000)
     public void testAuthenticationFromMultipleThreadsWithCachedToken()
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(this.getClass().getName() + "%n"));
         MockTokenPoller tokenPoller = new MockTokenPoller()
                 .withResult(URI.create("http://token.uri"), successful(new Token("valid-token")));
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
