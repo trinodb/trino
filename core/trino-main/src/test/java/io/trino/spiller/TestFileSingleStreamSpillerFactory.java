@@ -16,7 +16,6 @@ package io.trino.spiller;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
-import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.trino.spi.Page;
@@ -28,6 +27,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
@@ -59,13 +60,14 @@ public class TestFileSingleStreamSpillerFactory
 
     @BeforeMethod
     public void setUp()
+            throws IOException
     {
         closer = Closer.create();
         executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
         closer.register(() -> executor.shutdownNow());
-        spillPath1 = Files.createTempDir();
+        spillPath1 = Files.createTempDirectory("tmp_spill_path1").toFile();
         closer.register(() -> deleteRecursively(spillPath1.toPath(), ALLOW_INSECURE));
-        spillPath2 = Files.createTempDir();
+        spillPath2 = Files.createTempDirectory("tmp_spill_path2").toFile();
         closer.register(() -> deleteRecursively(spillPath2.toPath(), ALLOW_INSECURE));
     }
 
