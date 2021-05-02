@@ -14,7 +14,6 @@
 package io.trino.spiller;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import io.trino.RowPagesBuilder;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
@@ -25,10 +24,13 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.FeaturesConfig;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -50,12 +52,19 @@ public class TestBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
 
-    private final File spillPath = Files.createTempDir();
+    private File spillPath;
     private SpillerStats spillerStats;
     private FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private SpillerFactory factory;
     private PagesSerde pagesSerde;
     private AggregatedMemoryContext memoryContext;
+
+    @BeforeClass(alwaysRun = true)
+    public void setUpClass()
+            throws IOException
+    {
+        spillPath = Files.createTempDirectory("tmp").toFile();
+    }
 
     @BeforeMethod
     public void setUp()
