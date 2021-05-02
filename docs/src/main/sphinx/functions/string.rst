@@ -134,6 +134,22 @@ String functions
 
     Removes trailing whitespace from ``string``.
 
+.. function:: soundex(char) -> string
+
+   ``soundex`` returns a character string containing the phonetic representation of ``char``.
+    This function is typically used to evaluate the similarity of two expressions phoenetically, 
+    i.e how the string sounds when spoken.
+
+    Here is an example to illustrate the ``soundex`` function::
+
+        SELECT * FROM nation WHERE SOUNDEX(name)  = SOUNDEX('CHYNA');
+
+        nationkey | name  | regionkey |
+        -----------+-------+-----------+-------------------------
+        18 | CHINA |    2 | c dependencies. furiousl
+        (1 row)
+    
+
 .. function:: split(string, delimiter) -> array(varchar)
 
     Splits ``string`` on ``delimiter`` and returns an array.
