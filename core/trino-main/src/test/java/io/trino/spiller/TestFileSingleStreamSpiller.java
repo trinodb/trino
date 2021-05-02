@@ -15,7 +15,6 @@ package io.trino.spiller;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.InputStreamSliceInput;
 import io.trino.execution.buffer.PageCodecMarker;
@@ -27,10 +26,13 @@ import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Iterator;
 import java.util.List;
 
@@ -55,7 +57,14 @@ public class TestFileSingleStreamSpiller
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, DOUBLE, VARBINARY);
 
     private final ListeningExecutorService executor = listeningDecorator(newCachedThreadPool());
-    private final File spillPath = Files.createTempDir();
+    private File spillPath;
+
+    @BeforeClass(alwaysRun = true)
+    public void setUp()
+            throws IOException
+    {
+        spillPath = Files.createTempDirectory("tmp").toFile();
+    }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
