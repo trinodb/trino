@@ -353,13 +353,17 @@ public class TestIcebergMaterializedViews
         assertQueryFails("show create view  materialized_view_window",
                 "line 1:1: Relation 'iceberg.tpch.materialized_view_window' is a materialized view, not a view");
 
-        assertQuery(session, "show create materialized view  materialized_view_window",
-                "VALUES ('CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_window AS\n" +
-                        "SELECT\n" +
-                        "  _date\n" +
-                        ", sum(_bigint) OVER (PARTITION BY _date ORDER BY _date ASC) sum_ints\n" +
-                        "FROM\n" +
-                        "  base_table1')");
+        String expectedString = "VALUES('CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_window\n" +
+                "WITH (\n" +
+                "   format = ''ORC'',\n" +
+                "   partitioning = ARRAY[''_date'']\n" +
+                ") AS\n" +
+                "SELECT\n" +
+                "  _date\n" +
+                ", sum(_bigint) OVER (PARTITION BY _date ORDER BY _date ASC) sum_ints\n" +
+                "FROM\n" +
+                "  base_table1')";
+        assertQuery(session, "show create materialized view  materialized_view_window", expectedString);
 
         assertQueryFails("INSERT INTO materialized_view_window VALUES (0, '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')",
                 "Inserting into materialized views is not supported");
