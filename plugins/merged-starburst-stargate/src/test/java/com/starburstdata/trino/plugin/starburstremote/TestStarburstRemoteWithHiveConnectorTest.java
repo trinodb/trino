@@ -340,15 +340,4 @@ public class TestStarburstRemoteWithHiveConnectorTest
                 .hasMessageMatching("This connector does not support creating tables.*");
         throw new SkipException("test requires table creation");
     }
-
-    @Override
-    public void testJoinPushdownDisabled()
-    {
-        // We are getting statistics for Starburst remote connector so AUTOMATIC cost-aware pushdown kicks in
-        assertThatThrownBy(super::testJoinPushdownDisabled)
-                .isInstanceOf(AssertionError.class)
-                .hasMessageStartingWith("Plan does not match")
-                .hasStackTraceContaining(".isNotFullyPushedDown(");
-        throw new SkipException("Starburst Remote provides tables statistics");
-    }
 }
