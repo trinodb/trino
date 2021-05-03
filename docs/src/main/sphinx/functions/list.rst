@@ -378,6 +378,7 @@ S
 - :func:`skewness`
 - :func:`slice`
 - :ref:`SOME <quantified_comparison_predicates>`
+- :func:`soundex`
 - ``spatial_partitioning``
 - ``spatial_partitions``
 - :func:`split`
