@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.VersionNumber;
+import com.datastax.oss.driver.api.core.Version;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,7 +35,7 @@ public class CassandraClusteringPredicatesExtractor
     private final ClusteringPushDownResult clusteringPushDownResult;
     private final TupleDomain<ColumnHandle> predicates;
 
-    public CassandraClusteringPredicatesExtractor(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)
+    public CassandraClusteringPredicatesExtractor(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, Version cassandraVersion)
     {
         this.predicates = requireNonNull(predicates, "predicates is null");
         this.clusteringPushDownResult = getClusteringKeysSet(clusteringColumns, predicates, requireNonNull(cassandraVersion, "cassandraVersion is null"));
@@ -52,7 +52,7 @@ public class CassandraClusteringPredicatesExtractor
         return predicates.filter(((columnHandle, domain) -> !pushedDown.containsKey(columnHandle)));
     }
 
-    private static ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)
+    private static ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, Version cassandraVersion)
     {
         ImmutableMap.Builder<ColumnHandle, Domain> domainsBuilder = ImmutableMap.builder();
         ImmutableList.Builder<String> clusteringColumnSql = ImmutableList.builder();
@@ -131,7 +131,7 @@ public class CassandraClusteringPredicatesExtractor
                 break;
             }
             // IN restriction only on last clustering column for Cassandra version = 2.1
-            if (predicateString.contains(" IN (") && cassandraVersion.compareTo(VersionNumber.parse("2.2.0")) < 0 && currentClusteringColumn != (clusteringColumns.size() - 1)) {
+            if (predicateString.contains(" IN (") && cassandraVersion.compareTo(Version.parse("2.2.0")) < 0 && currentClusteringColumn != (clusteringColumns.size() - 1)) {
                 break;
             }
             clusteringColumnSql.add(predicateString);

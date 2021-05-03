@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.datastax.oss.driver.internal.core.metadata.token.Murmur3Token;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
@@ -28,24 +29,24 @@ public class TestMurmur3PartitionerTokenRing
     @Test
     public void testGetTokenCountInRange()
     {
-        assertEquals(tokenRing.getTokenCountInRange("0", "1"), ONE);
-        assertEquals(tokenRing.getTokenCountInRange("-1", "1"), new BigInteger("2"));
-        assertEquals(tokenRing.getTokenCountInRange("-100", "100"), new BigInteger("200"));
-        assertEquals(tokenRing.getTokenCountInRange("0", "10"), new BigInteger("10"));
-        assertEquals(tokenRing.getTokenCountInRange("1", "11"), new BigInteger("10"));
-        assertEquals(tokenRing.getTokenCountInRange("0", "0"), ZERO);
-        assertEquals(tokenRing.getTokenCountInRange("1", "1"), ZERO);
-        assertEquals(tokenRing.getTokenCountInRange(Long.toString(Long.MIN_VALUE), Long.toString(Long.MIN_VALUE)), BigInteger.valueOf(2).pow(64).subtract(ONE));
-        assertEquals(tokenRing.getTokenCountInRange("1", "0"), BigInteger.valueOf(2).pow(64).subtract(BigInteger.valueOf(2)));
+        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(0), new Murmur3Token(1)), ONE);
+        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(-1), new Murmur3Token(1)), new BigInteger("2"));
+        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(-100), new Murmur3Token(100)), new BigInteger("200"));
+        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(0), new Murmur3Token(10)), new BigInteger("10"));
+        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(1), new Murmur3Token(11)), new BigInteger("10"));
+        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(0), new Murmur3Token(0)), ZERO);
+        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(1), new Murmur3Token(1)), ZERO);
+        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(Long.MIN_VALUE), new Murmur3Token(Long.MIN_VALUE)), BigInteger.valueOf(2).pow(64).subtract(ONE));
+        assertEquals(tokenRing.getTokenCountInRange(new Murmur3Token(1), new Murmur3Token(0)), BigInteger.valueOf(2).pow(64).subtract(BigInteger.valueOf(2)));
     }
 
     @Test
     public void testGetRingFraction()
     {
-        assertEquals(tokenRing.getRingFraction("1", "1"), 0.0, 0.001);
-        assertEquals(tokenRing.getRingFraction("1", "0"), 1.0, 0.001);
-        assertEquals(tokenRing.getRingFraction("0", Long.toString(Long.MAX_VALUE)), 0.5, 0.001);
-        assertEquals(tokenRing.getRingFraction(Long.toString(Long.MIN_VALUE), Long.toString(Long.MAX_VALUE)), 1.0, 0.001);
-        assertEquals(tokenRing.getRingFraction(Long.toString(Long.MIN_VALUE), Long.toString(Long.MIN_VALUE)), 1.0, 0.001);
+        assertEquals(tokenRing.getRingFraction(new Murmur3Token(1), new Murmur3Token(1)), 0.0, 0.001);
+        assertEquals(tokenRing.getRingFraction(new Murmur3Token(1), new Murmur3Token(0)), 1.0, 0.001);
+        assertEquals(tokenRing.getRingFraction(new Murmur3Token(0), new Murmur3Token(Long.MAX_VALUE)), 0.5, 0.001);
+        assertEquals(tokenRing.getRingFraction(new Murmur3Token(Long.MIN_VALUE), new Murmur3Token(Long.MAX_VALUE)), 1.0, 0.001);
+        assertEquals(tokenRing.getRingFraction(new Murmur3Token(Long.MIN_VALUE), new Murmur3Token(Long.MIN_VALUE)), 1.0, 0.001);
     }
 }

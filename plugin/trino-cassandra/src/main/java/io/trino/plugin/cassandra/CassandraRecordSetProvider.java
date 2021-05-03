@@ -53,7 +53,7 @@ public class CassandraRecordSetProvider
                 .map(column -> (CassandraColumnHandle) column)
                 .collect(toList());
 
-        String selectCql = CassandraCqlUtils.selectFrom(cassandraTable, cassandraColumns).getQueryString();
+        String selectCql = CassandraCqlUtils.selectFrom(cassandraTable, cassandraColumns).asCql();
         StringBuilder sb = new StringBuilder(selectCql);
         if (sb.charAt(sb.length() - 1) == ';') {
             sb.setLength(sb.length() - 1);
