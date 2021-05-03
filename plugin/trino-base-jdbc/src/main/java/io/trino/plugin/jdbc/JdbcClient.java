@@ -171,4 +171,6 @@ public interface JdbcClient
     {
         return Optional.empty();
     }
+
+    String canonicalize(ConnectorSession session, String value, boolean delimited);
 }

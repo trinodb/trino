@@ -722,6 +722,12 @@ public class DefaultJdbcMetadata
         jdbcClient.dropSchema(session, schemaName);
     }
 
+    @Override
+    public String canonicalize(ConnectorSession session, String identifier, boolean delimited)
+    {
+        return jdbcClient.canonicalize(session, identifier, delimited);
+    }
+
     private static boolean containSameElements(Iterable<? extends ColumnHandle> first, Iterable<? extends ColumnHandle> second)
     {
         return ImmutableSet.copyOf(first).equals(ImmutableSet.copyOf(second));

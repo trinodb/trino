@@ -168,7 +168,7 @@ public abstract class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             return listSchemas(connection).stream()
-                    .map(remoteSchemaName -> identifierMapping.fromRemoteSchemaName(remoteSchemaName))
+                    .map(schemaName -> canonicalize(session, schemaName, true))
                     .collect(toImmutableSet());
         }
         catch (SQLException e) {
@@ -1002,6 +1002,12 @@ public abstract class BaseJdbcClient
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return emptyMap();
+    }
+
+    @Override
+    public String canonicalize(ConnectorSession session, String value, boolean delimited)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     protected String quoted(@Nullable String catalog, @Nullable String schema, String table)

@@ -441,15 +441,10 @@ public class CachingJdbcClient
         invalidateCache(statisticsCache, key -> key.tableHandle.references(table));
     }
 
-    /**
-     * @deprecated {@link JdbcTableHandle}  is not a good representation of the table. For example, we don't want
-     * to distinguish between "a plan table" and "table with selected columns", or "a table with a constraint" here.
-     * Use {@link #onDataChanged(SchemaTableName)}, which avoids these ambiguities.
-     */
-    @Deprecated
-    public void onDataChanged(JdbcTableHandle handle)
+    @Override
+    public String canonicalize(ConnectorSession session, String value, boolean delimited)
     {
-        invalidateCache(statisticsCache, key -> key.tableHandle.equals(handle));
+        return delegate.canonicalize(session, value, delimited);
     }
 
     private JdbcIdentityCacheKey getIdentityKey(ConnectorSession session)
