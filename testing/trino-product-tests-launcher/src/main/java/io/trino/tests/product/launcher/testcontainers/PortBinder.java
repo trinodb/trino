@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.launcher.testcontainers;
 
-import io.trino.tests.product.launcher.docker.ContainerUtil;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
 
@@ -33,12 +32,20 @@ public class PortBinder
 
     public void exposePort(DockerContainer container, int port)
     {
+        container.addExposedPort(port); // Still export port, at a random free number, as certain startup checks require this.
         if (bindPorts) {
-            ContainerUtil.exposePort(container, port);
+            container.withFixedExposedPort(port, port);
         }
-        else {
-            // Still export port, at a random free number, as certain startup checks require this.
-            container.addExposedPort(port);
-        }
+    }
+
+    // This method exposes port unconditionally on the host machine.
+    // It should be used for exposing debugging ports only as product tests
+    // containers are communicating on a Docker network between each other.
+    public static void unsafelyExposePort(DockerContainer container, int port)
+    {
+        container.addExposedPort(port);
+        // This could lead to a conflict when port is already bound on the host machine
+        // preventing product tests environment from starting properly.
+        container.withFixedExposedPort(port, port);
     }
 }

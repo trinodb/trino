@@ -35,13 +35,15 @@ import static java.util.function.Function.identity;
 final class TestingDatabase
         implements AutoCloseable
 {
+    private final String databaseName;
     private final Connection connection;
     private final JdbcClient jdbcClient;
 
     public TestingDatabase()
             throws SQLException
     {
-        String connectionUrl = "jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong();
+        databaseName = "TEST" + System.nanoTime() + ThreadLocalRandom.current().nextLong();
+        String connectionUrl = "jdbc:h2:mem:" + databaseName;
         jdbcClient = new TestingH2JdbcClient(
                 new BaseJdbcConfig(),
                 new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new EmptyCredentialProvider()));
@@ -50,6 +52,7 @@ final class TestingDatabase
         connection.createStatement().execute("CREATE SCHEMA example");
 
         connection.createStatement().execute("CREATE TABLE example.numbers(text varchar primary key, text_short varchar(32), value bigint)");
+        connection.createStatement().execute("CREATE TABLE example.timestamps(ts_3 timestamp(3) primary key, ts_6 timestamp(6), ts_9 timestamp(9))");
         connection.createStatement().execute("INSERT INTO example.numbers(text, text_short, value) VALUES " +
                 "('one', 'one', 1)," +
                 "('two', 'two', 2)," +
@@ -76,6 +79,11 @@ final class TestingDatabase
             throws SQLException
     {
         connection.close();
+    }
+
+    public String getDatabaseName()
+    {
+        return databaseName;
     }
 
     public Connection getConnection()

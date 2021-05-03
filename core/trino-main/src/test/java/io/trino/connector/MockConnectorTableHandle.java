@@ -79,12 +79,14 @@ public class MockConnectorTableHandle
             return false;
         }
         MockConnectorTableHandle other = (MockConnectorTableHandle) o;
-        return Objects.equals(tableName, other.tableName);
+        return Objects.equals(tableName, other.tableName) &&
+                Objects.equals(constraint, other.constraint) &&
+                Objects.equals(columns, other.columns);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName);
+        return Objects.hash(tableName, constraint, columns);
     }
 }

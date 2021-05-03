@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
-import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -35,7 +34,6 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.phoenix.compile.QueryPlan;
-import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixPreparedStatement;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 import org.apache.phoenix.query.KeyRange;
@@ -43,11 +41,11 @@ import org.apache.phoenix.query.KeyRange;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.phoenix.PhoenixErrorCode.PHOENIX_INTERNAL_ERROR;
@@ -66,7 +64,7 @@ public class PhoenixSplitManager
     @Inject
     public PhoenixSplitManager(PhoenixClient phoenixClient)
     {
-        this.phoenixClient = requireNonNull(phoenixClient, "client is null");
+        this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
     }
 
     @Override
@@ -78,26 +76,22 @@ public class PhoenixSplitManager
             DynamicFilter dynamicFilter)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
-        try (PhoenixConnection connection = phoenixClient.getConnection(session)) {
+        try (Connection connection = phoenixClient.getConnection(session)) {
             List<JdbcColumnHandle> columns = tableHandle.getColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
                     .orElseGet(() -> phoenixClient.getColumns(session, tableHandle));
-            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) new QueryBuilder(phoenixClient).buildSql(
+            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) phoenixClient.prepareStatement(
                     session,
                     connection,
-                    tableHandle.getRemoteTableName(),
-                    tableHandle.getGroupingSets(),
+                    tableHandle,
                     columns,
-                    tableHandle.getConstraint(),
-                    Optional.empty(),
-                    Function.identity());
+                    Optional.empty());
 
             List<ConnectorSplit> splits = getSplits(inputQuery).stream()
                     .map(PhoenixInputSplit.class::cast)
                     .map(split -> new PhoenixSplit(
                             getSplitAddresses(split),
-                            new WrappedPhoenixInputSplit(split),
-                            tableHandle.getConstraint()))
+                            new WrappedPhoenixInputSplit(split)))
                     .collect(toImmutableList());
             return new FixedSplitSource(splits);
         }

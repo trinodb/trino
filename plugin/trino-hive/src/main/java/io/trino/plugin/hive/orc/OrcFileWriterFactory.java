@@ -27,7 +27,7 @@ import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.acid.AcidSchema;
+import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.TrinoException;
@@ -68,6 +68,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcOptimizedWriterValidate;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidColumnPrestoTypes;
+import static io.trino.plugin.hive.acid.AcidSchema.createRowType;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.HiveUtil.getOrcWriterOptions;
@@ -84,14 +85,12 @@ public class OrcFileWriterFactory
     private final FileFormatDataSourceStats readStats;
     private final OrcWriterStats stats = new OrcWriterStats();
     private final OrcWriterOptions orcWriterOptions;
-    private final boolean writeLegacyVersion;
 
     @Inject
     public OrcFileWriterFactory(
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            OrcWriterConfig orcWriterConfig,
             FileFormatDataSourceStats readStats,
             OrcWriterConfig config)
     {
@@ -99,7 +98,6 @@ public class OrcFileWriterFactory
                 hdfsEnvironment,
                 typeManager,
                 nodeVersion,
-                requireNonNull(orcWriterConfig, "orcWriterConfig is null").isUseLegacyVersion(),
                 readStats,
                 requireNonNull(config, "config is null").toOrcWriterOptions());
     }
@@ -108,15 +106,13 @@ public class OrcFileWriterFactory
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            boolean writeLegacyVersion,
             FileFormatDataSourceStats readStats,
             OrcWriterOptions orcWriterOptions)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
-        this.writeLegacyVersion = writeLegacyVersion;
-        this.readStats = requireNonNull(readStats, "stats is null");
+        this.readStats = requireNonNull(readStats, "readStats is null");
         this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
     }
 
@@ -137,7 +133,8 @@ public class OrcFileWriterFactory
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,
-            boolean useAcidSchema)
+            boolean useAcidSchema,
+            WriterKind writerKind)
     {
         if (!OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
@@ -155,7 +152,7 @@ public class OrcFileWriterFactory
         int[] fileInputColumnIndexes = fileColumnNames.stream()
                 .mapToInt(inputColumnNames::indexOf)
                 .toArray();
-        if (transaction.isDelete()) {
+        if (transaction.isAcidDeleteOperation(writerKind)) {
             // For delete, set the "row" column to -1
             fileInputColumnIndexes[fileInputColumnIndexes.length - 1] = -1;
         }
@@ -187,17 +184,18 @@ public class OrcFileWriterFactory
             };
 
             if (transaction.isInsert() && useAcidSchema) {
-                // Only add the ACID columns if the request is for INSERT -- for DELETE, the columns are
-                // added by the caller.  This is because the ACID columns for DELETE depend on the rows
-                // being deleted, whereas the ACID columns for INSERT are completely determined by bucket
-                // and writeId.
-                Type rowType = AcidSchema.createRowType(fileColumnNames, fileColumnTypes);
+                // Only add the ACID columns if the request is for insert-type operations - - for delete operations,
+                // the columns are added by the caller.  This is because the ACID columns for delete operations
+                // depend on the rows being deleted, whereas the ACID columns for INSERT are completely determined
+                // by bucket and writeId.
+                Type rowType = createRowType(fileColumnNames, fileColumnTypes);
                 fileColumnNames = ACID_COLUMN_NAMES;
                 fileColumnTypes = createAcidColumnPrestoTypes(rowType);
             }
 
             return Optional.of(new OrcFileWriter(
                     orcDataSink,
+                    writerKind,
                     transaction,
                     useAcidSchema,
                     bucketNumber,
@@ -212,7 +210,6 @@ public class OrcFileWriterFactory
                             .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
                             .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
-                    writeLegacyVersion,
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())

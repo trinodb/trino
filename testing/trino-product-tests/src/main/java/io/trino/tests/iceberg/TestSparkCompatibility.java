@@ -25,9 +25,10 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.TestGroups.ICEBERG;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tests.utils.QueryExecutors.onSpark;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 public class TestSparkCompatibility
         extends ProductTest
@@ -41,6 +42,7 @@ public class TestSparkCompatibility
     // see spark-defaults.conf
     private static final String SPARK_CATALOG = "iceberg_test";
     private static final String PRESTO_CATALOG = "iceberg";
+    private static final String TEST_SCHEMA_NAME = "default";
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testPrestoReadingSparkData()
@@ -60,6 +62,12 @@ public class TestSparkCompatibility
                         ", _date DATE" +
                         ") USING ICEBERG";
         onSpark().executeQuery(format(sparkTableDefinition, sparkTableName));
+
+        // Validate queries on an empty table created by Spark
+        String snapshotsTable = prestoTableName("\"" + baseTableName + "$snapshots\"");
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", snapshotsTable))).hasNoRows();
+        QueryResult emptyResult = onTrino().executeQuery(format("SELECT * FROM %s", prestoTableName(baseTableName)));
+        assertThat(emptyResult).hasNoRows();
 
         String values = "VALUES (" +
                 "'a_string'" +
@@ -88,7 +96,7 @@ public class TestSparkCompatibility
         QueryResult sparkSelect = onSpark().executeQuery(format("%s, _timestamp, _date FROM %s", startOfSelect, sparkTableName));
         assertThat(sparkSelect).containsOnly(row);
 
-        QueryResult prestoSelect = onPresto().executeQuery(format("%s, CAST(_timestamp AS TIMESTAMP), _date FROM %s", startOfSelect, prestoTableName(baseTableName)));
+        QueryResult prestoSelect = onTrino().executeQuery(format("%s, CAST(_timestamp AS TIMESTAMP), _date FROM %s", startOfSelect, prestoTableName(baseTableName)));
         assertThat(prestoSelect).containsOnly(row);
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
@@ -111,7 +119,7 @@ public class TestSparkCompatibility
                         //", _timestamp TIMESTAMP" +
                         ", _date DATE" +
                         ") WITH (format = 'ORC')";
-        onPresto().executeQuery(format(prestoTableDefinition, prestoTableName));
+        onTrino().executeQuery(format(prestoTableDefinition, prestoTableName));
 
         String values = "VALUES (" +
                 "'a_string'" +
@@ -124,7 +132,7 @@ public class TestSparkCompatibility
                 ", DATE '1950-06-28'" +
                 ")";
         String insert = format("INSERT INTO %s %s", prestoTableName, values);
-        onPresto().executeQuery(insert);
+        onTrino().executeQuery(insert);
 
         Row row = row(
                 "a_string",
@@ -136,13 +144,13 @@ public class TestSparkCompatibility
                 //"2020-06-28 14:16:00.456",
                 "1950-06-28");
         String startOfSelect = "SELECT _string, _bigint, _integer, _real, _double, _boolean";
-        QueryResult prestoSelect = onPresto().executeQuery(format("%s, /* CAST(_timestamp AS VARCHAR),*/ CAST(_date AS VARCHAR) FROM %s", startOfSelect, prestoTableName));
+        QueryResult prestoSelect = onTrino().executeQuery(format("%s, /* CAST(_timestamp AS VARCHAR),*/ CAST(_date AS VARCHAR) FROM %s", startOfSelect, prestoTableName));
         assertThat(prestoSelect).containsOnly(row);
 
         QueryResult sparkSelect = onSpark().executeQuery(format("%s, /* CAST(_timestamp AS STRING),*/ CAST(_date AS STRING) FROM %s", startOfSelect, sparkTableName(baseTableName)));
         assertThat(sparkSelect).containsOnly(row);
 
-        onPresto().executeQuery("DROP TABLE " + prestoTableName);
+        onTrino().executeQuery("DROP TABLE " + prestoTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -150,14 +158,14 @@ public class TestSparkCompatibility
     {
         String baseTableName = "test_spark_creates_presto_drops";
         onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG", sparkTableName(baseTableName)));
-        onPresto().executeQuery("DROP TABLE " + prestoTableName(baseTableName));
+        onTrino().executeQuery("DROP TABLE " + prestoTableName(baseTableName));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testPrestoCreatesSparkDrops()
     {
         String baseTableName = "test_presto_creates_spark_drops";
-        onPresto().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT)", prestoTableName(baseTableName)));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT)", prestoTableName(baseTableName)));
         onSpark().executeQuery("DROP TABLE " + sparkTableName(baseTableName));
     }
 
@@ -166,16 +174,16 @@ public class TestSparkCompatibility
     {
         String baseTableName = "test_spark_reads_presto_partitioned_table";
         String prestoTableName = prestoTableName(baseTableName);
-        onPresto().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'])", prestoTableName));
-        onPresto().executeQuery(format("INSERT INTO %s VALUES ('a', 1001), ('b', 1002), ('c', 1003)", prestoTableName));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'])", prestoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001), ('b', 1002), ('c', 1003)", prestoTableName));
 
         Row row = row("b", 1002);
         String select = "SELECT * FROM %s WHERE _string = 'b'";
-        assertThat(onPresto().executeQuery(format(select, prestoTableName)))
+        assertThat(onTrino().executeQuery(format(select, prestoTableName)))
                 .containsOnly(row);
         assertThat(onSpark().executeQuery(format(select, sparkTableName(baseTableName))))
                 .containsOnly(row);
-        onPresto().executeQuery("DROP TABLE " + prestoTableName);
+        onTrino().executeQuery("DROP TABLE " + prestoTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -190,7 +198,7 @@ public class TestSparkCompatibility
         String select = "SELECT * FROM %s WHERE _string = 'b'";
         assertThat(onSpark().executeQuery(format(select, sparkTableName)))
                 .containsOnly(row);
-        assertThat(onPresto().executeQuery(format(select, prestoTableName(baseTableName))))
+        assertThat(onTrino().executeQuery(format(select, prestoTableName(baseTableName))))
                 .containsOnly(row);
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
@@ -219,7 +227,7 @@ public class TestSparkCompatibility
         String prestoTableName = prestoTableName(baseTableName);
         String prestoSelect = "SELECT doc_id, info['age'], pets[2], user_info.surname FROM " + prestoTableName;
 
-        QueryResult prestoResult = onPresto().executeQuery(prestoSelect);
+        QueryResult prestoResult = onTrino().executeQuery(prestoSelect);
         Row row = row("Doc213", 28, "Cat", "Claus");
         assertThat(prestoResult).containsOnly(row);
     }
@@ -236,10 +244,10 @@ public class TestSparkCompatibility
                 "  info MAP(VARCHAR, INTEGER),\n" +
                 "  pets ARRAY(VARCHAR),\n" +
                 "  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR))";
-        onPresto().executeQuery(format(prestoTableDefinition, prestoTableName));
+        onTrino().executeQuery(format(prestoTableDefinition, prestoTableName));
 
         String insert = "INSERT INTO %s VALUES('Doc213', MAP(ARRAY['age', 'children'], ARRAY[28, 3]), ARRAY['Dog', 'Cat', 'Pig'], ROW('Santa', 'Claus', 1000, 'MALE'))";
-        onPresto().executeQuery(format(insert, prestoTableName));
+        onTrino().executeQuery(format(insert, prestoTableName));
 
         String sparkTableName = sparkTableName(baseTableName);
         String sparkSelect = "SELECT doc_id, info['age'], pets[1], user_info.surname FROM " + sparkTableName;
@@ -300,7 +308,7 @@ public class TestSparkCompatibility
                 ", nested_struct.complicated[2]['m2'][2].mnumber" +
                 "  FROM ";
 
-        QueryResult prestoResult = onPresto().executeQuery(prestoSelect + prestoTableName);
+        QueryResult prestoResult = onTrino().executeQuery(prestoSelect + prestoTableName);
         assertThat(prestoResult).containsOnly(row);
     }
 
@@ -316,7 +324,7 @@ public class TestSparkCompatibility
                 ", nested_map MAP(VARCHAR, ARRAY(ROW(sname VARCHAR, snumber INT)))\n" +
                 ", nested_array ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))\n" +
                 ", nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))";
-        onPresto().executeQuery(format(prestoTableDefinition, prestoTableName));
+        onTrino().executeQuery(format(prestoTableDefinition, prestoTableName));
 
         String insert = "" +
                 "INSERT INTO %s SELECT" +
@@ -327,7 +335,7 @@ public class TestSparkCompatibility
                 ", row('S1'" +
                 "      ,array[map(array['m1'], array[array[row('SAMA1Name1', 301), row('SAMA1Name2', 302)]])" +
                 "            ,map(array['m2'], array[array[row('SAMA2Name1', 401), row('SAMA2Name2', 402)]])])";
-        onPresto().executeQuery(format(insert, prestoTableName));
+        onTrino().executeQuery(format(insert, prestoTableName));
 
         Row row = row("Doc213", "ASName2", 201, "MAS2Name1", 302, "SAMA1Name1", 402);
 
@@ -341,7 +349,7 @@ public class TestSparkCompatibility
                 ", nested_struct.complicated[2]['m2'][2].mnumber" +
                 "  FROM ";
 
-        QueryResult prestoResult = onPresto().executeQuery(prestoSelect + prestoTableName);
+        QueryResult prestoResult = onTrino().executeQuery(prestoSelect + prestoTableName);
         assertThat(prestoResult).containsOnly(row);
 
         String sparkTableName = sparkTableName(baseTableName);
@@ -359,13 +367,74 @@ public class TestSparkCompatibility
         assertThat(sparkResult).containsOnly(row);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testIdBasedFieldMapping()
+    {
+        String baseTableName = "test_schema_evolution_for_nested_fields";
+        String prestoTableName = prestoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (_struct STRUCT<rename:BIGINT, keep:BIGINT, drop_and_add:BIGINT, CaseSensitive:BIGINT>, _partition BIGINT)"
+                        + " USING ICEBERG"
+                        + " partitioned by (_partition)"
+                        + " TBLPROPERTIES ('write.format.default' = 'orc')",
+                sparkTableName));
+
+        onSpark().executeQuery(format(
+                "INSERT INTO TABLE %s SELECT "
+                        + "named_struct('rename', 1, 'keep', 2, 'drop_and_add', 3, 'CaseSensitive', 4), "
+                        + "1001",
+                sparkTableName));
+
+        // Alter nested fields using Spark. Presto does not support this yet.
+        onSpark().executeQuery(format("ALTER TABLE %s RENAME COLUMN _struct.rename TO renamed", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN _struct.drop_and_add", sparkTableName));
+        onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN _struct.drop_and_add BIGINT", sparkTableName));
+
+        Row expected = row(
+                rowBuilder()
+                        // Rename does not change id
+                        .addField("renamed", 1L)
+                        .addField("keep", 2L)
+                        .addField("CaseSensitive", 4L)
+                        // Dropping and re-adding changes id
+                        .addField("drop_and_add", null)
+                        .build(),
+                1001);
+
+        QueryResult result = onTrino().executeQuery(format("SELECT * FROM %s", prestoTableName));
+        assertEquals(result.column(1).get(0), expected.getValues().get(0));
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoShowingSparkCreatedTables()
+    {
+        String sparkTable = "test_table_listing_for_spark";
+        String trinoTable = "test_table_listing_for_trino";
+
+        onSpark().executeQuery(format("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG", sparkTableName(sparkTable)));
+        onTrino().executeQuery(format("CREATE TABLE %s (_integer INTEGER )", prestoTableName(trinoTable)));
+
+        assertThat(onTrino().executeQuery(format("SHOW TABLES FROM %s LIKE '%s'", TEST_SCHEMA_NAME, "test_table_listing_for_%")))
+                .containsOnly(row(sparkTable), row(trinoTable));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName(sparkTable));
+        onTrino().executeQuery("DROP TABLE " + prestoTableName(trinoTable));
+    }
+
     private static String sparkTableName(String tableName)
     {
-        return format("%s.default.%s", SPARK_CATALOG, tableName);
+        return format("%s.%s.%s", SPARK_CATALOG, TEST_SCHEMA_NAME, tableName);
     }
 
     private static String prestoTableName(String tableName)
     {
-        return format("%s.default.%s", PRESTO_CATALOG, tableName);
+        return format("%s.%s.%s", PRESTO_CATALOG, TEST_SCHEMA_NAME, tableName);
+    }
+
+    private io.trino.jdbc.Row.Builder rowBuilder()
+    {
+        return io.trino.jdbc.Row.builder();
     }
 }

@@ -71,7 +71,7 @@ public class CurrentTime
     private CurrentTime(Optional<NodeLocation> location, Function function, Integer precision)
     {
         super(location);
-        requireNonNull(function, "type is null");
+        requireNonNull(function, "function is null");
         this.function = function;
         this.precision = precision;
     }
@@ -127,6 +127,6 @@ public class CurrentTime
 
         CurrentTime otherNode = (CurrentTime) other;
         return (function == otherNode.function) &&
-            Objects.equals(precision, otherNode.precision);
+                Objects.equals(precision, otherNode.precision);
     }
 }

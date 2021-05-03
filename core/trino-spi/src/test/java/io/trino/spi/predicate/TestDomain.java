@@ -35,10 +35,10 @@ import static io.trino.spi.type.TestingIdType.ID;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.floatToRawIntBits;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestDomain
 {
@@ -313,12 +313,9 @@ public class TestDomain
         assertEquals(domain.getSingleValue(), 0L);
         assertEquals(domain.getNullableSingleValue(), 0L);
 
-        try {
-            Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 2L, true)), false).getSingleValue();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThatThrownBy(() -> Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 2L, true)), false).getSingleValue())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Domain is not a single value");
     }
 
     @Test
@@ -339,18 +336,17 @@ public class TestDomain
         assertEquals(domain.getSingleValue(), 0L);
         assertEquals(domain.getNullableSingleValue(), 0L);
 
-        try {
-            Domain.create(ValueSet.of(ID, 0L, 1L), false).getSingleValue();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThatThrownBy(() -> Domain.create(ValueSet.of(ID, 0L, 1L), false).getSingleValue())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Domain is not a single value");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testUncomparableSingleValue()
     {
-        Domain.singleValue(HYPER_LOG_LOG, Slices.EMPTY_SLICE);
+        assertThatThrownBy(() -> Domain.singleValue(HYPER_LOG_LOG, Slices.EMPTY_SLICE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Cannot create discrete ValueSet with non-comparable type: HyperLogLog");
     }
 
     @Test

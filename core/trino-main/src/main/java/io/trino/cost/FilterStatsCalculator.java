@@ -107,7 +107,7 @@ public class FilterStatsCalculator
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, predicate, types);
-        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(predicate, metadata, session, expressionTypes);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(predicate, metadata, session, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
         if (value == null) {
@@ -175,9 +175,8 @@ public class FilterStatsCalculator
                     return estimateLogicalAnd(node.getLeft(), node.getRight());
                 case OR:
                     return estimateLogicalOr(node.getLeft(), node.getRight());
-                default:
-                    throw new IllegalArgumentException("Unexpected binary operator: " + node.getOperator());
             }
+            throw new IllegalArgumentException("Unexpected binary operator: " + node.getOperator());
         }
 
         private PlanNodeStatsEstimate estimateLogicalAnd(Expression left, Expression right)

@@ -73,9 +73,9 @@ public class TableAccessControlRule
                 .collect(toImmutableSet());
         this.filter = requireNonNull(filter, "filter is null");
         this.filterEnvironment = requireNonNull(filterEnvironment, "filterEnvironment is null");
-        this.userRegex = requireNonNull(userRegex, "user is null");
-        this.groupRegex = requireNonNull(groupRegex, "group is null");
-        this.schemaRegex = requireNonNull(schemaRegex, "sourceRegex is null");
+        this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
+        this.schemaRegex = requireNonNull(schemaRegex, "schemaRegex is null");
         this.tableRegex = requireNonNull(tableRegex, "tableRegex is null");
     }
 
@@ -146,6 +146,6 @@ public class TableAccessControlRule
 
     public enum TablePrivilege
     {
-        SELECT, INSERT, DELETE, OWNERSHIP, GRANT_SELECT
+        SELECT, INSERT, DELETE, UPDATE, OWNERSHIP, GRANT_SELECT
     }
 }

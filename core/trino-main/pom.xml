@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>352-SNAPSHOT</version>
+        <version>357-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -173,11 +173,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.resolver</groupId>
-            <artifactId>resolver</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.clearspring.analytics</groupId>
             <artifactId>stream</artifactId>
         </dependency>
@@ -204,6 +199,11 @@
 
         <dependency>
             <groupId>com.github.scribejava</groupId>
+            <artifactId>scribejava-apis</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.scribejava</groupId>
             <artifactId>scribejava-core</artifactId>
         </dependency>
 
@@ -225,6 +225,12 @@
         <dependency>
             <groupId>com.teradata</groupId>
             <artifactId>re2j-td</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.15</version>
         </dependency>
 
         <dependency>
@@ -301,11 +307,6 @@
         <dependency>
             <groupId>org.pcollections</groupId>
             <artifactId>pcollections</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.sonatype.aether</groupId>
-            <artifactId>aether-api</artifactId>
         </dependency>
 
         <dependency>

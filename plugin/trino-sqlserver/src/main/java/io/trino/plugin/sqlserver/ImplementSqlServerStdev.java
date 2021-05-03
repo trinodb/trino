@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -24,7 +23,6 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.DoubleType;
 
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
@@ -40,14 +38,13 @@ import static java.lang.String.format;
 public class ImplementSqlServerStdev
         implements AggregateFunctionRule
 {
-    private static final List<String> STDDEV_FUNCTION_NAMES = ImmutableList.of("stddev", "stddev_samp");
     private static final Capture<Variable> INPUT = newCapture();
 
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().matching(name -> STDDEV_FUNCTION_NAMES.stream().anyMatch(name::equalsIgnoreCase)))
+                .with(functionName().equalTo("stddev"))
                 .with(singleInput().matching(
                         variable()
                                 .with(expressionType().matching(DoubleType.class::isInstance))
@@ -63,7 +60,7 @@ public class ImplementSqlServerStdev
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 
         return Optional.of(new JdbcExpression(
-                format("STDEV(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("STDEV(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

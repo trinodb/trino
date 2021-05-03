@@ -45,7 +45,7 @@ public class KafkaRecordSetProvider
     public KafkaRecordSetProvider(DispatchingRowDecoderFactory decoderFactory, KafkaConsumerFactory consumerFactory)
     {
         this.decoderFactory = requireNonNull(decoderFactory, "decoderFactory is null");
-        this.consumerFactory = requireNonNull(consumerFactory, "consumerManager is null");
+        this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
     }
 
     @Override
@@ -73,7 +73,7 @@ public class KafkaRecordSetProvider
                         .filter(col -> !col.isKeyCodec())
                         .collect(toImmutableSet()));
 
-        return new KafkaRecordSet(kafkaSplit, consumerFactory, kafkaColumns, keyDecoder, messageDecoder);
+        return new KafkaRecordSet(kafkaSplit, consumerFactory, session, kafkaColumns, keyDecoder, messageDecoder);
     }
 
     private static Map<String, String> getDecoderParameters(Optional<String> dataSchema)

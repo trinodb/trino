@@ -79,7 +79,8 @@ public class FeaturesConfig
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 9;
     private boolean redistributeWrites = true;
-    private boolean usePreferredWritePartitioning;
+    private boolean usePreferredWritePartitioning = true;
+    private int preferredWritePartitioningMinNumberOfPartitions = 50;
     private boolean scaleWriters;
     private DataSize writerMinSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
     private boolean optimizeMetadataQueries;
@@ -128,6 +129,9 @@ public class FeaturesConfig
     private boolean iterativeRuleBasedColumnPruning = true;
     private boolean rewriteFilteringSemiJoinToInnerJoin = true;
     private boolean optimizeDuplicateInsensitiveJoins = true;
+    private boolean useLegacyWindowFilterPushdown;
+    private boolean useTableScanNodePartitioning = true;
+    private double tableScanNodePartitioningMinBucketToTaskRatio = 0.5;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
@@ -368,6 +372,20 @@ public class FeaturesConfig
     public FeaturesConfig setUsePreferredWritePartitioning(boolean usePreferredWritePartitioning)
     {
         this.usePreferredWritePartitioning = usePreferredWritePartitioning;
+        return this;
+    }
+
+    @Min(1)
+    public int getPreferredWritePartitioningMinNumberOfPartitions()
+    {
+        return preferredWritePartitioningMinNumberOfPartitions;
+    }
+
+    @Config("preferred-write-partitioning-min-number-of-partitions")
+    @ConfigDescription("Use preferred write partitioning when the number of written partitions exceeds the configured threshold")
+    public FeaturesConfig setPreferredWritePartitioningMinNumberOfPartitions(int preferredWritePartitioningMinNumberOfPartitions)
+    {
+        this.preferredWritePartitioningMinNumberOfPartitions = preferredWritePartitioningMinNumberOfPartitions;
         return this;
     }
 
@@ -888,6 +906,7 @@ public class FeaturesConfig
     }
 
     @Config("max-recursion-depth")
+    @ConfigDescription("Maximum recursion depth for recursive common table expression")
     public FeaturesConfig setMaxRecursionDepth(int maxRecursionDepth)
     {
         this.maxRecursionDepth = maxRecursionDepth;
@@ -988,6 +1007,46 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeDuplicateInsensitiveJoins(boolean optimizeDuplicateInsensitiveJoins)
     {
         this.optimizeDuplicateInsensitiveJoins = optimizeDuplicateInsensitiveJoins;
+        return this;
+    }
+
+    public boolean isUseLegacyWindowFilterPushdown()
+    {
+        return useLegacyWindowFilterPushdown;
+    }
+
+    @Config("optimizer.use-legacy-window-filter-pushdown")
+    public FeaturesConfig setUseLegacyWindowFilterPushdown(boolean useLegacyWindowFilterPushdown)
+    {
+        this.useLegacyWindowFilterPushdown = useLegacyWindowFilterPushdown;
+        return this;
+    }
+
+    public boolean isUseTableScanNodePartitioning()
+    {
+        return useTableScanNodePartitioning;
+    }
+
+    @Config("optimizer.use-table-scan-node-partitioning")
+    @LegacyConfig("optimizer.plan-with-table-node-partitioning")
+    @ConfigDescription("Adapt plan to node pre-partitioned tables")
+    public FeaturesConfig setUseTableScanNodePartitioning(boolean useTableScanNodePartitioning)
+    {
+        this.useTableScanNodePartitioning = useTableScanNodePartitioning;
+        return this;
+    }
+
+    @Min(0)
+    public double getTableScanNodePartitioningMinBucketToTaskRatio()
+    {
+        return tableScanNodePartitioningMinBucketToTaskRatio;
+    }
+
+    @Config("optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio")
+    @ConfigDescription("Min table scan bucket to task ratio for which plan will be adopted to node pre-partitioned tables")
+    public FeaturesConfig setTableScanNodePartitioningMinBucketToTaskRatio(double tableScanNodePartitioningMinBucketToTaskRatio)
+    {
+        this.tableScanNodePartitioningMinBucketToTaskRatio = tableScanNodePartitioningMinBucketToTaskRatio;
         return this;
     }
 }

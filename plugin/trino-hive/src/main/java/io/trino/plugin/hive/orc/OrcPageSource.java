@@ -22,6 +22,8 @@ import io.trino.orc.OrcRecordReader;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.OrcType;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveUpdateProcessor;
 import io.trino.plugin.hive.orc.OrcDeletedRows.MaskDeletedRowsFunction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -226,6 +228,16 @@ public class OrcPageSource
         {
             return new OriginalFileRowIdAdaptation(startingRowId, bucketId);
         }
+
+        static ColumnAdaptation updatedRowColumnsWithOriginalFiles(long startingRowId, int bucketId, HiveUpdateProcessor updateProcessor, List<HiveColumnHandle> dependencyColumns)
+        {
+            return new UpdatedRowAdaptationWithOriginalFiles(startingRowId, bucketId, updateProcessor, dependencyColumns);
+        }
+
+        static ColumnAdaptation updatedRowColumns(HiveUpdateProcessor updateProcessor, List<HiveColumnHandle> dependencyColumns)
+        {
+            return new UpdatedRowAdaptation(updateProcessor, dependencyColumns);
+        }
     }
 
     private static class NullColumn
@@ -328,6 +340,70 @@ public class OrcPageSource
         }
     }
 
+    /**
+     * This ColumnAdaptation creates a RowBlock column containing the three
+     * ACID columms - - originalTransaction, rowId, bucket - - and
+     * all the columns not changed by the UPDATE statement.
+     */
+    private static final class UpdatedRowAdaptation
+            implements ColumnAdaptation
+    {
+        private final HiveUpdateProcessor updateProcessor;
+        private final List<Integer> nonUpdatedSourceChannels;
+
+        public UpdatedRowAdaptation(HiveUpdateProcessor updateProcessor, List<HiveColumnHandle> dependencyColumns)
+        {
+            this.updateProcessor = updateProcessor;
+            this.nonUpdatedSourceChannels = updateProcessor.makeNonUpdatedSourceChannels(dependencyColumns);
+        }
+
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        {
+            return updateProcessor.createUpdateRowBlock(sourcePage, nonUpdatedSourceChannels, maskDeletedRowsFunction);
+        }
+    }
+
+    /**
+     * This ColumnAdaptation creates a RowBlock column containing the three
+     * ACID columms derived from the startingRowId and bucketId, and a special
+     * original files transaction block, plus a block containing
+     * all the columns not changed by the UPDATE statement.
+     */
+    private static final class UpdatedRowAdaptationWithOriginalFiles
+            implements ColumnAdaptation
+    {
+        private final long startingRowId;
+        private final Block bucketBlock;
+        private final HiveUpdateProcessor updateProcessor;
+        private final List<Integer> nonUpdatedSourceChannels;
+
+        public UpdatedRowAdaptationWithOriginalFiles(long startingRowId, int bucketId, HiveUpdateProcessor updateProcessor, List<HiveColumnHandle> dependencyColumns)
+        {
+            this.startingRowId = startingRowId;
+            this.bucketBlock = nativeValueToBlock(INTEGER, Long.valueOf(computeBucketValue(bucketId, 0)));
+            this.updateProcessor = requireNonNull(updateProcessor, "updateProcessor is null");
+            requireNonNull(dependencyColumns, "dependencyColumns is null");
+            this.nonUpdatedSourceChannels = updateProcessor.makeNonUpdatedSourceChannels(dependencyColumns);
+        }
+
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        {
+            int positionCount = sourcePage.getPositionCount();
+            ImmutableList.Builder<Block> originalFilesBlockBuilder = ImmutableList.builder();
+            originalFilesBlockBuilder.add(
+                    new RunLengthEncodedBlock(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
+                    createOriginalFilesRowIdBlock(startingRowId, filePosition, positionCount),
+                    new RunLengthEncodedBlock(bucketBlock, positionCount));
+            for (int channel = 0; channel < sourcePage.getChannelCount(); channel++) {
+                originalFilesBlockBuilder.add(sourcePage.getBlock(channel));
+            }
+            Page page = new Page(originalFilesBlockBuilder.build().toArray(new Block[]{}));
+            return updateProcessor.createUpdateRowBlock(page, nonUpdatedSourceChannels, maskDeletedRowsFunction);
+        }
+    }
+
     private static class OriginalFileRowIdAdaptation
             implements ColumnAdaptation
     {
@@ -349,19 +425,19 @@ public class OrcPageSource
                     Optional.empty(),
                     new Block[] {
                             new RunLengthEncodedBlock(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
-                            createRowIdBlock(filePosition, positionCount),
+                            createOriginalFilesRowIdBlock(startingRowId, filePosition, positionCount),
                             new RunLengthEncodedBlock(bucketBlock, positionCount)
                     }));
             return rowBlock;
         }
+    }
 
-        private Block createRowIdBlock(long filePosition, int positionCount)
-        {
-            long[] translatedRowIds = new long[positionCount];
-            for (int index = 0; index < positionCount; index++) {
-                translatedRowIds[index] = filePosition + startingRowId + index;
-            }
-            return new LongArrayBlock(positionCount, Optional.empty(), translatedRowIds);
+    private static Block createOriginalFilesRowIdBlock(long startingRowId, long filePosition, int positionCount)
+    {
+        long[] translatedRowIds = new long[positionCount];
+        for (int index = 0; index < positionCount; index++) {
+            translatedRowIds[index] = startingRowId + filePosition + index;
         }
+        return new LongArrayBlock(positionCount, Optional.empty(), translatedRowIds);
     }
 }

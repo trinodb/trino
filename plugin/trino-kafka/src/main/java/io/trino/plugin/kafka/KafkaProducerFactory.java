@@ -11,19 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.kafka;
 
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.kafka.clients.producer.KafkaProducer;
 
 import java.util.Properties;
 
 public interface KafkaProducerFactory
 {
-    default KafkaProducer<byte[], byte[]> create()
+    default KafkaProducer<byte[], byte[]> create(ConnectorSession session)
     {
-        return new KafkaProducer<>(configure());
+        return new KafkaProducer<>(configure(session));
     }
 
-    Properties configure();
+    Properties configure(ConnectorSession session);
 }

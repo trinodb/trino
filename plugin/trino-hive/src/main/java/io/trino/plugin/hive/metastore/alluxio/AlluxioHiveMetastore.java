@@ -75,7 +75,7 @@ public class AlluxioHiveMetastore
     @Inject
     public AlluxioHiveMetastore(TableMasterClient client, MetastoreConfig metastoreConfig)
     {
-        this.client = requireNonNull(client);
+        this.client = requireNonNull(client, "client is null");
         requireNonNull(metastoreConfig, "metastoreConfig is null");
         checkArgument(!metastoreConfig.isHideDeltaLakeTables(), "Hiding Delta Lake tables is not supported"); // TODO
     }
@@ -187,8 +187,8 @@ public class AlluxioHiveMetastore
             HiveIdentity identity,
             String databaseName,
             String tableName,
-            Function<PartitionStatistics, PartitionStatistics> update,
-            AcidTransaction transaction)
+            AcidTransaction transaction,
+            Function<PartitionStatistics, PartitionStatistics> update)
     {
         throw new TrinoException(NOT_SUPPORTED, "updateTableStatistics");
     }

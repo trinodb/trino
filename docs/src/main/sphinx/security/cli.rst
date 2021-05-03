@@ -2,8 +2,8 @@
 CLI Kerberos authentication
 ===========================
 
-The Trino :doc:`/installation/cli` can connect to a :doc:`Trino coordinator
-</security/server>`, that has Kerberos authentication enabled.
+The Trino :doc:`/installation/cli` can connect to a Trino cluster that has
+:doc:`kerberos` enabled.
 
 Environment configuration
 -------------------------
@@ -33,13 +33,12 @@ principal.
 
 .. include:: ktadd-note.fragment
 
-Java keystore file for TLS
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Configuration for TLS
+^^^^^^^^^^^^^^^^^^^^^
 
-Access to the Trino coordinator must be through HTTPS when using Kerberos
-authentication. The Trino coordinator uses a :ref:`Java Keystore
-<server_java_keystore>` file for its TLS configuration. This file can be
-copied to the client machine and used for its configuration.
+When using Kerberos authentication, access to the Trino coordinator must be
+through HTTPS. If you have not yet configured HTTPS/TLS for your coordinator,
+refer to :doc:`HTTPS and TLS </security/tls>`.
 
 Trino CLI execution
 --------------------
@@ -72,7 +71,7 @@ Option                          Description
                                 connections on.
 ``--krb5-config-path``          Kerberos configuration file.
 ``--krb5-principal``            The principal to use when authenticating to the coordinator.
-``--krb5-keytab-path``          The location of the the keytab that can be used to
+``--krb5-keytab-path``          The location of the keytab that can be used to
                                 authenticate the principal specified by ``--krb5-principal``
 ``--krb5-remote-service-name``  Trino coordinator Kerberos service name.
 ``--keystore-path``             The location of the Java Keystore file that is used

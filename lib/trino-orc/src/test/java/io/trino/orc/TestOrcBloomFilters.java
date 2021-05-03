@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
+import io.trino.orc.OrcWriterOptions.WriterIdentification;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressedMetadataWriter;
 import io.trino.orc.metadata.CompressionKind;
@@ -123,7 +124,7 @@ public class TestOrcBloomFilters
         assertTrue(bloomFilterWrite.test(TEST_STRING));
         assertTrue(bloomFilterWrite.testSlice(wrappedBuffer(TEST_STRING)));
 
-        Slice bloomFilterBytes = new CompressedMetadataWriter(new OrcMetadataWriter(true), CompressionKind.NONE, 1024)
+        Slice bloomFilterBytes = new CompressedMetadataWriter(new OrcMetadataWriter(WriterIdentification.TRINO), CompressionKind.NONE, 1024)
                 .writeBloomFilters(ImmutableList.of(bloomFilterWrite));
 
         // Read through method

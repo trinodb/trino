@@ -18,9 +18,9 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static java.util.Collections.nCopies;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestSqlParserErrorHandling
 {
@@ -41,17 +41,17 @@ public class TestSqlParserErrorHandling
         return new Object[][] {
                 {"",
                         "line 1:1: mismatched input '<EOF>'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
-                                "'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'USE', <query>"},
+                                "'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'UPDATE', 'USE', <query>"},
                 {"@select",
                         "line 1:1: mismatched input '@'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
-                                "'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'USE', <query>"},
+                                "'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'UPDATE', 'USE', <query>"},
                 {"select * from foo where @what",
                         "line 1:25: mismatched input '@'. Expecting: <expression>"},
                 {"select * from 'oops",
                         "line 1:15: mismatched input '''. Expecting: '(', 'LATERAL', 'UNNEST', <identifier>"},
                 {"select *\nfrom x\nfrom",
-                        "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FETCH', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', 'NATURAL', 'OFFSET', " +
-                                "'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', <EOF>, <identifier>"},
+                        "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FETCH', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', " +
+                                "'LIMIT', 'MATCH_RECOGNIZE', 'NATURAL', 'OFFSET', 'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', 'WINDOW', <EOF>, <identifier>"},
                 {"select *\nfrom x\nwhere from",
                         "line 3:7: mismatched input 'from'. Expecting: <expression>"},
                 {"select ",
@@ -109,7 +109,7 @@ public class TestSqlParserErrorHandling
                 {"SELECT a AS z FROM t WHERE x = 1 + ",
                         "line 1:36: mismatched input '<EOF>'. Expecting: <expression>"},
                 {"SELECT a AS z FROM t WHERE a. ",
-                        "line 1:29: mismatched input '.'. Expecting: '%', '*', '+', '-', '/', 'AND', 'AT', 'EXCEPT', 'FETCH', 'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'UNION', '||', <EOF>, <predicate>"},
+                        "line 1:29: mismatched input '.'. Expecting: '%', '*', '+', '-', '/', 'AND', 'AT', 'EXCEPT', 'FETCH', 'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'UNION', 'WINDOW', '||', <EOF>, <predicate>"},
                 {"CREATE TABLE t (x bigint) COMMENT ",
                         "line 1:35: mismatched input '<EOF>'. Expecting: <string>"},
                 {"SELECT * FROM ( ",
@@ -121,8 +121,8 @@ public class TestSqlParserErrorHandling
                 {"SELECT foo(*) filter (",
                         "line 1:23: mismatched input '<EOF>'. Expecting: 'WHERE'"},
                 {"SELECT * FROM t t x",
-                        "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FETCH', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', 'NATURAL', 'OFFSET', 'ORDER', " +
-                                "'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', <EOF>"},
+                        "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FETCH', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', " +
+                                "'MATCH_RECOGNIZE', 'NATURAL', 'OFFSET', 'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', 'WINDOW', <EOF>"},
                 {"SELECT * FROM t WHERE EXISTS (",
                         "line 1:31: mismatched input '<EOF>'. Expecting: <query>"},
                 {"SELECT \"\" FROM t",
@@ -135,7 +135,7 @@ public class TestSqlParserErrorHandling
                         "line 1:15: Zero-length delimited identifier not allowed"},
                 {"WITH t AS (SELECT 1 SELECT t.* FROM t",
                         "line 1:21: mismatched input 'SELECT'. Expecting: '%', '(', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AS', 'AT', 'EXCEPT', 'FETCH', 'FROM', " +
-                                "'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'SELECT', 'TABLE', 'UNION', 'VALUES', 'WHERE', '[', '||', <EOF>, " +
+                                "'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'SELECT', 'TABLE', 'UNION', 'VALUES', 'WHERE', 'WINDOW', '[', '||', <EOF>, " +
                                 "<identifier>, <predicate>"},
                 {"SHOW CATALOGS LIKE '%$_%' ESCAPE",
                         "line 1:33: mismatched input '<EOF>'. Expecting: <string>"},
@@ -198,40 +198,29 @@ public class TestSqlParserErrorHandling
     @Test(dataProvider = "statements")
     public void testStatement(String sql, String error)
     {
-        try {
-            SQL_PARSER.createStatement(sql, PARSING_OPTIONS);
-            fail("Expected parsing to fail");
-        }
-        catch (ParsingException e) {
-            assertEquals(e.getMessage(), error, "Error message mismatch for query:\n\n" + sql + "\n\n");
-        }
+        assertThatThrownBy(() -> SQL_PARSER.createStatement(sql, PARSING_OPTIONS))
+                .isInstanceOf(ParsingException.class)
+                .hasMessage(error);
     }
 
     @Test(dataProvider = "expressions")
     public void testExpression(String sql, String error)
     {
-        try {
-            SQL_PARSER.createExpression(sql, PARSING_OPTIONS);
-            fail("Expected parsing to fail");
-        }
-        catch (ParsingException e) {
-            assertEquals(e.getMessage(), error, "Error message mismatch for expression:\n\n" + sql + "\n\n");
-        }
+        assertThatThrownBy(() -> SQL_PARSER.createExpression(sql, PARSING_OPTIONS))
+                .isInstanceOf(ParsingException.class)
+                .hasMessage(error);
     }
 
     @Test
     public void testParsingExceptionPositionInfo()
     {
-        try {
-            SQL_PARSER.createStatement("select *\nfrom x\nwhere from", PARSING_OPTIONS);
-            fail("expected exception");
-        }
-        catch (ParsingException e) {
-            assertTrue(e.getMessage().startsWith("line 3:7: mismatched input 'from'"));
-            assertTrue(e.getErrorMessage().startsWith("mismatched input 'from'"));
-            assertEquals(e.getLineNumber(), 3);
-            assertEquals(e.getColumnNumber(), 7);
-        }
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("select *\nfrom x\nwhere from", PARSING_OPTIONS))
+                .isInstanceOfSatisfying(ParsingException.class, e -> {
+                    assertTrue(e.getMessage().startsWith("line 3:7: mismatched input 'from'"));
+                    assertTrue(e.getErrorMessage().startsWith("mismatched input 'from'"));
+                    assertEquals(e.getLineNumber(), 3);
+                    assertEquals(e.getColumnNumber(), 7);
+                });
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: expression is too large \\(stack overflow while parsing\\)")

@@ -44,7 +44,7 @@
  format_datetime | varchar | timestamp(p), varchar(x) | scalar | true | Formats the given time by the given format |
  from_iso8601_date | date | varchar(x) | scalar | true | |
  from_iso8601_timestamp | timestamp(3) with time zone | varchar(x) | scalar | true | |
- from_unixtime | timestamp(3) | double | scalar | true | |
+ from_unixtime | timestamp(3) with time zone | double | scalar | true | |
  from_unixtime | timestamp(3) with time zone | double, bigint, bigint | scalar | true | |
  hour | bigint | interval day to second | scalar | true | Hour of the day of the given interval |
  hour | bigint | time(p) | scalar | true | Hour of the day of the given time |
@@ -67,7 +67,6 @@
  quarter | bigint | timestamp(p) with time zone | scalar | true | Quarter of the year of the given timestamp |
  timezone_hour | bigint | timestamp(p) with time zone | scalar | true | Time zone hour of the given timestamp |
  timezone_minute | bigint | timestamp(p) with time zone | scalar | true | Time zone minute of the given timestamp |
- to_unixtime | double | timestamp(p) | scalar | true | |
  to_unixtime | double | timestamp(p) with time zone | scalar | true | |
  week | bigint | date | scalar | true | Week of the year of the given date |
  week | bigint | timestamp(p) | scalar | true | Week of the year of the given timestamp |

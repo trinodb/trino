@@ -45,7 +45,7 @@ class RelationPlan
     public RelationPlan(PlanNode root, Scope scope, List<Symbol> fieldMappings, Optional<TranslationMap> outerContext)
     {
         requireNonNull(root, "root is null");
-        requireNonNull(fieldMappings, "outputSymbols is null");
+        requireNonNull(fieldMappings, "fieldMappings is null");
         requireNonNull(scope, "scope is null");
         requireNonNull(outerContext, "outerContext is null");
 

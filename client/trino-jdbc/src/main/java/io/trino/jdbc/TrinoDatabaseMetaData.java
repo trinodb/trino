@@ -20,6 +20,8 @@ import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.Column;
 
+import javax.annotation.Nullable;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
@@ -31,8 +33,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
+import static io.trino.jdbc.DriverInfo.DRIVER_NAME;
+import static io.trino.jdbc.DriverInfo.DRIVER_VERSION;
+import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MAJOR;
+import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 
@@ -42,10 +49,12 @@ public class TrinoDatabaseMetaData
     private static final String SEARCH_STRING_ESCAPE = "\\";
 
     private final TrinoConnection connection;
+    private final boolean assumeLiteralNamesInMetadataCallsForNonConformingClients;
 
-    TrinoDatabaseMetaData(TrinoConnection connection)
+    TrinoDatabaseMetaData(TrinoConnection connection, boolean assumeLiteralNamesInMetadataCallsForNonConformingClients)
     {
         this.connection = requireNonNull(connection, "connection is null");
+        this.assumeLiteralNamesInMetadataCallsForNonConformingClients = assumeLiteralNamesInMetadataCallsForNonConformingClients;
     }
 
     @Override
@@ -129,26 +138,26 @@ public class TrinoDatabaseMetaData
     public String getDriverName()
             throws SQLException
     {
-        return TrinoDriver.DRIVER_NAME;
+        return DRIVER_NAME;
     }
 
     @Override
     public String getDriverVersion()
             throws SQLException
     {
-        return TrinoDriver.DRIVER_VERSION;
+        return DRIVER_VERSION;
     }
 
     @Override
     public int getDriverMajorVersion()
     {
-        return TrinoDriver.DRIVER_VERSION_MAJOR;
+        return DRIVER_VERSION_MAJOR;
     }
 
     @Override
     public int getDriverMinorVersion()
     {
-        return TrinoDriver.DRIVER_VERSION_MINOR;
+        return DRIVER_VERSION_MINOR;
     }
 
     @Override
@@ -893,6 +902,8 @@ public class TrinoDatabaseMetaData
     public ResultSet getProcedures(String catalog, String schemaPattern, String procedureNamePattern)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
+        procedureNamePattern = escapeIfNecessary(procedureNamePattern);
         return selectEmpty("" +
                 "SELECT PROCEDURE_CAT, PROCEDURE_SCHEM, PROCEDURE_NAME,\n " +
                 "  null, null, null, REMARKS, PROCEDURE_TYPE, SPECIFIC_NAME\n" +
@@ -904,6 +915,9 @@ public class TrinoDatabaseMetaData
     public ResultSet getProcedureColumns(String catalog, String schemaPattern, String procedureNamePattern, String columnNamePattern)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
+        procedureNamePattern = escapeIfNecessary(procedureNamePattern);
+        columnNamePattern = escapeIfNecessary(columnNamePattern);
         return selectEmpty("" +
                 "SELECT PROCEDURE_CAT, PROCEDURE_SCHEM, PROCEDURE_NAME, " +
                 "  COLUMN_NAME, COLUMN_TYPE, DATA_TYPE, TYPE_NAME,\n" +
@@ -918,6 +932,8 @@ public class TrinoDatabaseMetaData
     public ResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
+        tableNamePattern = escapeIfNecessary(tableNamePattern);
         StringBuilder query = new StringBuilder("" +
                 "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, TABLE_TYPE, REMARKS,\n" +
                 "  TYPE_CAT, TYPE_SCHEM, TYPE_NAME, " +
@@ -970,6 +986,9 @@ public class TrinoDatabaseMetaData
     public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
+        tableNamePattern = escapeIfNecessary(tableNamePattern);
+        columnNamePattern = escapeIfNecessary(columnNamePattern);
         StringBuilder query = new StringBuilder("" +
                 "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, COLUMN_NAME, DATA_TYPE,\n" +
                 "  TYPE_NAME, COLUMN_SIZE, BUFFER_LENGTH, DECIMAL_DIGITS, NUM_PREC_RADIX,\n" +
@@ -995,6 +1014,7 @@ public class TrinoDatabaseMetaData
     public ResultSet getColumnPrivileges(String catalog, String schema, String table, String columnNamePattern)
             throws SQLException
     {
+        columnNamePattern = escapeIfNecessary(columnNamePattern);
         throw new SQLFeatureNotSupportedException("privileges not supported");
     }
 
@@ -1002,6 +1022,8 @@ public class TrinoDatabaseMetaData
     public ResultSet getTablePrivileges(String catalog, String schemaPattern, String tableNamePattern)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
+        tableNamePattern = escapeIfNecessary(tableNamePattern);
         throw new SQLFeatureNotSupportedException("privileges not supported");
     }
 
@@ -1164,6 +1186,8 @@ public class TrinoDatabaseMetaData
     public ResultSet getUDTs(String catalog, String schemaPattern, String typeNamePattern, int[] types)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
+        typeNamePattern = escapeIfNecessary(typeNamePattern);
         return selectEmpty("" +
                 "SELECT TYPE_CAT, TYPE_SCHEM, TYPE_NAME,\n" +
                 "  CLASS_NAME, DATA_TYPE, REMARKS, BASE_TYPE\n" +
@@ -1210,6 +1234,8 @@ public class TrinoDatabaseMetaData
     public ResultSet getSuperTypes(String catalog, String schemaPattern, String typeNamePattern)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
+        typeNamePattern = escapeIfNecessary(typeNamePattern);
         return selectEmpty("" +
                 "SELECT TYPE_CAT, TYPE_SCHEM, TYPE_NAME,\n" +
                 "  SUPERTYPE_CAT, SUPERTYPE_SCHEM, SUPERTYPE_NAME\n" +
@@ -1221,6 +1247,8 @@ public class TrinoDatabaseMetaData
     public ResultSet getSuperTables(String catalog, String schemaPattern, String tableNamePattern)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
+        tableNamePattern = escapeIfNecessary(tableNamePattern);
         return selectEmpty("" +
                 "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, SUPERTABLE_NAME\n" +
                 "FROM system.jdbc.super_tables\n" +
@@ -1231,6 +1259,9 @@ public class TrinoDatabaseMetaData
     public ResultSet getAttributes(String catalog, String schemaPattern, String typeNamePattern, String attributeNamePattern)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
+        typeNamePattern = escapeIfNecessary(typeNamePattern);
+        attributeNamePattern = escapeIfNecessary(attributeNamePattern);
         return selectEmpty("" +
                 "SELECT TYPE_CAT, TYPE_SCHEM, TYPE_NAME, ATTR_NAME, DATA_TYPE,\n" +
                 "  ATTR_TYPE_NAME, ATTR_SIZE, DECIMAL_DIGITS, NUM_PREC_RADIX, NULLABLE,\n" +
@@ -1328,6 +1359,7 @@ public class TrinoDatabaseMetaData
     public ResultSet getSchemas(String catalog, String schemaPattern)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
         StringBuilder query = new StringBuilder("" +
                 "SELECT TABLE_SCHEM, TABLE_CATALOG\n" +
                 "FROM system.jdbc.schemas");
@@ -1387,6 +1419,8 @@ public class TrinoDatabaseMetaData
     public ResultSet getFunctions(String catalog, String schemaPattern, String functionNamePattern)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
+        functionNamePattern = escapeIfNecessary(functionNamePattern);
         // TODO: implement this
         throw new NotImplementedException("DatabaseMetaData", "getFunctions");
     }
@@ -1395,6 +1429,9 @@ public class TrinoDatabaseMetaData
     public ResultSet getFunctionColumns(String catalog, String schemaPattern, String functionNamePattern, String columnNamePattern)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
+        functionNamePattern = escapeIfNecessary(functionNamePattern);
+        columnNamePattern = escapeIfNecessary(columnNamePattern);
         // TODO: implement this
         throw new NotImplementedException("DatabaseMetaData", "getFunctionColumns");
     }
@@ -1403,6 +1440,9 @@ public class TrinoDatabaseMetaData
     public ResultSet getPseudoColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
             throws SQLException
     {
+        schemaPattern = escapeIfNecessary(schemaPattern);
+        tableNamePattern = escapeIfNecessary(tableNamePattern);
+        columnNamePattern = escapeIfNecessary(columnNamePattern);
         return selectEmpty("" +
                 "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, COLUMN_NAME, DATA_TYPE,\n" +
                 "  COLUMN_SIZE, DECIMAL_DIGITS, NUM_PREC_RADIX, COLUMN_USAGE, REMARKS,\n" +
@@ -1479,6 +1519,23 @@ public class TrinoDatabaseMetaData
 
         filter.append(")");
         filters.add(filter.toString());
+    }
+
+    @Nullable
+    private String escapeIfNecessary(@Nullable String namePattern)
+    {
+        return escapeIfNecessary(assumeLiteralNamesInMetadataCallsForNonConformingClients, namePattern);
+    }
+
+    @Nullable
+    static String escapeIfNecessary(boolean assumeLiteralNamesInMetadataCallsForNonConformingClients, @Nullable String namePattern)
+    {
+        if (namePattern == null || !assumeLiteralNamesInMetadataCallsForNonConformingClients) {
+            return namePattern;
+        }
+        //noinspection ConstantConditions
+        verify(SEARCH_STRING_ESCAPE.equals("\\"));
+        return namePattern.replaceAll("[_%\\\\]", "\\\\$0");
     }
 
     private static void optionalStringLikeFilter(List<String> filters, String columnName, String value)

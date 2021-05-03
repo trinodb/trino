@@ -46,6 +46,7 @@ import static io.trino.execution.buffer.BufferTestUtils.sizeOfPages;
 import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -358,15 +359,53 @@ public class TestClientBuffer
         assertBufferDestroyed(buffer, 1);
     }
 
+    @Test
+    public void testProcessReadLockHolderAssertionsFireInTest()
+    {
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
+        try {
+            ListenableFuture<BufferResult> pendingRead = buffer.getPages(0, DataSize.succinctBytes(1));
+            synchronized (buffer) {
+                addPage(buffer, createPage(0));
+            }
+            fail("Expected AssertionError to be thrown, are assertions enabled in your testing environment?");
+            assertTrue(getFuture(pendingRead, NO_WAIT).isEmpty(), "Code should not reach here");
+        }
+        catch (AssertionError ae) {
+            assertEquals(ae.getMessage(), "Cannot process pending read while holding a lock on this");
+        }
+        finally {
+            buffer.destroy();
+        }
+    }
+
+    @Test
+    public void testGetPagesWithSupplierLockHolderAssertionsFireInTest()
+    {
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
+        TestingPagesSupplier supplier = new TestingPagesSupplier();
+        supplier.addPage(createPage(0));
+        try {
+            ListenableFuture<BufferResult> result;
+            synchronized (buffer) {
+                result = buffer.getPages(0, sizeOfPages(1), Optional.of(supplier));
+            }
+            fail("Expected AssertionError to be thrown, are assertions enabled in your testing environment?");
+            assertTrue(getFuture(result, NO_WAIT).isEmpty(), "Code should not reach here");
+        }
+        catch (AssertionError ae) {
+            assertEquals(ae.getMessage(), "Cannot load pages while holding a lock on this");
+        }
+        finally {
+            buffer.destroy();
+        }
+    }
+
     private static void assertInvalidSequenceId(ClientBuffer buffer, int sequenceId)
     {
-        try {
-            buffer.getPages(sequenceId, sizeOfPages(10));
-            fail("Expected " + INVALID_SEQUENCE_ID);
-        }
-        catch (IllegalArgumentException e) {
-            assertEquals(e.getMessage(), INVALID_SEQUENCE_ID);
-        }
+        assertThatThrownBy(() -> buffer.getPages(sequenceId, sizeOfPages(10)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(INVALID_SEQUENCE_ID);
     }
 
     private static BufferResult getBufferResult(ClientBuffer buffer, long sequenceId, DataSize maxSize, Duration maxWait)

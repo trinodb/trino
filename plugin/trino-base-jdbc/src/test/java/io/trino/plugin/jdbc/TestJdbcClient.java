@@ -15,7 +15,9 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -26,14 +28,19 @@ import java.util.Optional;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DOUBLE;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_REAL;
+import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_TIMESTAMP;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -67,6 +74,7 @@ public class TestJdbcClient
         assertTrue(jdbcClient.getSchemaNames(session).containsAll(ImmutableSet.of("example", "tpch")));
         assertEquals(jdbcClient.getTableNames(session, Optional.of("example")), ImmutableList.of(
                 new SchemaTableName("example", "numbers"),
+                new SchemaTableName("example", "timestamps"),
                 new SchemaTableName("example", "view_source"),
                 new SchemaTableName("example", "view")));
         assertEquals(jdbcClient.getTableNames(session, Optional.of("tpch")), ImmutableList.of(
@@ -79,7 +87,7 @@ public class TestJdbcClient
         assertEquals(table.get().getCatalogName(), catalogName.toUpperCase(ENGLISH));
         assertEquals(table.get().getSchemaName(), "EXAMPLE");
         assertEquals(table.get().getTableName(), "NUMBERS");
-        assertEquals(table.get().getSchemaTableName(), schemaTableName);
+        assertEquals(table.get().getRequiredNamedRelation().getSchemaTableName(), schemaTableName);
         assertEquals(jdbcClient.getColumns(session, table.orElse(null)), ImmutableList.of(
                 new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
@@ -108,5 +116,46 @@ public class TestJdbcClient
                 new JdbcColumnHandle("COL2", JDBC_DOUBLE, DOUBLE),
                 new JdbcColumnHandle("COL3", JDBC_DOUBLE, DOUBLE),
                 new JdbcColumnHandle("COL4", JDBC_REAL, REAL)));
+    }
+
+    @Test
+    public void testMetadataWithTimestampCol()
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("example", "timestamps");
+        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
+        assertTrue(table.isPresent(), "table is missing");
+        assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
+                new JdbcColumnHandle("TS_3", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
+                new JdbcColumnHandle("TS_6", JDBC_TIMESTAMP, TIMESTAMP_MICROS),
+                new JdbcColumnHandle("TS_9", JDBC_TIMESTAMP, TIMESTAMP_NANOS)));
+    }
+
+    @Test
+    public void testCreateSchema()
+    {
+        String schemaName = "test schema";
+        jdbcClient.createSchema(session, schemaName);
+        assertThat(jdbcClient.getSchemaNames(session)).contains(schemaName);
+        jdbcClient.dropSchema(session, schemaName);
+        assertThat(jdbcClient.getSchemaNames(session)).doesNotContain(schemaName);
+    }
+
+    @Test
+    public void testRenameTable()
+    {
+        String schemaName = "test_schema";
+        SchemaTableName oldTable = new SchemaTableName(schemaName, "foo");
+        SchemaTableName newTable = new SchemaTableName(schemaName, "bar");
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
+                oldTable,
+                ImmutableList.of(new ColumnMetadata("text", VARCHAR)));
+
+        jdbcClient.createSchema(session, schemaName);
+        jdbcClient.createTable(session, tableMetadata);
+        jdbcClient.renameTable(session, jdbcClient.getTableHandle(session, oldTable).get(), newTable);
+        jdbcClient.dropTable(session, jdbcClient.getTableHandle(session, newTable).get());
+        jdbcClient.dropSchema(session, schemaName);
+        assertThat(jdbcClient.getTableNames(session, Optional.empty())).doesNotContain(oldTable).doesNotContain(newTable);
+        assertThat(jdbcClient.getSchemaNames(session)).doesNotContain(schemaName);
     }
 }

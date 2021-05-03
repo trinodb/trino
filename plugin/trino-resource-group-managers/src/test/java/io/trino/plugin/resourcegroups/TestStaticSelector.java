@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.Unit.TERABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 
 public class TestStaticSelector
@@ -101,7 +102,7 @@ public class TestStaticSelector
                 Optional.of(new SelectorResourceEstimate(
                         Optional.of(new Range<>(
                                 Optional.empty(),
-                                Optional.of(Duration.valueOf("5m")))),
+                                Optional.of(new Duration(5, MINUTES)))),
                         Optional.empty(),
                         Optional.of(new Range<>(
                                 Optional.empty(),

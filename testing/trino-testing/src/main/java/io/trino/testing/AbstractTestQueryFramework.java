@@ -39,7 +39,6 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
-import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -56,6 +55,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
@@ -109,6 +109,15 @@ public abstract class AbstractTestQueryFramework
         queryAssertions = null;
     }
 
+    @Test
+    public void ensureTestNamingConvention()
+    {
+        // Enforce a naming convention to make code navigation easier.
+        assertThat(getClass().getName())
+                .doesNotEndWith("ConnectorTest")
+                .doesNotEndWith("ConnectorSmokeTest");
+    }
+
     protected Session getSession()
     {
         return queryRunner.getDefaultSession();
@@ -136,7 +145,7 @@ public abstract class AbstractTestQueryFramework
 
     protected AssertProvider<QueryAssert> query(@Language("SQL") String sql)
     {
-        return queryAssertions.query(sql);
+        return query(getSession(), sql);
     }
 
     protected AssertProvider<QueryAssert> query(Session session, @Language("SQL") String sql)
@@ -321,6 +330,16 @@ public abstract class AbstractTestQueryFramework
         assertEquals(actual, expected);
     }
 
+    protected void assertExplain(@Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
+    {
+        assertExplain(getSession(), query, expectedExplainRegExps);
+    }
+
+    protected void assertExplain(Session session, @Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
+    {
+        assertExplainAnalyze(false, session, query, expectedExplainRegExps);
+    }
+
     protected void assertExplainAnalyze(@Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
     {
         assertExplainAnalyze(getSession(), query, expectedExplainRegExps);
@@ -328,11 +347,22 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertExplainAnalyze(Session session, @Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
     {
+        assertExplainAnalyze(true, session, query, expectedExplainRegExps);
+    }
+
+    private void assertExplainAnalyze(
+            boolean analyze,
+            Session session,
+            @Language("SQL") String query,
+            @Language("RegExp") String... expectedExplainRegExps)
+    {
         String value = (String) computeActual(session, query).getOnlyValue();
 
-        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
-        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
-        assertThat(value).containsPattern("CPU:.*, Input:.*, Output");
+        if (analyze) {
+            // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
+            // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
+            assertThat(value).containsPattern("CPU:.*, Input:.*, Output");
+        }
 
         for (String expectedExplainRegExp : expectedExplainRegExps) {
             assertThat(value).containsPattern(expectedExplainRegExp);
@@ -357,7 +387,7 @@ public abstract class AbstractTestQueryFramework
 
     protected String formatSqlText(String sql)
     {
-        return formatSql(sqlParser.createStatement(sql, createParsingOptions(queryRunner.getDefaultSession())));
+        return formatSql(sqlParser.createStatement(sql, createParsingOptions(getSession())));
     }
 
     //TODO: should WarningCollector be added?
@@ -366,7 +396,7 @@ public abstract class AbstractTestQueryFramework
         QueryExplainer explainer = getQueryExplainer();
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
-                .execute(queryRunner.getDefaultSession(), session -> {
+                .execute(getSession(), session -> {
                     return explainer.getPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
                 });
     }
@@ -403,7 +433,7 @@ public abstract class AbstractTestQueryFramework
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
-                new RuleStatsRecorder()).get();
+                queryRunner.getNodePartitioningManager()).get();
         return new QueryExplainer(
                 optimizers,
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig()),

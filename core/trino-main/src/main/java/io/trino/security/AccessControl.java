@@ -189,6 +189,7 @@ public interface AccessControl
 
     /**
      * Check if identity is allowed to comment the specified column.
+     *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName);
@@ -268,6 +269,13 @@ public interface AccessControl
     void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to update the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames);
+
+    /**
      * Check if identity is allowed to create the specified view.
      *
      * @throws AccessDeniedException if not allowed
@@ -304,6 +312,27 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames);
+
+    /**
+     * Check if identity is allowed to create the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
+
+    /**
+     * Check if identity is allowed to refresh the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRefreshMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
+
+    /**
+     * Check if identity is allowed to drop the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
 
     /**
      * Check if identity is allowed to create a view that executes the function.

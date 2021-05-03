@@ -30,7 +30,7 @@ import java.util.List;
 
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.TestGroups.TLS;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
@@ -83,7 +83,7 @@ public class TestTls
 
     private List<String> getActiveNodesUrls()
     {
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery("SELECT http_uri FROM system.runtime.nodes");
         return queryResult.rows()
                 .stream()

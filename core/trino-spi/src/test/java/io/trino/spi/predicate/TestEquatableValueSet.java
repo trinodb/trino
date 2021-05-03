@@ -26,13 +26,15 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
+import java.util.Collection;
 import java.util.Iterator;
+import java.util.Set;
 
 import static io.trino.spi.type.TestingIdType.ID;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestEquatableValueSet
 {
@@ -138,12 +140,9 @@ public class TestEquatableValueSet
     public void testGetSingleValue()
     {
         assertEquals(EquatableValueSet.of(ID, 0L).getSingleValue(), 0L);
-        try {
-            EquatableValueSet.all(ID).getSingleValue();
-            fail();
-        }
-        catch (IllegalStateException ignored) {
-        }
+        assertThatThrownBy(() -> EquatableValueSet.all(ID).getSingleValue())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("EquatableValueSet does not have just a single value");
     }
 
     @Test
@@ -295,32 +294,38 @@ public class TestEquatableValueSet
         assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 0L, 1L).complement()), EquatableValueSet.of(ID, 1L));
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test
     public void testUnmodifiableCollection()
     {
-        EquatableValueSet.of(ID, 1L).getValues().clear();
+        Collection<Object> values = EquatableValueSet.of(ID, 1L).getValues();
+        assertThatThrownBy(values::clear)
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test
     public void testUnmodifiableValueEntries()
     {
-        EquatableValueSet.of(ID, 1L).getEntries().clear();
+        Set<EquatableValueSet.ValueEntry> entries = EquatableValueSet.of(ID, 1L).getEntries();
+        assertThatThrownBy(entries::clear)
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test
     public void testUnmodifiableIterator()
     {
         Iterator<Object> iterator = EquatableValueSet.of(ID, 1L).getValues().iterator();
         iterator.next();
-        iterator.remove();
+        assertThatThrownBy(iterator::remove)
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test
     public void testUnmodifiableValueEntryIterator()
     {
         Iterator<EquatableValueSet.ValueEntry> iterator = EquatableValueSet.of(ID, 1L).getEntries().iterator();
         iterator.next();
-        iterator.remove();
+        assertThatThrownBy(iterator::remove)
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test

@@ -29,6 +29,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.security.AllowAllAccessControl;
+import io.trino.plugin.hive.HiveHdfsModule;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.authentication.HiveAuthenticationModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
@@ -36,6 +37,7 @@ import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
 import io.trino.plugin.hive.s3.HiveS3Module;
+import io.trino.plugin.iceberg.testing.TrackingFileIoModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -53,11 +55,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.inject.Scopes.SINGLETON;
+
 public final class InternalIcebergConnectorFactory
 {
     private InternalIcebergConnectorFactory() {}
 
-    public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Optional<HiveMetastore> metastore)
+    public static Connector createConnector(
+            String catalogName,
+            Map<String, String> config,
+            ConnectorContext context,
+            Optional<HiveMetastore> metastore,
+            boolean trackMetadataIo)
     {
         ClassLoader classLoader = InternalIcebergConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -68,12 +77,16 @@ public final class InternalIcebergConnectorFactory
                     new JsonModule(),
                     new IcebergModule(),
                     new IcebergMetastoreModule(),
+                    new HiveHdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
                     new HiveAuthenticationModule(),
                     new HiveMetastoreModule(metastore),
                     new MBeanServerModule(),
+                    trackMetadataIo
+                            ? new TrackingFileIoModule()
+                            : binder -> binder.bind(FileIoProvider.class).to(HdfsFileIoProvider.class).in(SINGLETON),
                     binder -> {
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());

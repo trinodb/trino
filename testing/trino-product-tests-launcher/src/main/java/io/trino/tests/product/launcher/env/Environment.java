@@ -288,6 +288,10 @@ public final class Environment
 
     private static boolean containerIsHealthy(DockerContainer container)
     {
+        if (container.isTemporary()) {
+            return true;
+        }
+
         if (!container.isRunning()) {
             log.warn("Container %s is not running", container.getLogicalName());
             return false;
@@ -417,7 +421,7 @@ public final class Environment
         public Builder configureContainers(Consumer<DockerContainer> configurer)
         {
             requireNonNull(configurer, "configurer is null");
-            containers.values().forEach(configurer::accept);
+            containers.values().forEach(configurer);
             return this;
         }
 

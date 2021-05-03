@@ -121,9 +121,8 @@ public class StatisticsAggregationPlanner
                 return createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
             case MAX_VALUE_SIZE_IN_BYTES:
                 return createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
-            default:
-                throw new IllegalArgumentException("Unsupported statistic type: " + statisticType);
         }
+        throw new IllegalArgumentException("Unsupported statistic type: " + statisticType);
     }
 
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
@@ -151,7 +150,7 @@ public class StatisticsAggregationPlanner
                 StatisticAggregations aggregations,
                 StatisticAggregationsDescriptor<Symbol> descriptor)
         {
-            this.aggregations = requireNonNull(aggregations, "statisticAggregations is null");
+            this.aggregations = requireNonNull(aggregations, "aggregations is null");
             this.descriptor = requireNonNull(descriptor, "descriptor is null");
         }
 

@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionCall
@@ -30,16 +31,17 @@ public class FunctionCall
     private final Optional<OrderBy> orderBy;
     private final boolean distinct;
     private final Optional<NullTreatment> nullTreatment;
+    private final Optional<ProcessingMode> processingMode;
     private final List<Expression> arguments;
 
     public FunctionCall(QualifiedName name, List<Expression> arguments)
     {
-        this(Optional.empty(), name, Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty(), arguments);
+        this(Optional.empty(), name, Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty(), Optional.empty(), arguments);
     }
 
     public FunctionCall(NodeLocation location, QualifiedName name, List<Expression> arguments)
     {
-        this(Optional.of(location), name, Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty(), arguments);
+        this(Optional.of(location), name, Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty(), Optional.empty(), arguments);
     }
 
     public FunctionCall(
@@ -50,14 +52,17 @@ public class FunctionCall
             Optional<OrderBy> orderBy,
             boolean distinct,
             Optional<NullTreatment> nullTreatment,
+            Optional<ProcessingMode> processingMode,
             List<Expression> arguments)
     {
         super(location);
         requireNonNull(name, "name is null");
         requireNonNull(window, "window is null");
+        window.ifPresent(node -> checkArgument(node instanceof WindowReference || node instanceof WindowSpecification, "unexpected window: " + node.getClass().getSimpleName()));
         requireNonNull(filter, "filter is null");
         requireNonNull(orderBy, "orderBy is null");
         requireNonNull(nullTreatment, "nullTreatment is null");
+        requireNonNull(processingMode, "processingMode is null");
         requireNonNull(arguments, "arguments is null");
 
         this.name = name;
@@ -66,6 +71,7 @@ public class FunctionCall
         this.orderBy = orderBy;
         this.distinct = distinct;
         this.nullTreatment = nullTreatment;
+        this.processingMode = processingMode;
         this.arguments = arguments;
     }
 
@@ -94,6 +100,11 @@ public class FunctionCall
         return nullTreatment;
     }
 
+    public Optional<ProcessingMode> getProcessingMode()
+    {
+        return processingMode;
+    }
+
     public List<Expression> getArguments()
     {
         return arguments;
@@ -114,9 +125,9 @@ public class FunctionCall
     public List<Node> getChildren()
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        window.ifPresent(nodes::add);
+        window.ifPresent(window -> nodes.add((Node) window));
         filter.ifPresent(nodes::add);
-        orderBy.map(OrderBy::getSortItems).map(nodes::addAll);
+        orderBy.map(OrderBy::getSortItems).ifPresent(nodes::addAll);
         nodes.addAll(arguments);
         return nodes.build();
     }
@@ -137,13 +148,14 @@ public class FunctionCall
                 Objects.equals(orderBy, o.orderBy) &&
                 Objects.equals(distinct, o.distinct) &&
                 Objects.equals(nullTreatment, o.nullTreatment) &&
+                Objects.equals(processingMode, o.processingMode) &&
                 Objects.equals(arguments, o.arguments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, distinct, nullTreatment, window, filter, orderBy, arguments);
+        return Objects.hash(name, distinct, nullTreatment, processingMode, window, filter, orderBy, arguments);
     }
 
     // TODO: make this a proper Tree node so that we can report error
@@ -164,6 +176,7 @@ public class FunctionCall
 
         return name.equals(otherFunction.name) &&
                 distinct == otherFunction.distinct &&
-                nullTreatment.equals(otherFunction.nullTreatment);
+                nullTreatment.equals(otherFunction.nullTreatment) &&
+                processingMode.equals(otherFunction.processingMode);
     }
 }

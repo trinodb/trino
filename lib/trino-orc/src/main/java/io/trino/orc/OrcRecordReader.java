@@ -24,6 +24,7 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.orc.OrcReader.FieldMapperFactory;
 import io.trino.orc.OrcWriteValidation.StatisticsValidation;
 import io.trino.orc.OrcWriteValidation.WriteChecksum;
 import io.trino.orc.OrcWriteValidation.WriteChecksumBuilder;
@@ -143,7 +144,8 @@ public class OrcRecordReader
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
-            Function<Exception, RuntimeException> exceptionTransform)
+            Function<Exception, RuntimeException> exceptionTransform,
+            FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
         requireNonNull(readColumns, "readColumns is null");
@@ -156,7 +158,7 @@ public class OrcRecordReader
         requireNonNull(fileStripes, "fileStripes is null");
         requireNonNull(stripeStats, "stripeStats is null");
         requireNonNull(orcDataSource, "orcDataSource is null");
-        this.orcTypes = requireNonNull(orcTypes, "types is null");
+        this.orcTypes = requireNonNull(orcTypes, "orcTypes is null");
         requireNonNull(decompressor, "decompressor is null");
         requireNonNull(legacyFileTimeZone, "legacyFileTimeZone is null");
         requireNonNull(userMetadata, "userMetadata is null");
@@ -239,7 +241,14 @@ public class OrcRecordReader
                 metadataReader,
                 writeValidation);
 
-        columnReaders = createColumnReaders(readColumns, readTypes, readLayouts, streamReadersSystemMemoryContext, blockFactory);
+        columnReaders = createColumnReaders(
+                readColumns,
+                readTypes,
+                readLayouts,
+                streamReadersSystemMemoryContext,
+                blockFactory,
+                fieldMapperFactory);
+
         currentBytesPerCell = new long[columnReaders.length];
         maxBytesPerCell = new long[columnReaders.length];
         nextBatchSize = initialBatchSize;
@@ -558,7 +567,8 @@ public class OrcRecordReader
             List<Type> readTypes,
             List<OrcReader.ProjectedLayout> readLayouts,
             AggregatedMemoryContext systemMemoryContext,
-            OrcBlockFactory blockFactory)
+            OrcBlockFactory blockFactory,
+            FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
         ColumnReader[] columnReaders = new ColumnReader[columns.size()];
@@ -566,7 +576,7 @@ public class OrcRecordReader
             Type readType = readTypes.get(columnIndex);
             OrcColumn column = columns.get(columnIndex);
             OrcReader.ProjectedLayout projectedLayout = readLayouts.get(columnIndex);
-            columnReaders[columnIndex] = createColumnReader(readType, column, projectedLayout, systemMemoryContext, blockFactory);
+            columnReaders[columnIndex] = createColumnReader(readType, column, projectedLayout, systemMemoryContext, blockFactory, fieldMapperFactory);
         }
         return columnReaders;
     }
@@ -622,7 +632,7 @@ public class OrcRecordReader
         public StripeInfo(StripeInformation stripe, Optional<StripeStatistics> stats)
         {
             this.stripe = requireNonNull(stripe, "stripe is null");
-            this.stats = requireNonNull(stats, "metadata is null");
+            this.stats = requireNonNull(stats, "stats is null");
         }
 
         public StripeInformation getStripe()

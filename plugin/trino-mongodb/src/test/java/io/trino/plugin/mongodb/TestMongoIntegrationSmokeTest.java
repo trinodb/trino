@@ -45,6 +45,7 @@ import static org.testng.Assert.assertNotNull;
 
 @Test(singleThreaded = true)
 public class TestMongoIntegrationSmokeTest
+        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     private MongoServer server;
@@ -322,6 +323,34 @@ public class TestMongoIntegrationSmokeTest
 
         assertQuery("SELECT value FROM testcase.testinsensitive WHERE name = 'def'", "SELECT 2");
         assertUpdate("DROP TABLE testcase.testinsensitive");
+    }
+
+    @Test
+    public void testNonLowercaseViewName()
+    {
+        // Case insensitive schema name
+        MongoCollection<Document> collection = client.getDatabase("NonLowercaseSchema").getCollection("test_collection");
+        collection.insertOne(new Document(ImmutableMap.of("Name", "abc", "Value", 1)));
+
+        client.getDatabase("NonLowercaseSchema").createView("lowercase_view", "test_collection", ImmutableList.of());
+        assertQuery("SELECT value FROM nonlowercaseschema.lowercase_view WHERE name = 'abc'", "SELECT 1");
+
+        // Case insensitive view name
+        collection = client.getDatabase("test_database").getCollection("test_collection");
+        collection.insertOne(new Document(ImmutableMap.of("Name", "abc", "Value", 1)));
+
+        client.getDatabase("test_database").createView("NonLowercaseView", "test_collection", ImmutableList.of());
+        assertQuery("SELECT value FROM test_database.nonlowercaseview WHERE name = 'abc'", "SELECT 1");
+
+        // Case insensitive schema and view name
+        client.getDatabase("NonLowercaseSchema").createView("NonLowercaseView", "test_collection", ImmutableList.of());
+        assertQuery("SELECT value FROM nonlowercaseschema.nonlowercaseview WHERE name = 'abc'", "SELECT 1");
+
+        assertUpdate("DROP TABLE nonlowercaseschema.lowercase_view");
+        assertUpdate("DROP TABLE test_database.nonlowercaseview");
+        assertUpdate("DROP TABLE nonlowercaseschema.test_collection");
+        assertUpdate("DROP TABLE test_database.test_collection");
+        assertUpdate("DROP TABLE nonlowercaseschema.nonlowercaseview");
     }
 
     @Test

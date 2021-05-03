@@ -85,6 +85,7 @@ public class TestPruneTableWriterSourceColumns
                                     hash)),
                             Optional.empty(),
                             Optional.empty(),
+                            Optional.empty(),
                             p.values(a, partition, hash));
                 })
                 .doesNotFire();
@@ -102,6 +103,7 @@ public class TestPruneTableWriterSourceColumns
                     return p.tableWriter(
                             ImmutableList.of(a),
                             ImmutableList.of("column_a"),
+                            Optional.empty(),
                             Optional.empty(),
                             Optional.of(
                                     p.statisticAggregations(

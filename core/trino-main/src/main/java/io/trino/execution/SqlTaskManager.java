@@ -169,10 +169,7 @@ public class SqlTaskManager
                         queryContexts.getUnchecked(taskId.getQueryId()),
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,
-                        sqlTask -> {
-                            finishedTaskStats.merge(sqlTask.getIoStats());
-                            return null;
-                        },
+                        sqlTask -> finishedTaskStats.merge(sqlTask.getIoStats()),
                         maxBufferSize,
                         maxBroadcastBufferSize,
                         failedTasks)));

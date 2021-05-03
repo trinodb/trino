@@ -216,6 +216,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanUpdateTableColumns(securityContext, getQualifiedObjectName(tableName), updatedColumns);
+    }
+
+    @Override
     public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
         checkArgument(context == null, "context must be null");
@@ -248,6 +255,27 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanCreateViewWithSelectFromColumns(securityContext, getQualifiedObjectName(tableName), columnNames);
+    }
+
+    @Override
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanCreateMaterializedView(securityContext, getQualifiedObjectName(materializedViewName));
+    }
+
+    @Override
+    public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanRefreshMaterializedView(securityContext, getQualifiedObjectName(materializedViewName));
+    }
+
+    @Override
+    public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanDropMaterializedView(securityContext, getQualifiedObjectName(materializedViewName));
     }
 
     @Override

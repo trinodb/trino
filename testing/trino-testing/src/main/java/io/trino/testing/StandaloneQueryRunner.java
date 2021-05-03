@@ -21,7 +21,6 @@ import io.trino.metadata.AllNodes;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.Plugin;
@@ -40,8 +39,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static io.airlift.testing.Closeables.closeAll;
-import static io.trino.testing.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
-import static io.trino.testing.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -64,10 +61,6 @@ public final class StandaloneQueryRunner
         refreshNodes();
 
         server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
-
-        SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
-        sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-        sessionPropertyManager.addConnectorSessionProperties(new CatalogName("catalog"), TEST_CATALOG_PROPERTIES);
     }
 
     @Override

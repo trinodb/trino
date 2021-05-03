@@ -52,7 +52,7 @@ public class JoinHashSupplier
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
         this.searchFunctionFactories = ImmutableList.copyOf(searchFunctionFactories);
-        requireNonNull(channels, "pages is null");
+        requireNonNull(channels, "channels is null");
         requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
 
         PositionLinks.FactoryBuilder positionLinksFactoryBuilder;

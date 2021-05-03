@@ -260,7 +260,7 @@ public class HiveWriterFactory
                 .collect(toImmutableMap(PropertyMetadata::getName,
                         entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
 
-        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session, schemaName, tableName), writePath);
+        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), writePath);
         configureCompression(conf, getCompressionCodec(session));
         this.conf = toJobConf(conf);
 
@@ -331,7 +331,7 @@ public class HiveWriterFactory
                     if (!writeInfo.getWriteMode().isWritePathSameAsTargetPath()) {
                         // When target path is different from write path,
                         // verify that the target directory for the partition does not already exist
-                        if (HiveWriteUtils.pathExists(new HdfsContext(session, schemaName, tableName), hdfsEnvironment, writeInfo.getTargetPath())) {
+                        if (HiveWriteUtils.pathExists(new HdfsContext(session), hdfsEnvironment, writeInfo.getTargetPath())) {
                             throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format(
                                     "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
                                     partitionName,
@@ -380,58 +380,58 @@ public class HiveWriterFactory
             }
         }
         else {
-            // Write to: an existing partition in an existing partitioned table
-            if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.APPEND) {
-                // Append to an existing partition
-                updateMode = UpdateMode.APPEND;
-                // Check the column types in partition schema match the column types in table schema
-                List<Column> tableColumns = table.getDataColumns();
-                List<Column> existingPartitionColumns = partition.get().getColumns();
-                for (int i = 0; i < min(existingPartitionColumns.size(), tableColumns.size()); i++) {
-                    HiveType tableType = tableColumns.get(i).getType();
-                    HiveType partitionType = existingPartitionColumns.get(i).getType();
-                    if (!tableType.equals(partitionType)) {
-                        throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
-                                        "You are trying to write into an existing partition in a table. " +
-                                        "The table schema has changed since the creation of the partition. " +
-                                        "Inserting rows into such partition is not supported. " +
-                                        "The column '%s' in table '%s' is declared as type '%s', " +
-                                        "but partition '%s' declared column '%s' as type '%s'.",
-                                tableColumns.get(i).getName(),
-                                tableName,
-                                tableType,
-                                partitionName,
-                                existingPartitionColumns.get(i).getName(),
-                                partitionType));
+            switch (insertExistingPartitionsBehavior) {
+                // Write to: an existing partition in an existing partitioned table
+                case APPEND:
+                    // Append to an existing partition
+                    updateMode = UpdateMode.APPEND;
+                    // Check the column types in partition schema match the column types in table schema
+                    List<Column> tableColumns = table.getDataColumns();
+                    List<Column> existingPartitionColumns = partition.get().getColumns();
+                    for (int i = 0; i < min(existingPartitionColumns.size(), tableColumns.size()); i++) {
+                        HiveType tableType = tableColumns.get(i).getType();
+                        HiveType partitionType = existingPartitionColumns.get(i).getType();
+                        if (!tableType.equals(partitionType)) {
+                            throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                                            "You are trying to write into an existing partition in a table. " +
+                                            "The table schema has changed since the creation of the partition. " +
+                                            "Inserting rows into such partition is not supported. " +
+                                            "The column '%s' in table '%s' is declared as type '%s', " +
+                                            "but partition '%s' declared column '%s' as type '%s'.",
+                                    tableColumns.get(i).getName(),
+                                    tableName,
+                                    tableType,
+                                    partitionName,
+                                    existingPartitionColumns.get(i).getName(),
+                                    partitionType));
+                        }
                     }
-                }
 
-                HiveWriteUtils.checkPartitionIsWritable(partitionName.get(), partition.get());
+                    HiveWriteUtils.checkPartitionIsWritable(partitionName.get(), partition.get());
 
-                outputStorageFormat = partition.get().getStorage().getStorageFormat();
-                schema = getHiveSchema(partition.get(), table);
+                    outputStorageFormat = partition.get().getStorage().getStorageFormat();
+                    schema = getHiveSchema(partition.get(), table);
 
-                writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
-            }
-            else if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.OVERWRITE) {
-                // Overwrite an existing partition
-                //
-                // The behavior of overwrite considered as if first dropping the partition and inserting a new partition, thus:
-                // * No partition writable check is required.
-                // * Table schema and storage format is used for the new partition (instead of existing partition schema and storage format).
-                updateMode = UpdateMode.OVERWRITE;
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
+                    break;
+                case OVERWRITE:
+                    // Overwrite an existing partition
+                    //
+                    // The behavior of overwrite considered as if first dropping the partition and inserting a new partition, thus:
+                    // * No partition writable check is required.
+                    // * Table schema and storage format is used for the new partition (instead of existing partition schema and storage format).
+                    updateMode = UpdateMode.OVERWRITE;
 
-                outputStorageFormat = fromHiveStorageFormat(partitionStorageFormat);
-                schema = getHiveSchema(table);
+                    outputStorageFormat = fromHiveStorageFormat(partitionStorageFormat);
+                    schema = getHiveSchema(table);
 
-                writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get());
-                checkState(writeInfo.getWriteMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "Overwriting existing partition doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
-            }
-            else if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.ERROR) {
-                throw new TrinoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName.get());
-            }
-            else {
-                throw new IllegalArgumentException(format("Unsupported insert existing partitions behavior: %s", insertExistingPartitionsBehavior));
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get());
+                    checkState(writeInfo.getWriteMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "Overwriting existing partition doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+                    break;
+                case ERROR:
+                    throw new TrinoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName.get());
+                default:
+                    throw new IllegalArgumentException(format("Unsupported insert existing partitions behavior: %s", insertExistingPartitionsBehavior));
             }
         }
 
@@ -470,7 +470,8 @@ public class HiveWriterFactory
                     session,
                     bucketNumber,
                     transaction,
-                    useAcidSchema);
+                    useAcidSchema,
+                    WriterKind.INSERT);
 
             if (fileWriter.isPresent()) {
                 hiveFileWriter = fileWriter.get();
@@ -528,7 +529,7 @@ public class HiveWriterFactory
             if (sortedWritingTempStagingPathEnabled) {
                 String tempPrefix = sortedWritingTempStagingPath.replace(
                         "${USER}",
-                        new HdfsContext(session, schemaName, tableName).getIdentity().getUser());
+                        new HdfsContext(session).getIdentity().getUser());
                 tempFilePath = new Path(tempPrefix, ".tmp-sort." + path.getParent().getName() + "." + path.getName());
             }
             else {

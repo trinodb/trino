@@ -2,8 +2,8 @@
 Release 327 (20 Dec 2019)
 =========================
 
-General changes
----------------
+General
+-------
 
 * Fix join query failure when late materialization is enabled. (:issue:`2144`)
 * Fix failure of :func:`word_stem` for certain inputs. (:issue:`2145`)
@@ -16,14 +16,14 @@ General changes
 * Rename ``experimental.work-processor-pipelines`` configuration property to ``experimental.late-materialization.enabled``
   and rename ``work_processor_pipelines`` session property to ``late_materialization``. (:issue:`2275`)
 
-Security changes
-----------------
+Security
+--------
 
 * Allow using multiple system access controls. (:issue:`2178`)
 * Add :doc:`/security/password-file`. (:issue:`797`)
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Fix incorrect query results when reading ``timestamp`` values from ORC files written by
   Hive 3.1 or later. (:issue:`2099`)
@@ -40,43 +40,43 @@ Hive connector changes
 * Allow configuring the ``hive.orc.use-column-names`` config property on a per-session
   basis using the ``orc_use_column_names`` session property. (:issue:`2248`)
 
-Kudu connector changes
-----------------------
+Kudu connector
+--------------
 
 * Support predicate pushdown for the ``decimal`` type. (:issue:`2131`)
 * Fix column position swap for delete operations that may result in deletion of the wrong records. (:issue:`2252`)
 * Improve predicate pushdown for queries that match a column against
   multiple values (typically using the ``IN`` operator). (:issue:`2253`)
 
-MongoDB connector changes
--------------------------
+MongoDB connector
+-----------------
 
 * Add support for reading from views. (:issue:`2156`)
 
-PostgreSQL connector changes
-----------------------------
+PostgreSQL connector
+--------------------
 
 * Allow converting unsupported types to ``VARCHAR`` by setting the session property
   ``unsupported_type_handling`` or configuration property ``unsupported-type-handling``
   to ``CONVERT_TO_VARCHAR``. (:issue:`1182`)
 
-MySQL connector changes
------------------------
+MySQL connector
+---------------
 
 * Fix ``INSERT`` query failure when ``GTID`` mode is enabled. (:issue:`2251`)
 
-Elasticsearch connector changes
--------------------------------
+Elasticsearch connector
+-----------------------
 
 * Improve performance for queries involving equality and range filters
   over table columns. (:issue:`2310`)
 
-Google Sheets connector changes
--------------------------------
+Google Sheets connector
+-----------------------
 
 * Fix incorrect results when listing tables in ``information_schema``. (:issue:`2118`)
 
-SPI changes
------------
+SPI
+---
 
 * Add ``executionTime`` to ``QueryStatistics`` for event listeners. (:issue:`2247`)

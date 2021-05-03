@@ -74,6 +74,7 @@ import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.SchemaPropertyManager;
@@ -91,6 +92,7 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
 import io.trino.server.ExpressionSerialization.ExpressionSerializer;
+import io.trino.server.PluginManager.PluginsProvider;
 import io.trino.server.SliceSerialization.SliceDeserializer;
 import io.trino.server.SliceSerialization.SliceSerializer;
 import io.trino.server.remotetask.HttpLocationFactory;
@@ -220,6 +222,9 @@ public class ServerMainModule
 
         // table properties
         binder.bind(TablePropertyManager.class).in(Scopes.SINGLETON);
+
+        // materialized view properties
+        binder.bind(MaterializedViewPropertyManager.class).in(Scopes.SINGLETON);
 
         // column properties
         binder.bind(ColumnPropertyManager.class).in(Scopes.SINGLETON);
@@ -409,7 +414,9 @@ public class ServerMainModule
 
         // plugin manager
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(PluginManagerConfig.class);
+        newOptionalBinder(binder, PluginsProvider.class).setDefault()
+                .to(ServerPluginsProvider.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(ServerPluginsProviderConfig.class);
 
         binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
 

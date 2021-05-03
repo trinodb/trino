@@ -498,7 +498,8 @@ public class PlanBuilder
                 symbols,
                 symbols.stream().collect(toImmutableMap(identity(), symbol -> new TestingMetadata.TestingColumnHandle(symbol.getName()))),
                 TupleDomain.all(),
-                forDelete);
+                forDelete,
+                Optional.empty());
     }
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
@@ -521,6 +522,38 @@ public class PlanBuilder
             TableHandle tableHandle,
             List<Symbol> symbols,
             Map<Symbol, ColumnHandle> assignments,
+            boolean forDelete)
+    {
+        return new TableScanNode(
+                idAllocator.getNextId(),
+                tableHandle,
+                symbols,
+                assignments,
+                TupleDomain.all(),
+                forDelete,
+                Optional.empty());
+    }
+
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<Symbol> symbols,
+            Map<Symbol, ColumnHandle> assignments,
+            Optional<Boolean> useConnectorNodePartitioning)
+    {
+        return new TableScanNode(
+                idAllocator.getNextId(),
+                tableHandle,
+                symbols,
+                assignments,
+                TupleDomain.all(),
+                false,
+                useConnectorNodePartitioning);
+    }
+
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<Symbol> symbols,
+            Map<Symbol, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
         return new TableScanNode(
@@ -529,7 +562,8 @@ public class PlanBuilder
                 symbols,
                 assignments,
                 enforcedConstraint,
-                false);
+                false,
+                Optional.empty());
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
@@ -565,11 +599,11 @@ public class PlanBuilder
     private DeleteTarget deleteTarget(SchemaTableName schemaTableName)
     {
         return new DeleteTarget(
-                new TableHandle(
+                Optional.of(new TableHandle(
                         new CatalogName("testConnector"),
                         new TestingTableHandle(),
                         TestingTransactionHandle.create(),
-                        Optional.of(TestingHandle.INSTANCE)),
+                        Optional.of(TestingHandle.INSTANCE))),
                 schemaTableName);
     }
 
@@ -932,13 +966,14 @@ public class PlanBuilder
 
     public TableWriterNode tableWriter(List<Symbol> columns, List<String> columnNames, PlanNode source)
     {
-        return tableWriter(columns, columnNames, Optional.empty(), Optional.empty(), Optional.empty(), source);
+        return tableWriter(columns, columnNames, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), source);
     }
 
     public TableWriterNode tableWriter(
             List<Symbol> columns,
             List<String> columnNames,
             Optional<PartitioningScheme> partitioningScheme,
+            Optional<PartitioningScheme> preferredPartitioningScheme,
             Optional<StatisticAggregations> statisticAggregations,
             Optional<StatisticAggregationsDescriptor<Symbol>> statisticAggregationsDescriptor,
             PlanNode source)
@@ -953,6 +988,7 @@ public class PlanBuilder
                 columnNames,
                 ImmutableSet.of(),
                 partitioningScheme,
+                preferredPartitioningScheme,
                 statisticAggregations,
                 statisticAggregationsDescriptor);
     }

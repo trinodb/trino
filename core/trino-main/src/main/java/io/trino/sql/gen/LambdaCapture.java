@@ -21,8 +21,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
-
 public final class LambdaCapture
 {
     public static final Method LAMBDA_CAPTURE_METHOD;
@@ -59,7 +57,6 @@ public final class LambdaCapture
                     instantiatedMethodType);
         }
         catch (LambdaConversionException e) {
-            throwIfUnchecked(e);
             throw new RuntimeException(e);
         }
     }

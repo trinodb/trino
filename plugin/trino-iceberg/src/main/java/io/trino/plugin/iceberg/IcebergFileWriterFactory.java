@@ -116,8 +116,9 @@ public class IcebergFileWriterFactory
                 return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext);
             case ORC:
                 return createOrcWriter(outputPath, icebergSchema, jobConf, session);
+            default:
+                throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
         }
-        throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
 
     private IcebergFileWriter createParquetWriter(
@@ -219,7 +220,6 @@ public class IcebergFileWriterFactory
                             .withStripeMaxRowCount(getOrcWriterMaxStripeRows(session))
                             .withDictionaryMaxMemory(getOrcWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
-                    false,
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())

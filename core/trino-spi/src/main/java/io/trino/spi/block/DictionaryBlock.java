@@ -18,9 +18,7 @@ import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -324,18 +322,29 @@ public class DictionaryBlock
     {
         checkArrayRange(positions, offset, length);
 
+        if (uniqueIds == positionCount) {
+            // each block position is unique, therefore it makes more sense to unwrap dictionary
+            // block by copying selected positions
+            int[] positionsToCopy = new int[length];
+            for (int i = 0; i < length; i++) {
+                positionsToCopy[i] = getId(positions[offset + i]);
+            }
+            return dictionary.copyPositions(positionsToCopy, 0, length);
+        }
+
         IntArrayList positionsToCopy = new IntArrayList();
-        Map<Integer, Integer> oldIndexToNewIndex = new HashMap<>();
+        Int2IntOpenHashMap oldIndexToNewIndex = new Int2IntOpenHashMap(min(length, dictionary.getPositionCount()));
         int[] newIds = new int[length];
 
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             int oldIndex = getId(position);
-            if (!oldIndexToNewIndex.containsKey(oldIndex)) {
-                oldIndexToNewIndex.put(oldIndex, positionsToCopy.size());
+            int newId = oldIndexToNewIndex.putIfAbsent(oldIndex, positionsToCopy.size());
+            if (newId == -1) {
+                newId = positionsToCopy.size();
                 positionsToCopy.add(oldIndex);
             }
-            newIds[i] = oldIndexToNewIndex.get(oldIndex);
+            newIds[i] = newId;
         }
         return new DictionaryBlock(dictionary.copyPositions(positionsToCopy.elements(), 0, positionsToCopy.size()), newIds);
     }

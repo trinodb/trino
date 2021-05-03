@@ -42,12 +42,12 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.resourcegroups.InternalResourceGroup.DEFAULT_WEIGHT;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.FAIR;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestDbResourceGroupConfigurationManager
 {
@@ -125,7 +125,7 @@ public class TestDbResourceGroupConfigurationManager
     }
 
     @Test
-    public void testDuplicates()
+    public void testDuplicateRoots()
     {
         H2DaoProvider daoProvider = setup("test_dup_roots");
         H2ResourceGroupsDao dao = daoProvider.get();
@@ -133,32 +133,29 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
         dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
-        try {
-            dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
-            fail("Expected to fail");
-        }
-        catch (RuntimeException ex) {
-            assertTrue(ex instanceof UnableToExecuteStatementException);
-            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
-            assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
-        }
+        assertThatThrownBy(() -> dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT))
+                .isInstanceOfSatisfying(UnableToExecuteStatementException.class, ex -> {
+                    assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
+                    assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
+                });
         dao.insertSelector(1, 1, null, null, null, null, null);
-        daoProvider = setup("test_dup_subs");
-        dao = daoProvider.get();
+    }
+
+    @Test
+    public void testDuplicateGroups()
+    {
+        H2DaoProvider daoProvider = setup("test_dup_subs");
+        H2ResourceGroupsDao dao = daoProvider.get();
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
         dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
         dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT);
-        try {
-            dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT);
-        }
-        catch (RuntimeException ex) {
-            assertTrue(ex instanceof UnableToExecuteStatementException);
-            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
-            assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
-        }
-
+        assertThatThrownBy(() -> dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT))
+                .isInstanceOfSatisfying(UnableToExecuteStatementException.class, ex -> {
+                    assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
+                    assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
+                });
         dao.insertSelector(2, 2, null, null, null, null, null);
     }
 
@@ -300,7 +297,7 @@ public class TestDbResourceGroupConfigurationManager
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 (poolId, listener) -> {},
-                new DbResourceGroupConfig().setMaxRefreshInterval(io.airlift.units.Duration.valueOf("1ms")),
+                new DbResourceGroupConfig().setMaxRefreshInterval(new io.airlift.units.Duration(1, MILLISECONDS)),
                 daoProvider.get(),
                 ENVIRONMENT);
 
@@ -320,28 +317,18 @@ public class TestDbResourceGroupConfigurationManager
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 (poolId, listener) -> {},
-                new DbResourceGroupConfig().setMaxRefreshInterval(io.airlift.units.Duration.valueOf("1ms")),
+                new DbResourceGroupConfig().setMaxRefreshInterval(new io.airlift.units.Duration(1, MILLISECONDS)),
                 daoProvider.get(),
                 ENVIRONMENT);
 
         dao.dropSelectorsTable();
         manager.load();
 
-        try {
-            manager.getSelectors();
-            fail("Expected unavailable configuration exception");
-        }
-        catch (Exception e) {
-            assertEquals(e.getMessage(), "Selectors cannot be fetched from database");
-        }
+        assertTrinoExceptionThrownBy(manager::getSelectors)
+                .hasMessage("Selectors cannot be fetched from database");
 
-        try {
-            manager.getRootGroups();
-            fail("Expected unavailable configuration exception");
-        }
-        catch (Exception e) {
-            assertEquals(e.getMessage(), "Root groups cannot be fetched from database");
-        }
+        assertTrinoExceptionThrownBy(manager::getRootGroups)
+                .hasMessage("Root groups cannot be fetched from database");
 
         manager.destroy();
     }

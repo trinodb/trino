@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.HiveTypeName;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 
@@ -50,11 +51,12 @@ public final class AcidSchema
             ACID_COLUMN_ROW_ID,
             ACID_COLUMN_CURRENT_TRANSACTION,
             ACID_COLUMN_ROW_STRUCT);
-
-    public static final RowType ACID_ROW_ID_ROW_TYPE = RowType.from(ImmutableList.of(
+    public static final List<Field> ACID_READ_FIELDS = ImmutableList.of(
             field(ACID_COLUMN_ORIGINAL_TRANSACTION, BIGINT),
             field(ACID_COLUMN_ROW_ID, BIGINT),
-            field(ACID_COLUMN_BUCKET, INTEGER)));
+            field(ACID_COLUMN_BUCKET, INTEGER));
+
+    public static final RowType ACID_ROW_ID_ROW_TYPE = RowType.from(ACID_READ_FIELDS);
 
     private AcidSchema() {}
 
@@ -76,9 +78,9 @@ public final class AcidSchema
         requireNonNull(names, "names is null");
         requireNonNull(types, "types is null");
         checkArgument(names.size() == types.size(), "names size %s differs from types size %s", names.size(), types.size());
-        ImmutableList.Builder<RowType.Field> builder = ImmutableList.builder();
+        ImmutableList.Builder<Field> builder = ImmutableList.builder();
         for (int i = 0; i < names.size(); i++) {
-            builder.add(new RowType.Field(Optional.of(names.get(i)), types.get(i)));
+            builder.add(new Field(Optional.of(names.get(i)), types.get(i)));
         }
         return RowType.from(builder.build());
     }

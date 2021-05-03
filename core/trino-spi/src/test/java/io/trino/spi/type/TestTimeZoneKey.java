@@ -24,11 +24,11 @@ import java.util.SortedSet;
 import static io.trino.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Comparator.comparingInt;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestTimeZoneKey
 {
@@ -197,6 +197,9 @@ public class TestTimeZoneKey
         // previous spot for MST
         assertFalse(hasValue[2196]);
         hasValue[2196] = true;
+        // previous spot for US/Pacific-New
+        assertFalse(hasValue[2174]);
+        hasValue[2174] = true;
 
         for (int i = 0; i < hasValue.length; i++) {
             assertTrue(hasValue[i], "There is no time zone with key " + i);
@@ -215,17 +218,13 @@ public class TestTimeZoneKey
             hasher.putString(timeZoneKey.getId(), StandardCharsets.UTF_8);
         }
         // Zone file should not (normally) be changed, so let's make this more difficult
-        assertEquals(hasher.hash().asLong(), -3809591333307967388L, "zone-index.properties file contents changed!");
+        assertEquals(hasher.hash().asLong(), 6334606028834602490L, "zone-index.properties file contents changed!");
     }
 
     public void assertTimeZoneNotSupported(String zoneId)
     {
-        try {
-            TimeZoneKey.getTimeZoneKey(zoneId);
-            fail("expect TimeZoneNotSupportedException");
-        }
-        catch (TimeZoneNotSupportedException e) {
-            // expected
-        }
+        assertThatThrownBy(() -> TimeZoneKey.getTimeZoneKey(zoneId))
+                .isInstanceOf(TimeZoneNotSupportedException.class)
+                .hasMessageStartingWith("Time zone not supported: ");
     }
 }

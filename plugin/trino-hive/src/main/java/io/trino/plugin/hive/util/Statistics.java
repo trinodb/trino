@@ -192,9 +192,8 @@ public final class Statistics
                     return OptionalLong.of(max(first.getAsLong(), second.getAsLong()));
                 case MIN:
                     return OptionalLong.of(min(first.getAsLong(), second.getAsLong()));
-                default:
-                    throw new IllegalArgumentException("Unexpected operator: " + operator);
             }
+            throw new IllegalArgumentException("Unexpected operator: " + operator);
         }
         if (returnFirstNonEmpty) {
             return first.isPresent() ? first : second;
@@ -214,9 +213,8 @@ public final class Statistics
                     return OptionalDouble.of(max(first.getAsDouble(), second.getAsDouble()));
                 case MIN:
                     return OptionalDouble.of(min(first.getAsDouble(), second.getAsDouble()));
-                default:
-                    throw new IllegalArgumentException("Unexpected operator: " + operator);
             }
+            throw new IllegalArgumentException("Unexpected operator: " + operator);
         }
         if (returnFirstNonEmpty) {
             return first.isPresent() ? first : second;
@@ -229,13 +227,16 @@ public final class Statistics
     {
         if (first.isPresent() && second.isPresent()) {
             switch (operator) {
+                case ADD:
+                case SUBTRACT:
+                    // unsupported
+                    break;
                 case MAX:
                     return Optional.of(max(first.get(), second.get()));
                 case MIN:
                     return Optional.of(min(first.get(), second.get()));
-                default:
-                    throw new IllegalArgumentException("Unexpected operator: " + operator);
             }
+            throw new IllegalArgumentException("Unexpected operator: " + operator);
         }
         if (returnFirstNonEmpty) {
             return first.isPresent() ? first : second;
@@ -265,31 +266,35 @@ public final class Statistics
         requireNonNull(columnType, "columnType is null");
         HiveColumnStatistics.Builder result = HiveColumnStatistics.builder();
         for (ColumnStatisticType columnStatisticType : columnStatisticTypes) {
-            switch (columnStatisticType) {
-                case MAX_VALUE_SIZE_IN_BYTES:
-                    result.setMaxValueSizeInBytes(0);
-                    break;
-                case TOTAL_SIZE_IN_BYTES:
-                    result.setTotalSizeInBytes(0);
-                    break;
-                case NUMBER_OF_DISTINCT_VALUES:
-                    result.setDistinctValuesCount(0);
-                    break;
-                case NUMBER_OF_NON_NULL_VALUES:
-                    result.setNullsCount(0);
-                    break;
-                case NUMBER_OF_TRUE_VALUES:
-                    result.setBooleanStatistics(new BooleanStatistics(OptionalLong.of(0L), OptionalLong.of(0L)));
-                    break;
-                case MIN_VALUE:
-                case MAX_VALUE:
-                    setMinMaxForEmptyPartition(columnType, result);
-                    break;
-                default:
-                    throw new TrinoException(HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE, "Unknown column statistics type: " + columnStatisticType.name());
-            }
+            setColumnStatisticsForEmptyPartition(columnType, result, columnStatisticType);
         }
         return result.build();
+    }
+
+    private static void setColumnStatisticsForEmptyPartition(Type columnType, HiveColumnStatistics.Builder result, ColumnStatisticType columnStatisticType)
+    {
+        switch (columnStatisticType) {
+            case MAX_VALUE_SIZE_IN_BYTES:
+                result.setMaxValueSizeInBytes(0);
+                return;
+            case TOTAL_SIZE_IN_BYTES:
+                result.setTotalSizeInBytes(0);
+                return;
+            case NUMBER_OF_DISTINCT_VALUES:
+                result.setDistinctValuesCount(0);
+                return;
+            case NUMBER_OF_NON_NULL_VALUES:
+                result.setNullsCount(0);
+                return;
+            case NUMBER_OF_TRUE_VALUES:
+                result.setBooleanStatistics(new BooleanStatistics(OptionalLong.of(0L), OptionalLong.of(0L)));
+                return;
+            case MIN_VALUE:
+            case MAX_VALUE:
+                setMinMaxForEmptyPartition(columnType, result);
+                return;
+        }
+        throw new TrinoException(HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE, "Unknown column statistics type: " + columnStatisticType.name());
     }
 
     private static void setMinMaxForEmptyPartition(Type type, HiveColumnStatistics.Builder result)

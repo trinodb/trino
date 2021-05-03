@@ -48,7 +48,7 @@ public class BytecodeGeneratorContext
             CachedInstanceBinder cachedInstanceBinder,
             Metadata metadata)
     {
-        requireNonNull(rowExpressionCompiler, "bytecodeGenerator is null");
+        requireNonNull(rowExpressionCompiler, "rowExpressionCompiler is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
         requireNonNull(scope, "scope is null");
         requireNonNull(callSiteBinder, "callSiteBinder is null");

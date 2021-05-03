@@ -100,7 +100,7 @@ public class KuduMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        requireNonNull(prefix, "SchemaTablePrefix is null");
+        requireNonNull(prefix, "prefix is null");
 
         List<SchemaTableName> tables;
         if (prefix.getTable().isEmpty()) {
@@ -409,7 +409,7 @@ public class KuduMetadata
     }
 
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return KuduColumnHandle.ROW_ID_HANDLE;
     }
@@ -455,17 +455,17 @@ public class KuduMetadata
             List<ColumnHandle> bucketColumns = getSpecifyColumns(kuduTable.getSchema(), bucketColumnIds, columnMap);
             Optional<List<KuduRangePartition>> kuduRangePartitions = getKuduRangePartitions(kuduTable);
             tablePartitioning = Optional.of(new ConnectorTablePartitioning(
-                new KuduPartitioningHandle(
-                    handle.getSchemaTableName().getSchemaName(),
-                    handle.getSchemaTableName().getTableName(),
-                    handle.getBucketCount().orElse(0),
-                    bucketColumnIds,
-                    bucketColumns.stream()
-                            .map(KuduColumnHandle.class::cast)
-                            .map(KuduColumnHandle::getType)
-                            .collect(Collectors.toList()),
-                    kuduRangePartitions),
-                bucketColumns));
+                    new KuduPartitioningHandle(
+                            handle.getSchemaTableName().getSchemaName(),
+                            handle.getSchemaTableName().getTableName(),
+                            handle.getBucketCount().orElse(0),
+                            bucketColumnIds,
+                            bucketColumns.stream()
+                                    .map(KuduColumnHandle.class::cast)
+                                    .map(KuduColumnHandle::getType)
+                                    .collect(Collectors.toList()),
+                            kuduRangePartitions),
+                    bucketColumns));
             partitioningColumns = Optional.of(ImmutableSet.copyOf(bucketColumns));
         }
 
@@ -480,10 +480,10 @@ public class KuduMetadata
     private List<ColumnHandle> getSpecifyColumns(Schema schema, List<Integer> targetColumns, Map<String, ColumnHandle> columnMap)
     {
         return targetColumns.stream()
-            .map(schema::getColumnByIndex)
-            .map(ColumnSchema::getName)
-            .map(columnMap::get)
-            .collect(toImmutableList());
+                .map(schema::getColumnByIndex)
+                .map(ColumnSchema::getName)
+                .map(columnMap::get)
+                .collect(toImmutableList());
     }
 
     private List<Integer> getBucketColumnIds(KuduTable kuduTable)

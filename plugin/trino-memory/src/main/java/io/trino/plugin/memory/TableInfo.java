@@ -36,7 +36,7 @@ public class TableInfo
 
     public TableInfo(long id, String schemaName, String tableName, List<ColumnInfo> columns, Map<HostAddress, MemoryDataFragment> dataFragments)
     {
-        this.id = requireNonNull(id, "handle is null");
+        this.id = id;
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.columns = ImmutableList.copyOf(columns);

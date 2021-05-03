@@ -86,6 +86,7 @@ public class DockerContainer
 
     private List<String> logPaths = new ArrayList<>();
     private Optional<EnvironmentListener> listener = Optional.empty();
+    private boolean temporary;
 
     public DockerContainer(String dockerImageName, String logicalName)
     {
@@ -160,6 +161,16 @@ public class DockerContainer
                 .withCreateContainerCmdModifier(command -> command.withHealthcheck(cmd));
     }
 
+    /**
+     * Marks this container as temporary, which means that it's not expected to be working at the end of environment creation.
+     * Mostly used to execute short configuration scripts shipped as a part of docker images.
+     */
+    public DockerContainer setTemporary(boolean temporary)
+    {
+        this.temporary = temporary;
+        return this;
+    }
+
     public synchronized Duration getStartupTime()
     {
         checkState(lastStartUpCommenceTimeNanos.isPresent(), "Container did not commence starting");
@@ -228,6 +239,16 @@ public class DockerContainer
 
     public String execCommand(String... command)
     {
+        ExecResult result = execCommandForResult(command);
+        if (result.getExitCode() == 0) {
+            return result.getStdout();
+        }
+        String fullCommand = Joiner.on(" ").join(command);
+        throw new RuntimeException(format("Could not execute command '%s' in container %s: %s", fullCommand, logicalName, result.getStderr()));
+    }
+
+    public ExecResult execCommandForResult(String... command)
+    {
         String fullCommand = Joiner.on(" ").join(command);
         if (!isRunning()) {
             throw new RuntimeException(format("Could not execute command '%s' in stopped container %s", fullCommand, logicalName));
@@ -236,12 +257,7 @@ public class DockerContainer
         log.info("Executing command '%s' in container %s", fullCommand, logicalName);
 
         try {
-            ExecResult result = (ExecResult) executor.getAsync(() -> execInContainer(command)).get();
-            if (result.getExitCode() == 0) {
-                return result.getStdout();
-            }
-
-            throw new RuntimeException(format("Could not execute command '%s' in container %s: %s", fullCommand, logicalName, result.getStderr()));
+            return (ExecResult) executor.getAsync(() -> execInContainer(command)).get();
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -337,9 +353,14 @@ public class DockerContainer
     private List<String> listFilesInContainer(String path)
     {
         try {
+            ExecResult execResult = execCommandForResult("/usr/bin/find", path, "-type", "f", "-print");
+            if (execResult.getExitCode() != 0) {
+                log.warn("Could not list files in container '%s' path %s: %s", logicalName, path, execResult.getStderr());
+                return ImmutableList.of();
+            }
             return Splitter.on("\n")
                     .omitEmptyStrings()
-                    .splitToList(execCommand("/usr/bin/find", path, "-type", "f", "-print"));
+                    .splitToList(execResult.getStdout());
         }
         catch (RuntimeException e) {
             log.warn(e, "Could not list files in container '%s' path %s", logicalName, path);
@@ -425,6 +446,11 @@ public class DockerContainer
         }
 
         checkState(!isRunning(), "Container %s is still running", logicalName);
+    }
+
+    public boolean isTemporary()
+    {
+        return this.temporary;
     }
 
     public enum OutputMode

@@ -31,8 +31,8 @@ import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.TestGroups.SQL_SERVER;
 import static io.trino.tests.sqlserver.SqlServerDataTypesTableDefinition.SQLSERVER_INSERT;
 import static io.trino.tests.sqlserver.TestConstants.KEY_SPACE;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tests.utils.QueryExecutors.onSqlServer;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestInsert
@@ -53,7 +53,7 @@ public class TestInsert
     @AfterTestWithContext
     public void dropTestTables()
     {
-        onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", INSERT_TABLE_NAME));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", INSERT_TABLE_NAME));
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
@@ -64,7 +64,7 @@ public class TestInsert
                         "CHAR 'a   ', 'aa', DOUBLE '%s', DATE '%s')",
                 SQLSERVER, INSERT_TABLE_NAME, Long.MIN_VALUE, Short.MIN_VALUE, Integer.MIN_VALUE,
                 Double.MIN_VALUE, Double.MIN_VALUE, Date.valueOf("1970-01-01"));
-        onPresto().executeQuery(sql);
+        onTrino().executeQuery(sql);
 
         sql = format(
                 "SELECT * FROM %s.%s",
@@ -84,7 +84,7 @@ public class TestInsert
                         "CHAR 'aaaa', 'aaaaaa', DOUBLE '%s', DATE '%s' )",
                 SQLSERVER, INSERT_TABLE_NAME, Long.MAX_VALUE, Short.MAX_VALUE, Integer.MAX_VALUE,
                 Double.MAX_VALUE, Double.valueOf("12345678912.3456756"), Date.valueOf("9999-12-31"));
-        onPresto().executeQuery(sql);
+        onTrino().executeQuery(sql);
 
         sql = format(
                 "SELECT * FROM %s.%s",
@@ -103,7 +103,7 @@ public class TestInsert
         String sql = format(
                 "INSERT INTO %s.%s values (null, null, null, null, null, null, null, null)",
                 SQLSERVER, INSERT_TABLE_NAME);
-        onPresto().executeQuery(sql);
+        onTrino().executeQuery(sql);
 
         sql = format(
                 "SELECT * FROM %s.%s",

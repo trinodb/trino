@@ -42,8 +42,10 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
-import static io.trino.plugin.raptor.legacy.storage.OrcStorageManager.xxhash64;
+import static io.trino.plugin.raptor.legacy.storage.RaptorStorageManager.xxhash64;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.io.File.createTempFile;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
@@ -51,7 +53,6 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestShardRecovery
@@ -223,14 +224,9 @@ public class TestShardRecovery
         assertFalse(storageFile.exists());
 
         // restore should fail
-        try {
-            recoveryManager.restoreFromBackup(shardUuid, size, OptionalLong.of(xxhash64));
-            fail("expected exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), RAPTOR_BACKUP_CORRUPTION.toErrorCode());
-            assertEquals(e.getMessage(), "Backup is corrupt after read: " + shardUuid);
-        }
+        assertTrinoExceptionThrownBy(() -> recoveryManager.restoreFromBackup(shardUuid, size, OptionalLong.of(xxhash64)))
+                .hasErrorCode(RAPTOR_BACKUP_CORRUPTION)
+                .hasMessage(format("Backup is corrupt after read: %s", shardUuid));
 
         // verify quarantine exists
         List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());

@@ -2,8 +2,8 @@
 Release 0.175
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix *"position is not valid"* query execution failures.
 * Fix memory accounting bug that can potentially cause ``OutOfMemoryError``.
@@ -24,13 +24,13 @@ General changes
 * Add support for ``INT`` as an alias for the ``INTEGER`` data type.
 * Add resource group information to query events.
 
-Hive changes
-------------
+Hive
+----
 
 * Make table creation metastore operations idempotent, which allows
   recovery when retrying timeouts or other errors.
 
-MongoDB changes
----------------
+MongoDB
+-------
 
 * Rename ``mongodb.connection-per-host`` config option to ``mongodb.connections-per-host``.

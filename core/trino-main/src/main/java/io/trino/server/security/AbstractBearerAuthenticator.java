@@ -21,17 +21,21 @@ import io.trino.spi.security.Identity;
 
 import javax.ws.rs.container.ContainerRequestContext;
 
-import static com.google.common.base.Strings.nullToEmpty;
+import java.util.List;
+
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractBearerAuthenticator
         implements Authenticator
 {
+    private final String principalField;
     private final UserMapping userMapping;
 
-    protected AbstractBearerAuthenticator(UserMapping userMapping)
+    protected AbstractBearerAuthenticator(String principalField, UserMapping userMapping)
     {
+        this.principalField = requireNonNull(principalField, "principalField is null");
         this.userMapping = requireNonNull(userMapping, "userMapping is null");
     }
 
@@ -39,23 +43,21 @@ public abstract class AbstractBearerAuthenticator
     public Identity authenticate(ContainerRequestContext request)
             throws AuthenticationException
     {
-        String header = nullToEmpty(request.getHeaders().getFirst(AUTHORIZATION));
+        return authenticate(request, extractToken(request));
+    }
 
-        int space = header.indexOf(' ');
-        if ((space < 0) || !header.substring(0, space).equalsIgnoreCase("bearer")) {
-            throw needAuthentication(request, null);
-        }
-        String token = header.substring(space + 1).trim();
-        if (token.isEmpty()) {
-            throw needAuthentication(request, null);
-        }
-
+    public Identity authenticate(ContainerRequestContext request, String token)
+            throws AuthenticationException
+    {
         try {
             Jws<Claims> claimsJws = parseClaimsJws(token);
-            String subject = claimsJws.getBody().getSubject();
-            String authenticatedUser = userMapping.mapUser(subject);
+            String principal = claimsJws.getBody().get(principalField, String.class);
+            if (principal == null) {
+                throw needAuthentication(request, "Invalid credentials");
+            }
+            String authenticatedUser = userMapping.mapUser(principal);
             return Identity.forUser(authenticatedUser)
-                    .withPrincipal(new BasicPrincipal(subject))
+                    .withPrincipal(new BasicPrincipal(principal))
                     .build();
         }
         catch (JwtException | UserMappingException e) {
@@ -64,6 +66,29 @@ public abstract class AbstractBearerAuthenticator
         catch (RuntimeException e) {
             throw new RuntimeException("Authentication error", e);
         }
+    }
+
+    public String extractToken(ContainerRequestContext request)
+            throws AuthenticationException
+    {
+        List<String> headers = request.getHeaders().get(AUTHORIZATION);
+        if (headers == null || headers.size() == 0) {
+            throw needAuthentication(request, null);
+        }
+        if (headers.size() > 1) {
+            throw new IllegalArgumentException(format("Multiple %s headers detected: %s, where only single %s header is supported", AUTHORIZATION, headers, AUTHORIZATION));
+        }
+
+        String header = headers.get(0);
+        int space = header.indexOf(' ');
+        if ((space < 0) || !header.substring(0, space).equalsIgnoreCase("bearer")) {
+            throw needAuthentication(request, null);
+        }
+        String token = header.substring(space + 1).trim();
+        if (token.isEmpty()) {
+            throw needAuthentication(request, null);
+        }
+        return token;
     }
 
     protected abstract Jws<Claims> parseClaimsJws(String jws);

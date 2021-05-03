@@ -29,8 +29,8 @@ If you're upgrading from 0.92, you need to alter your verifier_queries table
     ALTER TABLE verifier_queries add control_username VARCHAR(256) NOT NULL default 'verifier-test';
     ALTER TABLE verifier_queries add control_password VARCHAR(256);
 
-General changes
----------------
+General
+-------
 
 * Add optimizer for ``LIMIT 0``
 * Fix incorrect check to disable string statistics in ORC

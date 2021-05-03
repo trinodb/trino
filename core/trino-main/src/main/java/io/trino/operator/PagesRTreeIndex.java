@@ -114,7 +114,7 @@ public class PagesRTreeIndex
         this.channels = requireNonNull(channels, "channels is null");
         this.rtree = requireNonNull(rtree, "rtree is null");
         this.radiusChannel = radiusChannel.orElse(-1);
-        this.spatialRelationshipTest = requireNonNull(spatialRelationshipTest, "spatial relationship is null");
+        this.spatialRelationshipTest = requireNonNull(spatialRelationshipTest, "spatialRelationshipTest is null");
         this.filterFunction = filterFunctionFactory.map(factory -> factory.create(session.toConnectorSession(), addresses, channelsToPages(channels))).orElse(null);
         this.partitions = requireNonNull(partitions, "partitions is null");
     }

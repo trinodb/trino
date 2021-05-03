@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.execution.buffer.BufferResult.emptyResults;
@@ -264,7 +263,7 @@ class ClientBuffer
      */
     private boolean loadPagesIfNecessary(PagesSupplier pagesSupplier, DataSize maxSize)
     {
-        checkState(!Thread.holdsLock(this), "Cannot load pages while holding a lock on this");
+        assertNotHoldsLock("Cannot load pages while holding a lock on this");
 
         boolean dataAddedOrNoMorePages;
         List<SerializedPageReference> pageReferences;
@@ -300,7 +299,7 @@ class ClientBuffer
 
     private void processRead(PendingRead pendingRead)
     {
-        checkState(!Thread.holdsLock(this), "Cannot process pending read while holding a lock on this");
+        assertNotHoldsLock("Cannot process pending read while holding a lock on this");
 
         if (pendingRead.getResultFuture().isDone()) {
             return;
@@ -332,7 +331,7 @@ class ClientBuffer
         // - Request to read after the buffer has been destroyed.  When the
         //   buffer is destroyed all pages are dropped, so the read sequenceId
         //   appears to be off the end of the queue.  Normally a read past the
-        //   end of the queue would be be an error, but this specific case is
+        //   end of the queue would be an error, but this specific case is
         //   detected and handled.  The client is sent an empty response with
         //   the finished flag set and next token is the max acknowledged page
         //   when the buffer is destroyed.
@@ -414,6 +413,12 @@ class ClientBuffer
         }
         //  Dereference pages outside of synchronized block to trigger callbacks
         dereferencePages(removedPages.build(), onPagesReleased);
+    }
+
+    @SuppressWarnings("checkstyle:IllegalToken")
+    private void assertNotHoldsLock(String message)
+    {
+        assert !Thread.holdsLock(this) : message;
     }
 
     @Override

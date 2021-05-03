@@ -56,6 +56,7 @@ public class TestSqlServerClient
 
     private static final JdbcClient JDBC_CLIENT = new SqlServerClient(
             new BaseJdbcConfig(),
+            new SqlServerConfig(),
             session -> {
                 throw new UnsupportedOperationException();
             });
@@ -137,7 +138,7 @@ public class TestSqlServerClient
                 Optional.empty()); // filter not supported
     }
 
-    private void testImplementAggregation(AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments, Optional<String> expectedExpression)
+    private static void testImplementAggregation(AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments, Optional<String> expectedExpression)
     {
         Optional<JdbcExpression> result = JDBC_CLIENT.implementAggregation(SESSION, aggregateFunction, assignments);
         if (expectedExpression.isEmpty()) {

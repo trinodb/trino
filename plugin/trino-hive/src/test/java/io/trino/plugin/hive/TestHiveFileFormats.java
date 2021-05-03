@@ -29,7 +29,6 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -87,6 +86,7 @@ import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.getTypes;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.testing.StructuralTestUtil.rowBlockOf;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -99,7 +99,6 @@ import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
@@ -324,7 +323,7 @@ public class TestHiveFileFormats
                 .withRowsCount(rowCount)
                 .withSession(session)
                 .withFileSizePadding(fileSizePadding)
-                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), false, STATS, new OrcWriterOptions()))
+                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), STATS, new OrcWriterOptions()))
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
     }
@@ -1291,16 +1290,10 @@ public class TestHiveFileFormats
                 HiveErrorCode expectedErrorCode,
                 String expectedMessage,
                 boolean withRecordPageSource)
-                throws Exception
         {
-            try {
-                assertRead(pageSourceFactory, cursorProvider, withRecordPageSource);
-                fail("failure is expected");
-            }
-            catch (TrinoException trinoException) {
-                assertEquals(trinoException.getErrorCode(), expectedErrorCode.toErrorCode());
-                assertEquals(trinoException.getMessage(), expectedMessage);
-            }
+            assertTrinoExceptionThrownBy(() -> assertRead(pageSourceFactory, cursorProvider, withRecordPageSource))
+                    .hasErrorCode(expectedErrorCode)
+                    .hasMessage(expectedMessage);
         }
     }
 }

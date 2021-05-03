@@ -122,6 +122,12 @@ public class LookupJoinPageBuilder
                 verify(probeIndices[length - 1] - probeIndices[0] == length - 1);
                 blocks[i] = probeBlock.getRegion(probeIndices[0], length);
             }
+
+            // Lazy blocks (e.g used in filter condition) could be loaded during filter evaluation.
+            // Unwrap them to reduce overhead of further processing.
+            if (blocks[i].isLoaded()) {
+                blocks[i] = blocks[i].getLoadedBlock();
+            }
         }
 
         Page buildPage = buildPageBuilder.build();

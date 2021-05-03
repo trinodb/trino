@@ -99,7 +99,7 @@ public class EquatableValueSet
         return new EquatableValueSet(type, true, set);
     }
 
-    static EquatableValueSet copyOf(Type type, Collection<Object> values)
+    static EquatableValueSet copyOf(Type type, Collection<?> values)
     {
         return new EquatableValueSet(type, true, values.stream()
                 .map(value -> ValueEntry.create(type, value))
@@ -297,10 +297,7 @@ public class EquatableValueSet
     @Override
     public String toString()
     {
-        return format(
-                "%s[... (%d elements) ...]",
-                inclusive ? "" : "EXCLUDES",
-                entries.size());
+        return toString(ToStringSession.INSTANCE);
     }
 
     @Override

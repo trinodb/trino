@@ -39,7 +39,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Marker.Bound;
 import io.trino.spi.type.TimestampType;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
@@ -473,7 +472,7 @@ public class AccumuloClient
     public void renameTable(SchemaTableName oldName, SchemaTableName newName)
     {
         if (!oldName.getSchemaName().equals(newName.getSchemaName())) {
-            throw new TrinoException(NOT_SUPPORTED, "Accumulo does not support renaming tables to different namespaces (schemas)");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
         AccumuloTable oldTable = getTable(oldName);
@@ -623,7 +622,7 @@ public class AccumuloClient
 
     public AccumuloTable getTable(SchemaTableName table)
     {
-        requireNonNull(table, "schema table name is null");
+        requireNonNull(table, "table is null");
         return metaManager.getTable(table);
     }
 
@@ -635,7 +634,7 @@ public class AccumuloClient
 
     public AccumuloView getView(SchemaTableName viewName)
     {
-        requireNonNull(viewName, "schema table name is null");
+        requireNonNull(viewName, "viewName is null");
         return metaManager.getView(viewName);
     }
 
@@ -925,25 +924,23 @@ public class AccumuloClient
             accumuloRange = new Range(split);
         }
         else {
-            if (trinoRange.getLow().isLowerUnbounded()) {
+            if (trinoRange.isLowUnbounded()) {
                 // If low is unbounded, then create a range from (-inf, value), checking inclusivity
-                boolean inclusive = trinoRange.getHigh().getBound() == Bound.EXACTLY;
-                Text split = new Text(serializer.encode(trinoRange.getType(), trinoRange.getHigh().getValue()));
-                accumuloRange = new Range(null, false, split, inclusive);
+                Text split = new Text(serializer.encode(trinoRange.getType(), trinoRange.getHighBoundedValue()));
+                accumuloRange = new Range(null, false, split, trinoRange.isLowInclusive());
             }
-            else if (trinoRange.getHigh().isUpperUnbounded()) {
+            else if (trinoRange.isHighUnbounded()) {
                 // If high is unbounded, then create a range from (value, +inf), checking inclusivity
-                boolean inclusive = trinoRange.getLow().getBound() == Bound.EXACTLY;
-                Text split = new Text(serializer.encode(trinoRange.getType(), trinoRange.getLow().getValue()));
-                accumuloRange = new Range(split, inclusive, null, false);
+                Text split = new Text(serializer.encode(trinoRange.getType(), trinoRange.getLowBoundedValue()));
+                accumuloRange = new Range(split, trinoRange.isHighInclusive(), null, false);
             }
             else {
                 // If high is unbounded, then create a range from low to high, checking inclusivity
-                boolean startKeyInclusive = trinoRange.getLow().getBound() == Bound.EXACTLY;
-                Text startSplit = new Text(serializer.encode(trinoRange.getType(), trinoRange.getLow().getValue()));
+                boolean startKeyInclusive = trinoRange.isLowInclusive();
+                Text startSplit = new Text(serializer.encode(trinoRange.getType(), trinoRange.getLowBoundedValue()));
 
-                boolean endKeyInclusive = trinoRange.getHigh().getBound() == Bound.EXACTLY;
-                Text endSplit = new Text(serializer.encode(trinoRange.getType(), trinoRange.getHigh().getValue()));
+                boolean endKeyInclusive = trinoRange.isHighInclusive();
+                Text endSplit = new Text(serializer.encode(trinoRange.getType(), trinoRange.getHighBoundedValue()));
                 accumuloRange = new Range(startSplit, startKeyInclusive, endSplit, endKeyInclusive);
             }
         }

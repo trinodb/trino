@@ -2,8 +2,8 @@
 Release 0.144.5
 ===============
 
-General changes
----------------
+General
+-------
 
 * Fix window functions to correctly handle empty frames between unbounded and
   bounded in the same direction. For example, a frame such as

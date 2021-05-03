@@ -108,7 +108,7 @@ public class BasicQueryStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
-        this.rawInputDataSize = requireNonNull(rawInputDataSize);
+        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         this.rawInputPositions = rawInputPositions;
         this.physicalInputDataSize = physicalInputDataSize;
 

@@ -4,7 +4,7 @@ Web UI
 
 Trino provides a web-based user interface (UI) for monitoring a Trino cluster
 and managing queries. The Web UI is accessible on the coordinator via
-HTTP/HTTPS, using the corresponding port number specified in the coordinator
+HTTP or HTTPS, using the corresponding port number specified in the coordinator
 :ref:`config_properties`. It can be configured with :doc:`/admin/properties-web-interface`.
 
 The Web UI can be disabled entirely with the ``web-ui.enabled`` property.
@@ -16,14 +16,10 @@ Authentication
 
 The Web UI requires users to authenticate. If Trino is not configured to require
 authentication, then any username can be used, and no password is required or
-allowed. Typically, users should login with the same username that they use for
+allowed. Typically, users login with the same username that they use for
 running queries.
 
-Accessing the Web UI over HTTPS requires configuring an authentication type for
-the Web UI or the Trino server. If no authentication type is configured for the
-Web UI, then it will chosen based on the Trino server authentication type.
-
-If no system access control is installed, then all users will be able to view and kill
+If no system access control is installed, then all users are able to view and kill
 any query. This can be restricted by using :ref:`query rules <query_rules>` with the
 :doc:`/security/built-in-system-access-control`. Users always have permission to view
 or kill their own queries.
@@ -31,12 +27,12 @@ or kill their own queries.
 Password authentication
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Typically, a :doc:`password authenticator </develop/password-authenticator>`
+Typically, a password-based authentication method
 such as :doc:`LDAP </security/ldap>` or :doc:`password file </security/password-file>`
 is used to secure both the Trino server and the Web UI. When the Trino server
 is configured to use a password authenticator, the Web UI authentication type
-is automatically set to ``form``. The Web UI will display a login form that accepts
-a username and password.
+is automatically set to ``form``. In this case, the Web UI displays a login form
+that accepts a username and password.
 
 Fixed user authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -55,6 +51,7 @@ The following Web UI authentication types are also supported:
 * ``certificate``
 * ``kerberos``
 * ``jwt``
+* ``oauth2``
 
 For these authentication types, the username is defined by :doc:`/security/user-mapping`.
 
@@ -93,3 +90,12 @@ The summary section has a button to kill the currently running query. There are 
 available in the summary section: task execution and timeline. The full JSON document containing
 information and statistics about the query is available by clicking the *JSON* link. These visualizations
 and other statistics can be used to analyze where time is being spent for a query.
+
+Configuring query history
+-------------------------
+
+The following configuration properties affect :doc:`how query history
+is collected </admin/properties-query-management>` for display in the Web UI:
+
+* ``query.min-expire-age``
+* ``query.max-history``

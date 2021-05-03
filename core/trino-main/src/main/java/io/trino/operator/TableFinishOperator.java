@@ -125,7 +125,7 @@ public class TableFinishOperator
             boolean statisticsCpuTimerEnabled)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.tableFinisher = requireNonNull(tableFinisher, "tableCommitter is null");
+        this.tableFinisher = requireNonNull(tableFinisher, "tableFinisher is null");
         this.statisticsAggregationOperator = requireNonNull(statisticsAggregationOperator, "statisticsAggregationOperator is null");
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;

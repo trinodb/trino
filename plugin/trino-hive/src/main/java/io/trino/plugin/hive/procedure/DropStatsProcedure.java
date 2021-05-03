@@ -135,8 +135,8 @@ public class DropStatsProcedure
                         new HiveIdentity(session.getIdentity()),
                         schema,
                         table,
-                        stats -> PartitionStatistics.empty(),
-                        NO_ACID_TRANSACTION);
+                        NO_ACID_TRANSACTION,
+                        stats -> PartitionStatistics.empty());
             }
             else {
                 // the table is partitioned; remove stats for every partition

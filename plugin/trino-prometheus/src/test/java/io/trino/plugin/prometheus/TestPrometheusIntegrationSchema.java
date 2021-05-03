@@ -38,6 +38,8 @@ import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITION
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -60,9 +62,12 @@ public class TestPrometheusIntegrationSchema
 
     @BeforeClass
     protected void createQueryRunner()
+            throws Exception
     {
         this.server = new PrometheusServer();
         this.client = createPrometheusClient(server);
+
+        PrometheusServer.checkServerReady(this.client);
     }
 
     @AfterClass(alwaysRun = true)
@@ -73,13 +78,11 @@ public class TestPrometheusIntegrationSchema
 
     @Test
     public void testRetrieveUpValue()
-            throws Exception
     {
-        PrometheusServer.checkServerReady(this.client);
         assertTrue(client.getTableNames("default").contains("up"), "Prometheus' own `up` metric should be available in default");
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testMetadata()
     {
         assertTrue(client.getTableNames("default").contains("up"));
@@ -92,7 +95,7 @@ public class TestPrometheusIntegrationSchema
                 new PrometheusColumn("value", DOUBLE)));
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testGetTableHandle()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
@@ -102,7 +105,7 @@ public class TestPrometheusIntegrationSchema
         assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown")));
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testGetColumnHandles()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
@@ -127,7 +130,7 @@ public class TestPrometheusIntegrationSchema
         }
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testGetTableMetadata()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
@@ -145,7 +148,7 @@ public class TestPrometheusIntegrationSchema
         assertNull(metadata.getTableMetadata(SESSION, new PrometheusTableHandle("unknown", "numbers")));
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testListTables()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
@@ -157,14 +160,14 @@ public class TestPrometheusIntegrationSchema
                 .hasMessageContaining("Prometheus did no return metrics list (table names): ");
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testCorrectNumberOfSplitsCreated()
     {
         PrometheusConnectorConfig config = new PrometheusConnectorConfig();
         config.setPrometheusURI(server.getUri());
-        config.setMaxQueryRangeDuration(Duration.valueOf("21d"));
-        config.setQueryChunkSizeDuration(Duration.valueOf("1d"));
-        config.setCacheDuration(Duration.valueOf("30s"));
+        config.setMaxQueryRangeDuration(new Duration(21, DAYS));
+        config.setQueryChunkSizeDuration(new Duration(1, DAYS));
+        config.setCacheDuration(new Duration(30, SECONDS));
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, new PrometheusClock(), config);
         ConnectorSplitSource splits = splitManager.getSplits(

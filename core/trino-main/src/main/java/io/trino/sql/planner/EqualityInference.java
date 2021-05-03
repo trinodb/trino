@@ -311,7 +311,7 @@ public class EqualityInference
 
     /**
      * Returns a canonical expression that is fully contained by the symbolScope and that is equivalent
-     * to the specified expression. Returns null if unable to to find a canonical.
+     * to the specified expression. Returns null if unable to find a canonical.
      */
     @VisibleForTesting
     Expression getScopedCanonical(Expression expression, Predicate<Symbol> symbolScope)

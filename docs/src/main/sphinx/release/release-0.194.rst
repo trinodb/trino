@@ -2,8 +2,8 @@
 Release 0.194
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix planning performance regression that can affect queries over Hive tables
   with many partitions.
@@ -16,13 +16,13 @@ General changes
 * Improve coordinator CPU efficiency when discovering splits.
 * Include minimum and maximum values for columns in ``SHOW STATS``.
 
-Web UI changes
---------------
+Web UI
+------
 
 * Fix previously empty peak memory display in the query details page.
 
-CLI changes
------------
+CLI
+---
 
 * Fix regression in CLI that makes it always print "query aborted by user" when
   the result is displayed with a pager, even if the query completes successfully.
@@ -30,15 +30,15 @@ CLI changes
 * Add ``--client-info`` option for specifying client info.
 * Add ``--ignore-errors`` option to continue processing in batch mode when an error occurs.
 
-JDBC driver changes
--------------------
+JDBC driver
+-----------
 
 * Allow configuring connection network timeout with ``setNetworkTimeout()``.
 * Allow setting client tags via the ``ClientTags`` client info property.
 * Expose update type via ``getUpdateType()`` on ``PrestoStatement``.
 
-Hive changes
-------------
+Hive
+----
 
 * Consistently fail queries that attempt to read partitions that are offline.
   Previously, the query can have one of the following outcomes: fail as expected,
@@ -49,7 +49,7 @@ Hive changes
 * Reduce ORC file reader memory consumption by allocating buffers lazily.
   Buffers are only allocated for columns that are actually accessed.
 
-Cassandra changes
------------------
+Cassandra
+---------
 
 * Fix failure when querying ``information_schema.columns`` when there is no equality predicate on ``table_name``.

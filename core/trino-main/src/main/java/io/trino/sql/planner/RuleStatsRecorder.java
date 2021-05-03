@@ -14,31 +14,18 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.RuleStats;
-import org.weakref.jmx.MBeanExport;
-import org.weakref.jmx.MBeanExporter;
 
-import javax.annotation.concurrent.GuardedBy;
-
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
-import static java.lang.String.format;
 
 public class RuleStatsRecorder
 {
     private final Map<Class<?>, RuleStats> stats = new HashMap<>();
-
-    @GuardedBy("this")
-    private final List<MBeanExport> mbeanExports = new ArrayList<>();
 
     public void registerAll(Collection<Rule<?>> rules)
     {
@@ -56,31 +43,6 @@ public class RuleStatsRecorder
     public void recordFailure(Rule<?> rule)
     {
         stats.get(rule.getClass()).recordFailure();
-    }
-
-    synchronized void export(MBeanExporter exporter)
-    {
-        checkState(mbeanExports.isEmpty(), "MBeans already exported");
-        for (Map.Entry<Class<?>, RuleStats> entry : stats.entrySet()) {
-            verify(!entry.getKey().getSimpleName().isEmpty());
-            try {
-                mbeanExports.add(exporter.exportWithGeneratedName(entry.getValue(), IterativeOptimizer.class, ImmutableMap.<String, String>builder()
-                        .put("name", IterativeOptimizer.class.getSimpleName())
-                        .put("rule", entry.getKey().getSimpleName())
-                        .build()));
-            }
-            catch (RuntimeException e) {
-                throw new RuntimeException(format("Failed to export MBean with for rule '%s'", entry.getKey().getSimpleName()), e);
-            }
-        }
-    }
-
-    synchronized void unexport(MBeanExporter exporter)
-    {
-        for (MBeanExport mbeanExport : mbeanExports) {
-            mbeanExport.unexport();
-        }
-        mbeanExports.clear();
     }
 
     public Map<Class<?>, RuleStats> getStats()

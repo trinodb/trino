@@ -227,7 +227,9 @@ public final class HiveTypeTranslator
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
     }
 
-    /** @deprecated Prefer {@link #fromPrimitiveType(PrimitiveTypeInfo, HiveTimestampPrecision)} */
+    /**
+     * @deprecated Prefer {@link #fromPrimitiveType(PrimitiveTypeInfo, HiveTimestampPrecision)}
+     */
     @Deprecated
     @Nullable
     public static Type fromPrimitiveType(PrimitiveTypeInfo typeInfo)

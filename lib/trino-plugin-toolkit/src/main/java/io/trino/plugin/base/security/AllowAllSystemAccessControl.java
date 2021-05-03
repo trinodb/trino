@@ -241,6 +241,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+    }
+
+    @Override
     public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
     }
@@ -262,6 +267,21 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    {
+    }
+
+    @Override
+    public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+    }
+
+    @Override
+    public void checkCanRefreshMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+    }
+
+    @Override
+    public void checkCanDropMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
     }
 

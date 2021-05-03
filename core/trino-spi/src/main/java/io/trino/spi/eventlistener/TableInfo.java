@@ -28,8 +28,9 @@ public class TableInfo
 
     private final List<String> filters;
     private final List<ColumnInfo> columns;
+    private final boolean directlyReferenced;
 
-    public TableInfo(String catalog, String schema, String table, String authorization, List<String> filters, List<ColumnInfo> columns)
+    public TableInfo(String catalog, String schema, String table, String authorization, List<String> filters, List<ColumnInfo> columns, boolean directlyReferenced)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -37,6 +38,7 @@ public class TableInfo
         this.authorization = requireNonNull(authorization, "authorization is null");
         this.filters = List.copyOf(requireNonNull(filters, "filters is null"));
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
+        this.directlyReferenced = directlyReferenced;
     }
 
     @JsonProperty
@@ -73,5 +75,11 @@ public class TableInfo
     public List<ColumnInfo> getColumns()
     {
         return columns;
+    }
+
+    @JsonProperty
+    public boolean isDirectlyReferenced()
+    {
+        return directlyReferenced;
     }
 }

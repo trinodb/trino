@@ -1041,7 +1041,7 @@ public class TestStringFunctions
 
         assertFunction("concat('hello na\u00EFve', cast(' world' as char(6)))", createCharType(17), "hello na\u00EFve world");
 
-        assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", "line 1:1: CHAR length scale must be in range [0, 65536]");
+        assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", "line 1:1: CHAR length must be in range [0, 65536], got 80000");
 
         assertFunction("concat(cast(null as char(1)), cast(' ' as char(1)))", createCharType(2), null);
     }
@@ -1072,5 +1072,24 @@ public class TestStringFunctions
         assertFunction("translate('abcd', 'a', 'zy')", VARCHAR, "zbcd");
         assertFunction("translate('abcd', 'ac', 'z')", VARCHAR, "zbd");
         assertFunction("translate('abcd', 'aac', 'zq')", VARCHAR, "zbd");
+    }
+
+    @Test
+    public void testSoundex()
+    {
+        assertFunction("soundex('jim')", createVarcharType(4), "J500");
+        assertFunction("soundex('jIM')", createVarcharType(4), "J500");
+        assertFunction("soundex('JIM')", createVarcharType(4), "J500");
+        assertFunction("soundex('Jim')", createVarcharType(4), "J500");
+        assertFunction("soundex('John')", createVarcharType(4), "J500");
+        assertFunction("soundex('johannes')", createVarcharType(4), "J520");
+        assertFunction("soundex('Sarah')", createVarcharType(4), "S600");
+        assertFunction("soundex(null)", createVarcharType(4), null);
+        assertFunction("soundex('')", createVarcharType(4), "");
+        assertFunction("soundex('123')", createVarcharType(4), "");
+        assertFunction("soundex('\uD83D\uDE80')", createVarcharType(4), "");
+        assertFunction("soundex('j~im')", createVarcharType(4), "J500");
+        assertInvalidFunction("soundex('jąmes')", "The character is not mapped: Ą (index=195)");
+        assertFunction("soundex('x123')", createVarcharType(4), "X000");
     }
 }

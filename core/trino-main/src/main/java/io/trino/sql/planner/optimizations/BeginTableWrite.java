@@ -14,7 +14,6 @@
 package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -30,6 +29,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.planner.plan.SimplePlanRewriter.RewriteContext;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -39,13 +39,15 @@ import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
+import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.UnionNode;
+import io.trino.sql.planner.plan.UpdateNode;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.stream.Collectors.toSet;
@@ -70,11 +72,11 @@ public class BeginTableWrite
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan, new Context());
+        return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan, Optional.empty());
     }
 
     private class Rewriter
-            extends SimplePlanRewriter<Context>
+            extends SimplePlanRewriter<Optional<WriterTarget>>
     {
         private final Session session;
 
@@ -84,15 +86,15 @@ public class BeginTableWrite
         }
 
         @Override
-        public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Context> context)
+        public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
             // callback can create the table and abort the table creation if the query fails.
 
-            WriterTarget writerTarget = context.get().getMaterializedHandle(node.getTarget()).get();
+            WriterTarget writerTarget = getContextTarget(context);
             return new TableWriterNode(
                     node.getId(),
-                    node.getSource().accept(this, context),
+                    context.rewrite(node.getSource(), context.get()),
                     writerTarget,
                     node.getRowCountSymbol(),
                     node.getFragmentSymbol(),
@@ -100,27 +102,41 @@ public class BeginTableWrite
                     node.getColumnNames(),
                     node.getNotNullColumnSymbols(),
                     node.getPartitioningScheme(),
+                    node.getPreferredPartitioningScheme(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
         }
 
         @Override
-        public PlanNode visitDelete(DeleteNode node, RewriteContext<Context> context)
+        public PlanNode visitDelete(DeleteNode node, RewriteContext<Optional<WriterTarget>> context)
         {
-            DeleteTarget deleteTarget = (DeleteTarget) context.get().getMaterializedHandle(node.getTarget()).get();
+            DeleteTarget deleteTarget = (DeleteTarget) getContextTarget(context);
             return new DeleteNode(
                     node.getId(),
-                    rewriteDeleteTableScan(node.getSource(), deleteTarget.getHandle()),
+                    rewriteModifyTableScan(node.getSource(), deleteTarget.getHandleOrElseThrow()),
                     deleteTarget,
                     node.getRowId(),
                     node.getOutputSymbols());
         }
 
         @Override
-        public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Context> context)
+        public PlanNode visitUpdate(UpdateNode node, RewriteContext<Optional<WriterTarget>> context)
+        {
+            UpdateTarget updateTarget = (UpdateTarget) getContextTarget(context);
+            return new UpdateNode(
+                    node.getId(),
+                    rewriteModifyTableScan(node.getSource(), updateTarget.getHandleOrElseThrow()),
+                    updateTarget,
+                    node.getRowId(),
+                    node.getColumnValueAndRowIdSymbols(),
+                    node.getOutputSymbols());
+        }
+
+        @Override
+        public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             PlanNode child = node.getSource();
-            child = child.accept(this, context);
+            child = context.rewrite(child, context.get());
 
             StatisticsWriterNode.WriteStatisticsHandle analyzeHandle =
                     new StatisticsWriterNode.WriteStatisticsHandle(metadata.beginStatisticsCollection(session, ((StatisticsWriterNode.WriteStatisticsReference) node.getTarget()).getHandle()));
@@ -135,15 +151,14 @@ public class BeginTableWrite
         }
 
         @Override
-        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Context> context)
+        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             PlanNode child = node.getSource();
 
-            WriterTarget originalTarget = getTarget(child);
+            WriterTarget originalTarget = getWriterTarget(child);
             WriterTarget newTarget = createWriterTarget(originalTarget);
 
-            context.get().addMaterializedHandle(originalTarget, newTarget);
-            child = child.accept(this, context);
+            child = context.rewrite(child, Optional.of(newTarget));
 
             return new TableFinishNode(
                     node.getId(),
@@ -154,19 +169,32 @@ public class BeginTableWrite
                     node.getStatisticsAggregationDescriptor());
         }
 
-        public WriterTarget getTarget(PlanNode node)
+        public WriterTarget getWriterTarget(PlanNode node)
         {
             if (node instanceof TableWriterNode) {
                 return ((TableWriterNode) node).getTarget();
             }
             if (node instanceof DeleteNode) {
-                return ((DeleteNode) node).getTarget();
+                DeleteNode deleteNode = (DeleteNode) node;
+                DeleteTarget delete = deleteNode.getTarget();
+                return new DeleteTarget(
+                        Optional.of(findTableScanHandle(deleteNode.getSource())),
+                        delete.getSchemaTableName());
+            }
+            if (node instanceof UpdateNode) {
+                UpdateNode updateNode = (UpdateNode) node;
+                UpdateTarget update = updateNode.getTarget();
+                return new UpdateTarget(
+                        Optional.of(findTableScanHandle(updateNode.getSource())),
+                        update.getSchemaTableName(),
+                        update.getUpdatedColumns(),
+                        update.getUpdatedColumnHandles());
             }
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
                 Set<WriterTarget> writerTargets = node.getSources().stream()
-                        .map(this::getTarget)
+                        .map(this::getWriterTarget)
                         .collect(toSet());
-                return Iterables.getOnlyElement(writerTargets);
+                return getOnlyElement(writerTargets);
             }
             throw new IllegalArgumentException("Invalid child for TableCommitNode: " + node.getClass().getSimpleName());
         }
@@ -185,7 +213,17 @@ public class BeginTableWrite
             }
             if (target instanceof DeleteTarget) {
                 DeleteTarget delete = (DeleteTarget) target;
-                return new DeleteTarget(metadata.beginDelete(session, delete.getHandle()), delete.getSchemaTableName());
+                TableHandle newHandle = metadata.beginDelete(session, delete.getHandleOrElseThrow());
+                return new DeleteTarget(Optional.of(newHandle), delete.getSchemaTableName());
+            }
+            if (target instanceof UpdateTarget) {
+                UpdateTarget update = (UpdateTarget) target;
+                TableHandle newHandle = metadata.beginUpdate(session, update.getHandleOrElseThrow(), update.getUpdatedColumnHandles());
+                return new UpdateTarget(
+                        Optional.of(newHandle),
+                        update.getSchemaTableName(),
+                        update.getUpdatedColumns(),
+                        update.getUpdatedColumnHandles());
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
                 TableWriterNode.RefreshMaterializedViewReference refreshMV = (TableWriterNode.RefreshMaterializedViewReference) target;
@@ -198,7 +236,30 @@ public class BeginTableWrite
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 
-        private PlanNode rewriteDeleteTableScan(PlanNode node, TableHandle handle)
+        private TableHandle findTableScanHandle(PlanNode node)
+        {
+            if (node instanceof TableScanNode) {
+                return ((TableScanNode) node).getTable();
+            }
+            if (node instanceof FilterNode) {
+                return findTableScanHandle(((FilterNode) node).getSource());
+            }
+            if (node instanceof ProjectNode) {
+                return findTableScanHandle(((ProjectNode) node).getSource());
+            }
+            if (node instanceof SemiJoinNode) {
+                return findTableScanHandle(((SemiJoinNode) node).getSource());
+            }
+            if (node instanceof JoinNode) {
+                JoinNode joinNode = (JoinNode) node;
+                if (joinNode.getType() == JoinNode.Type.INNER && isAtMostScalar(joinNode.getRight())) {
+                    return findTableScanHandle(joinNode.getLeft());
+                }
+            }
+            throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
+        }
+
+        private PlanNode rewriteModifyTableScan(PlanNode node, TableHandle handle)
         {
             if (node instanceof TableScanNode) {
                 TableScanNode scan = (TableScanNode) node;
@@ -208,48 +269,36 @@ public class BeginTableWrite
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
                         scan.getEnforcedConstraint(),
-                        scan.isForDelete());
+                        scan.isUpdateTarget(),
+                        // partitioning should not change with write table handle
+                        scan.getUseConnectorNodePartitioning());
             }
 
             if (node instanceof FilterNode) {
-                PlanNode source = rewriteDeleteTableScan(((FilterNode) node).getSource(), handle);
+                PlanNode source = rewriteModifyTableScan(((FilterNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source));
             }
             if (node instanceof ProjectNode) {
-                PlanNode source = rewriteDeleteTableScan(((ProjectNode) node).getSource(), handle);
+                PlanNode source = rewriteModifyTableScan(((ProjectNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source));
             }
             if (node instanceof SemiJoinNode) {
-                PlanNode source = rewriteDeleteTableScan(((SemiJoinNode) node).getSource(), handle);
+                PlanNode source = rewriteModifyTableScan(((SemiJoinNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
             }
             if (node instanceof JoinNode) {
                 JoinNode joinNode = (JoinNode) node;
                 if (joinNode.getType() == JoinNode.Type.INNER && isAtMostScalar(joinNode.getRight())) {
-                    PlanNode source = rewriteDeleteTableScan(joinNode.getLeft(), handle);
+                    PlanNode source = rewriteModifyTableScan(joinNode.getLeft(), handle);
                     return replaceChildren(node, ImmutableList.of(source, joinNode.getRight()));
                 }
             }
-            throw new IllegalArgumentException("Invalid descendant for DeleteNode: " + node.getClass().getName());
+            throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
         }
     }
 
-    public static class Context
+    private static WriterTarget getContextTarget(RewriteContext<Optional<WriterTarget>> context)
     {
-        private Optional<WriterTarget> handle = Optional.empty();
-        private Optional<WriterTarget> materializedHandle = Optional.empty();
-
-        public void addMaterializedHandle(WriterTarget handle, WriterTarget materializedHandle)
-        {
-            checkState(this.handle.isEmpty(), "can only have one WriterTarget in a subtree");
-            this.handle = Optional.of(handle);
-            this.materializedHandle = Optional.of(materializedHandle);
-        }
-
-        public Optional<WriterTarget> getMaterializedHandle(WriterTarget handle)
-        {
-            checkState(this.handle.get().equals(handle), "can't find materialized handle for WriterTarget");
-            return materializedHandle;
-        }
+        return context.get().orElseThrow(() -> new IllegalStateException("WriterTarget not present"));
     }
 }

@@ -27,6 +27,7 @@ import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.ForRecordCursor;
 import io.trino.plugin.jdbc.ForwardingJdbcClient;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
@@ -49,13 +50,17 @@ import org.apache.hadoop.fs.Path;
 import org.apache.phoenix.jdbc.PhoenixDriver;
 import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver;
 
+import javax.annotation.PreDestroy;
+
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.reflect.Reflection.newProxy;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
@@ -175,5 +180,19 @@ public class PhoenixClientModule
             result.addResource(new Path(resourcePath));
         }
         return result;
+    }
+
+    @Singleton
+    @ForRecordCursor
+    @Provides
+    public ExecutorService createRecordCursorExecutor()
+    {
+        return newDirectExecutorService();
+    }
+
+    @PreDestroy
+    public void shutdownRecordCursorExecutor(@ForRecordCursor ExecutorService executor)
+    {
+        executor.shutdownNow();
     }
 }

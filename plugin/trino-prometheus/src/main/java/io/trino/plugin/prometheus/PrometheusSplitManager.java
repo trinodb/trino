@@ -28,7 +28,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Marker;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URIBuilder;
@@ -69,7 +69,7 @@ public class PrometheusSplitManager
     @Inject
     public PrometheusSplitManager(PrometheusClient prometheusClient, PrometheusClock prometheusClock, PrometheusConnectorConfig config)
     {
-        this.prometheusClient = requireNonNull(prometheusClient, "client is null");
+        this.prometheusClient = requireNonNull(prometheusClient, "prometheusClient is null");
         this.prometheusClock = requireNonNull(prometheusClock, "prometheusClock is null");
 
         requireNonNull(config, "config is null");
@@ -195,13 +195,14 @@ public class PrometheusSplitManager
         return maybeTimeDomains.map(timeDomains -> {
             PrometheusPredicateTimeInfo.Builder timeInfoBuilder = PrometheusPredicateTimeInfo.builder();
             timeDomains.forEach(domain -> {
-                if (!domain.getValues().getRanges().getSpan().includes(Marker.lowerUnbounded(TIMESTAMP_COLUMN_TYPE))) {
-                    long packedValue = (long) domain.getValues().getRanges().getSpan().getLow().getValue();
+                Range span = domain.getValues().getRanges().getSpan();
+                if (!span.isLowUnbounded()) {
+                    long packedValue = (long) span.getLowBoundedValue();
                     Instant instant = ofEpochMilli(unpackMillisUtc(packedValue));
                     timeInfoBuilder.setPredicateLowerTimeBound(Optional.of(instant));
                 }
-                if (!domain.getValues().getRanges().getSpan().includes(Marker.upperUnbounded(TIMESTAMP_COLUMN_TYPE))) {
-                    long packedValue = (long) domain.getValues().getRanges().getSpan().getHigh().getValue();
+                if (!span.isHighUnbounded()) {
+                    long packedValue = (long) span.getHighBoundedValue();
                     Instant instant = ofEpochMilli(unpackMillisUtc(packedValue));
                     timeInfoBuilder.setPredicateUpperTimeBound(Optional.of(instant));
                 }

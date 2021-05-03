@@ -33,8 +33,8 @@ public class InformationSchemaSplit
     public InformationSchemaSplit(
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
-        requireNonNull(addresses, "hosts is null");
-        checkArgument(!addresses.isEmpty(), "hosts is empty");
+        requireNonNull(addresses, "addresses is null");
+        checkArgument(!addresses.isEmpty(), "addresses is empty");
         this.addresses = ImmutableList.copyOf(addresses);
     }
 

@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 public class AvroRowEncoderFactory
         implements RowEncoderFactory
@@ -32,7 +31,7 @@ public class AvroRowEncoderFactory
     public RowEncoder create(ConnectorSession session, Optional<String> dataSchema, List<EncoderColumnHandle> columnHandles)
     {
         checkArgument(dataSchema.isPresent(), "dataSchema for Avro format is not present");
-        Schema parsedSchema = new Schema.Parser().parse(requireNonNull(dataSchema.get(), "dataSchema is null"));
+        Schema parsedSchema = new Schema.Parser().parse(dataSchema.get());
         return new AvroRowEncoder(session, columnHandles, parsedSchema);
     }
 }

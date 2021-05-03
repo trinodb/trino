@@ -33,11 +33,11 @@ import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
 /**
- *  <p>
- *  Aggregation function that approximates the frequency of the top-K elements.
- *  This function keeps counts for a "frequent" subset of elements and assumes all other elements
- *  once fewer than the least-frequent "frequent" element.
- *  </p>
+ * <p>
+ * Aggregation function that approximates the frequency of the top-K elements.
+ * This function keeps counts for a "frequent" subset of elements and assumes all other elements
+ * once fewer than the least-frequent "frequent" element.
+ * </p>
  *
  * <p>
  * The algorithm is based loosely on:

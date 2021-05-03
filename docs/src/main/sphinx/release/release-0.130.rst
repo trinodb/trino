@@ -2,8 +2,8 @@
 Release 0.130
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix a performance regression in ``GROUP BY`` and ``JOIN`` queries when the
   length of the keys is between 16 and 31 bytes.

@@ -31,11 +31,12 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
- *  Calculate the histogram approximately for topk elements based on the
- *  <i>Space-Saving</i> algorithm and the <i>Stream-Summary</i> data structure
- *  as described in:
- *  <i>Efficient Computation of Frequent and Top-k Elements in Data Streams</i>
- *  by Metwally, Agrawal, and Abbadi
+ * Calculate the histogram approximately for topk elements based on the
+ * <i>Space-Saving</i> algorithm and the <i>Stream-Summary</i> data structure
+ * as described in:
+ * <i>Efficient Computation of Frequent and Top-k Elements in Data Streams</i>
+ * by Metwally, Agrawal, and Abbadi
+ *
  * @param <K>
  */
 public class ApproximateMostFrequentHistogram<K>

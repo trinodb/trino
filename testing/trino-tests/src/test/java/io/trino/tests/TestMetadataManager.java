@@ -44,8 +44,8 @@ import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 /**
  * This is integration / unit test suite.
@@ -112,13 +112,9 @@ public class TestMetadataManager
     public void testMetadataIsClearedAfterQueryFailed()
     {
         @Language("SQL") String sql = "SELECT nationkey/0 FROM nation"; // will raise division by zero exception
-        try {
-            queryRunner.execute(sql);
-            fail("expected exception");
-        }
-        catch (Throwable t) {
-            // query should fail
-        }
+        assertThatThrownBy(() -> queryRunner.execute(sql))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Division by zero");
 
         assertEquals(metadataManager.getActiveQueryIds().size(), 0);
     }
@@ -196,12 +192,12 @@ public class TestMetadataManager
     private static ConnectorViewDefinition getConnectorViewDefinition()
     {
         return new ConnectorViewDefinition(
-            "test view SQL",
-            Optional.of("upper_case_schema_catalog"),
-            Optional.of("upper_case_schema"),
-            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col", BIGINT.getTypeId())),
-            Optional.of("comment"),
-            Optional.of("test_owner"),
-            false);
+                "test view SQL",
+                Optional.of("upper_case_schema_catalog"),
+                Optional.of("upper_case_schema"),
+                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col", BIGINT.getTypeId())),
+                Optional.of("comment"),
+                Optional.of("test_owner"),
+                false);
     }
 }

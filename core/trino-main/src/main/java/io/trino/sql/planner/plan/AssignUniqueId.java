@@ -34,11 +34,11 @@ public class AssignUniqueId
     public AssignUniqueId(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("idColumn") Symbol unique)
+            @JsonProperty("idColumn") Symbol idColumn)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
-        this.idColumn = requireNonNull(unique, "idColumn is null");
+        this.idColumn = requireNonNull(idColumn, "idColumn is null");
     }
 
     @Override

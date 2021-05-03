@@ -81,7 +81,7 @@ final class ExplainRewrite
                 WarningCollector warningCollector)
         {
             this.session = requireNonNull(session, "session is null");
-            this.queryPreparer = new QueryPreparer(requireNonNull(parser, "queryPreparer is null"));
+            this.queryPreparer = new QueryPreparer(requireNonNull(parser, "parser is null"));
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }

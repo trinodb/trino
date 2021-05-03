@@ -14,8 +14,8 @@
    <a href="https://trino.io/slack.html">
        <img src="https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358" alt="Trino Slack" />
    </a>
-   <a href="https://trino.io/presto-the-definitive-guide.html">
-       <img src="https://img.shields.io/badge/Presto%3A%20The%20Definitive%20Guide-download-brightgreen" alt="Presto: The Definitive Guide book download" />
+   <a href="https://trino.io/trino-the-definitive-guide.html">
+       <img src="https://img.shields.io/badge/Trino%3A%20The%20Definitive%20Guide-download-brightgreen" alt="Trino: The Definitive Guide book download" />
    </a>
 </p>
 
@@ -79,12 +79,12 @@ use when working on a specific connector.
 Trino comes with sample configuration that should work out-of-the-box for
 development. Use the following options to create a run configuration:
 
-* Main Class: `io.trino.server.TrinoServer`
+* Main Class: `io.trino.server.DevelopmentServer`
 * VM Options: `-ea -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true`
 * Working directory: `$MODULE_DIR$`
-* Use classpath of module: `trino-server-main`
+* Use classpath of module: `trino-server-dev`
 
-The working directory should be the `trino-server-main` subdirectory. In
+The working directory should be the `trino-server-dev` subdirectory. In
 IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 
 ### Running the CLI

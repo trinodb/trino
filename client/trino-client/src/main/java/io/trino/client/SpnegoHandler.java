@@ -319,7 +319,7 @@ public class SpnegoHandler
         public Session(LoginContext loginContext, GSSCredential clientCredential)
         {
             requireNonNull(loginContext, "loginContext is null");
-            requireNonNull(clientCredential, "gssCredential is null");
+            requireNonNull(clientCredential, "clientCredential is null");
 
             this.loginContext = loginContext;
             this.clientCredential = clientCredential;

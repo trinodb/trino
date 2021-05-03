@@ -65,7 +65,7 @@ public class PlanNodeSearcher
 
     public PlanNodeSearcher recurseOnlyWhen(Predicate<PlanNode> skipOnly)
     {
-        this.recurseOnlyWhen = requireNonNull(skipOnly, "recurseOnlyWhen is null");
+        this.recurseOnlyWhen = requireNonNull(skipOnly, "skipOnly is null");
         return this;
     }
 
@@ -105,6 +105,9 @@ public class PlanNodeSearcher
         }
     }
 
+    /**
+     * Return a list of matching nodes ordered as in pre-order traversal of the plan tree.
+     */
     public <T extends PlanNode> List<T> findAll()
     {
         ImmutableList.Builder<T> nodes = ImmutableList.builder();

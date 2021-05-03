@@ -182,7 +182,7 @@ public class SqlTaskExecution
         this.taskContext = requireNonNull(taskContext, "taskContext is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
 
-        this.taskExecutor = requireNonNull(taskExecutor, "driverExecutor is null");
+        this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
@@ -664,13 +664,12 @@ public class SqlTaskExecution
         switch (executionStrategy) {
             case GROUPED_EXECUTION:
                 checkArgument(!lifespan.isTaskWide(), "Expect driver-group life cycle for grouped ExecutionStrategy. Got task-wide life cycle.");
-                break;
+                return;
             case UNGROUPED_EXECUTION:
                 checkArgument(lifespan.isTaskWide(), "Expect task-wide life cycle for ungrouped ExecutionStrategy. Got driver-group life cycle.");
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown executionStrategy: " + executionStrategy);
+                return;
         }
+        throw new IllegalArgumentException("Unknown executionStrategy: " + executionStrategy);
     }
 
     private void checkHoldsLock()
@@ -1027,7 +1026,7 @@ public class SqlTaskExecution
 
         private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit, Lifespan lifespan)
         {
-            this.driverSplitRunnerFactory = requireNonNull(driverSplitRunnerFactory, "driverFactory is null");
+            this.driverSplitRunnerFactory = requireNonNull(driverSplitRunnerFactory, "driverSplitRunnerFactory is null");
             this.driverContext = requireNonNull(driverContext, "driverContext is null");
             this.partitionedSplit = partitionedSplit;
             this.lifespan = requireNonNull(lifespan, "lifespan is null");
@@ -1264,7 +1263,7 @@ public class SqlTaskExecution
                     break;
                 case GROUPED_EXECUTION:
                     if (!noMoreLifespans) {
-                        // There may still still be new driver groups, which means potentially new splits.
+                        // There may still be new driver groups, which means potentially new splits.
                         return false;
                     }
 

@@ -22,6 +22,8 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayoutResult;
+import io.trino.metadata.TableProperties;
+import io.trino.metadata.TableProperties.TablePartitioning;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
@@ -50,6 +52,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
@@ -158,6 +161,10 @@ public class PushPredicateIntoTableScan
             TypeAnalyzer typeAnalyzer,
             DomainTranslator domainTranslator)
     {
+        if (!isAllowPushdownIntoConnectors(session)) {
+            return Optional.empty();
+        }
+
         // don't include non-deterministic predicates
         Expression deterministicPredicate = filterDeterministicConjuncts(metadata, predicate);
         Expression nonDeterministicPredicate = filterNonDeterministicConjuncts(metadata, predicate);
@@ -199,6 +206,7 @@ public class PushPredicateIntoTableScan
         }
 
         TableHandle newTable;
+        Optional<TablePartitioning> newTablePartitioning;
         TupleDomain<ColumnHandle> remainingFilter;
         if (!metadata.usesLegacyTableLayouts(session, node.getTable())) {
             // check if new domain is wider than domain already provided by table scan
@@ -231,7 +239,9 @@ public class PushPredicateIntoTableScan
 
             newTable = result.get().getHandle();
 
-            if (metadata.getTableProperties(session, newTable).getPredicate().isNone()) {
+            TableProperties newTableProperties = metadata.getTableProperties(session, newTable);
+            newTablePartitioning = newTableProperties.getTablePartitioning();
+            if (newTableProperties.getPredicate().isNone()) {
                 return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
             }
 
@@ -251,8 +261,11 @@ public class PushPredicateIntoTableScan
             }
 
             newTable = layout.get().getNewTableHandle();
+            newTablePartitioning = layout.get().getTableProperties().getTablePartitioning();
             remainingFilter = layout.get().getUnenforcedConstraint();
         }
+
+        verifyTablePartitioning(session, metadata, node, newTablePartitioning);
 
         TableScanNode tableScan = new TableScanNode(
                 node.getId(),
@@ -260,7 +273,8 @@ public class PushPredicateIntoTableScan
                 node.getOutputSymbols(),
                 node.getAssignments(),
                 computeEnforced(newDomain, remainingFilter),
-                node.isForDelete());
+                node.isUpdateTarget(),
+                node.getUseConnectorNodePartitioning());
 
         Expression resultingPredicate = createResultingPredicate(
                 metadata,
@@ -273,6 +287,24 @@ public class PushPredicateIntoTableScan
         }
 
         return Optional.of(tableScan);
+    }
+
+    // PushPredicateIntoTableScan might be executed after AddExchanges and DetermineTableScanNodePartitioning.
+    // In that case, table scan node partitioning (if present) was used to fragment plan with ExchangeNodes.
+    // Therefore table scan node partitioning should not change after AddExchanges is executed since it would
+    // make plan with ExchangeNodes invalid.
+    private static void verifyTablePartitioning(
+            Session session,
+            Metadata metadata,
+            TableScanNode oldTableScan,
+            Optional<TablePartitioning> newTablePartitioning)
+    {
+        if (oldTableScan.getUseConnectorNodePartitioning().isEmpty()) {
+            return;
+        }
+
+        Optional<TablePartitioning> oldTablePartitioning = metadata.getTableProperties(session, oldTableScan.getTable()).getTablePartitioning();
+        verify(newTablePartitioning.equals(oldTablePartitioning), "Partitioning must not change after predicate is pushed down");
     }
 
     static Expression createResultingPredicate(
@@ -302,7 +334,7 @@ public class PushPredicateIntoTableScan
         {
             this.assignments = assignments;
 
-            evaluator = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, typeAnalyzer.getTypes(session, types, expression));
+            evaluator = new ExpressionInterpreter(expression, metadata, session, typeAnalyzer.getTypes(session, types, expression));
             arguments = SymbolsExtractor.extractUnique(expression).stream()
                     .map(assignments::get)
                     .collect(toImmutableSet());

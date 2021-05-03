@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -25,6 +26,7 @@ import io.trino.spi.connector.RecordSet;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -33,11 +35,13 @@ public class JdbcRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     private final JdbcClient jdbcClient;
+    private final ExecutorService executor;
 
     @Inject
-    public JdbcRecordSetProvider(JdbcClient jdbcClient)
+    public JdbcRecordSetProvider(JdbcClient jdbcClient, @ForRecordCursor ExecutorService executor)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
@@ -46,18 +50,18 @@ public class JdbcRecordSetProvider
         JdbcSplit jdbcSplit = (JdbcSplit) split;
         JdbcTableHandle jdbcTable = (JdbcTableHandle) table;
 
-        // In the current API, the columns (and order) needed by the engine are provided via an argument to this method. Make sure that
-        // any columns that were recorded in the table handle match the requested set.
+        // In the current API, the columns (and order) needed by the engine are provided via an argument to this method. Make sure we can
+        // satisfy the requirements using columns which were recorded in the table handle.
         // If no columns are recorded, it means that applyProjection never got called (e.g., in the case all columns are being used) and all
         // table columns should be returned. TODO: this is something that should be addressed once the getRecordSet API is revamped
         jdbcTable.getColumns()
-                .ifPresent(tableColumns -> verify(columns.equals(tableColumns)));
+                .ifPresent(tableColumns -> verify(ImmutableSet.copyOf(tableColumns).containsAll(columns)));
 
         ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builder();
         for (ColumnHandle handle : columns) {
             handles.add((JdbcColumnHandle) handle);
         }
 
-        return new JdbcRecordSet(jdbcClient, session, jdbcSplit, jdbcTable, handles.build());
+        return new JdbcRecordSet(jdbcClient, executor, session, jdbcSplit, jdbcTable, handles.build());
     }
 }

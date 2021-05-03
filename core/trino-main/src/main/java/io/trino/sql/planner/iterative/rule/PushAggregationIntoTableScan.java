@@ -102,10 +102,9 @@ public class PushAggregationIntoTableScan
 
     private static boolean hasNoMasks(AggregationNode node)
     {
-        return !node.getAggregations()
+        return node.getAggregations()
                 .values().stream()
-                .map(aggregation -> aggregation.getMask().isPresent())
-                .anyMatch(isMaskPresent -> isMaskPresent);
+                .allMatch(aggregation -> aggregation.getMask().isEmpty());
     }
 
     @Override
@@ -204,7 +203,9 @@ public class PushAggregationIntoTableScan
                                 result.getHandle(),
                                 newScanOutputs.build(),
                                 scanAssignments,
-                                tableScan.isForDelete()),
+                                tableScan.isUpdateTarget(),
+                                // table scan partitioning might have changed with new table handle
+                                Optional.empty()),
                         assignmentBuilder.build()));
     }
 

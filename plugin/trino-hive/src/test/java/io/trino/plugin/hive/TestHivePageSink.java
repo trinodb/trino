@@ -326,8 +326,7 @@ public class TestHivePageSink
                 return HIVE_DOUBLE;
             case VARCHAR:
                 return HIVE_STRING;
-            default:
-                throw new UnsupportedOperationException();
         }
+        throw new UnsupportedOperationException();
     }
 }

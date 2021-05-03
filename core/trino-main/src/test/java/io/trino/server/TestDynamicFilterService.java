@@ -653,7 +653,8 @@ public class TestDynamicFilterService
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingMetadata.TestingColumnHandle("column")),
-                false);
+                false,
+                Optional.empty());
         FilterNode filterNode = new FilterNode(
                 new PlanNodeId("filter_node_id"),
                 tableScan,

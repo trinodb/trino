@@ -34,7 +34,7 @@ public class AvroFileDeserializer<T>
 
     public AvroFileDeserializer(AvroReaderSupplier<T> avroReaderSupplier)
     {
-        this.avroReaderSupplier = requireNonNull(avroReaderSupplier, "datumReaderSupplier is null");
+        this.avroReaderSupplier = requireNonNull(avroReaderSupplier, "avroReaderSupplier is null");
     }
 
     @Override

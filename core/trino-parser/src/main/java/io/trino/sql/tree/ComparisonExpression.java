@@ -41,7 +41,7 @@ public class ComparisonExpression
     private ComparisonExpression(Optional<NodeLocation> location, Operator operator, Expression left, Expression right)
     {
         super(location);
-        requireNonNull(operator, "type is null");
+        requireNonNull(operator, "operator is null");
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
 
@@ -138,9 +138,8 @@ public class ComparisonExpression
                     return LESS_THAN_OR_EQUAL;
                 case IS_DISTINCT_FROM:
                     return IS_DISTINCT_FROM;
-                default:
-                    throw new IllegalArgumentException("Unsupported comparison: " + this);
             }
+            throw new IllegalArgumentException("Unsupported comparison: " + this);
         }
 
         public Operator negate()
@@ -158,9 +157,11 @@ public class ComparisonExpression
                     return LESS_THAN_OR_EQUAL;
                 case GREATER_THAN_OR_EQUAL:
                     return LESS_THAN;
-                default:
-                    throw new IllegalArgumentException("Unsupported comparison: " + this);
+                case IS_DISTINCT_FROM:
+                    // Cannot negate
+                    break;
             }
+            throw new IllegalArgumentException("Unsupported comparison: " + this);
         }
     }
 

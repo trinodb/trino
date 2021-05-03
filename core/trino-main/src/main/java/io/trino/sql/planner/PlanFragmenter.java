@@ -307,6 +307,7 @@ public class PlanFragmenter
         {
             PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
                     .getTablePartitioning()
+                    .filter(value -> node.isUseConnectorNodePartitioning())
                     .map(TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
 
@@ -616,9 +617,8 @@ public class PlanFragmenter
                     //   As a result, there is no reason to change currentNodeCapable or subTreeUseful to false.
                     //
                     return left;
-                default:
-                    throw new UnsupportedOperationException("Unknown distribution type: " + node.getDistributionType());
             }
+            throw new UnsupportedOperationException("Unknown distribution type: " + node.getDistributionType());
         }
 
         @Override
@@ -669,7 +669,7 @@ public class PlanFragmenter
         public GroupedExecutionProperties visitTableScan(TableScanNode node, Void context)
         {
             Optional<TablePartitioning> tablePartitioning = metadata.getTableProperties(session, node.getTable()).getTablePartitioning();
-            if (tablePartitioning.isEmpty()) {
+            if (tablePartitioning.isEmpty() || !node.isUseConnectorNodePartitioning()) {
                 return GroupedExecutionProperties.notCapable();
             }
             List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());
@@ -773,6 +773,7 @@ public class PlanFragmenter
         {
             PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
                     .getTablePartitioning()
+                    .filter(value -> node.isUseConnectorNodePartitioning())
                     .map(TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
             if (partitioning.equals(fragmentPartitioningHandle)) {
@@ -787,7 +788,10 @@ public class PlanFragmenter
                     node.getOutputSymbols(),
                     node.getAssignments(),
                     node.getEnforcedConstraint(),
-                    node.isForDelete());
+                    node.isUpdateTarget(),
+                    // plan was already fragmented with scan node's partitioning
+                    // and new partitioning is compatible with previous one
+                    node.getUseConnectorNodePartitioning());
         }
     }
 }

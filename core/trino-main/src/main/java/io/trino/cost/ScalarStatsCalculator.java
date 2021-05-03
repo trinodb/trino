@@ -133,7 +133,7 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, node, types);
-            ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(node, metadata, session, expressionTypes);
+            ExpressionInterpreter interpreter = new ExpressionInterpreter(node, metadata, session, expressionTypes);
             Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
             if (value == null || value instanceof NullLiteral) {
@@ -226,9 +226,8 @@ public class ScalarStatsCalculator
                             .setLowValue(-stats.getHighValue())
                             .setHighValue(-stats.getLowValue())
                             .build();
-                default:
-                    throw new IllegalStateException("Unexpected sign: " + node.getSign());
             }
+            throw new IllegalStateException("Unexpected sign: " + node.getSign());
         }
 
         @Override
@@ -298,9 +297,8 @@ public class ScalarStatsCalculator
                     return left / right;
                 case MODULUS:
                     return left % right;
-                default:
-                    throw new IllegalStateException("Unsupported ArithmeticBinaryExpression.Operator: " + operator);
             }
+            throw new IllegalStateException("Unsupported ArithmeticBinaryExpression.Operator: " + operator);
         }
 
         @Override

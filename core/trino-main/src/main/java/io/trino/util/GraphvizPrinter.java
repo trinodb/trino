@@ -36,6 +36,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
@@ -267,6 +268,18 @@ public final class GraphvizPrinter
         public Void visitWindow(WindowNode node, Void context)
         {
             printNode(node, "Window", format("partition by = %s|order by = %s",
+                    Joiner.on(", ").join(node.getPartitionBy()),
+                    node.getOrderingScheme()
+                            .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.getOrderBy()))
+                            .orElse("")),
+                    NODE_COLORS.get(NodeType.WINDOW));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitPatternRecognition(PatternRecognitionNode node, Void context)
+        {
+            printNode(node, "PatternRecognition", format("partition by = %s|order by = %s",
                     Joiner.on(", ").join(node.getPartitionBy()),
                     node.getOrderingScheme()
                             .map(orderingScheme -> Joiner.on(", ").join(orderingScheme.getOrderBy()))

@@ -32,12 +32,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 /**
- * Generic test for connectors exercising connector's read capabilities.
- * This is also the base class for connector-specific tests (not generic),
- * regardless whether they exercise read-only or read-write capabilities.
- *
- * @see AbstractTestDistributedQueries
+ * @deprecated Use {@link BaseConnectorTest} instead.
  */
+@Deprecated
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
@@ -263,8 +260,8 @@ public abstract class AbstractTestIntegrationSmokeTest
     {
         MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toTestTypes();
 
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
-                .row(getQueryRunner().getDefaultSession().getSchema().orElse("tpch"));
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getSession(), VARCHAR)
+                .row(getSession().getSchema().orElse("tpch"));
 
         assertContains(actualSchemas, resultBuilder.build());
     }
@@ -273,7 +270,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testShowTables()
     {
         MaterializedResult actualTables = computeActual("SHOW TABLES").toTestTypes();
-        MaterializedResult expectedTables = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
+        MaterializedResult expectedTables = MaterializedResult.resultBuilder(getSession(), VARCHAR)
                 .row("orders")
                 .build();
         assertContains(actualTables, expectedTables);
@@ -282,7 +279,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testDescribeTable()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(1)", "", "")

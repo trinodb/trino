@@ -46,11 +46,21 @@ public class DataTypeTest
         this.runSelectWithWhere = runSelectWithWhere;
     }
 
+    /**
+     * @deprecated Use {@link SqlDataTypeTest#create()} imstead. You can find
+     * {@link DataTypeTestToSqlDataTypeTestConverter#create()} helpful for converting the code.
+     */
+    @Deprecated
     public static DataTypeTest create()
     {
         return new DataTypeTest(false);
     }
 
+    /**
+     * @deprecated Use {@link SqlDataTypeTest#create()} imstead. You can find
+     * {@link DataTypeTestToSqlDataTypeTestConverter#create()} helpful for converting the code.
+     */
+    @Deprecated
     public static DataTypeTest create(boolean runSelectWithWhere)
     {
         return new DataTypeTest(runSelectWithWhere);
@@ -67,12 +77,12 @@ public class DataTypeTest
         return this;
     }
 
-    public void execute(QueryRunner trinoExecutor, DataSetup dataSetup)
+    public DataTypeTest execute(QueryRunner trinoExecutor, DataSetup dataSetup)
     {
-        execute(trinoExecutor, trinoExecutor.getDefaultSession(), dataSetup);
+        return execute(trinoExecutor, trinoExecutor.getDefaultSession(), dataSetup);
     }
 
-    public void execute(QueryRunner trinoExecutor, Session session, DataSetup dataSetup)
+    public DataTypeTest execute(QueryRunner trinoExecutor, Session session, DataSetup dataSetup)
     {
         List<Type> expectedTypes = inputs.stream().map(Input::getTrinoResultType).collect(toList());
         List<Object> expectedResults = inputs.stream().map(Input::toTrinoQueryResult).collect(toList());
@@ -83,6 +93,7 @@ public class DataTypeTest
                 queryWithWhere(trinoExecutor, session, expectedTypes, expectedResults, testTable);
             }
         }
+        return this;
     }
 
     private void queryWithWhere(QueryRunner trinoExecutor, Session session, List<Type> expectedTypes, List<Object> expectedResults, TestTable testTable)

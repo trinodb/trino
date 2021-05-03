@@ -73,7 +73,7 @@ public class QuantileDigestAndPercentileStateFactory
         @Override
         public void setDigest(QuantileDigest digest)
         {
-            requireNonNull(digest, "value is null");
+            requireNonNull(digest, "digest is null");
             digests.set(getGroupId(), digest);
         }
 

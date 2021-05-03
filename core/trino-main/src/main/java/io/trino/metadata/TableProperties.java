@@ -40,7 +40,7 @@ public class TableProperties
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(transaction, "transaction is null");
-        requireNonNull(tableProperties, "layout is null");
+        requireNonNull(tableProperties, "tableProperties is null");
 
         this.catalogName = catalogName;
         this.transaction = transaction;

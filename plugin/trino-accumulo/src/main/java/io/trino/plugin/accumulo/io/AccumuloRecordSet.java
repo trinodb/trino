@@ -76,7 +76,7 @@ public class AccumuloRecordSet
         serializer = table.getSerializerInstance();
 
         // Save off the column handles and createa list of the Accumulo types
-        this.columnHandles = requireNonNull(columnHandles, "column handles is null");
+        this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (AccumuloColumnHandle column : columnHandles) {
             types.add(column.getType());

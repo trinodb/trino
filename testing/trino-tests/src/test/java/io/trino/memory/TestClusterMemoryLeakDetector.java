@@ -35,6 +35,7 @@ import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 
 @Test
@@ -82,9 +83,9 @@ public class TestClusterMemoryLeakDetector
                 new BasicQueryStats(
                         DateTime.parse("1991-09-06T05:00-05:30"),
                         DateTime.parse("1991-09-06T05:01-05:30"),
-                        Duration.valueOf("8m"),
-                        Duration.valueOf("7m"),
-                        Duration.valueOf("34m"),
+                        new Duration(8, MINUTES),
+                        new Duration(7, MINUTES),
+                        new Duration(34, MINUTES),
                         13,
                         14,
                         15,
@@ -97,8 +98,8 @@ public class TestClusterMemoryLeakDetector
                         DataSize.valueOf("24GB"),
                         DataSize.valueOf("25GB"),
                         DataSize.valueOf("26GB"),
-                        Duration.valueOf("23m"),
-                        Duration.valueOf("24m"),
+                        new Duration(23, MINUTES),
+                        new Duration(24, MINUTES),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
                         OptionalDouble.of(20)),

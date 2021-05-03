@@ -1,6 +1,6 @@
 # Release 341 (8 Sep 2020)
 
-## General changes
+## General
 
 * Add support for variable-precision `TIME` type. ({issue}`4381`)
 * Add support for variable precision `TIME WITH TIME ZONE` type. ({issue}`4905`)
@@ -36,7 +36,7 @@
 * Fail queries with a proper error message when `TABLESAMPLE` is used with a non-numeric sample ratio. ({issue}`5074`)
 * Fail with an explicit error rather than `OutOfMemoryError` for certain operations. ({issue}`4890`)
 
-## Security changes
+## Security
 
 * Add [Salesforce password authentication](/security/salesforce). ({issue}`4372`)
 * Add support for interpolating [secrets](/security/secrets) into `access-control.properties`. ({issue}`4854`)
@@ -47,20 +47,20 @@
 
 * Fix display of physical input read time in detailed query view. ({issue}`4962`)
 
-## JDBC driver changes
+## JDBC driver
 
 * Implement `ResultSet.getStatement()`. ({issue}`4957`)
 
-## BigQuery connector changes
+## BigQuery connector
 
 * Add support for hourly partitioned tables. ({issue}`4968`)
 * Redact the value of `bigquery.credentials-key` in the server log. ({issue}`4968`)
 
-## Cassandra connector changes
+## Cassandra connector
 
 * Map Cassandra `TIMESTAMP` type to Presto `TIMESTAMP(3) WITH TIME ZONE` type. ({issue}`2269`)
 
-## Hive connector changes
+## Hive connector
 
 * Skip stripes and row groups based on timestamp statistics for ORC files. ({issue}`1147`)
 * Skip S3 objects with the `DeepArchive` storage class (in addition to the `Glacier`
@@ -89,33 +89,33 @@
   and underwent a minor compaction. ({issue}`4623`)
 * Fix query failure when storage caching is enabled and cached data is evicted during query execution. ({issue}`3580`)
 
-## JMX connector changes
+## JMX connector
 
 * Change `timestamp` column type in history tables to `TIMESTAMP WITH TIME ZONE`. ({issue}`4753`)
 
-## Kafka connector changes
+## Kafka connector
 
 * Preserve time zone when parsing `TIMESTAMP WITH TIME ZONE` values. ({issue}`4799`)
 
-## Kinesis connector changes
+## Kinesis connector
 
 * Preserve time zone when parsing `TIMESTAMP WITH TIME ZONE` values. ({issue}`4799`)
 
-## Kudu connector changes
+## Kudu connector
 
 * Fix delete when applied on table having primary key of decimal type. ({issue}`4683`)
 
-## Local File connector changes
+## Local File connector
 
 * Change `timestamp` column type to `TIMESTAMP WITH TIME ZONE`. ({issue}`4752`)
 
-## MySQL connector changes
+## MySQL connector
 
 * Improve performance of aggregation queries by pushing the aggregation computation into the MySQL database.
   Currently, the following aggregate functions are eligible for pushdown: `count`,  `min`, `max`,
   `sum` and `avg`. ({issue}`4138`)
 
-## Oracle connector changes
+## Oracle connector
 
 * Add `oracle.connection-pool.inactive-timeout` configuration property to specify how long
   pooled connection can be inactive before it is closed. It defaults to 20 minutes. ({issue}`4779`)
@@ -126,11 +126,11 @@
   list of type names. ({issue}`4955`)
 * Prevent query failure for pushdown of predicates involving a large number of conjuncts. ({issue}`4918`)
 
-## Phoenix connector changes
+## Phoenix connector
 
 * Fix overwriting of former value when insert is applied without specifying that column. ({issue}`4670`)
 
-## Pinot connector changes
+## Pinot connector
 
 * Add support for `REAL` and `INTEGER` types. ({issue}`4725`)
 * Add support for functions in pass-through queries. ({issue}`4801`)
@@ -140,26 +140,26 @@
 * Fix incorrect results for queries involving {func}`avg` over columns of type `long`, `int`, or `float`. ({issue}`4802`)
 * Fix incorrect results when columns in pass-through query do not match selected columns. ({issue}`4802`)
 
-## Prometheus connector changes
+## Prometheus connector
 
 * Change the type of the `timestamp` column to `TIMESTAMP(3) WITH TIME ZONE` type. ({issue}`4799`)
 
-## PostgreSQL connector changes
+## PostgreSQL connector
 
 * Improve performance of aggregation queries with predicates by pushing the computation
   of both the filtering and aggregations into the PostgreSQL server where possible. ({issue}`4111`)
 * Fix handling of PostgreSQL arrays when `unsupported-type-handling` is set to `CONVERT_TO_VARCHAR`. ({issue}`4981`)
 
-## Raptor connector changes
+## Raptor connector
 
 * Remove the `storage.shard-day-boundary-time-zone` configuration property, which was used to work
   around legacy timestamp semantics in Presto. ({issue}`4799`)
 
-## Redis connector changes
+## Redis connector
 
 * Preserve time zone when parsing `TIMESTAMP WITH TIME ZONE` values. ({issue}`4799`)
 
-## SPI changes
+## SPI
 
 * The `TIMESTAMP` type is encoded as a number of fractional seconds from `1970-01-01 00:00:00` in the proleptic
   Gregorian calendar. This value is no longer adjusted to the session time zone. Timestamps with precision less

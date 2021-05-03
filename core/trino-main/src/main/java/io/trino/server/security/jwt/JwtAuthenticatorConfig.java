@@ -27,6 +27,7 @@ public class JwtAuthenticatorConfig
     private String keyFile;
     private String requiredIssuer;
     private String requiredAudience;
+    private String principalField = "sub";
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
 
@@ -67,6 +68,19 @@ public class JwtAuthenticatorConfig
     public JwtAuthenticatorConfig setRequiredAudience(String requiredAudience)
     {
         this.requiredAudience = requiredAudience;
+        return this;
+    }
+
+    @NotNull
+    public String getPrincipalField()
+    {
+        return principalField;
+    }
+
+    @Config("http-server.authentication.jwt.principal-field")
+    public JwtAuthenticatorConfig setPrincipalField(String principalField)
+    {
+        this.principalField = principalField;
         return this;
     }
 

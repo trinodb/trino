@@ -9,8 +9,8 @@ Release 0.177
     the ``optimizer.optimize-mixed-distinct-aggregations`` config option is enabled.
     This optimization was introduced in Presto version 0.156.
 
-General changes
----------------
+General
+-------
 
 * Fix correctness issue when performing range comparisons over columns of type ``CHAR``.
 * Fix correctness issue due to mishandling of nulls and non-deterministic expressions in
@@ -39,8 +39,8 @@ General changes
 * Improve error message when a lambda expression has a different number of arguments than expected.
 * Improve error message when certain invalid ``GROUP BY`` expressions containing lambda expressions.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix handling of trailing spaces for the ``CHAR`` type when reading RCFile.
 * Allow inserts into tables that have more partitions than the partitions-per-scan limit.
@@ -48,8 +48,8 @@ Hive changes
   can be turned on via the ``statistics_enabled`` session property.
 * Ensure file name is always present for error messages about corrupt ORC files.
 
-Cassandra changes
------------------
+Cassandra
+---------
 
 * Remove caching of metadata in the Cassandra connector. Metadata caching makes Presto violate
   the consistency defined by the Cassandra cluster. It's also unnecessary because the Cassandra
@@ -58,8 +58,8 @@ Cassandra changes
   been removed.
 * Fix intermittent issue in the connection retry mechanism.
 
-Web UI changes
---------------
+Web UI
+------
 
 * Change cluster HUD realtime statistics to be aggregated across all running queries.
 * Change parallelism statistic on cluster HUD to be averaged per-worker.
@@ -69,8 +69,8 @@ Web UI changes
 * Change query details page refresh interval to three seconds.
 * Add uptime and connected status indicators to every page.
 
-CLI changes
------------
+CLI
+---
 
 * Add support for preprocessing commands.  When the ``PRESTO_PREPROCESSOR`` environment
   variable is set, all commands are piped through the specified program before being sent to

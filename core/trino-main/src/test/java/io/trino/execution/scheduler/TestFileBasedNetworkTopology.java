@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.concurrent.TimeUnit;
 
+import static java.util.concurrent.TimeUnit.DAYS;
 import static org.testng.Assert.assertEquals;
 
 public class TestFileBasedNetworkTopology
@@ -43,7 +44,7 @@ public class TestFileBasedNetworkTopology
     @Test
     public void testLocate()
     {
-        NetworkTopology topology = new FileBasedNetworkTopology(topologyFile, Duration.valueOf("1d"), new TestingTicker());
+        NetworkTopology topology = new FileBasedNetworkTopology(topologyFile, new Duration(1, DAYS), new TestingTicker());
 
         assertEquals(topology.locate(HostAddress.fromString("0.0.0.0")), new NetworkLocation());
         assertEquals(topology.locate(HostAddress.fromString("not-exist.example.com")), new NetworkLocation());
@@ -63,7 +64,7 @@ public class TestFileBasedNetworkTopology
             Files.copy(topologyFile, tempFile.file());
 
             TestingTicker ticker = new TestingTicker();
-            FileBasedNetworkTopology topology = new FileBasedNetworkTopology(tempFile.file(), Duration.valueOf("1d"), ticker);
+            FileBasedNetworkTopology topology = new FileBasedNetworkTopology(tempFile.file(), new Duration(1, DAYS), ticker);
 
             assertEquals(topology.locate(HostAddress.fromString("not-exist.example.com")), new NetworkLocation());
             assertEquals(topology.locate(HostAddress.fromString("192.168.0.1")), new NetworkLocation("region1", "rack1", "machine1"));

@@ -43,8 +43,8 @@ public class SessionPropertyAccessControlRule
             @JsonProperty("property") Optional<Pattern> propertyRegex)
     {
         this.allow = allow;
-        this.userRegex = requireNonNull(userRegex, "user is null");
-        this.groupRegex = requireNonNull(groupRegex, "group is null");
+        this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
         this.propertyRegex = requireNonNull(propertyRegex, "propertyRegex is null");
     }
 

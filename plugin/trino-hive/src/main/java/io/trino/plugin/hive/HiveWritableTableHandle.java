@@ -56,7 +56,7 @@ public class HiveWritableTableHandle
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
-        this.transaction = requireNonNull(transaction);
+        this.transaction = requireNonNull(transaction, "transaction is null");
     }
 
     @JsonProperty

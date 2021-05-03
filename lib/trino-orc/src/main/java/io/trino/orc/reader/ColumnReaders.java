@@ -18,6 +18,7 @@ import io.trino.orc.OrcBlockFactory;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcReader;
+import io.trino.orc.OrcReader.FieldMapperFactory;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 
@@ -34,7 +35,8 @@ public final class ColumnReaders
             OrcColumn column,
             OrcReader.ProjectedLayout projectedLayout,
             AggregatedMemoryContext systemMemoryContext,
-            OrcBlockFactory blockFactory)
+            OrcBlockFactory blockFactory,
+            FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
         if (type instanceof TimeType) {
@@ -68,17 +70,16 @@ public final class ColumnReaders
             case TIMESTAMP_INSTANT:
                 return new TimestampColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case LIST:
-                return new ListColumnReader(type, column, systemMemoryContext, blockFactory);
+                return new ListColumnReader(type, column, systemMemoryContext, blockFactory, fieldMapperFactory);
             case STRUCT:
-                return new StructColumnReader(type, column, projectedLayout, systemMemoryContext, blockFactory);
+                return new StructColumnReader(type, column, projectedLayout, systemMemoryContext, blockFactory, fieldMapperFactory);
             case MAP:
-                return new MapColumnReader(type, column, systemMemoryContext, blockFactory);
+                return new MapColumnReader(type, column, systemMemoryContext, blockFactory, fieldMapperFactory);
             case DECIMAL:
                 return new DecimalColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case UNION:
-                return new UnionColumnReader(type, column, systemMemoryContext, blockFactory);
-            default:
-                throw new IllegalArgumentException("Unsupported type: " + column.getColumnType());
+                return new UnionColumnReader(type, column, systemMemoryContext, blockFactory, fieldMapperFactory);
         }
+        throw new IllegalArgumentException("Unsupported type: " + column.getColumnType());
     }
 }

@@ -80,8 +80,8 @@ public class ApplyNode
     {
         super(id);
         requireNonNull(input, "input is null");
-        requireNonNull(subquery, "right is null");
-        requireNonNull(subqueryAssignments, "assignments is null");
+        requireNonNull(subquery, "subquery is null");
+        requireNonNull(subqueryAssignments, "subqueryAssignments is null");
         requireNonNull(correlation, "correlation is null");
         requireNonNull(originSubquery, "originSubquery is null");
 

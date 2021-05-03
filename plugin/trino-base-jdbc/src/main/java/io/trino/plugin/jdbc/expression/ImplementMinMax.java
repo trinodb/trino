@@ -56,7 +56,7 @@ public class ImplementMinMax
         verify(columnHandle.getColumnType().equals(aggregateFunction.getOutputType()));
 
         return Optional.of(new JdbcExpression(
-                format("%s(%s)", aggregateFunction.getFunctionName(), columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("%s(%s)", aggregateFunction.getFunctionName(), context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

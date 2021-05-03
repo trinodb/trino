@@ -25,10 +25,10 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestStateMachine
 {
@@ -49,68 +49,41 @@ public class TestStateMachine
     @Test
     public void testNullState()
     {
-        try {
-            new StateMachine<>("test", executor, null);
-            fail("expected a NullPointerException");
-        }
-        catch (NullPointerException ignored) {
-        }
+        assertThatThrownBy(() -> new StateMachine<>("test", executor, null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("initialState is null");
 
         StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST);
 
-        assertNoStateChange(stateMachine, () -> {
-            try {
-                stateMachine.set(null);
-                fail("expected a NullPointerException");
-            }
-            catch (NullPointerException expected) {
-            }
-        });
+        assertNoStateChange(stateMachine, () ->
+                assertThatThrownBy(() -> stateMachine.set(null))
+                        .isInstanceOf(NullPointerException.class)
+                        .hasMessage("newState is null"));
 
-        assertNoStateChange(stateMachine, () -> {
-            try {
-                stateMachine.trySet(null);
-                fail("expected a NullPointerException");
-            }
-            catch (NullPointerException expected) {
-            }
-        });
+        assertNoStateChange(stateMachine, () ->
+                assertThatThrownBy(() -> stateMachine.trySet(null))
+                        .isInstanceOf(NullPointerException.class)
+                        .hasMessage("newState is null"));
 
-        assertNoStateChange(stateMachine, () -> {
-            try {
-                stateMachine.compareAndSet(State.BREAKFAST, null);
-                fail("expected a NullPointerException");
-            }
-            catch (NullPointerException expected) {
-            }
-        });
+        assertNoStateChange(stateMachine, () ->
+                assertThatThrownBy(() -> stateMachine.compareAndSet(State.BREAKFAST, null))
+                        .isInstanceOf(NullPointerException.class)
+                        .hasMessage("newState is null"));
 
-        assertNoStateChange(stateMachine, () -> {
-            try {
-                stateMachine.compareAndSet(State.LUNCH, null);
-                fail("expected a NullPointerException");
-            }
-            catch (NullPointerException expected) {
-            }
-        });
+        assertNoStateChange(stateMachine, () ->
+                assertThatThrownBy(() -> stateMachine.compareAndSet(State.LUNCH, null))
+                        .isInstanceOf(NullPointerException.class)
+                        .hasMessage("newState is null"));
 
-        assertNoStateChange(stateMachine, () -> {
-            try {
-                stateMachine.setIf(null, currentState -> true);
-                fail("expected a NullPointerException");
-            }
-            catch (NullPointerException expected) {
-            }
-        });
+        assertNoStateChange(stateMachine, () ->
+                assertThatThrownBy(() -> stateMachine.setIf(null, currentState -> true))
+                        .isInstanceOf(NullPointerException.class)
+                        .hasMessage("newState is null"));
 
-        assertNoStateChange(stateMachine, () -> {
-            try {
-                stateMachine.setIf(null, currentState -> false);
-                fail("expected a NullPointerException");
-            }
-            catch (NullPointerException expected) {
-            }
-        });
+        assertNoStateChange(stateMachine, () ->
+                assertThatThrownBy(() -> stateMachine.setIf(null, currentState -> false))
+                        .isInstanceOf(NullPointerException.class)
+                        .hasMessage("newState is null"));
     }
 
     @Test
@@ -130,14 +103,10 @@ public class TestStateMachine
         assertStateChange(stateMachine, () -> assertEquals(stateMachine.set(State.DINNER), State.BREAKFAST), State.DINNER);
 
         // attempt transition from a final state
-        assertNoStateChange(stateMachine, () -> {
-            try {
-                stateMachine.set(State.LUNCH);
-                fail("expected IllegalStateException");
-            }
-            catch (IllegalStateException expected) {
-            }
-        });
+        assertNoStateChange(stateMachine, () ->
+                assertThatThrownBy(() -> stateMachine.set(State.LUNCH))
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessage("test cannot transition from DINNER to LUNCH"));
         assertNoStateChange(stateMachine, () -> stateMachine.set(State.DINNER));
     }
 
@@ -187,14 +156,10 @@ public class TestStateMachine
         assertStateChange(stateMachine, () -> stateMachine.compareAndSet(State.LUNCH, State.DINNER), State.DINNER);
 
         // attempt transition from a final state
-        assertNoStateChange(stateMachine, () -> {
-            try {
-                stateMachine.compareAndSet(State.DINNER, State.LUNCH);
-                fail("expected IllegalStateException");
-            }
-            catch (IllegalStateException expected) {
-            }
-        });
+        assertNoStateChange(stateMachine, () ->
+                assertThatThrownBy(() -> stateMachine.compareAndSet(State.DINNER, State.LUNCH))
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessage("test cannot transition from DINNER to LUNCH"));
         assertNoStateChange(stateMachine, () -> stateMachine.compareAndSet(State.DINNER, State.DINNER));
     }
 
@@ -238,14 +203,10 @@ public class TestStateMachine
         assertStateChange(stateMachine, () -> stateMachine.setIf(State.DINNER, currentState -> true), State.DINNER);
 
         // attempt transition from a final state
-        assertNoStateChange(stateMachine, () -> {
-            try {
-                stateMachine.setIf(State.LUNCH, currentState -> true);
-                fail("expected IllegalStateException");
-            }
-            catch (IllegalStateException expected) {
-            }
-        });
+        assertNoStateChange(stateMachine, () ->
+                assertThatThrownBy(() -> stateMachine.setIf(State.LUNCH, currentState -> true))
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessage("test cannot transition from DINNER to LUNCH"));
         assertNoStateChange(stateMachine, () -> stateMachine.setIf(State.LUNCH, currentState -> false));
         assertNoStateChange(stateMachine, () -> stateMachine.setIf(State.DINNER, currentState -> true));
     }

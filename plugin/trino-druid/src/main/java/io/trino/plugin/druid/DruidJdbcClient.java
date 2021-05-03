@@ -19,11 +19,12 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
-import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -37,13 +38,13 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -54,6 +55,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class DruidJdbcClient
@@ -141,9 +143,9 @@ public class DruidJdbcClient
             case Types.VARCHAR:
                 int columnSize = typeHandle.getRequiredColumnSize();
                 if (columnSize == -1) {
-                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
+                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
                 }
-                return Optional.of(defaultVarcharColumnMapping(columnSize));
+                return Optional.of(defaultVarcharColumnMapping(columnSize, true));
         }
         // TODO implement proper type mapping
         return legacyToPrestoType(session, connection, typeHandle);
@@ -156,24 +158,35 @@ public class DruidJdbcClient
         return legacyToWriteMapping(session, type);
     }
 
-    // Druid doesn't like table names to be qualified with catalog names in the SQL query.
-    // Hence, overriding this method to pass catalog as null.
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
-            throws SQLException
+    protected PreparedQuery prepareQuery(ConnectorSession session, Connection connection, JdbcTableHandle table, Optional<List<List<JdbcColumnHandle>>> groupingSets, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions, Optional<JdbcSplit> split)
     {
-        String schemaName = table.getSchemaName();
-        checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
-        return new QueryBuilder(this)
-                .buildSql(
-                        session,
-                        connection,
-                        new RemoteTableName(Optional.empty(), table.getRemoteTableName().getSchemaName(), table.getRemoteTableName().getTableName()),
-                        table.getGroupingSets(),
-                        columns,
-                        table.getConstraint(),
-                        split.getAdditionalPredicate(),
-                        tryApplyLimit(table.getLimit()));
+        return super.prepareQuery(session, connection, prepareTableHandleForQuery(table), groupingSets, columns, columnExpressions, split);
+    }
+
+    private JdbcTableHandle prepareTableHandleForQuery(JdbcTableHandle table)
+    {
+        if (table.isNamedRelation()) {
+            String schemaName = table.getSchemaName();
+            checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
+
+            table = new JdbcTableHandle(
+                    new JdbcNamedRelationHandle(
+                            table.getRequiredNamedRelation().getSchemaTableName(),
+                            // Druid doesn't like table names to be qualified with catalog names in the SQL query, hence we null out the catalog.
+                            new RemoteTableName(
+                                    Optional.empty(),
+                                    table.getRequiredNamedRelation().getRemoteTableName().getSchemaName(),
+                                    table.getRequiredNamedRelation().getRemoteTableName().getTableName())),
+                    table.getConstraint(),
+                    table.getSortOrder(),
+                    table.getLimit(),
+                    table.getColumns(),
+                    table.getOtherReferencedTables(),
+                    table.getNextSyntheticColumnId());
+        }
+
+        return table;
     }
 
     /*
@@ -211,66 +224,66 @@ public class DruidJdbcClient
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
     @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
     }
 
     @Override
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DML_NOT_SUPPORTED, "DML operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
     @Override
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
     @Override
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming columns");
     }
 
     @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping columns");
     }
 
     @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tables");
     }
 
     @Override
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
     @Override
     public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DML_NOT_SUPPORTED, "DML operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
     @Override
     public void createSchema(ConnectorSession session, String schemaName)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating schemas");
     }
 
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 }

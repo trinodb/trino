@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.getQueryMaxExecutionTime;
+import static io.trino.SystemSessionProperties.getQueryMaxPlanningTime;
 import static io.trino.SystemSessionProperties.getQueryMaxRunTime;
 import static io.trino.spi.StandardErrorCode.ABANDONED_QUERY;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
@@ -178,11 +179,16 @@ public class QueryTracker<T extends TrackedQuery>
             }
             Duration queryMaxRunTime = getQueryMaxRunTime(query.getSession());
             Duration queryMaxExecutionTime = getQueryMaxExecutionTime(query.getSession());
+            Duration queryMaxPlanningTime = getQueryMaxPlanningTime(query.getSession());
             Optional<DateTime> executionStartTime = query.getExecutionStartTime();
+            Optional<Duration> planningTime = query.getPlanningTime();
             DateTime createTime = query.getCreateTime();
             if (executionStartTime.isPresent() && executionStartTime.get().plus(queryMaxExecutionTime.toMillis()).isBeforeNow()) {
                 query.fail(new TrinoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum execution time limit of " + queryMaxExecutionTime));
             }
+            planningTime
+                    .filter(duration -> duration.compareTo(queryMaxPlanningTime) > 0)
+                    .ifPresent(ignored -> query.fail(new TrinoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum planning time limit of " + queryMaxPlanningTime)));
             if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
                 query.fail(new TrinoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
             }
@@ -287,6 +293,8 @@ public class QueryTracker<T extends TrackedQuery>
         DateTime getCreateTime();
 
         Optional<DateTime> getExecutionStartTime();
+
+        Optional<Duration> getPlanningTime();
 
         DateTime getLastHeartbeat();
 

@@ -15,25 +15,19 @@ package io.trino.tests.hive;
 
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.Requires;
-import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.sql.Date;
-import java.time.LocalDate;
-import java.util.function.Consumer;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.HIVE_VIEWS;
-import static io.trino.tests.utils.QueryExecutors.connectToPresto;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
-import static java.lang.String.format;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Requires({
@@ -41,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         ImmutableOrdersTable.class,
 })
 public class TestHiveViewsLegacy
-        extends HiveProductTest
+        extends AbstractTestHiveViews
 {
     @BeforeTestWithContext
     public void setup()
@@ -49,63 +43,7 @@ public class TestHiveViewsLegacy
         setSessionProperty("hive.legacy_hive_view_translation", "true");
     }
 
-    @Test(groups = HIVE_VIEWS)
-    public void testSelectOnView()
-    {
-        onHive().executeQuery("DROP VIEW IF EXISTS hive_test_view");
-
-        onHive().executeQuery("CREATE VIEW hive_test_view AS SELECT * FROM nation");
-
-        assertThat(query("SELECT * FROM hive_test_view")).hasRowsCount(25);
-    }
-
-    @Test(groups = HIVE_VIEWS)
-    public void testSelectOnViewFromDifferentSchema()
-    {
-        onHive().executeQuery("DROP SCHEMA IF EXISTS test_schema CASCADE");
-
-        onHive().executeQuery("CREATE SCHEMA test_schema");
-        onHive().executeQuery(
-                "CREATE VIEW test_schema.hive_test_view_1 AS SELECT * FROM " +
-                        // no schema is specified in purpose
-                        "nation");
-
-        assertThat(query("SELECT * FROM test_schema.hive_test_view_1")).hasRowsCount(25);
-    }
-
-    @Test(groups = HIVE_VIEWS)
-    // TODO (https://github.com/trinodb/trino/issues/5911) the test does not test view coercion
-    public void testViewWithUnsupportedCoercion()
-    {
-        onHive().executeQuery("DROP VIEW IF EXISTS view_with_unsupported_coercion");
-        onHive().executeQuery("CREATE VIEW view_with_unsupported_coercion AS SELECT length(n_comment) FROM nation");
-
-        assertThat(() -> query("SELECT COUNT(*) FROM view_with_unsupported_coercion"))
-                .failsWithMessage("View 'hive.default.view_with_unsupported_coercion' is stale or in invalid state: a column of type bigint projected from query view at position 0 has no name");
-    }
-
-    @Test(groups = HIVE_VIEWS)
-    // TODO (https://github.com/trinodb/trino/issues/5911) the test does not test view coercion
-    public void testWithUnsupportedFunction()
-    {
-        onHive().executeQuery("DROP VIEW IF EXISTS view_with_repeat_function");
-        onHive().executeQuery("CREATE VIEW view_with_repeat_function AS SELECT REPEAT(n_comment,2) FROM nation");
-
-        assertThat(() -> query("SELECT COUNT(*) FROM view_with_repeat_function"))
-                .failsWithMessage("View 'hive.default.view_with_repeat_function' is stale or in invalid state: a column of type array(varchar(152)) projected from query view at position 0 has no name");
-    }
-
-    @Test(groups = HIVE_VIEWS)
-    public void testExistingView()
-    {
-        onHive().executeQuery("DROP VIEW IF EXISTS hive_duplicate_view");
-
-        onHive().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation");
-
-        assertThat(() -> query("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation"))
-                .failsWithMessage("View already exists");
-    }
-
+    @Override
     @Test(groups = HIVE_VIEWS)
     public void testShowCreateView()
     {
@@ -117,41 +55,17 @@ public class TestHiveViewsLegacy
         assertThat(query("SHOW CREATE VIEW hive_show_view")).hasRowsCount(1);
     }
 
-    @Test(groups = HIVE_VIEWS)
-    public void testUnsupportedLateralViews()
-    {
-        onHive().executeQuery("DROP VIEW IF EXISTS hive_lateral_view");
-        onHive().executeQuery("DROP TABLE IF EXISTS pageAds");
-
-        onHive().executeQuery("CREATE TABLE pageAds(pageid string, adid_list array<int>)");
-        onHive().executeQuery("CREATE VIEW hive_lateral_view as SELECT pageid, adid FROM pageAds LATERAL VIEW explode(adid_list) adTable AS adid");
-
-        assertThat(() -> query("SELECT COUNT(*) FROM hive_lateral_view"))
-                .failsWithMessage("Failed parsing stored view 'hive.default.hive_lateral_view': line 1:78: mismatched input 'VIEW'");
-    }
-
-    @Test(groups = HIVE_VIEWS)
-    public void testIdentifierThatStartWithDigit()
-    {
-        onHive().executeQuery("DROP VIEW IF EXISTS view_on_identifiers_starting_with_numbers");
-        onHive().executeQuery("DROP TABLE IF EXISTS 7_table_with_number");
-
-        onHive().executeQuery("CREATE TABLE 7_table_with_number(num string)");
-        onHive().executeQuery("CREATE VIEW view_on_identifiers_starting_with_numbers AS SELECT * FROM 7_table_with_number");
-
-        assertThat(query("SELECT COUNT(*) FROM view_on_identifiers_starting_with_numbers")).contains(row(0));
-    }
-
+    @Override
     @Test(groups = HIVE_VIEWS)
     public void testHiveViewInInformationSchema()
     {
-        onHive().executeQuery("DROP SCHEMA IF EXISTS test_schema CASCADE;");
+        onHive().executeQuery("DROP SCHEMA IF EXISTS test_schema CASCADE");
 
-        onHive().executeQuery("CREATE SCHEMA test_schema;");
+        onHive().executeQuery("CREATE SCHEMA test_schema");
         onHive().executeQuery("CREATE VIEW test_schema.hive_test_view AS SELECT * FROM nation");
         onHive().executeQuery("CREATE TABLE test_schema.hive_table(a string)");
-        onPresto().executeQuery("CREATE TABLE test_schema.trino_table(a int)");
-        onPresto().executeQuery("CREATE VIEW test_schema.trino_test_view AS SELECT * FROM nation");
+        onTrino().executeQuery("CREATE TABLE test_schema.trino_table(a int)");
+        onTrino().executeQuery("CREATE VIEW test_schema.trino_test_view AS SELECT * FROM nation");
 
         boolean hiveWithTableNamesByType = getHiveVersionMajor() >= 3 ||
                 (getHiveVersionMajor() == 2 && getHiveVersionMinor() >= 3);
@@ -168,6 +82,7 @@ public class TestHiveViewsLegacy
                 .contains(row("n_nationkey", "bigint", "", ""));
     }
 
+    @Override
     @Test(groups = HIVE_VIEWS)
     public void testHiveViewWithParametrizedTypes()
     {
@@ -187,123 +102,46 @@ public class TestHiveViewsLegacy
                 row("varchar(20)"));
     }
 
-    /**
-     * Test view containing IF, IN, LIKE, BETWEEN, CASE, COALESCE, operators, delimited and non-delimited columns, an inline comment
-     */
-    @Test(groups = HIVE_VIEWS)
-    public void testRichSqlSyntax()
+    @Override
+    @Test
+    public void testArrayIndexingInView()
     {
-        onHive().executeQuery("DROP VIEW IF EXISTS view_with_rich_syntax");
-        onHive().executeQuery("CREATE VIEW view_with_rich_syntax AS " +
-                "SELECT \n" +
-                "   `n_nationkey`, \n" + // grave accent
-                "   n_name, \n" + // no grave accent
-                "   `n_regionkey` AS `n_regionkey`, \n" + // alias
-                "   n_regionkey BETWEEN 1 AND 2 AS region_between_1_2, \n" + // BETWEEN, boolean
-                "   IF(`n`.`n_name` IN ('ALGERIA', 'ARGENTINA'), 1, 0) AS `starts_with_a`, \n" +
-                "   IF(`n`.`n_name` != 'PERU', 1, 0) `not_peru`, \n" + // no "AS" here
-                "   IF(`n`.`n_name` LIKE '%N%', 1, 0) `CONTAINS_N`, \n" + // LIKE, uppercase column name
-                // TODO (https://github.com/trinodb/trino/issues/5837) "   CASE n_regionkey WHEN 0 THEN 'Africa' WHEN 1 THEN 'America' END region_name, \n" + // simple CASE
-                "   CASE WHEN n_name = \"BRAZIL\" THEN 'is BRAZIL' WHEN n_name = \"ALGERIA\" THEN 'is ALGERIA' ELSE \"\" END is_something,\n" + // searched CASE, double quote string literals
-                "   COALESCE(IF(n_name LIKE 'A%', NULL, n_name), 'A%') AS coalesced_name, \n" + // coalesce
-                "   round(tan(n_nationkey), 3) AS rounded_tan, \n" + // functions
-                "   o_orderdate AS the_orderdate, \n" +
-                "   `n`.`n_nationkey` + `n_nationkey` + n.n_nationkey + n_nationkey + 10000 - -1 AS arithmetic--some comment without leading space \n" +
-                "FROM `default`.`nation` AS `n` \n" +
-                // join, subquery
-                "LEFT JOIN (SELECT * FROM orders WHERE o_custkey > 1000) `o` ON `o`.`o_orderkey` = `n`.`n_nationkey` ");
-        assertViewQuery("" +
-                        "SELECT" +
-                        "   n_nationkey, n_name, region_between_1_2, starts_with_a, not_peru, contains_n, is_something, coalesced_name," +
-                        "   rounded_tan, the_orderdate, arithmetic " +
-                        "FROM view_with_rich_syntax " +
-                        "WHERE n_regionkey < 3 AND (n_nationkey < 5 OR n_nationkey IN (12, 17))",
-                queryAssert -> queryAssert.containsOnly(
-                        row(0, "ALGERIA", false, 1, 1, 0, "is ALGERIA", "A%", 0.0, null, 10001),
-                        row(1, "ARGENTINA", true, 1, 1, 1, "", "A%", 1.557, sqlDate(1996, 1, 2), 10005),
-                        row(2, "BRAZIL", true, 0, 1, 0, "is BRAZIL", "BRAZIL", -2.185, sqlDate(1996, 12, 1), 10009),
-                        row(3, "CANADA", true, 0, 1, 1, "", "CANADA", -0.143, sqlDate(1993, 10, 14), 10013),
-                        row(12, "JAPAN", true, 0, 1, 1, "", "JAPAN", -0.636, null, 10049),
-                        row(17, "PERU", true, 0, 0, 0, "", "PERU", 3.494, null, 10069)));
+        assertThatThrownBy(super::testArrayIndexingInView)
+                // Hive uses 0-based array indices so Trino returns incorrect results for such view
+                .hasMessageContaining("Could not find rows:\n" +
+                        "[hive]\n" +
+                        "\n" +
+                        "actual rows:\n" +
+                        "[presto]");
     }
 
-    @Test
-    public void testSelectFromHiveViewWithoutDefaultCatalogAndSchema()
+    @Override
+    public void testArrayConstructionInView()
     {
-        onHive().executeQuery("DROP VIEW IF EXISTS no_catalog_schema_view");
-        onHive().executeQuery("CREATE VIEW no_catalog_schema_view AS SELECT * FROM nation WHERE n_nationkey = 1");
+        assertThatThrownBy(super::testArrayConstructionInView)
+                .hasMessageContaining("Function 'array' not registered");
+    }
 
-        QueryExecutor executor = connectToPresto("presto_no_default_catalog");
+    @Override
+    public void testNestedHiveViews()
+    {
+        assertThatThrownBy(super::testNestedHiveViews)
+                .hasMessageContaining("View 'hive.default.nested_top_view' is stale or in invalid state: column [n_renamed] of type varchar projected from query view at position 0 cannot be coerced to column [n_renamed] of type varchar(25) stored in view definition");
+    }
+
+    @Override
+    @Test
+    public void testCurrentUser()
+    {
+        assertThatThrownBy(super::testCurrentUser)
+                .hasMessageContaining("Failed parsing stored view 'hive.default.current_user_hive_view': line 1:20: mismatched input '('");
+    }
+
+    @Override
+    protected QueryExecutor connectToPresto(String catalog)
+    {
+        QueryExecutor executor = super.connectToPresto(catalog);
         executor.executeQuery("SET SESSION hive.legacy_hive_view_translation = true");
-
-        assertThat(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
-                .failsWithMessageMatching(".*Schema must be specified when session schema is not set.*");
-        assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
-                .containsExactly(row(1L));
-    }
-
-    @Test
-    public void testTimestampHiveView()
-    {
-        onHive().executeQuery("DROP TABLE IF EXISTS timestamp_hive_table");
-        onHive().executeQuery("CREATE TABLE timestamp_hive_table AS SELECT cast('1990-01-02 12:13:14.123456789' AS timestamp) ts");
-        onHive().executeQuery("DROP VIEW IF EXISTS timestamp_hive_view");
-        onHive().executeQuery("CREATE VIEW timestamp_hive_view AS SELECT * FROM timestamp_hive_table");
-
-        // timestamp_precision not set
-        unsetSessionProperty("hive.timestamp_precision");
-        unsetSessionProperty("hive_timestamp_nanos.timestamp_precision");
-
-        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123"));
-        assertThatThrownBy(
-                // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
-                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123456789"))
-        ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
-
-        setSessionProperty("hive.timestamp_precision", "'MILLISECONDS'");
-        setSessionProperty("hive_timestamp_nanos.timestamp_precision", "'MILLISECONDS'");
-
-        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123"));
-        assertThatThrownBy(
-                // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
-                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123"))
-        ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
-
-        setSessionProperty("hive.timestamp_precision", "'NANOSECONDS'");
-        setSessionProperty("hive_timestamp_nanos.timestamp_precision", "'NANOSECONDS'");
-
-        // TODO(https://github.com/prestosql/presto/issues/6295) timestamp_precision has no effect on Hive views
-        // should be: assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123456789"))
-        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123"));
-        assertThatThrownBy(
-                // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
-                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123456789"))
-        ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
-    }
-
-    private static void assertViewQuery(String query, Consumer<QueryAssert> assertion)
-    {
-        // Ensure Hive and Presto view compatibility by comparing the results
-        assertion.accept(assertThat(onHive().executeQuery(query)));
-        assertion.accept(assertThat(onPresto().executeQuery(query)));
-    }
-
-    private static Date sqlDate(int year, int month, int day)
-    {
-        return Date.valueOf(LocalDate.of(year, month, day));
-    }
-
-    private void setSessionProperty(String key, String value)
-    {
-        // We need to setup sessions for both "presto" and "default" executors in tempto
-        onPresto().executeQuery(format("SET SESSION %s = %s", key, value));
-        query(format("SET SESSION %s = %s", key, value));
-    }
-
-    private void unsetSessionProperty(String key)
-    {
-        // We need to setup sessions for both "presto" and "default" executors in tempto
-        onPresto().executeQuery("RESET SESSION " + key);
-        query("RESET SESSION " + key);
+        return executor;
     }
 }

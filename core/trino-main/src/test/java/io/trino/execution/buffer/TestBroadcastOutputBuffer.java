@@ -63,10 +63,10 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestBroadcastOutputBuffer
 {
@@ -97,18 +97,12 @@ public class TestBroadcastOutputBuffer
     @Test
     public void testInvalidConstructorArg()
     {
-        try {
-            createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), DataSize.ofBytes(0));
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalArgumentException ignored) {
-        }
-        try {
-            createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(0));
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalArgumentException ignored) {
-        }
+        assertThatThrownBy(() -> createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), DataSize.ofBytes(0)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("maxBufferedBytes must be > 0");
+        assertThatThrownBy(() -> createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(0)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("maxBufferedBytes must be > 0");
     }
 
     @Test
@@ -430,15 +424,12 @@ public class TestBroadcastOutputBuffer
 
         assertFalse(buffer.isFinished());
 
-        try {
-            buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST)
-                    .withBuffer(FIRST, BROADCAST_PARTITION_ID)
-                    .withBuffer(SECOND, BROADCAST_PARTITION_ID)
-                    .withNoMoreBufferIds());
-            fail("Expected IllegalStateException from addQueue after noMoreQueues has been called");
-        }
-        catch (IllegalArgumentException ignored) {
-        }
+        assertThatThrownBy(() -> buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST)
+                .withBuffer(FIRST, BROADCAST_PARTITION_ID)
+                .withBuffer(SECOND, BROADCAST_PARTITION_ID)
+                .withNoMoreBufferIds()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Expected buffer to not change after no more buffers is set");
     }
 
     @Test

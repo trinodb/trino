@@ -62,17 +62,17 @@ public class TestingPinotCluster
     private final GenericContainer<?> zookeeper;
     private final HttpClient httpClient;
 
-    public TestingPinotCluster()
+    public TestingPinotCluster(Network network)
     {
         httpClient = new JettyHttpClient();
         zookeeper = new GenericContainer<>(parse("zookeeper:3.5.6"))
-                .withNetwork(Network.SHARED)
+                .withNetwork(network)
                 .withNetworkAliases(ZOOKEEPER_INTERNAL_HOST)
                 .withEnv("ZOOKEEPER_CLIENT_PORT", String.valueOf(ZOOKEEPER_PORT))
                 .withExposedPorts(ZOOKEEPER_PORT);
 
         controller = new GenericContainer<>(parse(BASE_IMAGE))
-                .withNetwork(Network.SHARED)
+                .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-controller", "/var/pinot/controller/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-controller-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
                 .withCommand("StartController", "-configFileName", "/var/pinot/controller/config/pinot-controller.conf")
@@ -80,7 +80,7 @@ public class TestingPinotCluster
                 .withExposedPorts(CONTROLLER_PORT);
 
         broker = new GenericContainer<>(parse(BASE_IMAGE))
-                .withNetwork(Network.SHARED)
+                .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-broker", "/var/pinot/broker/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-broker-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
                 .withCommand("StartBroker", "-clusterName", "pinot", "-zkAddress", getZookeeperInternalHostPort(), "-configFileName", "/var/pinot/broker/config/pinot-broker.conf")
@@ -88,7 +88,7 @@ public class TestingPinotCluster
                 .withExposedPorts(BROKER_PORT);
 
         server = new GenericContainer<>(parse(BASE_IMAGE))
-                .withNetwork(Network.SHARED)
+                .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-server", "/var/pinot/server/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-server-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
                 .withCommand("StartServer", "-clusterName", "pinot", "-zkAddress", getZookeeperInternalHostPort(), "-configFileName", "/var/pinot/server/config/pinot-server.conf")

@@ -14,6 +14,8 @@
 package io.trino.plugin.kafka;
 
 import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ConnectorSession;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import javax.inject.Inject;
@@ -23,6 +25,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static org.apache.kafka.clients.CommonClientConfigs.SECURITY_PROTOCOL_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.ACKS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
@@ -33,17 +36,20 @@ public class PlainTextKafkaProducerFactory
         implements KafkaProducerFactory
 {
     private final Set<HostAddress> nodes;
+    private final SecurityProtocol securityProtocol;
 
     @Inject
-    public PlainTextKafkaProducerFactory(KafkaConfig kafkaConfig)
+    public PlainTextKafkaProducerFactory(KafkaConfig kafkaConfig, KafkaSecurityConfig securityConfig)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
+        requireNonNull(securityConfig, "securityConfig is null");
 
         nodes = kafkaConfig.getNodes();
+        securityProtocol = securityConfig.getSecurityProtocol();
     }
 
     @Override
-    public Properties configure()
+    public Properties configure(ConnectorSession session)
     {
         Properties properties = new Properties();
         properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()
@@ -53,6 +59,7 @@ public class PlainTextKafkaProducerFactory
         properties.setProperty(VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
         properties.setProperty(ACKS_CONFIG, "all");
         properties.setProperty(LINGER_MS_CONFIG, Long.toString(5));
+        properties.setProperty(SECURITY_PROTOCOL_CONFIG, securityProtocol.name());
         return properties;
     }
 }

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -62,16 +63,21 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNewTableLayout;
+import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -92,6 +98,7 @@ import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
@@ -114,6 +121,7 @@ import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.gen.JoinCompiler;
@@ -171,6 +179,8 @@ import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.hash.Hashing.sha256;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -278,12 +288,15 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
@@ -299,6 +312,8 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestHive
 {
+    private static final Logger log = Logger.get(AbstractTestHive.class);
+
     protected static final String TEMPORARY_TABLE_PREFIX = "tmp_trino_test_";
 
     protected static final String INVALID_DATABASE = "totally_invalid_database_name";
@@ -473,7 +488,7 @@ public abstract class AbstractTestHive
     private static final BlockTypeOperators BLOCK_TYPE_OPERATORS = new BlockTypeOperators(TYPE_OPERATORS);
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
 
-    private static final List<ColumnMetadata> STATISTICS_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
+    protected static final List<ColumnMetadata> STATISTICS_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .add(new ColumnMetadata("t_boolean", BOOLEAN))
             .add(new ColumnMetadata("t_bigint", BIGINT))
             .add(new ColumnMetadata("t_integer", INTEGER))
@@ -500,7 +515,7 @@ public abstract class AbstractTestHive
     protected static final PartitionStatistics BASIC_STATISTICS_1 = new PartitionStatistics(new HiveBasicStatistics(0, 20, 3, 0), ImmutableMap.of());
     protected static final PartitionStatistics BASIC_STATISTICS_2 = new PartitionStatistics(new HiveBasicStatistics(0, 30, 2, 0), ImmutableMap.of());
 
-    private static final PartitionStatistics STATISTICS_1 =
+    protected static final PartitionStatistics STATISTICS_1 =
             new PartitionStatistics(
                     BASIC_STATISTICS_1.getBasicStatistics(),
                     ImmutableMap.<String, HiveColumnStatistics>builder()
@@ -513,15 +528,15 @@ public abstract class AbstractTestHive
                             .put("t_float", createDoubleColumnStatistics(OptionalDouble.of(123.25), OptionalDouble.of(567.58), OptionalLong.of(9), OptionalLong.of(10)))
                             .put("t_string", createStringColumnStatistics(OptionalLong.of(10), OptionalLong.of(50), OptionalLong.of(3), OptionalLong.of(7)))
                             .put("t_varchar", createStringColumnStatistics(OptionalLong.of(100), OptionalLong.of(230), OptionalLong.of(5), OptionalLong.of(3)))
-                            .put("t_char", createStringColumnStatistics(OptionalLong.of(5), OptionalLong.of(500), OptionalLong.of(1), OptionalLong.of(4)))
-                            .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(4), OptionalLong.of(300), OptionalLong.of(1)))
+                            .put("t_char", createStringColumnStatistics(OptionalLong.of(5), OptionalLong.of(50), OptionalLong.of(1), OptionalLong.of(4)))
+                            .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(4), OptionalLong.of(50), OptionalLong.of(1)))
                             .put("t_date", createDateColumnStatistics(Optional.of(LocalDate.ofEpochDay(1)), Optional.of(LocalDate.ofEpochDay(2)), OptionalLong.of(7), OptionalLong.of(6)))
                             .put("t_timestamp", createIntegerColumnStatistics(OptionalLong.of(1234567L), OptionalLong.of(71234567L), OptionalLong.of(7), OptionalLong.of(5)))
                             .put("t_short_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal(10)), Optional.of(new BigDecimal(12)), OptionalLong.of(3), OptionalLong.of(5)))
                             .put("t_long_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal("12345678901234567.123")), Optional.of(new BigDecimal("81234567890123456.123")), OptionalLong.of(2), OptionalLong.of(1)))
                             .build());
 
-    private static final PartitionStatistics STATISTICS_1_1 =
+    protected static final PartitionStatistics STATISTICS_1_1 =
             new PartitionStatistics(
                     new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(15), OptionalLong.empty(), OptionalLong.of(0)),
                     STATISTICS_1.getColumnStatistics().entrySet()
@@ -529,7 +544,7 @@ public abstract class AbstractTestHive
                             .filter(entry -> entry.getKey().hashCode() % 2 == 0)
                             .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
 
-    private static final PartitionStatistics STATISTICS_1_2 =
+    protected static final PartitionStatistics STATISTICS_1_2 =
             new PartitionStatistics(
                     new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(15), OptionalLong.of(3), OptionalLong.of(0)),
                     STATISTICS_1.getColumnStatistics().entrySet()
@@ -545,10 +560,10 @@ public abstract class AbstractTestHive
                             .put("t_bigint", createIntegerColumnStatistics(OptionalLong.of(2345L), OptionalLong.of(6789L), OptionalLong.of(4), OptionalLong.of(7)))
                             .put("t_integer", createIntegerColumnStatistics(OptionalLong.of(234L), OptionalLong.of(678L), OptionalLong.of(5), OptionalLong.of(6)))
                             .put("t_smallint", createIntegerColumnStatistics(OptionalLong.of(23L), OptionalLong.of(65L), OptionalLong.of(7), OptionalLong.of(5)))
-                            .put("t_tinyint", createIntegerColumnStatistics(OptionalLong.of(12), OptionalLong.of(3L), OptionalLong.of(2), OptionalLong.of(3)))
+                            .put("t_tinyint", createIntegerColumnStatistics(OptionalLong.of(3L), OptionalLong.of(12L), OptionalLong.of(2), OptionalLong.of(3)))
                             .put("t_double", createDoubleColumnStatistics(OptionalDouble.of(2345.25), OptionalDouble.of(6785.58), OptionalLong.of(6), OptionalLong.of(3)))
                             .put("t_float", createDoubleColumnStatistics(OptionalDouble.of(235.25), OptionalDouble.of(676.58), OptionalLong.of(7), OptionalLong.of(11)))
-                            .put("t_string", createStringColumnStatistics(OptionalLong.of(11), OptionalLong.of(600), OptionalLong.of(2), OptionalLong.of(6)))
+                            .put("t_string", createStringColumnStatistics(OptionalLong.of(301), OptionalLong.of(600), OptionalLong.of(2), OptionalLong.of(6)))
                             .put("t_varchar", createStringColumnStatistics(OptionalLong.of(99), OptionalLong.of(223), OptionalLong.of(7), OptionalLong.of(1)))
                             .put("t_char", createStringColumnStatistics(OptionalLong.of(6), OptionalLong.of(60), OptionalLong.of(0), OptionalLong.of(3)))
                             .put("t_varbinary", createBinaryColumnStatistics(OptionalLong.of(2), OptionalLong.of(10), OptionalLong.of(2)))
@@ -617,15 +632,20 @@ public abstract class AbstractTestHive
     protected ConnectorSplitManager splitManager;
     protected ConnectorPageSourceProvider pageSourceProvider;
     protected ConnectorPageSinkProvider pageSinkProvider;
+    protected ConnectorNodePartitioningProvider nodePartitioningProvider;
     protected ExecutorService executor;
 
     private ScheduledExecutorService heartbeatService;
+    private java.nio.file.Path temporaryStagingDirectory;
 
     @BeforeClass(alwaysRun = true)
     public void setupClass()
+            throws Exception
     {
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         heartbeatService = newScheduledThreadPool(1);
+        // Use separate staging directory for each test class to prevent intermittent failures coming from test parallelism
+        temporaryStagingDirectory = createTempDirectory("trino-staging-");
     }
 
     @AfterClass(alwaysRun = true)
@@ -638,6 +658,14 @@ public abstract class AbstractTestHive
         if (heartbeatService != null) {
             heartbeatService.shutdownNow();
             heartbeatService = null;
+        }
+        if (temporaryStagingDirectory != null) {
+            try {
+                deleteRecursively(temporaryStagingDirectory, ALLOW_INSECURE);
+            }
+            catch (Exception e) {
+                log.warn(e, "Error deleting " + temporaryStagingDirectory);
+            }
         }
     }
 
@@ -747,8 +775,8 @@ public abstract class AbstractTestHive
                         hdfsEnvironment,
                         false)),
                 executor,
-                Duration.valueOf("1m"),
-                Optional.of(Duration.valueOf("15s")),
+                new Duration(1, MINUTES),
+                Optional.of(new Duration(15, SECONDS)),
                 10000);
 
         setup(databaseName, hiveConfig, metastore, hdfsEnvironment);
@@ -785,6 +813,34 @@ public abstract class AbstractTestHive
                 newFixedThreadPool(2),
                 heartbeatService,
                 TEST_SERVER_VERSION,
+                (session, tableHandle) -> {
+                    if (!tableHandle.getTableName().contains("apply_redirection_tester")) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(new TableScanRedirectApplicationResult(
+                            new CatalogSchemaTableName("hive", databaseName, "mock_redirection_target"),
+                            ImmutableMap.of(),
+                            TupleDomain.all()));
+                },
+                new NoneHiveMaterializedViewMetadata()
+                {
+                    @Override
+                    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+                    {
+                        if (!viewName.getTableName().contains("materialized_view_tester")) {
+                            return Optional.empty();
+                        }
+                        return Optional.of(new ConnectorMaterializedViewDefinition(
+                                "dummy_view_sql",
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"))),
+                                Optional.empty(),
+                                "alice",
+                                ImmutableMap.of()));
+                    }
+                },
                 SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
@@ -826,6 +882,9 @@ public abstract class AbstractTestHive
                 getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig),
                 Optional.empty());
+        nodePartitioningProvider = new HiveNodePartitioningProvider(
+                new TestingNodeManager("fake-environment"),
+                TYPE_MANAGER);
     }
 
     protected HdfsConfiguration createTestHdfsConfiguration()
@@ -850,6 +909,7 @@ public abstract class AbstractTestHive
     {
         return new HiveConfig()
                 .setMaxOpenSortFiles(10)
+                .setTemporaryStagingDirectoryPath(temporaryStagingDirectory.toAbsolutePath().toString())
                 .setWriterSortBufferSize(DataSize.of(100, KILOBYTE));
     }
 
@@ -871,7 +931,7 @@ public abstract class AbstractTestHive
         return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create());
     }
 
-    interface Transaction
+    protected interface Transaction
             extends AutoCloseable
     {
         ConnectorMetadata getMetadata();
@@ -1742,6 +1802,26 @@ public abstract class AbstractTestHive
     private void doTestBucketedTableValidation(HiveStorageFormat storageFormat, SchemaTableName tableName)
             throws Exception
     {
+        prepareInvalidBuckets(storageFormat, tableName);
+
+        // read succeeds when validation is disabled
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession(ImmutableMap.of("validate_bucketing", false));
+            metadata.beginQuery(session);
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+            List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
+            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
+            assertEquals(result.getRowCount(), 87); // fewer rows due to deleted file
+        }
+
+        // read fails due to validation failure
+        assertReadFailsWithMessageMatching(storageFormat, tableName, "Hive table is corrupt\\. File '.*/000002_0_.*' is for bucket 2, but contains a row for bucket 5.");
+    }
+
+    private void prepareInvalidBuckets(HiveStorageFormat storageFormat, SchemaTableName tableName)
+            throws Exception
+    {
         createEmptyTable(
                 tableName,
                 storageFormat,
@@ -1770,24 +1850,15 @@ public abstract class AbstractTestHive
                     .filter(path -> path.getName().startsWith("000005_0_"))
                     .collect(onlyElement());
 
-            HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(newSession());
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, bucket2);
             fileSystem.delete(bucket2, false);
             fileSystem.rename(bucket5, bucket2);
         }
+    }
 
-        // read succeeds when validation is disabled
-        try (Transaction transaction = newTransaction()) {
-            ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorSession session = newSession(ImmutableMap.of("validate_bucketing", false));
-            metadata.beginQuery(session);
-            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-            List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
-            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
-            assertEquals(result.getRowCount(), 87); // fewer rows due to deleted file
-        }
-
-        // read fails due to validation failure
+    protected void assertReadFailsWithMessageMatching(HiveStorageFormat storageFormat, SchemaTableName tableName, String regex)
+    {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
@@ -1797,7 +1868,7 @@ public abstract class AbstractTestHive
             assertTrinoExceptionThrownBy(
                     () -> readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat)))
                     .hasErrorCode(HIVE_INVALID_BUCKET_FILES)
-                    .hasMessageMatching("Hive table is corrupt\\. File '.*/000002_0_.*' is for bucket 2, but contains a row for bucket 5.");
+                    .hasMessageMatching(regex);
         }
     }
 
@@ -2152,7 +2223,7 @@ public abstract class AbstractTestHive
                         .orElseThrow(AssertionError::new);
 
                 // verify directory is empty
-                HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+                HdfsContext context = new HdfsContext(session);
                 Path location = new Path(table.getStorage().getLocation());
                 assertTrue(listDirectory(context, location).isEmpty());
 
@@ -2251,7 +2322,7 @@ public abstract class AbstractTestHive
 
                 // verify we have data files
                 stagingPathRoot = getStagingPathRoot(outputHandle);
-                HdfsContext context = new HdfsContext(session, temporaryCreateRollbackTable.getSchemaName(), temporaryCreateRollbackTable.getTableName());
+                HdfsContext context = new HdfsContext(session);
                 assertFalse(listAllDataFiles(context, stagingPathRoot).isEmpty());
 
                 // rollback the table
@@ -2259,7 +2330,7 @@ public abstract class AbstractTestHive
             }
 
             // verify all files have been deleted
-            HdfsContext context = new HdfsContext(newSession(), temporaryCreateRollbackTable.getSchemaName(), temporaryCreateRollbackTable.getTableName());
+            HdfsContext context = new HdfsContext(newSession());
             assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
 
             // verify table is not in the metastore
@@ -2421,7 +2492,7 @@ public abstract class AbstractTestHive
                 sink.appendPage(builder.build().toPage());
             }
 
-            HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+            HdfsContext context = new HdfsContext(session);
             // verify we have enough temporary files per bucket to require multiple passes
             Path stagingPathRoot;
             if (isTemporaryStagingDirectoryEnabled(session)) {
@@ -2775,10 +2846,10 @@ public abstract class AbstractTestHive
 
         AtomicReference<PartitionStatistics> expectedStatistics = new AtomicReference<>(initialStatistics);
         for (PartitionStatistics partitionStatistics : statistics) {
-            metastoreClient.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), actualStatistics -> {
+            metastoreClient.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), NO_ACID_TRANSACTION, actualStatistics -> {
                 assertThat(actualStatistics).isEqualTo(expectedStatistics.get());
                 return partitionStatistics;
-            }, NO_ACID_TRANSACTION);
+            });
             assertThat(metastoreClient.getTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName()))
                     .isEqualTo(partitionStatistics);
             expectedStatistics.set(partitionStatistics);
@@ -2787,10 +2858,10 @@ public abstract class AbstractTestHive
         assertThat(metastoreClient.getTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName()))
                 .isEqualTo(expectedStatistics.get());
 
-        metastoreClient.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), actualStatistics -> {
+        metastoreClient.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), NO_ACID_TRANSACTION, actualStatistics -> {
             assertThat(actualStatistics).isEqualTo(expectedStatistics.get());
             return initialStatistics;
-        }, NO_ACID_TRANSACTION);
+        });
 
         assertThat(metastoreClient.getTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName()))
                 .isEqualTo(initialStatistics);
@@ -3185,11 +3256,26 @@ public abstract class AbstractTestHive
             List<ConnectorExpression> expectedProjections;
             Map<String, Type> expectedAssignments;
 
-            // Test no projection pushdown in case of all variable references
+            // Test projected columns pushdown to HiveTableHandle in case of all variable references
             inputAssignments = getColumnHandlesFor(columnHandlesWithSymbols, ImmutableList.of("symbol_0", "symbol_1"));
             inputProjections = ImmutableList.of(symbolVariableMapping.get("symbol_0"), symbolVariableMapping.get("symbol_1"));
+            expectedAssignments = ImmutableMap.of(
+                    "symbol_0", BIGINT,
+                    "symbol_1", BIGINT);
             projectionResult = metadata.applyProjection(session, tableHandle, inputProjections, inputAssignments);
+            assertProjectionResult(projectionResult, false, inputProjections, expectedAssignments);
+
+            // Empty result when projected column handles are same as those present in table handle
+            projectionResult = metadata.applyProjection(session, projectionResult.get().getHandle(), inputProjections, inputAssignments);
             assertProjectionResult(projectionResult, true, ImmutableList.of(), ImmutableMap.of());
+
+            // Extra columns handles in HiveTableHandle should get pruned
+            projectionResult = metadata.applyProjection(
+                    session,
+                    ((HiveTableHandle) tableHandle).withProjectedColumns(ImmutableSet.copyOf(columnHandles)),
+                    inputProjections,
+                    inputAssignments);
+            assertProjectionResult(projectionResult, false, inputProjections, expectedAssignments);
 
             // Test projection pushdown for dereferences
             inputAssignments = getColumnHandlesFor(columnHandlesWithSymbols, ImmutableList.of("symbol_2", "symbol_3"));
@@ -3266,6 +3352,54 @@ public abstract class AbstractTestHive
         }
 
         assertEquals(actualAssignments.size(), expectedAssignments.size());
+        assertEquals(
+                Optional.of(actualAssignments.values().stream().map(Assignment::getColumn).collect(toImmutableSet())),
+                ((HiveTableHandle) result.getHandle()).getProjectedColumns());
+    }
+
+    @Test
+    public void testApplyRedirection()
+            throws Exception
+    {
+        SchemaTableName sourceTableName = temporaryTable("apply_redirection_tester");
+        doCreateEmptyTable(sourceTableName, ORC, CREATE_TABLE_COLUMNS);
+        SchemaTableName tableName = temporaryTable("apply_no_redirection_tester");
+        doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            assertThat(metadata.applyTableScanRedirect(session, getTableHandle(metadata, tableName))).isEmpty();
+            Optional<TableScanRedirectApplicationResult> result = metadata.applyTableScanRedirect(session, getTableHandle(metadata, sourceTableName));
+            assertThat(result).isPresent();
+            assertThat(getOnlyElement(result.get().getRedirections()).getDestinationTable())
+                    .isEqualTo(new CatalogSchemaTableName("hive", database, "mock_redirection_target"));
+        }
+        finally {
+            dropTable(sourceTableName);
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewMetadata()
+            throws Exception
+    {
+        SchemaTableName sourceTableName = temporaryTable("materialized_view_tester");
+        doCreateEmptyTable(sourceTableName, ORC, CREATE_TABLE_COLUMNS);
+        SchemaTableName tableName = temporaryTable("mock_table");
+        doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            assertThat(metadata.getMaterializedView(session, tableName)).isEmpty();
+            Optional<ConnectorMaterializedViewDefinition> result = metadata.getMaterializedView(session, sourceTableName);
+            assertThat(result).isPresent();
+            assertThat(result.get().getOriginalSql()).isEqualTo("dummy_view_sql");
+        }
+        finally {
+            dropTable(sourceTableName);
+            dropTable(tableName);
+        }
     }
 
     private ConnectorSession sampleSize(int sampleSize)
@@ -3374,7 +3508,7 @@ public abstract class AbstractTestHive
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
             // verify all new files start with the unique prefix
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(session);
             for (String filePath : listAllDataFiles(context, getStagingPathRoot(outputHandle))) {
                 assertThat(new Path(filePath).getName()).startsWith(session.getQueryId());
             }
@@ -3560,7 +3694,7 @@ public abstract class AbstractTestHive
 
             // verify all temp files start with the unique prefix
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(session);
             Set<String> tempFiles = listAllDataFiles(context, stagingPathRoot);
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
@@ -3572,7 +3706,7 @@ public abstract class AbstractTestHive
         }
 
         // verify temp directory is empty
-        HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+        HdfsContext context = new HdfsContext(newSession());
         assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
 
         // verify the data is unchanged
@@ -3683,7 +3817,7 @@ public abstract class AbstractTestHive
 
             // verify all temp files start with the unique prefix
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(session);
             Set<String> tempFiles = listAllDataFiles(context, stagingPathRoot);
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
@@ -3695,7 +3829,7 @@ public abstract class AbstractTestHive
         }
 
         // verify temp directory is empty
-        HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+        HdfsContext context = new HdfsContext(newSession());
         assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
 
         // verify the data is unchanged
@@ -3753,7 +3887,7 @@ public abstract class AbstractTestHive
     protected Set<String> listAllDataFiles(Transaction transaction, String schemaName, String tableName)
             throws IOException
     {
-        HdfsContext hdfsContext = new HdfsContext(newSession(), schemaName, tableName);
+        HdfsContext hdfsContext = new HdfsContext(newSession());
         HiveIdentity identity = new HiveIdentity(newSession());
         Set<String> existingFiles = new HashSet<>();
         for (String location : listAllDataPaths(identity, transaction.getMetastore(), schemaName, tableName)) {
@@ -3792,7 +3926,7 @@ public abstract class AbstractTestHive
         FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
         if (fileSystem.exists(path)) {
             for (FileStatus fileStatus : fileSystem.listStatus(path)) {
-                if (fileStatus.getPath().getName().startsWith(".presto")) {
+                if (fileStatus.getPath().getName().startsWith(".trino")) {
                     // skip hidden files
                 }
                 else if (fileStatus.isFile()) {
@@ -3876,7 +4010,7 @@ public abstract class AbstractTestHive
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
 
             // verify all temp files start with the unique prefix
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(session);
             Set<String> tempFiles = listAllDataFiles(context, getStagingPathRoot(insertTableHandle));
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
@@ -3902,7 +4036,7 @@ public abstract class AbstractTestHive
             assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
             // verify temp directory is empty
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(session);
             assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
         }
     }
@@ -3993,7 +4127,7 @@ public abstract class AbstractTestHive
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
 
             // verify all temp files start with the unique prefix
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(session);
             Set<String> tempFiles = listAllDataFiles(context, getStagingPathRoot(insertTableHandle));
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
@@ -4027,7 +4161,7 @@ public abstract class AbstractTestHive
             assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
             // verify temp directory is empty
-            HdfsContext hdfsContext = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext hdfsContext = new HdfsContext(session);
             assertTrue(listAllDataFiles(hdfsContext, stagingPathRoot).isEmpty());
 
             // verify statistics have been rolled back
@@ -4086,7 +4220,7 @@ public abstract class AbstractTestHive
     {
         HiveMetastore metastoreClient = getMetastoreClient();
         HiveIdentity identity = new HiveIdentity(SESSION);
-        metastoreClient.updateTableStatistics(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), statistics -> new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()), NO_ACID_TRANSACTION);
+        metastoreClient.updateTableStatistics(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), NO_ACID_TRANSACTION, statistics -> new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()));
         Table table = metastoreClient.getTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
         List<String> partitionColumns = table.getPartitionColumns().stream()
@@ -4150,7 +4284,7 @@ public abstract class AbstractTestHive
 
         // check that temporary files are removed
         if (!writePath.equals(targetPath)) {
-            HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(newSession());
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, writePath);
             assertFalse(fileSystem.exists(writePath));
         }
@@ -4556,7 +4690,7 @@ public abstract class AbstractTestHive
                 .orElseThrow(AssertionError::new);
     }
 
-    private MaterializedResult readTable(
+    protected MaterializedResult readTable(
             Transaction transaction,
             ConnectorTableHandle tableHandle,
             List<ColumnHandle> columnHandles,
@@ -4769,7 +4903,7 @@ public abstract class AbstractTestHive
         return createTableProperties(storageFormat, ImmutableList.of());
     }
 
-    private static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat, Iterable<String> parititonedBy)
+    protected static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat, Iterable<String> parititonedBy)
     {
         return ImmutableMap.<String, Object>builder()
                 .put(STORAGE_FORMAT_PROPERTY, storageFormat)
@@ -4839,7 +4973,7 @@ public abstract class AbstractTestHive
             transaction.commit();
         }
 
-        HdfsContext context = new HdfsContext(newSession(), schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        HdfsContext context = new HdfsContext(newSession());
         List<String> targetDirectoryList = listDirectory(context, targetPath);
         assertEquals(targetDirectoryList, ImmutableList.of());
     }
@@ -4863,12 +4997,12 @@ public abstract class AbstractTestHive
         }
     }
 
-    private PrincipalPrivileges testingPrincipalPrivilege(ConnectorSession session)
+    protected PrincipalPrivileges testingPrincipalPrivilege(ConnectorSession session)
     {
         return testingPrincipalPrivilege(session.getUser(), session.getUser());
     }
 
-    private PrincipalPrivileges testingPrincipalPrivilege(String tableOwner, String grantor)
+    protected PrincipalPrivileges testingPrincipalPrivilege(String tableOwner, String grantor)
     {
         return new PrincipalPrivileges(
                 ImmutableMultimap.<String, HivePrivilegeInfo>builder()
@@ -4887,7 +5021,7 @@ public abstract class AbstractTestHive
         return Arrays.stream(fileSystem.listStatus(path))
                 .map(FileStatus::getPath)
                 .map(Path::getName)
-                .filter(name -> !name.startsWith(".presto"))
+                .filter(name -> !name.startsWith(".trino"))
                 .collect(toList());
     }
 
@@ -4942,6 +5076,80 @@ public abstract class AbstractTestHive
     }
 
     @Test
+    public void testInsertBucketedTableLayout()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("empty_bucketed_table");
+        try {
+            List<Column> columns = ImmutableList.of(
+                    new Column("column1", HIVE_STRING, Optional.empty()),
+                    new Column("column2", HIVE_LONG, Optional.empty()));
+            HiveBucketProperty bucketProperty = new HiveBucketProperty(ImmutableList.of("column1"), BUCKETING_V1, 4, ImmutableList.of());
+            createEmptyTable(tableName, ORC, columns, ImmutableList.of(), Optional.of(bucketProperty));
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                ConnectorSession session = newSession();
+                ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+                Optional<ConnectorNewTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
+                assertTrue(insertLayout.isPresent());
+                ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
+                        bucketProperty.getBucketingVersion(),
+                        bucketProperty.getBucketCount(),
+                        ImmutableList.of(HIVE_STRING),
+                        OptionalInt.empty(),
+                        false);
+                assertEquals(insertLayout.get().getPartitioning(), Optional.of(partitioningHandle));
+                assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of("column1"));
+                ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
+                assertEquals(connectorBucketNodeMap.getBucketCount(), 4);
+                assertFalse(connectorBucketNodeMap.hasFixedMapping());
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInsertPartitionedBucketedTableLayout()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("empty_partitioned_table");
+        try {
+            Column partitioningColumn = new Column("column2", HIVE_LONG, Optional.empty());
+            List<Column> columns = ImmutableList.of(
+                    new Column("column1", HIVE_STRING, Optional.empty()),
+                    partitioningColumn);
+            HiveBucketProperty bucketProperty = new HiveBucketProperty(ImmutableList.of("column1"), BUCKETING_V1, 4, ImmutableList.of());
+            createEmptyTable(tableName, ORC, columns, ImmutableList.of(partitioningColumn), Optional.of(bucketProperty));
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                ConnectorSession session = newSession();
+                ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+                Optional<ConnectorNewTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
+                assertTrue(insertLayout.isPresent());
+                ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
+                        bucketProperty.getBucketingVersion(),
+                        bucketProperty.getBucketCount(),
+                        ImmutableList.of(HIVE_STRING),
+                        OptionalInt.empty(),
+                        true);
+                assertEquals(insertLayout.get().getPartitioning(), Optional.of(partitioningHandle));
+                assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of("column1", "column2"));
+                ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
+                assertEquals(connectorBucketNodeMap.getBucketCount(), 32);
+                assertTrue(connectorBucketNodeMap.hasFixedMapping());
+                assertEquals(connectorBucketNodeMap.getFixedMapping().size(), 32);
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
     public void testPreferredCreateTableLayout()
     {
         try (Transaction transaction = newTransaction()) {
@@ -4962,6 +5170,73 @@ public abstract class AbstractTestHive
             assertTrue(newTableLayout.isPresent());
             assertFalse(newTableLayout.get().getPartitioning().isPresent());
             assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column2"));
+        }
+    }
+
+    @Test
+    public void testCreateBucketedTableLayout()
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+            Optional<ConnectorNewTableLayout> newTableLayout = metadata.getNewTableLayout(
+                    session,
+                    new ConnectorTableMetadata(
+                            new SchemaTableName("schema", "table"),
+                            ImmutableList.of(
+                                    new ColumnMetadata("column1", BIGINT),
+                                    new ColumnMetadata("column2", BIGINT)),
+                            ImmutableMap.of(
+                                    PARTITIONED_BY_PROPERTY, ImmutableList.of(),
+                                    BUCKETED_BY_PROPERTY, ImmutableList.of("column1"),
+                                    BUCKET_COUNT_PROPERTY, 10,
+                                    SORTED_BY_PROPERTY, ImmutableList.of())));
+            assertTrue(newTableLayout.isPresent());
+            ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
+                    BUCKETING_V1,
+                    10,
+                    ImmutableList.of(HIVE_LONG),
+                    OptionalInt.empty(),
+                    false);
+            assertEquals(newTableLayout.get().getPartitioning(), Optional.of(partitioningHandle));
+            assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column1"));
+            ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
+            assertEquals(connectorBucketNodeMap.getBucketCount(), 10);
+            assertFalse(connectorBucketNodeMap.hasFixedMapping());
+        }
+    }
+
+    @Test
+    public void testCreatePartitionedBucketedTableLayout()
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+            Optional<ConnectorNewTableLayout> newTableLayout = metadata.getNewTableLayout(
+                    session,
+                    new ConnectorTableMetadata(
+                            new SchemaTableName("schema", "table"),
+                            ImmutableList.of(
+                                    new ColumnMetadata("column1", BIGINT),
+                                    new ColumnMetadata("column2", BIGINT)),
+                            ImmutableMap.of(
+                                    PARTITIONED_BY_PROPERTY, ImmutableList.of("column2"),
+                                    BUCKETED_BY_PROPERTY, ImmutableList.of("column1"),
+                                    BUCKET_COUNT_PROPERTY, 10,
+                                    SORTED_BY_PROPERTY, ImmutableList.of())));
+            assertTrue(newTableLayout.isPresent());
+            ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
+                    BUCKETING_V1,
+                    10,
+                    ImmutableList.of(HIVE_LONG),
+                    OptionalInt.empty(),
+                    true);
+            assertEquals(newTableLayout.get().getPartitioning(), Optional.of(partitioningHandle));
+            assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column1", "column2"));
+            ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
+            assertEquals(connectorBucketNodeMap.getBucketCount(), 32);
+            assertTrue(connectorBucketNodeMap.hasFixedMapping());
+            assertEquals(connectorBucketNodeMap.getFixedMapping().size(), 32);
         }
     }
 
@@ -5119,7 +5394,7 @@ public abstract class AbstractTestHive
 
         // check that temporary files are removed
         if (writePath != null && !writePath.equals(targetPath)) {
-            HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(newSession());
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, writePath);
             assertFalse(fileSystem.exists(writePath));
         }
@@ -5307,7 +5582,7 @@ public abstract class AbstractTestHive
                 throw new TestingRollbackException();
             }
             path = new Path(targetPath + "/pk1=b/pk2=add2");
-            context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            context = new HdfsContext(session);
             createDirectory(context, hdfsEnvironment, path);
         }
 
@@ -5338,7 +5613,7 @@ public abstract class AbstractTestHive
             }
             assertNotNull(path);
 
-            context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            context = new HdfsContext(session);
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
             fileSystem.createNewFile(path);
         }

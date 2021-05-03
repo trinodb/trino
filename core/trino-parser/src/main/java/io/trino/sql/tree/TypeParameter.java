@@ -29,7 +29,7 @@ public class TypeParameter
     public TypeParameter(DataType type)
     {
         super(Optional.empty());
-        this.type = requireNonNull(type, "value is null");
+        this.type = requireNonNull(type, "type is null");
     }
 
     public DataType getValue()

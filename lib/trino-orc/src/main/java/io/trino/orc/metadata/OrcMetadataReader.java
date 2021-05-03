@@ -141,7 +141,8 @@ public class OrcMetadataReader
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
                 toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
-                toUserMetadata(footer.getMetadataList()));
+                toUserMetadata(footer.getMetadataList()),
+                Optional.of(footer.getWriter()));
     }
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
@@ -577,9 +578,8 @@ public class OrcMetadataReader
                 return OrcTypeKind.VARCHAR;
             case CHAR:
                 return OrcTypeKind.CHAR;
-            default:
-                throw new IllegalStateException(typeKind + " stream type not implemented yet");
         }
+        throw new IllegalStateException(typeKind + " stream type not implemented yet");
     }
 
     // This method assumes type attributes have no duplicate key
@@ -617,9 +617,14 @@ public class OrcMetadataReader
                 return StreamKind.BLOOM_FILTER;
             case BLOOM_FILTER_UTF8:
                 return StreamKind.BLOOM_FILTER_UTF8;
-            default:
-                throw new IllegalStateException(streamKind + " stream type not implemented yet");
+            case ENCRYPTED_INDEX:
+            case ENCRYPTED_DATA:
+            case STRIPE_STATISTICS:
+            case FILE_STATISTICS:
+                // unsupported
+                break;
         }
+        throw new IllegalStateException(streamKind + " stream type not implemented yet");
     }
 
     private static ColumnEncodingKind toColumnEncodingKind(OrcProto.ColumnEncoding.Kind columnEncodingKind)
@@ -633,9 +638,8 @@ public class OrcMetadataReader
                 return ColumnEncodingKind.DICTIONARY;
             case DICTIONARY_V2:
                 return ColumnEncodingKind.DICTIONARY_V2;
-            default:
-                throw new IllegalStateException(columnEncodingKind + " stream encoding not implemented yet");
         }
+        throw new IllegalStateException(columnEncodingKind + " stream encoding not implemented yet");
     }
 
     private static CompressionKind toCompression(OrcProto.CompressionKind compression)
@@ -647,12 +651,14 @@ public class OrcMetadataReader
                 return ZLIB;
             case SNAPPY:
                 return SNAPPY;
+            case LZO:
+                // TODO unsupported
+                break;
             case LZ4:
                 return LZ4;
             case ZSTD:
                 return ZSTD;
-            default:
-                throw new IllegalStateException(compression + " compression not implemented yet");
         }
+        throw new IllegalStateException(compression + " compression not implemented yet");
     }
 }

@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class ConnectorTableMetadata
 {
@@ -69,6 +70,15 @@ public class ConnectorTableMetadata
     public Optional<String> getComment()
     {
         return comment;
+    }
+
+    public ConnectorTableSchema getTableSchema()
+    {
+        return new ConnectorTableSchema(
+                table,
+                columns.stream()
+                        .map(ColumnMetadata::getColumnSchema)
+                        .collect(toUnmodifiableList()));
     }
 
     @Override

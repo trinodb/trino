@@ -35,10 +35,10 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.nCopies;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestTypedSet
 {
@@ -49,24 +49,14 @@ public class TestTypedSet
     public void testConstructor()
     {
         for (int i = -2; i <= -1; i++) {
-            try {
-                //noinspection ResultOfObjectAllocationIgnored
-                createEqualityTypedSet(BIGINT, i);
-                fail("Should throw exception if expectedSize < 0");
-            }
-            catch (IllegalArgumentException e) {
-                // ignored
-            }
+            int expectedSize = i;
+            assertThatThrownBy(() -> createEqualityTypedSet(BIGINT, expectedSize))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("expectedSize must not be negative");
         }
 
-        try {
-            //noinspection ResultOfObjectAllocationIgnored
-            TypedSet.createEqualityTypedSet(null, null, null, 1, FUNCTION_NAME);
-            fail("Should throw exception if type is null");
-        }
-        catch (NullPointerException | IllegalArgumentException e) {
-            // ignored
-        }
+        assertThatThrownBy(() -> TypedSet.createEqualityTypedSet(null, null, null, 1, FUNCTION_NAME))
+                .isInstanceOfAny(NullPointerException.class, IllegalArgumentException.class);
     }
 
     @Test

@@ -52,6 +52,7 @@ public class HiveTableHandle
     private final Optional<List<List<String>>> analyzePartitionValues;
     private final Optional<Set<String>> analyzeColumnNames;
     private final Optional<Set<ColumnHandle>> constraintColumns;
+    private final Optional<Set<ColumnHandle>> projectedColumns;
     private final AcidTransaction transaction;
 
     @JsonCreator
@@ -82,6 +83,7 @@ public class HiveTableHandle
                 analyzePartitionValues,
                 analyzeColumnNames,
                 Optional.empty(),
+                Optional.empty(),
                 transaction);
     }
 
@@ -107,6 +109,7 @@ public class HiveTableHandle
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 NO_ACID_TRANSACTION);
     }
 
@@ -124,6 +127,7 @@ public class HiveTableHandle
             Optional<List<List<String>>> analyzePartitionValues,
             Optional<Set<String>> analyzeColumnNames,
             Optional<Set<ColumnHandle>> constraintColumns,
+            Optional<Set<ColumnHandle>> projectedColumns,
             AcidTransaction transaction)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -139,6 +143,7 @@ public class HiveTableHandle
         this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null");
         this.analyzeColumnNames = requireNonNull(analyzeColumnNames, "analyzeColumnNames is null").map(ImmutableSet::copyOf);
         this.constraintColumns = requireNonNull(constraintColumns, "constraintColumns is null");
+        this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
     }
 
@@ -158,6 +163,7 @@ public class HiveTableHandle
                 Optional.of(analyzePartitionValues),
                 analyzeColumnNames,
                 constraintColumns,
+                projectedColumns,
                 transaction);
     }
 
@@ -177,6 +183,7 @@ public class HiveTableHandle
                 analyzePartitionValues,
                 Optional.of(analyzeColumnNames),
                 constraintColumns,
+                projectedColumns,
                 transaction);
     }
 
@@ -196,6 +203,48 @@ public class HiveTableHandle
                 analyzePartitionValues,
                 analyzeColumnNames,
                 constraintColumns,
+                projectedColumns,
+                transaction);
+    }
+
+    public HiveTableHandle withUpdateProcessor(AcidTransaction transaction, HiveUpdateProcessor updateProcessor)
+    {
+        requireNonNull(updateProcessor, "updateProcessor is null");
+        return new HiveTableHandle(
+                schemaName,
+                tableName,
+                tableParameters,
+                partitionColumns,
+                dataColumns,
+                partitions,
+                compactEffectivePredicate,
+                enforcedConstraint,
+                bucketHandle,
+                bucketFilter,
+                analyzePartitionValues,
+                analyzeColumnNames,
+                constraintColumns,
+                projectedColumns,
+                transaction);
+    }
+
+    public HiveTableHandle withProjectedColumns(Set<ColumnHandle> projectedColumns)
+    {
+        return new HiveTableHandle(
+                schemaName,
+                tableName,
+                tableParameters,
+                partitionColumns,
+                dataColumns,
+                partitions,
+                compactEffectivePredicate,
+                enforcedConstraint,
+                bucketHandle,
+                bucketFilter,
+                analyzePartitionValues,
+                analyzeColumnNames,
+                constraintColumns,
+                Optional.of(projectedColumns),
                 transaction);
     }
 
@@ -286,6 +335,13 @@ public class HiveTableHandle
         return constraintColumns;
     }
 
+    // do not serialize projected columns as they are not needed on workers
+    @JsonIgnore
+    public Optional<Set<ColumnHandle>> getProjectedColumns()
+    {
+        return projectedColumns;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -295,6 +351,18 @@ public class HiveTableHandle
     public boolean isAcidDelete()
     {
         return transaction.isDelete();
+    }
+
+    @JsonIgnore
+    public boolean isAcidUpdate()
+    {
+        return transaction.isUpdate();
+    }
+
+    @JsonIgnore
+    public Optional<HiveUpdateProcessor> getUpdateProcessor()
+    {
+        return transaction.getUpdateProcessor();
     }
 
     @JsonIgnore
@@ -337,7 +405,8 @@ public class HiveTableHandle
                 Objects.equals(bucketHandle, that.bucketHandle) &&
                 Objects.equals(bucketFilter, that.bucketFilter) &&
                 Objects.equals(analyzePartitionValues, that.analyzePartitionValues) &&
-                Objects.equals(transaction, that.transaction);
+                Objects.equals(transaction, that.transaction) &&
+                Objects.equals(projectedColumns, that.projectedColumns);
     }
 
     @Override
@@ -354,7 +423,8 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                transaction);
+                transaction,
+                projectedColumns);
     }
 
     @Override

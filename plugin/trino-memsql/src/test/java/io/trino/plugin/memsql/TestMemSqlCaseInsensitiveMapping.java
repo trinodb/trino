@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -30,11 +31,13 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
+// With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
+// Some tests here create colliding names which can cause any other concurrent test to fail.
 @Test(singleThreaded = true)
 public class TestMemSqlCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
-    private TestingMemSqlServer memSqlServer;
+    protected TestingMemSqlServer memSqlServer;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -163,6 +166,10 @@ public class TestMemSqlCaseInsensitiveMapping
         return () -> execute(format("DROP SCHEMA `%s`", schemaName));
     }
 
+    /**
+     * @deprecated Use {@link TestTable} instead.
+     */
+    @Deprecated
     private AutoCloseable withTable(String tableName, String tableDefinition)
     {
         execute(format("CREATE TABLE %s %s", tableName, tableDefinition));

@@ -1,15 +1,15 @@
-# Presto product tests
+# Trino product tests
 
 The product tests make use of user visible interfaces (e.g., the CLI)
-to test Presto for correctness. The product tests complement the unit tests
-because unlike the unit tests, they exercise the Presto codebase end-to-end.
+to test Trino for correctness. The product tests complement the unit tests
+because unlike the unit tests, they exercise the Trino codebase end-to-end.
 
 To keep the execution of the product tests as lightweight as possible we
 decided to use [Docker](http://www.docker.com/). The general execution
 setup is as follows: a single Docker container runs Hadoop in pseudo-distributed
-mode and Presto runs either in Docker container(s) (both pseudo-distributed
+mode and Trino runs either in Docker container(s) (both pseudo-distributed
 and distributed setups are possible) or manually from IntelliJ (for
-debugging Presto). The tests run in a separate JVM and they can be started
+debugging Trino). The tests run in a separate JVM and they can be started
 using the launcher found in `trino-product-tests-launcher/bin/run-launcher`. The product
 tests are run using the [Tempto](https://github.com/trinodb/tempto) harness.
 
@@ -20,7 +20,7 @@ broken.
 
 ## Requirements
 
-*Running the Presto product tests requires at least 4GB of free memory*
+*Running the Trino product tests requires at least 4GB of free memory*
 
 ### GNU/Linux
 * [`docker >= 1.10`](https://docs.docker.com/installation/#installation)
@@ -43,7 +43,7 @@ You may need 4-8 GB or even more to run certain tests. You can increase Docker m
 
 ## Running the product tests
 
-The Presto product tests must be run explicitly because they do not run
+The Trino product tests must be run explicitly because they do not run
 as part of the Maven build like the unit tests do. Note that the product
 tests cannot be run in parallel. This means that only one instance of a
 test can be run at once in a given environment. To run all product
@@ -59,38 +59,38 @@ trino-product-tests-launcher/bin/run-launcher test run --environment <environmen
 
 #### Environments
 - **multinode** - pseudo-distributed Hadoop installation running on a
- single Docker container and a distributed Presto installation running on
+ single Docker container and a distributed Trino installation running on
  multiple Docker containers. For multinode the default configuration is
  1 coordinator and 1 worker.
 - **multinode-tls** - pseudo-distributed Hadoop installation running on a
- single Docker container and a distributed Presto installation running on
- multiple Docker containers. Presto is configured to only accept connections
+ single Docker container and a distributed Trino installation running on
+ multiple Docker containers. Trino is configured to only accept connections
  on the HTTPS port (7878), and both coordinator and worker traffic is encrypted.
  For multinode-tls, the default configuration is 1 coordinator and 2 workers.
 - **multinode-tls-kerberos** - pseudo-distributed Hadoop installation running on a
-  single Docker container and a distributed installation of kerberized Presto
-  running on multiple Docker containers. Presto is configured to only accept
+  single Docker container and a distributed installation of kerberized Trino
+  running on multiple Docker containers. Trino is configured to only accept
   connections on the HTTPS port (7778), and both coordinator and worker traffic
   is encrypted and kerberized. For multinode-tls-kerberos, the default configuration
   is 1 coordinator and 2 workers.
 - **singlenode** - pseudo-distributed Hadoop installation running on a
- single Docker container and a single node installation of Presto also running
+ single Docker container and a single node installation of Trino also running
  on a single Docker container.
 - **singlenode-hdfs-impersonation** - HDFS impersonation enabled on top of the
- environment in singlenode profile. Presto impersonates the user
+ environment in singlenode profile. Trino impersonates the user
  who is running the query when accessing HDFS.
 - **singlenode-kerberos-hdfs-impersonation** - pseudo-distributed kerberized
  Hadoop installation running on a single Docker container and a single node
- installation of kerberized Presto also running on a single Docker container.
- This profile has Kerberos impersonation. Presto impersonates the user who
+ installation of kerberized Trino also running on a single Docker container.
+ This profile has Kerberos impersonation. Trino impersonates the user who
  is running the query when accessing HDFS.
 - **singlenode-ldap** - Three single node Docker containers, one running an
  OpenLDAP server, one running with SSL/TLS certificates installed on top of a
- single node Presto installation, and one with a pseudo-distributed Hadoop
+ single node Trino installation, and one with a pseudo-distributed Hadoop
  installation.
 - **two-kerberos-hives** - two pseudo-distributed Hadoop installations running on
  a single Docker containers. Both Hadoop (Hive) installations are kerberized.
- A single node installation of kerberized Presto also
+ A single node installation of kerberized Trino also
  running on a single Docker container.
  
 You can obtain list of available environments using command:
@@ -118,7 +118,7 @@ All of `test run`, `env up` and `suite run` commands accept `--config <environme
 
 ### Running a single test
 
-The `run-launcher` script can also run individual product tests. Presto
+The `run-launcher` script can also run individual product tests. Trino
 product tests are either [Java based](https://github.com/trinodb/tempto#java-based-tests)
 or [convention based](https://github.com/trinodb/tempto#convention-based-sql-query-tests)
 and each type can be run individually with the following commands:
@@ -188,7 +188,7 @@ You can obtain list of available test suites using command:
 trino-product-tests-launcher/bin/run-launcher suite list
 ```
 
-Command `trino-product-tests-launcher/bin/run-launcher/suite describe --suite <suite name>` shows list of tests that will be executed and environments 
+Command `trino-product-tests-launcher/bin/run-launcher suite describe --suite <suite name>` shows list of tests that will be executed and environments 
 that will be used when `suite run` is invoked.
 
 You can execute single suite using command:
@@ -218,9 +218,9 @@ ERROR: for hadoop-master  Cannot start service hadoop-master: driver failed prog
 You most likely have some application listening on port 1180 on either docker-machine or on your local machine if you are running docker natively.
 You can override the default socks proxy port (1180) used by dockerized Hive deployment in product tests using the
 `HIVE_PROXY_PORT` environment variable, e.g. `export HIVE_PROXY_PORT=1180`. This will run all of the dockerized tests using the custom port for the socks proxy.
-When you change the default socks proxy port (1180) and want to use Hive provided by product tests from outside docker (e.g. access it from Presto running in your IDE),
+When you change the default socks proxy port (1180) and want to use Hive provided by product tests from outside docker (e.g. access it from Trino running in your IDE),
 you have to modify the property `hive.metastore.thrift.client.socks-proxy` and `hive.hdfs.socks-proxy` in your `hive.properties` file accordingly.
-Presto inside docker (used while starting tests using `run-launcher`) will still use default port (1180) though.
+Trino inside docker (used while starting tests using `run-launcher`) will still use default port (1180) though.
 
 ### Malformed reply from SOCKS server
 

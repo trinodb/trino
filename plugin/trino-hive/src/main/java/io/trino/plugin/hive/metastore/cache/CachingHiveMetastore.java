@@ -382,11 +382,11 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update, AcidTransaction transaction)
+    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
     {
         identity = updateIdentity(identity);
         try {
-            delegate.updateTableStatistics(identity, databaseName, tableName, update, transaction);
+            delegate.updateTableStatistics(identity, databaseName, tableName, transaction, update);
         }
         finally {
             HiveTableName hiveTableName = hiveTableName(databaseName, tableName);

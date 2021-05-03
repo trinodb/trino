@@ -43,7 +43,7 @@ public class AddColumn
     private AddColumn(Optional<NodeLocation> location, QualifiedName name, ColumnDefinition column, boolean tableExists, boolean columnNotExists)
     {
         super(location);
-        this.name = requireNonNull(name, "table is null");
+        this.name = requireNonNull(name, "name is null");
         this.column = requireNonNull(column, "column is null");
         this.tableExists = tableExists;
         this.columnNotExists = columnNotExists;

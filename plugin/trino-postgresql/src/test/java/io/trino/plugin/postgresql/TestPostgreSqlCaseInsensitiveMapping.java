@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -30,6 +31,8 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
+// With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
+// Some tests here create colliding names which can cause any other concurrent test to fail.
 @Test(singleThreaded = true)
 public class TestPostgreSqlCaseInsensitiveMapping
         extends AbstractTestQueryFramework
@@ -40,11 +43,7 @@ public class TestPostgreSqlCaseInsensitiveMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        postgreSqlServer = new TestingPostgreSqlServer();
-        closeAfterClass(() -> {
-            postgreSqlServer.close();
-            postgreSqlServer = null;
-        });
+        postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
         return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(
                 postgreSqlServer,
                 ImmutableMap.of(),
@@ -146,8 +145,8 @@ public class TestPostgreSqlCaseInsensitiveMapping
 
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
-                try (AutoCloseable ignore1 = withTable("tpch." + nameVariants[i], "(c varchar(5))");
-                        AutoCloseable ignore2 = withTable("tpch." + nameVariants[j], "(d varchar(5))")) {
+                try (AutoCloseable ignore1 = withTable(nameVariants[i], "(c varchar(5))");
+                        AutoCloseable ignore2 = withTable(nameVariants[j], "(d varchar(5))")) {
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn()).contains("casesensitivename");
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO, should be 2
                     assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name:.*Multiple entries with same key.*");
@@ -163,6 +162,10 @@ public class TestPostgreSqlCaseInsensitiveMapping
         return () -> execute("DROP SCHEMA " + schemaName);
     }
 
+    /**
+     * @deprecated Use {@link TestTable} instead.
+     */
+    @Deprecated
     private AutoCloseable withTable(String tableName, String tableDefinition)
     {
         execute(format("CREATE TABLE %s %s", tableName, tableDefinition));

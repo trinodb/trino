@@ -13,39 +13,77 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.cloud.bigquery.BigQuery;
-import com.google.cloud.bigquery.Job;
-import com.google.cloud.bigquery.JobId;
-import com.google.cloud.bigquery.JobInfo;
-import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import static io.trino.plugin.bigquery.BigQueryQueryRunner.createBigQueryClient;
+import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestBigQueryIntegrationSmokeTest
+        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
+    private BigQuerySqlExecutor bigQuerySqlExecutor;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return BigQueryQueryRunner.createQueryRunner(ImmutableMap.of());
+        this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
+        return BigQueryQueryRunner.createQueryRunner(
+                ImmutableMap.of(),
+                ImmutableMap.of());
+    }
+
+    @Test
+    public void testCreateSchema()
+    {
+        String schemaName = "test_create_schema";
+
+        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS " + schemaName);
+
+        assertQueryFails(
+                "CREATE SCHEMA " + schemaName,
+                format("\\Qline 1:1: Schema 'bigquery.%s' already exists\\E", schemaName));
+
+        assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
+    @Test
+    public void testDropSchema()
+    {
+        String schemaName = "test_drop_schema";
+
+        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        assertUpdate("CREATE SCHEMA " + schemaName);
+
+        assertUpdate("DROP SCHEMA " + schemaName);
+        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+
+        assertQueryFails(
+                "DROP SCHEMA " + schemaName,
+                format("\\Qline 1:1: Schema 'bigquery.%s' does not exist\\E", schemaName));
     }
 
     @Override
     public void testDescribeTable()
     {
-        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -60,14 +98,134 @@ public class TestBigQueryIntegrationSmokeTest
         assertEquals(actualColumns, expectedColumns);
     }
 
+    @Test(dataProvider = "createTableSupportedTypes")
+    public void testCreateTableSupportedType(String createType, String expectedType)
+    {
+        String tableName = "test_create_table_supported_type_" + createType.replaceAll("[^a-zA-Z0-9]", "");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate(format("CREATE TABLE %s (col1 %s)", tableName, createType));
+
+        assertEquals(
+                computeScalar("SELECT data_type FROM information_schema.columns WHERE table_name = '" + tableName + "' AND column_name = 'col1'"),
+                expectedType);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] createTableSupportedTypes()
+    {
+        return new Object[][] {
+                {"boolean", "boolean"},
+                {"tinyint", "bigint"},
+                {"smallint", "bigint"},
+                {"integer", "bigint"},
+                {"bigint", "bigint"},
+                {"double", "double"},
+                {"decimal", "decimal(38,9)"},
+                {"date", "date"},
+                {"time with time zone", "time(3) with time zone"},
+                {"timestamp", "timestamp(3)"},
+                {"timestamp with time zone", "timestamp(3) with time zone"},
+                {"char", "varchar"},
+                {"char(65535)", "varchar"},
+                {"varchar", "varchar"},
+                {"varchar(65535)", "varchar"},
+                {"varbinary", "varbinary"},
+                {"array(bigint)", "array(bigint)"},
+                {"row(x bigint, y double)", "row(x bigint, y double)"},
+                {"row(x array(bigint))", "row(x array(bigint))"},
+        };
+    }
+
+    @Test(dataProvider = "createTableUnsupportedTypes")
+    public void testCreateTableUnsupportedType(String createType)
+    {
+        String tableName = "test_create_table_unsupported_type_" + createType.replaceAll("[^a-zA-Z0-9]", "");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertQueryFails(
+                format("CREATE TABLE %s (col1 %s)", tableName, createType),
+                "Unsupported column type: " + createType);
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] createTableUnsupportedTypes()
+    {
+        return new Object[][] {
+                {"json"},
+                {"uuid"},
+                {"ipaddress"},
+        };
+    }
+
+    @Test
+    public void testCreateTableWithRowTypeWithoutField()
+    {
+        String tableName = "test_row_type_table";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(col1 row(int))",
+                "\\QROW type does not have field names declared: row(integer)\\E");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testCreateTableAlreadyExists()
+    {
+        String tableName = "test_create_table_already_exists";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + "(col1 int)");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(col1 int)",
+                "\\Qline 1:1: Table 'bigquery.tpch.test_create_table_already_exists' already exists\\E");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testCreateTableIfNotExists()
+    {
+        String tableName = "test_create_table_if_not_exists";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + "(col1 int)");
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + "(col1 int)");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testDropTable()
+    {
+        String tableName = "test_drop_table";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + "(col bigint)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
     @Test(enabled = false)
     public void testSelectFromHourlyPartitionedTable()
     {
-        BigQuery client = createBigQueryClient();
-
-        executeBigQuerySql(client, "DROP TABLE IF EXISTS test.hourly_partitioned");
-        executeBigQuerySql(client, "CREATE TABLE test.hourly_partitioned (value INT64, ts TIMESTAMP) PARTITION BY TIMESTAMP_TRUNC(ts, HOUR)");
-        executeBigQuerySql(client, "INSERT INTO test.hourly_partitioned (value, ts) VALUES (1000, '2018-01-01 10:00:00')");
+        onBigQuery("DROP TABLE IF EXISTS test.hourly_partitioned");
+        onBigQuery("CREATE TABLE test.hourly_partitioned (value INT64, ts TIMESTAMP) PARTITION BY TIMESTAMP_TRUNC(ts, HOUR)");
+        onBigQuery("INSERT INTO test.hourly_partitioned (value, ts) VALUES (1000, '2018-01-01 10:00:00')");
 
         MaterializedResult actualValues = computeActual("SELECT COUNT(1) FROM test.hourly_partitioned");
 
@@ -77,11 +235,9 @@ public class TestBigQueryIntegrationSmokeTest
     @Test(enabled = false)
     public void testSelectFromYearlyPartitionedTable()
     {
-        BigQuery client = createBigQueryClient();
-
-        executeBigQuerySql(client, "DROP TABLE IF EXISTS test.yearly_partitioned");
-        executeBigQuerySql(client, "CREATE TABLE test.yearly_partitioned (value INT64, ts TIMESTAMP) PARTITION BY TIMESTAMP_TRUNC(ts, YEAR)");
-        executeBigQuerySql(client, "INSERT INTO test.yearly_partitioned (value, ts) VALUES (1000, '2018-01-01 10:00:00')");
+        onBigQuery("DROP TABLE IF EXISTS test.yearly_partitioned");
+        onBigQuery("CREATE TABLE test.yearly_partitioned (value INT64, ts TIMESTAMP) PARTITION BY TIMESTAMP_TRUNC(ts, YEAR)");
+        onBigQuery("INSERT INTO test.yearly_partitioned (value, ts) VALUES (1000, '2018-01-01 10:00:00')");
 
         MaterializedResult actualValues = computeActual("SELECT COUNT(1) FROM test.yearly_partitioned");
 
@@ -91,13 +247,11 @@ public class TestBigQueryIntegrationSmokeTest
     @Test(description = "regression test for https://github.com/trinodb/trino/issues/5618")
     public void testPredicatePushdownPrunnedColumns()
     {
-        BigQuery client = createBigQueryClient();
-
         String tableName = "test.predicate_pushdown_prunned_columns";
 
-        executeBigQuerySql(client, "DROP TABLE IF EXISTS " + tableName);
-        executeBigQuerySql(client, "CREATE TABLE " + tableName + " (a INT64, b INT64, c INT64)");
-        executeBigQuerySql(client, "INSERT INTO " + tableName + " VALUES (1,2,3)");
+        onBigQuery("DROP TABLE IF EXISTS " + tableName);
+        onBigQuery("CREATE TABLE " + tableName + " (a INT64, b INT64, c INT64)");
+        onBigQuery("INSERT INTO " + tableName + " VALUES (1,2,3)");
 
         assertQuery(
                 "SELECT 1 FROM " + tableName + " WHERE " +
@@ -109,16 +263,14 @@ public class TestBigQueryIntegrationSmokeTest
     @Test(description = "regression test for https://github.com/trinodb/trino/issues/5635")
     public void testCountAggregationView()
     {
-        BigQuery client = createBigQueryClient();
-
         String tableName = "test.count_aggregation_table";
         String viewName = "test.count_aggregation_view";
 
-        executeBigQuerySql(client, "DROP TABLE IF EXISTS " + tableName);
-        executeBigQuerySql(client, "DROP VIEW IF EXISTS " + viewName);
-        executeBigQuerySql(client, "CREATE TABLE " + tableName + " (a INT64, b INT64, c INT64)");
-        executeBigQuerySql(client, "INSERT INTO " + tableName + " VALUES (1, 2, 3), (4, 5, 6)");
-        executeBigQuerySql(client, "CREATE VIEW " + viewName + " AS SELECT * FROM " + tableName);
+        onBigQuery("DROP TABLE IF EXISTS " + tableName);
+        onBigQuery("DROP VIEW IF EXISTS " + viewName);
+        onBigQuery("CREATE TABLE " + tableName + " (a INT64, b INT64, c INT64)");
+        onBigQuery("INSERT INTO " + tableName + " VALUES (1, 2, 3), (4, 5, 6)");
+        onBigQuery("CREATE VIEW " + viewName + " AS SELECT * FROM " + tableName);
 
         assertQuery(
                 "SELECT count(*) FROM " + viewName,
@@ -133,30 +285,45 @@ public class TestBigQueryIntegrationSmokeTest
                 "VALUES (1)");
     }
 
-    private static void executeBigQuerySql(BigQuery bigquery, String query)
+    /**
+     * regression test for https://github.com/trinodb/trino/issues/6696
+     */
+    @Test
+    public void testRepeatCountAggregationView()
     {
-        QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(query)
-                .setUseLegacySql(false)
-                .build();
+        String viewName = "test.repeat_count_aggregation_view_" + randomTableSuffix();
 
-        JobId jobId = JobId.of();
-        Job queryJob = bigquery.create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build());
+        onBigQuery("DROP VIEW IF EXISTS " + viewName);
+        onBigQuery("CREATE VIEW " + viewName + " AS SELECT 1 AS col1");
 
-        try {
-            queryJob = queryJob.waitFor();
+        assertQuery("SELECT count(*) FROM " + viewName, "VALUES (1)");
+        assertQuery("SELECT count(*) FROM " + viewName, "VALUES (1)");
 
-            if (queryJob == null) {
-                throw new RuntimeException(format("Job with uuid %s does not longer exists", jobId.getJob()));
-            }
+        onBigQuery("DROP VIEW " + viewName);
+    }
 
-            if (queryJob.getStatus().getError() != null) {
-                throw new RuntimeException(format("Query '%s' failed: %s", query, queryJob.getStatus().getError()));
-            }
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
+    @Test
+    public void testViewDefinitionSystemTable()
+    {
+        String schemaName = "test";
+        String tableName = "views_system_table_base_" + randomTableSuffix();
+        String viewName = "views_system_table_view_" + randomTableSuffix();
+
+        onBigQuery(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
+        onBigQuery(format("DROP VIEW IF EXISTS %s.%s", schemaName, viewName));
+        onBigQuery(format("CREATE TABLE %s.%s (a INT64, b INT64, c INT64)", schemaName, tableName));
+        onBigQuery(format("CREATE VIEW %s.%s AS SELECT * FROM %s.%s", schemaName, viewName, schemaName, tableName));
+
+        assertEquals(
+                computeScalar(format("SELECT * FROM %s.\"%s$view_definition\"", schemaName, viewName)),
+                format("SELECT * FROM %s.%s", schemaName, tableName));
+
+        assertQueryFails(
+                format("SELECT * FROM %s.\"%s$view_definition\"", schemaName, tableName),
+                format("Table '%s.%s\\$view_definition' not found", schemaName, tableName));
+
+        onBigQuery(format("DROP TABLE %s.%s", schemaName, tableName));
+        onBigQuery(format("DROP VIEW %s.%s", schemaName, viewName));
     }
 
     @Override
@@ -174,5 +341,10 @@ public class TestBigQueryIntegrationSmokeTest
                         "   shippriority bigint NOT NULL,\n" +
                         "   comment varchar NOT NULL\n" +
                         ")");
+    }
+
+    private void onBigQuery(String sql)
+    {
+        bigQuerySqlExecutor.execute(sql);
     }
 }

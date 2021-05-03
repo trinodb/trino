@@ -13,6 +13,7 @@ Synopsis
     [ WHERE condition ]
     [ GROUP BY [ ALL | DISTINCT ] grouping_element [, ...] ]
     [ HAVING condition]
+    [ WINDOW window_definition_list]
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
     [ OFFSET count [ ROW | ROWS ] ]
@@ -29,6 +30,15 @@ where ``from_item`` is one of
 
     from_item join_type from_item
       [ ON join_condition | USING ( join_column [, ...] ) ]
+
+.. code-block:: text
+
+    table_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+      MATCH_RECOGNIZE pattern_recognition_specification
+        [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+
+For detailed description of ``MATCH_RECOGNIZE`` clause, see :doc:`pattern
+recognition in FROM clause</sql/match-recognize>`.
 
 and ``join_type`` is one of
 
@@ -619,6 +629,51 @@ with an account balance greater than the specified value::
       1247 | FURNITURE  |         8 |  5701952
     (7 rows)
 
+.. _window_clause:
+
+WINDOW clause
+-------------
+
+The ``WINDOW`` clause is used to define named window specifications. The defined named
+window specifications can be referred to in the ``SELECT`` and ``ORDER BY`` clauses
+of the enclosing query::
+
+     SELECT orderkey, clerk, totalprice,
+           rank() OVER w AS rnk
+     FROM orders
+     WINDOW w AS (PARTITION BY clerk ORDER BY totalprice DESC)
+     ORDER BY count() OVER w, clerk, rnk
+
+The window definition list of ``WINDOW`` clause can contain one or multiple named window
+specifications of the form
+
+.. code-block:: none
+
+    window_name AS (window_specification)
+
+A window specification has the following components:
+
+* The existing window name, which refers to a named window specification in the
+  ``WINDOW`` clause. The window specification associated with the referenced name
+  is the basis of the current specification.
+* The partition specification, which separates the input rows into different
+  partitions. This is analogous to how the ``GROUP BY`` clause separates rows
+  into different groups for aggregate functions.
+* The ordering specification, which determines the order in which input rows
+  will be processed by the window function.
+* The window frame, which specifies a sliding window of rows to be processed
+  by the function for a given row. If the frame is not specified, it defaults
+  to ``RANGE UNBOUNDED PRECEDING``, which is the same as
+  ``RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW``. This frame contains all
+  rows from the start of the partition up to the last peer of the current row.
+  In the absence of ``ORDER BY``, all rows are considered peers, so ``RANGE
+  BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`` is equivalent to ``BETWEEN
+  UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING``
+
+Each component is optional. In the case when window partitioning, ordering or frame
+is not specified and existing window name is absent or the referenced window
+specification does not provide particular components, defaults are used.
+
 Set operations
 --------------
 
@@ -821,8 +876,10 @@ Otherwise, it is arbitrary which rows are discarded.
 If the count specified in the ``OFFSET`` clause equals or exceeds the size
 of the result set, the final result is empty.
 
-LIMIT or FETCH FIRST clauses
-----------------------------
+.. _limit-clause:
+
+LIMIT or FETCH FIRST clause
+---------------------------
 
 The ``LIMIT`` or ``FETCH FIRST`` clause restricts the number of rows
 in the result set.

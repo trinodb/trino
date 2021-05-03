@@ -54,7 +54,7 @@ public class PinotConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
-        this.sessionProperties = requireNonNull(pinotSessionProperties, "sessionProperties is null");
+        this.sessionProperties = requireNonNull(pinotSessionProperties, "pinotSessionProperties is null");
     }
 
     @Override

@@ -14,9 +14,6 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.Iterables;
-import io.trino.Session;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -60,43 +57,6 @@ final class Util
                 }
             }
         }
-        return true;
-    }
-
-    /**
-     * @param expectedDomains if empty, the actualConstraint's domains must also be empty.
-     */
-    static boolean domainsMatch(
-            Optional<Map<String, Domain>> expectedDomains,
-            TupleDomain<ColumnHandle> actualConstraint,
-            TableHandle tableHandle,
-            Session session,
-            Metadata metadata)
-    {
-        Optional<Map<ColumnHandle, Domain>> actualDomains = actualConstraint.getDomains();
-
-        if (expectedDomains.isPresent() != actualDomains.isPresent()) {
-            return false;
-        }
-
-        if (expectedDomains.isEmpty()) {
-            return true;
-        }
-
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-        for (Map.Entry<String, Domain> expectedColumnConstraint : expectedDomains.get().entrySet()) {
-            if (!columnHandles.containsKey(expectedColumnConstraint.getKey())) {
-                return false;
-            }
-            ColumnHandle columnHandle = columnHandles.get(expectedColumnConstraint.getKey());
-            if (!actualDomains.get().containsKey(columnHandle)) {
-                return false;
-            }
-            if (!expectedColumnConstraint.getValue().contains(actualDomains.get().get(columnHandle))) {
-                return false;
-            }
-        }
-
         return true;
     }
 

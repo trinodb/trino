@@ -21,12 +21,17 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
 
+import javax.annotation.Nullable;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -39,6 +44,8 @@ public class JdbcRecordCursor
 {
     private static final Logger log = Logger.get(JdbcRecordCursor.class);
 
+    private final ExecutorService executor;
+
     private final JdbcColumnHandle[] columnHandles;
     private final ReadFunction[] readFunctions;
     private final BooleanReadFunction[] booleanReadFunctions;
@@ -50,12 +57,14 @@ public class JdbcRecordCursor
     private final JdbcClient jdbcClient;
     private final Connection connection;
     private final PreparedStatement statement;
-    private final ResultSet resultSet;
+    @Nullable
+    private ResultSet resultSet;
     private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordCursor(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.executor = requireNonNull(executor, "executor is null");
 
         this.columnHandles = columnHandles.toArray(new JdbcColumnHandle[0]);
 
@@ -99,8 +108,6 @@ public class JdbcRecordCursor
             }
 
             statement = jdbcClient.buildSql(session, connection, split, table, columnHandles);
-            log.debug("Executing: %s", statement.toString());
-            resultSet = statement.executeQuery();
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -133,6 +140,33 @@ public class JdbcRecordCursor
         }
 
         try {
+            if (resultSet == null) {
+                Future<ResultSet> resultSetFuture = executor.submit(() -> {
+                    log.debug("Executing: %s", statement.toString());
+                    return statement.executeQuery();
+                });
+                try {
+                    // statement.executeQuery() may block uninterruptedly, using async way so we are able to cancel remote query
+                    // See javadoc of java.sql.Connection.setNetworkTimeout
+                    resultSet = resultSetFuture.get();
+                }
+                catch (ExecutionException e) {
+                    if (e.getCause() instanceof SQLException) {
+                        SQLException cause = (SQLException) e.getCause();
+                        SQLException sqlException = new SQLException(cause.getMessage(), cause.getSQLState(), cause.getErrorCode(), e);
+                        if (cause.getNextException() != null) {
+                            sqlException.setNextException(cause.getNextException());
+                        }
+                        throw sqlException;
+                    }
+                    throw new RuntimeException(e);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    resultSetFuture.cancel(true);
+                    throw new RuntimeException(e);
+                }
+            }
             return resultSet.next();
         }
         catch (SQLException | RuntimeException e) {
@@ -144,6 +178,7 @@ public class JdbcRecordCursor
     public boolean getBoolean(int field)
     {
         checkState(!closed, "cursor is closed");
+        requireNonNull(resultSet, "resultSet is null");
         try {
             return booleanReadFunctions[field].readBoolean(resultSet, field + 1);
         }
@@ -156,6 +191,7 @@ public class JdbcRecordCursor
     public long getLong(int field)
     {
         checkState(!closed, "cursor is closed");
+        requireNonNull(resultSet, "resultSet is null");
         try {
             return longReadFunctions[field].readLong(resultSet, field + 1);
         }
@@ -168,6 +204,7 @@ public class JdbcRecordCursor
     public double getDouble(int field)
     {
         checkState(!closed, "cursor is closed");
+        requireNonNull(resultSet, "resultSet is null");
         try {
             return doubleReadFunctions[field].readDouble(resultSet, field + 1);
         }
@@ -180,6 +217,7 @@ public class JdbcRecordCursor
     public Slice getSlice(int field)
     {
         checkState(!closed, "cursor is closed");
+        requireNonNull(resultSet, "resultSet is null");
         try {
             return sliceReadFunctions[field].readSlice(resultSet, field + 1);
         }
@@ -192,6 +230,7 @@ public class JdbcRecordCursor
     public Object getObject(int field)
     {
         checkState(!closed, "cursor is closed");
+        requireNonNull(resultSet, "resultSet is null");
         try {
             return objectReadFunctions[field].readObject(resultSet, field + 1);
         }
@@ -205,6 +244,7 @@ public class JdbcRecordCursor
     {
         checkState(!closed, "cursor is closed");
         checkArgument(field < columnHandles.length, "Invalid field index");
+        requireNonNull(resultSet, "resultSet is null");
 
         try {
             return readFunctions[field].isNull(resultSet, field + 1);
@@ -227,6 +267,15 @@ public class JdbcRecordCursor
         try (Connection connection = this.connection;
                 Statement statement = this.statement;
                 ResultSet resultSet = this.resultSet) {
+            if (statement != null) {
+                try {
+                    // Trying to cancel running statement as close() may not do it
+                    statement.cancel();
+                }
+                catch (SQLException ignored) {
+                    // statement already closed or cancel is not supported
+                }
+            }
             if (connection != null) {
                 jdbcClient.abortReadConnection(connection);
             }

@@ -156,29 +156,24 @@ public class ExpressionInterpreter
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
     private final ConnectorSession session;
-    private final boolean optimize;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
     private final TypeCoercion typeCoercion;
-
-    private final Visitor visitor;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
     private final IdentityHashMap<LikePredicate, JoniRegexp> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
 
-    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
+    public ExpressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
     {
-        return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false);
-    }
-
-    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
-    {
-        requireNonNull(expression, "expression is null");
-        requireNonNull(metadata, "metadata is null");
-        requireNonNull(session, "session is null");
-
-        return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
+        this.expression = requireNonNull(expression, "expression is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.literalEncoder = new LiteralEncoder(metadata);
+        this.session = requireNonNull(session, "session is null").toConnectorSession();
+        this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
+        verify((expressionTypes.containsKey(NodeRef.of(expression))));
+        this.functionInvoker = new InterpretedFunctionInvoker(metadata);
+        this.typeCoercion = new TypeCoercion(metadata::getType);
     }
 
     public static Object evaluateConstantExpression(
@@ -251,24 +246,9 @@ public class ExpressionInterpreter
         analyzer.analyze(resolved, Scope.create());
 
         // evaluate the expression
-        Object result = expressionInterpreter(resolved, metadata, session, analyzer.getExpressionTypes()).evaluate();
+        Object result = new ExpressionInterpreter(resolved, metadata, session, analyzer.getExpressionTypes()).evaluate();
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
-    }
-
-    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes, boolean optimize)
-    {
-        this.expression = requireNonNull(expression, "expression is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.literalEncoder = new LiteralEncoder(metadata);
-        this.session = requireNonNull(session, "session is null").toConnectorSession();
-        this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
-        verify((expressionTypes.containsKey(NodeRef.of(expression))));
-        this.optimize = optimize;
-        this.functionInvoker = new InterpretedFunctionInvoker(metadata);
-        this.typeCoercion = new TypeCoercion(metadata::getType);
-
-        this.visitor = new Visitor();
     }
 
     public Type getType()
@@ -278,25 +258,29 @@ public class ExpressionInterpreter
 
     public Object evaluate()
     {
-        checkState(!optimize, "evaluate() not allowed for optimizer");
-        return visitor.process(expression, new NoPagePositionContext());
+        return new Visitor(false).process(expression, new NoPagePositionContext());
     }
 
     public Object evaluate(SymbolResolver inputs)
     {
-        checkState(!optimize, "evaluate(int, Page) not allowed for optimizer");
-        return visitor.process(expression, inputs);
+        return new Visitor(false).process(expression, inputs);
     }
 
     public Object optimize(SymbolResolver inputs)
     {
-        checkState(optimize, "evaluate(SymbolResolver) not allowed for interpreter");
-        return visitor.process(expression, inputs);
+        return new Visitor(true).process(expression, inputs);
     }
 
     private class Visitor
             extends AstVisitor<Object, Object>
     {
+        private final boolean optimize;
+
+        private Visitor(boolean optimize)
+        {
+            this.optimize = optimize;
+        }
+
         @Override
         public Object visitFieldReference(FieldReference node, Object context)
         {
@@ -605,6 +589,8 @@ public class ExpressionInterpreter
             boolean found = false;
             List<Object> values = new ArrayList<>(valueList.getValues().size());
             List<Type> types = new ArrayList<>(valueList.getValues().size());
+
+            ResolvedFunction equalsOperator = metadata.resolveOperator(OperatorType.EQUAL, types(node.getValue(), valueList));
             for (Expression expression : valueList.getValues()) {
                 Object inValue = process(expression, context);
                 if (value instanceof Expression || inValue instanceof Expression) {
@@ -618,7 +604,7 @@ public class ExpressionInterpreter
                     hasNullValue = true;
                 }
                 else {
-                    Boolean result = (Boolean) invokeOperator(OperatorType.EQUAL, types(node.getValue(), expression), ImmutableList.of(value, inValue));
+                    Boolean result = (Boolean) functionInvoker.invoke(equalsOperator, session, ImmutableList.of(value, inValue));
                     if (result == null) {
                         hasNullValue = true;
                     }
@@ -800,6 +786,7 @@ public class ExpressionInterpreter
             return invokeOperator(OperatorType.valueOf(operator.name()), types(leftExpression, rightExpression), ImmutableList.of(left, right));
         }
 
+        // TODO define method contract or split into separate methods, as flip(EQUAL) is a negation, while flip(LESS_THAN) is just flipping sides
         private ComparisonExpression flipComparison(ComparisonExpression comparisonExpression)
         {
             switch (comparisonExpression.getOperator()) {
@@ -815,9 +802,10 @@ public class ExpressionInterpreter
                     return new ComparisonExpression(Operator.LESS_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
                 case GREATER_THAN_OR_EQUAL:
                     return new ComparisonExpression(Operator.LESS_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                default:
-                    throw new IllegalArgumentException("Unsupported comparison type: " + comparisonExpression.getOperator());
+                case IS_DISTINCT_FROM:
+                    // not expected here
             }
+            throw new IllegalArgumentException("Unsupported comparison type: " + comparisonExpression.getOperator());
         }
 
         @Override
@@ -1336,7 +1324,7 @@ public class ExpressionInterpreter
 
         private boolean hasUnresolvedValue(List<Object> values)
         {
-            return values.stream().anyMatch(instanceOf(Expression.class)::apply);
+            return values.stream().anyMatch(instanceOf(Expression.class));
         }
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)

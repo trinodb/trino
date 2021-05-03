@@ -29,13 +29,14 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.trino.testing.TestingSession.TESTING_CATALOG;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.tests.AbstractTestEngineOnlyQueries.TESTING_CATALOG;
+import static io.trino.tests.TestDistributedEngineOnlyQueries.addTestingCatalog;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestProcedureCall
@@ -59,6 +60,7 @@ public class TestProcedureCall
         tester = coordinator.getProcedureTester();
 
         // register procedures in the bogus testing catalog
+        addTestingCatalog(getDistributedQueryRunner());
         ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
         TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester());
         procedureRegistry.addProcedures(
@@ -169,28 +171,20 @@ public class TestProcedureCall
     private void assertCallThrows(@Language("SQL") String sql, String name, String message)
     {
         tester.reset();
-        try {
-            assertUpdate(sql);
-            fail("expected exception");
-        }
-        catch (RuntimeException e) {
-            assertEquals(tester.getCalledName(), name);
-            assertEquals(tester.getCalledArguments(), list());
-            assertEquals(e.getMessage(), message);
-        }
+        assertThatThrownBy(() -> assertUpdate(sql))
+                .isInstanceOfSatisfying(RuntimeException.class, e -> {
+                    assertEquals(tester.getCalledName(), name);
+                    assertEquals(tester.getCalledArguments(), list());
+                })
+                .hasMessage(message);
     }
 
     private void assertCallFails(@Language("SQL") String sql, String message)
     {
         tester.reset();
-        try {
-            assertUpdate(sql);
-            fail("expected exception");
-        }
-        catch (RuntimeException e) {
-            assertFalse(tester.wasCalled());
-            assertEquals(e.getMessage(), message);
-        }
+        assertThatThrownBy(() -> assertUpdate(sql))
+                .isInstanceOfSatisfying(RuntimeException.class, e -> assertFalse(tester.wasCalled()))
+                .hasMessage(message);
     }
 
     @SafeVarargs

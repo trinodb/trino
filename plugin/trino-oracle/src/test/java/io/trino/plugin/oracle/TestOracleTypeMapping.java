@@ -19,6 +19,9 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import org.testng.annotations.AfterClass;
 
+import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
+import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
+
 public class TestOracleTypeMapping
         extends AbstractTestOracleTypeMapping
 {
@@ -29,7 +32,18 @@ public class TestOracleTypeMapping
             throws Exception
     {
         this.oracleServer = new TestingOracleServer();
-        return OracleQueryRunner.createOracleQueryRunner(oracleServer, ImmutableMap.of(), ImmutableList.of(), false, false);
+        return OracleQueryRunner.createOracleQueryRunner(
+                oracleServer,
+                ImmutableMap.of(),
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", oracleServer.getJdbcUrl())
+                        .put("connection-user", TEST_USER)
+                        .put("connection-password", TEST_PASS)
+                        .put("allow-drop-table", "true")
+                        .put("oracle.connection-pool.enabled", "false")
+                        .put("oracle.remarks-reporting.enabled", "false")
+                        .build(),
+                ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)

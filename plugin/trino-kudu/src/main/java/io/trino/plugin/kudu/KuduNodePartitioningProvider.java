@@ -86,8 +86,8 @@ public class KuduNodePartitioningProvider
     {
         KuduPartitioningHandle handle = (KuduPartitioningHandle) partitioningHandle;
         return new KuduBucketFunction(
-            handle.getBucketColumnIndexes(),
-            partitionChannelTypes,
-            clientSession.openTable(new SchemaTableName(handle.getSchema(), handle.getTable())));
+                handle.getBucketColumnIndexes(),
+                partitionChannelTypes,
+                clientSession.openTable(new SchemaTableName(handle.getSchema(), handle.getTable())));
     }
 }

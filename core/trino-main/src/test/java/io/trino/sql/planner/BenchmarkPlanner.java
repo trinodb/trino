@@ -21,6 +21,7 @@ import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.tpch.Customer;
+import org.intellij.lang.annotations.Language;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -53,7 +54,9 @@ import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Benchmark)
@@ -73,6 +76,8 @@ public class BenchmarkPlanner
 
         private LocalQueryRunner queryRunner;
         private List<String> queries;
+        @Language("SQL")
+        private String largeInQuery;
         private Session session;
 
         @Setup
@@ -93,6 +98,11 @@ public class BenchmarkPlanner
                     .filter(i -> i != 15) // q15 has two queries in it
                     .map(i -> readResource(format("/io/trino/tpch/queries/q%d.sql", i)))
                     .collect(toImmutableList());
+
+            largeInQuery = "SELECT * from orders where o_orderkey in " +
+                    IntStream.range(0, 5000)
+                    .mapToObj(Integer::toString)
+                    .collect(joining(", ", "(", ")"));
         }
 
         @TearDown
@@ -125,6 +135,16 @@ public class BenchmarkPlanner
         });
     }
 
+    @Benchmark
+    public Plan planLargeInQuery(BenchmarkData benchmarkData)
+    {
+        return benchmarkData.queryRunner.inTransaction(transactionSession -> {
+            LogicalPlanner.Stage stage = LogicalPlanner.Stage.valueOf(benchmarkData.stage.toUpperCase(ENGLISH));
+            return benchmarkData.queryRunner.createPlan(
+                    transactionSession, benchmarkData.largeInQuery, stage, false, WarningCollector.NOOP);
+        });
+    }
+
     @Test
     public void verify()
     {
@@ -132,6 +152,7 @@ public class BenchmarkPlanner
         data.setup();
         BenchmarkPlanner benchmark = new BenchmarkPlanner();
         assertEquals(benchmark.planQueries(data).size(), 21);
+        assertNotNull(benchmark.planLargeInQuery(data));
     }
 
     public static void main(String[] args)

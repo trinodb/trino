@@ -69,6 +69,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -111,7 +112,8 @@ public class MockRemoteTaskFactory
                         TEST_TABLE_HANDLE,
                         ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, new TestingColumnHandle("column")),
-                        false),
+                        false,
+                        Optional.empty()),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),
@@ -163,6 +165,11 @@ public class MockRemoteTaskFactory
 
         @GuardedBy("this")
         private int runningDrivers;
+
+        @GuardedBy("this")
+        private int maxUnacknowledgedSplits = Integer.MAX_VALUE;
+        @GuardedBy("this")
+        private int unacknowledgedSplits;
 
         @GuardedBy("this")
         private SettableFuture<?> whenSplitQueueHasSpace = SettableFuture.create();
@@ -289,7 +296,7 @@ public class MockRemoteTaskFactory
 
         private synchronized void updateSplitQueueSpace()
         {
-            if (getQueuedPartitionedSplitCount() < 9) {
+            if (unacknowledgedSplits < maxUnacknowledgedSplits && getQueuedPartitionedSplitCount() < 9) {
                 if (!whenSplitQueueHasSpace.isDone()) {
                     whenSplitQueueHasSpace.set(null);
                 }
@@ -316,9 +323,24 @@ public class MockRemoteTaskFactory
 
         public synchronized void clearSplits()
         {
+            unacknowledgedSplits = 0;
             splits.clear();
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             runningDrivers = 0;
+            updateSplitQueueSpace();
+        }
+
+        public synchronized void setMaxUnacknowledgedSplits(int maxUnacknowledgedSplits)
+        {
+            checkArgument(maxUnacknowledgedSplits > 0);
+            this.maxUnacknowledgedSplits = maxUnacknowledgedSplits;
+            updateSplitQueueSpace();
+        }
+
+        public synchronized void setUnacknowledgedSplits(int unacknowledgedSplits)
+        {
+            checkArgument(unacknowledgedSplits >= 0);
+            this.unacknowledgedSplits = unacknowledgedSplits;
             updateSplitQueueSpace();
         }
 
@@ -442,6 +464,12 @@ public class MockRemoteTaskFactory
                 return 0;
             }
             return getPartitionedSplitCount() - runningDrivers;
+        }
+
+        @Override
+        public synchronized int getUnacknowledgedPartitionedSplitCount()
+        {
+            return unacknowledgedSplits;
         }
     }
 }

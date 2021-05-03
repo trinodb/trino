@@ -42,7 +42,7 @@ import static io.trino.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TY
 import static io.trino.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.trino.tests.cassandra.TestConstants.KEY_SPACE;
 import static io.trino.tests.utils.QueryAssertions.assertContainsEventually;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.JDBCType.BIGINT;
@@ -82,7 +82,7 @@ public class TestSelect
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_NATION.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).matches(PRESTO_NATION_RESULT);
@@ -96,7 +96,7 @@ public class TestSelect
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_NATION.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row(0));
@@ -110,7 +110,7 @@ public class TestSelect
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_NATION.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row(24));
@@ -124,7 +124,7 @@ public class TestSelect
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_NATION.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row("UNITED STATES"));
@@ -138,7 +138,7 @@ public class TestSelect
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_NATION.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row("ALGERIA"), row("ARGENTINA"));
@@ -152,7 +152,7 @@ public class TestSelect
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_SUPPLIER.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row(10));
@@ -166,7 +166,7 @@ public class TestSelect
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_SUPPLIER.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row(10));
@@ -243,7 +243,7 @@ public class TestSelect
                         "WHERE n1.n_nationkey=3",
                 tableName,
                 tableName);
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(
@@ -264,7 +264,7 @@ public class TestSelect
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_NATION.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row("CANADA", "AMERICA"));
@@ -349,14 +349,14 @@ public class TestSelect
                 query("SELECT true"),
                 new Duration(1, MINUTES));
 
-        QueryResult aggregateQueryResult = onPresto()
+        QueryResult aggregateQueryResult = onTrino()
                 .executeQuery(format(
                         "SELECT MAX(s_nationkey), SUM(s_suppkey), AVG(s_acctbal) " +
                                 "FROM %s.%s.%s WHERE s_suppkey BETWEEN 1 AND 10 ", CONNECTOR_NAME, KEY_SPACE, mvName));
         assertThat(aggregateQueryResult).containsOnly(
                 row(24, 55, 4334.653));
 
-        QueryResult orderedResult = onPresto()
+        QueryResult orderedResult = onTrino()
                 .executeQuery(format(
                         "SELECT s_nationkey, s_suppkey, s_acctbal " +
                                 "FROM %s.%s.%s WHERE s_nationkey = 1 LIMIT 1", CONNECTOR_NAME, KEY_SPACE, mvName));
@@ -369,7 +369,7 @@ public class TestSelect
     @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testProtocolVersion()
     {
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(format("SELECT native_protocol_version FROM %s.system.local", CONNECTOR_NAME));
         assertThat(queryResult).containsOnly(row("4"));
     }

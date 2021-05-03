@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveRecordCursorProvider;
-import io.trino.plugin.hive.IonSqlQueryBuilder;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;

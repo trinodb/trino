@@ -752,12 +752,12 @@ public abstract class BaseTestJdbcResultSet
             // no NULL elements
             checkRepresentation(connectedStatement.getStatement(), "ARRAY[1, 2]", Types.ARRAY, (rs, column) -> {
                 Array array = rs.getArray(column);
-                assertThat(array.getArray()).isEqualTo(new int[] {1, 2});
+                assertThat(array.getArray()).isEqualTo(new Object[] {1, 2});
                 assertEquals(array.getBaseType(), Types.INTEGER);
                 assertEquals(array.getBaseTypeName(), "integer");
 
                 array = (Array) rs.getObject(column); // TODO (https://github.com/trinodb/trino/issues/6049) subject to change
-                assertThat(array.getArray()).isEqualTo(new int[] {1, 2});
+                assertThat(array.getArray()).isEqualTo(new Object[] {1, 2});
                 assertEquals(array.getBaseType(), Types.INTEGER);
                 assertEquals(array.getBaseTypeName(), "integer");
 

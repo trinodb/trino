@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.hive.security;
 
-import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
@@ -30,7 +28,6 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
@@ -45,7 +42,7 @@ import static java.util.Objects.requireNonNull;
 public class LegacyAccessControl
         implements ConnectorAccessControl
 {
-    private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
+    private final LegacyAccessControlMetastore accessControlMetastore;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
     private final boolean allowCommentTable;
@@ -56,10 +53,10 @@ public class LegacyAccessControl
 
     @Inject
     public LegacyAccessControl(
-            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
+            LegacyAccessControlMetastore accessControlMetastore,
             LegacySecurityConfig securityConfig)
     {
-        this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
+        this.accessControlMetastore = requireNonNull(accessControlMetastore, "accessControlMetastore is null");
 
         requireNonNull(securityConfig, "securityConfig is null");
         allowDropTable = securityConfig.getAllowDropTable();
@@ -124,7 +121,7 @@ public class LegacyAccessControl
             denyDropTable(tableName.toString());
         }
 
-        Optional<Table> target = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle())).getTable(new HiveIdentity(context.getIdentity()), tableName.getSchemaName(), tableName.getTableName());
+        Optional<Table> target = accessControlMetastore.getTable(context, new HiveIdentity(context.getIdentity()), tableName.getSchemaName(), tableName.getTableName());
 
         if (target.isEmpty()) {
             denyDropTable(tableName.toString(), "Table not found");
@@ -226,6 +223,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    {
+    }
+
+    @Override
     public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
     }
@@ -247,6 +249,21 @@ public class LegacyAccessControl
 
     @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    {
+    }
+
+    @Override
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+    }
+
+    @Override
+    public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+    }
+
+    @Override
+    public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
     }
 

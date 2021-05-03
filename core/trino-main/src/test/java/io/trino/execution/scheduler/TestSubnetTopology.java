@@ -32,7 +32,6 @@ public class TestSubnetTopology
         assertEquals(
                 topology.locate(HostAddress.fromString("192.168.0.172")),
                 new NetworkLocation("192.168.0.0", "192.168.0.128", "192.168.0.160", "192.168.0.172"));
-        assertEquals(topology.locate(HostAddress.fromString("localhost")), new NetworkLocation("127.0.0.0", "127.0.0.0", "127.0.0.0", "127.0.0.1"));
 
         SubnetBasedTopology noTopology = new SubnetBasedTopology(ImmutableList.of(), IPv4);
         assertEquals(noTopology.locate(HostAddress.fromString("192.168.0.172")), new NetworkLocation("192.168.0.172"));
@@ -54,10 +53,6 @@ public class TestSubnetTopology
                         "2001:db8::ff00:42:0",
                         "2001:db8::ff00:42:8300",
                         "2001:db8::ff00:42:8329"));
-
-        assertEquals(
-                topology.locate(HostAddress.fromString("localhost")),
-                new NetworkLocation("::", "::", "::", "::", "::1"));
 
         SubnetBasedTopology noTopology = new SubnetBasedTopology(ImmutableList.of(), IPv6);
         assertEquals(noTopology.locate(HostAddress.fromString("2001:db8::ff00:42:8329")), new NetworkLocation("2001:db8::ff00:42:8329"));

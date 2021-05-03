@@ -54,6 +54,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnionNode;
@@ -139,7 +140,11 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern tableScan(String expectedTableName)
     {
-        return TableScanMatcher.create(expectedTableName);
+        return node(TableScanNode.class)
+                .with(new TableScanMatcher(
+                        expectedTableName,
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     public static PlanMatchPattern tableScan(String expectedTableName, Map<String, String> columnReferences)
@@ -166,11 +171,22 @@ public final class PlanMatchPattern
                         .collect(toImmutableList()));
     }
 
+    public static PlanMatchPattern strictConstrainedTableScan(String expectedTableName, Map<String, String> columnReferences, Map<String, Domain> constraint)
+    {
+        return strictTableScan(expectedTableName, columnReferences)
+                .with(new TableScanMatcher(
+                        expectedTableName,
+                        Optional.of(constraint),
+                        Optional.empty()));
+    }
+
     public static PlanMatchPattern constrainedTableScan(String expectedTableName, Map<String, Domain> constraint)
     {
-        return TableScanMatcher.builder(expectedTableName)
-                .expectedConstraint(constraint)
-                .build();
+        return node(TableScanNode.class)
+                .with(new TableScanMatcher(
+                        expectedTableName,
+                        Optional.of(constraint),
+                        Optional.empty()));
     }
 
     public static PlanMatchPattern constrainedTableScan(String expectedTableName, Map<String, Domain> constraint, Map<String, String> columnReferences)
@@ -181,11 +197,12 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern constrainedTableScanWithTableLayout(String expectedTableName, Map<String, Domain> constraint, Map<String, String> columnReferences)
     {
-        PlanMatchPattern result = TableScanMatcher.builder(expectedTableName)
-                .expectedConstraint(constraint)
-                .hasTableLayout()
-                .build();
-        return result.addColumnReferences(expectedTableName, columnReferences);
+        return node(TableScanNode.class)
+                .with(new TableScanMatcher(
+                        expectedTableName,
+                        Optional.of(constraint),
+                        Optional.of(true)))
+                .addColumnReferences(expectedTableName, columnReferences);
     }
 
     public static PlanMatchPattern indexJoin(

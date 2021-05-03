@@ -130,8 +130,8 @@ public class FileHiveMetastore
 {
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
-    private static final String PRESTO_SCHEMA_FILE_NAME = ".prestoSchema";
-    private static final String PRESTO_PERMISSIONS_DIRECTORY_NAME = ".prestoPermissions";
+    private static final String TRINO_SCHEMA_FILE_NAME = ".trinoSchema";
+    private static final String TRINO_PERMISSIONS_DIRECTORY_NAME = ".trinoPermissions";
     // todo there should be a way to manage the admins list
     private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
     private static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
@@ -414,7 +414,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update, AcidTransaction transaction)
+    public synchronized void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
     {
         PartitionStatistics originalStatistics = getTableStatistics(databaseName, tableName);
         PartitionStatistics updatedStatistics = update.apply(originalStatistics);
@@ -596,7 +596,7 @@ public class FileHiveMetastore
     public synchronized void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
     {
         alterTable(databaseName, tableName, oldTable -> {
-            if (!oldTable.getColumn(columnName).isPresent()) {
+            if (oldTable.getColumn(columnName).isEmpty()) {
                 SchemaTableName name = new SchemaTableName(databaseName, tableName);
                 throw new ColumnNotFoundException(name, columnName);
             }
@@ -721,7 +721,7 @@ public class FileHiveMetastore
                 Partition partition = partitionWithStatistics.getPartition();
                 verifiedPartition(table, partition);
                 Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
-                Path schemaPath = new Path(partitionMetadataDirectory, PRESTO_SCHEMA_FILE_NAME);
+                Path schemaPath = new Path(partitionMetadataDirectory, TRINO_SCHEMA_FILE_NAME);
                 if (metadataFileSystem.exists(schemaPath)) {
                     throw new TrinoException(HIVE_METASTORE_ERROR, "Partition already exists");
                 }
@@ -998,7 +998,7 @@ public class FileHiveMetastore
     private boolean isValidPartition(Table table, String partitionName)
     {
         try {
-            return metadataFileSystem.exists(new Path(getPartitionMetadataDirectory(table, partitionName), PRESTO_SCHEMA_FILE_NAME));
+            return metadataFileSystem.exists(new Path(getPartitionMetadataDirectory(table, partitionName), TRINO_SCHEMA_FILE_NAME));
         }
         catch (IOException e) {
             return false;
@@ -1218,7 +1218,7 @@ public class FileHiveMetastore
 
     private Path getPermissionsDirectory(Table table)
     {
-        return new Path(getTableMetadataDirectory(table), PRESTO_PERMISSIONS_DIRECTORY_NAME);
+        return new Path(getTableMetadataDirectory(table), TRINO_PERMISSIONS_DIRECTORY_NAME);
     }
 
     private static Path getPermissionsPath(Path permissionsDirectory, HivePrincipal grantee)
@@ -1242,7 +1242,7 @@ public class FileHiveMetastore
                 if (childPath.getName().startsWith(".")) {
                     continue;
                 }
-                if (metadataFileSystem.isFile(new Path(childPath, PRESTO_SCHEMA_FILE_NAME))) {
+                if (metadataFileSystem.isFile(new Path(childPath, TRINO_SCHEMA_FILE_NAME))) {
                     childSchemaDirectories.add(childPath);
                 }
             }
@@ -1287,7 +1287,7 @@ public class FileHiveMetastore
     private void deleteMetadataDirectory(Path metadataDirectory)
     {
         try {
-            Path schemaPath = new Path(metadataDirectory, PRESTO_SCHEMA_FILE_NAME);
+            Path schemaPath = new Path(metadataDirectory, TRINO_SCHEMA_FILE_NAME);
             if (!metadataFileSystem.isFile(schemaPath)) {
                 // if there is no schema file, assume this is not a database, partition or table
                 return;
@@ -1324,7 +1324,7 @@ public class FileHiveMetastore
 
     private <T> Optional<T> readSchemaFile(String type, Path metadataDirectory, JsonCodec<T> codec)
     {
-        Path schemaPath = new Path(metadataDirectory, PRESTO_SCHEMA_FILE_NAME);
+        Path schemaPath = new Path(metadataDirectory, TRINO_SCHEMA_FILE_NAME);
         return readFile(type + " schema", schemaPath, codec);
     }
 
@@ -1347,7 +1347,7 @@ public class FileHiveMetastore
 
     private <T> void writeSchemaFile(String type, Path directory, JsonCodec<T> codec, T value, boolean overwrite)
     {
-        Path schemaPath = new Path(directory, PRESTO_SCHEMA_FILE_NAME);
+        Path schemaPath = new Path(directory, TRINO_SCHEMA_FILE_NAME);
         writeFile(type + " schema", schemaPath, codec, value, overwrite);
     }
 
@@ -1377,7 +1377,7 @@ public class FileHiveMetastore
     private void deleteSchemaFile(String type, Path metadataDirectory)
     {
         try {
-            if (!metadataFileSystem.delete(new Path(metadataDirectory, PRESTO_SCHEMA_FILE_NAME), false)) {
+            if (!metadataFileSystem.delete(new Path(metadataDirectory, TRINO_SCHEMA_FILE_NAME), false)) {
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete " + type + " schema");
             }
         }

@@ -21,6 +21,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableProperties.TablePartitioning;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ProjectionApplicationResult;
@@ -43,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
@@ -154,6 +156,7 @@ public class PushProjectionIntoTableScan
             newProjectionAssignments.put(entry.getKey(), replaceExpression(entry.getValue(), nodesToNewPartialProjections));
         });
 
+        verifyTablePartitioning(context, tableScan, result.get().getHandle());
         return Result.ofPlanNode(
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
@@ -162,7 +165,26 @@ public class PushProjectionIntoTableScan
                                 result.get().getHandle(),
                                 newScanOutputs,
                                 newScanAssignments,
-                                tableScan.isForDelete()),
+                                tableScan.isUpdateTarget(),
+                                tableScan.getUseConnectorNodePartitioning()),
                         newProjectionAssignments.build()));
+    }
+
+    // PushProjectionIntoTableScan might be executed after AddExchanges and DetermineTableScanNodePartitioning.
+    // In that case, table scan node partitioning (if present) was used to fragment plan with ExchangeNodes.
+    // Therefore table scan node partitioning should not change after AddExchanges is executed since it would
+    // make plan with ExchangeNodes invalid.
+    private void verifyTablePartitioning(
+            Context context,
+            TableScanNode oldTableScan,
+            TableHandle newTable)
+    {
+        if (oldTableScan.getUseConnectorNodePartitioning().isEmpty()) {
+            return;
+        }
+
+        Optional<TablePartitioning> oldTablePartitioning = metadata.getTableProperties(context.getSession(), oldTableScan.getTable()).getTablePartitioning();
+        Optional<TablePartitioning> newTablePartitioning = metadata.getTableProperties(context.getSession(), newTable).getTablePartitioning();
+        verify(newTablePartitioning.equals(oldTablePartitioning), "Partitioning must not change after projection is pushed down");
     }
 }

@@ -159,8 +159,12 @@ public final class TupleDomain<T>
                         })));
     }
 
+    /*
+     * This method is for JSON serialization only. Do not use.
+     * It's marked as @Deprecated to help avoid usage, and not because we plan to remove it.
+     */
+    @Deprecated
     @JsonCreator
-    // Available for Jackson deserialization only!
     public static <T> TupleDomain<T> fromColumnDomains(@JsonProperty("columnDomains") Optional<List<ColumnDomain<T>>> columnDomains)
     {
         if (columnDomains.isEmpty()) {
@@ -170,8 +174,12 @@ public final class TupleDomain<T>
                 .collect(toLinkedMap(ColumnDomain::getColumn, ColumnDomain::getDomain)));
     }
 
+    /*
+     * This method is for JSON serialization only. Do not use.
+     * It's marked as @Deprecated to help avoid usage, and not because we plan to remove it.
+     */
+    @Deprecated
     @JsonProperty
-    // Available for Jackson serialization only!
     public Optional<List<ColumnDomain<T>>> getColumnDomains()
     {
         return domains.map(map -> map.entrySet().stream()
@@ -403,29 +411,20 @@ public final class TupleDomain<T>
     @Override
     public String toString()
     {
-        if (isAll()) {
-            return "TupleDomain{ALL}";
-        }
-        if (isNone()) {
-            return "TupleDomain{NONE}";
-        }
-        return "TupleDomain{...}";
+        return toString(ToStringSession.INSTANCE);
     }
 
     public String toString(ConnectorSession session)
     {
-        StringBuilder buffer = new StringBuilder();
         if (isAll()) {
-            buffer.append("ALL");
+            return "ALL";
         }
-        else if (isNone()) {
-            buffer.append("NONE");
+        if (isNone()) {
+            return "NONE";
         }
-        else {
-            buffer.append(domains.get().entrySet().stream()
-                    .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString(session))));
-        }
-        return buffer.toString();
+        return domains.orElseThrow().entrySet().stream()
+                .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString(session)))
+                .toString();
     }
 
     public TupleDomain<T> filter(BiPredicate<T, Domain> predicate)

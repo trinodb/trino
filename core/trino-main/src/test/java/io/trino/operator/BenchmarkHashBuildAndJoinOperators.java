@@ -225,6 +225,7 @@ public class BenchmarkHashBuildAndJoinOperators
                     lookupSourceFactory,
                     types,
                     false,
+                    false,
                     hashChannels,
                     hashChannel,
                     Optional.of(outputChannels),

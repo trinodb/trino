@@ -66,8 +66,6 @@ public final class PartitionTransforms
 
     private static final DateTimeField YEAR_FIELD = ISOChronology.getInstanceUTC().year();
     private static final DateTimeField MONTH_FIELD = ISOChronology.getInstanceUTC().monthOfYear();
-    private static final DateTimeField DAY_OF_YEAR_FIELD = ISOChronology.getInstanceUTC().dayOfYear();
-    private static final DateTimeField DAY_OF_MONTH_FIELD = ISOChronology.getInstanceUTC().dayOfMonth();
 
     private PartitionTransforms() {}
 
@@ -497,48 +495,27 @@ public final class PartitionTransforms
     @VisibleForTesting
     static long epochYear(long epochMilli)
     {
-        int epochYear = YEAR_FIELD.get(epochMilli) - 1970;
-        // Iceberg incorrectly handles negative epoch values
-        if ((epochMilli < 0) && ((DAY_OF_YEAR_FIELD.get(epochMilli) > 1) || !isMidnight(epochMilli))) {
-            epochYear++;
-        }
-        return epochYear;
+        return YEAR_FIELD.get(epochMilli) - 1970;
     }
 
     @VisibleForTesting
     static long epochMonth(long epochMilli)
     {
-        long year = YEAR_FIELD.get(epochMilli) - 1970;
+        long year = epochYear(epochMilli);
         int month = MONTH_FIELD.get(epochMilli) - 1;
-        long epochMonth = (year * 12) + month;
-        // Iceberg incorrectly handles negative epoch values
-        if ((epochMilli < 0) && ((DAY_OF_MONTH_FIELD.get(epochMilli) > 1) || !isMidnight(epochMilli))) {
-            epochMonth++;
-        }
-        return epochMonth;
+        return (year * 12) + month;
     }
 
     @VisibleForTesting
     static long epochDay(long epochMilli)
     {
-        long epochDay = floorDiv(epochMilli, MILLISECONDS_PER_DAY);
-        // Iceberg incorrectly handles negative epoch values
-        if ((epochMilli < 0) && !isMidnight(epochMilli)) {
-            epochDay++;
-        }
-        return epochDay;
+        return floorDiv(epochMilli, MILLISECONDS_PER_DAY);
     }
 
     @VisibleForTesting
     static long epochHour(long epochMilli)
     {
-        // Iceberg incorrectly handles negative epoch values
-        return epochMilli / MILLISECONDS_PER_HOUR;
-    }
-
-    private static boolean isMidnight(long epochMilli)
-    {
-        return (epochMilli % MILLISECONDS_PER_DAY) == 0;
+        return floorDiv(epochMilli, MILLISECONDS_PER_HOUR);
     }
 
     public static class ColumnTransform
@@ -548,7 +525,7 @@ public final class PartitionTransforms
 
         public ColumnTransform(Type type, Function<Block, Block> transform)
         {
-            this.type = requireNonNull(type, "resultType is null");
+            this.type = requireNonNull(type, "type is null");
             this.transform = requireNonNull(transform, "transform is null");
         }
 

@@ -65,15 +65,19 @@ B
 - :func:`bing_tile_at`
 - :func:`bing_tile_coordinates`
 - :func:`bing_tile_polygon`
+- ``bing_tile_quadkey``
 - :func:`bing_tile_zoom_level`
 - :func:`bing_tiles_around`
 - :func:`bit_count`
 - :func:`bitwise_and`
+- :func:`bitwise_and_agg`
+- :func:`bitwise_left_shift`
 - :func:`bitwise_not`
 - :func:`bitwise_or`
-- :func:`bitwise_xor`
-- :func:`bitwise_and_agg`
 - :func:`bitwise_or_agg`
+- :func:`bitwise_right_shift`
+- :func:`bitwise_right_shift_arithmetic`
+- :func:`bitwise_xor`
 - :func:`bool_and`
 - :func:`bool_or`
 
@@ -86,8 +90,8 @@ C
 - :func:`cbrt`
 - :func:`ceil`
 - :func:`ceiling`
-- :func:`checksum`
 - :func:`char2hexint`
+- :func:`checksum`
 - :func:`chr`
 - :func:`classify`
 - :ref:`coalesce <coalesce_function>`
@@ -105,8 +109,8 @@ C
 - :func:`cosine_similarity`
 - :func:`count`
 - :func:`count_if`
-- :func:`covar_samp`
 - :func:`covar_pop`
+- :func:`covar_samp`
 - :func:`crc32`
 - :func:`cume_dist`
 - :data:`current_date`
@@ -140,6 +144,7 @@ E
 - :func:`e`
 - :func:`element_at`
 - :func:`empty_approx_set`
+- ``evaluate_classifier_predictions``
 - :func:`every`
 - :func:`extract`
 - :func:`exp`
@@ -153,18 +158,22 @@ F
 - :func:`flatten`
 - :func:`floor`
 - :func:`format`
+- ``format_datetime``
 - :func:`from_base`
 - :func:`from_base64`
 - :func:`from_base64url`
 - :func:`from_big_endian_32`
 - :func:`from_big_endian_64`
 - :func:`from_encoded_polyline`
+- ``from_geojson_geometry``
 - :func:`from_hex`
 - :func:`from_ieee754_32`
 - :func:`from_ieee754_64`
 - :func:`from_iso8601_date`
 - :func:`from_iso8601_timestamp`
+- ``from_iso8601_timestamp_nanos``
 - :func:`from_unixtime`
+- ``from_unixtime_nanos``
 - :func:`from_utf8`
 
 G
@@ -183,12 +192,14 @@ H
 -
 
 - :func:`hamming_distance`
+- ``hash_counts``
 - :func:`histogram`
 - :func:`hmac_md5`
 - :func:`hmac_sha1`
 - :func:`hmac_sha256`
 - :func:`hmac_sha512`
 - :func:`hour`
+- ``human_readable_seconds``
 
 I
 -
@@ -196,6 +207,7 @@ I
 - :ref:`if <if_function>`
 - :func:`index`
 - :func:`infinity`
+- ``intersection_cardinality``
 - :func:`inverse_beta_cdf`
 - :func:`inverse_normal_cdf`
 - :func:`is_finite`
@@ -210,6 +222,7 @@ I
 J
 -
 
+- ``jaccard_index``
 - :func:`json_array_contains`
 - :func:`json_array_get`
 - :func:`json_array_length`
@@ -249,10 +262,12 @@ L
 - :func:`lower`
 - :func:`lpad`
 - :func:`ltrim`
+- ``luhn_check``
 
 M
 -
 
+- ``make_set_digest``
 - :func:`map`
 - :func:`map_agg`
 - :func:`map_concat`
@@ -260,12 +275,14 @@ M
 - :func:`map_filter`
 - :func:`map_from_entries`
 - :func:`map_keys`
+- ``map_union``
 - :func:`map_values`
 - :func:`map_zip_with`
 - :func:`max`
 - :func:`max_by`
 - :func:`md5`
 - :func:`merge`
+- ``merge_set_digest``
 - :func:`millisecond`
 - :func:`min`
 - :func:`min_by`
@@ -274,6 +291,7 @@ M
 - :func:`month`
 - :func:`multimap_agg`
 - :func:`multimap_from_entries`
+- ``murmur3``
 
 N
 -
@@ -294,6 +312,8 @@ N
 O
 -
 
+- ``objectid``
+- ``objectid_timestamp``
 - :ref:`OR <logical_operators>`
 
 P
@@ -355,9 +375,11 @@ S
 - :func:`sign`
 - :func:`simplify_geometry`
 - :func:`sin`
-- :func:`slice`
 - :func:`skewness`
+- :func:`slice`
 - :ref:`SOME <quantified_comparison_predicates>`
+- ``spatial_partitioning``
+- ``spatial_partitions``
 - :func:`split`
 - :func:`split_part`
 - :func:`split_to_map`
@@ -385,8 +407,8 @@ S
 - :func:`ST_Equals`
 - :func:`ST_ExteriorRing`
 - :func:`ST_Geometries`
-- :func:`ST_GeometryN`
 - :func:`ST_GeometryFromText`
+- :func:`ST_GeometryN`
 - :func:`ST_GeometryType`
 - :func:`ST_GeomFromBinary`
 - :func:`ST_InteriorRingN`
@@ -395,14 +417,15 @@ S
 - :func:`ST_Intersects`
 - :func:`ST_IsClosed`
 - :func:`ST_IsEmpty`
-- :func:`ST_IsSimple`
 - :func:`ST_IsRing`
+- :func:`ST_IsSimple`
 - :func:`ST_IsValid`
 - :func:`ST_Length`
 - :func:`ST_LineFromText`
 - :func:`ST_LineString`
 - :func:`ST_MultiPoint`
 - :func:`ST_NumGeometries`
+- ``ST_NumInteriorRing``
 - :func:`ST_NumPoints`
 - :func:`ST_Overlaps`
 - :func:`ST_Point`
@@ -435,15 +458,18 @@ T
 
 - :func:`tan`
 - :func:`tanh`
+- ``tdigest_agg``
 - :func:`timezone_hour`
 - :func:`timezone_minute`
 - :func:`to_base`
 - :func:`to_base64`
+- ``to_base64url``
 - :func:`to_big_endian_32`
 - :func:`to_big_endian_64`
 - :func:`to_char`
 - :func:`to_date`
 - :func:`to_encoded_polyline`
+- ``to_geojson_geometry``
 - :func:`to_geometry`
 - :func:`to_hex`
 - :func:`to_ieee754_32`
@@ -474,6 +500,7 @@ U
 - :func:`url_extract_host`
 - :func:`url_extract_parameter`
 - :func:`url_extract_path`
+- :func:`url_extract_protocol`
 - :func:`url_extract_port`
 - :func:`url_extract_query`
 - :func:`uuid`

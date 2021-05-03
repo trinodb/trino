@@ -170,8 +170,8 @@ public final class TestingUnnesterUtil
 
     public static void validateTestInput(int[] requiredOutputCounts, int[] unnestedLengths, Slice[][][] slices, int fieldCount)
     {
-        requireNonNull(requiredOutputCounts, "output counts array is null");
-        requireNonNull(unnestedLengths, "unnested lengths is null");
+        requireNonNull(requiredOutputCounts, "requiredOutputCounts is null");
+        requireNonNull(unnestedLengths, "unnestedLengths is null");
         requireNonNull(slices, "slices array is null");
 
         // verify lengths

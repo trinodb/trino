@@ -17,14 +17,12 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.trino.spi.ErrorCodeSupplier;
-import io.trino.spi.TrinoException;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_REASSIGNMENT_DELAY;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_REASSIGNMENT_THROTTLE;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestAssignmentLimiter
 {
@@ -83,12 +81,7 @@ public class TestAssignmentLimiter
 
     private static void assertCheckFails(AssignmentLimiter limiter, String node, ErrorCodeSupplier expected)
     {
-        try {
-            limiter.checkAssignFrom(node);
-            fail("expected exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), expected.toErrorCode());
-        }
+        assertTrinoExceptionThrownBy(() -> limiter.checkAssignFrom(node))
+                .hasErrorCode(expected);
     }
 }

@@ -27,6 +27,7 @@ public final class TestGroups
     public static final String BLACKHOLE_CONNECTOR = "blackhole";
     public static final String SMOKE = "smoke";
     public static final String JDBC = "jdbc";
+    public static final String OAUTH2 = "oauth2";
     public static final String MYSQL = "mysql";
     public static final String TRINO_JDBC = "trino_jdbc";
     public static final String QUERY_ENGINE = "qe";
@@ -38,6 +39,7 @@ public final class TestGroups
     public static final String HDFS_IMPERSONATION = "hdfs_impersonation";
     public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
     public static final String HIVE_PARTITIONING = "hive_partitioning";
+    public static final String HIVE_SPARK_BUCKETING = "hive_spark_bucketing";
     public static final String HIVE_COMPRESSION = "hive_compression";
     public static final String HIVE_TRANSACTIONAL = "hive_transactional";
     public static final String HIVE_VIEWS = "hive_views";
@@ -48,7 +50,9 @@ public final class TestGroups
     public static final String CASSANDRA = "cassandra";
     public static final String SQL_SERVER = "sqlserver";
     public static final String LDAP = "ldap";
+    public static final String LDAP_AND_FILE = "ldap_and_file";
     public static final String LDAP_CLI = "ldap_cli";
+    public static final String LDAP_AND_FILE_CLI = "ldap_and_file_cli";
     public static final String SKIP_ON_CDH = "skip_on_cdh";
     public static final String HDP3_ONLY = "hdp3_only";
     public static final String TLS = "tls";

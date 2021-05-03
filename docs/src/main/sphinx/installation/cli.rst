@@ -25,6 +25,27 @@ make it executable with ``chmod +x``, then run it:
 
 Run the CLI with the ``--help`` option to see the available options.
 
+The CLI uses the HTTP protocol and the
+:doc:`Trino client REST API </develop/client-protocol>` to communicate
+with Trino.
+
+TLS/HTTPS
+---------
+
+Trino is typically available with an HTTPS URL. This means that all network
+traffic between the CLI and Trino uses TLS. :doc:`TLS configuration
+</security/tls>` is common, since it is a requirement for any authentication.
+
+Use the HTTPS URL to connect to the server:
+
+.. code-block:: text
+
+    ./trino --server https://trino.example.com
+
+The recommended TLS implementation is to use a globally trusted certificate. In
+this case, no other options are necessary, since the JVM running the CLI
+recognizes these certificates.
+
 Authentication
 --------------
 
@@ -36,6 +57,28 @@ password value to avoid the prompt.
 
 Use ``--help`` to see information about specifying the keystore, truststore, and
 other authentication details as required. If using Kerberos, see :doc:`/security/cli`.
+
+External authentication - SSO
+-----------------------------
+
+The ``--external-authentication`` option is used for browser-based SSO
+authentication, as detailed in :doc:`/security/oauth2`. With this configuration,
+the CLI displays a URL that you must open in a web browser for authentication.
+
+The detailed behavior is as follows:
+
+* Start the CLI with the ``--external-authentication`` option.
+* CLI starts and connects to Trino.
+* A message appears in the CLI directing you to open a browser with a specified
+  URL when the first query is submitted.
+* Open the URL in a browser and follow through the authentication process.
+* The CLI automatically receives a token.
+* When successfully authenticated in the browser, the CLI proceeds to execute
+  the query.
+* Further queries in the CLI session do not require additional logins while the
+  authentication token remains valid. Token expiration depends on the external
+  authentication system configuration.
+* Expired tokens force you to log in again.
 
 Pagination
 ----------

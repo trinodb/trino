@@ -23,6 +23,8 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
+import java.util.Optional;
+
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.plan.Patterns.limit;
@@ -70,7 +72,9 @@ public class PushLimitIntoTableScan
                             tableScan.getOutputSymbols(),
                             tableScan.getAssignments(),
                             tableScan.getEnforcedConstraint(),
-                            tableScan.isForDelete());
+                            tableScan.isUpdateTarget(),
+                            // table scan partitioning might have changed with new table handle
+                            Optional.empty());
 
                     if (!result.isLimitGuaranteed()) {
                         node = new LimitNode(limit.getId(), node, limit.getCount(), limit.isPartial());

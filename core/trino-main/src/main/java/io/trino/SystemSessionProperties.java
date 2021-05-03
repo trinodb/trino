@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.spi.TrinoException;
@@ -38,6 +39,7 @@ import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -61,6 +63,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
     public static final String QUERY_MAX_TOTAL_MEMORY = "query_max_total_memory";
     public static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
+    public static final String QUERY_MAX_PLANNING_TIME = "query_max_planning_time";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
@@ -68,12 +71,14 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
+    public static final String PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS = "preferred_write_partitioning_min_number_of_partitions";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
-    public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
+    public static final String USE_TABLE_SCAN_NODE_PARTITIONING = "use_table_scan_node_partitioning";
+    public static final String TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO = "table_scan_node_partitioning_min_bucket_to_task_ratio";
     public static final String SPATIAL_JOIN = "spatial_join";
     public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
     public static final String COLOCATED_JOIN = "colocated_join";
@@ -128,12 +133,14 @@ public final class SystemSessionProperties
     public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
     public static final String COST_ESTIMATION_WORKER_COUNT = "cost_estimation_worker_count";
     public static final String OMIT_DATETIME_TYPE_PRECISION = "omit_datetime_type_precision";
+    public static final String USE_LEGACY_WINDOW_FILTER_PUSHDOWN = "use_legacy_window_filter_pushdown";
+    public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
     public SystemSessionProperties()
     {
-        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig(), new DynamicFilterConfig());
+        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig(), new DynamicFilterConfig(), new NodeSchedulerConfig());
     }
 
     @Inject
@@ -143,7 +150,8 @@ public final class SystemSessionProperties
             MemoryManagerConfig memoryManagerConfig,
             FeaturesConfig featuresConfig,
             NodeMemoryConfig nodeMemoryConfig,
-            DynamicFilterConfig dynamicFilterConfig)
+            DynamicFilterConfig dynamicFilterConfig,
+            NodeSchedulerConfig nodeSchedulerConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -208,6 +216,16 @@ public final class SystemSessionProperties
                         "Use preferred write partitioning",
                         featuresConfig.isUsePreferredWritePartitioning(),
                         false),
+                integerProperty(
+                        PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS,
+                        "Use preferred write partitioning when the number of written partitions exceeds the configured threshold",
+                        featuresConfig.getPreferredWritePartitioningMinNumberOfPartitions(),
+                        value -> {
+                            if (value < 1) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 1: %s", PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, value));
+                            }
+                        },
+                        false),
                 booleanProperty(
                         SCALE_WRITERS,
                         "Scale out writers based on throughput (use minimum necessary)",
@@ -243,6 +261,11 @@ public final class SystemSessionProperties
                         QUERY_MAX_EXECUTION_TIME,
                         "Maximum execution time of a query",
                         queryManagerConfig.getQueryMaxExecutionTime(),
+                        false),
+                durationProperty(
+                        QUERY_MAX_PLANNING_TIME,
+                        "Maximum planning time of a query",
+                        queryManagerConfig.getQueryMaxPlanningTime(),
                         false),
                 durationProperty(
                         QUERY_MAX_CPU_TIME,
@@ -300,9 +323,14 @@ public final class SystemSessionProperties
                         1,
                         false),
                 booleanProperty(
-                        PLAN_WITH_TABLE_NODE_PARTITIONING,
-                        "Experimental: Adapt plan to pre-partitioned tables",
-                        true,
+                        USE_TABLE_SCAN_NODE_PARTITIONING,
+                        "Adapt plan to node pre-partitioned tables",
+                        featuresConfig.isUseTableScanNodePartitioning(),
+                        false),
+                doubleProperty(
+                        TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO,
+                        "Min table scan bucket to task ratio for which plan will be adopted to node pre-partitioned tables",
+                        featuresConfig.getTableScanNodePartitioningMinBucketToTaskRatio(),
                         false),
                 enumProperty(
                         JOIN_REORDERING_STRATEGY,
@@ -573,7 +601,21 @@ public final class SystemSessionProperties
                         OMIT_DATETIME_TYPE_PRECISION,
                         "Omit precision when rendering datetime type names with default precision",
                         featuresConfig.isOmitDateTimeTypePrecision(),
-                        false));
+                        false),
+                booleanProperty(
+                        USE_LEGACY_WINDOW_FILTER_PUSHDOWN,
+                        "Use legacy window filter pushdown optimizer",
+                        featuresConfig.isUseLegacyWindowFilterPushdown(),
+                        false),
+                new PropertyMetadata<>(
+                        MAX_UNACKNOWLEDGED_SPLITS_PER_TASK,
+                        "Maximum number of leaf splits awaiting delivery to a given task",
+                        INTEGER,
+                        Integer.class,
+                        nodeSchedulerConfig.getMaxUnacknowledgedSplitsPerTask(),
+                        false,
+                        value -> validateIntegerValue(value, MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, 1, false),
+                        object -> object));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -641,6 +683,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, Boolean.class);
     }
 
+    public static int getPreferredWritePartitioningMinNumberOfPartitions(Session session)
+    {
+        return session.getSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, Integer.class);
+    }
+
     public static boolean isScaleWriters(Session session)
     {
         return session.getSystemProperty(SCALE_WRITERS, Boolean.class);
@@ -696,6 +743,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_MAX_EXECUTION_TIME, Duration.class);
     }
 
+    public static Duration getQueryMaxPlanningTime(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_PLANNING_TIME, Duration.class);
+    }
+
     public static boolean resourceOvercommit(Session session)
     {
         return session.getSystemProperty(RESOURCE_OVERCOMMIT, Boolean.class);
@@ -706,9 +758,14 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_MAX_STAGE_COUNT, Integer.class);
     }
 
-    public static boolean planWithTableNodePartitioning(Session session)
+    public static boolean isUseTableScanNodePartitioning(Session session)
     {
-        return session.getSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
+        return session.getSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, Boolean.class);
+    }
+
+    public static double getTableScanNodePartitioningMinBucketToTaskRatio(Session session)
+    {
+        return session.getSystemProperty(TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO, Double.class);
     }
 
     public static JoinReorderingStrategy getJoinReorderingStrategy(Session session)
@@ -1029,5 +1086,15 @@ public final class SystemSessionProperties
     public static boolean isOmitDateTimeTypePrecision(Session session)
     {
         return session.getSystemProperty(OMIT_DATETIME_TYPE_PRECISION, Boolean.class);
+    }
+
+    public static boolean useLegacyWindowFilterPushdown(Session session)
+    {
+        return session.getSystemProperty(USE_LEGACY_WINDOW_FILTER_PUSHDOWN, Boolean.class);
+    }
+
+    public static int getMaxUnacknowledgedSplitsPerTask(Session session)
+    {
+        return session.getSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.class);
     }
 }

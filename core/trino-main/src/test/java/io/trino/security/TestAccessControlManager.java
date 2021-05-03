@@ -77,7 +77,6 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestAccessControlManager
 {
@@ -130,15 +129,12 @@ public class TestAccessControlManager
                     assertEquals(accessControlManager.filterTables(context, "catalog", tableNames), tableNames);
                 });
 
-        try {
-            transaction(transactionManager, accessControlManager)
-                    .execute(transactionId -> {
-                        accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, identity, queryId), tableName);
-                    });
-            fail();
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, identity, queryId), tableName);
+                }))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot insert into table catalog.schema.table");
     }
 
     @Test

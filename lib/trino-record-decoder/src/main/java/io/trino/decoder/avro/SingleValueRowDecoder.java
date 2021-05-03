@@ -31,7 +31,7 @@ class SingleValueRowDecoder
 
     public SingleValueRowDecoder(AvroDeserializer<Object> deserializer, DecoderColumnHandle column)
     {
-        this.deserializer = requireNonNull(deserializer, "dataReader is null");
+        this.deserializer = requireNonNull(deserializer, "deserializer is null");
         this.column = requireNonNull(column, "columns is null");
     }
 

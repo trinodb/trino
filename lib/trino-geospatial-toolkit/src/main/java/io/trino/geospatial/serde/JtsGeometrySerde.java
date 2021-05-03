@@ -75,9 +75,8 @@ public final class JtsGeometrySerde
                 return readGeometryCollection(input);
             case ENVELOPE:
                 return readEnvelope(input);
-            default:
-                throw new UnsupportedOperationException("Unexpected type: " + type);
         }
+        throw new UnsupportedOperationException("Unexpected type: " + type);
     }
 
     private static Point readPoint(SliceInput input)
@@ -260,7 +259,7 @@ public final class JtsGeometrySerde
      */
     public static Slice serialize(Geometry geometry)
     {
-        requireNonNull(geometry, "input is null");
+        requireNonNull(geometry, "geometry is null");
         DynamicSliceOutput output = new DynamicSliceOutput(100);
         writeGeometry(geometry, output);
         return output.slice();
@@ -271,28 +270,27 @@ public final class JtsGeometrySerde
         switch (geometry.getGeometryType()) {
             case "Point":
                 writePoint((Point) geometry, output);
-                break;
+                return;
             case "MultiPoint":
                 writeMultiPoint((MultiPoint) geometry, output);
-                break;
+                return;
             case "LineString":
                 writePolyline(geometry, output, false);
-                break;
+                return;
             case "MultiLineString":
                 writePolyline(geometry, output, true);
-                break;
+                return;
             case "Polygon":
                 writePolygon(geometry, output, false);
-                break;
+                return;
             case "MultiPolygon":
                 writePolygon(geometry, output, true);
-                break;
+                return;
             case "GeometryCollection":
                 writeGeometryCollection(geometry, output);
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported geometry type : " + geometry.getGeometryType());
+                return;
         }
+        throw new IllegalArgumentException("Unsupported geometry type : " + geometry.getGeometryType());
     }
 
     private static void writePoint(Point point, SliceOutput output)

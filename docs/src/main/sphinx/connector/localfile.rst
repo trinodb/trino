@@ -2,8 +2,8 @@
 Local file connector
 ====================
 
-The local file connector allows querying data stored on the local
-file system of each worker.
+The local file connector allows querying the HTTP request log files stored on
+the local file system of each worker.
 
 Configuration
 -------------
@@ -21,8 +21,8 @@ Configuration properties
 =========================================   ==============================================================
 Property Name                               Description
 =========================================   ==============================================================
-``presto-logs.http-request-log.location``   Directory or file where HTTP request logs are written
-``presto-logs.http-request-log.pattern``    If the log location is a directory, this glob is used
+``trino-logs.http-request-log.location``    Directory or file where HTTP request logs are written
+``trino-logs.http-request-log.pattern``     If the log location is a directory, this glob is used
                                             to match file names in the directory
 =========================================   ==============================================================
 

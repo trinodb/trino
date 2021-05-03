@@ -19,8 +19,15 @@ basic credentials.  This can also be used to secure the :ref:`Web UI <web-ui-aut
 Salesforce authenticator configuration
 --------------------------------------
 
-Enable Salesforce authentication by creating an
-``etc/password-authenticator.properties`` file on the coordinator:
+To enable Salesfore authentication, set the :doc:`password authentication
+type <authentication-types>` in ``etc/config.properties``:
+
+.. code-block:: properties
+
+    http-server.authentication.type=PASSWORD
+
+In addition, create a ``etc/password-authenticator.properties`` file on the
+coordinator with the ``salesforce`` authenticator name:
 
 .. code-block:: properties
 

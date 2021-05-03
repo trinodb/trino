@@ -21,8 +21,12 @@ import com.google.inject.multibindings.MapBinder;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
+import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.Kafka;
+import io.trino.tests.product.launcher.env.common.KafkaSsl;
+import io.trino.tests.product.launcher.env.common.SeleniumChrome;
 import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
@@ -36,8 +40,9 @@ import static java.util.Objects.requireNonNullElse;
 public final class EnvironmentModule
         implements Module
 {
-    public static final String BASE_PACKAGE = "io.trino.tests.product.launcher.env.environment";
-    public static final String BASE_CONFIG_PACKAGE = "io.trino.tests.product.launcher.env.configs";
+    private static final String LAUNCHER_PACKAGE = "io.trino.tests.product.launcher";
+    private static final String ENVIRONMENT_PACKAGE = LAUNCHER_PACKAGE + ".env.environment";
+    private static final String CONFIG_PACKAGE = LAUNCHER_PACKAGE + ".env.configs";
     private final EnvironmentOptions environmentOptions;
     private final Module additionalEnvironments;
 
@@ -53,18 +58,23 @@ public final class EnvironmentModule
         binder.bind(PortBinder.class).in(SINGLETON);
         binder.bind(EnvironmentFactory.class).in(SINGLETON);
         binder.bind(EnvironmentConfigFactory.class).in(SINGLETON);
-        binder.bind(Standard.class).in(SINGLETON);
+        binder.bind(EnvironmentOptions.class).toInstance(environmentOptions);
+
         binder.bind(Hadoop.class).in(SINGLETON);
         binder.bind(HadoopKerberos.class).in(SINGLETON);
         binder.bind(HadoopKerberosKms.class).in(SINGLETON);
+        binder.bind(HydraIdentityProvider.class).in(SINGLETON);
         binder.bind(Kafka.class).in(SINGLETON);
-        binder.bind(EnvironmentOptions.class).toInstance(environmentOptions);
+        binder.bind(KafkaSsl.class).in(SINGLETON);
+        binder.bind(SeleniumChrome.class).in(SINGLETON);
+        binder.bind(Standard.class).in(SINGLETON);
+        binder.bind(StandardMultinode.class).in(SINGLETON);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
-        Environments.findByBasePackage(BASE_PACKAGE).forEach(clazz -> environments.addBinding(Environments.nameForClass(clazz)).to(clazz).in(SINGLETON));
+        Environments.findByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(Environments.nameForClass(clazz)).to(clazz).in(SINGLETON));
 
         MapBinder<String, EnvironmentConfig> environmentConfigs = newMapBinder(binder, String.class, EnvironmentConfig.class);
-        Environments.findConfigsByBasePackage(BASE_CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz).in(SINGLETON));
+        Environments.findConfigsByBasePackage(CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz).in(SINGLETON));
 
         binder.install(additionalEnvironments);
     }

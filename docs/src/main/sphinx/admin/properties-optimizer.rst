@@ -44,8 +44,8 @@ partition keys for partitions that have no rows. In particular, the Hive connect
 can return empty partitions, if they were created by other systems. Trino cannot
 create them.
 
-``optimizer.push-aggregation-through-join``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``optimizer.push-aggregation-through-outer-join``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``true``
@@ -107,3 +107,42 @@ the maximum number of joins that can be reordered at once.
 
     The number of possible join orders scales factorially with the number of
     relations, so increasing this value can cause serious performance issues.
+
+``optimizer.optimize-duplicate-insensitive-joins``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Reduces number of rows produced by joins when optimizer detects that duplicated
+join output rows can be skipped.
+
+``optimizer.use-table-scan-node-partitioning``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Use connector provided table node partitioning when reading tables.
+For example, table node partitioning corresponds to Hive table buckets.
+When set to ``true`` and minimal partition to task ratio is matched or exceeded,
+each table partition is read by a separate worker. The minimal ratio is defined in
+``optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio``.
+
+Partition reader assignments are distributed across workers for
+parallel processing. Use of table scan node partitioning can improve
+query performance by reducing query complexity. For example,
+cluster wide data reshuffling might not be needed when processing an aggregation query.
+However, query parallelism might be reduced when partition count is
+low compared to number of workers.
+
+``optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``double``
+* **Default value:** ``0.5``
+
+Specifies minimal bucket to task ratio that has to be matched or exceeded in order
+to use table scan node partitioning. When the table bucket count is small
+compared to the number of workers, then the table scan is distributed across
+all workers for improved parallelism.

@@ -122,9 +122,8 @@ public final class TypeHelper
                 return VarbinaryType.VARBINARY;
             case DECIMAL:
                 return DecimalType.createDecimalType(attributes.getPrecision(), attributes.getScale());
-            default:
-                throw new IllegalStateException("Kudu type not implemented for " + ktype);
         }
+        throw new IllegalStateException("Kudu type not implemented for " + ktype);
     }
 
     public static Object getJavaValue(Type type, Object nativeValue)

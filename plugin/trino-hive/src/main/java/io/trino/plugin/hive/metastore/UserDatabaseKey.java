@@ -32,7 +32,7 @@ public class UserDatabaseKey
     @JsonCreator
     public UserDatabaseKey(@JsonProperty("user") String user, @JsonProperty("database") String database)
     {
-        this.user = requireNonNull(user, "principalName is null");
+        this.user = requireNonNull(user, "user is null");
         this.database = requireNonNull(database, "database is null");
     }
 

@@ -36,7 +36,7 @@ public class ParameterRewriter
 
     public ParameterRewriter(Map<NodeRef<Parameter>, Expression> parameters)
     {
-        requireNonNull(parameters, "parameterMap is null");
+        requireNonNull(parameters, "parameters is null");
         this.parameters = parameters;
         this.analysis = null;
     }

@@ -160,14 +160,12 @@ Trino data type mapping:
     - See :ref:`datetime mapping`
 
 If an Oracle table uses a type not listed in the above table, then you can use the
-``unsupported-type.handling`` configuration property to specify Trino behavior.
+``unsupported-type-handling`` configuration property to specify Trino behavior.
 For example:
 
-- If ``unsupported-type.handling`` is set to ``FAIL``, then the
-  querying of an unsupported table fails.
-- If ``unsupported-type.handling`` is set to ``IGNORE``,
+- If ``unsupported-type-handling`` is set to ``IGNORE``,
   then you can't see the unsupported types in Trino.
-- If ``unsupported-type.handling`` is set to ``CONVERT_TO_VARCHAR``,
+- If ``unsupported-type-handling`` is set to ``CONVERT_TO_VARCHAR``,
   then the column is exposed as unbounded ``VARCHAR``.
 
 Trino to Oracle type mapping
@@ -311,8 +309,8 @@ Type mapping configuration properties
     - Session property name
     - Description
     - Default
-  * - ``unsupported-type.handling-strategy``
-    - ``unsupported_type_handling_strategy``
+  * - ``unsupported-type-handling``
+    - ``unsupported_type_handling``
     - Configures how unsupported column data types are handled:
 
       - ``IGNORE`` - column is not accessible.
@@ -363,10 +361,16 @@ include ``SYNONYM``, add the following configuration property:
 
     oracle.synonyms.enabled=true
 
+.. _oracle-pushdown:
+
 Pushdown
 --------
 
-The connector supports :doc:`pushdown </optimizer/pushdown>` for optimized query processing.
+The connector supports pushdown for a number of operations:
+
+* :ref:`join-pushdown`
+* :ref:`limit-pushdown`
+* :ref:`topn-pushdown`
 
 Limitations
 -----------

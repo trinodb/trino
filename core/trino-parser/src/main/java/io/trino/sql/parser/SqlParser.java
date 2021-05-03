@@ -17,6 +17,7 @@ import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.PathSpecification;
+import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.Statement;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
@@ -97,6 +98,11 @@ public class SqlParser
     public PathSpecification createPathSpecification(String expression)
     {
         return (PathSpecification) invokeParser("path specification", expression, SqlBaseParser::standalonePathSpecification, new ParsingOptions());
+    }
+
+    public RowPattern createRowPattern(String pattern)
+    {
+        return (RowPattern) invokeParser("row pattern", pattern, SqlBaseParser::standaloneRowPattern, new ParsingOptions());
     }
 
     private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
@@ -201,7 +207,7 @@ public class SqlParser
         public void exitNonReserved(SqlBaseParser.NonReservedContext context)
         {
             // we can't modify the tree during rule enter/exit event handling unless we're dealing with a terminal.
-            // Otherwise, ANTLR gets confused an fires spurious notifications.
+            // Otherwise, ANTLR gets confused and fires spurious notifications.
             if (!(context.getChild(0) instanceof TerminalNode)) {
                 int rule = ((ParserRuleContext) context.getChild(0)).getRuleIndex();
                 throw new AssertionError("nonReserved can only contain tokens. Found nested rule: " + ruleNames.get(rule));

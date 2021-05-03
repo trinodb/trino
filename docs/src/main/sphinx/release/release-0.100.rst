@@ -11,8 +11,8 @@ schema that is available in every catalog. Additionally, connectors may now
 provide system tables that are available within that connector's catalog by
 implementing the ``getSystemTables()`` method on the ``Connector`` interface.
 
-General changes
----------------
+General
+-------
 
 * Fix ``%f`` specifier in :func:`date_format` and :func:`date_parse`.
 * Add ``WITH ORDINALITY`` support to ``UNNEST``.

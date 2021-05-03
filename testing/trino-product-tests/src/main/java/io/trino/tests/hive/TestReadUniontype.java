@@ -26,7 +26,7 @@ import java.util.List;
 
 import static io.trino.tests.TestGroups.SMOKE;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -103,7 +103,7 @@ public class TestReadUniontype
                         "UNION ALL " +
                         "SELECT 8, create_union(0, CAST(252 AS INT), CAST(NULL AS DOUBLE), ARRAY('foo','bar'))",
                 TABLE_NAME));
-        QueryResult selectAllResult = onPresto().executeQuery(format("SELECT * FROM %s", TABLE_NAME));
+        QueryResult selectAllResult = onTrino().executeQuery(format("SELECT * FROM %s", TABLE_NAME));
         assertEquals(selectAllResult.rows().size(), 9);
         for (List<?> row : selectAllResult.rows()) {
             int id = (Integer) row.get(0);

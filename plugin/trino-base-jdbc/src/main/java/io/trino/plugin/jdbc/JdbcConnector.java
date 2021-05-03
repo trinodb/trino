@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
@@ -96,7 +97,7 @@ public class JdbcConnector
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
         JdbcTransactionHandle transaction = new JdbcTransactionHandle();
-        transactions.put(transaction, jdbcMetadataFactory.create());
+        transactions.put(transaction, jdbcMetadataFactory.create(transaction));
         return transaction;
     }
 

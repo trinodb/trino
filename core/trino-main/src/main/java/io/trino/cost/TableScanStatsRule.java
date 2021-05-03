@@ -18,6 +18,7 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.FixedWidthType;
@@ -31,7 +32,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Verify.verifyNotNull;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.lang.Double.NaN;
 import static java.util.Objects.requireNonNull;
@@ -59,10 +59,9 @@ public class TableScanStatsRule
     protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         // TODO Construct predicate like AddExchanges's LayoutConstraintEvaluator
-        Constraint constraint = new Constraint(metadata.getTableProperties(session, node.getTable()).getPredicate());
+        Constraint constraint = new Constraint(TupleDomain.all());
 
         TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
-        verifyNotNull(tableStatistics, "tableStatistics is null for %s", node);
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
 
         for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {

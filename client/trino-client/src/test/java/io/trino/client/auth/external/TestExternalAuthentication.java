@@ -13,7 +13,6 @@
  */
 package io.trino.client.auth.external;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.client.ClientException;
 import org.testng.annotations.Test;
 
@@ -21,11 +20,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.time.Duration;
-import java.util.ArrayDeque;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
 
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.net.URI.create;
@@ -129,45 +124,5 @@ public class TestExternalAuthentication
 
         assertThat(redirectHandler.redirectedTo()).isNull();
         assertThat(token).map(Token::token).hasValue(AUTH_TOKEN);
-    }
-
-    private static class MockRedirectHandler
-            implements RedirectHandler
-    {
-        private URI redirectedTo;
-
-        @Override
-        public void redirectTo(URI uri)
-                throws RedirectException
-        {
-            redirectedTo = uri;
-        }
-
-        public URI redirectedTo()
-        {
-            return redirectedTo;
-        }
-    }
-
-    private static final class MockTokenPoller
-            implements TokenPoller
-    {
-        private final Map<URI, Queue<TokenPollResult>> results = new HashMap<>();
-
-        public MockTokenPoller withResult(URI tokenUri, TokenPollResult result)
-        {
-            results.put(tokenUri, new ArrayDeque<>(ImmutableList.of(result)));
-            return this;
-        }
-
-        @Override
-        public TokenPollResult pollForToken(URI tokenUri, Duration ignored)
-        {
-            Queue<TokenPollResult> queue = results.get(tokenUri);
-            if (queue == null) {
-                throw new IllegalArgumentException("Unknown token URI: " + tokenUri);
-            }
-            return queue.remove();
-        }
     }
 }

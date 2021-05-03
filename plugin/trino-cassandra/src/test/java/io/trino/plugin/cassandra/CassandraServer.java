@@ -119,7 +119,7 @@ public class CassandraServer
 
     public CassandraSession getSession()
     {
-        return requireNonNull(session, "cluster is null");
+        return requireNonNull(session, "session is null");
     }
 
     public String getHost()

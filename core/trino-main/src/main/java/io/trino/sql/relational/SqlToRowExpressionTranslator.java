@@ -140,7 +140,7 @@ public final class SqlToRowExpressionTranslator
         Visitor visitor = new Visitor(metadata, types, layout);
         RowExpression result = visitor.process(expression, null);
 
-        requireNonNull(result, "translated expression is null");
+        requireNonNull(result, "result is null");
 
         if (optimize) {
             ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata, session);

@@ -29,7 +29,7 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.TestGroups.AVRO;
 import static io.trino.tests.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestParquetSymlinkInputFormat
@@ -50,7 +50,7 @@ public class TestParquetSymlinkInputFormat
 
         onHive().executeQuery("" +
                 "CREATE TABLE " + table +
-                "(value int) " +
+                "(col int) " +
                 "ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe' " +
                 "STORED AS " +
                 "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat' " +
@@ -61,7 +61,7 @@ public class TestParquetSymlinkInputFormat
 
         saveResourceOnHdfs("data.parquet", dataDir + "/data.parquet");
         hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/data.parquet", dataDir));
-        assertThat(onPresto().executeQuery("SELECT * FROM " + table)).containsExactly(row(42));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + table)).containsExactly(row(42));
 
         onHive().executeQuery("DROP TABLE " + table);
         hdfsClient.delete(dataDir);
@@ -90,7 +90,7 @@ public class TestParquetSymlinkInputFormat
         saveResourceOnHdfs("data.parquet", anotherDataDir + "/data.parquet");
         hdfsClient.saveFile(dataDir + "/dontread.txt", "This file will cause an error if read as avro.");
         hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/data.parquet\nhdfs:%s/data.parquet", dataDir, anotherDataDir));
-        assertThat(onPresto().executeQuery("SELECT COUNT(*) as cnt FROM " + table)).containsExactly(row(2));
+        assertThat(onTrino().executeQuery("SELECT COUNT(*) as cnt FROM " + table)).containsExactly(row(2));
 
         onHive().executeQuery("DROP TABLE " + table);
         hdfsClient.delete(dataDir);

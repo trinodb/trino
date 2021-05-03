@@ -50,7 +50,7 @@ public class MemorySplit
         checkState(totalPartsPerWorker >= 1, "totalPartsPerWorker must be >= 1");
         checkState(totalPartsPerWorker > partNumber, "totalPartsPerWorker must be > partNumber");
 
-        this.table = requireNonNull(table, "table is null");
+        this.table = table;
         this.partNumber = partNumber;
         this.totalPartsPerWorker = totalPartsPerWorker;
         this.address = requireNonNull(address, "address is null");

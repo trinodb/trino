@@ -39,7 +39,7 @@ public final class SqlTime
         if (rescale(rescale(picos, 12, precision), precision, 12) != picos) {
             throw new IllegalArgumentException("picos contains data beyond specified precision: " + precision);
         }
-        if (picos < 0 || picos > PICOSECONDS_PER_DAY) {
+        if (picos < 0 || picos >= PICOSECONDS_PER_DAY) {
             throw new IllegalArgumentException("picos is out of range: " + picos);
         }
 

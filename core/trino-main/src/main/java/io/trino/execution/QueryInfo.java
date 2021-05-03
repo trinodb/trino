@@ -128,7 +128,7 @@ public class QueryInfo
         requireNonNull(setPath, "setPath is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
-        requireNonNull(addedPreparedStatements, "addedPreparedStatemetns is null");
+        requireNonNull(addedPreparedStatements, "addedPreparedStatements is null");
         requireNonNull(deallocatedPreparedStatements, "deallocatedPreparedStatements is null");
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(query, "query is null");

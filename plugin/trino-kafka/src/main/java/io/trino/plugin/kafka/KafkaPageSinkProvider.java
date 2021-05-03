@@ -92,7 +92,8 @@ public class KafkaPageSinkProvider
                 handle.getColumns(),
                 keyEncoder,
                 messageEncoder,
-                producerFactory);
+                producerFactory,
+                session);
     }
 
     private static Optional<String> getDataSchema(Optional<String> dataSchemaLocation)
@@ -102,7 +103,7 @@ public class KafkaPageSinkProvider
                 return Files.readString(Paths.get(location));
             }
             catch (IOException e) {
-                throw new TrinoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", dataSchemaLocation.get()), e);
+                throw new TrinoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", location), e);
             }
         });
     }

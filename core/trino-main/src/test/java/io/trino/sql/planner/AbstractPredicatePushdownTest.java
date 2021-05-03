@@ -127,9 +127,9 @@ public abstract class AbstractPredicatePushdownTest
                 noSemiJoinRewrite(),
                 anyTree(
                         semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", enableDynamicFiltering,
-                                        anyTree(
-                                                tableScan("lineitem", ImmutableMap.of(
-                                                        "LINE_ORDER_KEY", "orderkey"))),
+                                anyTree(
+                                        tableScan("lineitem", ImmutableMap.of(
+                                                "LINE_ORDER_KEY", "orderkey"))),
                                 node(ExchangeNode.class,
                                         project(
                                                 filter("ORDERS_ORDER_KEY = CAST(random(5) AS bigint)",

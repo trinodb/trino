@@ -14,8 +14,8 @@
 package io.trino.plugin.phoenix;
 
 import io.airlift.slice.Slice;
+import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.TrinoException;
@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -55,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
 
 public class PhoenixMetadata
-        extends JdbcMetadata
+        extends DefaultJdbcMetadata
 {
     // Maps to Phoenix's default empty schema
     public static final String DEFAULT_SCHEMA = "default";
@@ -67,7 +68,7 @@ public class PhoenixMetadata
     public PhoenixMetadata(PhoenixClient phoenixClient, JdbcMetadataConfig metadataConfig)
     {
         super(phoenixClient, metadataConfig.isAllowDropTable());
-        this.phoenixClient = requireNonNull(phoenixClient, "client is null");
+        this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
     }
 
     @Override
@@ -83,19 +84,32 @@ public class PhoenixMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
-    {
-        return getTableMetadata(session, table, false);
-    }
-
-    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table, boolean rowkeyRequired)
+    public ConnectorTableSchema getTableSchema(ConnectorSession session, ConnectorTableHandle table)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
-        List<ColumnMetadata> columnMetadata = phoenixClient.getColumns(session, handle).stream()
-                .filter(column -> rowkeyRequired || !ROWKEY.equalsIgnoreCase(column.getColumnName()))
+        return new ConnectorTableSchema(
+                getSchemaTableName(handle),
+                getColumnMetadata(session, handle).stream()
+                        .map(ColumnMetadata::getColumnSchema)
+                        .collect(toImmutableList()));
+    }
+
+    @Override
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
+    {
+        JdbcTableHandle handle = (JdbcTableHandle) table;
+        return new ConnectorTableMetadata(
+                getSchemaTableName(handle),
+                getColumnMetadata(session, handle),
+                phoenixClient.getTableProperties(session, handle));
+    }
+
+    private List<ColumnMetadata> getColumnMetadata(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return phoenixClient.getColumns(session, handle).stream()
+                .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .map(JdbcColumnHandle::getColumnMetadata)
                 .collect(toImmutableList());
-        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata, phoenixClient.getTableProperties(session, handle));
     }
 
     @Override

@@ -40,6 +40,34 @@ At a minimum, ``hive.metastore.uri`` must be configured:
     connector.name=iceberg
     hive.metastore.uri=thrift://localhost:9083
 
+.. list-table:: Iceberg configuration properties
+  :widths: 35, 80, 5
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default
+  * - ``iceberg.file-format``
+    - Define the data storage file format for Iceberg tables.
+      Possible values are
+      
+      * ``PARQUET``
+      * ``ORC``
+    - ``ORC``
+  * - ``iceberg.compression-codec``
+    - The compression codec to be used when writing files.
+      Possible values are
+
+      * ``NONE``
+      * ``SNAPPY``
+      * ``LZ4``
+      * ``ZSTD``
+      * ``GZIP``
+    - ``GZIP``
+  * - ``iceberg.max-partitions-per-writer``
+    - Maximum number of partitions handled per writer.
+    - 100
+
 Partitioned tables
 ------------------
 
@@ -133,7 +161,7 @@ System tables and columns
 -------------------------
 
 The connector supports queries of the table partitions.  Given a table ``customer_accounts``,
-``SELECT * customer_acccounts$partitions`` shows the table partitions, including the minimum
+``SELECT * FROM customer_acccounts$partitions`` shows the table partitions, including the minimum
 and maximum values for the partition columns.
 
 Iceberg table properties

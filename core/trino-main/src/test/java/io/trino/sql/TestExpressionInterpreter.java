@@ -77,8 +77,6 @@ import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
-import static io.trino.sql.planner.ExpressionInterpreter.expressionInterpreter;
-import static io.trino.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.lang.String.format;
@@ -389,16 +387,16 @@ public class TestExpressionInterpreter
         DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC);
         double seconds = dateTime.getMillis() / 1000.0;
 
-        assertOptimizedEquals("extract(YEAR FROM from_unixtime(" + seconds + "))", "2001");
-        assertOptimizedEquals("extract(QUARTER FROM from_unixtime(" + seconds + "))", "3");
-        assertOptimizedEquals("extract(MONTH FROM from_unixtime(" + seconds + "))", "8");
-        assertOptimizedEquals("extract(WEEK FROM from_unixtime(" + seconds + "))", "34");
-        assertOptimizedEquals("extract(DOW FROM from_unixtime(" + seconds + "))", "3");
-        assertOptimizedEquals("extract(DOY FROM from_unixtime(" + seconds + "))", "234");
-        assertOptimizedEquals("extract(DAY FROM from_unixtime(" + seconds + "))", "22");
-        assertOptimizedEquals("extract(HOUR FROM from_unixtime(" + seconds + "))", "3");
-        assertOptimizedEquals("extract(MINUTE FROM from_unixtime(" + seconds + "))", "4");
-        assertOptimizedEquals("extract(SECOND FROM from_unixtime(" + seconds + "))", "5");
+        assertOptimizedEquals("extract(YEAR FROM from_unixtime(" + seconds + ",'UTC'))", "2001");
+        assertOptimizedEquals("extract(QUARTER FROM from_unixtime(" + seconds + ",'UTC'))", "3");
+        assertOptimizedEquals("extract(MONTH FROM from_unixtime(" + seconds + ",'UTC'))", "8");
+        assertOptimizedEquals("extract(WEEK FROM from_unixtime(" + seconds + ",'UTC'))", "34");
+        assertOptimizedEquals("extract(DOW FROM from_unixtime(" + seconds + ",'UTC'))", "3");
+        assertOptimizedEquals("extract(DOY FROM from_unixtime(" + seconds + ",'UTC'))", "234");
+        assertOptimizedEquals("extract(DAY FROM from_unixtime(" + seconds + ",'UTC'))", "22");
+        assertOptimizedEquals("extract(HOUR FROM from_unixtime(" + seconds + ",'UTC'))", "3");
+        assertOptimizedEquals("extract(MINUTE FROM from_unixtime(" + seconds + ",'UTC'))", "4");
+        assertOptimizedEquals("extract(SECOND FROM from_unixtime(" + seconds + ",'UTC'))", "5");
         assertOptimizedEquals("extract(TIMEZONE_HOUR FROM from_unixtime(" + seconds + ", 7, 9))", "7");
         assertOptimizedEquals("extract(TIMEZONE_MINUTE FROM from_unixtime(" + seconds + ", 7, 9))", "9");
 
@@ -1476,10 +1474,13 @@ public class TestExpressionInterpreter
     {
         assertRoundTrip(expression);
 
-        Expression parsedExpression = planExpression(expression);
+        return optimize(planExpression(expression));
+    }
 
+    static Object optimize(Expression parsedExpression)
+    {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, METADATA, SYMBOL_TYPES, parsedExpression);
-        ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
         return interpreter.optimize(symbol -> {
             switch (symbol.getName().toLowerCase(ENGLISH)) {
                 case "bound_integer":
@@ -1513,7 +1514,7 @@ public class TestExpressionInterpreter
     }
 
     // TODO replace that method with io.trino.sql.ExpressionTestUtils.planExpression
-    private static Expression planExpression(@Language("SQL") String expression)
+    static Expression planExpression(@Language("SQL") String expression)
     {
         return TransactionBuilder.transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
@@ -1556,7 +1557,7 @@ public class TestExpressionInterpreter
     private static Object evaluate(Expression expression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, METADATA, SYMBOL_TYPES, expression);
-        ExpressionInterpreter interpreter = expressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes);
 
         return interpreter.evaluate();
     }

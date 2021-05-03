@@ -49,7 +49,7 @@ public class QuantifiedComparisonExpression
     private QuantifiedComparisonExpression(Optional<NodeLocation> location, ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery)
     {
         super(location);
-        this.operator = requireNonNull(operator, "comparisonType is null");
+        this.operator = requireNonNull(operator, "operator is null");
         this.quantifier = requireNonNull(quantifier, "quantifier is null");
         this.value = requireNonNull(value, "value is null");
         this.subquery = requireNonNull(subquery, "subquery is null");

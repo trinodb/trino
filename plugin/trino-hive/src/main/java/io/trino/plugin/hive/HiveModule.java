@@ -52,6 +52,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
@@ -67,8 +68,6 @@ public class HiveModule
     @Override
     public void configure(Binder binder)
     {
-        binder.install(new HiveHdfsModule());
-
         binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveConfig.class);
         configBinder(binder).bindConfig(MetastoreConfig.class);
@@ -88,8 +87,12 @@ public class HiveModule
         newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
-        binder.bind(HiveMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(TransactionalMetadataFactory.class).to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, HiveRedirectionsProvider.class)
+                .setDefault().to(NoneHiveRedirectionsProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, HiveMaterializedViewMetadata.class)
+                .setDefault().to(NoneHiveMaterializedViewMetadata.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, TransactionalMetadataFactory.class)
+                .setDefault().to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generator -> generator.generatedNameOf(HiveSplitManager.class));
@@ -162,7 +165,7 @@ public class HiveModule
         public TypeDeserializer(TypeManager typeManager)
         {
             super(Type.class);
-            this.typeManager = requireNonNull(typeManager, "metadata is null");
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override

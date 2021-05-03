@@ -23,15 +23,14 @@ import java.util.concurrent.Future;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.airlift.testing.Assertions.assertContains;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.split.MockSplitSource.Action.FAIL;
 import static io.trino.split.MockSplitSource.Action.FINISH;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestBufferingSplitSource
 {
@@ -228,13 +227,8 @@ public class TestBufferingSplitSource
     private static void assertFutureFailsWithMockFailure(ListenableFuture<?> future)
     {
         assertTrue(future.isDone());
-        try {
-            future.get();
-            fail();
-        }
-        catch (Exception e) {
-            assertContains(e.getMessage(), "Mock failure");
-        }
+        assertThatThrownBy(future::get)
+                .hasMessageContaining("Mock failure");
     }
 
     private static <T> T requireFutureValue(Future<T> future)
@@ -255,7 +249,7 @@ public class TestBufferingSplitSource
 
         public NextBatchResult(SplitBatch splitBatch)
         {
-            this.splitBatch = requireNonNull(splitBatch, "splits is null");
+            this.splitBatch = requireNonNull(splitBatch, "splitBatch is null");
         }
 
         public NextBatchResult assertSize(int expectedSize)

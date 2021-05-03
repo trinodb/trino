@@ -137,6 +137,7 @@ public class HashBuildAndJoinBenchmark
                 lookupSourceFactoryManager,
                 sourceTypes,
                 false,
+                false,
                 Ints.asList(0),
                 hashChannel,
                 Optional.empty(),

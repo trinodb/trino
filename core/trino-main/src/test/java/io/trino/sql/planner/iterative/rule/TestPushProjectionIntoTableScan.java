@@ -25,8 +25,11 @@ import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTablePartitioning;
+import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
@@ -58,14 +61,17 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TypeProvider.viewOf;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPushProjectionIntoTableScan
 {
@@ -76,6 +82,7 @@ public class TestPushProjectionIntoTableScan
     private static final Type ROW_TYPE = RowType.from(asList(field("a", BIGINT), field("b", BIGINT)));
 
     private static final TableHandle TEST_TABLE_HANDLE = createTableHandle(TEST_SCHEMA, TEST_TABLE);
+    private static final ConnectorPartitioningHandle PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
 
     private static final Session MOCK_SESSION = testSessionBuilder().setCatalog(MOCK_CATALOG).setSchema(TEST_SCHEMA).build();
 
@@ -148,6 +155,10 @@ public class TestPushProjectionIntoTableScan
                     identity, "projected_variable_" + connectorNames.get(identity),
                     dereference, "projected_dereference_" + connectorNames.get(dereference),
                     constant, "projected_constant_" + connectorNames.get(constant));
+            Map<String, ColumnHandle> expectedColumns = newNames.entrySet().stream()
+                    .collect(toImmutableMap(
+                            Map.Entry::getValue,
+                            e -> column(e.getValue(), types.get(e.getKey()))));
 
             ruleTester.assertThat(optimizer)
                     .on(p -> {
@@ -171,12 +182,43 @@ public class TestPushProjectionIntoTableScan
                                             e -> e.getKey().getName(),
                                             e -> expression(symbolReference(e.getValue())))),
                             tableScan(
-                                    equalTo(createTableHandle(TEST_SCHEMA, "projected_" + TEST_TABLE).getConnectorHandle()),
+                                    equalTo(new MockConnectorTableHandle(
+                                            new SchemaTableName(TEST_SCHEMA, "projected_" + TEST_TABLE),
+                                            TupleDomain.all(),
+                                            Optional.of(ImmutableList.copyOf(expectedColumns.values())))),
                                     TupleDomain.all(),
-                                    newNames.entrySet().stream()
-                                            .collect(toImmutableMap(
-                                            Map.Entry::getValue,
-                                                    e -> equalTo(column(e.getValue(), types.get(e.getKey()))))))));
+                                    expectedColumns.entrySet().stream()
+                                            .collect(toImmutableMap(Map.Entry::getKey, e -> equalTo(e.getValue()))))));
+        }
+    }
+
+    @Test
+    public void testPartitioningChanged()
+    {
+        try (RuleTester ruleTester = defaultRuleTester()) {
+            String columnName = "col0";
+            ColumnHandle columnHandle = new TpchColumnHandle(columnName, VARCHAR);
+
+            // Create catalog with applyProjection enabled
+            MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
+            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, factory, ImmutableMap.of());
+
+            Metadata metadata = ruleTester.getMetadata();
+            TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
+            PushProjectionIntoTableScan optimizer = new PushProjectionIntoTableScan(metadata, typeAnalyzer);
+
+            assertThatThrownBy(() -> ruleTester.assertThat(optimizer)
+                    // projection pushdown results in different table handle without partitioning
+                    .on(p -> p.project(
+                            Assignments.of(),
+                            p.tableScan(
+                                    TEST_TABLE_HANDLE,
+                                    ImmutableList.of(p.symbol("col", VARCHAR)),
+                                    ImmutableMap.of(p.symbol("col", VARCHAR), columnHandle),
+                                    Optional.of(true))))
+                    .withSession(MOCK_SESSION)
+                    .matches(anyTree()))
+                    .hasMessage("Partitioning must not change after projection is pushed down");
         }
     }
 
@@ -189,7 +231,20 @@ public class TestPushProjectionIntoTableScan
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder()
                 .withListSchemaNames(connectorSession -> ImmutableList.of(TEST_SCHEMA))
                 .withListTables((connectorSession, schema) -> TEST_SCHEMA.equals(schema) ? ImmutableList.of(TEST_SCHEMA_TABLE) : ImmutableList.of())
-                .withGetColumns(schemaTableName -> metadata);
+                .withGetColumns(schemaTableName -> metadata)
+                .withGetTableProperties((session, tableHandle) -> {
+                    MockConnectorTableHandle mockTableHandle = (MockConnectorTableHandle) tableHandle;
+                    if (mockTableHandle.getTableName().getTableName().equals(TEST_TABLE)) {
+                        return new ConnectorTableProperties(
+                                TupleDomain.all(),
+                                Optional.of(new ConnectorTablePartitioning(PARTITIONING_HANDLE, ImmutableList.of(column("col", VARCHAR)))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of());
+                    }
+
+                    return new ConnectorTableProperties();
+                });
 
         if (applyProjection.isPresent()) {
             builder = builder.withApplyProjection(applyProjection.get());
@@ -209,11 +264,11 @@ public class TestPushProjectionIntoTableScan
         SchemaTableName projectedTableName = new SchemaTableName(
                 inputSchemaTableName.getSchemaName(),
                 "projected_" + inputSchemaTableName.getTableName());
-        MockConnectorTableHandle newTableHandle = new MockConnectorTableHandle(projectedTableName);
 
         // Prepare new column handles
         ImmutableList.Builder<ConnectorExpression> outputExpressions = ImmutableList.builder();
         ImmutableList.Builder<Assignment> outputAssignments = ImmutableList.builder();
+        ImmutableList.Builder<ColumnHandle> projectedColumnsBuilder = ImmutableList.builder();
 
         for (ConnectorExpression projection : projections) {
             String variablePrefix;
@@ -235,9 +290,13 @@ public class TestPushProjectionIntoTableScan
             ColumnHandle newColumnHandle = new TpchColumnHandle(newVariableName, projection.getType());
             outputExpressions.add(newVariable);
             outputAssignments.add(new Assignment(newVariableName, newColumnHandle, projection.getType()));
+            projectedColumnsBuilder.add(newColumnHandle);
         }
 
-        return Optional.of(new ProjectionApplicationResult<>(newTableHandle, outputExpressions.build(), outputAssignments.build()));
+        return Optional.of(new ProjectionApplicationResult<>(
+                new MockConnectorTableHandle(projectedTableName, TupleDomain.all(), Optional.of(projectedColumnsBuilder.build())),
+                outputExpressions.build(),
+                outputAssignments.build()));
     }
 
     private static TableHandle createTableHandle(String schemaName, String tableName)

@@ -36,7 +36,7 @@ final class PlanMatchingState
 
     PlanMatchingState(List<PlanMatchPattern> patterns)
     {
-        requireNonNull(patterns, "matchers is null");
+        requireNonNull(patterns, "patterns is null");
         this.patterns = ImmutableList.copyOf(patterns);
     }
 

@@ -35,8 +35,8 @@ public class PinotColumnHandle
             @JsonProperty("columnName") String columnName,
             @JsonProperty("dataType") Type dataType)
     {
-        this.columnName = requireNonNull(columnName, "column name is null");
-        this.dataType = requireNonNull(dataType, "data type name is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.dataType = requireNonNull(dataType, "dataType is null");
     }
 
     @JsonProperty

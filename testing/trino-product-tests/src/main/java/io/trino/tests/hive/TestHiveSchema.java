@@ -32,7 +32,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.TestGroups.STORAGE_FORMATS;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.util.Objects.requireNonNull;
 
 public class TestHiveSchema
@@ -42,14 +42,14 @@ public class TestHiveSchema
     public void setUp()
     {
         // make sure hive.default schema is not empty
-        onPresto().executeQuery("DROP TABLE IF EXISTS hive.default.test_sys_schema_disabled_table_in_default");
-        onPresto().executeQuery("CREATE TABLE hive.default.test_sys_schema_disabled_table_in_default(a bigint)");
+        onTrino().executeQuery("DROP TABLE IF EXISTS hive.default.test_sys_schema_disabled_table_in_default");
+        onTrino().executeQuery("CREATE TABLE hive.default.test_sys_schema_disabled_table_in_default(a bigint)");
     }
 
     @AfterTestWithContext
     public void tearDown()
     {
-        onPresto().executeQuery("DROP TABLE hive.default.test_sys_schema_disabled_table_in_default");
+        onTrino().executeQuery("DROP TABLE hive.default.test_sys_schema_disabled_table_in_default");
     }
 
     // Note: this test is run on various Hive versions. Hive before 3 did not have `sys` schema, but it does not hurt to run the test there too.
@@ -57,69 +57,69 @@ public class TestHiveSchema
     public void testSysSchemaFilteredOut()
     {
         // SHOW SCHEMAS
-        assertThat(onPresto().executeQuery("SHOW SCHEMAS FROM hive"))
+        assertThat(onTrino().executeQuery("SHOW SCHEMAS FROM hive"))
                 .satisfies(containsFirstColumnValue("information_schema"))
                 .satisfies(containsFirstColumnValue("default"))
                 .doesNotHave(containsFirstColumnValue("sys"));
 
         // SHOW TABLES
-        assertThat(() -> onPresto().executeQuery("SHOW TABLES FROM hive.sys"))
+        assertThat(() -> onTrino().executeQuery("SHOW TABLES FROM hive.sys"))
                 .failsWithMessage("line 1:1: Schema 'sys' does not exist");
 
         // SHOW COLUMNS
-        assertThat(() -> onPresto().executeQuery("SHOW COLUMNS FROM hive.sys.version")) // sys.version exists in Hive 3 and is a view
+        assertThat(() -> onTrino().executeQuery("SHOW COLUMNS FROM hive.sys.version")) // sys.version exists in Hive 3 and is a view
                 .failsWithMessage("line 1:1: Schema 'sys' does not exist");
-        assertThat(() -> onPresto().executeQuery("SHOW COLUMNS FROM hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
+        assertThat(() -> onTrino().executeQuery("SHOW COLUMNS FROM hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
                 .failsWithMessage("line 1:1: Schema 'sys' does not exist");
 
         // DESCRIBE
-        assertThat(() -> onPresto().executeQuery("DESCRIBE hive.sys.version")) // sys.version exists in Hive 3 and is a view
+        assertThat(() -> onTrino().executeQuery("DESCRIBE hive.sys.version")) // sys.version exists in Hive 3 and is a view
                 .failsWithMessage("line 1:1: Schema 'sys' does not exist");
-        assertThat(() -> onPresto().executeQuery("DESCRIBE hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
+        assertThat(() -> onTrino().executeQuery("DESCRIBE hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
                 .failsWithMessage("line 1:1: Schema 'sys' does not exist");
 
         // information_schema.schemata
-        assertThat(onPresto().executeQuery("SELECT schema_name FROM information_schema.schemata"))
+        assertThat(onTrino().executeQuery("SELECT schema_name FROM information_schema.schemata"))
                 .satisfies(containsFirstColumnValue("information_schema"))
                 .satisfies(containsFirstColumnValue("default"))
                 .doesNotHave(containsFirstColumnValue("sys"));
 
         // information_schema.tables
-        assertThat(onPresto().executeQuery("SELECT DISTINCT table_schema FROM information_schema.tables"))
+        assertThat(onTrino().executeQuery("SELECT DISTINCT table_schema FROM information_schema.tables"))
                 .satisfies(containsFirstColumnValue("information_schema"))
                 .satisfies(containsFirstColumnValue("default"))
                 .doesNotHave(containsFirstColumnValue("sys"));
-        assertThat(onPresto().executeQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'sys'"))
+        assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'sys'"))
                 .hasNoRows();
-        assertThat(onPresto().executeQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'sys' AND table_name = 'version'")) // sys.version exists in Hive 3
+        assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'sys' AND table_name = 'version'")) // sys.version exists in Hive 3
                 .hasNoRows();
 
         // information_schema.columns -- it has a special handling path in metadata, which also depends on query predicates
-        assertThat(onPresto().executeQuery("SELECT DISTINCT table_schema FROM information_schema.columns"))
+        assertThat(onTrino().executeQuery("SELECT DISTINCT table_schema FROM information_schema.columns"))
                 .satisfies(containsFirstColumnValue("information_schema"))
                 .satisfies(containsFirstColumnValue("default"))
                 .doesNotHave(containsFirstColumnValue("sys"));
-        assertThat(onPresto().executeQuery("SELECT table_name FROM information_schema.columns WHERE table_schema = 'sys'"))
+        assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.columns WHERE table_schema = 'sys'"))
                 .hasNoRows();
-        assertThat(onPresto().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'sys' AND table_name = 'version'")) // sys.version exists in Hive 3
+        assertThat(onTrino().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'sys' AND table_name = 'version'")) // sys.version exists in Hive 3
                 .hasNoRows();
 
         // information_schema.table_privileges -- it has a special handling path in metadata, which also depends on query predicates
         if (tablePrivilegesSupported()) {
-            assertThat(onPresto().executeQuery("SELECT DISTINCT table_schema FROM information_schema.table_privileges"))
+            assertThat(onTrino().executeQuery("SELECT DISTINCT table_schema FROM information_schema.table_privileges"))
                     .doesNotHave(containsFirstColumnValue("information_schema"))
                     .satisfies(containsFirstColumnValue("default"))
                     .doesNotHave(containsFirstColumnValue("sys"));
-            assertThat(onPresto().executeQuery("SELECT table_name FROM information_schema.table_privileges WHERE table_schema = 'sys'"))
+            assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.table_privileges WHERE table_schema = 'sys'"))
                     .hasNoRows();
-            assertThat(onPresto().executeQuery("SELECT table_name FROM information_schema.table_privileges WHERE table_schema = 'sys' AND table_name = 'version'")) // sys.version exists in Hive 3
+            assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.table_privileges WHERE table_schema = 'sys' AND table_name = 'version'")) // sys.version exists in Hive 3
                     .hasNoRows();
         }
 
         // SELECT
-        assertThat(() -> onPresto().executeQuery("SELECT * FROM hive.sys.version")) // sys.version exists in Hive 3 and is a view
+        assertThat(() -> onTrino().executeQuery("SELECT * FROM hive.sys.version")) // sys.version exists in Hive 3 and is a view
                 .failsWithMessage("line 1:15: Schema 'sys' does not exist");
-        assertThat(() -> onPresto().executeQuery("SELECT * FROM hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
+        assertThat(() -> onTrino().executeQuery("SELECT * FROM hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
                 .failsWithMessage("line 1:15: Schema 'sys' does not exist");
     }
 
@@ -154,65 +154,65 @@ public class TestHiveSchema
                 .collect(toImmutableList());
 
         // SHOW SCHEMAS
-        assertThat(onPresto().executeQuery("SHOW SCHEMAS FROM hive"))
+        assertThat(onTrino().executeQuery("SHOW SCHEMAS FROM hive"))
                 .satisfies(containsFirstColumnValue("information_schema"));
 
         // SHOW TABLES
-        assertThat(onPresto().executeQuery("SHOW TABLES FROM hive.information_schema"))
+        assertThat(onTrino().executeQuery("SHOW TABLES FROM hive.information_schema"))
                 .satisfies(containsFirstColumnValue("tables"))
                 .satisfies(containsFirstColumnValue("columns"))
                 .satisfies(containsFirstColumnValue("table_privileges"))
                 .doesNotHave(containsFirstColumnValue("column_privileges")); // Hive 3's information_schema has column_privileges view
 
         // SHOW COLUMNS
-        assertThat(onPresto().executeQuery("SHOW COLUMNS FROM hive.information_schema.columns"))
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM hive.information_schema.columns"))
                 .satisfies(containsFirstColumnValue("table_catalog"))
                 .satisfies(containsFirstColumnValue("table_schema"))
                 .doesNotHave(containsFirstColumnValue("is_updatable")); // Hive 3's information_schema.columns has is_updatable column
 
-        assertThat(() -> onPresto().executeQuery("SHOW COLUMNS FROM hive.information_schema.column_privileges")) // Hive 3's information_schema has column_privileges view
+        assertThat(() -> onTrino().executeQuery("SHOW COLUMNS FROM hive.information_schema.column_privileges")) // Hive 3's information_schema has column_privileges view
                 .failsWithMessage("line 1:1: Table 'hive.information_schema.column_privileges' does not exist");
 
         // DESCRIBE
-        assertThat(onPresto().executeQuery("DESCRIBE hive.information_schema.columns"))
+        assertThat(onTrino().executeQuery("DESCRIBE hive.information_schema.columns"))
                 .satisfies(containsFirstColumnValue("table_catalog"))
                 .satisfies(containsFirstColumnValue("table_schema"))
                 .satisfies(containsFirstColumnValue("column_name"))
                 .doesNotHave(containsFirstColumnValue("is_updatable")); // Hive 3's information_schema.columns has is_updatable column
 
-        assertThat(() -> onPresto().executeQuery("DESCRIBE hive.information_schema.column_privileges")) // Hive 3's information_schema has column_privileges view
+        assertThat(() -> onTrino().executeQuery("DESCRIBE hive.information_schema.column_privileges")) // Hive 3's information_schema has column_privileges view
                 .failsWithMessage("line 1:1: Table 'hive.information_schema.column_privileges' does not exist");
 
         // information_schema.schemata
-        assertThat(onPresto().executeQuery("SELECT schema_name FROM information_schema.schemata"))
+        assertThat(onTrino().executeQuery("SELECT schema_name FROM information_schema.schemata"))
                 .satisfies(containsFirstColumnValue("information_schema"));
 
         // information_schema.tables
-        assertThat(onPresto().executeQuery("SELECT DISTINCT table_schema FROM information_schema.tables"))
+        assertThat(onTrino().executeQuery("SELECT DISTINCT table_schema FROM information_schema.tables"))
                 .satisfies(containsFirstColumnValue("information_schema"));
-        assertThat(onPresto().executeQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'information_schema'"))
+        assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'information_schema'"))
                 .containsOnly(allInformationSchemaTablesAsRows);
-        Assertions.assertThat(onPresto().executeQuery("SELECT table_schema, table_name FROM information_schema.tables").rows().stream()
+        Assertions.assertThat(onTrino().executeQuery("SELECT table_schema, table_name FROM information_schema.tables").rows().stream()
                 .filter(row -> row.get(0).equals("information_schema"))
                 .map(row -> (String) row.get(1)))
                 .containsOnly(allInformationSchemaTables.toArray(new String[0]));
         // information_schema.column_privileges exists in Hive 3
-        assertThat(onPresto().executeQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'information_schema' AND table_name = 'column_privileges'"))
+        assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'information_schema' AND table_name = 'column_privileges'"))
                 .hasNoRows();
 
         // information_schema.columns -- it has a special handling path in metadata, which also depends on query predicates
-        assertThat(onPresto().executeQuery("SELECT DISTINCT table_schema FROM information_schema.columns"))
+        assertThat(onTrino().executeQuery("SELECT DISTINCT table_schema FROM information_schema.columns"))
                 .satisfies(containsFirstColumnValue("information_schema"));
-        assertThat(onPresto().executeQuery("SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name != 'roles' AND table_name != 'role_authorization_descriptors'"))
+        assertThat(onTrino().executeQuery("SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name != 'roles' AND table_name != 'role_authorization_descriptors'"))
                 .containsOnly(allInformationSchemaTablesExceptRolesAsRows);
-        Assertions.assertThat(onPresto().executeQuery("SELECT table_schema, table_name, column_name FROM information_schema.columns").rows().stream()
+        Assertions.assertThat(onTrino().executeQuery("SELECT table_schema, table_name, column_name FROM information_schema.columns").rows().stream()
                 .filter(row -> row.get(0).equals("information_schema"))
                 .map(row -> (String) row.get(1))
                 .filter(tableName -> !tableName.equals("roles"))
                 .filter(tableName -> !tableName.equals("role_authorization_descriptors"))
                 .distinct())
                 .containsOnly(allInformationSchemaTablesExceptRoles.toArray(new String[0]));
-        assertThat(onPresto().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name = 'columns'"))
+        assertThat(onTrino().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name = 'columns'"))
                 .containsOnly(
                         // In particular, no is_updatable column which exists in Hive 3's information_schema.columns
                         row("table_catalog"),
@@ -224,29 +224,29 @@ public class TestHiveSchema
                         row("is_nullable"),
                         row("data_type"));
         // information_schema.column_privileges exists in Hive 3
-        assertThat(onPresto().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name = 'column_privileges'"))
+        assertThat(onTrino().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name = 'column_privileges'"))
                 .hasNoRows();
 
         // information_schema.table_privileges -- it has a special handling path in metadata, which also depends on query predicates
         if (tablePrivilegesSupported()) {
-            assertThat(onPresto().executeQuery("SELECT DISTINCT table_schema FROM information_schema.table_privileges"))
+            assertThat(onTrino().executeQuery("SELECT DISTINCT table_schema FROM information_schema.table_privileges"))
                     .satisfies(containsFirstColumnValue("default"))
                     .doesNotHave(containsFirstColumnValue("information_schema")); // tables in information_schema have no privileges
-            assertThat(onPresto().executeQuery("SELECT table_name FROM information_schema.table_privileges WHERE table_schema = 'information_schema'"))
+            assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.table_privileges WHERE table_schema = 'information_schema'"))
                     .hasNoRows(); // tables in information_schema have no privileges
-            Assertions.assertThat(onPresto().executeQuery("SELECT table_schema, table_name, privilege_type FROM information_schema.table_privileges").rows().stream()
+            Assertions.assertThat(onTrino().executeQuery("SELECT table_schema, table_name, privilege_type FROM information_schema.table_privileges").rows().stream()
                     .filter(row -> row.get(0).equals("information_schema"))
                     .map(row -> (String) row.get(1)))
                     .isEmpty(); // tables in information_schema have no privileges
-            assertThat(onPresto().executeQuery("SELECT table_name FROM information_schema.table_privileges WHERE table_schema = 'information_schema' AND table_name = 'columns'"))
+            assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.table_privileges WHERE table_schema = 'information_schema' AND table_name = 'columns'"))
                     .hasNoRows();
             // information_schema.column_privileges exists in Hive 3
-            assertThat(onPresto().executeQuery("SELECT table_name FROM information_schema.table_privileges WHERE table_schema = 'information_schema' AND table_name = 'column_privileges'"))
+            assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.table_privileges WHERE table_schema = 'information_schema' AND table_name = 'column_privileges'"))
                     .hasNoRows();
         }
 
         // SELECT
-        assertThat(() -> onPresto().executeQuery("SELECT * FROM hive.information_schema.column_privileges"))  // information_schema.column_privileges exists in Hive 3
+        assertThat(() -> onTrino().executeQuery("SELECT * FROM hive.information_schema.column_privileges"))  // information_schema.column_privileges exists in Hive 3
                 .failsWithMessage("line 1:15: Table 'hive.information_schema.column_privileges' does not exist");
     }
 
@@ -256,7 +256,7 @@ public class TestHiveSchema
     private boolean tablePrivilegesSupported()
     {
         try {
-            onPresto().executeQuery("SELECT * FROM information_schema.table_privileges");
+            onTrino().executeQuery("SELECT * FROM information_schema.table_privileges");
             return true;
         }
         catch (QueryExecutionException e) {

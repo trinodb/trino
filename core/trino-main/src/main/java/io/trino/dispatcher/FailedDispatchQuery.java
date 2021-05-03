@@ -172,6 +172,12 @@ public class FailedDispatchQuery
     }
 
     @Override
+    public Optional<Duration> getPlanningTime()
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public Optional<DateTime> getEndTime()
     {
         return Optional.ofNullable(basicQueryInfo.getQueryStats().getEndTime());

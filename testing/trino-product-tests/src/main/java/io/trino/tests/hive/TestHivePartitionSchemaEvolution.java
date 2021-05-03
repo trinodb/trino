@@ -32,7 +32,7 @@ import static io.trino.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.hive.util.TemporaryHiveTable.temporaryHiveTable;
 import static io.trino.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestHivePartitionSchemaEvolution
@@ -48,9 +48,8 @@ public class TestHivePartitionSchemaEvolution
     public void useColumnMappingByName()
             throws SQLException
     {
-        setSessionProperty(onPresto().getConnection(), "hive.parquet_use_column_names", "true");
-        setSessionProperty(onPresto().getConnection(), "hive.orc_use_column_names", "true");
-        setSessionProperty(onPresto().getConnection(), "hive.partition_use_column_names", "true");
+        setSessionProperty(onTrino().getConnection(), "hive.parquet_use_column_names", "true");
+        setSessionProperty(onTrino().getConnection(), "hive.orc_use_column_names", "true");
     }
 
     @Test
@@ -109,7 +108,7 @@ public class TestHivePartitionSchemaEvolution
     private void testEvolution(TemporaryHiveTable table, String sql, QueryAssert.Row row)
     {
         if (tryExecuteOnHive(format(sql, table.getName()))) {
-            assertThat(onPresto().executeQuery("SELECT * FROM " + table.getName()))
+            assertThat(onTrino().executeQuery("SELECT * FROM " + table.getName()))
                     .contains(row);
         }
     }
@@ -148,7 +147,7 @@ public class TestHivePartitionSchemaEvolution
                 format));
         TemporaryHiveTable temporaryHiveTable = temporaryHiveTable(tableName);
         try {
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (1, 1.1, 'jeden', 1)", tableName));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 1.1, 'jeden', 1)", tableName));
         }
         catch (Exception e) {
             temporaryHiveTable.closeQuietly(e);

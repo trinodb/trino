@@ -88,7 +88,9 @@ Transactional and ACID tables
 
 When connecting to a Hive metastore version 3.x, the Hive connector supports
 reading from and writing to insert-only and ACID tables, with full support for
-partitioning and bucketing. Row-level deletes are supported for ACID tables.
+partitioning and bucketing. Row-level DELETE is supported for ACID tables,
+as well as SQL UPDATE.  UPDATE of partition key columns and bucket columns is
+not supported.
 
 ACID tables created with `Hive Streaming Ingest <https://cwiki.apache.org/confluence/display/Hive/Streaming+Data+Ingest>`_
 are not supported.
@@ -98,6 +100,74 @@ Materialized views
 
 The Hive connector supports reading from Hive materialized views.
 In Trino, these views are presented as regular, read-only tables.
+
+.. _hive-views:
+
+Hive views
+----------
+
+Hive views are defined in HiveQL and stored in the Hive Metastore Service. They
+are analyzed to allow read access to the data.
+
+The Hive connector includes support for reading Hive views with three different
+modes.
+
+* Disabled
+* Legacy
+* Experimental
+
+You can configure the behavior in your catalog properties file.
+
+**Disabled**
+
+The default behavior is to ignore Hive views. This means that your business
+logic and data encoded in the views is not available in Trino.
+
+**Legacy**
+
+A very simple implementation to execute Hive views, and therefore allow read
+access to the data in Trino, can be enabled with
+``hive.translate-hive-views=true`` and
+``hive.legacy-hive-view-translation=true``.
+
+For temporary usage of the legacy behavior for a specific catalog, you can set
+the ``legacy_hive_view_translation`` :doc:`catalog session property
+</sql/set-session>` to ``true``.
+
+This legacy behavior interprets any HiveQL query that defines a view as if it
+is written in SQL. It does not do any translation, but instead relies on the
+fact that HiveQL is very similar to SQL.
+
+This works for very simple Hive views, but can lead to problems for more complex
+queries. For example, if a HiveQL function has an identical signature but
+different behaviors to the SQL version, the returned results may differ. In more
+extreme cases the queries might fail, or not even be able to be parsed and
+executed.
+
+**Experimental**
+
+The new behavior is better engineered, and has the potential to become a lot
+more powerful than the legacy implementation. It can analyze, process, and
+rewrite Hive views and contained expressions and statements.
+
+It is considered an experimental feature and continues to change with each
+release. However it is already suitable for many use cases, and usage is
+encouraged.
+
+You can enable the experimental behavior with
+``hive.translate-hive-views=true``.
+
+Keep in mind that numerous features are not yet implemented when experimenting
+with this feature. The following is an incomplete list of **missing**
+functionality:
+
+* HiveQL ``current_date``, ``current_timestamp``, and others
+* Hive function calls including ``translate()``, window functions and others
+* Common table expressions and simple case expressions
+* Honor timestamp precision setting
+* Support all Hive data types and correct mapping to Trino types
+* Ability to process custom UDFs
+
 
 Configuration
 -------------
@@ -283,19 +353,13 @@ Property Name                                      Description                  
 ``hive.file-status-cache-expire-time``             How long a cached directory listing should be considered     ``1m``
                                                    valid.
 
-``hive.parquet.time-zone``                         Adjusts timestamp values to a specific time zone.            JVM default
-                                                   For Hive 3.1+, this should be set to UTC.
-
 ``hive.rcfile.time-zone``                          Adjusts binary encoded timestamp values to a specific        JVM default
                                                    time zone. For Hive 3.1+, this should be set to UTC.
 
-``hive.orc.time-zone``                             Sets the default time zone for legacy ORC files that did     JVM default
-                                                   not declare a time zone.
-
-``hive.timestamp-precision``                       Specifies the precision to use for columns of type           ``MILLISECONDS``
+``hive.timestamp-precision``                       Specifies the precision to use for Hive columns of type      ``MILLISECONDS``
                                                    ``timestamp``. Possible values are ``MILLISECONDS``,
-                                                   ``MICROSECONDS`` and ``NANOSECONDS``. Write operations
-                                                   are only supported for ``MILLISECONDS``.
+                                                   ``MICROSECONDS`` and ``NANOSECONDS``. Values with higher
+                                                   precision than configured are rounded.
 
 ``hive.temporary-staging-directory-enabled``       Controls whether the temporary staging directory configured  ``true``
                                                    at ``hive.temporary-staging-directory-path`` should be
@@ -307,16 +371,63 @@ Property Name                                      Description                  
                                                    will be used for staging while writing sorted tables which
                                                    can be inefficient when writing to object stores like S3.
 
-``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/${USER}``
+``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/presto-${USER}``
                                                    is used for write operations. The ``${USER}`` placeholder
                                                    can be used to use a different location for each user.
 
-``hive.translate-hive-views``                      Enable translation for Hive views. (experimental)            ``false``
+``hive.translate-hive-views``                      Enable translation for :ref:`Hive views <hive-views>`.       ``false``
 
-``hive.legacy-hive-view-translation``              Use the legacy algorithm to translate Hive views. You can    ``false``
-                                                   alternatively set the ``legacy_hive_view_translation``
-                                                   session property to ``true``.
+``hive.legacy-hive-view-translation``              Use the legacy algorithm to translate                        ``false``
+                                                   :ref:`Hive views <hive-views>`. You can use the
+                                                   ``legacy_hive_view_translation`` catalog session property
+                                                   for temporary, catalog specific use.
+
+``hive.parallel-partitioned-bucketed-writes``      Improve parallelism of partitioned and bucketed table        ``true``
+                                                   writes. When disabled, the number of writing threads
+                                                   is limited to number of buckets.
 ================================================== ============================================================ ============
+
+ORC format configuration properties
+-----------------------------------
+
+The following properties are used to configure the read and write operations
+with ORC files performed by the Hive connector.
+
+.. list-table:: ORC format configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - ``hive.orc.time-zone``
+      - Sets the default time zone for legacy ORC files that did not declare a
+        time zone.
+      - JVM default
+    * - ``hive.orc.use-columns-names``
+      - Access ORC columns by name. By default, columns in ORC files are
+        accessed by their ordinal position in the Hive table definition. The
+        equivalent catalog session property is ``orc_use_column_names``.
+      - ``false``
+
+Parquet format configuration properties
+---------------------------------------
+
+The following properties are used to configure the read and write operations
+with Parquet files performed by the Hive connector.
+
+.. list-table:: Parquet format configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - ``hive.parquet.time-zone``
+      - Adjusts timestamp values to a specific time zone. For Hive 3.1+, set
+        this to UTC.
+      - JVM default
+    * - ``hive.parquet.use-columns-names``
+      - Access Parquet columns by name by default. Set this property to
+        ``false`` to access columns by their ordinal position in the Hive table
+        definition. The equivalent catalog session property is
+        ``parquet_use_column_names``.
+      - ``true``
+
 
 Metastore configuration properties
 ----------------------------------
@@ -453,6 +564,12 @@ Property Name                                        Description
 
 ``hive.metastore.glue.get-partition-threads``        Number of threads for parallel partition fetches from Glue,
                                                      defaults to ``20``.
+
+``hive.metastore.glue.read-statistics-threads``      Number of threads for parallel statistic fetches from Glue,
+                                                     defaults to ``1``.
+
+``hive.metastore.glue.write-statistics-threads``     Number of threads for parallel statistic writes to Glue,
+                                                     defaults to ``1``.
 ==================================================== ============================================================
 
 Google Cloud Storage configuration
@@ -872,8 +989,13 @@ Drop a schema::
 Hive connector limitations
 --------------------------
 
-* :doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
 * :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
+* :doc:`/sql/delete` applied to non-transactional tables is only supported if the ``WHERE`` clause matches entire partitions.
+  Transactional Hive tables with format ORC support "row-by-row" deletion, in which the ``WHERE`` clause may match arbitrary
+  sets of rows.
+* :doc:`/sql/update` is only supported for transactional Hive tables with format ORC.  ``UPDATE`` of partition or bucket
+  columns is not supported.
+
 
 Hive 3 related limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

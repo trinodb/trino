@@ -31,6 +31,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.UncheckedIOException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
@@ -49,8 +50,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestGenericPartitioningSpiller
 {
@@ -167,13 +168,9 @@ public class TestGenericPartitioningSpiller
             readingInProgress = spiller.getSpilledPages(0);
         }
 
-        try {
-            readingInProgress.hasNext();
-            fail("Iterator.hasNext() should fail since underlying resources are closed");
-        }
-        catch (UncheckedIOException ignored) {
-            // expected
-        }
+        assertThatThrownBy(readingInProgress::hasNext)
+                .isInstanceOf(UncheckedIOException.class)
+                .hasCauseInstanceOf(ClosedChannelException.class);
     }
 
     @Test

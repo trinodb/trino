@@ -55,7 +55,7 @@ public class HiveLocationService
     @Override
     public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation)
     {
-        HdfsContext context = new HdfsContext(session, schemaName, tableName);
+        HdfsContext context = new HdfsContext(session);
         Path targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
 
         // verify the target directory for the table
@@ -76,7 +76,7 @@ public class HiveLocationService
     @Override
     public LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table)
     {
-        HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        HdfsContext context = new HdfsContext(session);
         Path targetPath = new Path(table.getStorage().getLocation());
 
         if (shouldUseTemporaryDirectory(session, context, targetPath, Optional.empty()) && !isTransactionalTable(table.getParameters())) {
@@ -121,20 +121,7 @@ public class HiveLocationService
             // existing partition
             WriteMode writeMode = locationHandle.getWriteMode();
             Path targetPath = new Path(partition.get().getStorage().getLocation());
-
-            Path writePath;
-            switch (writeMode) {
-                case STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
-                    writePath = new Path(locationHandle.getWritePath(), partitionName);
-                    break;
-                case DIRECT_TO_TARGET_EXISTING_DIRECTORY:
-                    writePath = targetPath;
-                    break;
-                case DIRECT_TO_TARGET_NEW_DIRECTORY:
-                default:
-                    throw new UnsupportedOperationException(format("inserting into existing partition is not supported for %s", writeMode));
-            }
-
+            Path writePath = getPartitionWritePath(locationHandle, partitionName, writeMode, targetPath);
             return new WriteInfo(targetPath, writePath, writeMode);
         }
         else {
@@ -144,5 +131,18 @@ public class HiveLocationService
                     new Path(locationHandle.getWritePath(), partitionName),
                     locationHandle.getWriteMode());
         }
+    }
+
+    private Path getPartitionWritePath(LocationHandle locationHandle, String partitionName, WriteMode writeMode, Path targetPath)
+    {
+        switch (writeMode) {
+            case STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
+                return new Path(locationHandle.getWritePath(), partitionName);
+            case DIRECT_TO_TARGET_EXISTING_DIRECTORY:
+                return targetPath;
+            case DIRECT_TO_TARGET_NEW_DIRECTORY:
+                throw new UnsupportedOperationException(format("inserting into existing partition is not supported for %s", writeMode));
+        }
+        throw new UnsupportedOperationException("Unexpected write mode: " + writeMode);
     }
 }

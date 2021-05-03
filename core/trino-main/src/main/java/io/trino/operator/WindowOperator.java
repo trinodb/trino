@@ -28,6 +28,8 @@ import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.window.FrameInfo;
 import io.trino.operator.window.FramedWindowFunction;
+import io.trino.operator.window.Partitioner;
+import io.trino.operator.window.PartitionerSupplier;
 import io.trino.operator.window.WindowPartition;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -45,7 +47,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
@@ -86,6 +88,8 @@ public class WindowOperator
         private final boolean spillEnabled;
         private final SpillerFactory spillerFactory;
         private final OrderingCompiler orderingCompiler;
+        private final List<Type> measureTypes;
+        private final PartitionerSupplier partitionerSupplier;
 
         public WindowOperatorFactory(
                 int operatorId,
@@ -102,7 +106,9 @@ public class WindowOperator
                 PagesIndex.Factory pagesIndexFactory,
                 boolean spillEnabled,
                 SpillerFactory spillerFactory,
-                OrderingCompiler orderingCompiler)
+                OrderingCompiler orderingCompiler,
+                List<Type> measureTypes,
+                PartitionerSupplier partitionerSupplier)
         {
             requireNonNull(sourceTypes, "sourceTypes is null");
             requireNonNull(planNodeId, "planNodeId is null");
@@ -119,6 +125,8 @@ public class WindowOperator
             checkArgument(sortChannels.size() == sortOrder.size(), "Must have same number of sort channels as sort orders");
             checkArgument(preSortedChannelPrefix <= sortChannels.size(), "Cannot have more pre-sorted channels than specified sorted channels");
             checkArgument(preSortedChannelPrefix == 0 || ImmutableSet.copyOf(preGroupedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedChannelPrefix can only be greater than zero if all partition channels are pre-grouped");
+            requireNonNull(measureTypes, "measureTypes is null");
+            requireNonNull(partitionerSupplier, "partitionerSupplier is null");
 
             this.pagesIndexFactory = pagesIndexFactory;
             this.operatorId = operatorId;
@@ -135,6 +143,8 @@ public class WindowOperator
             this.spillEnabled = spillEnabled;
             this.spillerFactory = spillerFactory;
             this.orderingCompiler = orderingCompiler;
+            this.measureTypes = measureTypes;
+            this.partitionerSupplier = partitionerSupplier;
         }
 
         @Override
@@ -157,7 +167,9 @@ public class WindowOperator
                     pagesIndexFactory,
                     spillEnabled,
                     spillerFactory,
-                    orderingCompiler);
+                    orderingCompiler,
+                    measureTypes,
+                    partitionerSupplier.get());
         }
 
         @Override
@@ -184,7 +196,9 @@ public class WindowOperator
                     pagesIndexFactory,
                     spillEnabled,
                     spillerFactory,
-                    orderingCompiler);
+                    orderingCompiler,
+                    measureTypes,
+                    partitionerSupplier);
         }
     }
 
@@ -200,6 +214,8 @@ public class WindowOperator
     private final WorkProcessor<Page> outputPages;
     private final PageBuffer pageBuffer = new PageBuffer();
 
+    private final Partitioner partitioner;
+
     public WindowOperator(
             OperatorContext operatorContext,
             List<Type> sourceTypes,
@@ -214,7 +230,9 @@ public class WindowOperator
             PagesIndex.Factory pagesIndexFactory,
             boolean spillEnabled,
             SpillerFactory spillerFactory,
-            OrderingCompiler orderingCompiler)
+            OrderingCompiler orderingCompiler,
+            List<Type> measureTypes,
+            Partitioner partitioner)
     {
         requireNonNull(operatorContext, "operatorContext is null");
         requireNonNull(outputChannels, "outputChannels is null");
@@ -229,6 +247,8 @@ public class WindowOperator
         checkArgument(sortChannels.size() == sortOrder.size(), "Must have same number of sort channels as sort orders");
         checkArgument(preSortedChannelPrefix <= sortChannels.size(), "Cannot have more pre-sorted channels than specified sorted channels");
         checkArgument(preSortedChannelPrefix == 0 || ImmutableSet.copyOf(preGroupedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedChannelPrefix can only be greater than zero if all partition channels are pre-grouped");
+        requireNonNull(measureTypes, "measureTypes is null");
+        requireNonNull(partitioner, "partitioner is null");
 
         this.operatorContext = operatorContext;
         this.outputChannels = Ints.toArray(outputChannels);
@@ -236,12 +256,15 @@ public class WindowOperator
                 .map(functionDefinition -> new FramedWindowFunction(functionDefinition.createWindowFunction(), functionDefinition.getFrameInfo()))
                 .collect(toImmutableList());
 
-        this.outputTypes = Stream.concat(
-                outputChannels.stream()
-                        .map(sourceTypes::get),
-                windowFunctionDefinitions.stream()
-                        .map(WindowFunctionDefinition::getType))
-                .collect(toImmutableList());
+        ImmutableList.Builder<Type> outputTypes = ImmutableList.builder();
+        outputTypes.addAll(outputChannels.stream()
+                .map(sourceTypes::get)
+                .collect(Collectors.toList()));
+        outputTypes.addAll(measureTypes);
+        outputTypes.addAll(windowFunctionDefinitions.stream()
+                .map(WindowFunctionDefinition::getType)
+                .collect(Collectors.toList()));
+        this.outputTypes = outputTypes.build();
 
         List<Integer> unGroupedPartitionChannels = partitionChannels.stream()
                 .filter(channel -> !preGroupedChannels.contains(channel))
@@ -313,6 +336,8 @@ public class WindowOperator
 
         windowInfo = new WindowInfo.DriverWindowInfoBuilder();
         operatorContext.setInfoSupplier(this::getWindowInfo);
+
+        this.partitioner = partitioner;
     }
 
     private OperatorInfo getWindowInfo()
@@ -561,7 +586,15 @@ public class WindowOperator
 
                 int partitionEnd = findGroupEnd(pagesIndex, pagesIndexWithHashStrategies.unGroupedPartitionHashStrategy, partitionStart);
 
-                WindowPartition partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, pagesIndexWithHashStrategies.peerGroupHashStrategy, pagesIndexWithHashStrategies.frameBoundComparators);
+                WindowPartition partition = partitioner.createPartition(
+                        pagesIndex,
+                        partitionStart,
+                        partitionEnd,
+                        outputChannels,
+                        windowFunctions,
+                        pagesIndexWithHashStrategies.peerGroupHashStrategy,
+                        pagesIndexWithHashStrategies.frameBoundComparators);
+
                 windowInfo.addPartition(partition);
                 partitionStart = partitionEnd;
                 return ProcessState.ofResult(partition);

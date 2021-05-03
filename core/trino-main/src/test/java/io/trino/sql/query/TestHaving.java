@@ -24,7 +24,7 @@ public class TestHaving
     {
         try (QueryAssertions queryAssertions = new QueryAssertions()) {
             assertThat(queryAssertions.query(
-                            "SELECT 'x' FROM (VALUES 1, 1, 2) t(a) HAVING true"))
+                    "SELECT 'x' FROM (VALUES 1, 1, 2) t(a) HAVING true"))
                     .matches("VALUES 'x'");
         }
     }

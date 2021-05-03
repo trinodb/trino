@@ -19,6 +19,7 @@ import io.trino.plugin.kafka.encoder.RowEncoder;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -52,14 +53,16 @@ public class KafkaPageSink
             List<KafkaColumnHandle> columns,
             RowEncoder keyEncoder,
             RowEncoder messageEncoder,
-            KafkaProducerFactory producerFactory)
+            KafkaProducerFactory producerFactory,
+            ConnectorSession session)
     {
         this.topicName = requireNonNull(topicName, "topicName is null");
-        this.columns = requireNonNull(ImmutableList.copyOf(columns), "columns is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.keyEncoder = requireNonNull(keyEncoder, "keyEncoder is null");
         this.messageEncoder = requireNonNull(messageEncoder, "messageEncoder is null");
         requireNonNull(producerFactory, "producerFactory is null");
-        this.producer = producerFactory.create();
+        requireNonNull(session, "session is null");
+        this.producer = producerFactory.create(session);
         this.producerCallback = new ProducerCallback();
         this.expectedWrittenBytes = 0;
     }

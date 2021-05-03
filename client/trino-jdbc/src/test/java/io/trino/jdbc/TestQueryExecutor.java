@@ -29,6 +29,7 @@ import java.util.Optional;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.client.NodeVersion.UNKNOWN;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -57,7 +58,7 @@ public class TestQueryExecutor
     public void testGetServerInfo()
             throws Exception
     {
-        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")));
+        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(new Duration(2, MINUTES)));
 
         server.enqueue(new MockResponse()
                 .addHeader(CONTENT_TYPE, "application/json")
@@ -67,7 +68,7 @@ public class TestQueryExecutor
 
         ServerInfo actual = executor.getServerInfo(server.url("/v1/info").uri());
         assertEquals(actual.getEnvironment(), "test");
-        assertEquals(actual.getUptime(), Optional.of(Duration.valueOf("2m")));
+        assertEquals(actual.getUptime(), Optional.of(new Duration(2, MINUTES)));
 
         assertEquals(server.getRequestCount(), 1);
         assertEquals(server.takeRequest().getPath(), "/v1/info");

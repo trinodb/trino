@@ -23,6 +23,7 @@ import org.intellij.lang.annotations.Language;
 import javax.inject.Inject;
 
 import java.time.temporal.ChronoUnit;
+import java.util.regex.Pattern;
 
 public class HiveProductTest
         extends ProductTest
@@ -31,7 +32,10 @@ public class HiveProductTest
 
     static final String ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE = "https://github.com/trinodb/trino/issues/4936";
     @Language("RegExp")
-    static final String ERROR_COMMITTING_WRITE_TO_HIVE_MATCH = "Error committing write to Hive(?s:.*)" +
+    static final String ERROR_COMMITTING_WRITE_TO_HIVE_MATCH =
+            // "Error committing write to Hive" is present depending on when the exception is thrown.
+            // It may be absent when the underlying problem manifest earlier (e.g. during RecordFileWriter.appendRow vs RecordFileWriter.commit).
+
             // "could only be written to 0 of the 1 minReplication" is the error wording used by e.g. HDP 3
             "(could only be replicated to 0 nodes instead of minReplication|could only be written to 0 of the 1 minReplication)";
 
@@ -43,8 +47,9 @@ public class HiveProductTest
 
     private static boolean isErrorCommittingToHive(Throwable throwable)
     {
-        return Throwables.getCausalChain(throwable).stream()
-                .anyMatch(exception -> exception.getMessage().matches(ERROR_COMMITTING_WRITE_TO_HIVE_MATCH));
+        return Pattern.compile(ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+                .matcher(Throwables.getStackTraceAsString(throwable))
+                .find();
     }
 
     @Inject

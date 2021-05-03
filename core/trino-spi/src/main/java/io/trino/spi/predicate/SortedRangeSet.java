@@ -26,7 +26,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -149,8 +148,6 @@ public final class SortedRangeSet
             return of(type, first);
         }
 
-        MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
-
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1 + rest.length);
         checkNotNaN(type, first);
         writeNativeValue(type, blockBuilder, first);
@@ -159,6 +156,29 @@ public final class SortedRangeSet
             writeNativeValue(type, blockBuilder, value);
         }
         Block block = blockBuilder.build();
+
+        return fromUnorderedValuesBlock(type, block);
+    }
+
+    static SortedRangeSet of(Type type, Collection<?> values)
+    {
+        if (values.isEmpty()) {
+            return none(type);
+        }
+
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, values.size());
+        for (Object value : values) {
+            checkNotNaN(type, value);
+            writeNativeValue(type, blockBuilder, value);
+        }
+        Block block = blockBuilder.build();
+
+        return fromUnorderedValuesBlock(type, block);
+    }
+
+    private static SortedRangeSet fromUnorderedValuesBlock(Type type, Block block)
+    {
+        MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
 
         List<Integer> indexes = new ArrayList<>(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -223,14 +243,14 @@ public final class SortedRangeSet
                 new RunLengthEncodedBlock(block, 2));
     }
 
-    /**
-     * Provided Ranges are unioned together to form the SortedRangeSet
-     */
     static SortedRangeSet copyOf(Type type, Iterable<Range> ranges)
     {
         return new Builder(type).addAll(ranges).build();
     }
 
+    /**
+     * Provided Ranges are unioned together to form the SortedRangeSet
+     */
     public static SortedRangeSet copyOf(Type type, List<Range> ranges)
     {
         return copyOf(type, (Iterable<Range>) ranges);
@@ -620,7 +640,7 @@ public final class SortedRangeSet
             }
 
             if (current != null) {
-                Optional<RangeView> merged = current.tryOverlapWithNext(next);
+                Optional<RangeView> merged = current.tryMergeWithNext(next);
                 if (merged.isPresent()) {
                     current = merged.get();
                 }
@@ -794,11 +814,6 @@ public final class SortedRangeSet
         return TRUE.equals(equal);
     }
 
-    private int compareValues(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        return compareValues(comparisonOperator, leftBlock, leftPosition, rightBlock, rightPosition);
-    }
-
     private static int compareValues(MethodHandle comparisonOperator, Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         try {
@@ -812,30 +827,27 @@ public final class SortedRangeSet
     @Override
     public String toString()
     {
-        return new StringJoiner(", ", SortedRangeSet.class.getSimpleName() + "[", "]")
-                .add("type=" + type)
-                .add("ranges=" + getRangeCount())
-                .add(formatRanges(10))
-                .toString();
-    }
-
-    private String formatRanges(int limit)
-    {
-        return Stream.concat(
-                IntStream.range(0, min(getRangeCount(), limit))
-                        .mapToObj(this::getRangeView)
-                        .map(RangeView::formatRange),
-                limit < getRangeCount() ? Stream.of("...") : Stream.of())
-                .collect(joining(", ", "{", "}"));
+        return toString(ToStringSession.INSTANCE);
     }
 
     @Override
     public String toString(ConnectorSession session)
     {
-        return IntStream.range(0, getRangeCount())
-                .mapToObj(this::getRange)
-                .map(range -> range.toString(session))
-                .collect(joining(", ", "[", "]"));
+        return new StringJoiner(", ", SortedRangeSet.class.getSimpleName() + "[", "]")
+                .add("type=" + type)
+                .add("ranges=" + getRangeCount())
+                .add(formatRanges(session, 10))
+                .toString();
+    }
+
+    private String formatRanges(ConnectorSession session, int limit)
+    {
+        return Stream.concat(
+                IntStream.range(0, min(getRangeCount(), limit))
+                        .mapToObj(this::getRangeView)
+                        .map(rangeView -> rangeView.formatRange(session)),
+                limit < getRangeCount() ? Stream.of("...") : Stream.of())
+                .collect(joining(", ", "{", "}"));
     }
 
     static class Builder
@@ -873,7 +885,7 @@ public final class SortedRangeSet
 
         SortedRangeSet build()
         {
-            ranges.sort(Comparator.comparing(Range::getLow));
+            ranges.sort(Range::compareLowBound);
 
             List<Range> result = new ArrayList<>(ranges.size());
 
@@ -884,8 +896,9 @@ public final class SortedRangeSet
                     continue;
                 }
 
-                if (current.overlaps(next) || current.getHigh().isAdjacent(next.getLow())) {
-                    current = current.span(next);
+                Optional<Range> merged = current.tryMergeWithNext(next);
+                if (merged.isPresent()) {
+                    current = merged.get();
                 }
                 else {
                     result.add(current);
@@ -910,20 +923,10 @@ public final class SortedRangeSet
 
     private static void writeRange(Type type, BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, Range range)
     {
-        inclusive[2 * rangeIndex] = range.getLow().getBound() == Marker.Bound.EXACTLY;
-        inclusive[2 * rangeIndex + 1] = range.getHigh().getBound() == Marker.Bound.EXACTLY;
-        if (range.getLow().getValueBlock().isEmpty()) {
-            blockBuilder.appendNull();
-        }
-        else {
-            type.appendTo(range.getLow().getValueBlock().get(), 0, blockBuilder);
-        }
-        if (range.getHigh().getValueBlock().isEmpty()) {
-            blockBuilder.appendNull();
-        }
-        else {
-            type.appendTo(range.getHigh().getValueBlock().get(), 0, blockBuilder);
-        }
+        inclusive[2 * rangeIndex] = range.isLowInclusive();
+        inclusive[2 * rangeIndex + 1] = range.isHighInclusive();
+        writeNativeValue(type, blockBuilder, range.getLowValue().orElse(null));
+        writeNativeValue(type, blockBuilder, range.getHighValue().orElse(null));
     }
 
     private static void writeRange(Type type, BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, RangeView range)
@@ -977,26 +980,9 @@ public final class SortedRangeSet
 
         public Range toRange()
         {
-            if (isLowUnbounded() && isHighUnbounded()) {
-                return Range.all(type);
-            }
-
             Object low = readNativeValue(type, lowValueBlock, lowValuePosition);
             Object high = readNativeValue(type, highValueBlock, highValuePosition);
-
-            if (isLowUnbounded()) {
-                if (highInclusive) {
-                    return Range.lessThanOrEqual(type, high);
-                }
-                return Range.lessThan(type, high);
-            }
-            if (isHighUnbounded()) {
-                if (lowInclusive) {
-                    return Range.greaterThanOrEqual(type, low);
-                }
-                return Range.greaterThan(type, low);
-            }
-            return Range.range(type, low, lowInclusive, high, highInclusive);
+            return new Range(type, lowInclusive, Optional.ofNullable(low), highInclusive, Optional.ofNullable(high));
         }
 
         @Override
@@ -1043,7 +1029,7 @@ public final class SortedRangeSet
          * Returns unioned range if {@code this} and {@code next} overlap or are adjacent.
          * The {@code next} lower bound must not be before {@code this} lower bound.
          */
-        public Optional<RangeView> tryOverlapWithNext(RangeView next)
+        public Optional<RangeView> tryMergeWithNext(RangeView next)
         {
             if (this.compareTo(next) > 0) {
                 throw new IllegalArgumentException("next before this");
@@ -1053,13 +1039,17 @@ public final class SortedRangeSet
                 return Optional.of(this);
             }
 
+            boolean merge;
             if (next.isLowUnbounded()) {
-                return Optional.of(next);
+                // both are low-unbounded
+                merge = true;
             }
-
-            int compare = compareValues(comparisonOperator, this.highValueBlock, this.highValuePosition, next.lowValueBlock, next.lowValuePosition);
-            if (compare > 0  // overlap
-                    || (compare == 0 && (this.highInclusive || next.lowInclusive))) { // adjacent
+            else {
+                int compare = compareValues(comparisonOperator, this.highValueBlock, this.highValuePosition, next.lowValueBlock, next.lowValuePosition);
+                merge = compare > 0  // overlap
+                        || compare == 0 && (this.highInclusive || next.lowInclusive); // adjacent
+            }
+            if (merge) {
                 int compareHighBound = compareHighBound(next);
                 return Optional.of(new RangeView(
                         this.type,
@@ -1154,18 +1144,18 @@ public final class SortedRangeSet
         public String toString()
         {
             return new StringJoiner(", ", RangeView.class.getSimpleName() + "[", "]")
-                    .add(formatRange())
+                    .add(formatRange(ToStringSession.INSTANCE))
                     .add("type=" + type.getDisplayName())
                     .toString();
         }
 
-        public String formatRange()
+        public String formatRange(ConnectorSession session)
         {
             return format(
                     "%s%s,%s%s",
                     lowInclusive ? "[" : "(",
-                    type.getObjectValue(ToStringSession.INSTANCE, lowValueBlock, lowValuePosition),
-                    type.getObjectValue(ToStringSession.INSTANCE, highValueBlock, highValuePosition),
+                    type.getObjectValue(session, lowValueBlock, lowValuePosition),
+                    type.getObjectValue(session, highValueBlock, highValuePosition),
                     highInclusive ? "]" : ")");
         }
     }

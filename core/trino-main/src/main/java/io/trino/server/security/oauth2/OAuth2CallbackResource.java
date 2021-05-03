@@ -20,14 +20,15 @@ import io.trino.server.ui.OAuth2WebUiInstalled;
 import io.trino.server.ui.OAuthWebUiCookie;
 
 import javax.inject.Inject;
+import javax.ws.rs.CookieParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
@@ -35,8 +36,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.trino.server.security.oauth2.NonceCookie.NONCE_COOKIE;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.TEXT_HTML;
 
@@ -68,18 +71,30 @@ public class OAuth2CallbackResource
             @QueryParam("error") String error,
             @QueryParam("error_description") String errorDescription,
             @QueryParam("error_uri") String errorUri,
-            @Context UriInfo uriInfo,
-            @Context SecurityContext securityContext)
+            @CookieParam(NONCE_COOKIE) Cookie nonce,
+            @Context UriInfo uriInfo)
     {
+        Optional<UUID> authId;
+        try {
+            authId = service.getAuthId(state);
+        }
+        catch (ChallengeFailedException e) {
+            LOG.debug(e, "Authentication response could not be verified: state=%s", state);
+            return Response.ok()
+                    .entity(service.getInternalFailureHtml("Authentication response could not be verified"))
+                    .build();
+        }
+
         // Note: the Web UI may be disabled, so REST requests can not redirect to a success or error page inside of the Web UI
 
         if (error != null) {
-            LOG.debug(
-                    "OAuth server returned an error: error=%s, error_description=%s, error_uri=%s, state=%s",
-                    error,
-                    errorDescription,
-                    errorUri,
-                    state);
+            LOG.debug("OAuth server returned an error: error=%s, error_description=%s, error_uri=%s, state=%s", error, errorDescription, errorUri, state);
+
+            if (tokenExchange.isPresent() && authId.isPresent()) {
+                tokenExchange.get().setTokenExchangeError(
+                        authId.get(),
+                        format("OAuth server returned an error: error=%s, error_description=%s, error_uri=%s, state=%s", error, errorDescription, errorUri, state));
+            }
             return Response.ok()
                     .entity(service.getCallbackErrorHtml(error))
                     .build();
@@ -87,20 +102,26 @@ public class OAuth2CallbackResource
 
         OAuthResult result;
         try {
-            result = service.finishChallenge(state, code, uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT));
+            result = service.finishChallenge(
+                    authId,
+                    code,
+                    uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
+                    NonceCookie.read(nonce));
         }
         catch (ChallengeFailedException | RuntimeException e) {
             LOG.debug(e, "Authentication response could not be verified: state=%s", state);
+            if (tokenExchange.isPresent() && authId.isPresent()) {
+                tokenExchange.get().setTokenExchangeError(authId.get(), format("Authentication response could not be verified: state=%s", state));
+            }
             return Response.ok()
                     .entity(service.getInternalFailureHtml("Authentication response could not be verified"))
                     .build();
         }
 
-        Optional<UUID> authId = result.getAuthId();
         if (authId.isEmpty()) {
             return Response
                     .seeOther(URI.create(UI_LOCATION))
-                    .cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration(), securityContext.isSecure()))
+                    .cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration()), NonceCookie.delete())
                     .build();
         }
 
@@ -115,7 +136,7 @@ public class OAuth2CallbackResource
 
         ResponseBuilder builder = Response.ok(service.getSuccessHtml());
         if (webUiOAuthEnabled) {
-            builder.cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration(), securityContext.isSecure()));
+            builder.cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration()));
         }
         return builder.build();
     }

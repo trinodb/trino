@@ -56,7 +56,7 @@ public class TestMinimalFunctionality
     {
         kafka = TestingKafka.create();
         kafka.start();
-        pinot = new TestingPinotCluster();
+        pinot = new TestingPinotCluster(kafka.getNetwork());
         pinot.start();
 
         kafka.createTopic(TOPIC_AND_TABLE);
@@ -232,8 +232,8 @@ public class TestMinimalFunctionality
             this.neighbors = requireNonNull(neighbors, "neighbors is null");
             this.luckyNumbers = requireNonNull(luckyNumbers, "luckyNumbers is null");
             this.prices = requireNonNull(prices, "prices is null");
-            this.unluckyNumbers = requireNonNull(unluckyNumbers, "luckyNumbers is null");
-            this.longNumbers = requireNonNull(longNumbers, "luckyNumbers is null");
+            this.unluckyNumbers = requireNonNull(unluckyNumbers, "unluckyNumbers is null");
+            this.longNumbers = requireNonNull(longNumbers, "longNumbers is null");
             this.price = requireNonNull(price, "price is null");
             this.luckyNumber = requireNonNull(luckyNumber, "luckyNumber is null");
             this.unluckyNumber = requireNonNull(unluckyNumber, "unluckyNumber is null");

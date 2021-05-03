@@ -50,7 +50,7 @@ public class KafkaSplitManager
     @Inject
     public KafkaSplitManager(KafkaConsumerFactory consumerFactory, KafkaConfig kafkaConfig, KafkaFilterManager kafkaFilterManager, ContentSchemaReader contentSchemaReader)
     {
-        this.consumerFactory = requireNonNull(consumerFactory, "consumerManager is null");
+        this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
         this.messagesPerSplit = requireNonNull(kafkaConfig, "kafkaConfig is null").getMessagesPerSplit();
         this.kafkaFilterManager = requireNonNull(kafkaFilterManager, "kafkaFilterManager is null");
         this.contentSchemaReader = requireNonNull(contentSchemaReader, "contentSchemaReader is null");
@@ -65,7 +65,7 @@ public class KafkaSplitManager
             DynamicFilter dynamicFilter)
     {
         KafkaTableHandle kafkaTableHandle = (KafkaTableHandle) table;
-        try (KafkaConsumer<byte[], byte[]> kafkaConsumer = consumerFactory.create()) {
+        try (KafkaConsumer<byte[], byte[]> kafkaConsumer = consumerFactory.create(session)) {
             List<PartitionInfo> partitionInfos = kafkaConsumer.partitionsFor(kafkaTableHandle.getTopicName());
 
             List<TopicPartition> topicPartitions = partitionInfos.stream()

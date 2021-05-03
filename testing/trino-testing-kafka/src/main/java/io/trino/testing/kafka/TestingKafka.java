@@ -60,6 +60,7 @@ public final class TestingKafka
     private static final DockerImageName KAFKA_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-kafka");
     private static final DockerImageName SCHEMA_REGISTRY_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-schema-registry");
 
+    private final Network network;
     private final KafkaContainer kafka;
     private final GenericContainer<?> schemaRegistry;
     private final boolean withSchemaRegistry;
@@ -83,14 +84,17 @@ public final class TestingKafka
     private TestingKafka(String confluentPlatformVersion, boolean withSchemaRegistry)
     {
         this.withSchemaRegistry = withSchemaRegistry;
+        network = Network.newNetwork();
+        closer.register(network::close);
         kafka = new KafkaContainer(KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion))
-                .withNetwork(Network.SHARED)
+                .withNetwork(network)
                 .withNetworkAliases("kafka");
         schemaRegistry = new GenericContainer<>(SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion))
-                .withNetwork(Network.SHARED)
+                .withNetwork(network)
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
                 .withEnv("SCHEMA_REGISTRY_HOST_NAME", "0.0.0.0")
                 .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)
+                .withEnv("SCHEMA_REGISTRY_HEAP_OPTS", "-Xmx1G")
                 .withExposedPorts(SCHEMA_REGISTRY_PORT)
                 .dependsOn(kafka);
         closer.register(kafka::stop);
@@ -236,5 +240,10 @@ public final class TestingKafka
     public String getSchemaRegistryConnectString()
     {
         return "http://" + schemaRegistry.getContainerIpAddress() + ":" + schemaRegistry.getMappedPort(SCHEMA_REGISTRY_PORT);
+    }
+
+    public Network getNetwork()
+    {
+        return network;
     }
 }

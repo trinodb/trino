@@ -23,6 +23,7 @@ import io.trino.decoder.RowDecoder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.MapType;
@@ -33,6 +34,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.Headers;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -40,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
@@ -68,6 +71,7 @@ public class KafkaRecordSet
     private final KafkaSplit split;
 
     private final KafkaConsumerFactory consumerFactory;
+    private final ConnectorSession connectorSession;
     private final RowDecoder keyDecoder;
     private final RowDecoder messageDecoder;
 
@@ -77,25 +81,23 @@ public class KafkaRecordSet
     KafkaRecordSet(
             KafkaSplit split,
             KafkaConsumerFactory consumerFactory,
+            ConnectorSession connectorSession,
             List<KafkaColumnHandle> columnHandles,
             RowDecoder keyDecoder,
             RowDecoder messageDecoder)
     {
         this.split = requireNonNull(split, "split is null");
-        this.consumerFactory = requireNonNull(consumerFactory, "consumerManager is null");
+        this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
+        this.connectorSession = requireNonNull(connectorSession, "connectorSession is null");
 
-        this.keyDecoder = requireNonNull(keyDecoder, "rowDecoder is null");
-        this.messageDecoder = requireNonNull(messageDecoder, "rowDecoder is null");
+        this.keyDecoder = requireNonNull(keyDecoder, "keyDecoder is null");
+        this.messageDecoder = requireNonNull(messageDecoder, "messageDecoder is null");
 
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
 
-        ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
-
-        for (DecoderColumnHandle handle : columnHandles) {
-            typeBuilder.add(handle.getType());
-        }
-
-        this.columnTypes = typeBuilder.build();
+        this.columnTypes = columnHandles.stream()
+                .map(KafkaColumnHandle::getType)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -123,7 +125,7 @@ public class KafkaRecordSet
         private KafkaRecordCursor()
         {
             topicPartition = new TopicPartition(split.getTopicName(), split.getPartitionId());
-            kafkaConsumer = consumerFactory.create();
+            kafkaConsumer = consumerFactory.create(connectorSession);
             kafkaConsumer.assign(ImmutableList.of(topicPartition));
             kafkaConsumer.seek(topicPartition, split.getMessagesRange().getBegin());
         }
@@ -154,7 +156,7 @@ public class KafkaRecordSet
                 if (kafkaConsumer.position(topicPartition) >= split.getMessagesRange().getEnd()) {
                     return false;
                 }
-                records = kafkaConsumer.poll(CONSUMER_POLL_TIMEOUT).iterator();
+                records = kafkaConsumer.poll(Duration.ofMillis(CONSUMER_POLL_TIMEOUT)).iterator();
                 return advanceNextPosition();
             }
 
@@ -321,7 +323,8 @@ public class KafkaRecordSet
 
         mapBlockBuilder.closeEntry();
 
-        return new FieldValueProvider() {
+        return new FieldValueProvider()
+        {
             @Override
             public boolean isNull()
             {

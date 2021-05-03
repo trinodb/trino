@@ -109,7 +109,7 @@ public class OAuth2TokenExchange
 
         static TokenPoll error(String error)
         {
-            requireNonNull(error, "token is null");
+            requireNonNull(error, "error is null");
 
             return new TokenPoll(null, error);
         }

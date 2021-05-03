@@ -21,8 +21,8 @@ Trino server configuration
 Trino coordinator node configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Access to the Trino coordinator should be through HTTPS. You can do that
-by creating a :ref:`server_java_keystore` on the coordinator.
+Access to the Trino coordinator should be through HTTPS, configured as described
+on :doc:`HTTPS and TLS </security/tls>`.
 
 You also need to make changes to the Trino configuration files.
 LDAP authentication is configured on the coordinator in two parts.
@@ -49,16 +49,17 @@ to the coordinator's ``config.properties`` file:
 ============================================================= ======================================================
 Property                                                      Description
 ============================================================= ======================================================
-``http-server.authentication.type``                           Enable password authentication for the Trino
-                                                              coordinator. Must be set to ``PASSWORD``.
+``http-server.authentication.type``                           Enable the password :doc:`authentication type <authentication-types>`
+                                                              for the Trino coordinator. Must be set to ``PASSWORD``.
 ``http-server.https.enabled``                                 Enables HTTPS access for the Trino coordinator.
                                                               Should be set to ``true``. Default value is
                                                               ``false``.
 ``http-server.https.port``                                    HTTPS server port.
-``http-server.https.keystore.path``                           The location of the Java Keystore file that will be
-                                                              used to secure TLS.
-``http-server.https.keystore.key``                            The password for the keystore. This must match the
-                                                              password you specified when creating the keystore.
+``http-server.https.keystore.path``                           The location of the PEM or Java keystore file
+                                                              is used to enable TLS.
+``http-server.https.keystore.key``                            The password for the PEM or Java keystore. This
+                                                              must match the password you specified when creating
+                                                              the PEM or keystore.
 ``http-server.process-forwarded``                             Enable treating forwarded HTTPS requests over HTTP
                                                               as secure.  Requires the ``X-Forwarded-Proto`` header
                                                               to be set to ``https`` on forwarded requests.
@@ -88,11 +89,11 @@ Property                           Description
 ================================== ======================================================
 ``ldap.url``                       The URL to the LDAP server. The URL scheme must be
                                    ``ldap://`` or ``ldaps://``. Connecting to the LDAP
-                                   server without SSL enabled requires
+                                   server without TLS enabled requires
                                    ``ldap.allow-insecure=true``.
 ``ldap.allow-insecure``            Allow using an LDAP connection that is not secured with
                                    TLS.
-``ldap.ssl-trust-certificate``     The path to the PEM encoded trust certificate  for the
+``ldap.ssl-trust-certificate``     The path to the PEM encoded trust certificate for the
                                    LDAP server. This file should contain the LDAP
                                    server's certificate or its certificate authority.
 ``ldap.user-bind-pattern``         This property can be used to specify the LDAP user
@@ -243,15 +244,8 @@ Environment configuration
 TLS configuration
 ~~~~~~~~~~~~~~~~~
 
-Access to the Trino coordinator should be through HTTPS when using LDAP
-authentication. The Trino CLI can use either a :ref:`Java Keystore
-<server_java_keystore>` file or :ref:`Java Truststore <cli_java_truststore>`
-for its TLS configuration.
-
-If you are using a keystore file, it can be copied to the client machine and used
-for its TLS configuration. If you are using truststore, you can either use
-default Java truststores or create a custom truststore on the CLI. We do not
-recommend using self-signed certificates in production.
+When using LDAP authentication, access to the Trino coordinator must be through
+:doc:`HTTPS/TLS </security/tls>`.
 
 Trino CLI execution
 ^^^^^^^^^^^^^^^^^^^^
@@ -289,7 +283,7 @@ Option                          Description
                                 to secure TLS.
 ``--keystore-password``         The password for the keystore. This must match the
                                 password you specified when creating the keystore.
-``--truststore-path``           The location of the Java Truststore file that will be used
+``--truststore-path``           The location of the Java truststore file that will be used
                                 to secure TLS.
 ``--truststore-password``       The password for the truststore. This must match the
                                 password you specified when creating the truststore.
@@ -319,10 +313,10 @@ you can change the :ref:`log level <log-levels>` for the LDAP authenticator:
 
     io.trino.plugin.password=DEBUG
 
-SSL debugging for Trino CLI
+TLS debugging for Trino CLI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you encounter any SSL related errors when running the Trino CLI, you can run
+If you encounter any TLS related errors when running the Trino CLI, you can run
 the CLI using the ``-Djavax.net.debug=ssl`` parameter for debugging. Use the
 Trino CLI executable JAR to enable this. For example:
 
@@ -334,30 +328,30 @@ Trino CLI executable JAR to enable this. For example:
     --server https://coordinator:8443 \
     <other_cli_arguments>
 
-Common SSL errors
-~~~~~~~~~~~~~~~~~
+Common TLS/SSL errors
+~~~~~~~~~~~~~~~~~~~~~
 
 java.security.cert.CertificateException: No subject alternative names present
 *****************************************************************************
 
 This error is seen when the Trino coordinator’s certificate is invalid, and does not have the IP you provide
-in the ``--server`` argument of the CLI. You have to regenerate the coordinator's SSL certificate
+in the ``--server`` argument of the CLI. You have to regenerate the coordinator's TLS certificate
 with the appropriate :abbr:`SAN (Subject Alternative Name)` added.
 
 Adding a SAN to this certificate is required in cases where ``https://`` uses IP address in the URL, rather
 than the domain contained in the coordinator's certificate, and the certificate does not contain the
 :abbr:`SAN (Subject Alternative Name)` parameter with the matching IP address as an alternative attribute.
 
-Authentication or SSL errors with JDK upgrade
+Authentication or TLS errors with JDK upgrade
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Starting with the JDK 8u181 release, to improve the robustness of LDAPS
-(secure LDAP over TLS) connections, endpoint identification algorithms have
-been enabled by default. See release notes
+(secure LDAP over TLS) connections, endpoint identification algorithms were
+enabled by default. See release notes
 `from Oracle <https://www.oracle.com/technetwork/java/javase/8u181-relnotes-4479407.html#JDK-8200666.>`_.
 The same LDAP server certificate on the Trino coordinator, running on JDK
 version >= 8u181, that was previously able to successfully connect to an
-LDAPS server, may now fail with the below error:
+LDAPS server, may now fail with the following error:
 
 .. code-block:: text
 

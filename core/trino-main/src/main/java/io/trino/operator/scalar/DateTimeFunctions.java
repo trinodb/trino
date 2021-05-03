@@ -24,7 +24,6 @@ import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
-import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeZoneKey;
@@ -46,24 +45,19 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAccessor;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
-import static io.trino.type.DateTimes.MICROSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
@@ -125,10 +119,11 @@ public final class DateTimeFunctions
     }
 
     @ScalarFunction("from_unixtime")
-    @SqlType("timestamp(3)")
-    public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime)
+    @SqlType("timestamp(3) with time zone")
+    public static long fromUnixTime(ConnectorSession session, @SqlType(StandardTypes.DOUBLE) double unixTime)
     {
-        return Math.round(unixTime * MICROSECONDS_PER_SECOND);
+        // TODO (https://github.com/trinodb/trino/issues/5781)
+        return packDateTimeWithZone(Math.round(unixTime * 1000), session.getTimeZoneKey());
     }
 
     @ScalarFunction("from_unixtime")
@@ -159,9 +154,10 @@ public final class DateTimeFunctions
         private FromUnixtimeNanosDecimal() {}
 
         @LiteralParameters({"p", "s"})
-        @SqlType("timestamp(9)")
-        public static LongTimestamp fromLong(@LiteralParameter("s") long scale, @SqlType("decimal(p, s)") Slice unixTimeNanos)
+        @SqlType("timestamp(9) with time zone")
+        public static LongTimestampWithTimeZone fromLong(@LiteralParameter("s") long scale, ConnectorSession session, @SqlType("decimal(p, s)") Slice unixTimeNanos)
         {
+            // TODO (https://github.com/trinodb/trino/issues/5781)
             BigInteger unixTimeNanosInt = unscaledDecimalToBigInteger(rescale(unixTimeNanos, -(int) scale));
             long epochSeconds = unixTimeNanosInt.divide(BigInteger.valueOf(NANOSECONDS_PER_SECOND)).longValue();
             long nanosOfSecond = unixTimeNanosInt.remainder(BigInteger.valueOf(NANOSECONDS_PER_SECOND)).longValue();
@@ -171,27 +167,28 @@ public final class DateTimeFunctions
                 epochSeconds -= 1;
                 picosOfSecond += PICOSECONDS_PER_SECOND;
             }
-            return DateTimes.longTimestamp(epochSeconds, picosOfSecond);
+            return DateTimes.longTimestampWithTimeZone(epochSeconds, picosOfSecond, session.getTimeZoneKey().getZoneId());
         }
 
         @LiteralParameters({"p", "s"})
-        @SqlType("timestamp(9)")
-        public static LongTimestamp fromShort(@LiteralParameter("s") long scale, @SqlType("decimal(p, s)") long unixTimeNanos)
+        @SqlType("timestamp(9) with time zone")
+        public static LongTimestampWithTimeZone fromShort(@LiteralParameter("s") long scale, ConnectorSession session, @SqlType("decimal(p, s)") long unixTimeNanos)
         {
+            // TODO (https://github.com/trinodb/trino/issues/5781)
             long roundedUnixTimeNanos = MathFunctions.Round.roundShort(scale, unixTimeNanos);
-            return fromUnixtimeNanosLong(roundedUnixTimeNanos);
+            return fromUnixtimeNanosLong(session, roundedUnixTimeNanos);
         }
     }
 
     @ScalarFunction("from_unixtime_nanos")
-    @SqlType("timestamp(9)")
-    public static LongTimestamp fromUnixtimeNanosLong(@SqlType(StandardTypes.BIGINT) long unixTimeNanos)
+    @SqlType("timestamp(9) with time zone")
+    public static LongTimestampWithTimeZone fromUnixtimeNanosLong(ConnectorSession session, @SqlType(StandardTypes.BIGINT) long unixTimeNanos)
     {
         long epochSeconds = floorDiv(unixTimeNanos, NANOSECONDS_PER_SECOND);
         long nanosOfSecond = floorMod(unixTimeNanos, NANOSECONDS_PER_SECOND);
         long picosOfSecond = nanosOfSecond * PICOSECONDS_PER_NANOSECOND;
 
-        return DateTimes.longTimestamp(epochSeconds, picosOfSecond);
+        return DateTimes.longTimestampWithTimeZone(epochSeconds, picosOfSecond, session.getTimeZoneKey().getZoneId());
     }
 
     @ScalarFunction("to_iso8601")
@@ -199,7 +196,7 @@ public final class DateTimeFunctions
     // Standard format is YYYY-MM-DD, which gives up to 10 characters.
     // However extended notation with format ±(Y)+-MM-DD is also acceptable and as the maximum year
     // represented by 64bits timestamp is ~584944387 it may require up to 16 characters to represent a date.
-    public static Slice toISO8601FromDate(ConnectorSession session, @SqlType(StandardTypes.DATE) long date)
+    public static Slice toISO8601FromDate(@SqlType(StandardTypes.DATE) long date)
     {
         DateTimeFormatter formatter = ISODateTimeFormat.date()
                 .withChronology(UTC_CHRONOLOGY);
@@ -249,7 +246,7 @@ public final class DateTimeFunctions
     @ScalarFunction("from_iso8601_date")
     @LiteralParameters("x")
     @SqlType(StandardTypes.DATE)
-    public static long fromISO8601Date(ConnectorSession session, @SqlType("varchar(x)") Slice iso8601DateTime)
+    public static long fromISO8601Date(@SqlType("varchar(x)") Slice iso8601DateTime)
     {
         DateTimeFormatter formatter = ISODateTimeFormat.dateElementParser()
                 .withChronology(UTC_CHRONOLOGY);
@@ -261,7 +258,7 @@ public final class DateTimeFunctions
     @ScalarFunction("date_trunc")
     @LiteralParameters("x")
     @SqlType(StandardTypes.DATE)
-    public static long truncateDate(ConnectorSession session, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date)
+    public static long truncateDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date)
     {
         long millis = getDateField(UTC_CHRONOLOGY, unit).roundFloor(DAYS.toMillis(date));
         return MILLISECONDS.toDays(millis);
@@ -271,7 +268,7 @@ public final class DateTimeFunctions
     @LiteralParameters("x")
     @ScalarFunction("date_add")
     @SqlType(StandardTypes.DATE)
-    public static long addFieldValueDate(ConnectorSession session, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DATE) long date)
+    public static long addFieldValueDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DATE) long date)
     {
         long millis = getDateField(UTC_CHRONOLOGY, unit).add(DAYS.toMillis(date), toIntExact(value));
         return MILLISECONDS.toDays(millis);
@@ -281,7 +278,7 @@ public final class DateTimeFunctions
     @ScalarFunction("date_diff")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
-    public static long diffDate(ConnectorSession session, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date1, @SqlType(StandardTypes.DATE) long date2)
+    public static long diffDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date1, @SqlType(StandardTypes.DATE) long date2)
     {
         return getDateField(UTC_CHRONOLOGY, unit).getDifferenceAsLong(DAYS.toMillis(date2), DAYS.toMillis(date1));
     }
@@ -302,22 +299,6 @@ public final class DateTimeFunctions
                 return chronology.year();
         }
         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid DATE field");
-    }
-
-    private static DateTimeField getTimeField(ISOChronology chronology, Slice unit)
-    {
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                return chronology.millisOfSecond();
-            case "second":
-                return chronology.secondOfMinute();
-            case "minute":
-                return chronology.minuteOfHour();
-            case "hour":
-                return chronology.hourOfDay();
-        }
-        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
     }
 
     public static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
@@ -530,7 +511,6 @@ public final class DateTimeFunctions
         return months / 12;
     }
 
-    @SuppressWarnings("fallthrough")
     public static DateTimeFormatter createDateTimeFormatter(Slice format)
     {
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
@@ -667,33 +647,6 @@ public final class DateTimeFunctions
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
-    }
-
-    private static long timeAtTimeZone(ConnectorSession session, long timeWithTimeZone, TimeZoneKey timeZoneKey)
-    {
-        DateTimeZone sourceTimeZone = getDateTimeZone(unpackZoneKey(timeWithTimeZone));
-        DateTimeZone targetTimeZone = getDateTimeZone(timeZoneKey);
-        long millis = unpackMillisUtc(timeWithTimeZone);
-
-        // STEP 1. Calculate source UTC millis in session start
-        millis += valueToSessionTimeZoneOffsetDiff(session.getStart().toEpochMilli(), sourceTimeZone);
-
-        // STEP 2. Calculate target UTC millis in 1970
-        millis -= valueToSessionTimeZoneOffsetDiff(session.getStart().toEpochMilli(), targetTimeZone);
-
-        // STEP 3. Make sure that value + offset is in 0 - 23:59:59.999
-        long localMillis = millis + targetTimeZone.getOffset(0);
-        // Loops up to 2 times in total
-        while (localMillis > TimeUnit.DAYS.toMillis(1)) {
-            millis -= TimeUnit.DAYS.toMillis(1);
-            localMillis -= TimeUnit.DAYS.toMillis(1);
-        }
-        while (localMillis < 0) {
-            millis += TimeUnit.DAYS.toMillis(1);
-            localMillis += TimeUnit.DAYS.toMillis(1);
-        }
-
-        return packDateTimeWithZone(millis, timeZoneKey);
     }
 
     // HACK WARNING!

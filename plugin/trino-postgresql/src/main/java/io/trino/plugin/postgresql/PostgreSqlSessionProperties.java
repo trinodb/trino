@@ -14,7 +14,7 @@
 package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.jdbc.SessionPropertiesProvider;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;

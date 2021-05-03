@@ -17,15 +17,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.BaseJdbcClient;
+import io.trino.plugin.jdbc.BaseJdbcClient.TopNFunction;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -183,6 +186,7 @@ public class PhoenixClient
         extends BaseJdbcClient
 {
     private static final String ROWKEY = "ROWKEY";
+    private static final long MAX_TOPN_LIMIT = 2000000;
 
     private final Configuration configuration;
 
@@ -200,10 +204,10 @@ public class PhoenixClient
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));
     }
 
-    public PhoenixConnection getConnection(ConnectorSession session)
+    public Connection getConnection(ConnectorSession session)
             throws SQLException
     {
-        return connectionFactory.openConnection(session).unwrap(PhoenixConnection.class);
+        return connectionFactory.openConnection(session);
     }
 
     public org.apache.hadoop.hbase.client.Connection getHConnection()
@@ -242,18 +246,14 @@ public class PhoenixClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
             throws SQLException
     {
-        PhoenixSplit phoenixSplit = (PhoenixSplit) split;
-        PreparedStatement query = new QueryBuilder(this).buildSql(
+        PreparedStatement query = prepareStatement(
                 session,
                 connection,
-                table.getRemoteTableName(),
-                table.getGroupingSets(),
+                table,
                 columnHandles,
-                phoenixSplit.getConstraint(),
-                split.getAdditionalPredicate(),
-                tryApplyLimit(table.getLimit()));
+                Optional.of(split));
         QueryPlan queryPlan = getQueryPlan((PhoenixPreparedStatement) query);
-        ResultSet resultSet = getResultSet(phoenixSplit.getPhoenixInputSplit(), queryPlan);
+        ResultSet resultSet = getResultSet(((PhoenixSplit) split).getPhoenixInputSplit(), queryPlan);
         return new DelegatePreparedStatement(query)
         {
             @Override
@@ -264,10 +264,62 @@ public class PhoenixClient
         };
     }
 
+    public PreparedStatement prepareStatement(
+            ConnectorSession session,
+            Connection connection,
+            JdbcTableHandle table,
+            List<JdbcColumnHandle> columns,
+            Optional<JdbcSplit> split)
+            throws SQLException
+    {
+        PreparedQuery preparedQuery = prepareQuery(
+                session,
+                connection,
+                table,
+                Optional.empty(),
+                columns,
+                ImmutableMap.of(),
+                split);
+        return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        return true;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            // TODO: Remove when this is fixed in Phoenix.
+            // Phoenix severely over-estimates the memory
+            // required to execute a topN query.
+            // https://issues.apache.org/jira/browse/PHOENIX-6436
+            if (limit > MAX_TOPN_LIMIT) {
+                return query;
+            }
+            return TopNFunction.sqlStandard(this::quoted).apply(query, sortItems, limit);
+        });
+    }
+
+    @Override
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    {
+        return false;
+    }
+
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
         return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
+    }
+
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return false;
     }
 
     @Override
@@ -344,16 +396,16 @@ public class PhoenixClient
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
 
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize()));
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case VARCHAR:
             case NVARCHAR:
             case LONGVARCHAR:
             case LONGNVARCHAR:
                 if (typeHandle.getColumnSize().isEmpty()) {
-                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
+                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
                 }
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case Types.VARBINARY:
                 return Optional.of(varbinaryColumnMapping());
@@ -461,12 +513,6 @@ public class PhoenixClient
     }
 
     @Override
-    public boolean isLimitGuaranteed(ConnectorSession session)
-    {
-        return false;
-    }
-
-    @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -556,12 +602,18 @@ public class PhoenixClient
     }
 
     @Override
+    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
+    }
+
+    @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle handle)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
 
-        try (PhoenixConnection connection = (PhoenixConnection) connectionFactory.openConnection(session);
-                HBaseAdmin admin = connection.getQueryServices().getAdmin()) {
+        try (Connection connection = connectionFactory.openConnection(session);
+                HBaseAdmin admin = connection.unwrap(PhoenixConnection.class).getQueryServices().getAdmin()) {
             String schemaName = toPhoenixSchemaName(Optional.ofNullable(handle.getSchemaName())).orElse(null);
             PTable table = getTable(connection, SchemaUtil.getTableName(schemaName, handle.getTableName()));
 

@@ -36,16 +36,16 @@ public final class KuduSessionProperties
     public KuduSessionProperties(KuduClientConfig kuduConfig)
     {
         sessionProperties = ImmutableList.of(
-            booleanProperty(
-                    KUDU_GROUPED_EXECUTION_ENABLED,
-                    "Enable grouped execution.",
-                    kuduConfig.isGroupedExecutionEnabled(),
-                    false),
-            durationProperty(
-                    DYNAMIC_FILTERING_WAIT_TIMEOUT,
-                    "Duration to wait for completion of dynamic filters",
-                    kuduConfig.getDynamicFilteringWaitTimeout(),
-                    false));
+                booleanProperty(
+                        KUDU_GROUPED_EXECUTION_ENABLED,
+                        "Enable grouped execution.",
+                        kuduConfig.isGroupedExecutionEnabled(),
+                        false),
+                durationProperty(
+                        DYNAMIC_FILTERING_WAIT_TIMEOUT,
+                        "Duration to wait for completion of dynamic filters",
+                        kuduConfig.getDynamicFilteringWaitTimeout(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

@@ -2,8 +2,8 @@
 Release 0.190
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix correctness issue for :func:`array_min` and :func:`array_max` when arrays contain ``NaN``.
 * Fix planning failure for queries involving ``GROUPING`` that require implicit coercions
@@ -29,29 +29,29 @@ General changes
   config property or the ``parse_decimal_literals_as_double`` session property to ``false``.
 * Add JMX counter to track the number of submitted queries.
 
-Resource groups changes
------------------------
+Resource groups
+---------------
 
 * Add priority column to the DB resource group selectors.
 * Add exact match source selector to the DB resource group selectors.
 
-CLI changes
------------
+CLI
+---
 
 * Add support for setting client tags.
 
-JDBC driver changes
--------------------
+JDBC driver
+-----------
 
 * Add ``getPeakMemoryBytes()`` to ``QueryStats``.
 
-Accumulo changes
-----------------
+Accumulo
+--------
 
 * Improve table scan parallelism.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix query failures for the file-based metastore implementation when partition
   column values contain a colon.
@@ -62,14 +62,14 @@ Hive changes
   the default value is substantially higher than the previous hard-coded limit,
   which can prevent certain queries from failing.
 
-Thrift connector changes
-------------------------
+Thrift connector
+----------------
 
 * Make Thrift retry configurable.
 * Add JMX counters for Thrift requests.
 
-SPI changes
------------
+SPI
+---
 
 * Remove the ``RecordSink`` interface, which was difficult to use
   correctly and had no advantages over the ``PageSink`` interface.

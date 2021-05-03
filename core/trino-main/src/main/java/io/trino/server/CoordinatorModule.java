@@ -74,15 +74,17 @@ import io.trino.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import io.trino.metadata.CatalogManager;
 import io.trino.operator.ForScheduler;
 import io.trino.server.protocol.ExecutingStatementResource;
+import io.trino.server.protocol.QueryInfoUrlFactory;
 import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.security.SelectedRole;
 import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.planner.OptimizerStatsMBeanExporter;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
-import io.trino.sql.planner.RuleStatsRecorder;
+import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.transaction.ForTransactionManager;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -98,6 +100,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
@@ -136,6 +139,7 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
+        binder.bind(QueryInfoUrlFactory.class).in(Scopes.SINGLETON);
 
         // allow large prepared statements in headers
         configBinder(binder).bindConfigDefaults(HttpServerConfig.class, config -> {
@@ -209,10 +213,11 @@ public class CoordinatorModule
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
-        binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, PlanOptimizersFactory.class)
+                .setDefault().to(PlanOptimizers.class).in(Scopes.SINGLETON);
 
-        // Rule Stats Recorder
-        binder.bind(RuleStatsRecorder.class).in(Scopes.SINGLETON);
+        // Optimizer/Rule Stats exporter
+        binder.bind(OptimizerStatsMBeanExporter.class).in(Scopes.SINGLETON);
 
         // query explainer
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);

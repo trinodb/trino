@@ -38,11 +38,11 @@ import java.time.Duration;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER_NTH;
+import static io.trino.tests.product.launcher.testcontainers.PortBinder.unsafelyExposePort;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -52,6 +52,10 @@ import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
+// Use io.trino.tests.product.launcher.env.common.StandardMultinode instead
+// Product tests should mimic production like use case.
+// Single node environment does not do it well enough and some issues are only exposed with multi node installations.
+@Deprecated
 public final class Standard
         implements EnvironmentExtender
 {
@@ -123,7 +127,7 @@ public final class Standard
     {
         DockerContainer container = new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
-                .withExposedLogPaths("/var/presto/var/log", "/var/log/container-health.log")
+                .withExposedLogPaths("/var/trino/var/log", "/var/log/container-health.log")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/trino-health-check.sh")), CONTAINER_HEALTH_D + "trino-health-check.sh")
@@ -182,7 +186,7 @@ public final class Standard
             container.withCopyFileToContainer(forHostPath(script), "/docker/presto-init.d/enable-java-debugger.sh");
 
             // expose debug port unconditionally when debug is enabled
-            exposePort(container, debugPort);
+            unsafelyExposePort(container, debugPort);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

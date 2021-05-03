@@ -131,9 +131,9 @@ Date and time functions
     Returns a timestamp with time zone from ``timestamp`` with precision ``p``
     and ``zone``.
 
-.. function:: from_unixtime(unixtime) -> timestamp(3)
+.. function:: from_unixtime(unixtime) -> timestamp(3) with time zone
 
-    Returns the UNIX timestamp ``unixtime`` as a timestamp. ``unixtime`` is the
+    Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone. ``unixtime`` is the
     number of seconds since ``1970-01-01 00:00:00 UTC``.
 
 .. function:: from_unixtime(unixtime, zone) -> timestamp(3) with time zone
@@ -150,9 +150,9 @@ Date and time functions
     using ``hours`` and ``minutes`` for the time zone offset. ``unixtime`` is
     the number of seconds since ``1970-01-01 00:00:00`` in ``double`` data type.
 
-.. function:: from_unixtime_nanos(unixtime) -> timestamp(9)
+.. function:: from_unixtime_nanos(unixtime) -> timestamp(9) with time zone
 
-    Returns the UNIX timestamp ``unixtime`` as a timestamp. ``unixtime`` is the
+    Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone. ``unixtime`` is the
     number of nanoseconds since ``1970-01-01 00:00:00.000000000 UTC``.
 
 .. data:: localtime

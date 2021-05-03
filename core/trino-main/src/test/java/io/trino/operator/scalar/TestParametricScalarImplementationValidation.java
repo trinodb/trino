@@ -28,8 +28,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.Reflection.methodHandle;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestParametricScalarImplementationValidation
 {
@@ -47,17 +47,13 @@ public class TestParametricScalarImplementationValidation
                 validFunctionMethodHandle);
         assertEquals(validFunction.getChoices().get(0).getMethodHandle(), validFunctionMethodHandle);
 
-        try {
-            new ChoicesScalarFunctionImplementation(
-                    new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
-                    FAIL_ON_NULL,
-                    ImmutableList.of(NEVER_NULL, NEVER_NULL),
-                    methodHandle(TestParametricScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", long.class, long.class, ConnectorSession.class));
-            fail("expected exception");
-        }
-        catch (IllegalArgumentException e) {
-            assertEquals(e.getMessage(), "ConnectorSession must be the first argument when instanceFactory is not present");
-        }
+        assertThatThrownBy(() -> new ChoicesScalarFunctionImplementation(
+                new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL, NEVER_NULL),
+                methodHandle(TestParametricScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", long.class, long.class, ConnectorSession.class)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ConnectorSession must be the first argument when instanceFactory is not present");
 
         // With cached instance factory
         MethodHandle validFunctionWithInstanceFactoryMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", Object.class, ConnectorSession.class, long.class, long.class);
@@ -69,18 +65,14 @@ public class TestParametricScalarImplementationValidation
                 Optional.of(STATE_FACTORY));
         assertEquals(validFunctionWithInstanceFactory.getChoices().get(0).getMethodHandle(), validFunctionWithInstanceFactoryMethodHandle);
 
-        try {
-            new ChoicesScalarFunctionImplementation(
-                    new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
-                    FAIL_ON_NULL,
-                    ImmutableList.of(NEVER_NULL, NEVER_NULL),
-                    methodHandle(TestParametricScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", Object.class, long.class, long.class, ConnectorSession.class),
-                    Optional.of(STATE_FACTORY));
-            fail("expected exception");
-        }
-        catch (IllegalArgumentException e) {
-            assertEquals(e.getMessage(), "ConnectorSession must be the second argument when instanceFactory is present");
-        }
+        assertThatThrownBy(() -> new ChoicesScalarFunctionImplementation(
+                new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL, NEVER_NULL),
+                methodHandle(TestParametricScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", Object.class, long.class, long.class, ConnectorSession.class),
+                Optional.of(STATE_FACTORY)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ConnectorSession must be the second argument when instanceFactory is present");
     }
 
     public static Object createState()

@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.util.AstUtils;
 
@@ -142,7 +143,7 @@ public class InlineProjections
     private static Set<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child)
     {
         // candidates for inlining are
-        //   1. references to simple constants
+        //   1. references to simple constants or symbol references
         //   2. references to complex expressions that
         //      a. are not inputs to try() expressions
         //      b. appear only once across all expressions
@@ -157,9 +158,10 @@ public class InlineProjections
                 .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
-        // find references to simple constants
-        Set<Symbol> constants = dependencies.keySet().stream()
-                .filter(input -> child.getAssignments().get(input) instanceof Literal)
+        // find references to simple constants or symbol references
+        Set<Symbol> basicReferences = dependencies.keySet().stream()
+                .filter(input -> child.getAssignments().get(input) instanceof Literal || child.getAssignments().get(input) instanceof SymbolReference)
+                .filter(input -> !child.getAssignments().isIdentity(input)) // skip identities, otherwise, this rule will keep firing forever
                 .collect(toSet());
 
         // exclude any complex inputs to TRY expressions. Inlining them would potentially
@@ -177,7 +179,7 @@ public class InlineProjections
                 .map(Map.Entry::getKey)
                 .collect(toSet());
 
-        return Sets.union(singletons, constants);
+        return Sets.union(singletons, basicReferences);
     }
 
     private static Set<Symbol> extractTryArguments(Expression expression)

@@ -69,6 +69,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -348,16 +349,31 @@ public class TestTrinoDriver
             throws Exception
     {
         Driver driver = DriverManager.getDriver("jdbc:trino:");
-        assertEquals(driver.getMajorVersion(), 0);
-        assertEquals(driver.getMajorVersion(), 0);
+        assertThat(driver.getMajorVersion()).isGreaterThan(350);
+        assertThat(driver.getMinorVersion()).isEqualTo(0);
 
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            assertEquals(metaData.getDriverName(), TrinoDriver.DRIVER_NAME);
-            assertEquals(metaData.getDriverVersion(), "unknown");
-            assertEquals(metaData.getDriverMajorVersion(), 0);
-            assertEquals(metaData.getDriverMinorVersion(), 0);
+            assertEquals(metaData.getDriverName(), "Trino JDBC Driver");
+            assertThat(metaData.getDriverVersion()).startsWith(String.valueOf(driver.getMajorVersion()));
+            assertEquals(metaData.getDriverMajorVersion(), driver.getMajorVersion());
+            assertEquals(metaData.getDriverMinorVersion(), driver.getMinorVersion());
         }
+    }
+
+    @Test
+    public void testNullUrl()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:trino:");
+
+        assertThatThrownBy(() -> driver.connect(null, null))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("URL is null");
+
+        assertThatThrownBy(() -> driver.acceptsURL(null))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("URL is null");
     }
 
     @Test
@@ -430,13 +446,9 @@ public class TestTrinoDriver
         try (Connection connection = createConnection("blackhole", "blackhole")) {
             try (Statement statement = connection.createStatement()) {
                 String sql = "SELECT 123 x, 'foo' y, CAST(NULL AS bigint) z";
-                try {
-                    statement.executeUpdate(sql);
-                    fail("expected exception");
-                }
-                catch (SQLException e) {
-                    assertEquals(e.getMessage(), "SQL is not an update statement: " + sql);
-                }
+                assertThatThrownBy(() -> statement.executeUpdate(sql))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(format("SQL is not an update statement: %s", sql));
             }
         }
     }
@@ -448,13 +460,9 @@ public class TestTrinoDriver
         try (Connection connection = createConnection("blackhole", "blackhole")) {
             try (Statement statement = connection.createStatement()) {
                 String sql = "INSERT INTO test_table VALUES (1)";
-                try {
-                    statement.executeQuery(sql);
-                    fail("expected exception");
-                }
-                catch (SQLException e) {
-                    assertEquals(e.getMessage(), "SQL statement is not a query: " + sql);
-                }
+                assertThatThrownBy(() -> statement.executeQuery(sql))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(format("SQL statement is not a query: %s", sql));
             }
         }
     }
@@ -710,13 +718,23 @@ public class TestTrinoDriver
         }
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' is required")
+    @Test
     public void testUserIsRequired()
+    {
+        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl()))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'user' is required");
+    }
+
+    @Test
+    public void testNullConnectProperties()
             throws Exception
     {
-        try (Connection ignored = DriverManager.getConnection(format("jdbc:trino://%s", server.getAddress()))) {
-            fail("expected exception");
-        }
+        Driver driver = DriverManager.getDriver("jdbc:trino:");
+
+        assertThatThrownBy(() -> driver.connect(jdbcUrl(), null))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'user' is required");
     }
 
     @Test
@@ -982,6 +1000,11 @@ public class TestTrinoDriver
             assertFalse(resultSet.next(), "Found multiple queries");
             return Optional.of(state);
         }
+    }
+
+    private String jdbcUrl()
+    {
+        return format("jdbc:trino://%s", server.getAddress());
     }
 
     private Connection createConnection()

@@ -24,6 +24,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.QueryAssertions.assertContains;
 
 public class TestThriftIntegrationSmokeTest
+        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     @Override
@@ -38,7 +39,7 @@ public class TestThriftIntegrationSmokeTest
     public void testShowSchemas()
     {
         MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toTestTypes();
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getSession(), VARCHAR)
                 .row("tiny")
                 .row("sf1");
         assertContains(actualSchemas, resultBuilder.build());

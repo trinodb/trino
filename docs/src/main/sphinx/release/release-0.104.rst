@@ -2,8 +2,8 @@
 Release 0.104
 =============
 
-General changes
----------------
+General
+-------
 
 * Handle thread interruption in StatementClient.
 * Fix CLI hang when server becomes unreachable during a query.
@@ -22,8 +22,8 @@ General changes
 * Support ``TIMESTAMP`` for :func:`first_value`, :func:`last_value`,
   :func:`nth_value`, :func:`lead` and :func:`lag`.
 
-Hive changes
-------------
+Hive
+----
 
 * Upgrade to Parquet 1.6.0.
 * Collect request time and retry statistics in ``PrestoS3FileSystem``.

@@ -276,7 +276,7 @@ public class TestRowFilter
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey = 1"));
         assertThatThrownBy(() -> assertions.query(
                 "SELECT (SELECT min(name) FROM customer WHERE customer.custkey = orders.custkey) FROM orders"))
-                .hasMessageMatching("\\Qline 1:31: Invalid row filter for 'local.tiny.customer': Column 'orderkey' cannot be resolved\\E");
+                .hasMessage("line 1:31: Invalid row filter for 'local.tiny.customer': Column 'orderkey' cannot be resolved");
     }
 
     @Test
@@ -304,7 +304,7 @@ public class TestRowFilter
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "$$$"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
-                .hasMessageMatching("\\Qline 1:22: Invalid row filter for 'local.tiny.orders': mismatched input '$'. Expecting: <expression>\\E");
+                .hasMessage("line 1:22: Invalid row filter for 'local.tiny.orders': mismatched input '$'. Expecting: <expression>");
 
         // unknown column
         accessControl.reset();
@@ -314,7 +314,7 @@ public class TestRowFilter
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "unknown_column"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
-                .hasMessageMatching("\\Qline 1:22: Invalid row filter for 'local.tiny.orders': Column 'unknown_column' cannot be resolved\\E");
+                .hasMessage("line 1:22: Invalid row filter for 'local.tiny.orders': Column 'unknown_column' cannot be resolved");
 
         // invalid type
         accessControl.reset();
@@ -324,7 +324,7 @@ public class TestRowFilter
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "1"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
-                .hasMessageMatching("\\Qline 1:22: Expected row filter for 'local.tiny.orders' to be of type BOOLEAN, but was integer\\E");
+                .hasMessage("line 1:22: Expected row filter for 'local.tiny.orders' to be of type BOOLEAN, but was integer");
 
         // aggregation
         accessControl.reset();
@@ -334,7 +334,7 @@ public class TestRowFilter
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "count(*) > 0"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
-                .hasMessageMatching("\\Qline 1:10: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [count(*)]\\E");
+                .hasMessage("line 1:10: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [count(*)]");
 
         // window function
         accessControl.reset();
@@ -344,7 +344,7 @@ public class TestRowFilter
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "row_number() OVER () > 0"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
-                .hasMessageMatching("\\Qline 1:22: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]\\E");
+                .hasMessage("line 1:22: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]");
 
         // window function
         accessControl.reset();
@@ -354,7 +354,7 @@ public class TestRowFilter
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "grouping(orderkey) = 0"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
-                .hasMessageMatching("\\Qline 1:20: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]\\E");
+                .hasMessage("line 1:20: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]");
     }
 
     @Test
@@ -372,5 +372,49 @@ public class TestRowFilter
                                 "(CAST('orderkey' AS varchar), 0e1, 0e1, 1e0, CAST(NULL AS double), CAST(NULL AS varchar), CAST(NULL AS varchar))," +
                                 "(CAST('custkey' AS varchar), 0e1, 0e1, 1e0, CAST(NULL AS double), CAST(NULL AS varchar), CAST(NULL AS varchar))," +
                                 "(NULL, NULL, NULL, NULL, 0e1, NULL, NULL)");
+    }
+
+    @Test
+    public void testDelete()
+    {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey < 10"));
+        assertThatThrownBy(() -> assertions.query("DELETE FROM orders"))
+                .hasMessage("line 1:1: Delete from table with row filter");
+        assertThatThrownBy(() -> assertions.query("DELETE FROM orders WHERE orderkey IN (1, 2, 3)"))
+                .hasMessage("line 1:1: Delete from table with row filter");
+        assertThatThrownBy(() -> assertions.query("DELETE FROM orders WHERE orderkey IN (10, 20, 30)"))
+                .hasMessage("line 1:1: Delete from table with row filter");
+    }
+
+    @Test
+    public void testUpdate()
+    {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey < 10"));
+        assertThatThrownBy(() -> assertions.query("UPDATE orders SET totalprice = totalprice * 2"))
+                .hasMessage("line 1:1: Updating a table with a row filter is not supported");
+        assertThatThrownBy(() -> assertions.query("UPDATE orders SET totalprice = totalprice * 2 WHERE orderkey IN (1, 2, 3)"))
+                .hasMessage("line 1:1: Updating a table with a row filter is not supported");
+        assertThatThrownBy(() -> assertions.query("UPDATE orders SET totalprice = totalprice * 2 WHERE orderkey IN (10, 20, 30)"))
+                .hasMessage("line 1:1: Updating a table with a row filter is not supported");
+    }
+
+    @Test
+    public void testInsert()
+    {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(CATALOG, "tiny", "nation"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "nationkey < 10"));
+        assertThatThrownBy(() -> assertions.query("INSERT INTO nation VALUES (26, 'POLAND', 0, 'No comment')"))
+                .hasMessage("Insert into table with a row filter is not supported");
     }
 }

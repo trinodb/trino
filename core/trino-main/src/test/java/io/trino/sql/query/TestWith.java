@@ -25,6 +25,7 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestWith
 {
@@ -63,9 +64,9 @@ public class TestWith
         // First, verify the assumption that the nation table contains the expected hidden column
         assertThat(assertions.query(
                 format(
-                "SELECT count(*) " +
-                        "FROM information_schema.columns " +
-                        "WHERE table_catalog = '%s' and table_schema = '%s' and table_name = 'nation' and column_name = 'row_number'", CATALOG, TINY_SCHEMA_NAME)))
+                        "SELECT count(*) " +
+                                "FROM information_schema.columns " +
+                                "WHERE table_catalog = '%s' and table_schema = '%s' and table_name = 'nation' and column_name = 'row_number'", CATALOG, TINY_SCHEMA_NAME)))
                 .matches("VALUES BIGINT '0'");
         assertions.execute("SELECT min(row_number) FROM nation");
 
@@ -73,5 +74,15 @@ public class TestWith
                 "WITH t(a, b, c, d) AS (TABLE nation) " +
                         "SELECT a, b FROM t WHERE a = 1"))
                 .matches("VALUES (BIGINT '1', CAST('ARGENTINA' AS VARCHAR(25)))");
+
+        // Test CTE specified as TABLE without columns aliases
+        assertThat(assertions.query("WITH t AS (TABLE nation) " +
+                "SELECT * FROM t"))
+                .matches("SELECT * FROM nation");
+
+        // try access hidden column
+        assertThatThrownBy(() -> assertions.query("WITH t AS (TABLE nation) " +
+                "SELECT min(row_number) FROM t"))
+                .hasMessage("line 1:37: Column 'row_number' cannot be resolved");
     }
 }

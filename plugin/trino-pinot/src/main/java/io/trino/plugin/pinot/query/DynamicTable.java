@@ -51,7 +51,7 @@ public final class DynamicTable
             @JsonProperty("offset") OptionalLong offset,
             @JsonProperty("query") String query)
     {
-        this.tableName = requireNonNull(tableName, "table is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.suffix = requireNonNull(suffix, "suffix is null");
         this.selections = ImmutableList.copyOf(requireNonNull(selections, "selections is null"));
         this.groupingColumns = ImmutableList.copyOf(requireNonNull(groupingColumns, "groupingColumns is null"));

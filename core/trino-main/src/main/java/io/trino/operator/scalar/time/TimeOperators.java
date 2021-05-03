@@ -121,8 +121,8 @@ public final class TimeOperators
     public static Slice castToVarchar(@LiteralParameter("p") long precision, @SqlType("time(p)") long value)
     {
         int size = (int) (8 + // hour:minute:second
-                        (precision > 0 ? 1 : 0) + // period
-                        precision); // fraction
+                (precision > 0 ? 1 : 0) + // period
+                precision); // fraction
 
         DynamicSliceOutput output = new DynamicSliceOutput(size);
 

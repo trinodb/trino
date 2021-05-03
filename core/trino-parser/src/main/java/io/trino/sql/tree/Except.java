@@ -106,4 +106,14 @@ public class Except
     {
         return Objects.hash(left, right, isDistinct());
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return this.isDistinct() == ((Except) other).isDistinct();
+    }
 }

@@ -293,6 +293,7 @@ public class AggregationNode
                 @JsonProperty("globalGroupingSets") Set<Integer> globalGroupingSets)
         {
             requireNonNull(globalGroupingSets, "globalGroupingSets is null");
+            checkArgument(groupingSetCount > 0, "grouping set count must be larger than 0");
             checkArgument(globalGroupingSets.size() <= groupingSetCount, "list of empty global grouping sets must be no larger than grouping set count");
             requireNonNull(groupingKeys, "groupingKeys is null");
             if (groupingKeys.isEmpty()) {
@@ -384,7 +385,7 @@ public class AggregationNode
                 @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
-            this.resolvedFunction = requireNonNull(resolvedFunction, "signature is null");
+            this.resolvedFunction = requireNonNull(resolvedFunction, "resolvedFunction is null");
             this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
             for (Expression argument : arguments) {
                 checkArgument(argument instanceof SymbolReference || argument instanceof LambdaExpression,

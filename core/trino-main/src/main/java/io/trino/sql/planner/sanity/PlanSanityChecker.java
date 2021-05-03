@@ -55,6 +55,7 @@ public final class PlanSanityChecker
                         new NoIdentifierLeftChecker(),
                         new VerifyOnlyOneOutputNode(),
                         new VerifyNoFilteredAggregations(),
+                        new VerifyUseConnectorNodePartitioningSet(),
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
                         new ValidateStreamingAggregations(),
                         new DynamicFiltersChecker(),

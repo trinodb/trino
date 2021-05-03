@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.TestGroups.FUNCTIONS;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 
 public class TestTeradataFunctions
         extends ProductTest
@@ -31,35 +31,35 @@ public class TestTeradataFunctions
     @Test(groups = FUNCTIONS)
     public void testIndex()
     {
-        assertThat(onPresto().executeQuery("SELECT index('high', 'ig')")).contains(row(2));
+        assertThat(onTrino().executeQuery("SELECT index('high', 'ig')")).contains(row(2));
     }
 
     @Test(groups = FUNCTIONS)
     public void testChar2HexInt()
     {
-        assertThat(onPresto().executeQuery("SELECT char2hexint('ಠ益ಠ')")).contains(row("0CA076CA0CA0"));
+        assertThat(onTrino().executeQuery("SELECT char2hexint('ಠ益ಠ')")).contains(row("0CA076CA0CA0"));
     }
 
     @Test(groups = FUNCTIONS)
     public void testToDate()
     {
-        assertThat(onPresto().executeQuery("SELECT to_date('1988/04/01', 'yyyy/mm/dd')"))
+        assertThat(onTrino().executeQuery("SELECT to_date('1988/04/01', 'yyyy/mm/dd')"))
                 .contains(row(Date.valueOf("1988-04-01")));
-        assertThat(onPresto().executeQuery("SELECT to_date('1988/04/08', 'yyyy/mm/dd')"))
+        assertThat(onTrino().executeQuery("SELECT to_date('1988/04/08', 'yyyy/mm/dd')"))
                 .contains(row(Date.valueOf("1988-04-08")));
     }
 
     @Test(groups = FUNCTIONS)
     public void testToTimestamp()
     {
-        assertThat(onPresto().executeQuery("SELECT to_timestamp('1988/04/08;02:03:04','yyyy/mm/dd;hh24:mi:ss')"))
+        assertThat(onTrino().executeQuery("SELECT to_timestamp('1988/04/08;02:03:04','yyyy/mm/dd;hh24:mi:ss')"))
                 .contains(row(Timestamp.valueOf(LocalDateTime.of(1988, 4, 8, 2, 3, 4))));
     }
 
     @Test(groups = FUNCTIONS)
     public void testToChar()
     {
-        assertThat(onPresto().executeQuery("SELECT to_char(TIMESTAMP '1988-04-08 14:15:16 +02:09','yyyy/mm/dd;hh24:mi:ss')"))
+        assertThat(onTrino().executeQuery("SELECT to_char(TIMESTAMP '1988-04-08 14:15:16 +02:09','yyyy/mm/dd;hh24:mi:ss')"))
                 .contains(row("1988/04/08;14:15:16"));
     }
 }

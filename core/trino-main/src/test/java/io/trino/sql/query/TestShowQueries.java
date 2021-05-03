@@ -15,6 +15,7 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -23,7 +24,10 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -61,6 +65,8 @@ public class TestShowQueries
                         .withListTables((session, schemaName) -> ImmutableList.of(new SchemaTableName("mockSchema", "mockTable")))
                         .build(),
                 ImmutableMap.of());
+        queryRunner.getCatalogManager().registerCatalog(createBogusTestingCatalog("testing_catalog"));
+        queryRunner.getMetadata().getSessionPropertyManager().addConnectorSessionProperties(new CatalogName("testing_catalog"), List.of());
         assertions = new QueryAssertions(queryRunner);
     }
 
@@ -108,7 +114,7 @@ public class TestShowQueries
     {
         assertThat(assertions.query(
                 "SHOW SESSION LIKE '%page_row_c%'"))
-                .matches("VALUES ('filter_and_project_min_output_page_row_count', cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(96)))");
+                .matches("VALUES (cast('filter_and_project_min_output_page_row_count' as VARCHAR(53)), cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(103)))");
     }
 
     @Test
@@ -120,7 +126,7 @@ public class TestShowQueries
                 .hasMessage("Escape string must be a single character");
         assertThat(assertions.query(
                 "SHOW SESSION LIKE '%page$_row$_c%' ESCAPE '$'"))
-                .matches("VALUES ('filter_and_project_min_output_page_row_count', cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(96)))");
+                .matches("VALUES (cast('filter_and_project_min_output_page_row_count' as VARCHAR(53)), cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(103)))");
     }
 
     @Test

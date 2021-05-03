@@ -113,7 +113,7 @@ public class BasicWorkProcessorOperatorAdapter
             BasicAdapterWorkProcessorOperatorFactory operatorFactory)
     {
         this.pageBuffer = new PageBuffer();
-        this.operator = requireNonNull(operatorFactory, "operator is null").createAdapterOperator(processorContext, pageBuffer.pages());
+        this.operator = requireNonNull(operatorFactory, "operatorFactory is null").createAdapterOperator(processorContext, pageBuffer.pages());
     }
 
     @Override

@@ -63,7 +63,7 @@ public class UnnestNode
         checkArgument(!mappings.isEmpty(), "mappings is empty");
         this.mappings = ImmutableList.copyOf(mappings);
         this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
-        this.joinType = requireNonNull(joinType, "type is null");
+        this.joinType = requireNonNull(joinType, "joinType is null");
         this.filter = requireNonNull(filter, "filter is null");
         if (filter.isPresent()) {
             Set<Symbol> outputs = ImmutableSet.copyOf(getOutputSymbols());

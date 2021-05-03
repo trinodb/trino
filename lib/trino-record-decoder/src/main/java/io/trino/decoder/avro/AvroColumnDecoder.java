@@ -260,7 +260,7 @@ public class AvroColumnDecoder
 
     private static void serializePrimitive(BlockBuilder blockBuilder, Object value, Type type, String columnName)
     {
-        requireNonNull(blockBuilder, "parent blockBuilder is null");
+        requireNonNull(blockBuilder, "blockBuilder is null");
 
         if (value == null) {
             blockBuilder.appendNull();

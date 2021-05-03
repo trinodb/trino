@@ -43,14 +43,14 @@ public class ExpressionMatcher
 
     public ExpressionMatcher(String expression)
     {
-        this.sql = requireNonNull(expression);
-        this.expression = expression(requireNonNull(expression));
+        this.sql = requireNonNull(expression, "expression is null");
+        this.expression = expression(expression);
     }
 
     public ExpressionMatcher(Expression expression)
     {
         this.expression = requireNonNull(expression, "expression is null");
-        this.sql = requireNonNull(expression).toString();
+        this.sql = expression.toString();
     }
 
     private Expression expression(String sql)

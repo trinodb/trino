@@ -2,10 +2,16 @@
 SQL Server connector
 ====================
 
-The SQL Server connector allows querying and creating tables in an
-external `Microsoft SQL Server <https://www.microsoft.com/sql-server/>`_ database. This can be used to join data between
-different systems like SQL Server and Hive, or between two different
-SQL Server instances.
+The SQL Server connector allows querying and creating tables in an external
+`Microsoft SQL Server <https://www.microsoft.com/sql-server/>`_ database. This
+can be used to join data between different systems like SQL Server and Hive, or
+between two different SQL Server instances.
+
+Requirements
+------------
+
+The connector supports SQL Server 2016, SQL Server 2014, SQL Server 2012
+and Azure SQL Database as connected data sources.
 
 Configuration
 -------------
@@ -24,6 +30,16 @@ appropriate for your setup:
     connection-url=jdbc:sqlserver://<host>:<port>;database=<database>
     connection-user=root
     connection-password=secret
+
+The ``connection-url`` defines the connection information and parameters to pass
+to the SQL Server JDBC driver. The supported parameters for the URL are
+available in the `SQL Server JDBC driver documentation
+<https://docs.microsoft.com/en-us/sql/connect/jdbc/building-the-connection-url>`_.
+
+The ``connection-user`` and ``connection-password`` are typically required and
+determine the user credentials for the connection, often a service user. You can
+use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
+properties files.
 
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -70,13 +86,52 @@ Finally, you can query the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``sqlserver`` in the above examples.
 
+.. _sqlserver-type-mapping:
+
+Type mapping
+------------
+
+Trino supports the following SQL Server data types:
+
+==================================  ===============================
+SQL Server Type                     Trino Type
+==================================  ===============================
+``bigint``                          ``bigint``
+``smallint``                        ``smallint``
+``int``                             ``integer``
+``float``                           ``double``
+``char(n)``                         ``char(n)``
+``varchar(n)``                      ``varchar(n)``
+``date``                            ``date``
+``datetime2(n)``                    ``timestamp(n)``
+==================================  ===============================
+
+Complete list of `SQL Server data types
+<https://msdn.microsoft.com/en-us/library/ms187752.aspx>`_.
+
+.. include:: jdbc-type-mapping.fragment
+
+SQL support
+-----------
+
+The following SQL statements are not yet supported:
+
+* :doc:`/sql/delete`
+* :doc:`/sql/grant`
+* :doc:`/sql/revoke`
+
 .. _sqlserver-pushdown:
 
 Pushdown
 --------
 
-The connector supports :doc:`pushdown </optimizer/pushdown>` for processing the
-following aggregate functions:
+The connector supports pushdown for a number of operations:
+
+* :ref:`join-pushdown`
+* :ref:`limit-pushdown`
+* :ref:`topn-pushdown`
+
+:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
 
 * :func:`avg`
 * :func:`count`
@@ -90,32 +145,21 @@ following aggregate functions:
 * :func:`var_pop`
 * :func:`var_samp`
 
-Limitations
------------
+Data compression
+----------------
 
-Trino supports connecting to SQL Server 2016, SQL Server 2014, SQL Server 2012
-and Azure SQL Database.
+You can specify the `data compression policy for SQL Server tables
+<https://docs.microsoft.com/en-us/sql/relational-databases/data-compression/data-compression>`_
+with the ``data_compression`` table property. Valid policies are ``NONE``, ``ROW`` or ``PAGE``.
 
-Trino supports the following SQL Server data types.
-The following table shows the mappings between SQL Server and Trino data types.
+Example::
 
-============================= ============================
-SQL Server Type               Trino Type
-============================= ============================
-``bigint``                    ``bigint``
-``smallint``                  ``smallint``
-``int``                       ``integer``
-``float``                     ``double``
-``char(n)``                   ``char(n)``
-``varchar(n)``                ``varchar(n)``
-``date``                      ``date``
-============================= ============================
-
-Complete list of `SQL Server data types
-<https://msdn.microsoft.com/en-us/library/ms187752.aspx>`_.
-
-The following SQL statements are not yet supported:
-
-* :doc:`/sql/delete`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
+    CREATE TABLE myschema.scientists (
+      recordkey VARCHAR,
+      name VARCHAR,
+      age BIGINT,
+      birthday DATE
+    )
+    WITH (
+      data_compression = 'ROW'
+    );

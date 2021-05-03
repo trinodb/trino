@@ -32,11 +32,11 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestShardDao
@@ -71,14 +71,11 @@ public class TestShardDao
         assertTrue(dao.externalBatchExists("foo"));
         assertFalse(dao.externalBatchExists("bar"));
 
-        try {
-            dao.insertExternalBatch("foo");
-            fail("expected exception");
-        }
-        catch (UnableToExecuteStatementException e) {
-            assertInstanceOf(e.getCause(), SQLException.class);
-            assertTrue(((SQLException) e.getCause()).getSQLState().startsWith("23"));
-        }
+        assertThatThrownBy(() -> dao.insertExternalBatch("foo"))
+                .isInstanceOfSatisfying(UnableToExecuteStatementException.class, e -> {
+                    assertInstanceOf(e.getCause(), SQLException.class);
+                    assertTrue(((SQLException) e.getCause()).getSQLState().startsWith("23"));
+                });
     }
 
     @Test

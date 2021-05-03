@@ -49,7 +49,7 @@ public class StorageModule
 
         binder.bind(Ticker.class).toInstance(Ticker.systemTicker());
 
-        binder.bind(StorageManager.class).to(OrcStorageManager.class).in(Scopes.SINGLETON);
+        binder.bind(StorageManager.class).to(RaptorStorageManager.class).in(Scopes.SINGLETON);
         binder.bind(StorageService.class).to(FileStorageService.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardRecorder.class).to(DatabaseShardRecorder.class).in(Scopes.SINGLETON);
@@ -69,7 +69,7 @@ public class StorageModule
 
         newExporter(binder).export(ShardRecoveryManager.class).withGeneratedName();
         newExporter(binder).export(BackupManager.class).withGeneratedName();
-        newExporter(binder).export(StorageManager.class).as(generator -> generator.generatedNameOf(OrcStorageManager.class));
+        newExporter(binder).export(StorageManager.class).as(generator -> generator.generatedNameOf(RaptorStorageManager.class));
         newExporter(binder).export(ShardCompactionManager.class).withGeneratedName();
         newExporter(binder).export(ShardOrganizer.class).withGeneratedName();
         newExporter(binder).export(ShardCompactor.class).withGeneratedName();

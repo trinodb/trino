@@ -134,6 +134,8 @@ public final class Checkpoints
                 case CHAR:
                 case BINARY:
                     return new ByteArrayStreamCheckpoint(createInputStreamCheckpoint(0, 0));
+                default:
+                    break;
             }
         }
 

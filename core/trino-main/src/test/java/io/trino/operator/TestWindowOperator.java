@@ -26,6 +26,7 @@ import io.trino.operator.window.LeadFunction;
 import io.trino.operator.window.NthValueFunction;
 import io.trino.operator.window.RankFunction;
 import io.trino.operator.window.ReflectionWindowFunctionSupplier;
+import io.trino.operator.window.RegularPartitionerSupplier;
 import io.trino.operator.window.RowNumberFunction;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
@@ -845,7 +846,9 @@ public class TestWindowOperator
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
                 spillerFactory,
-                new OrderingCompiler(TYPE_OPERATORS_CACHE));
+                new OrderingCompiler(TYPE_OPERATORS_CACHE),
+                ImmutableList.of(),
+                new RegularPartitionerSupplier());
     }
 
     public static WindowOperatorFactory createFactoryUnbounded(
@@ -875,7 +878,9 @@ public class TestWindowOperator
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
                 spillerFactory,
-                new OrderingCompiler(TYPE_OPERATORS_CACHE));
+                new OrderingCompiler(TYPE_OPERATORS_CACHE),
+                ImmutableList.of(),
+                new RegularPartitionerSupplier());
     }
 
     private DriverContext createDriverContext()

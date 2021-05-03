@@ -88,13 +88,13 @@ public final class OrcWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
 
-    private static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
-    private static final String PRESTO_ORC_WRITER_VERSION;
+    private static final String TRINO_ORC_WRITER_VERSION_METADATA_KEY = "trino.writer.version";
+    private static final String TRINO_ORC_WRITER_VERSION;
     private final OrcWriterStats stats;
 
     static {
         String version = OrcWriter.class.getPackage().getImplementationVersion();
-        PRESTO_ORC_WRITER_VERSION = version == null ? "UNKNOWN" : version;
+        TRINO_ORC_WRITER_VERSION = version == null ? "UNKNOWN" : version;
     }
 
     private final OrcDataSink orcDataSink;
@@ -135,7 +135,6 @@ public final class OrcWriter
             ColumnMetadata<OrcType> orcTypes,
             CompressionKind compression,
             OrcWriterOptions options,
-            boolean writeLegacyVersion,
             Map<String, String> userMetadata,
             boolean validate,
             OrcWriteValidationMode validationMode,
@@ -161,8 +160,8 @@ public final class OrcWriter
         this.maxCompressionBufferSize = toIntExact(options.getMaxCompressionBufferSize().toBytes());
 
         this.userMetadata.putAll(requireNonNull(userMetadata, "userMetadata is null"));
-        this.userMetadata.put(PRESTO_ORC_WRITER_VERSION_METADATA_KEY, PRESTO_ORC_WRITER_VERSION);
-        this.metadataWriter = new CompressedMetadataWriter(new OrcMetadataWriter(writeLegacyVersion), compression, maxCompressionBufferSize);
+        this.userMetadata.put(TRINO_ORC_WRITER_VERSION_METADATA_KEY, TRINO_ORC_WRITER_VERSION);
+        this.metadataWriter = new CompressedMetadataWriter(new OrcMetadataWriter(options.getWriterIdentification()), compression, maxCompressionBufferSize);
         this.stats = requireNonNull(stats, "stats is null");
 
         requireNonNull(columnNames, "columnNames is null");
@@ -366,7 +365,7 @@ public final class OrcWriter
     }
 
     /**
-     * Collect the data for for the stripe.  This is not the actual data, but
+     * Collect the data for the stripe.  This is not the actual data, but
      * instead are functions that know how to write the data.
      */
     private List<OrcDataOutput> bufferStripeData(long stripeStartOffset, FlushReason flushReason)
@@ -495,7 +494,7 @@ public final class OrcWriter
     }
 
     /**
-     * Collect the data for for the file footer.  This is not the actual data, but
+     * Collect the data for the file footer.  This is not the actual data, but
      * instead are functions that know how to write the data.
      */
     private List<OrcDataOutput> bufferFileFooter()
@@ -530,7 +529,8 @@ public final class OrcWriter
                         .collect(toImmutableList()),
                 orcTypes,
                 fileStats,
-                userMetadata);
+                userMetadata,
+                Optional.empty()); // writer id will be set by MetadataWriter
 
         closedStripes.clear();
         closedStripesRetainedBytes = 0;
@@ -617,7 +617,7 @@ public final class OrcWriter
         public ClosedStripe(StripeInformation stripeInformation, StripeStatistics statistics)
         {
             this.stripeInformation = requireNonNull(stripeInformation, "stripeInformation is null");
-            this.statistics = requireNonNull(statistics, "stripeStatistics is null");
+            this.statistics = requireNonNull(statistics, "statistics is null");
         }
 
         public StripeInformation getStripeInformation()

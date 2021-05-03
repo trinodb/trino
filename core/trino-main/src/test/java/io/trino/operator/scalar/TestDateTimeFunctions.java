@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.SqlDate;
-import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeZoneKey;
@@ -49,15 +48,14 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.operator.scalar.DateTimeFunctions.currentDate;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
@@ -216,41 +214,42 @@ public class TestDateTimeFunctions
     {
         DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 0, DATE_TIME_ZONE);
         double seconds = dateTime.getMillis() / 1000.0;
-        assertFunction("from_unixtime(" + seconds + ")", TIMESTAMP_MILLIS, sqlTimestampOf(dateTime));
+        assertFunction("from_unixtime(" + seconds + ")", TIMESTAMP_TZ_MILLIS, SqlTimestampWithTimeZone.newInstance(3, dateTime.getMillis(), 0, TIME_ZONE_KEY));
 
         dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 888, DATE_TIME_ZONE);
         seconds = dateTime.getMillis() / 1000.0;
-        assertFunction("from_unixtime(" + seconds + ")", TIMESTAMP_MILLIS, sqlTimestampOf(dateTime));
+        assertFunction("from_unixtime(" + seconds + ")", TIMESTAMP_TZ_MILLIS, SqlTimestampWithTimeZone.newInstance(3, dateTime.getMillis(), 0, TIME_ZONE_KEY));
     }
 
     @Test
     public void testFromUnixTimeNanos()
     {
         // long
-        assertFunction("from_unixtime_nanos(1234567890123456789)", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 1234567890_123456L, 789000));
-        assertFunction("from_unixtime_nanos(999999999)", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 999999, 999000));
-        assertFunction("from_unixtime_nanos(-1234567890123456789)", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -1234567890_123457L, 211000));
-        assertFunction("from_unixtime_nanos(-999999999)", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -1000000, 1000));
+        assertFunction("from_unixtime_nanos(1234567890123456789)", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, 1234567890_123L, 456789000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(999999999)", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, 999, 999999000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(-1234567890123456789)", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, -1234567890_124L, 543211000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(-999999999)", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, -1000, 1000, TIME_ZONE_KEY));
 
         // short decimal
-        assertFunction("from_unixtime_nanos(DECIMAL '1234')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 1, 234000));
-        assertFunction("from_unixtime_nanos(DECIMAL '1234.0')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 1, 234000));
-        assertFunction("from_unixtime_nanos(DECIMAL '1234.499')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 1, 234000));
-        assertFunction("from_unixtime_nanos(DECIMAL '1234.500')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 1, 235000));
-        assertFunction("from_unixtime_nanos(DECIMAL '-1234')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -2, 766000));
-        assertFunction("from_unixtime_nanos(DECIMAL '-1234.0')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -2, 766000));
-        assertFunction("from_unixtime_nanos(DECIMAL '-1234.499')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -2, 766000));
-        assertFunction("from_unixtime_nanos(DECIMAL '-1234.500')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -2, 765000));
+        assertFunction("from_unixtime_nanos(DECIMAL '1234')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, 0, 1234000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '1234.0')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, 0, 1234000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '1234.499')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, 0, 1234000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '1234.500')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, 0, 1235000, TIME_ZONE_KEY));
+
+        assertFunction("from_unixtime_nanos(DECIMAL '-1234')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, -1, 998766000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '-1234.0')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, -1, 998766000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '-1234.499')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, -1, 998766000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '-1234.500')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, -1, 998765000, TIME_ZONE_KEY));
 
         // long decimal
-        assertFunction("from_unixtime_nanos(DECIMAL '12345678900123456789')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 12345678900_123456L, 789000));
-        assertFunction("from_unixtime_nanos(DECIMAL '12345678900123456789.000000')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 12345678900_123456L, 789000));
-        assertFunction("from_unixtime_nanos(DECIMAL '12345678900123456789.499')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 12345678900_123456L, 789000));
-        assertFunction("from_unixtime_nanos(DECIMAL '12345678900123456789.500')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 12345678900_123456L, 790000));
-        assertFunction("from_unixtime_nanos(DECIMAL '-12345678900123456789')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -12345678900_123457L, 211000));
-        assertFunction("from_unixtime_nanos(DECIMAL '-12345678900123456789.000000')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -12345678900_123457L, 211000));
-        assertFunction("from_unixtime_nanos(DECIMAL '-12345678900123456789.499')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -12345678900_123457L, 211000));
-        assertFunction("from_unixtime_nanos(DECIMAL '-12345678900123456789.500')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -12345678900_123457L, 210000));
+        assertFunction("from_unixtime_nanos(DECIMAL '12345678900123456789')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, 12345678900_123L, 456789000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '12345678900123456789.000000')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, 12345678900_123L, 456789000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '12345678900123456789.499')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, 12345678900_123L, 456789000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '12345678900123456789.500')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, 12345678900_123L, 456790000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '-12345678900123456789')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, -12345678900_124L, 543211000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '-12345678900123456789.000000')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, -12345678900_124L, 543211000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '-12345678900123456789.499')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, -12345678900_124L, 543211000, TIME_ZONE_KEY));
+        assertFunction("from_unixtime_nanos(DECIMAL '-12345678900123456789.500')", TIMESTAMP_TZ_NANOS, SqlTimestampWithTimeZone.newInstance(9, -12345678900_124L, 543210000, TIME_ZONE_KEY));
     }
 
     @Test
@@ -297,13 +296,6 @@ public class TestDateTimeFunctions
         zoneId = "America/Los_Angeles";
         expected = new DateTime(1969, 12, 31, 18, 0, 0, DateTimeZone.forID(zoneId));
         assertFunction(format("from_unixtime(7200, '%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
-    }
-
-    @Test
-    public void testToUnixTime()
-    {
-        assertFunction("to_unixtime(" + TIMESTAMP_LITERAL + ")", DOUBLE, TIMESTAMP.getMillis() / 1000.0);
-        assertFunction("to_unixtime(" + WEIRD_TIMESTAMP_LITERAL + ")", DOUBLE, WEIRD_TIMESTAMP.getMillis() / 1000.0);
     }
 
     @Test

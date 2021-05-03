@@ -47,6 +47,7 @@ import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -524,43 +525,31 @@ public class TestUnscaledDecimal128Arithmetic
 
     private static void assertUnscaledBigIntegerToDecimalOverflows(BigInteger value)
     {
-        try {
-            unscaledDecimal(value);
-            fail();
-        }
-        catch (ArithmeticException ignored) {
-        }
+        assertThatThrownBy(() -> unscaledDecimal(value))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("Decimal overflow");
     }
 
     private static void assertDecimalToUnscaledLongOverflows(BigInteger value)
     {
         Slice decimal = unscaledDecimal(value);
-        try {
-            unscaledDecimalToUnscaledLong(decimal);
-            fail();
-        }
-        catch (ArithmeticException ignored) {
-        }
+        assertThatThrownBy(() -> unscaledDecimalToUnscaledLong(decimal))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("Decimal overflow");
     }
 
     private static void assertMultiplyOverflows(Slice left, Slice right)
     {
-        try {
-            multiply(left, right);
-            fail();
-        }
-        catch (ArithmeticException ignored) {
-        }
+        assertThatThrownBy(() -> multiply(left, right))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("Decimal overflow");
     }
 
     private static void assertRescaleOverflows(Slice decimal, int rescaleFactor)
     {
-        try {
-            rescale(decimal, rescaleFactor);
-            fail();
-        }
-        catch (ArithmeticException ignored) {
-        }
+        assertThatThrownBy(() -> rescale(decimal, rescaleFactor))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("Decimal overflow");
     }
 
     private static void assertCompare(Slice left, Slice right, int expectedResult)
@@ -594,12 +583,9 @@ public class TestUnscaledDecimal128Arithmetic
 
     private void assertShiftLeftOverflow(BigInteger value, int leftShifts)
     {
-        try {
-            assertShiftLeft(value, leftShifts);
-            fail();
-        }
-        catch (ArithmeticException ignored) {
-        }
+        assertThatThrownBy(() -> assertShiftLeft(value, leftShifts))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("Decimal overflow");
     }
 
     private void assertShiftLeft(BigInteger value, int leftShifts)

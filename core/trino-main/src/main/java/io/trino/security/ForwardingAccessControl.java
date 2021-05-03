@@ -243,6 +243,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames)
+    {
+        delegate().checkCanUpdateTableColumns(context, tableName, updatedColumnNames);
+    }
+
+    @Override
     public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName)
     {
         delegate().checkCanCreateView(context, viewName);
@@ -270,6 +276,24 @@ public abstract class ForwardingAccessControl
     public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
         delegate().checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
+    }
+
+    @Override
+    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
+    {
+        delegate().checkCanCreateMaterializedView(context, materializedViewName);
+    }
+
+    @Override
+    public void checkCanRefreshMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
+    {
+        delegate().checkCanRefreshMaterializedView(context, materializedViewName);
+    }
+
+    @Override
+    public void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
+    {
+        delegate().checkCanDropMaterializedView(context, materializedViewName);
     }
 
     @Override

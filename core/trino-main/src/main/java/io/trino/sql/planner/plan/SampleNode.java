@@ -47,9 +47,8 @@ public class SampleNode
                     return Type.BERNOULLI;
                 case SYSTEM:
                     return Type.SYSTEM;
-                default:
-                    throw new UnsupportedOperationException("Unsupported sample type: " + sampleType);
             }
+            throw new UnsupportedOperationException("Unsupported sample type: " + sampleType);
         }
     }
 
@@ -65,7 +64,7 @@ public class SampleNode
         checkArgument(sampleRatio >= 0.0, "sample ratio must be greater than or equal to 0");
         checkArgument((sampleRatio <= 1.0), "sample ratio must be less than or equal to 1");
 
-        this.sampleType = requireNonNull(sampleType, "sample type is null");
+        this.sampleType = requireNonNull(sampleType, "sampleType is null");
         this.source = requireNonNull(source, "source is null");
         this.sampleRatio = sampleRatio;
     }

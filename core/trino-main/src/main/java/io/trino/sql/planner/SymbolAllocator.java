@@ -69,7 +69,7 @@ public class SymbolAllocator
 
     public Symbol newSymbol(String nameHint, Type type, String suffix)
     {
-        requireNonNull(nameHint, "name is null");
+        requireNonNull(nameHint, "nameHint is null");
         requireNonNull(type, "type is null");
 
         // TODO: workaround for the fact that QualifiedName lowercases parts

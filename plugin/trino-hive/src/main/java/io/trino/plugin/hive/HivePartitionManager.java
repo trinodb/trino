@@ -192,6 +192,7 @@ public class HivePartitionManager
                 handle.getAnalyzePartitionValues(),
                 handle.getAnalyzeColumnNames(),
                 Optionals.combine(handle.getConstraintColumns(), columns, Sets::union),
+                handle.getProjectedColumns(),
                 handle.getTransaction());
     }
 

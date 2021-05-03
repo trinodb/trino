@@ -14,17 +14,25 @@
 package io.trino.tests;
 
 import io.trino.Session;
+import io.trino.metadata.Catalog;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.plugin.memory.MemoryQueryRunner;
+import io.trino.server.testing.TestingTrinoServer;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.time.ZonedDateTime;
+import java.util.regex.Pattern;
 
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDistributedEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
@@ -33,7 +41,32 @@ public class TestDistributedEngineOnlyQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return MemoryQueryRunner.createQueryRunner();
+        DistributedQueryRunner queryRunner = MemoryQueryRunner.createQueryRunner();
+        addTestingCatalog(queryRunner);
+        return queryRunner;
+    }
+
+    public static void addTestingCatalog(DistributedQueryRunner queryRunner)
+    {
+        try {
+            for (TestingTrinoServer server : queryRunner.getServers()) {
+                addTestingCatalog(server);
+            }
+        }
+        catch (RuntimeException e) {
+            throw closeAllSuppress(e, queryRunner);
+        }
+    }
+
+    private static void addTestingCatalog(TestingTrinoServer server)
+    {
+        // for testing procedures and session properties
+        Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
+        server.getCatalogManager().registerCatalog(bogusTestingCatalog);
+
+        SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
+        sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+        sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), TEST_CATALOG_PROPERTIES);
     }
 
     /**
@@ -136,6 +169,14 @@ public class TestDistributedEngineOnlyQueries
                 "VALUES 1");
     }
 
+    @Test
+    public void testExplain()
+    {
+        assertExplain(
+                "explain select name from nation where abs(nationkey) = 22",
+                Pattern.quote("abs(\"nationkey\")"));
+    }
+
     // explain analyze can only run on coordinator
     @Test
     public void testExplainAnalyze()
@@ -196,5 +237,26 @@ public class TestDistributedEngineOnlyQueries
         assertQueryFails("INSERT INTO " + tableName + " (bounded_varchar_column) VALUES ('abcd')", "\\QCannot truncate non-space characters when casting from varchar(4) to varchar(3) on INSERT");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableAsTable()
+    {
+        // Ensure CTA works when the table exposes hidden fields
+        // First, verify that the table 'nation' contains the expected hidden column 'row_number'
+        assertThat(query("SELECT count(*) FROM information_schema.columns " +
+                "WHERE table_catalog = 'tpch' and table_schema = 'tiny' and table_name = 'nation' and column_name = 'row_number'"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT min(row_number) FROM tpch.tiny.nation"))
+                .matches("VALUES BIGINT '0'");
+
+        assertUpdate(getSession(), "CREATE TABLE n AS TABLE tpch.tiny.nation", 25);
+        assertThat(query("SELECT * FROM n"))
+                .matches("SELECT * FROM tpch.tiny.nation");
+
+        // Verify that hidden column is not present in the created table
+        assertThatThrownBy(() -> query("SELECT min(row_number) FROM n"))
+                .hasMessage("line 1:12: Column 'row_number' cannot be resolved");
+        assertUpdate(getSession(), "DROP TABLE n");
     }
 }

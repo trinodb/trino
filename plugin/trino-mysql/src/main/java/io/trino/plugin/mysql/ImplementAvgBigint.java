@@ -61,7 +61,7 @@ public class ImplementAvgBigint
         verify(aggregateFunction.getOutputType() == DOUBLE);
 
         return Optional.of(new JdbcExpression(
-                format("avg((%s * 1.0))", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("avg((%s * 1.0))", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())));
     }
 }

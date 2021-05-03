@@ -29,7 +29,7 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.TestGroups.AVRO;
 import static io.trino.tests.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.file.Files.newInputStream;
 
@@ -71,7 +71,7 @@ public class TestAvroSymlinkInputFormat
         saveResourceOnHdfs("avro/original_data.avro", dataDir + "/original_data.avro");
         hdfsClient.saveFile(dataDir + "/dontread.txt", "This file will cause an error if read as avro.");
         hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/original_data.avro", dataDir));
-        assertThat(onPresto().executeQuery("SELECT * FROM " + table)).containsExactly(row("someValue", 1));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + table)).containsExactly(row("someValue", 1));
 
         onHive().executeQuery("DROP TABLE " + table);
         hdfsClient.delete(dataDir);
@@ -107,7 +107,7 @@ public class TestAvroSymlinkInputFormat
         saveResourceOnHdfs("avro/original_data.avro", anotherDataDir + "/more_data.avro");
         hdfsClient.saveFile(dataDir + "/dontread.txt", "This file will cause an error if read as avro.");
         hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/original_data.avro\nhdfs:%s/more_data.avro", dataDir, anotherDataDir));
-        assertThat(onPresto().executeQuery("SELECT COUNT(*) as cnt FROM " + table)).containsExactly(row(2));
+        assertThat(onTrino().executeQuery("SELECT COUNT(*) as cnt FROM " + table)).containsExactly(row(2));
 
         onHive().executeQuery("DROP TABLE " + table);
         hdfsClient.delete(dataDir);
@@ -140,7 +140,7 @@ public class TestAvroSymlinkInputFormat
         String dataDir = warehouseDirectory + "/data_test_avro_symlink_with_nested_directory";
         saveResourceOnHdfs("avro/original_data.avro", dataDir + "/original_data.avro");
         hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs://%s/", dataDir));
-        assertThat(onPresto().executeQuery("SELECT * FROM " + table)).containsExactly(row("someValue", 1));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + table)).containsExactly(row("someValue", 1));
 
         onHive().executeQuery("DROP TABLE " + table);
         hdfsClient.delete(dataDir);

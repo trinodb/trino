@@ -1534,7 +1534,7 @@ public class TestExpressionCompiler
                     expected = callExtractFunction(micros, field);
                 }
                 String expressionPattern = format(
-                        "extract(%s from from_unixtime(cast(%s as double) / 1000000))",
+                        "extract(%s from from_unixtime(cast(%s as double) / 1000000, 'UTC'))",
                         field,
                         micros);
                 assertExecute(generateExpression(expressionPattern, micros), BIGINT, expected);
@@ -1574,6 +1574,9 @@ public class TestExpressionCompiler
                 return ExtractMinute.extract(value);
             case SECOND:
                 return ExtractSecond.extract(value);
+            case TIMEZONE_MINUTE:
+            case TIMEZONE_HOUR:
+                // TODO test these
         }
         throw new AssertionError("Unhandled field: " + field);
     }

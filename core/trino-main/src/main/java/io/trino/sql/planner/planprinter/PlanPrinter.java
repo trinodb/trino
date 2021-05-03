@@ -32,7 +32,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Marker;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -72,6 +71,8 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -94,16 +95,23 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
+import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
+import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ValuePointer;
+import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
+import io.trino.sql.tree.SkipTo.Position;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.util.GraphvizPrinter;
 
@@ -132,11 +140,13 @@ import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ExpressionUtils.combineConjunctsWithDuplicates;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static java.lang.Math.abs;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -417,7 +427,9 @@ public class PlanPrinter
             }
 
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
-            nodeOutput.appendDetailsLine("maySkipOutputDuplicates = %s", node.isMaySkipOutputDuplicates());
+            if (node.isMaySkipOutputDuplicates()) {
+                nodeOutput.appendDetailsLine("maySkipOutputDuplicates = %s", node.isMaySkipOutputDuplicates());
+            }
             if (!node.getDynamicFilters().isEmpty()) {
                 nodeOutput.appendDetails("dynamicFilterAssignments = %s", printDynamicFilterAssignments(node.getDynamicFilters()));
             }
@@ -631,6 +643,149 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitPatternRecognition(PatternRecognitionNode node, Void context)
+        {
+            List<String> partitionBy = node.getPartitionBy().stream()
+                    .map(Objects::toString)
+                    .collect(toImmutableList());
+
+            List<String> args = new ArrayList<>();
+            if (!partitionBy.isEmpty()) {
+                List<Symbol> prePartitioned = node.getPartitionBy().stream()
+                        .filter(node.getPrePartitionedInputs()::contains)
+                        .collect(toImmutableList());
+
+                List<Symbol> notPrePartitioned = node.getPartitionBy().stream()
+                        .filter(column -> !node.getPrePartitionedInputs().contains(column))
+                        .collect(toImmutableList());
+
+                StringBuilder builder = new StringBuilder();
+                if (!prePartitioned.isEmpty()) {
+                    builder.append("<")
+                            .append(Joiner.on(", ").join(prePartitioned))
+                            .append(">");
+                    if (!notPrePartitioned.isEmpty()) {
+                        builder.append(", ");
+                    }
+                }
+                if (!notPrePartitioned.isEmpty()) {
+                    builder.append(Joiner.on(", ").join(notPrePartitioned));
+                }
+                args.add(format("partition by (%s)", builder));
+            }
+            if (node.getOrderingScheme().isPresent()) {
+                OrderingScheme orderingScheme = node.getOrderingScheme().get();
+                args.add(format("order by (%s)", Stream.concat(
+                        orderingScheme.getOrderBy().stream()
+                                .limit(node.getPreSortedOrderPrefix())
+                                .map(symbol -> "<" + symbol + " " + orderingScheme.getOrdering(symbol) + ">"),
+                        orderingScheme.getOrderBy().stream()
+                                .skip(node.getPreSortedOrderPrefix())
+                                .map(symbol -> symbol + " " + orderingScheme.getOrdering(symbol)))
+                        .collect(Collectors.joining(", "))));
+            }
+
+            NodeRepresentation nodeOutput = addNode(node, "PatterRecognition", format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashSymbol())));
+
+            for (Map.Entry<Symbol, Measure> entry : node.getMeasures().entrySet()) {
+                nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), unresolveFunctions(entry.getValue().getExpressionAndValuePointers().getExpression()));
+                appendValuePointers(nodeOutput, entry.getValue().getExpressionAndValuePointers());
+            }
+            nodeOutput.appendDetailsLine(formatRowsPerMatch(node.getRowsPerMatch()));
+            nodeOutput.appendDetailsLine(formatSkipTo(node.getSkipToPosition(), node.getSkipToLabel()));
+            nodeOutput.appendDetailsLine(format("pattern[%s]", node.getPattern()));
+            nodeOutput.appendDetailsLine(format("subsets[%s]", node.getSubsets().entrySet().stream()
+                    .map(subset -> subset.getKey().getName() +
+                            " := " +
+                            subset.getValue().stream()
+                                    .map(IrLabel::getName)
+                                    .collect(Collectors.joining(", ", "{", "}")))
+                    .collect(joining(", "))));
+            for (Map.Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
+                nodeOutput.appendDetailsLine("%s := %s", entry.getKey().getName(), unresolveFunctions(entry.getValue().getExpression()));
+                appendValuePointers(nodeOutput, entry.getValue());
+            }
+
+            return processChildren(node, context);
+        }
+
+        private void appendValuePointers(NodeRepresentation nodeOutput, ExpressionAndValuePointers expressionAndPointers)
+        {
+            for (int i = 0; i < expressionAndPointers.getLayout().size(); i++) {
+                Symbol symbol = expressionAndPointers.getLayout().get(i);
+                if (expressionAndPointers.getMatchNumberSymbols().contains(symbol)) {
+                    // match_number does not use the value pointer. It is constant per match.
+                    continue;
+                }
+                ValuePointer pointer = expressionAndPointers.getValuePointers().get(i);
+                String sourceSymbolName = expressionAndPointers.getClassifierSymbols().contains(symbol) ? "classifier" : pointer.getInputSymbol().getName();
+                nodeOutput.appendDetailsLine(indentString(1) + symbol + " := " + sourceSymbolName + "[" + formatLogicalIndexPointer(pointer.getLogicalIndexPointer()) + "]");
+            }
+        }
+
+        private String formatLogicalIndexPointer(LogicalIndexPointer pointer)
+        {
+            StringBuilder builder = new StringBuilder();
+            int physicalOffset = pointer.getPhysicalOffset();
+            if (physicalOffset > 0) {
+                builder.append("NEXT(");
+            }
+            else if (physicalOffset < 0) {
+                builder.append("PREV(");
+            }
+            builder.append(pointer.isRunning() ? "RUNNING " : "FINAL ");
+            builder.append(pointer.isLast() ? "LAST(" : "FIRST(");
+            builder.append(pointer.getLabels().stream()
+                    .map(IrLabel::getName)
+                    .collect(joining(", ", "{", "}")));
+            if (pointer.getLogicalOffset() > 0) {
+                builder
+                        .append(", ")
+                        .append(pointer.getLogicalOffset());
+            }
+            builder.append(")");
+            if (physicalOffset != 0) {
+                builder
+                        .append(", ")
+                        .append(abs(physicalOffset))
+                        .append(")");
+            }
+            return builder.toString();
+        }
+
+        private String formatRowsPerMatch(RowsPerMatch rowsPerMatch)
+        {
+            switch (rowsPerMatch) {
+                case ONE:
+                    return "ALL ROWS PER MATCH";
+                case ALL_SHOW_EMPTY:
+                    return "ALL ROWS PER MATCH SHOW EMPTY MATCHES";
+                case ALL_OMIT_EMPTY:
+                    return "ALL ROWS PER MATCH OMIT EMPTY MATCHES";
+                case ALL_WITH_UNMATCHED:
+                    return "ALL ROWS PER MATCH WITH UNMATCHED ROWS";
+                case WINDOW:
+                    throw new UnsupportedOperationException("pattern matching in WINDOW is not supported");
+            }
+            throw new UnsupportedOperationException("unsupported ROWS PER MATCH option");
+        }
+
+        private String formatSkipTo(Position position, Optional<IrLabel> label)
+        {
+            switch (position) {
+                case PAST_LAST:
+                    return "AFTER MATCH SKIP PAST LAST ROW";
+                case NEXT:
+                    return "AFTER MATCH SKIP TO NEXT ROW";
+                case FIRST:
+                    return "AFTER MATCH SKIP TO FIRST " + label.get().getName();
+                case LAST:
+                    return "AFTER MATCH SKIP TO LAST " + label.get().getName();
+            }
+            throw new UnsupportedOperationException("unsupported SKIP TO option");
+        }
+
+        @Override
         public Void visitTopNRanking(TopNRankingNode node, Void context)
         {
             List<String> partitionBy = node.getPartitionBy().stream()
@@ -782,7 +937,7 @@ public class PlanPrinter
                 formatString += "filterPredicate = %s, ";
                 Expression predicate = filterNode.get().getPredicate();
                 DynamicFilters.ExtractResult extractResult = extractDynamicFilters(predicate);
-                arguments.add(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts()));
+                arguments.add(unresolveFunctions(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts())));
                 if (!extractResult.getDynamicConjuncts().isEmpty()) {
                     formatString += "dynamicFilter = %s, ";
                     arguments.add(printDynamicFilters(extractResult.getDynamicConjuncts()));
@@ -813,9 +968,7 @@ public class PlanPrinter
                     ImmutableList.of(),
                     Optional.empty());
 
-            if (projectNode.isPresent()) {
-                printAssignments(nodeOutput, projectNode.get().getAssignments());
-            }
+            projectNode.ifPresent(value -> printAssignments(nodeOutput, value.getAssignments()));
 
             if (scanNode.isPresent()) {
                 printTableScanInfo(nodeOutput, scanNode.get());
@@ -886,7 +1039,12 @@ public class PlanPrinter
                 name = node.getJoinType().getJoinLabel() + " Unnest";
             }
             else if (!node.getReplicateSymbols().isEmpty()) {
-                name = "CrossJoin Unnest";
+                if (node.getJoinType() == INNER) {
+                    name = "CrossJoin Unnest";
+                }
+                else {
+                    name = node.getJoinType().getJoinLabel() + " Unnest";
+                }
             }
             else {
                 name = "Unnest";
@@ -1112,6 +1270,18 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitUpdate(UpdateNode node, Void context)
+        {
+            NodeRepresentation nodeOutput = addNode(node, format("Update[%s]", node.getTarget()));
+            int index = 0;
+            for (String columnName : node.getTarget().getUpdatedColumns()) {
+                nodeOutput.appendDetailsLine("%s := %s", columnName, node.getColumnValueAndRowIdSymbols().get(index).getName());
+                index++;
+            }
+            return processChildren(node, context);
+        }
+
+        @Override
         public Void visitTableDelete(TableDeleteNode node, Void context)
         {
             addNode(node, "TableDelete", format("[%s]", node.getTarget()));
@@ -1218,25 +1388,25 @@ public class PlanPrinter
                                 builder.append('[').append(value).append(']');
                             }
                             else {
-                                builder.append((range.getLow().getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
+                                builder.append(range.isLowInclusive() ? '[' : '(');
 
-                                if (range.getLow().isLowerUnbounded()) {
+                                if (range.isLowUnbounded()) {
                                     builder.append("<min>");
                                 }
                                 else {
-                                    builder.append(valuePrinter.castToVarchar(type, range.getLow().getValue()));
+                                    builder.append(valuePrinter.castToVarchar(type, range.getLowBoundedValue()));
                                 }
 
                                 builder.append(", ");
 
-                                if (range.getHigh().isUpperUnbounded()) {
+                                if (range.isHighUnbounded()) {
                                     builder.append("<max>");
                                 }
                                 else {
-                                    builder.append(valuePrinter.castToVarchar(type, range.getHigh().getValue()));
+                                    builder.append(valuePrinter.castToVarchar(type, range.getHighBoundedValue()));
                                 }
 
-                                builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
+                                builder.append(range.isHighInclusive() ? ']' : ')');
                             }
                             parts.add(builder.toString());
                         }
@@ -1390,6 +1560,7 @@ public class PlanPrinter
                         rewritten.getOrderBy(),
                         rewritten.isDistinct(),
                         rewritten.getNullTreatment(),
+                        rewritten.getProcessingMode(),
                         rewritten.getArguments());
             }
         }, expression);

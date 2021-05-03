@@ -1,6 +1,6 @@
 # Release 339 (21 Jul 2020)
 
-## General changes
+## General
 
 * Add {func}`approx_most_frequent`. ({issue}`3425`)
 * Physical bytes scan limit for queries can be configured via `query.max-scan-physical-bytes` configuration property
@@ -15,7 +15,7 @@
 * Fix failure when querying nested `TIMESTAMP` or `TIMESTAMP WITH TIME ZONE` for legacy clients. ({issue}`4475`, {issue}`4425`)
 * Fix failure when parsing timestamps with time zone with an offset of the form `+NNNN`. ({issue}`4490`)
 
-## JDBC driver changes
+## JDBC driver
 
 * Fix reading `TIMESTAMP` and `TIMESTAMP WITH TIME ZONE` values with a negative year
   or a year higher than 9999. ({issue}`4364`)
@@ -25,11 +25,11 @@
   The previous behavior can temporarily be restored using `useSessionTimeZone` JDBC connection
   parameter. ({issue}`4017`)
 
-## Druid connector changes
+## Druid connector
 
 * Fix handling of table and column names containing non-ASCII characters. ({issue}`4312`)
 
-## Hive connector changes
+## Hive connector
 
 * Add support for writing Bloom filters in ORC files. ({issue}`3939`)
 * Make `location` parameter optional for the `system.register_partition` procedure. ({issue}`4443`)
@@ -41,31 +41,31 @@
 * Fix a query failure when reading from Parquet file containing `real` or `double` `NaN` values,
   if the file was written by a non-conforming writer. ({issue}`4267`)
 
-## Kafka connector changes
+## Kafka connector
 
 * Add insert support for Avro. ({issue}`4418`)
 * Add insert support for CSV. ({issue}`4287`)
 
-## Kudu connector changes
+## Kudu connector
 
 * Add support for grouped execution. It can be enabled with the `kudu.grouped-execution.enabled`
   configuration property or the `grouped_execution` session property. ({issue}`3715`)
 
-## MongoDB connector changes
+## MongoDB connector
 
 * Allow querying Azure Cosmos DB. ({issue}`4415`)
 
-## Oracle connector changes
+## Oracle connector
 
 * Allow providing credentials via the `connection-user` and `connection-password`
   configuration properties. These properties were previously ignored if connection pooling
   was enabled. ({issue}`4430`)
 
-## Phoenix connector changes
+## Phoenix connector
 
 * Fix handling of row key definition with white space. ({issue}`3251`)
 
-## SPI changes
+## SPI
 
 * Allow connectors to wait for dynamic filters before splits are generated via the new
   `DynamicFilter` object passed to `ConnectorSplitManager.getSplits()`. ({issue}`4224`)

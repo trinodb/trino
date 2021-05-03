@@ -10,12 +10,14 @@ install --directory --mode=755 /var/log/trino
 # Populate node.id from uuidgen by replacing template with the node uuid
 sed -i "s/\$(uuid-generated-nodeid)/$(uuidgen)/g" /etc/trino/node.properties
 
-# move the trino_env.sh created during pre-install to Trino config location
-if [ -e /tmp/trino_env.sh ]
-then
-    mv /tmp/trino_env.sh /etc/trino/env.sh
-else
-    echo "#JAVA_HOME=" > /etc/trino/env.sh
+# read /tmp/trino-rpm-install-java-home created during pre-install and save JAVA_HOME in env.sh at Trino config location
+if [ -r /tmp/trino-rpm-install-java-home ]; then
+    JAVA_HOME=$(cat /tmp/trino-rpm-install-java-home)
+    target=/etc/trino/env.sh
+    sed -i "/^#JAVA_HOME=$/d" $target
+    if ! grep -q '^JAVA_HOME=' $target >/dev/null; then
+        echo "JAVA_HOME=$JAVA_HOME" >> $target
+    fi
 fi
 
 chown -R trino:trino /var/lib/trino

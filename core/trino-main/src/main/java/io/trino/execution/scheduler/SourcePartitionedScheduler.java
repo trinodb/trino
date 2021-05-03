@@ -366,9 +366,8 @@ public class SourcePartitionedScheduler
                             true,
                             overallNewTasks.build(),
                             overallSplitAssignmentCount);
-                default:
-                    throw new IllegalStateException("Unknown state");
             }
+            throw new IllegalStateException("Unknown state");
         }
 
         if (anyNotBlocked) {

@@ -64,7 +64,7 @@ public class LocalExchangeSource
 
     void addPage(PageReference pageReference)
     {
-        checkNotHoldsLock();
+        assertNotHoldsLock();
 
         boolean added = false;
         SettableFuture<?> notEmptyFuture = null;
@@ -120,7 +120,7 @@ public class LocalExchangeSource
 
     public Page removePage()
     {
-        checkNotHoldsLock();
+        assertNotHoldsLock();
 
         // NOTE: there is no need to acquire a lock here. The buffer is concurrent
         // and buffered bytes is not expected to be consistent with the buffer (only
@@ -141,7 +141,7 @@ public class LocalExchangeSource
 
     public ListenableFuture<?> waitForReading()
     {
-        checkNotHoldsLock();
+        assertNotHoldsLock();
         // Fast path, definitely not blocked
         if (finishing || !buffer.isEmpty()) {
             return NOT_BLOCKED;
@@ -174,7 +174,7 @@ public class LocalExchangeSource
 
     public void finish()
     {
-        checkNotHoldsLock();
+        assertNotHoldsLock();
 
         SettableFuture<?> notEmptyFuture;
         synchronized (this) {
@@ -198,7 +198,7 @@ public class LocalExchangeSource
 
     public void close()
     {
-        checkNotHoldsLock();
+        assertNotHoldsLock();
 
         List<PageReference> remainingPages = new ArrayList<>();
         SettableFuture<?> notEmptyFuture;
@@ -227,7 +227,7 @@ public class LocalExchangeSource
 
     private void checkFinished()
     {
-        checkNotHoldsLock();
+        assertNotHoldsLock();
 
         if (isFinished()) {
             // notify finish listener outside of lock, since it may make a callback
@@ -238,8 +238,9 @@ public class LocalExchangeSource
         }
     }
 
-    private void checkNotHoldsLock()
+    @SuppressWarnings("checkstyle:IllegalToken")
+    private void assertNotHoldsLock()
     {
-        checkState(!Thread.holdsLock(this), "Cannot execute this method while holding the lock");
+        assert !Thread.holdsLock(this) : "Cannot execute this method while holding the lock";
     }
 }

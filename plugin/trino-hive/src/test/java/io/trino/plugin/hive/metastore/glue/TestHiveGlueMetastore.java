@@ -15,7 +15,9 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.slice.Slice;
 import io.trino.plugin.hive.AbstractTestHiveLocal;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTestUtils;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -25,34 +27,51 @@ import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.ColumnStatisticMetadata;
+import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.VarcharType;
+import io.trino.testing.MaterializedResult;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.decimalOf;
+import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
+import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
+import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -134,12 +153,16 @@ public class TestHiveGlueMetastore
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
         glueConfig.setAssumeCanonicalPartitionKeys(true);
 
+        HiveConfig hiveConfig = new HiveConfig();
+        hiveConfig.setTableStatisticsEnabled(true);
+
         Executor executor = new BoundedExecutor(this.executor, 10);
         return new GlueHiveMetastore(
                 HDFS_ENVIRONMENT,
                 glueConfig,
-                new DisabledGlueColumnStatisticsProvider(),
+                hiveConfig,
                 executor,
+                new DefaultGlueColumnStatisticsProviderFactory(glueConfig, executor, executor),
                 Optional.empty(),
                 new DefaultGlueMetastoreTableFilterProvider(
                         new MetastoreConfig()
@@ -153,33 +176,21 @@ public class TestHiveGlueMetastore
     }
 
     @Override
-    public void testPartitionStatisticsSampling()
-    {
-        // Glue metastore does not support column level statistics
-    }
-
-    @Override
-    public void testUpdateTableColumnStatistics()
-    {
-        // column statistics are not supported by Glue
-    }
-
-    @Override
     public void testUpdateTableColumnStatisticsEmptyOptionalFields()
+            throws Exception
     {
-        // column statistics are not supported by Glue
-    }
-
-    @Override
-    public void testUpdatePartitionColumnStatistics()
-    {
-        // column statistics are not supported by Glue
+        // this test expect consistency between written and read stats but this is not provided by glue at the moment
+        // when writing empty min/max statistics glue will return 0 to the readers
+        // in order to avoid incorrect data we skip writes for statistics with min/max = null
     }
 
     @Override
     public void testUpdatePartitionColumnStatisticsEmptyOptionalFields()
+            throws Exception
     {
-        // column statistics are not supported by Glue
+        // this test expect consistency between written and read stats but this is not provided by glue at the moment
+        // when writing empty min/max statistics glue will return 0 to the readers
+        // in order to avoid incorrect data we skip writes for statistics with min/max = null
     }
 
     @Override
@@ -681,6 +692,105 @@ public class TestHiveGlueMetastore
                 partitionList,
                 ImmutableList.of(isNullFilter),
                 ImmutableList.of(ImmutableList.of(GlueExpressionUtil.NULL_STRING)));
+    }
+
+    @Test
+    public void testUpdateStatisticsOnCreate()
+    {
+        SchemaTableName tableName = temporaryTable("update_statistics_create");
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+
+            List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("a_column", BigintType.BIGINT));
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(TEXTFILE));
+            ConnectorOutputTableHandle createTableHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+
+            // write data
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, createTableHandle);
+            MaterializedResult data = MaterializedResult.resultBuilder(session, BigintType.BIGINT)
+                    .row(1L)
+                    .row(2L)
+                    .row(3L)
+                    .row(4L)
+                    .row(5L)
+                    .build();
+            sink.appendPage(data.toPage());
+            Collection<Slice> fragments = getFutureValue(sink.finish());
+
+            // prepare statistics
+            ComputedStatistics statistics = ComputedStatistics.builder(ImmutableList.of(), ImmutableList.of())
+                    .addTableStatistic(TableStatisticType.ROW_COUNT, singleValueBlock(5))
+                    .addColumnStatistic(new ColumnStatisticMetadata("a_column", MIN_VALUE), singleValueBlock(1))
+                    .addColumnStatistic(new ColumnStatisticMetadata("a_column", MAX_VALUE), singleValueBlock(5))
+                    .addColumnStatistic(new ColumnStatisticMetadata("a_column", NUMBER_OF_DISTINCT_VALUES), singleValueBlock(5))
+                    .addColumnStatistic(new ColumnStatisticMetadata("a_column", NUMBER_OF_NON_NULL_VALUES), singleValueBlock(5))
+                    .build();
+
+            // finish CTAS
+            metadata.finishCreateTable(session, createTableHandle, fragments, ImmutableList.of(statistics));
+            transaction.commit();
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testUpdatePartitionedStatisticsOnCreate()
+    {
+        SchemaTableName tableName = temporaryTable("update_partitioned_statistics_create");
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+
+            List<ColumnMetadata> columns = ImmutableList.of(
+                    new ColumnMetadata("a_column", BigintType.BIGINT),
+                    new ColumnMetadata("part_column", BigintType.BIGINT));
+
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(TEXTFILE, ImmutableList.of("part_column")));
+            ConnectorOutputTableHandle createTableHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+
+            // write data
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, createTableHandle);
+            MaterializedResult data = MaterializedResult.resultBuilder(session, BigintType.BIGINT, BigintType.BIGINT)
+                    .row(1L, 1L)
+                    .row(2L, 1L)
+                    .row(3L, 1L)
+                    .row(4L, 2L)
+                    .row(5L, 2L)
+                    .build();
+            sink.appendPage(data.toPage());
+            Collection<Slice> fragments = getFutureValue(sink.finish());
+
+            // prepare statistics
+            ComputedStatistics statistics1 = ComputedStatistics.builder(ImmutableList.of("part_column"), ImmutableList.of(singleValueBlock(1)))
+                    .addTableStatistic(TableStatisticType.ROW_COUNT, singleValueBlock(3))
+                    .addColumnStatistic(new ColumnStatisticMetadata("a_column", MIN_VALUE), singleValueBlock(1))
+                    .addColumnStatistic(new ColumnStatisticMetadata("a_column", MAX_VALUE), singleValueBlock(3))
+                    .addColumnStatistic(new ColumnStatisticMetadata("a_column", NUMBER_OF_DISTINCT_VALUES), singleValueBlock(3))
+                    .addColumnStatistic(new ColumnStatisticMetadata("a_column", NUMBER_OF_NON_NULL_VALUES), singleValueBlock(3))
+                    .build();
+            ComputedStatistics statistics2 = ComputedStatistics.builder(ImmutableList.of("part_column"), ImmutableList.of(singleValueBlock(2)))
+                    .addTableStatistic(TableStatisticType.ROW_COUNT, singleValueBlock(2))
+                    .addColumnStatistic(new ColumnStatisticMetadata("a_column", MIN_VALUE), singleValueBlock(4))
+                    .addColumnStatistic(new ColumnStatisticMetadata("a_column", MAX_VALUE), singleValueBlock(5))
+                    .addColumnStatistic(new ColumnStatisticMetadata("a_column", NUMBER_OF_DISTINCT_VALUES), singleValueBlock(2))
+                    .addColumnStatistic(new ColumnStatisticMetadata("a_column", NUMBER_OF_NON_NULL_VALUES), singleValueBlock(2))
+                    .build();
+
+            // finish CTAS
+            metadata.finishCreateTable(session, createTableHandle, fragments, ImmutableList.of(statistics1, statistics2));
+            transaction.commit();
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    private Block singleValueBlock(long value)
+    {
+        return BigintType.BIGINT.createBlockBuilder(null, 1).writeLong(value).build();
     }
 
     private void doGetPartitionsFilterTest(

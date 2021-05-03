@@ -57,7 +57,9 @@ public class OAuth2ServiceModule
     @ForOAuth2
     public static SigningKeyResolver createSigningKeyResolver(OAuth2Config oauth2Config, @ForOAuth2 HttpClient httpClient)
     {
-        return new JwkSigningKeyResolver(new JwkService(URI.create(oauth2Config.getJwksUrl()), httpClient, new Duration(15, TimeUnit.MINUTES)));
+        JwkService jwkService = new JwkService(URI.create(oauth2Config.getJwksUrl()), httpClient, new Duration(15, TimeUnit.MINUTES));
+        jwkService.start();
+        return new JwkSigningKeyResolver(jwkService);
     }
 
     @Override

@@ -44,12 +44,13 @@ public class ExternalAuthenticator
     private final TokenPoller tokenPoller;
     private final RedirectHandler redirectHandler;
     private final Duration timeout;
-    private Token knownToken;
+    private final KnownToken knownToken;
 
-    public ExternalAuthenticator(RedirectHandler redirect, TokenPoller tokenPoller, Duration timeout)
+    public ExternalAuthenticator(RedirectHandler redirect, TokenPoller tokenPoller, KnownToken knownToken, Duration timeout)
     {
         this.tokenPoller = requireNonNull(tokenPoller, "tokenPoller is null");
         this.redirectHandler = requireNonNull(redirect, "redirect is null");
+        this.knownToken = requireNonNull(knownToken, "knownToken is null");
         this.timeout = requireNonNull(timeout, "timeout is null");
     }
 
@@ -57,28 +58,27 @@ public class ExternalAuthenticator
     @Override
     public Request authenticate(Route route, Response response)
     {
-        knownToken = null;
+        knownToken.setupToken(() -> {
+            Optional<ExternalAuthentication> authentication = toAuthentication(response);
+            if (!authentication.isPresent()) {
+                return Optional.empty();
+            }
 
-        Optional<ExternalAuthentication> authentication = toAuthentication(response);
-        if (!authentication.isPresent()) {
-            return null;
-        }
+            return authentication.get().obtainToken(timeout, redirectHandler, tokenPoller);
+        });
 
-        Optional<Token> token = authentication.get().obtainToken(timeout, redirectHandler, tokenPoller);
-        if (!token.isPresent()) {
-            return null;
-        }
-
-        knownToken = token.get();
-        return withBearerToken(response.request(), knownToken);
+        return knownToken.getToken()
+                .map(token -> withBearerToken(response.request(), token))
+                .orElse(null);
     }
 
     @Override
     public Response intercept(Chain chain)
             throws IOException
     {
-        if (knownToken != null) {
-            return chain.proceed(withBearerToken(chain.request(), knownToken));
+        Optional<Token> token = knownToken.getToken();
+        if (token.isPresent()) {
+            return chain.proceed(withBearerToken(chain.request(), token.get()));
         }
 
         return chain.proceed(chain.request());
@@ -87,7 +87,7 @@ public class ExternalAuthenticator
     private static Request withBearerToken(Request request, Token token)
     {
         return request.newBuilder()
-                .addHeader(AUTHORIZATION, "Bearer " + token.token())
+                .header(AUTHORIZATION, "Bearer " + token.token())
                 .build();
     }
 

@@ -7,8 +7,8 @@ Release 0.122
    There is a bug in this release that will cause queries to fail when the
    ``optimizer.optimize-hash-generation`` config is disabled.
 
-General changes
----------------
+General
+-------
 
 * The deprecated casts between JSON and VARCHAR will now fail and provide the
   user with instructions to migrate their query. For more details, see

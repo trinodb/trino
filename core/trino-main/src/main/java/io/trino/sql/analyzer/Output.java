@@ -15,10 +15,13 @@ package io.trino.sql.analyzer;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,16 +31,19 @@ public final class Output
     private final String catalogName;
     private final String schema;
     private final String table;
+    private final Optional<List<OutputColumn>> columns;
 
     @JsonCreator
     public Output(
             @JsonProperty("catalogName") String catalogName,
             @JsonProperty("schema") String schema,
-            @JsonProperty("table") String table)
+            @JsonProperty("table") String table,
+            @JsonProperty("columns") Optional<List<OutputColumn>> columns)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
+        this.columns = requireNonNull(columns, "columns is null").map(ImmutableList::copyOf);
     }
 
     @JsonProperty
@@ -58,6 +64,12 @@ public final class Output
         return table;
     }
 
+    @JsonProperty
+    public Optional<List<OutputColumn>> getColumns()
+    {
+        return columns;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -70,12 +82,13 @@ public final class Output
         Output output = (Output) o;
         return Objects.equals(catalogName, output.catalogName) &&
                 Objects.equals(schema, output.schema) &&
-                Objects.equals(table, output.table);
+                Objects.equals(table, output.table) &&
+                Objects.equals(columns, output.columns);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, schema, table);
+        return Objects.hash(catalogName, schema, table, columns);
     }
 }

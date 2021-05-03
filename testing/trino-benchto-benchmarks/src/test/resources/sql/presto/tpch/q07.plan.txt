@@ -1,10 +1,10 @@
 remote exchange (GATHER, SINGLE, [])
     local exchange (GATHER, UNKNOWN, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
-            final aggregation over (expr, name_15, name_19)
+            final aggregation over (expr, name_16, name_20)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["expr", "name_15", "name_19"])
-                        partial aggregation over (expr, name_15, name_19)
+                    remote exchange (REPARTITION, HASH, ["expr", "name_16", "name_20"])
+                        partial aggregation over (expr, name_16, name_20)
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, ["orderkey"])
                                     join (INNER, REPLICATED):
@@ -17,12 +17,12 @@ remote exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan nation
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["orderkey_3"])
+                                    remote exchange (REPARTITION, HASH, ["orderkey_4"])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, ["custkey"])
                                                 scan orders
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["custkey_6"])
+                                                remote exchange (REPARTITION, HASH, ["custkey_7"])
                                                     join (INNER, REPLICATED):
                                                         scan customer
                                                         local exchange (GATHER, SINGLE, [])

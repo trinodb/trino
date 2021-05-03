@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -44,9 +45,11 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public final class HiveSessionProperties
+        implements SessionPropertiesProvider
 {
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
+    private static final String PARALLEL_PARTITIONED_BUCKETED_WRITES = "parallel_partitioned_bucketed_writes";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
@@ -68,7 +71,6 @@ public final class HiveSessionProperties
     private static final String ORC_USE_COLUMN_NAME = "orc_use_column_names";
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String COMPRESSION_CODEC = "compression_codec";
-    private static final String PARTITION_USE_COLUMN_NAMES = "partition_use_column_names";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String CREATE_EMPTY_BUCKET_FILES = "create_empty_bucket_files";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
@@ -137,6 +139,11 @@ public final class HiveSessionProperties
                         VALIDATE_BUCKETING,
                         "Verify that data is bucketed correctly when reading",
                         hiveConfig.isValidateBucketing(),
+                        false),
+                booleanProperty(
+                        PARALLEL_PARTITIONED_BUCKETED_WRITES,
+                        "Improve parallelism of partitioned and bucketed table writes",
+                        hiveConfig.isParallelPartitionedBucketedWrites(),
                         false),
                 booleanProperty(
                         FORCE_LOCAL_SCHEDULING,
@@ -261,11 +268,6 @@ public final class HiveSessionProperties
                         "Compression codec to use when writing files",
                         HiveCompressionCodec.class,
                         hiveConfig.getHiveCompressionCodec(),
-                        false),
-                booleanProperty(
-                        PARTITION_USE_COLUMN_NAMES,
-                        "Access partition columns by names",
-                        hiveConfig.getPartitionUseColumnNames(),
                         false),
                 booleanProperty(
                         RESPECT_TABLE_FORMAT,
@@ -405,6 +407,7 @@ public final class HiveSessionProperties
                         false));
     }
 
+    @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
@@ -418,6 +421,11 @@ public final class HiveSessionProperties
     public static boolean isValidateBucketing(ConnectorSession session)
     {
         return session.getProperty(VALIDATE_BUCKETING, Boolean.class);
+    }
+
+    public static boolean isParallelPartitionedBucketedWrites(ConnectorSession session)
+    {
+        return session.getProperty(PARALLEL_PARTITIONED_BUCKETED_WRITES, Boolean.class);
     }
 
     public static boolean isForceLocalScheduling(ConnectorSession session)
@@ -519,13 +527,7 @@ public final class HiveSessionProperties
 
     public static boolean isUseOrcColumnNames(ConnectorSession session)
     {
-        Boolean useOrcColumnNames = session.getProperty(ORC_USE_COLUMN_NAME, Boolean.class);
-        if (isPartitionUseColumnNames(session) && !useOrcColumnNames) {
-            throw new TrinoException(
-                    INVALID_SESSION_PROPERTY,
-                    format("%s must be set when %s is set", ORC_USE_COLUMN_NAME, PARTITION_USE_COLUMN_NAMES));
-        }
-        return useOrcColumnNames;
+        return session.getProperty(ORC_USE_COLUMN_NAME, Boolean.class);
     }
 
     public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session)
@@ -536,11 +538,6 @@ public final class HiveSessionProperties
     public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
     {
         return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
-    }
-
-    public static boolean isPartitionUseColumnNames(ConnectorSession session)
-    {
-        return session.getProperty(PARTITION_USE_COLUMN_NAMES, Boolean.class);
     }
 
     public static boolean isRespectTableFormat(ConnectorSession session)
@@ -555,14 +552,7 @@ public final class HiveSessionProperties
 
     public static boolean isUseParquetColumnNames(ConnectorSession session)
     {
-        boolean useParquetColumnNames = session.getProperty(PARQUET_USE_COLUMN_NAME, Boolean.class);
-        boolean partitionUseColumnNames = isPartitionUseColumnNames(session);
-        if (partitionUseColumnNames && !useParquetColumnNames) {
-            throw new TrinoException(
-                    INVALID_SESSION_PROPERTY,
-                    format("%s must be set when %s is set", PARQUET_USE_COLUMN_NAME, PARTITION_USE_COLUMN_NAMES));
-        }
-        return useParquetColumnNames;
+        return session.getProperty(PARQUET_USE_COLUMN_NAME, Boolean.class);
     }
 
     public static boolean isParquetIgnoreStatistics(ConnectorSession session)

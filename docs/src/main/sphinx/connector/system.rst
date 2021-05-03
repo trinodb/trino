@@ -50,6 +50,12 @@ that can be set when creating a new schema.
 The table properties table contains the list of available properties
 that can be set when creating a new table.
 
+``metadata.materialized_view_properties``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The materialized view properties table contains the list of available properties
+that can be set when creating a new materialized view.
+
 ``metadata.table_comments``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -87,7 +93,7 @@ was queued and analyzed.
 ^^^^^^^^^^^^^^^^^
 
 The tasks table contains information about the tasks involved in a
-Trino query, including where they were executed, and and how many rows
+Trino query, including where they were executed, and how many rows
 and bytes each task processed.
 
 ``runtime.transactions``

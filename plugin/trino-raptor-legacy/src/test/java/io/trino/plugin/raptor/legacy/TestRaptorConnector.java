@@ -64,7 +64,7 @@ import static io.trino.operator.scalar.timestamp.VarcharToTimestampCast.castToSh
 import static io.trino.plugin.raptor.legacy.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
-import static io.trino.plugin.raptor.legacy.storage.TestOrcStorageManager.createOrcStorageManager;
+import static io.trino.plugin.raptor.legacy.storage.TestRaptorStorageManager.createRaptorStorageManager;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -98,7 +98,7 @@ public class TestRaptorConnector
         NodeManager nodeManager = new TestingNodeManager();
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         ShardManager shardManager = createShardManager(dbi);
-        StorageManager storageManager = createOrcStorageManager(dbi, dataDir);
+        StorageManager storageManager = createRaptorStorageManager(dbi, dataDir);
         StorageManagerConfig config = new StorageManagerConfig();
         connector = new RaptorConnector(
                 new LifeCycleManager(ImmutableList.of(), null),

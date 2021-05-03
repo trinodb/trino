@@ -2,8 +2,8 @@
 Release 332 (08 Apr 2020)
 =========================
 
-General changes
----------------
+General
+-------
 
 * Fix query failure during planning phase for certain queries involving multiple joins. (:issue:`3149`)
 * Fix execution failure for queries involving large ``IN`` predicates on decimal values with precision larger than 18. (:issue:`3191`)
@@ -12,7 +12,7 @@ General changes
 * Ignore trailing whitespace when loading configuration files such as
   ``etc/event-listener.properties`` or ``etc/group-provider.properties``.
   Trailing whitespace in ``etc/config.properties`` and catalog properties
-  files files was already ignored. (:issue:`3231`)
+  files was already ignored. (:issue:`3231`)
 * Reduce overhead for internal communication requests. (:issue:`3215`)
 * Include filters over all table columns in output of ``EXPLAIN (TYPE IO)``. (:issue:`2743`)
 * Support configuring multiple event listeners. The properties files for all the event listeners
@@ -25,33 +25,33 @@ General changes
   to ``optimizer.push-aggregation-through-outer-join``. (:issue:`3205`)
 * Add operator statistics for the number of splits processed with a dynamic filter applied. (:issue:`3217`)
 
-Security changes
-----------------
+Security
+--------
 
 * Fix LDAP authentication when user belongs to multiple groups. (:issue:`3206`)
 * Verify access to table columns when running ``SHOW STATS``. (:issue:`2665`)
 * Only return views accessible to the user from ``information_schema.views``. (:issue:`3290`)
 
-JDBC driver changes
--------------------
+JDBC driver
+-----------
 
 * Add ``clientInfo`` property to set extra information about the client. (:issue:`3188`)
 * Add ``traceToken`` property to set a trace token for correlating requests across systems. (:issue:`3188`)
 
-BigQuery connector changes
---------------------------
+BigQuery connector
+------------------
 
 * Extract parent project ID from service account before looking at the environment. (:issue:`3131`)
 
-Elasticsearch connector changes
--------------------------------
+Elasticsearch connector
+-----------------------
 
 * Add support for ``ip`` type. (:issue:`3347`)
 * Add support for ``keyword`` fields with numeric values. (:issue:`3381`)
 * Remove unnecessary ``elasticsearch.aws.use-instance-credentials`` configuration property. (:issue:`3265`)
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Fix failure reading certain Parquet files larger than 2GB. (:issue:`2730`)
 * Improve performance when reading gzip-compressed Parquet data. (:issue:`3175`)
@@ -78,19 +78,19 @@ Hive connector changes
 * Allow using configured S3 credentials with IAM role. Previously,
   the configured IAM role was silently ignored. (:issue:`3351`)
 
-Kudu connector changes
-----------------------
+Kudu connector
+--------------
 
 * Fix incorrect column mapping in Kudu connector. (:issue:`3170`, :issue:`2963`)
 * Fix incorrect query result for certain queries involving ``IS NULL`` predicates with ``OR``. (:issue:`3274`)
 
-Memory connector changes
-------------------------
+Memory connector
+----------------
 
 * Include views in the list of tables returned to the JDBC driver. (:issue:`3208`)
 
-MongoDB connector changes
--------------------------
+MongoDB connector
+-----------------
 
 * Add ``objectid_timestamp`` for extracting the timestamp from ``ObjectId``. (:issue:`3089`)
 * Delete document from ``_schema`` collection when ``DROP TABLE``
@@ -102,8 +102,8 @@ SQL Server connector
 * Disallow renaming tables between schemas. Previously, such renames were allowed
   but the schema name was ignored when performing the rename. (:issue:`3284`)
 
-SPI changes
------------
+SPI
+---
 
 * Expose row filters and column masks in ``QueryCompletedEvent``. (:issue:`3183`)
 * Expose referenced functions and procedures in ``QueryCompletedEvent``. (:issue:`3246`)

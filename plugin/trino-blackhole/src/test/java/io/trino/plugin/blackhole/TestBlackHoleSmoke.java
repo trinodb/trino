@@ -42,8 +42,8 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestBlackHoleSmoke
@@ -84,16 +84,10 @@ public class TestBlackHoleSmoke
     {
         String createTableSql = "CREATE TABLE nation as SELECT * FROM tpch.tiny.nation";
         queryRunner.execute(createTableSql);
-        try {
-            queryRunner.execute(createTableSql);
-            fail("Expected exception to be thrown here!");
-        }
-        catch (RuntimeException ex) { // it has to RuntimeException as FailureInfo$FailureException is private
-            assertEquals(ex.getMessage(), "line 1:1: Destination table 'blackhole.default.nation' already exists");
-        }
-        finally {
-            assertThatQueryReturnsValue("DROP TABLE nation", true);
-        }
+        assertThatThrownBy(() -> queryRunner.execute(createTableSql))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("line 1:1: Destination table 'blackhole.default.nation' already exists");
+        assertThatQueryReturnsValue("DROP TABLE nation", true);
     }
 
     @Test
@@ -117,23 +111,12 @@ public class TestBlackHoleSmoke
     @Test
     public void notAllPropertiesSetForDataGeneration()
     {
-        Session session = testSessionBuilder()
-                .setCatalog("blackhole")
-                .setSchema("default")
-                .build();
-
-        try {
-            assertThatQueryReturnsValue(
-                    format("CREATE TABLE nation WITH ( %s = 3, %s = 1 ) as SELECT * FROM tpch.tiny.nation",
-                            ROWS_PER_PAGE_PROPERTY,
-                            SPLIT_COUNT_PROPERTY),
-                    25L,
-                    session);
-            fail("Expected exception to be thrown here!");
-        }
-        catch (RuntimeException ex) {
-            // expected exception
-        }
+        assertThatThrownBy(() -> queryRunner.execute(
+                format("CREATE TABLE nation WITH ( %s = 3, %s = 1 ) as SELECT * FROM tpch.tiny.nation",
+                        ROWS_PER_PAGE_PROPERTY,
+                        SPLIT_COUNT_PROPERTY)))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("All properties [split_count, pages_per_split, rows_per_page] must be set if any are set");
     }
 
     @Test
@@ -151,13 +134,9 @@ public class TestBlackHoleSmoke
         int tablesBeforeCreate = listBlackHoleTables().size();
 
         String createTableSql = "CREATE TABLE schema1.test_table (x date)";
-        try {
-            queryRunner.execute(createTableSql);
-            fail("Expected exception to be thrown here!");
-        }
-        catch (RuntimeException ex) {
-            assertEquals(ex.getMessage(), "Schema schema1 not found");
-        }
+        assertThatThrownBy(() -> queryRunner.execute(createTableSql))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Schema schema1 not found");
 
         int tablesAfterCreate = listBlackHoleTables().size();
         assertEquals(tablesBeforeCreate, tablesAfterCreate);

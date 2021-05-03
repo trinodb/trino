@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsCalculator;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
@@ -81,7 +82,8 @@ public class CreateMaterializedViewTask
             Metadata metadata,
             AccessControl accessControl,
             QueryStateMachine stateMachine,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
@@ -97,13 +99,13 @@ public class CreateMaterializedViewTask
                 .map(field -> new ConnectorMaterializedViewDefinition.Column(field.getName().get(), field.getType().getTypeId()))
                 .collect(toImmutableList());
 
-        Optional<String> owner = Optional.of(session.getUser());
+        String owner = session.getUser();
 
         CatalogName catalogName = metadata.getCatalogHandle(session, name.getCatalogName())
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + name.getCatalogName()));
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
-        Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
+        Map<String, Object> properties = metadata.getMaterializedViewPropertyManager().getProperties(
                 catalogName,
                 name.getCatalogName(),
                 sqlProperties,
@@ -114,7 +116,7 @@ public class CreateMaterializedViewTask
 
         ConnectorMaterializedViewDefinition definition = new ConnectorMaterializedViewDefinition(
                 sql,
-                null,
+                Optional.empty(),
                 session.getCatalog(),
                 session.getSchema(),
                 columns,
@@ -123,6 +125,9 @@ public class CreateMaterializedViewTask
                 properties);
 
         metadata.createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
+
+        stateMachine.setOutput(analysis.getTarget());
+        stateMachine.setReferencedTables(analysis.getReferencedTables());
 
         return immediateFuture(null);
     }

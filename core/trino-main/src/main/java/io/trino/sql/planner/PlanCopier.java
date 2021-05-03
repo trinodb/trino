@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.OffsetNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -120,7 +121,7 @@ public final class PlanCopier
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
-            return new TableScanNode(idAllocator.getNextId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), node.getEnforcedConstraint(), node.isForDelete());
+            return new TableScanNode(idAllocator.getNextId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), node.getEnforcedConstraint(), node.isUpdateTarget(), node.getUseConnectorNodePartitioning());
         }
 
         @Override
@@ -160,6 +161,27 @@ public final class PlanCopier
         public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
             return new WindowNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getSpecification(), node.getWindowFunctions(), node.getHashSymbol(), node.getPrePartitionedInputs(), node.getPreSortedOrderPrefix());
+        }
+
+        @Override
+        public PlanNode visitPatternRecognition(PatternRecognitionNode node, RewriteContext<Void> context)
+        {
+            return new PatternRecognitionNode(
+                    idAllocator.getNextId(),
+                    context.rewrite(node.getSource()),
+                    node.getSpecification(),
+                    node.getHashSymbol(),
+                    node.getPrePartitionedInputs(),
+                    node.getPreSortedOrderPrefix(),
+                    node.getMeasures(),
+                    node.getCommonBaseFrame(),
+                    node.getRowsPerMatch(),
+                    node.getSkipToLabel(),
+                    node.getSkipToPosition(),
+                    node.isInitial(),
+                    node.getPattern(),
+                    node.getSubsets(),
+                    node.getVariableDefinitions());
         }
 
         @Override

@@ -63,7 +63,7 @@ public final class CharType
                 Slice.class);
 
         if (length < 0 || length > MAX_LENGTH) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("CHAR length scale must be in range [0, %s]", MAX_LENGTH));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
         }
         this.length = (int) length;
     }

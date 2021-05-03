@@ -60,7 +60,7 @@ public class HiveCoercionRecordCursor
             TypeManager typeManager,
             RecordCursor delegate)
     {
-        requireNonNull(columnMappings, "columns is null");
+        requireNonNull(columnMappings, "columnMappings is null");
         requireNonNull(typeManager, "typeManager is null");
 
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -379,7 +379,7 @@ public class HiveCoercionRecordCursor
 
         public ListCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, BridgingRecordCursor bridgingRecordCursor)
         {
-            requireNonNull(typeManager, "typeManage is null");
+            requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
             requireNonNull(toHiveType, "toHiveType is null");
             this.bridgingRecordCursor = requireNonNull(bridgingRecordCursor, "bridgingRecordCursor is null");
@@ -436,7 +436,7 @@ public class HiveCoercionRecordCursor
 
         public MapCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, BridgingRecordCursor bridgingRecordCursor)
         {
-            requireNonNull(typeManager, "typeManage is null");
+            requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
             requireNonNull(toHiveType, "toHiveType is null");
             this.bridgingRecordCursor = requireNonNull(bridgingRecordCursor, "bridgingRecordCursor is null");
@@ -498,7 +498,7 @@ public class HiveCoercionRecordCursor
 
         public StructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, BridgingRecordCursor bridgingRecordCursor)
         {
-            requireNonNull(typeManager, "typeManage is null");
+            requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
             requireNonNull(toHiveType, "toHiveType is null");
             this.bridgingRecordCursor = requireNonNull(bridgingRecordCursor, "bridgingRecordCursor is null");

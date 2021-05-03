@@ -359,7 +359,7 @@ public class TestColumnMask
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey"));
         assertThatThrownBy(() -> assertions.query(
                 "SELECT (SELECT min(custkey) FROM customer WHERE customer.custkey = orders.custkey) FROM orders"))
-                .hasMessageMatching("\\Qline 1:34: Invalid column mask for 'local.tiny.customer.custkey': Column 'orderkey' cannot be resolved\\E");
+                .hasMessage("line 1:34: Invalid column mask for 'local.tiny.customer.custkey': Column 'orderkey' cannot be resolved");
     }
 
     @Test
@@ -389,7 +389,7 @@ public class TestColumnMask
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "$$$"));
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessageMatching("\\Qline 1:22: Invalid column mask for 'local.tiny.orders.orderkey': mismatched input '$'. Expecting: <expression>\\E");
+                .hasMessage("line 1:22: Invalid column mask for 'local.tiny.orders.orderkey': mismatched input '$'. Expecting: <expression>");
 
         // unknown column
         accessControl.reset();
@@ -400,7 +400,7 @@ public class TestColumnMask
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "unknown_column"));
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessageMatching("\\Qline 1:22: Invalid column mask for 'local.tiny.orders.orderkey': Column 'unknown_column' cannot be resolved\\E");
+                .hasMessage("line 1:22: Invalid column mask for 'local.tiny.orders.orderkey': Column 'unknown_column' cannot be resolved");
 
         // invalid type
         accessControl.reset();
@@ -411,7 +411,7 @@ public class TestColumnMask
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "'foo'"));
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessageMatching("\\Qline 1:22: Expected column mask for 'local.tiny.orders.orderkey' to be of type bigint, but was varchar(3)\\E");
+                .hasMessage("line 1:22: Expected column mask for 'local.tiny.orders.orderkey' to be of type bigint, but was varchar(3)");
 
         // aggregation
         accessControl.reset();
@@ -422,7 +422,7 @@ public class TestColumnMask
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "count(*) > 0"));
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessageMatching("\\Qline 1:10: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [count(*)]\\E");
+                .hasMessage("line 1:10: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [count(*)]");
 
         // window function
         accessControl.reset();
@@ -433,7 +433,7 @@ public class TestColumnMask
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "row_number() OVER () > 0"));
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessageMatching("\\Qline 1:22: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]\\E");
+                .hasMessage("line 1:22: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]");
 
         // grouping function
         accessControl.reset();
@@ -444,7 +444,7 @@ public class TestColumnMask
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "grouping(orderkey) = 0"));
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessageMatching("\\Qline 1:20: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]\\E");
+                .hasMessage("line 1:20: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]");
     }
 
     @Test
@@ -511,7 +511,7 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "custkey"));
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessageMatching("\\QAccess Denied: Cannot select from columns [orderkey, custkey] in table or view local.tiny.orders");
+                .hasMessage("Access Denied: Cannot select from columns [orderkey, custkey] in table or view local.tiny.orders");
     }
 
     @Test
@@ -524,7 +524,7 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "clerk"));
         assertThatThrownBy(() -> assertions.query("INSERT INTO orders SELECT * FROM orders"))
-                .hasMessageMatching("\\QInsert into table with column masks");
+                .hasMessage("Insert into table with column masks is not supported");
     }
 
     @Test
@@ -537,7 +537,24 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "clerk"));
         assertThatThrownBy(() -> assertions.query("DELETE FROM orders"))
-                .hasMessageMatching("\\Qline 1:1: Delete from table with column mask");
+                .hasMessage("line 1:1: Delete from table with column mask");
+    }
+
+    @Test
+    public void testUpdateWithColumnMasking()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "clerk"));
+        assertThatThrownBy(() -> assertions.query("UPDATE orders SET clerk = 'X'"))
+                .hasMessage("line 1:1: Updating a table with column masks is not supported");
+        assertThatThrownBy(() -> assertions.query("UPDATE orders SET orderkey = -orderkey"))
+                .hasMessage("line 1:1: Updating a table with column masks is not supported");
+        assertThatThrownBy(() -> assertions.query("UPDATE orders SET clerk = 'X', orderkey = -orderkey"))
+                .hasMessage("line 1:1: Updating a table with column masks is not supported");
     }
 
     @Test

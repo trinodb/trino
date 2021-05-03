@@ -46,8 +46,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
@@ -101,7 +100,7 @@ public class TestPlannerWarnings
                     createPlan(queryRunner, transactionSession, sql, warningCollector, rules.get());
                 }
                 else {
-                    queryRunner.createPlan(transactionSession, sql, CREATED, false, warningCollector);
+                    queryRunner.createPlan(transactionSession, sql, OPTIMIZED, false, warningCollector);
                 }
                 return null;
             });
@@ -128,7 +127,7 @@ public class TestPlannerWarnings
                 queryRunner.getCostCalculator(),
                 ImmutableSet.copyOf(rules));
 
-        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), OPTIMIZED_AND_VALIDATED, warningCollector);
+        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), OPTIMIZED, warningCollector);
     }
 
     public static List<TrinoWarning> createTestWarnings(int numberOfWarnings)

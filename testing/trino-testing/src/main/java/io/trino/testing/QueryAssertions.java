@@ -335,9 +335,13 @@ public final class QueryAssertions
     {
         long start = System.nanoTime();
         log.info("Running import for %s", table.getObjectName());
-        @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
+        @Language("SQL") String sql = format("CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM %s", table.getObjectName(), table);
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
         log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+
+        assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table).getOnlyValue())
+                .as("Table is not loaded properly: %s", table)
+                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table.getObjectName()).getOnlyValue());
     }
 
     static RuntimeException getTrinoExceptionCause(Throwable e)

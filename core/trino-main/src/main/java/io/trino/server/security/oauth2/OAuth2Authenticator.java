@@ -38,7 +38,7 @@ public class OAuth2Authenticator
     @Inject
     public OAuth2Authenticator(OAuth2Service service, OAuth2Config config)
     {
-        super(createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
+        super(config.getPrincipalField(), createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
         this.service = requireNonNull(service, "service is null");
     }
 

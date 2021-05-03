@@ -29,7 +29,7 @@ import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.PlanOptimizers;
+import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -67,7 +67,7 @@ public class QueryExplainer
 
     @Inject
     public QueryExplainer(
-            PlanOptimizers planOptimizers,
+            PlanOptimizersFactory planOptimizersFactory,
             PlanFragmenter planFragmenter,
             Metadata metadata,
             TypeOperators typeOperators,
@@ -79,7 +79,7 @@ public class QueryExplainer
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
         this(
-                planOptimizers.get(),
+                planOptimizersFactory.get(),
                 planFragmenter,
                 metadata,
                 typeOperators,
@@ -137,6 +137,9 @@ public class QueryExplainer
                 return PlanPrinter.textDistributedPlan(subPlan, metadata, session, false);
             case IO:
                 return IoPlanPrinter.textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector), metadata, typeOperators, session);
+            case VALIDATE:
+                // unsupported
+                break;
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -161,6 +164,9 @@ public class QueryExplainer
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
                 return PlanPrinter.graphvizDistributedPlan(subPlan);
+            case VALIDATE:
+            case IO:
+                // unsupported
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -177,9 +183,13 @@ public class QueryExplainer
             case IO:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
                 return textIoPlan(plan, metadata, typeOperators, session);
-            default:
-                throw new TrinoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
+            case LOGICAL:
+            case DISTRIBUTED:
+            case VALIDATE:
+                // unsupported
+                break;
         }
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
     }
 
     public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)

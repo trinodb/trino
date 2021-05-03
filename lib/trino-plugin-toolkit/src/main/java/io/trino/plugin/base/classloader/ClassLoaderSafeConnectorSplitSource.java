@@ -19,7 +19,6 @@ import io.trino.spi.connector.ConnectorSplitSource;
 
 import javax.inject.Inject;
 
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
@@ -58,14 +57,6 @@ public class ClassLoaderSafeConnectorSplitSource
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.isFinished();
-        }
-    }
-
-    @Override
-    public Optional<Integer> getMinScheduleSplitBatchSize()
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getMinScheduleSplitBatchSize();
         }
     }
 }

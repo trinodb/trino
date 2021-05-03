@@ -18,7 +18,6 @@ import io.trino.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -47,42 +46,6 @@ public class TestValueSet
                 .hasMessage("value is null");
 
         assertThatThrownBy(() -> ValueSet.copyOf(varcharType, asList(abc, def, null, ghi)))
-                .hasMessage("value is null");
-
-        // ValueSet.ofRanges with just null
-        assertThatThrownBy(
-                () -> {
-                    Marker nullMarker = new Marker(varcharType, Optional.of(Utils.nativeValueToBlock(varcharType, null)), Marker.Bound.EXACTLY);
-                    ValueSet.ofRanges(new Range(nullMarker, nullMarker));
-                })
-                .hasMessage("value is null");
-
-        // ValueSet.ofRanges with others and null
-        assertThatThrownBy(
-                () -> {
-                    Marker abcMarker = new Marker(varcharType, Optional.of(Utils.nativeValueToBlock(varcharType, abc)), Marker.Bound.EXACTLY);
-                    Marker ghiMarker = new Marker(varcharType, Optional.of(Utils.nativeValueToBlock(varcharType, ghi)), Marker.Bound.EXACTLY);
-                    Marker nullMarker = new Marker(varcharType, Optional.of(Utils.nativeValueToBlock(varcharType, null)), Marker.Bound.EXACTLY);
-                    ValueSet.ofRanges(new Range(abcMarker, abcMarker), new Range(nullMarker, nullMarker), new Range(ghiMarker, ghiMarker));
-                })
-                .hasMessage("value is null");
-
-        // ValueSet.copyOfRanges with just null
-        assertThatThrownBy(
-                () -> {
-                    Marker nullMarker = new Marker(varcharType, Optional.of(Utils.nativeValueToBlock(varcharType, null)), Marker.Bound.EXACTLY);
-                    ValueSet.copyOfRanges(varcharType, asList(new Range(nullMarker, nullMarker)));
-                })
-                .hasMessage("value is null");
-
-        // ValueSet.copyOfRanges with others and null
-        assertThatThrownBy(
-                () -> {
-                    Marker abcMarker = new Marker(varcharType, Optional.of(Utils.nativeValueToBlock(varcharType, abc)), Marker.Bound.EXACTLY);
-                    Marker ghiMarker = new Marker(varcharType, Optional.of(Utils.nativeValueToBlock(varcharType, ghi)), Marker.Bound.EXACTLY);
-                    Marker nullMarker = new Marker(varcharType, Optional.of(Utils.nativeValueToBlock(varcharType, null)), Marker.Bound.EXACTLY);
-                    ValueSet.copyOfRanges(varcharType, asList(new Range(abcMarker, abcMarker), new Range(nullMarker, nullMarker), new Range(ghiMarker, ghiMarker)));
-                })
                 .hasMessage("value is null");
     }
 

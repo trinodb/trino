@@ -308,6 +308,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot delete from table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyUpdateTableColumns(String tableName, Set<String> updatedColumnNames)
+    {
+        denyUpdateTableColumns(tableName, updatedColumnNames, null);
+    }
+
+    public static void denyUpdateTableColumns(String tableName, Set<String> updatedColumnNames, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot update columns %s in table %s%s", updatedColumnNames, tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateView(String viewName)
     {
         denyCreateView(viewName, null);
@@ -376,6 +386,36 @@ public class AccessDeniedException
     public static void denySelectView(String viewName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot select from view %s%s", viewName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyCreateMaterializedView(String materializedViewName)
+    {
+        denyCreateMaterializedView(materializedViewName, null);
+    }
+
+    public static void denyCreateMaterializedView(String materializedViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create materialized view %s%s", materializedViewName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyRefreshMaterializedView(String materializedViewName)
+    {
+        denyRefreshMaterializedView(materializedViewName, null);
+    }
+
+    public static void denyRefreshMaterializedView(String materializedViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot refresh materialized view %s%s", materializedViewName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDropMaterializedView(String materializedViewName)
+    {
+        denyDropMaterializedView(materializedViewName, null);
+    }
+
+    public static void denyDropMaterializedView(String materializedViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop materialized view %s%s", materializedViewName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyGrantSchemaPrivilege(String privilege, String schemaName)

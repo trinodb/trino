@@ -27,8 +27,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Marker;
-import io.trino.spi.predicate.Marker.Bound;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -45,7 +44,9 @@ import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
+import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
+import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
 
 import java.util.HashSet;
@@ -58,7 +59,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.spi.predicate.Marker.Bound.EXACTLY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -355,11 +355,11 @@ public class IoPlanPrinter
                 @JsonProperty("maxMemory") double maxMemory,
                 @JsonProperty("networkCost") double networkCost)
         {
-            this.outputRowCount = requireNonNull(outputRowCount, "outputRowCount is null");
-            this.outputSizeInBytes = requireNonNull(outputSizeInBytes, "outputSizeInBytes is null");
-            this.cpuCost = requireNonNull(cpuCost, "cpuCost is null");
-            this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
-            this.networkCost = requireNonNull(networkCost, "networkCost is null");
+            this.outputRowCount = outputRowCount;
+            this.outputSizeInBytes = outputSizeInBytes;
+            this.cpuCost = cpuCost;
+            this.maxMemory = maxMemory;
+            this.networkCost = networkCost;
         }
 
         @JsonProperty
@@ -542,6 +542,13 @@ public class IoPlanPrinter
 
     public static class FormattedMarker
     {
+        public enum Bound
+        {
+            BELOW,   // lower than the value, but infinitesimally close to the value
+            EXACTLY, // exactly the value
+            ABOVE    // higher than the value, but infinitesimally close to the value
+        }
+
         private final Optional<String> value;
         private final Bound bound;
 
@@ -654,7 +661,14 @@ public class IoPlanPrinter
             else if (writerTarget instanceof DeleteTarget) {
                 DeleteTarget target = (DeleteTarget) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandle().getCatalogName().getCatalogName(),
+                        target.getHandleOrElseThrow().getCatalogName().getCatalogName(),
+                        target.getSchemaTableName().getSchemaName(),
+                        target.getSchemaTableName().getTableName()));
+            }
+            else if (writerTarget instanceof UpdateTarget) {
+                UpdateTarget target = (UpdateTarget) writerTarget;
+                context.setOutputTable(new CatalogSchemaTableName(
+                        target.getHandleOrElseThrow().getCatalogName().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
@@ -727,12 +741,12 @@ public class IoPlanPrinter
             domain.getValues().getValuesProcessor().consume(
                     ranges -> formattedRanges.addAll(
                             ranges.getOrderedRanges().stream()
-                                    .map(range -> new FormattedRange(formatMarker(range.getLow()), formatMarker(range.getHigh())))
+                                    .map(this::formatRange)
                                     .collect(toImmutableSet())),
                     discreteValues -> formattedRanges.addAll(
                             discreteValues.getValues().stream()
                                     .map(value -> valuePrinter.castToVarcharOrFail(type, value))
-                                    .map(value -> new FormattedMarker(Optional.of(value), EXACTLY))
+                                    .map(value -> new FormattedMarker(Optional.of(value), Bound.EXACTLY))
                                     .map(marker -> new FormattedRange(marker, marker))
                                     .collect(toImmutableSet())),
                     allOrNone -> {
@@ -742,12 +756,21 @@ public class IoPlanPrinter
             return new FormattedDomain(domain.isNullAllowed(), formattedRanges.build());
         }
 
-        private FormattedMarker formatMarker(Marker marker)
+        private FormattedRange formatRange(Range range)
         {
-            if (marker.getValueBlock().isEmpty()) {
-                return new FormattedMarker(Optional.empty(), marker.getBound());
-            }
-            return new FormattedMarker(Optional.of(valuePrinter.castToVarcharOrFail(marker.getType(), marker.getValue())), marker.getBound());
+            FormattedMarker low = range.isLowUnbounded()
+                    ? new FormattedMarker(Optional.empty(), Bound.ABOVE)
+                    : new FormattedMarker(
+                    Optional.of(valuePrinter.castToVarcharOrFail(range.getType(), range.getLowBoundedValue())),
+                    range.isLowInclusive() ? Bound.EXACTLY : Bound.ABOVE);
+
+            FormattedMarker high = range.isHighUnbounded()
+                    ? new FormattedMarker(Optional.empty(), Bound.BELOW)
+                    : new FormattedMarker(
+                    Optional.of(valuePrinter.castToVarcharOrFail(range.getType(), range.getHighBoundedValue())),
+                    range.isHighInclusive() ? Bound.EXACTLY : Bound.BELOW);
+
+            return new FormattedRange(low, high);
         }
 
         private Void processChildren(PlanNode node, IoPlanBuilder context)

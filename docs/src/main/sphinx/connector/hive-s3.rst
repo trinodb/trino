@@ -76,7 +76,13 @@ Property Name                                Description
                                              the object has been created.
 
 ``hive.s3.upload-acl-type``                  Canned ACL to use while uploading files to S3, defaults
-                                             to ``Private``.
+                                             to ``PRIVATE``. If the files are to be uploaded to an S3
+                                             bucket owned by a different AWS user, the canned ACL has to be
+                                             set to one of the following: ``AUTHENTICATED_READ``,
+                                             ``AWS_EXEC_READ``, ``BUCKET_OWNER_FULL_CONTROL``, ``BUCKET_OWNER_READ``,
+                                             ``LOG_DELIVERY_WRITE``, ``PUBLIC_READ``, ``PUBLIC_READ_WRITE``.
+                                             Refer to the `AWS canned ACL <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-s3-acls.html>`_
+                                             guide to understand each option's definition.
 
 ``hive.s3.skip-glacier-objects``             Ignore Glacier objects rather than failing the query. This
                                              skips data that may be expected to be part of the table
@@ -157,6 +163,11 @@ The security mapping must provide one or more configuration settings:
   to use many roles, but a specific user should only be allowed to use a subset
   of those roles.
 
+* ``kmsKeyId``: ID of KMS-managed key to be used for client-side encryption.
+
+* ``allowedKmsKeyIds``: KMS-managed key IDs that are allowed to be specified as an extra
+  credential. If list cotains "*", then any key can be specified via extra credential.
+
 The security mapping entries are processed in the order listed in the configuration
 file. More specific mappings should thus be specified before less specific mappings.
 For example, the mapping list might have URL prefix ``s3://abc/xyz/`` followed by
@@ -168,7 +179,7 @@ In addition to the rules above, the default mapping can contain the optional
 ``useClusterDefault`` boolean property with the following behavior:
 
 - ``false`` - (is set by default) property is ignored.
-- ``true`` - This causes the the default cluster role to be used as a fallback option.
+- ``true`` - This causes the default cluster role to be used as a fallback option.
   It can not be used with the following configuration properties:
 
   - ``accessKey``
@@ -203,6 +214,10 @@ Example JSON configuration file:
           "secretKey": "iXbXxxxsecret"
         },
         {
+          "prefix": "s3://encrypted-bucket/",
+          "kmsKeyId": "kmsKey_10",
+        },
+        {
           "user": "test.*",
           "iamRole": "arn:aws:iam::123456789101:role/test_users"
         },
@@ -222,6 +237,9 @@ Property Name                                           Description
 ``hive.s3.security-mapping.config-file``                The JSON configuration file containing security mappings.
 
 ``hive.s3.security-mapping.iam-role-credential-name``   The name of the *extra credential* used to provide the IAM role.
+
+``hive.s3.security-mapping.kms-key-id-credential-name`` The name of the *extra credential* used to provide the
+                                                        KMS-managed key ID.
 
 ``hive.s3.security-mapping.refresh-period``             How often to refresh the security mapping configuration.
 

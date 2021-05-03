@@ -2,19 +2,19 @@
 Release 322 (16 Oct 2019)
 =========================
 
-General changes
----------------
+General
+-------
 
 * Improve performance of certain join queries by reducing the amount of data
   that needs to be scanned. (:issue:`1673`)
 
-Server RPM changes
-------------------
+Server RPM
+----------
 
 * Fix a regression that caused zero-length files in the RPM. (:issue:`1767`)
 
-Connector changes
------------------
+Other connectors
+----------------
 
 These changes apply to MySQL, PostgreSQL, Redshift, and SQL Server.
 

@@ -1,6 +1,6 @@
 # Release 344 (9 Oct 2020)
 
-## General changes
+## General
 
 * Add {func}`murmur3` function. ({issue}`5054`)
 * Add {func}`from_unixtime_nanos` function. ({issue}`5046`)
@@ -24,7 +24,7 @@
 * Fix incorrect timestamp values returned by the `queries`, `transactions`,
   and `tasks` tables in `system.runtime`. ({issue}`5462`)
 
-## Security changes
+## Security
 
 ```{warning}
 The file-based system and catalog access controls have changed in ways that reduce or increase permissions.
@@ -46,7 +46,7 @@ Please, read these release notes carefully.
 * Change file-based catalog access control to deny permissions inspection and manipulation. ({issue}`5039`)
 * Add [file-based group provider](/security/group-file). ({issue}`5028`)
 
-## Hive connector changes
+## Hive connector
 
 * Add support for `hive.security=allow-all`, which allows to skip all authorization checks. ({issue}`5416`)
 * Support Kerberos authentication for Hudi tables. ({issue}`5472`)
@@ -56,22 +56,22 @@ Please, read these release notes carefully.
 * Improve query concurrency by listing data files more efficiently. ({issue}`5260`)
 * Fix Parquet encoding for timestamps before 1970-01-01. ({issue}`5364`)
 
-## Kafka connector changes
+## Kafka connector
 
 * Expose message timestamp via `_timestamp` internal column. ({issue}`4805`)
 * Add predicate pushdown for `_timestamp`, `_partition_offset` and `_partition_id` columns. ({issue}`4805`)
 
-## Phoenix connector changes
+## Phoenix connector
 
 * Fix query failure when a column name in `CREATE TABLE` requires quoting. ({issue}`3601`)
 
-## PostgreSQL connector changes
+## PostgreSQL connector
 
 * Add support for setting a column comment. ({issue}`5307`)
 * Add support for variable-precision `time` type. ({issue}`5342`)
 * Allow `CREATE TABLE` and `CREATE TABLE AS` with `timestamp` and `timestamp with time zone` with precision higher than 6.
   The resulting column will be declared with precision of 6, maximal supported by PostgreSQL. ({issue}`5342`)
 
-## SQL Server connector changes
+## SQL Server connector
 
 * Improve performance of queries with aggregations and `WHERE` clause. ({issue}`5327`)

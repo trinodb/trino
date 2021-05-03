@@ -92,8 +92,8 @@ Presto now supports the ``varbinary`` type for variable length binary data.
 Currently, the only supported function is :func:`length`.
 The Hive connector now maps the Hive ``BINARY`` type to ``varbinary``.
 
-General changes
----------------
+General
+-------
 
 * Add missing operator: ``timestamp with time zone`` - ``interval year to month``
 * Support explaining sampled queries

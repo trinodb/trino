@@ -33,7 +33,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,7 +41,6 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
@@ -51,41 +49,21 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
-import static io.trino.plugin.oracle.OracleDataTypes.CharacterSemantics.BYTE;
-import static io.trino.plugin.oracle.OracleDataTypes.CharacterSemantics.CHAR;
-import static io.trino.plugin.oracle.OracleDataTypes.MAX_CHAR_ON_READ;
-import static io.trino.plugin.oracle.OracleDataTypes.MAX_CHAR_ON_WRITE;
-import static io.trino.plugin.oracle.OracleDataTypes.MAX_NCHAR;
-import static io.trino.plugin.oracle.OracleDataTypes.MAX_NVARCHAR2;
-import static io.trino.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_READ;
-import static io.trino.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_WRITE;
-import static io.trino.plugin.oracle.OracleDataTypes.binaryDoubleDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.binaryFloatDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.booleanDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.charDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.clobDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.dateDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.doubleDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.integerDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.ncharDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.nclobDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.numberDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.nvarchar2DataType;
-import static io.trino.plugin.oracle.OracleDataTypes.oracleFloatDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.realDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.tooLargeCharDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.tooLargeVarcharDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.trinoTimestampWithTimeZoneDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.varchar2DataType;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
+import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
-import static io.trino.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.HALF_UP;
@@ -96,6 +74,15 @@ import static java.time.ZoneOffset.UTC;
 public abstract class AbstractTestOracleTypeMapping
         extends AbstractTestQueryFramework
 {
+    protected static final int MAX_CHAR_ON_READ = 2000;
+    protected static final int MAX_CHAR_ON_WRITE = 500;
+
+    protected static final int MAX_VARCHAR2_ON_READ = 4000;
+    protected static final int MAX_VARCHAR2_ON_WRITE = 1000;
+
+    protected static final int MAX_NCHAR = 1000;
+    protected static final int MAX_NVARCHAR2 = 2000;
+
     private static final String NO_SUPPORTED_COLUMNS = "Table '.*' has no supported columns \\(all \\d+ columns are not supported\\)";
 
     private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
@@ -142,60 +129,63 @@ public abstract class AbstractTestOracleTypeMapping
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
+    }
+
     /* Floating point types tests */
 
     @Test
     public void testFloatingPointMappings()
     {
-        testTypeMapping("floats",
-                floatTests(realDataType()),
-                doubleTests(doubleDataType()));
+        SqlDataTypeTest.create()
+                .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
+                .addRoundTrip("real", "nan()", REAL, "CAST(nan() AS real)")
+                .addRoundTrip("real", "+infinity()", REAL, "CAST(+infinity() AS real)")
+                .addRoundTrip("real", "-infinity()", REAL, "CAST(-infinity() AS real)")
+                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS real)")
+                .addRoundTrip("double", "1.0E100", DOUBLE, "double '1.0E100'")
+                .addRoundTrip("double", "123.456E10", DOUBLE, "123.456E10")
+                .addRoundTrip("double", "nan()", DOUBLE, "CAST(nan() AS double)")
+                .addRoundTrip("double", "+infinity()", DOUBLE, "CAST(+infinity() AS double)")
+                .addRoundTrip("double", "-infinity()", DOUBLE, "CAST(-infinity() AS double)")
+                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("floats"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("floats"));
     }
 
     @Test
     public void testOracleFloatingPointMappings()
     {
-        testTypeReadMapping("oracle_float",
-                DataTypeTest.create()
-                        .addRoundTrip(oracleFloatDataType(), 1e100d)
-                        .addRoundTrip(oracleFloatDataType(), 1.0)
-                        .addRoundTrip(oracleFloatDataType(), 123456.123456)
-                        .addRoundTrip(oracleFloatDataType(), null)
-                        .addRoundTrip(oracleFloatDataType(126), 1e100d)
-                        .addRoundTrip(oracleFloatDataType(126), 1.0)
-                        // to test the bounds of this type we would need to go via BigDecimal or String
-                        .addRoundTrip(oracleFloatDataType(126), 1234567890123456789.0123456789)
-                        .addRoundTrip(oracleFloatDataType(126), null)
-                        .addRoundTrip(oracleFloatDataType(1), 100000.0)
-                        .addRoundTrip(oracleFloatDataType(7), 123000.0));
+        SqlDataTypeTest.create()
+                .addRoundTrip("float", "1E100", DOUBLE, "double '1E100'")
+                .addRoundTrip("float", "1.0", DOUBLE, "double '1.0'")
+                .addRoundTrip("float", "123456.123456", DOUBLE, "double '123456.123456'")
+                .addRoundTrip("float", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .addRoundTrip("float(126)", "1E100", DOUBLE, "double '1E100'")
+                .addRoundTrip("float(126)", "1.0", DOUBLE, "double '1.0'")
+                .addRoundTrip("float(126)", "1234567890123456789.0123456789", DOUBLE, "double '1234567890123456789.0123456789'")
+                .addRoundTrip("float(126)", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .addRoundTrip("float(1)", "100000.0", DOUBLE, "double '100000.0'")
+                .addRoundTrip("float(7)", "123000.0", DOUBLE, "double '123000.0'")
+                .execute(getQueryRunner(), oracleCreateAndInsert("oracle_float"));
     }
 
     @Test
     public void testFloatingPointReadMappings()
     {
-        testTypeReadMapping("read_floats",
-                floatTests(binaryFloatDataType()),
-                doubleTests(binaryDoubleDataType()));
-    }
-
-    private static DataTypeTest floatTests(DataType<Float> floatType)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(floatType, 123.45f)
-                .addRoundTrip(floatType, Float.NaN)
-                .addRoundTrip(floatType, Float.NEGATIVE_INFINITY)
-                .addRoundTrip(floatType, Float.POSITIVE_INFINITY)
-                .addRoundTrip(floatType, null);
-    }
-
-    private static DataTypeTest doubleTests(DataType<Double> doubleType)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(doubleType, 1.0e100d)
-                .addRoundTrip(doubleType, Double.NaN)
-                .addRoundTrip(doubleType, Double.POSITIVE_INFINITY)
-                .addRoundTrip(doubleType, Double.NEGATIVE_INFINITY)
-                .addRoundTrip(doubleType, null);
+        SqlDataTypeTest.create()
+                .addRoundTrip("binary_float", "123.45", REAL, "REAL '123.45'")
+                .addRoundTrip("binary_float", "'nan'", REAL, "CAST(nan() AS REAL)")
+                .addRoundTrip("binary_float", "'infinity'", REAL, "CAST(+infinity() AS REAL)")
+                .addRoundTrip("binary_float", "'-infinity'", REAL, "CAST(-infinity() AS REAL)")
+                .addRoundTrip("binary_float", "NULL", REAL, "CAST(NULL AS REAL)")
+                .addRoundTrip("binary_double", "1.0E100", DOUBLE, "double '1.0E100'")
+                .addRoundTrip("binary_double", "'nan'", DOUBLE, "CAST(nan() AS double)")
+                .addRoundTrip("binary_double", "'infinity'", DOUBLE, "CAST(+infinity() AS double)")
+                .addRoundTrip("binary_double", "'-infinity'", DOUBLE, "CAST(-infinity() AS double)")
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_floats"));
     }
 
     /* varchar tests */
@@ -203,17 +193,36 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testVarcharMapping()
     {
-        testTypeMapping("varchar",
-                basicCharacterTests(DataType::varcharDataType, MAX_VARCHAR2_ON_WRITE));
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
+                .addRoundTrip("varchar(20)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE), "'string max size'",
+                        createVarcharType(MAX_VARCHAR2_ON_WRITE), format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_WRITE))
+                .addRoundTrip("varchar(5)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("varchar"));
     }
 
     @Test
     public void testVarcharReadMapping()
     {
-        testTypeReadMapping("read_varchar",
-                basicCharacterTests(varchar2DataType(CHAR), MAX_VARCHAR2_ON_READ),
-                basicCharacterTests(varchar2DataType(BYTE), MAX_VARCHAR2_ON_READ),
-                basicCharacterTests(nvarchar2DataType(), MAX_NVARCHAR2));
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar2(5 char)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
+                .addRoundTrip("varchar2(10 char)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
+                .addRoundTrip("varchar2(20 char)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
+                .addRoundTrip(format("varchar2(%d char)", MAX_VARCHAR2_ON_WRITE), "'string max size'",
+                        createVarcharType(MAX_VARCHAR2_ON_WRITE), format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_WRITE))
+                .addRoundTrip("varchar2(5 byte)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
+                .addRoundTrip("varchar2(10 byte)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
+                .addRoundTrip("varchar2(20 byte)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
+                .addRoundTrip(format("varchar2(%d byte)", MAX_VARCHAR2_ON_READ), "'string max size'",
+                        createVarcharType(MAX_VARCHAR2_ON_READ), format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_READ))
+                .addRoundTrip("nvarchar2(5)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
+                .addRoundTrip("nvarchar2(10)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
+                .addRoundTrip("nvarchar2(20)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
+                .addRoundTrip(format("nvarchar2(%d)", MAX_NVARCHAR2), "'string max size'",
+                        createVarcharType(MAX_NVARCHAR2), format("CAST('string max size' AS VARCHAR(%d))", MAX_NVARCHAR2))
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_varchar"));
     }
 
     /*
@@ -224,45 +233,83 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testVarcharUnicodeMapping()
     {
-        testTypeMapping("varchar_unicode",
-                unicodeTests(DataType::varcharDataType, codePoints(), MAX_VARCHAR2_ON_WRITE));
+        // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(5)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
+                .addRoundTrip("varchar(13)", "'攻殻機動隊'", createVarcharType(13), "CAST('攻殻機動隊' AS varchar(13))")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE), "'攻殻機動隊'",
+                        createVarcharType(MAX_VARCHAR2_ON_WRITE), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_WRITE))
+                .addRoundTrip("varchar(1)", "'😂'", createVarcharType(1), "CAST('😂' AS varchar(1))")
+                .addRoundTrip("varchar(6)", "'😂'", createVarcharType(6), "CAST('😂' AS varchar(6))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("varchar_unicode"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("varchar_unicode"));
     }
 
     @Test
     public void testVarcharUnicodeReadMapping()
     {
-        testTypeReadMapping("read_varchar_unicode",
-                unicodeTests(varchar2DataType(CHAR), codePoints(), MAX_VARCHAR2_ON_READ),
-                unicodeTests(varchar2DataType(BYTE), utf8Bytes(), MAX_VARCHAR2_ON_READ),
-                unicodeTests(nvarchar2DataType(), String::length, MAX_NVARCHAR2));
+        SqlDataTypeTest.create()
+                // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
+                .addRoundTrip("varchar2(5 char)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
+                .addRoundTrip("varchar2(13 char)", "'攻殻機動隊'", createVarcharType(13), "CAST('攻殻機動隊' AS varchar(13))")
+                .addRoundTrip(format("varchar2(%d char)", MAX_VARCHAR2_ON_READ), "'攻殻機動隊'",
+                        createVarcharType(MAX_VARCHAR2_ON_READ), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_READ))
+                .addRoundTrip("varchar2(1 char)", "'😂'", createVarcharType(1), "CAST('😂' AS varchar(1))")
+                .addRoundTrip("varchar2(6 char)", "'😂'", createVarcharType(6), "CAST('😂' AS varchar(6))")
+                // the number of bytes using charset UTF-8 in 攻殻機動隊 is 15, and in '😂' is 4.
+                .addRoundTrip("varchar2(15 byte)", "'攻殻機動隊'", createVarcharType(15), "CAST('攻殻機動隊' AS varchar(15))")
+                .addRoundTrip("varchar2(23 byte)", "'攻殻機動隊'", createVarcharType(23), "CAST('攻殻機動隊' AS varchar(23))")
+                .addRoundTrip(format("varchar2(%d byte)", MAX_VARCHAR2_ON_READ), "'攻殻機動隊'",
+                        createVarcharType(MAX_VARCHAR2_ON_READ), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_READ))
+                .addRoundTrip("varchar2(4 byte)", "'😂'", createVarcharType(4), "CAST('😂' AS varchar(4))")
+                .addRoundTrip("varchar2(9 byte)", "'😂'", createVarcharType(9), "CAST('😂' AS varchar(9))")
+                // the length of string in 攻殻機動隊 is 5, and in 😂 is 2.
+                .addRoundTrip("nvarchar2(5)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
+                .addRoundTrip("nvarchar2(13)", "'攻殻機動隊'", createVarcharType(13), "CAST('攻殻機動隊' AS varchar(13))")
+                .addRoundTrip(format("nvarchar2(%d)", MAX_NVARCHAR2), "'攻殻機動隊'",
+                        createVarcharType(MAX_NVARCHAR2), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_NVARCHAR2))
+                .addRoundTrip("nvarchar2(2)", "'😂'", createVarcharType(2), "CAST('😂' AS varchar(2))")
+                .addRoundTrip("nvarchar2(7)", "'😂'", createVarcharType(7), "CAST('😂' AS varchar(7))")
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_varchar_unicode"));
     }
 
     @Test
     public void testUnboundedVarcharMapping()
     {
-        testTypeMapping("unbounded",
-                unboundedVarcharTests(varcharDataType()),
-                unboundedVarcharTests(tooLargeVarcharDataType()),
-                unboundedVarcharTests(tooLargeCharDataType()));
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "'😂'", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
+                .addRoundTrip("varchar", "'clob'", createUnboundedVarcharType(), "CAST('clob' AS varchar)")
+                .addRoundTrip("varchar", "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "CAST('clob' AS varchar)")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "CAST('clob' AS varchar)")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("unbounded"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("unbounded"));
     }
 
     @Test
     public void testUnboundedVarcharReadMapping()
     {
-        testTypeReadMapping("read_unbounded",
-                unboundedVarcharTests(clobDataType()).addRoundTrip(clobDataType(), ""),
-                unboundedVarcharTests(nclobDataType()).addRoundTrip(nclobDataType(), ""));
+        SqlDataTypeTest.create()
+                .addRoundTrip("clob", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS VARCHAR)")
+                .addRoundTrip("clob", "'😂'", createUnboundedVarcharType(), "CAST('😂' AS VARCHAR)")
+                .addRoundTrip("clob", "'clob'", createUnboundedVarcharType(), "CAST('clob' AS VARCHAR)")
+                .addRoundTrip("clob", "NULL", createUnboundedVarcharType(), "CAST(NULL AS VARCHAR)")
+                .addRoundTrip("clob", "empty_clob()", createUnboundedVarcharType(), "CAST('' AS VARCHAR)")
+                .addRoundTrip("nclob", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS VARCHAR)")
+                .addRoundTrip("nclob", "'😂'", createUnboundedVarcharType(), "CAST('😂' AS VARCHAR)")
+                .addRoundTrip("nclob", "'clob'", createUnboundedVarcharType(), "CAST('clob' AS VARCHAR)")
+                .addRoundTrip("nclob", "NULL", createUnboundedVarcharType(), "CAST(NULL AS VARCHAR)")
+                .addRoundTrip("nclob", "empty_clob()", createUnboundedVarcharType(), "CAST('' AS VARCHAR)")
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_unbounded"));
         // The tests on empty strings are read-only because Oracle treats empty
         // strings as NULL. The empty clob is generated by an Oracle function.
-    }
-
-    private static DataTypeTest unboundedVarcharTests(DataType<String> dataType)
-    {
-        // The string length function and max size are placeholders;
-        // the data type isn't parameterized.
-        return unicodeTests(ignored -> dataType, ignored -> 0, 0)
-                .addRoundTrip(dataType, "clob")
-                .addRoundTrip(dataType, null);
     }
 
     /* char tests */
@@ -270,43 +317,79 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testCharMapping()
     {
-        testTypeMapping("char",
-                basicCharacterTests(DataType::charDataType, MAX_CHAR_ON_WRITE));
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(10)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
+                .addRoundTrip("char(20)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE), "'string max size'",
+                        createCharType(MAX_CHAR_ON_WRITE), format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_WRITE))
+                .addRoundTrip("char(5)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("char"));
     }
 
     @Test
     public void testCharReadMapping()
     {
-        testTypeReadMapping("read_char",
-                basicCharacterTests(charDataType(CHAR), MAX_CHAR_ON_READ),
-                basicCharacterTests(charDataType(BYTE), MAX_CHAR_ON_READ),
-                basicCharacterTests(ncharDataType(), MAX_NCHAR));
-    }
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(5 char)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
+                .addRoundTrip("char(10 char)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
+                .addRoundTrip("char(20 char)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
+                .addRoundTrip(format("char(%d char)", MAX_CHAR_ON_READ), "'string max size'",
+                        createCharType(MAX_CHAR_ON_READ), format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_READ))
 
-    // TODO: Replace this to not take maxSize
-    private static DataTypeTest basicCharacterTests(IntFunction<DataType<String>> typeConstructor, int maxSize)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(typeConstructor.apply(10), "string 010")
-                .addRoundTrip(typeConstructor.apply(20), "string 20")
-                .addRoundTrip(typeConstructor.apply(maxSize), "string max size")
-                .addRoundTrip(typeConstructor.apply(5), null);
+                .addRoundTrip("char(5 byte)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
+                .addRoundTrip("char(10 byte)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
+                .addRoundTrip("char(20 byte)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
+                .addRoundTrip(format("char(%d byte)", MAX_CHAR_ON_READ), "'string max size'",
+                        createCharType(MAX_CHAR_ON_READ), format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_READ))
+
+                .addRoundTrip("nchar(5)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
+                .addRoundTrip("nchar(10)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
+                .addRoundTrip("nchar(20)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
+                .addRoundTrip(format("nchar(%d)", MAX_NCHAR), "'string max size'",
+                        createCharType(MAX_NCHAR), format("CAST('string max size' AS CHAR(%d))", MAX_NCHAR))
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_char"));
     }
 
     @Test
     public void testCharUnicodeMapping()
     {
-        testTypeMapping("char_unicode",
-                unicodeTests(DataType::charDataType, codePoints(), MAX_CHAR_ON_WRITE));
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS char(5))")
+                .addRoundTrip("char(13)", "'攻殻機動隊'", createCharType(13), "CAST('攻殻機動隊' AS char(13))")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE), "'攻殻機動隊'",
+                        createCharType(MAX_CHAR_ON_WRITE), format("CAST('攻殻機動隊' AS char(%d))", MAX_CHAR_ON_WRITE))
+                .addRoundTrip("char(1)", "'😂'", createCharType(1), "CAST('😂' AS char(1))")
+                .addRoundTrip("char(6)", "'😂'", createCharType(6), "CAST('😂' AS char(6))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("char_unicode"));
     }
 
     @Test
     public void testCharUnicodeReadMapping()
     {
-        testTypeReadMapping("read_char_unicode",
-                unicodeTests(charDataType(CHAR), codePoints(), MAX_CHAR_ON_READ),
-                unicodeTests(charDataType(BYTE), utf8Bytes(), MAX_CHAR_ON_READ),
-                unicodeTests(ncharDataType(), String::length, MAX_NCHAR));
+        SqlDataTypeTest.create()
+                // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
+                .addRoundTrip("char(5 char)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS CHAR(5))")
+                .addRoundTrip("char(13 char)", "'攻殻機動隊'", createCharType(13), "CAST('攻殻機動隊' AS CHAR(13))")
+                .addRoundTrip(format("char(%d char)", MAX_CHAR_ON_READ), "'攻殻機動隊'",
+                        createCharType(MAX_CHAR_ON_READ), format("CAST('攻殻機動隊' AS char(%d))", MAX_CHAR_ON_READ))
+                .addRoundTrip("char(1 char)", "'😂'", createCharType(1), "CAST('😂' AS CHAR(1))")
+                .addRoundTrip("char(6 char)", "'😂'", createCharType(6), "CAST('😂' AS CHAR(6))")
+                // the number of bytes using charset UTF-8 in 攻殻機動隊 is 15, and in 😂 is 4.
+                .addRoundTrip("char(15 byte)", "'攻殻機動隊'", createCharType(15), "CAST('攻殻機動隊' AS CHAR(15))")
+                .addRoundTrip("char(23 byte)", "'攻殻機動隊'", createCharType(23), "CAST('攻殻機動隊' AS CHAR(23))")
+                .addRoundTrip(format("char(%d byte)", MAX_CHAR_ON_READ), "'攻殻機動隊'",
+                        createCharType(MAX_CHAR_ON_READ), format("CAST('攻殻機動隊' AS CHAR(%d))", MAX_CHAR_ON_READ))
+                .addRoundTrip("char(4 byte)", "'😂'", createCharType(4), "CAST('😂' AS CHAR(4))")
+                .addRoundTrip("char(9 byte)", "'😂'", createCharType(9), "CAST('😂' AS CHAR(9))")
+                // the length of string in 攻殻機動隊 is 5, and in 😂 is 2.
+                .addRoundTrip("nchar(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS CHAR(5))")
+                .addRoundTrip("nchar(13)", "'攻殻機動隊'", createCharType(13), "CAST('攻殻機動隊' AS CHAR(13))")
+                .addRoundTrip(format("nchar(%d)", MAX_NCHAR), "'攻殻機動隊'",
+                        createCharType(MAX_NCHAR), format("CAST('攻殻機動隊' AS CHAR(%d))", MAX_NCHAR))
+                .addRoundTrip("nchar(2)", "'😂'", createCharType(2), "CAST('😂' AS CHAR(2))")
+                .addRoundTrip("nchar(7)", "'😂'", createCharType(7), "CAST('😂' AS CHAR(7))")
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_char_unicode"));
     }
 
     private static DataTypeTest unicodeTests(IntFunction<DataType<String>> typeConstructor, ToIntFunction<String> stringLength, int maxSize)
@@ -329,71 +412,87 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testDecimalMapping()
     {
-        testTypeMapping("decimals", numericTests(DataType::decimalDataType));
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "CAST(193 AS DECIMAL(3, 0))", createDecimalType(3, 0), "CAST(193 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST(19 AS DECIMAL(3, 0)) ", createDecimalType(3, 0), "CAST(19 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST(-193 AS DECIMAL(3, 0))", createDecimalType(3, 0), "CAST(-193 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST(10.0 AS DECIMAL(3, 1))", createDecimalType(3, 1), "CAST(10.0 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST(10.1 AS DECIMAL(3, 1))", createDecimalType(3, 1), "CAST(10.1 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST(-10.1 AS DECIMAL(3, 1))", createDecimalType(3, 1), "CAST(-10.1 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(4, 2)", "CAST(2 AS DECIMAL(4, 2))", createDecimalType(4, 2), "CAST(2 AS DECIMAL(4, 2))")
+                .addRoundTrip("decimal(4, 2)", "CAST(2.3 AS DECIMAL(4, 2))", createDecimalType(4, 2), "CAST(2.3 AS DECIMAL(4, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST(2 AS DECIMAL(24, 2))", createDecimalType(24, 2), "CAST(2 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST(2.3 AS DECIMAL(24, 2))", createDecimalType(24, 2), "CAST(2.3 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST(123456789.3 AS DECIMAL(24, 2))", createDecimalType(24, 2), "CAST(123456789.3 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 4)", "CAST(12345678901234567890.31 AS DECIMAL(24, 4))", createDecimalType(24, 4), "CAST(12345678901234567890.31 AS DECIMAL(24, 4))")
+                .addRoundTrip("decimal(30, 5)", "CAST(3141592653589793238462643.38327 AS DECIMAL(30, 5))", createDecimalType(30, 5), "CAST(3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip("decimal(30, 5)", "CAST(-3141592653589793238462643.38327 AS DECIMAL(30, 5))", createDecimalType(30, 5), "CAST(-3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS DECIMAL(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS DECIMAL(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
+                .addRoundTrip("decimal(38, 38)", "CAST(.10000200003000040000500006000070000888 AS DECIMAL(38, 38))", createDecimalType(38, 38), "CAST(.10000200003000040000500006000070000888 AS DECIMAL(38, 38))")
+                .addRoundTrip("decimal(38, 38)", "CAST(-.27182818284590452353602874713526624977 AS DECIMAL(38, 38))", createDecimalType(38, 38), "CAST(-.27182818284590452353602874713526624977 AS DECIMAL(38, 38))")
+                .addRoundTrip("decimal(10, 3)", "CAST(NULL AS DECIMAL(10, 3))", createDecimalType(10, 3), "CAST(NULL AS DECIMAL(10, 3))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("decimals"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("decimals"));
     }
 
     @Test
     public void testIntegerMappings()
     {
-        testTypeMapping("integers",
-                DataTypeTest.create()
-                        .addRoundTrip(integerDataType("tinyint", 3), 0L)
-                        .addRoundTrip(integerDataType("smallint", 5), 0L)
-                        .addRoundTrip(integerDataType("integer", 10), 0L)
-                        .addRoundTrip(integerDataType("bigint", 19), 0L));
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "0", createDecimalType(3, 0), "CAST(0 AS DECIMAL(3, 0))")
+                .addRoundTrip("smallint", "0", createDecimalType(5, 0), "CAST(0 AS DECIMAL(5, 0))")
+                .addRoundTrip("integer", "0", createDecimalType(10, 0), "CAST(0 AS DECIMAL(10, 0))")
+                .addRoundTrip("bigint", "0", createDecimalType(19, 0), "CAST(0 AS DECIMAL(19, 0))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("integers"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("integers"));
     }
 
     @Test
-    public void testNumberReadMapping()
+    public void testDecimalReadMapping()
     {
-        testTypeReadMapping("read_decimals", numericTests(OracleDataTypes::oracleDecimalDataType));
-    }
-
-    private static DataTypeTest numericTests(BiFunction<Integer, Integer, DataType<BigDecimal>> decimalType)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(decimalType.apply(3, 0), new BigDecimal("193")) // full p
-                .addRoundTrip(decimalType.apply(3, 0), new BigDecimal("19")) // partial p
-                .addRoundTrip(decimalType.apply(3, 0), new BigDecimal("-193")) // negative full p
-                .addRoundTrip(decimalType.apply(3, 1), new BigDecimal("10.0")) // 0 decimal
-                .addRoundTrip(decimalType.apply(3, 1), new BigDecimal("10.1")) // full ps
-                .addRoundTrip(decimalType.apply(3, 1), new BigDecimal("-10.1")) // negative ps
-                .addRoundTrip(decimalType.apply(4, 2), new BigDecimal("2")) //
-                .addRoundTrip(decimalType.apply(4, 2), new BigDecimal("2.3"))
-                .addRoundTrip(decimalType.apply(24, 2), new BigDecimal("2"))
-                .addRoundTrip(decimalType.apply(24, 2), new BigDecimal("2.3"))
-                .addRoundTrip(decimalType.apply(24, 2), new BigDecimal("123456789.3"))
-                .addRoundTrip(decimalType.apply(24, 4), new BigDecimal("12345678901234567890.31"))
-                .addRoundTrip(decimalType.apply(30, 5), new BigDecimal("3141592653589793238462643.38327"))
-                .addRoundTrip(decimalType.apply(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
-                .addRoundTrip(decimalType.apply(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
-                .addRoundTrip(decimalType.apply(38, 0), new BigDecimal("-27182818284590452353602874713526624977"))
-                .addRoundTrip(decimalType.apply(38, 38), new BigDecimal(".10000200003000040000500006000070000888"))
-                .addRoundTrip(decimalType.apply(38, 38), new BigDecimal("-.27182818284590452353602874713526624977"))
-                .addRoundTrip(decimalType.apply(10, 3), null);
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "193", createDecimalType(3, 0), "CAST(193 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "19", createDecimalType(3, 0), "CAST(19 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "-193", createDecimalType(3, 0), "CAST(-193 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 1)", "10.0", createDecimalType(3, 1), "CAST(10.0 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "10.1", createDecimalType(3, 1), "CAST(10.1 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "-10.1", createDecimalType(3, 1), "CAST(-10.1 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(4, 2)", "2", createDecimalType(4, 2), "CAST(2 AS DECIMAL(4, 2))")
+                .addRoundTrip("decimal(4, 2)", "2.3", createDecimalType(4, 2), "CAST(2.3 AS DECIMAL(4, 2))")
+                .addRoundTrip("decimal(24, 2)", "2", createDecimalType(24, 2), "CAST(2 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "2.3", createDecimalType(24, 2), "CAST(2.3 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "123456789.3", createDecimalType(24, 2), "CAST(123456789.3 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 4)", "12345678901234567890.31", createDecimalType(24, 4), "CAST(12345678901234567890.31 AS DECIMAL(24, 4))")
+                .addRoundTrip("decimal(30, 5)", "3141592653589793238462643.38327", createDecimalType(30, 5), "CAST(3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip("decimal(30, 5)", "-3141592653589793238462643.38327", createDecimalType(30, 5), "CAST(-3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "27182818284590452353602874713526624977", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
+                .addRoundTrip("decimal(38, 0)", "-27182818284590452353602874713526624977", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
+                .addRoundTrip("decimal(38, 38)", ".10000200003000040000500006000070000888", createDecimalType(38, 38), "CAST(.10000200003000040000500006000070000888 AS DECIMAL(38, 38))")
+                .addRoundTrip("decimal(38, 38)", "-.27182818284590452353602874713526624977", createDecimalType(38, 38), "CAST(-.27182818284590452353602874713526624977 AS DECIMAL(38, 38))")
+                .addRoundTrip("decimal(10, 3)", "NULL", createDecimalType(10, 3), "CAST(NULL AS DECIMAL(10, 3))")
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_decimals"));
     }
 
     @Test
     public void testNumberWithoutScaleReadMapping()
     {
-        DataTypeTest.create()
-                .addRoundTrip(numberDataType(1), BigDecimal.valueOf(1))
-                .addRoundTrip(numberDataType(2), BigDecimal.valueOf(99))
-                .addRoundTrip(numberDataType(38),
-                        new BigDecimal("99999999999999999999999999999999999999")) // max
-                .addRoundTrip(numberDataType(38),
-                        new BigDecimal("-99999999999999999999999999999999999999")) // min
+        SqlDataTypeTest.create()
+                .addRoundTrip("number(1)", "1", createDecimalType(1, 0), "CAST (1 AS DECIMAL(1, 0))")
+                .addRoundTrip("number(2)", "99", createDecimalType(2, 0), "CAST (99 AS DECIMAL(2, 0))")
+                .addRoundTrip("number(38)", "99999999999999999999999999999999999999", createDecimalType(38, 0), "CAST ('99999999999999999999999999999999999999' AS DECIMAL(38, 0))") // max
+                .addRoundTrip("number(38)", "-99999999999999999999999999999999999999", createDecimalType(38, 0), "CAST ('-99999999999999999999999999999999999999' AS DECIMAL(38, 0))") // min
                 .execute(getQueryRunner(), oracleCreateAndInsert("number_without_scale"));
     }
 
     @Test
     public void testNumberWithoutPrecisionAndScaleReadMapping()
     {
-        DataTypeTest.create()
-                .addRoundTrip(unspecifiedNumberDataType(9), BigDecimal.valueOf(1))
-                .addRoundTrip(unspecifiedNumberDataType(9), BigDecimal.valueOf(99))
-                .addRoundTrip(unspecifiedNumberDataType(9), new BigDecimal("9999999999999999999999999999.999999999")) // max
-                .addRoundTrip(unspecifiedNumberDataType(9), new BigDecimal("-999999999999999999999999999.999999999")) // min
+        SqlDataTypeTest.create()
+                .addRoundTrip("number", "1", createDecimalType(38, 9), "CAST(1 AS DECIMAL(38, 9))")
+                .addRoundTrip("number", "99", createDecimalType(38, 9), "CAST(99 AS DECIMAL(38, 9))")
+                .addRoundTrip("number", "9999999999999999999999999999.999999999", createDecimalType(38, 9), "CAST('9999999999999999999999999999.999999999' AS DECIMAL(38, 9))") // max
+                .addRoundTrip("number", "-9999999999999999999999999999.999999999", createDecimalType(38, 9), "CAST('-9999999999999999999999999999.999999999' AS DECIMAL(38, 9))") // min
                 .execute(getQueryRunner(), number(9), oracleCreateAndInsert("number_wo_prec_and_scale"));
     }
 
@@ -428,23 +527,21 @@ public abstract class AbstractTestOracleTypeMapping
         // TODO: Add similar tests for write mappings.
         // Those tests would require the table to be created in Oracle, but values inserted
         // by Trino, which is outside the capabilities of the current DataSetup classes.
-        DataTypeTest.create()
-                .addRoundTrip(numberDataType(1, -1), BigDecimal.valueOf(2_0))
-                .addRoundTrip(numberDataType(1, -1), BigDecimal.valueOf(3_5)) // More useful as a test for write mappings.
-                .addRoundTrip(numberDataType(2, -4), BigDecimal.valueOf(47_0000))
-                .addRoundTrip(numberDataType(2, -4), BigDecimal.valueOf(-8_0000))
-                .addRoundTrip(numberDataType(8, -3), BigDecimal.valueOf(-88888888, -3))
-                .addRoundTrip(numberDataType(8, -3), BigDecimal.valueOf(4050_000))
-                .addRoundTrip(numberDataType(14, -14), BigDecimal.valueOf(14000014000014L, -14))
-                .addRoundTrip(numberDataType(14, -14), BigDecimal.valueOf(1, -21))
-                .addRoundTrip(numberDataType(5, -33), BigDecimal.valueOf(12345, -33))
-                .addRoundTrip(numberDataType(5, -33), BigDecimal.valueOf(-12345, -33))
-                .addRoundTrip(numberDataType(1, -37), BigDecimal.valueOf(1, -37))
-                .addRoundTrip(numberDataType(1, -37), BigDecimal.valueOf(-1, -37))
-                .addRoundTrip(numberDataType(37, -1),
-                        new BigDecimal("99999999999999999999999999999999999990")) // max
-                .addRoundTrip(numberDataType(37, -1),
-                        new BigDecimal("-99999999999999999999999999999999999990")) // min
+        SqlDataTypeTest.create()
+                .addRoundTrip("number(1, -1)", "20", createDecimalType(2, 0), "CAST(20 AS DECIMAL(2, 0))")
+                .addRoundTrip("number(1, -1)", "35", createDecimalType(2, 0), "CAST(40 AS DECIMAL(2, 0))") // More useful as a test for write mappings.
+                .addRoundTrip("number(2, -4)", "470000", createDecimalType(6, 0), "CAST(470000 AS DECIMAL(6, 0))")
+                .addRoundTrip("number(2, -4)", "-80000", createDecimalType(6, 0), "CAST(-80000 AS DECIMAL(6, 0))")
+                .addRoundTrip("number(8, -3)", "-8.8888888E+10", createDecimalType(11, 0), "CAST(-8.8888888E+10 AS DECIMAL(11, 0))")
+                .addRoundTrip("number(8, -3)", "4050000", createDecimalType(11, 0), "CAST(4050000 AS DECIMAL(11, 0))")
+                .addRoundTrip("number(14, -14)", "1.4000014000014E+27", createDecimalType(28, 0), "CAST(1.4000014000014E+27 AS DECIMAL(28, 0))")
+                .addRoundTrip("number(14, -14)", "1E+21", createDecimalType(28, 0), "CAST(1E+21 AS DECIMAL(28, 0))")
+                .addRoundTrip("number(5, -33)", "1.2345E+37", createDecimalType(38, 0), "CAST(1.2345E+37 AS DECIMAL(38, 0))")
+                .addRoundTrip("number(5, -33)", "-1.2345E+37", createDecimalType(38, 0), "CAST(-1.2345E+37 AS DECIMAL(38, 0))")
+                .addRoundTrip("number(1, -37)", "1E+37", createDecimalType(38, 0), "CAST(1E+37 AS DECIMAL(38, 0))")
+                .addRoundTrip("number(1, -37)", "-1E+37", createDecimalType(38, 0), "CAST(-1E+37 AS DECIMAL(38, 0))")
+                .addRoundTrip("number(37, -1)", "99999999999999999999999999999999999990", createDecimalType(38, 0), "CAST('99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // max
+                .addRoundTrip("number(37, -1)", "-99999999999999999999999999999999999990", createDecimalType(38, 0), "CAST('-99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // min
                 .execute(getQueryRunner(), oracleCreateAndInsert("number_negative_s"));
     }
 
@@ -520,10 +617,11 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testBooleanType()
     {
-        DataTypeTest.create()
-                .addRoundTrip(booleanDataType(), true)
-                .addRoundTrip(booleanDataType(), false)
-                .execute(getQueryRunner(), trinoCreateAsSelect("boolean_types"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "CAST(true AS DECIMAL(1, 0))", createDecimalType(1, 0), "CAST(true AS DECIMAL(1, 0))")
+                .addRoundTrip("boolean", "CAST(false AS DECIMAL(1, 0))", createDecimalType(1, 0), "CAST(false AS DECIMAL(1, 0))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("boolean_types"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("boolean_types"));
     }
 
     @Test
@@ -537,7 +635,8 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
                 .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_varbinary"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("blob", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
@@ -700,7 +799,7 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip(timestampDataType(), timeGapInVilnius)
                 .addRoundTrip(timestampDataType(), timeGapInKathmandu);
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
                 .build();
 
@@ -851,7 +950,7 @@ public abstract class AbstractTestOracleTypeMapping
      */
     private void runLegacyTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
     {
-        Session.SessionBuilder session = Session.builder(getQueryRunner().getDefaultSession());
+        Session.SessionBuilder session = Session.builder(getSession());
         if (zone != null) {
             session.setTimeZoneKey(getTimeZoneKey(zone));
         }
@@ -865,7 +964,7 @@ public abstract class AbstractTestOracleTypeMapping
      */
     private void runTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
     {
-        Session.SessionBuilder session = Session.builder(getQueryRunner().getDefaultSession());
+        Session.SessionBuilder session = Session.builder(getSession());
         if (zone != null) {
             session.setTimeZoneKey(getTimeZoneKey(zone));
         }

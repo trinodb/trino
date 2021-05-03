@@ -44,7 +44,7 @@ public class ExampleMetadata
     @Inject
     public ExampleMetadata(ExampleClient exampleClient)
     {
-        this.exampleClient = requireNonNull(exampleClient, "client is null");
+        this.exampleClient = requireNonNull(exampleClient, "exampleClient is null");
     }
 
     @Override

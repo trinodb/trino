@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.trino.spi.connector.ConnectorAccessControl;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class LegacySecurityModule
@@ -28,5 +29,6 @@ public class LegacySecurityModule
     {
         configBinder(binder).bindConfig(LegacySecurityConfig.class);
         binder.bind(ConnectorAccessControl.class).to(LegacyAccessControl.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, LegacyAccessControlMetastore.class).setDefault().to(SemiTransactionalLegacyAccessControlMetastore.class).in(Scopes.SINGLETON);
     }
 }

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.units.Duration;
+import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
@@ -62,6 +63,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
+import io.trino.testing.TestingSession;
 import io.trino.testing.TestingSplit;
 import io.trino.util.FinalizerService;
 import org.testng.annotations.AfterClass;
@@ -120,6 +122,7 @@ public class TestSourcePartitionedScheduler
     private final FinalizerService finalizerService = new FinalizerService();
     private final Metadata metadata = createTestMetadataManager();
     private final TypeOperators typeOperators = new TypeOperators();
+    private final Session session = TestingSession.testSessionBuilder().build();
 
     public TestSourcePartitionedScheduler()
     {
@@ -334,7 +337,7 @@ public class TestSourcePartitionedScheduler
                     stage,
                     Iterables.getOnlyElement(plan.getSplitSources().keySet()),
                     Iterables.getOnlyElement(plan.getSplitSources().values()),
-                    new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
+                    new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                     2,
                     new DynamicFilterService(metadata, typeOperators, new DynamicFilterConfig()),
                     () -> false);
@@ -408,7 +411,7 @@ public class TestSourcePartitionedScheduler
                 stage,
                 Iterables.getOnlyElement(plan.getSplitSources().keySet()),
                 Iterables.getOnlyElement(plan.getSplitSources().values()),
-                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
+                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 500,
                 new DynamicFilterService(metadata, typeOperators, new DynamicFilterConfig()),
                 () -> false);
@@ -447,7 +450,7 @@ public class TestSourcePartitionedScheduler
                 stage,
                 Iterables.getOnlyElement(plan.getSplitSources().keySet()),
                 Iterables.getOnlyElement(plan.getSplitSources().values()),
-                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
+                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 400,
                 new DynamicFilterService(metadata, typeOperators, new DynamicFilterConfig()),
                 () -> true);
@@ -484,7 +487,7 @@ public class TestSourcePartitionedScheduler
                 stage,
                 Iterables.getOnlyElement(plan.getSplitSources().keySet()),
                 Iterables.getOnlyElement(plan.getSplitSources().values()),
-                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
+                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 2,
                 dynamicFilterService,
                 () -> true);
@@ -544,7 +547,7 @@ public class TestSourcePartitionedScheduler
 
         PlanNodeId sourceNode = Iterables.getOnlyElement(plan.getSplitSources().keySet());
         SplitSource splitSource = Iterables.getOnlyElement(plan.getSplitSources().values());
-        SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(splitSource.getCatalogName())), stage::getAllTasks);
+        SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(splitSource.getCatalogName())), stage::getAllTasks);
         return newSourcePartitionedSchedulerAsStageScheduler(
                 stage,
                 sourceNode,
@@ -567,7 +570,8 @@ public class TestSourcePartitionedScheduler
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
-                false);
+                false,
+                Optional.empty());
         FilterNode filterNode = new FilterNode(
                 new PlanNodeId("filter_node_id"),
                 tableScan,

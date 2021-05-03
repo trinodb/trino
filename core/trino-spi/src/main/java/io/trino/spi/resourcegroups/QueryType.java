@@ -21,5 +21,6 @@ public enum QueryType
     EXPLAIN,
     ANALYZE,
     INSERT,
+    UPDATE,
     SELECT
 }

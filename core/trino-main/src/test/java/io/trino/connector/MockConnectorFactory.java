@@ -24,13 +24,18 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorHandleResolver;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.JoinApplicationResult;
+import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
@@ -40,6 +45,7 @@ import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.ViewExpression;
 
 import java.util.List;
 import java.util.Map;
@@ -61,15 +67,18 @@ public class MockConnectorFactory
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
+    private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final ApplyProjection applyProjection;
     private final ApplyAggregation applyAggregation;
+    private final ApplyJoin applyJoin;
     private final ApplyTopN applyTopN;
     private final ApplyFilter applyFilter;
     private final ApplyTableScanRedirect applyTableScanRedirect;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
+    private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final ListRoleGrants roleGrants;
     private final MockConnectorAccessControl accessControl;
@@ -78,15 +87,18 @@ public class MockConnectorFactory
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
+            BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             ApplyProjection applyProjection,
             ApplyAggregation applyAggregation,
+            ApplyJoin applyJoin,
             ApplyTopN applyTopN,
             ApplyFilter applyFilter,
             ApplyTableScanRedirect applyTableScanRedirect,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
+            BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
             ListRoleGrants roleGrants,
             MockConnectorAccessControl accessControl)
@@ -94,15 +106,18 @@ public class MockConnectorFactory
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
+        this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
         this.applyAggregation = requireNonNull(applyAggregation, "applyAggregation is null");
+        this.applyJoin = requireNonNull(applyJoin, "applyJoin is null");
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.applyFilter = requireNonNull(applyFilter, "applyFilter is null");
         this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirection is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
+        this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -127,15 +142,18 @@ public class MockConnectorFactory
                 listSchemaNames,
                 listTables,
                 getViews,
+                getMaterializedViews,
                 getTableHandle,
                 getColumns,
                 applyProjection,
                 applyAggregation,
+                applyJoin,
                 applyTopN,
                 applyFilter,
                 applyTableScanRedirect,
                 getInsertLayout,
                 getNewTableLayout,
+                getTableProperties,
                 eventListeners,
                 roleGrants,
                 accessControl);
@@ -165,6 +183,19 @@ public class MockConnectorFactory
                 List<AggregateFunction> aggregates,
                 Map<String, ColumnHandle> assignments,
                 List<List<ColumnHandle>> groupingSets);
+    }
+
+    @FunctionalInterface
+    public interface ApplyJoin
+    {
+        Optional<JoinApplicationResult<ConnectorTableHandle>> apply(
+                ConnectorSession session,
+                JoinType joinType,
+                ConnectorTableHandle left,
+                ConnectorTableHandle right,
+                List<JoinCondition> joinConditions,
+                Map<String, ColumnHandle> leftAssignments,
+                Map<String, ColumnHandle> rightAssignments);
     }
 
     @FunctionalInterface
@@ -201,12 +232,15 @@ public class MockConnectorFactory
         private Function<ConnectorSession, List<String>> listSchemaNames = defaultListSchemaNames();
         private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = defaultListTables();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = defaultGetViews();
+        private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews = defaultGetMaterializedViews();
         private BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle = defaultGetTableHandle();
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
         private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
         private ApplyAggregation applyAggregation = (session, handle, aggregates, assignments, groupingSets) -> Optional.empty();
+        private ApplyJoin applyJoin = (session, joinType, left, right, joinConditions, leftAssignments, rightAssignments) -> Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout = defaultGetInsertLayout();
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout = defaultGetNewTableLayout();
+        private BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties = defaultGetTableProperties();
         private Supplier<Iterable<EventListener>> eventListeners = ImmutableList::of;
         private ListRoleGrants roleGrants = defaultRoleAuthorizations();
         private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
@@ -214,6 +248,8 @@ public class MockConnectorFactory
         private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
         private ApplyFilter applyFilter = (session, handle, constraint) -> Optional.empty();
         private ApplyTableScanRedirect applyTableScanRedirect = (session, handle) -> Optional.empty();
+        private Function<SchemaTableName, ViewExpression> rowFilter = (tableName) -> null;
+        private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -239,6 +275,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withGetMaterializedViews(BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews)
+        {
+            this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
+            return this;
+        }
+
         public Builder withGetTableHandle(BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle)
         {
             this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
@@ -260,6 +302,12 @@ public class MockConnectorFactory
         public Builder withApplyAggregation(ApplyAggregation applyAggregation)
         {
             this.applyAggregation = applyAggregation;
+            return this;
+        }
+
+        public Builder withApplyJoin(ApplyJoin applyJoin)
+        {
+            this.applyJoin = applyJoin;
             return this;
         }
 
@@ -293,6 +341,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withGetTableProperties(BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties)
+        {
+            this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
+            return this;
+        }
+
         public Builder withEventListener(EventListener listener)
         {
             requireNonNull(listener, "listener is null");
@@ -321,24 +375,39 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withRowFilter(Function<SchemaTableName, ViewExpression> rowFilter)
+        {
+            this.rowFilter = rowFilter;
+            return this;
+        }
+
+        public Builder withColumnMask(BiFunction<SchemaTableName, String, ViewExpression> columnMask)
+        {
+            this.columnMask = columnMask;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
             return new MockConnectorFactory(
                     listSchemaNames,
                     listTables,
                     getViews,
+                    getMaterializedViews,
                     getTableHandle,
                     getColumns,
                     applyProjection,
                     applyAggregation,
+                    applyJoin,
                     applyTopN,
                     applyFilter,
                     applyTableScanRedirect,
                     getInsertLayout,
                     getNewTableLayout,
+                    getTableProperties,
                     eventListeners,
                     roleGrants,
-                    new MockConnectorAccessControl(schemaGrants, tableGrants));
+                    new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask));
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
@@ -361,6 +430,11 @@ public class MockConnectorFactory
             return (session, schemaTablePrefix) -> ImmutableMap.of();
         }
 
+        public static BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> defaultGetMaterializedViews()
+        {
+            return (session, schemaTablePrefix) -> ImmutableMap.of();
+        }
+
         public static BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> defaultGetTableHandle()
         {
             return (session, schemaTableName) -> new MockConnectorTableHandle(schemaTableName);
@@ -368,12 +442,17 @@ public class MockConnectorFactory
 
         public static BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> defaultGetInsertLayout()
         {
-            return (session, tableHandle) -> Optional.empty();
+            return (session, schemaTableName) -> Optional.empty();
         }
 
         public static BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> defaultGetNewTableLayout()
         {
-            return (session, tableHandle) -> Optional.empty();
+            return (session, tableMetadata) -> Optional.empty();
+        }
+
+        public static BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> defaultGetTableProperties()
+        {
+            return (session, tableHandle) -> new ConnectorTableProperties();
         }
 
         public static Function<SchemaTableName, List<ColumnMetadata>> defaultGetColumns()

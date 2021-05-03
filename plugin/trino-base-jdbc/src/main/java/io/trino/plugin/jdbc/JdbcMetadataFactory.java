@@ -13,29 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.airlift.units.Duration;
-
-import javax.inject.Inject;
-
-import java.util.concurrent.TimeUnit;
-
-import static java.util.Objects.requireNonNull;
-
-public class JdbcMetadataFactory
+public interface JdbcMetadataFactory
 {
-    private final JdbcClient jdbcClient;
-    private final boolean allowDropTable;
-
-    @Inject
-    public JdbcMetadataFactory(JdbcClient jdbcClient, JdbcMetadataConfig config)
-    {
-        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        requireNonNull(config, "config is null");
-        this.allowDropTable = config.isAllowDropTable();
-    }
-
-    public JdbcMetadata create()
-    {
-        return new JdbcMetadata(new TransactionCachingJdbcClient(jdbcClient, new Duration(1, TimeUnit.DAYS)), allowDropTable);
-    }
+    JdbcMetadata create(JdbcTransactionHandle transaction);
 }

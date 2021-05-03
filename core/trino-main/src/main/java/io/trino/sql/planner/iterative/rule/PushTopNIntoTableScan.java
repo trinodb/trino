@@ -13,6 +13,8 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -26,20 +28,27 @@ import io.trino.sql.planner.plan.TopNNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static io.trino.sql.planner.plan.Patterns.topN;
+import static io.trino.sql.planner.plan.TopNNode.Step.PARTIAL;
+import static io.trino.sql.planner.plan.TopNNode.Step.SINGLE;
 
 public class PushTopNIntoTableScan
         implements Rule<TopNNode>
 {
     private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
 
-    private static final Pattern<TopNNode> PATTERN = topN().with(source().matching(
-            tableScan().capturedAs(TABLE_SCAN)));
+    // Rule is executed in two planning phases. Initially we try to pushdown SINGLE TopN into
+    // table scan. If that fails, we repeat the exercise for PARTIAL TopN nodes after SINGLE -> PARTIAL/FINAL split.
+    private static final Pattern<TopNNode> PATTERN = topN()
+            .matching(node -> node.getStep() == SINGLE || node.getStep() == PARTIAL)
+            .with(source().matching(tableScan().capturedAs(TABLE_SCAN)));
 
     private final Metadata metadata;
 
@@ -52,6 +61,12 @@ public class PushTopNIntoTableScan
     public Pattern<TopNNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isAllowPushdownIntoConnectors(session);
     }
 
     @Override
@@ -73,10 +88,24 @@ public class PushTopNIntoTableScan
                             result.getHandle(),
                             tableScan.getOutputSymbols(),
                             tableScan.getAssignments(),
-                            tableScan.isForDelete());
+                            tableScan.isUpdateTarget(),
+                            // table scan partitioning might have changed with new table handle
+                            Optional.empty());
+
+                    // If possible we are getting rid of TopN node.
+                    //
+                    // If we are operating in `SINGLE` step and connector
+                    // TopN pushdown is guaranteed we are removing TopN node from plan altogether.
+
+                    // For PARTIAL step it would be semantically correct to always drop TopN node from the plan, no matter if connector
+                    // declares pushdown as guaranteed or not. But we decided to leave it in the plan for non-guaranteed pushdown, as there is no way
+                    // to determine the size of output returned by connector. If connector pushdown support is very limited, and still a lot of data is returned
+                    // after pushdown, removing PARTIAL TopN node would make query execution significantly more expensive.
+                    //
+                    // FINAL step of TopN node is never removed as it is needed to perform final filter higher in the query execution.
 
                     if (!result.isTopNGuaranteed()) {
-                        node = new TopNNode(topNNode.getId(), node, topNNode.getCount(), topNNode.getOrderingScheme(), TopNNode.Step.FINAL);
+                        node = topNNode.replaceChildren(ImmutableList.of(node));
                     }
                     return Result.ofPlanNode(node);
                 })

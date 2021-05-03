@@ -44,7 +44,7 @@ public class JmxConnector
         this.jmxMetadata = requireNonNull(jmxMetadata, "jmxMetadata is null");
         this.jmxSplitManager = requireNonNull(jmxSplitManager, "jmxSplitManager is null");
         this.jmxRecordSetProvider = requireNonNull(jmxRecordSetProvider, "jmxRecordSetProvider is null");
-        this.jmxPeriodicSampler = requireNonNull(jmxPeriodicSampler, "jmxHistoryDumper is null");
+        this.jmxPeriodicSampler = requireNonNull(jmxPeriodicSampler, "jmxPeriodicSampler is null");
     }
 
     @Override

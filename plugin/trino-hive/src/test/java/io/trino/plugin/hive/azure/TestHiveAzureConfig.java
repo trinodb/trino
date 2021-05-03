@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.azure;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HostAndPort;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -34,6 +35,7 @@ public class TestHiveAzureConfig
                 .setAbfsAccessKey(null)
                 .setAdlClientId(null)
                 .setAdlCredential(null)
+                .setAdlProxyHost(null)
                 .setAdlRefreshUrl(null)
                 .setAbfsOAuthClientEndpoint(null)
                 .setAbfsOAuthClientId(null)
@@ -51,6 +53,7 @@ public class TestHiveAzureConfig
                 .put("hive.azure.adl-client-id", "adlclientid")
                 .put("hive.azure.adl-credential", "adlcredential")
                 .put("hive.azure.adl-refresh-url", "adlrefreshurl")
+                .put("hive.azure.adl-proxy-host", "proxy-host:9800")
                 .put("hive.azure.abfs.oauth.endpoint", "abfsoauthendpoint")
                 .put("hive.azure.abfs.oauth.client-id", "abfsoauthclientid")
                 .put("hive.azure.abfs.oauth.secret", "abfsoauthsecret")
@@ -64,6 +67,7 @@ public class TestHiveAzureConfig
                 .setAdlClientId("adlclientid")
                 .setAdlCredential("adlcredential")
                 .setAdlRefreshUrl("adlrefreshurl")
+                .setAdlProxyHost(HostAndPort.fromParts("proxy-host", 9800))
                 .setAbfsOAuthClientEndpoint("abfsoauthendpoint")
                 .setAbfsOAuthClientId("abfsoauthclientid")
                 .setAbfsOAuthClientSecret("abfsoauthsecret");

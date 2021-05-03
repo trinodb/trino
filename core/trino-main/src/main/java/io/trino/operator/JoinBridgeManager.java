@@ -67,7 +67,7 @@ public class JoinBridgeManager<T extends JoinBridge>
         this.buildOuter = buildOuter;
         this.probeExecutionStrategy = requireNonNull(probeExecutionStrategy, "probeExecutionStrategy is null");
         this.buildExecutionStrategy = requireNonNull(lookupSourceExecutionStrategy, "lookupSourceExecutionStrategy is null");
-        this.joinBridgeProvider = requireNonNull(lookupSourceFactoryProvider, "joinBridgeProvider is null");
+        this.joinBridgeProvider = requireNonNull(lookupSourceFactoryProvider, "lookupSourceFactoryProvider is null");
         this.buildOutputTypes = requireNonNull(buildOutputTypes, "buildOutputTypes is null");
     }
 
@@ -177,21 +177,19 @@ public class JoinBridgeManager<T extends JoinBridge>
                         return new TaskWideInternalJoinBridgeDataManager<>(joinBridgeProvider, probeFactoryCount, outerFactoryCount);
                     case GROUPED_EXECUTION:
                         throw new UnsupportedOperationException("Invalid combination. Lookup source should not be grouped if probe is not going to take advantage of it.");
-                    default:
-                        throw new IllegalArgumentException("Unknown buildExecutionStrategy: " + buildExecutionStrategy);
                 }
+                throw new UnsupportedOperationException("Unknown buildExecutionStrategy: " + buildExecutionStrategy);
+
             case GROUPED_EXECUTION:
                 switch (buildExecutionStrategy) {
                     case UNGROUPED_EXECUTION:
                         return new SharedInternalJoinBridgeDataManager<>(joinBridgeProvider, probeFactoryCount, outerFactoryCount);
                     case GROUPED_EXECUTION:
                         return new OneToOneInternalJoinBridgeDataManager<>(joinBridgeProvider, probeFactoryCount, outerFactoryCount);
-                    default:
-                        throw new IllegalArgumentException("Unknown buildExecutionStrategy: " + buildExecutionStrategy);
                 }
-            default:
-                throw new UnsupportedOperationException();
+                throw new UnsupportedOperationException("Unknown buildExecutionStrategy: " + buildExecutionStrategy);
         }
+        throw new UnsupportedOperationException("Unknown probeExecutionStrategy: " + probeExecutionStrategy);
     }
 
     private interface InternalJoinBridgeDataManager<T extends JoinBridge>

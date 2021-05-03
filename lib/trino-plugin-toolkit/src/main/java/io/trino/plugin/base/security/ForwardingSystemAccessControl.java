@@ -261,6 +261,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+        delegate().checkCanUpdateTableColumns(context, table, updatedColumnNames);
+    }
+
+    @Override
     public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
         delegate().checkCanCreateView(context, view);
@@ -288,6 +294,24 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         delegate().checkCanCreateViewWithSelectFromColumns(context, table, columns);
+    }
+
+    @Override
+    public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        delegate().checkCanCreateMaterializedView(context, materializedView);
+    }
+
+    @Override
+    public void checkCanRefreshMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        delegate().checkCanRefreshMaterializedView(context, materializedView);
+    }
+
+    @Override
+    public void checkCanDropMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        delegate().checkCanDropMaterializedView(context, materializedView);
     }
 
     @Override

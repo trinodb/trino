@@ -18,6 +18,7 @@ import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GroupBy;
@@ -42,6 +43,7 @@ import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.WhenClause;
+import io.trino.sql.tree.WindowDefinition;
 
 import java.util.List;
 import java.util.Optional;
@@ -63,6 +65,11 @@ public final class QueryUtil
     public static Identifier quotedIdentifier(String name)
     {
         return new Identifier(name, true);
+    }
+
+    public static Expression nameReference(String first, String... rest)
+    {
+        return DereferenceExpression.from(QualifiedName.of(first, rest));
     }
 
     public static SelectItem unaliasedName(String name)
@@ -144,6 +151,11 @@ public final class QueryUtil
         return new Row(ImmutableList.copyOf(values));
     }
 
+    public static Relation aliased(Relation relation, String alias)
+    {
+        return new AliasedRelation(relation, identifier(alias), null);
+    }
+
     public static Relation aliased(Relation relation, String alias, List<String> columnAliases)
     {
         return new AliasedRelation(
@@ -172,6 +184,7 @@ public final class QueryUtil
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty()));
@@ -212,12 +225,27 @@ public final class QueryUtil
             Optional<Offset> offset,
             Optional<Node> limit)
     {
+        return simpleQuery(select, from, where, groupBy, having, ImmutableList.of(), orderBy, offset, limit);
+    }
+
+    public static Query simpleQuery(
+            Select select,
+            Relation from,
+            Optional<Expression> where,
+            Optional<GroupBy> groupBy,
+            Optional<Expression> having,
+            List<WindowDefinition> windows,
+            Optional<OrderBy> orderBy,
+            Optional<Offset> offset,
+            Optional<Node> limit)
+    {
         return query(new QuerySpecification(
                 select,
                 Optional.of(from),
                 where,
                 groupBy,
                 having,
+                windows,
                 orderBy,
                 offset,
                 limit));

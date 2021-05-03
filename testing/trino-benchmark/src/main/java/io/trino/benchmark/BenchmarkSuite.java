@@ -153,7 +153,7 @@ public class BenchmarkSuite
 
         private ForwardingBenchmarkResultWriter(List<BenchmarkResultHook> benchmarkResultHooks)
         {
-            requireNonNull(benchmarkResultHooks, "benchmarkResultWriters is null");
+            requireNonNull(benchmarkResultHooks, "benchmarkResultHooks is null");
             this.benchmarkResultHooks = ImmutableList.copyOf(benchmarkResultHooks);
         }
 

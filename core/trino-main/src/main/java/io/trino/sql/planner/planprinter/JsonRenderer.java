@@ -70,7 +70,7 @@ public class JsonRenderer
             this.identifier = requireNonNull(identifier, "identifier is null");
             this.details = requireNonNull(details, "details is null");
             this.children = requireNonNull(children, "children is null");
-            this.remoteSources = requireNonNull(remoteSources, "id is null");
+            this.remoteSources = requireNonNull(remoteSources, "remoteSources is null");
         }
 
         @JsonProperty

@@ -22,13 +22,13 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
-import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SystemPartitioningHandle;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
@@ -44,6 +44,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -83,6 +84,7 @@ import static io.trino.sql.planner.optimizations.StreamPreferredProperties.any;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.exactlyPartitionedOn;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.fixedParallelism;
+import static io.trino.sql.planner.optimizations.StreamPreferredProperties.partitionedOn;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.singleStream;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
@@ -95,7 +97,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Predicate.isEqual;
 import static java.util.stream.Collectors.toList;
 
 public class AddLocalExchanges
@@ -392,10 +393,7 @@ public class AddLocalExchanges
             if (!node.getPartitionBy().isEmpty()) {
                 desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
-            node.getOrderingScheme().ifPresent(orderingScheme ->
-                    orderingScheme.getOrderBy().stream()
-                            .map(symbol -> new SortingProperty<>(symbol, orderingScheme.getOrdering(symbol)))
-                            .forEach(desiredProperties::add));
+            node.getOrderingScheme().ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
 
             Set<Symbol> prePartitionedInputs = ImmutableSet.of();
@@ -422,6 +420,59 @@ public class AddLocalExchanges
                     node.getHashSymbol(),
                     prePartitionedInputs,
                     preSortedOrderPrefix);
+
+            return deriveProperties(result, child.getProperties());
+        }
+
+        @Override
+        public PlanWithProperties visitPatternRecognition(PatternRecognitionNode node, StreamPreferredProperties parentPreferences)
+        {
+            StreamPreferredProperties childRequirements = parentPreferences
+                    .constrainTo(node.getSource().getOutputSymbols())
+                    .withDefaultParallelism(session)
+                    .withPartitioning(node.getPartitionBy());
+
+            PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
+
+            List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
+            if (!node.getPartitionBy().isEmpty()) {
+                desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            }
+            node.getOrderingScheme().ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
+            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
+
+            Set<Symbol> prePartitionedInputs = ImmutableSet.of();
+            if (!node.getPartitionBy().isEmpty()) {
+                Optional<LocalProperty<Symbol>> groupingRequirement = matchIterator.next();
+                Set<Symbol> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
+                prePartitionedInputs = node.getPartitionBy().stream()
+                        .filter(symbol -> !unPartitionedInputs.contains(symbol))
+                        .collect(toImmutableSet());
+            }
+
+            int preSortedOrderPrefix = 0;
+            if (prePartitionedInputs.equals(ImmutableSet.copyOf(node.getPartitionBy()))) {
+                while (matchIterator.hasNext() && matchIterator.next().isEmpty()) {
+                    preSortedOrderPrefix++;
+                }
+            }
+
+            PatternRecognitionNode result = new PatternRecognitionNode(
+                    node.getId(),
+                    child.getNode(),
+                    node.getSpecification(),
+                    node.getHashSymbol(),
+                    prePartitionedInputs,
+                    preSortedOrderPrefix,
+                    node.getMeasures(),
+                    node.getCommonBaseFrame(),
+                    node.getRowsPerMatch(),
+                    node.getSkipToLabel(),
+                    node.getSkipToPosition(),
+                    node.isInitial(),
+                    node.getPattern(),
+                    node.getSubsets(),
+                    node.getVariableDefinitions());
 
             return deriveProperties(result, child.getProperties());
         }
@@ -534,32 +585,35 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, StreamPreferredProperties parentPreferences)
         {
-            StreamPreferredProperties requiredProperties;
-            StreamPreferredProperties preferredProperties;
-            // TODO: add support for arbitrary partitioning in local exchanges
-            if (getTaskWriterCount(session) > 1) {
-                boolean hasFixedHashDistribution = node.getPartitioningScheme()
-                        .map(scheme -> scheme.getPartitioning().getHandle())
-                        .filter(isEqual(FIXED_HASH_DISTRIBUTION))
-                        .isPresent();
-                if (node.getPartitioningScheme().isEmpty()) {
-                    requiredProperties = fixedParallelism();
-                    preferredProperties = fixedParallelism();
-                }
-                else if (hasFixedHashDistribution) {
-                    requiredProperties = exactlyPartitionedOn(node.getPartitioningScheme().get().getPartitioning().getColumns());
-                    preferredProperties = requiredProperties;
-                }
-                else {
-                    requiredProperties = singleStream();
-                    preferredProperties = defaultParallelism(session);
-                }
+            if (getTaskWriterCount(session) == 1) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
-            else {
-                requiredProperties = singleStream();
-                preferredProperties = defaultParallelism(session);
+            if (node.getPartitioningScheme().isEmpty()) {
+                return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
             }
-            return planAndEnforceChildren(node, requiredProperties, preferredProperties);
+
+            PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
+            if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
+                // arbitrary hash function on predefined set of partition columns
+                StreamPreferredProperties preference = partitionedOn(partitioningScheme.getPartitioning().getColumns());
+                return planAndEnforceChildren(node, preference, preference);
+            }
+
+            // connector provided hash function
+            verify(!(partitioningScheme.getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
+            verify(
+                    partitioningScheme.getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
+                    "Table writer partitioning has constant arguments");
+            PlanWithProperties source = node.getSource().accept(this, parentPreferences);
+            PlanWithProperties exchange = deriveProperties(
+                    partitionedExchange(
+                            idAllocator.getNextId(),
+                            LOCAL,
+                            source.getNode(),
+                            node.getPartitioningScheme().get()),
+                    source.getProperties());
+
+            return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
         }
 
         //
@@ -835,7 +889,7 @@ public class AddLocalExchanges
         public PlanWithProperties(PlanNode node, StreamProperties properties)
         {
             this.node = requireNonNull(node, "node is null");
-            this.properties = requireNonNull(properties, "StreamProperties is null");
+            this.properties = requireNonNull(properties, "properties is null");
         }
 
         public PlanNode getNode()

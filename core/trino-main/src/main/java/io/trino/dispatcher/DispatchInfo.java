@@ -40,7 +40,7 @@ public class DispatchInfo
 
     public static DispatchInfo failed(ExecutionFailureInfo failureInfo, Duration elapsedTime, Duration queuedTime)
     {
-        requireNonNull(failureInfo, "coordinatorLocation is null");
+        requireNonNull(failureInfo, "failureInfo is null");
         return new DispatchInfo(Optional.empty(), Optional.of(failureInfo), elapsedTime, queuedTime);
     }
 
