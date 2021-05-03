@@ -10,8 +10,8 @@
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
-import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorNewTableLayout;
@@ -26,7 +26,7 @@ import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeClient.che
 import static java.util.Objects.requireNonNull;
 
 class SnowflakeMetadata
-        extends JdbcMetadata
+        extends DefaultJdbcMetadata
 {
     private final SnowflakeConnectionManager connectionManager;
 
