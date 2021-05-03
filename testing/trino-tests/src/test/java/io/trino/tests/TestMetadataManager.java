@@ -36,7 +36,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -160,19 +159,6 @@ public class TestMetadataManager
         // cancel query
         dispatchManager.cancelQuery(queryId);
         assertEquals(metadataManager.getActiveQueryIds().size(), 0);
-    }
-
-    @Test
-    public void testUpperCaseSchemaIsChangedToLowerCase()
-    {
-        TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
-                .execute(
-                        TEST_SESSION,
-                        transactionSession -> {
-                            List<String> expectedSchemas = ImmutableList.of("information_schema", "upper_case_schema");
-                            assertEquals(queryRunner.getMetadata().listSchemaNames(transactionSession, "upper_case_schema_catalog"), expectedSchemas);
-                            return null;
-                        });
     }
 
     @Test

@@ -59,6 +59,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -276,7 +277,7 @@ public class CachingJdbcClient
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.commitCreateTable(session, handle);
-        invalidateTableCaches(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        invalidateTableCaches(new SchemaTableName(handle.getSchemaName().toLowerCase(ENGLISH), handle.getTableName().toLowerCase(ENGLISH)));
     }
 
     @Override
@@ -289,7 +290,7 @@ public class CachingJdbcClient
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.finishInsertTable(session, handle);
-        onDataChanged(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        onDataChanged(new SchemaTableName(handle.getSchemaName().toLowerCase(ENGLISH), handle.getTableName().toLowerCase(ENGLISH)));
     }
 
     @Override

@@ -53,7 +53,6 @@ public final class MetadataUtil
     public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         checkCatalogName(catalogName);
-        schemaName.ifPresent(name -> checkLowerCase(name, "schemaName"));
         tableName.ifPresent(name -> checkLowerCase(name, "tableName"));
 
         checkArgument(schemaName.isPresent() || tableName.isEmpty(), "tableName specified but schemaName is missing");
@@ -66,7 +65,7 @@ public final class MetadataUtil
 
     public static String checkSchemaName(String schemaName)
     {
-        return checkLowerCase(schemaName, "schemaName");
+        return requireNonNull(schemaName, "schemaName is null");
     }
 
     public static String checkTableName(String tableName)
@@ -77,8 +76,8 @@ public final class MetadataUtil
     public static void checkObjectName(String catalogName, String schemaName, String objectName)
     {
         checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(objectName, "objectName");
+        requireNonNull(schemaName, "schemaName");
+        requireNonNull(objectName, "objectName");
     }
 
     public static String checkLowerCase(String value, String name)

@@ -86,7 +86,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     {
         this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
         this.schemaParsers = ImmutableMap.copyOf(requireNonNull(schemaParsers, "schemaParsers is null"));
-        this.defaultSchema = requireNonNull(defaultSchema, "defaultSchema is null");
+        this.defaultSchema = requireNonNull(defaultSchema, "defaultSchema is null").toLowerCase(ENGLISH);
         topicAndSubjectsSupplier = memoizeWithExpiration(this::getTopicAndSubjects, subjectsCacheRefreshInterval.toMillis(), MILLISECONDS);
         subjectsSupplier = memoizeWithExpiration(this::getAllSubjects, subjectsCacheRefreshInterval.toMillis(), MILLISECONDS);
     }
@@ -266,6 +266,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     public Set<SchemaTableName> listTables()
     {
         return topicAndSubjectsSupplier.get().keySet().stream()
+                .map(tableName -> tableName.toLowerCase(ENGLISH))
                 .map(tableName -> new SchemaTableName(defaultSchema, tableName))
                 .collect(toImmutableSet());
     }
