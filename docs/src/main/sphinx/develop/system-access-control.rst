@@ -1,6 +1,6 @@
-=====================
-System access control
-=====================
+===========================================
+Custom system access control implementation
+===========================================
 
 Trino separates the concept of the principal who authenticates to the
 coordinator from the username that is responsible for running queries. When

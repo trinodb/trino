@@ -1,6 +1,6 @@
-=====================
-System access control
-=====================
+==============================
+Built-in system access control
+==============================
 
 A system access control enforces authorization at a global level,
 before any connector level authorization. You can use one of the built-in
