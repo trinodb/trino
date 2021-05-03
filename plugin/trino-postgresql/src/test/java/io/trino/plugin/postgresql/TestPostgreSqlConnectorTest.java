@@ -45,6 +45,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.Math.round;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -105,6 +106,9 @@ public class TestPostgreSqlConnectorTest
                 return false;
 
             case SUPPORTS_CANCELLATION:
+                return true;
+
+            case SUPPORTS_CASE_SENSITIVE_IDENTIFIERS:
                 return true;
 
             default:
@@ -589,5 +593,14 @@ public class TestPostgreSqlConnectorTest
     {
         long secondsToSleep = round(minimalQueryDuration.convertTo(SECONDS).getValue() + 1);
         return new TestView(onRemoteDatabase(), format("SELECT 1 FROM pg_sleep(%d)", secondsToSleep));
+    }
+
+    @Override
+    protected String getCanonicalizedName(String identifier, boolean delimited)
+    {
+        if (delimited) {
+            return identifier;
+        }
+        return identifier.toLowerCase(ENGLISH);
     }
 }
