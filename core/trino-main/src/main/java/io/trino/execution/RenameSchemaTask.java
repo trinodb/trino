@@ -52,7 +52,7 @@ public class RenameSchemaTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()));
+        CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()), metadata);
         CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), statement.getTarget().getValue());
 
         if (!metadata.schemaExists(session, source)) {

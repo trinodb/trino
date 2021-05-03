@@ -72,7 +72,7 @@ public class GrantTask
 
     private void executeGrantOnSchema(Session session, Grant statement, Metadata metadata, AccessControl accessControl)
     {
-        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getName()));
+        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getName()), metadata);
 
         if (!metadata.schemaExists(session, schemaName)) {
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", schemaName);

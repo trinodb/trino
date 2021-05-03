@@ -21,6 +21,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Use;
 import io.trino.transaction.TransactionManager;
 
@@ -62,7 +63,10 @@ public class UseTask
             throw new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalog);
         }
 
-        String schema = statement.getSchema().getValue().toLowerCase(ENGLISH);
+        Identifier schemaIdentifier = statement.getSchema();
+
+        String schema = metadata.getNameCanonicalizer(session, catalog)
+                .canonicalize(schemaIdentifier.getValue(), schemaIdentifier.isDelimited());
 
         CatalogSchemaName name = new CatalogSchemaName(catalog, schema);
         if (!metadata.schemaExists(session, name)) {

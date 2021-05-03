@@ -58,7 +58,7 @@ public class SetSchemaAuthorizationTask
         Session session = stateMachine.getSession();
         String catalog = getSessionCatalog(metadata, session, statement);
 
-        CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()));
+        CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()), metadata);
 
         if (!metadata.schemaExists(session, source)) {
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", source);
