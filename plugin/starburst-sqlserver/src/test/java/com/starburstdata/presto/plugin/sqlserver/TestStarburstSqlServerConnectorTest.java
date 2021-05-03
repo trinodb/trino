@@ -17,7 +17,6 @@ import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
-import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_ENABLED;
 
 public class TestStarburstSqlServerConnectorTest
         extends TestSqlServerConnectorTest
@@ -46,17 +45,5 @@ public class TestStarburstSqlServerConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
-    }
-
-    @Override
-    public void testJoinPushdownDisabled()
-    {
-        // disabling join pushdown as SQL Server collects stats by default and AUTOMATIC join pushdown triggers
-        // failing assertions defined in OSS, where join pushdown is disabled.
-        sessionMutator.withModifiedSession(
-                session -> Session.builder(session)
-                        .setCatalogSessionProperty(session.getCatalog().get(), JOIN_PUSHDOWN_ENABLED, "false")
-                        .build())
-                .call(super::testJoinPushdownDisabled);
     }
 }
