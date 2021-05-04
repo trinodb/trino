@@ -35,9 +35,14 @@ public class TestingKuduServer
 
     public TestingKuduServer()
     {
+        this("1.10.0");
+    }
+
+    public TestingKuduServer(String kuduVersion)
+    {
         Network network = Network.newNetwork();
         ImmutableList.Builder<GenericContainer<?>> tServersBuilder = ImmutableList.builder();
-        this.master = new GenericContainer<>("apache/kudu:1.10.0")
+        this.master = new GenericContainer<>("apache/kudu:" + kuduVersion)
                 .withExposedPorts(KUDU_MASTER_PORT)
                 .withCommand("master")
                 .withNetwork(network)
