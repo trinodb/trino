@@ -70,7 +70,7 @@ public abstract class BaseElasticsearchConnectorTest
         HostAndPort address = elasticsearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
-        return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables(), ImmutableMap.of(), ImmutableMap.of());
+        return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables(), ImmutableMap.of(), ImmutableMap.of(), 3);
     }
 
     @Override
@@ -130,6 +130,15 @@ public abstract class BaseElasticsearchConnectorTest
     {
         elasticsearch.stop();
         client.close();
+    }
+
+    @Test
+    public void testWithoutBackpressure()
+    {
+        assertQuerySucceeds("SELECT * FROM orders");
+        // Check that JMX stats show no sign of backpressure
+        assertQueryReturnsEmptyResult("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*\" WHERE \"backpressurestats.alltime.count\" > 0");
+        assertQueryReturnsEmptyResult("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*\" WHERE \"backpressurestats.alltime.max\" > 0");
     }
 
     @Test

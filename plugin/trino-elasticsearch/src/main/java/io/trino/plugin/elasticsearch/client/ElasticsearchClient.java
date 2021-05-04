@@ -57,7 +57,6 @@ import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -127,7 +126,7 @@ public class ElasticsearchClient
 
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
 
-    private final RestHighLevelClient client;
+    private final BackpressureRestHighLevelClient client;
     private final int scrollSize;
     private final Duration scrollTimeout;
 
@@ -141,6 +140,7 @@ public class ElasticsearchClient
     private final TimeStat searchStats = new TimeStat(MILLISECONDS);
     private final TimeStat nextPageStats = new TimeStat(MILLISECONDS);
     private final TimeStat countStats = new TimeStat(MILLISECONDS);
+    private final TimeStat backpressureStats = new TimeStat(MILLISECONDS);
 
     @Inject
     public ElasticsearchClient(
@@ -150,7 +150,7 @@ public class ElasticsearchClient
     {
         requireNonNull(config, "config is null");
 
-        client = createClient(config, awsSecurityConfig, passwordConfig);
+        client = createClient(config, awsSecurityConfig, passwordConfig, backpressureStats);
 
         this.ignorePublishAddress = config.isIgnorePublishAddress();
         this.scrollSize = config.getScrollSize();
@@ -204,10 +204,11 @@ public class ElasticsearchClient
         }
     }
 
-    private static RestHighLevelClient createClient(
+    private static BackpressureRestHighLevelClient createClient(
             ElasticsearchConfig config,
             Optional<AwsSecurityConfig> awsSecurityConfig,
-            Optional<PasswordConfig> passwordConfig)
+            Optional<PasswordConfig> passwordConfig,
+            TimeStat backpressureStats)
     {
         RestClientBuilder builder = RestClient.builder(
                 new HttpHost(config.getHost(), config.getPort(), config.isTlsEnabled() ? "https" : "http"))
@@ -252,7 +253,7 @@ public class ElasticsearchClient
             return clientBuilder;
         });
 
-        return new RestHighLevelClient(builder);
+        return new BackpressureRestHighLevelClient(builder, config, backpressureStats);
     }
 
     private static AWSCredentialsProvider getAwsCredentialsProvider(AwsSecurityConfig config)
@@ -780,6 +781,13 @@ public class ElasticsearchClient
     public TimeStat getCountStats()
     {
         return countStats;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getBackpressureStats()
+    {
+        return backpressureStats;
     }
 
     private <T> T doRequest(String path, ResponseHandler<T> handler)
