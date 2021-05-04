@@ -44,7 +44,9 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.planner.iterative.rule.DesugarCurrentCatalog;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentPath;
+import io.trino.sql.planner.iterative.rule.DesugarCurrentSchema;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -57,7 +59,9 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.ComparisonExpression.Operator;
+import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
@@ -1206,6 +1210,18 @@ public class ExpressionInterpreter
             }
 
             return arrayBlockBuilder.build();
+        }
+
+        @Override
+        protected Object visitCurrentCatalog(CurrentCatalog node, Object context)
+        {
+            return visitFunctionCall(DesugarCurrentCatalog.getCall(node, metadata), context);
+        }
+
+        @Override
+        protected Object visitCurrentSchema(CurrentSchema node, Object context)
+        {
+            return visitFunctionCall(DesugarCurrentSchema.getCall(node, metadata), context);
         }
 
         @Override
