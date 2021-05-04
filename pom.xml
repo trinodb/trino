@@ -44,6 +44,8 @@
         <air.java.version>11.0.7</air.java.version>
         <air.modernizer.java-version>8</air.modernizer.java-version>
 
+        <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
+
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.9</dep.antlr.version>
@@ -1628,14 +1630,6 @@
                             <version>2.0.0</version>
                         </dependency>
                     </dependencies>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-release-plugin</artifactId>
-                    <configuration>
-                        <preparationGoals>clean verify -DskipTests</preparationGoals>
-                    </configuration>
                 </plugin>
 
                 <plugin>
