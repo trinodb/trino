@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.OperationTimer.OperationTiming;
+import io.trino.spi.Mergeable;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -37,7 +38,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.util.AutoCloseableCloser;
-import io.trino.util.Mergeable;
 
 import java.util.Collection;
 import java.util.List;
