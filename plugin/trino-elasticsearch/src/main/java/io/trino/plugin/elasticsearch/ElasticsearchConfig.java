@@ -27,6 +27,7 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.Optional;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -60,6 +61,8 @@ public class ElasticsearchConfig
     private Duration scrollTimeout = new Duration(1, MINUTES);
     private Duration requestTimeout = new Duration(10, SECONDS);
     private Duration connectTimeout = new Duration(1, SECONDS);
+    private Duration backoffInitDelay = new Duration(500, MILLISECONDS);
+    private Duration backoffMaxDelay = new Duration(20, SECONDS);
     private Duration maxRetryTime = new Duration(30, SECONDS);
     private Duration nodeRefreshInterval = new Duration(1, MINUTES);
     private int maxHttpConnections = 25;
@@ -168,6 +171,34 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setConnectTimeout(Duration timeout)
     {
         this.connectTimeout = timeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getBackoffInitDelay()
+    {
+        return backoffInitDelay;
+    }
+
+    @Config("elasticsearch.backoff-init-delay")
+    @ConfigDescription("Initial delay to wait between backpressure retries")
+    public ElasticsearchConfig setBackoffInitDelay(Duration backoffInitDelay)
+    {
+        this.backoffInitDelay = backoffInitDelay;
+        return this;
+    }
+
+    @NotNull
+    public Duration getBackoffMaxDelay()
+    {
+        return backoffMaxDelay;
+    }
+
+    @Config("elasticsearch.backoff-max-delay")
+    @ConfigDescription("Maximum delay to wait between backpressure retries")
+    public ElasticsearchConfig setBackoffMaxDelay(Duration backoffMaxDelay)
+    {
+        this.backoffMaxDelay = backoffMaxDelay;
         return this;
     }
 
