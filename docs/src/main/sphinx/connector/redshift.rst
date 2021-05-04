@@ -62,6 +62,13 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``redshift`` in the above examples.
 
+.. _redshift-type-mapping:
+
+Type mapping
+------------
+
+.. include:: jdbc-type-mapping.fragment
+
 Limitations
 -----------
 

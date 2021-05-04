@@ -58,6 +58,13 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``memsql`` in the above examples.
 
+.. _memsql-type-mapping:
+
+Type mapping
+------------
+
+.. include:: jdbc-type-mapping.fragment
+
 .. _memsql-pushdown:
 
 Pushdown

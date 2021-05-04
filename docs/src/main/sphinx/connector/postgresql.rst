@@ -36,8 +36,13 @@ with a different name, making sure it ends in ``.properties``. For example,
 if you name the property file ``sales.properties``, Trino creates a
 catalog named ``sales`` using the configured connector.
 
+.. _postgresql-type-mapping:
+
+Type mapping
+------------
+
 Decimal type handling
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 ``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
 by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
@@ -51,7 +56,7 @@ property, which can be set to ``UNNECESSARY`` (the default),
 (see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
 
 Array type handling
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 The PostgreSQL array implementation does not support fixed dimensions whereas Trino
 support only arrays with fixed dimensions.
@@ -62,6 +67,8 @@ The following values are accepted for this property:
 * ``DISABLED`` (default): array columns are skipped.
 * ``AS_ARRAY``: array columns are interpreted as Trino ``ARRAY`` type, for array columns with fixed dimensions.
 * ``AS_JSON``: array columns are interpreted as Trino ``JSON`` type, with no constraint on dimensions.
+
+.. include:: jdbc-type-mapping.fragment
 
 Querying PostgreSQL
 -------------------
