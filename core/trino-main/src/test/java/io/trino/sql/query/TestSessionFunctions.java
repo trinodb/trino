@@ -55,4 +55,43 @@ public class TestSessionFunctions
             assertThat(queryAssertions.query("SELECT CURRENT_PATH")).matches("VALUES VARCHAR ''");
         }
     }
+
+    @Test
+    public void testCurrentCatalog()
+    {
+        try (QueryAssertions assertions = new QueryAssertions()) {
+            Session session = testSessionBuilder()
+                    .setCatalog("trino_rocks")
+                    .build();
+
+            assertThat(assertions.query(session, "SELECT CURRENT_CATALOG"))
+                    .matches("VALUES CAST('" + session.getCatalog().get() + "' AS VARCHAR)");
+
+            session = testSessionBuilder()
+                    .setCatalog(null)
+                    .setSchema(null)
+                    .build();
+            assertThat(assertions.query(session, "SELECT CURRENT_CATALOG"))
+                    .matches("VALUES CAST(NULL AS VARCHAR)");
+        }
+    }
+
+    @Test
+    public void testCurrentSchema()
+    {
+        try (QueryAssertions assertions = new QueryAssertions()) {
+            Session session = testSessionBuilder()
+                    .setSchema("trino_rocks")
+                    .build();
+
+            assertThat(assertions.query(session, "SELECT CURRENT_SCHEMA"))
+                    .matches("VALUES CAST('" + session.getSchema().get() + "' AS VARCHAR)");
+
+            session = testSessionBuilder()
+                    .setSchema(null)
+                    .build();
+            assertThat(assertions.query(session, "SELECT CURRENT_SCHEMA"))
+                    .matches("VALUES CAST(NULL AS VARCHAR)");
+        }
+    }
 }

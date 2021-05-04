@@ -32,7 +32,9 @@ import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Cube;
+import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DateTimeDataType;
@@ -157,6 +159,18 @@ public final class ExpressionFormatter
                     .append(process(node.getValue(), context))
                     .append(" AT TIME ZONE ")
                     .append(process(node.getTimeZone(), context)).toString();
+        }
+
+        @Override
+        protected String visitCurrentCatalog(CurrentCatalog node, Void context)
+        {
+            return "CURRENT_CATALOG";
+        }
+
+        @Override
+        protected String visitCurrentSchema(CurrentSchema node, Void context)
+        {
+            return "CURRENT_SCHEMA";
         }
 
         @Override

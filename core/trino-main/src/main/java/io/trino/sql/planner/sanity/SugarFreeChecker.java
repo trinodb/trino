@@ -25,7 +25,9 @@ import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.ArrayConstructor;
 import io.trino.sql.tree.AtTimeZone;
+import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.Expression;
@@ -82,6 +84,18 @@ public final class SugarFreeChecker
 
         @Override
         protected Void visitCurrentPath(CurrentPath node, Builder<Symbol> context)
+        {
+            throw createIllegalNodeException(node);
+        }
+
+        @Override
+        protected Void visitCurrentCatalog(CurrentCatalog node, Builder<Symbol> context)
+        {
+            throw createIllegalNodeException(node);
+        }
+
+        @Override
+        protected Void visitCurrentSchema(CurrentSchema node, Builder<Symbol> context)
         {
             throw createIllegalNodeException(node);
         }
