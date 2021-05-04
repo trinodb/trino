@@ -18,8 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.spi.Mergeable;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.util.Mergeable;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
