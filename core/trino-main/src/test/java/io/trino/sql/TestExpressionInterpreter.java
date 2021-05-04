@@ -1512,6 +1512,15 @@ public class TestExpressionInterpreter
     {
         assertOptimizedEquals("ROW(1, 'a', true)[3]", "true");
         assertOptimizedEquals("ROW(1, 'a', ROW(2, 'b', ROW(3, 'c')))[3][3][2]", "'c'");
+
+        assertOptimizedEquals("ROW(1, null)[2]", "null");
+        assertOptimizedEquals("ROW(0 / 0, 1)[1]", "ROW(0 / 0, 1)[1]");
+        assertOptimizedEquals("ROW(0 / 0, 1)[2]", "ROW(0 / 0, 1)[2]");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("ROW(0 / 0, 1)[1]"))
+                .hasErrorCode(DIVISION_BY_ZERO);
+        assertTrinoExceptionThrownBy(() -> evaluate("ROW(0 / 0, 1)[2]"))
+                .hasErrorCode(DIVISION_BY_ZERO);
     }
 
     @Test
