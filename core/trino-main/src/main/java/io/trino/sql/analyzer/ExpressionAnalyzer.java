@@ -67,7 +67,9 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DecimalLiteral;
@@ -1601,6 +1603,18 @@ public class ExpressionAnalyzer
             }
 
             return setExpressionType(node, resultType);
+        }
+
+        @Override
+        protected Type visitCurrentCatalog(CurrentCatalog node, StackableAstVisitorContext<Context> context)
+        {
+            return setExpressionType(node, VARCHAR);
+        }
+
+        @Override
+        protected Type visitCurrentSchema(CurrentSchema node, StackableAstVisitorContext<Context> context)
+        {
+            return setExpressionType(node, VARCHAR);
         }
 
         @Override

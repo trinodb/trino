@@ -47,7 +47,9 @@ import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Cube;
+import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DataType;
@@ -1830,6 +1832,18 @@ class AstBuilder
         }
 
         return new CurrentTime(getLocation(context), function);
+    }
+
+    @Override
+    public Node visitCurrentCatalog(SqlBaseParser.CurrentCatalogContext context)
+    {
+        return new CurrentCatalog(getLocation(context.CURRENT_CATALOG()));
+    }
+
+    @Override
+    public Node visitCurrentSchema(SqlBaseParser.CurrentSchemaContext context)
+    {
+        return new CurrentSchema(getLocation(context.CURRENT_SCHEMA()));
     }
 
     @Override

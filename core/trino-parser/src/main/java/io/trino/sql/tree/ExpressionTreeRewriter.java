@@ -999,6 +999,32 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitCurrentCatalog(CurrentCatalog node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteCurrentCatalog(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitCurrentSchema(CurrentSchema node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteCurrentSchema(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitCurrentUser(CurrentUser node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
