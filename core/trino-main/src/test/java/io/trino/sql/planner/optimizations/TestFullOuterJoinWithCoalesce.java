@@ -16,6 +16,7 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -36,9 +37,25 @@ import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
 public class TestFullOuterJoinWithCoalesce
         extends BasePlanTest
 {
-    @Test(enabled = false) // TODO: re-enable once FULL join property derivations are re-introduced
+    @Test
     public void testFullOuterJoinWithCoalesce()
     {
+        PlanMatchPattern expected = anyTree(
+                project(
+                        ImmutableMap.of("expr", expression("coalesce(ts, r)")),
+                        join(
+                                FULL,
+                                ImmutableList.of(equiJoinClause("ts", "r")),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("ts", expression("coalesce(t, s)")),
+                                                join(
+                                                        FULL,
+                                                        ImmutableList.of(equiJoinClause("t", "s")),
+                                                        exchange(REMOTE, REPARTITION, anyTree(values(ImmutableList.of("t")))),
+                                                        exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("s"))))))),
+                                exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("r")))))));
+
         assertDistributedPlan(
                 "SELECT coalesce(ts.a, r.a) " +
                         "FROM (" +
@@ -47,24 +64,21 @@ public class TestFullOuterJoinWithCoalesce
                         "   FULL OUTER JOIN (VALUES 1, 4) s(a)" +
                         "   ON t.a = s.a) ts " +
                         "FULL OUTER JOIN (VALUES 2, 5) r(a) on ts.a = r.a",
-                anyTree(
-                        project(
-                                ImmutableMap.of("expr", expression("coalesce(ts, r)")),
-                                join(
-                                        FULL,
-                                        ImmutableList.of(equiJoinClause("ts", "r")),
-                                        anyTree(
-                                                project(
-                                                        ImmutableMap.of("ts", expression("coalesce(t, s)")),
-                                                        join(
-                                                                FULL,
-                                                                ImmutableList.of(equiJoinClause("t", "s")),
-                                                                exchange(REMOTE, REPARTITION, anyTree(values(ImmutableList.of("t")))),
-                                                                exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("s"))))))),
-                                        exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("r"))))))));
+                expected);
+
+        // JOIN .. USING should produce an identical plan as manually specifying coalesce()
+        assertDistributedPlan(
+                "SELECT a " +
+                        "FROM (" +
+                        "   SELECT a " +
+                        "   FROM (VALUES 1, 2, 3) t(a) " +
+                        "   FULL OUTER JOIN (VALUES 1, 4) s(a)" +
+                        "   USING (a)) ts " +
+                        "FULL OUTER JOIN (VALUES 2, 5) r(a) USING(a)",
+                expected);
     }
 
-    @Test(enabled = false) // TODO: re-enable once FULL join property derivations are re-introduced
+    @Test
     public void testArgumentsInDifferentOrder()
     {
         // ensure properties for full outer join are derived properly regardless of the order of arguments to coalesce, since they
@@ -175,6 +189,31 @@ public class TestFullOuterJoinWithCoalesce
                                                                                 ImmutableList.of(equiJoinClause("l", "m")),
                                                                                 anyTree(values(ImmutableList.of("l"))),
                                                                                 anyTree(values(ImmutableList.of("m"))))),
+                                                                anyTree(values(ImmutableList.of("r"))))))))));
+    }
+
+    @Test
+    public void testCoalesceArgumentsFromOneSide()
+    {
+        assertDistributedPlan(
+                "SELECT coalesce(l.a, l.b) " +
+                        "FROM (VALUES (1, 100), (2, 200), (3, 300)) l(a, b) " +
+                        "FULL OUTER JOIN (VALUES 1, 4) r(a) ON l.a = r.a " +
+                        "GROUP BY 1",
+                anyTree(
+                        exchange(
+                                REMOTE,
+                                REPARTITION,
+                                aggregation(
+                                        ImmutableMap.of(),
+                                        PARTIAL,
+                                        anyTree(
+                                                project(
+                                                        ImmutableMap.of("expr", expression("coalesce(l_a, l_b)")),
+                                                        join(
+                                                                FULL,
+                                                                ImmutableList.of(equiJoinClause("l_a", "r")),
+                                                                anyTree(values(ImmutableList.of("l_a", "l_b"))),
                                                                 anyTree(values(ImmutableList.of("r"))))))))));
     }
 }

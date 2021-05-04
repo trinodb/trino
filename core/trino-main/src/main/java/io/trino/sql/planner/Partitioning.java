@@ -31,9 +31,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -59,6 +61,11 @@ public final class Partitioning
                 .collect(toImmutableList()));
     }
 
+    public static Partitioning createWithBindings(PartitioningHandle handle, List<ArgumentBinding> bindings)
+    {
+        return new Partitioning(handle, bindings);
+    }
+
     // Factory method for JSON serde only!
     @JsonCreator
     public static Partitioning jsonCreate(
@@ -82,10 +89,23 @@ public final class Partitioning
 
     public Set<Symbol> getColumns()
     {
+        // this method only returns a valid result if all the arguments to the partitioning function are
+        // simple columns or constants.
+        checkState(arguments.stream().allMatch(argument -> argument.isVariable() || argument.isConstant()));
+
         return arguments.stream()
                 .filter(ArgumentBinding::isVariable)
                 .map(ArgumentBinding::getColumn)
                 .collect(toImmutableSet());
+    }
+
+    public Set<Symbol> getInputColumns()
+    {
+        return arguments.stream()
+                .map(ArgumentBinding::getExpression)
+                .filter(Objects::nonNull)
+                .flatMap(expression -> SymbolsExtractor.extractUnique(expression).stream())
+                .collect(Collectors.toSet());
     }
 
     public boolean isCompatibleWith(

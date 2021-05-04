@@ -57,4 +57,42 @@ public class TestFullJoin
                         "LIMIT 1"))
                 .matches("VALUES (CAST(NULL AS INTEGER), 1)");
     }
+
+    @Test
+    public void testFullJoin()
+    {
+        // reference all fields
+        assertThat(assertions.query(
+                "WITH t(x, y) AS (VALUES (1, 1)) " +
+                        "SELECT * FROM t a FULL JOIN t b ON a.x = b.x AND a.y = b.y"))
+                .matches("VALUES (1, 1, 1, 1)");
+
+        // reference one join key from one side
+        assertThat(assertions.query(
+                "WITH t(x, y) AS (VALUES (1, 1)) " +
+                        "SELECT a.x FROM t a FULL JOIN t b ON a.x = b.x AND a.y = b.y"))
+                .matches("VALUES 1");
+
+        assertThat(assertions.query(
+                "WITH t(x, y) AS (VALUES (1, 1)) " +
+                        "SELECT b.x FROM t a FULL JOIN t b ON a.x = b.x AND a.y = b.y"))
+                .matches("VALUES 1");
+
+        // reference all fields from one side
+        assertThat(assertions.query(
+                "WITH t(x, y) AS (VALUES (1, 1)) " +
+                        "SELECT a.* FROM t a FULL JOIN t b ON a.x = b.x AND a.y = b.y"))
+                .matches("VALUES (1, 1)");
+
+        assertThat(assertions.query(
+                "WITH t(x, y) AS (VALUES (1, 1)) " +
+                        "SELECT b.* FROM t a FULL JOIN t b ON a.x = b.x AND a.y = b.y"))
+                .matches("VALUES (1, 1)");
+
+        // reference non-join keys
+        assertThat(assertions.query(
+                "WITH t(x, y, z) AS (VALUES (1, 1, 'a')) " +
+                        "SELECT a.z FROM t a FULL JOIN t b ON a.x = b.x AND a.y = b.y"))
+                .matches("VALUES 'a'");
+    }
 }

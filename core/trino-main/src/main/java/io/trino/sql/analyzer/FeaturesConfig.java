@@ -91,6 +91,7 @@ public class FeaturesConfig
     private boolean exchangeCompressionEnabled;
     private boolean optimizeMixedDistinctAggregations;
     private boolean unwrapCasts = true;
+    private boolean deriveFullJoinProperties = true;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
@@ -761,6 +762,18 @@ public class FeaturesConfig
     public FeaturesConfig setUnwrapCasts(boolean unwrapCasts)
     {
         this.unwrapCasts = unwrapCasts;
+        return this;
+    }
+
+    public boolean isDeriveFullJoinProperties()
+    {
+        return deriveFullJoinProperties;
+    }
+
+    @Config("optimizer.derive-full-join-properties")
+    public FeaturesConfig setDeriveFullJoinProperties(boolean deriveFullJoinProperties)
+    {
+        this.deriveFullJoinProperties = deriveFullJoinProperties;
         return this;
     }
 

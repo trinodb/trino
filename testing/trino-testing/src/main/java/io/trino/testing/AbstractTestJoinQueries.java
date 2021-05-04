@@ -754,12 +754,71 @@ public abstract class AbstractTestJoinQueries
                         "FULL OUTER JOIN (VALUES 1, 4, null) u(a) ON t.a = u.a " +
                         "GROUP BY 1",
                 "VALUES (1, 1), (2, 1), (3, 1), (4, 1), (40, 1), (100, 2)");
+
+        // Build has a constant in one of the partition function arguments
+        assertQuery(
+                "WITH " +
+                        "data(id, value) AS (SELECT nationkey, name FROM nation)," +
+                        "grouped AS (" +
+                        "    SELECT id, value" +
+                        "    FROM data" +
+                        "    WHERE value = 'x'" +
+                        "    GROUP BY id, value" +
+                        ")," +
+                        "joined AS (" +
+                        "    SELECT coalesce(grouped.id, data.id) id, grouped.value, data.value " +
+                        "    FROM grouped FULL JOIN data ON grouped.id = data.id " +
+                        ") " +
+                        "SELECT joined.* " +
+                        "FROM joined JOIN (VALUES 0) t(id) ON joined.id = t.id",
+                "VALUES (0, NULL, 'ALGERIA')");
+
+        // Same as above but with the order of the tables in the join flipped.
+        // Probe has a constant in one of the partition function arguments
+        assertQuery(
+                "WITH " +
+                        "data(id, value) AS (SELECT nationkey, name FROM nation)," +
+                        "grouped AS (" +
+                        "    SELECT id, value" +
+                        "    FROM data" +
+                        "    WHERE value = 'x'" +
+                        "    GROUP BY id, value" +
+                        ")," +
+                        "joined AS (" +
+                        "    SELECT coalesce(grouped.id, data.id) id, grouped.value, data.value " +
+                        "    FROM data FULL JOIN grouped ON grouped.id = data.id " +
+                        ") " +
+                        "SELECT joined.* " +
+                        "FROM joined JOIN (VALUES 0) t(id) ON joined.id = t.id",
+                "VALUES (0, NULL, 'ALGERIA')");
+
+        assertQuery(
+                "WITH " +
+                        "data(id, value) AS (select nationkey, name FROM nation),\n" +
+                        "grouped AS (" +
+                        "    SELECT id, value" +
+                        "    FROM data" +
+                        "    WHERE value = 'ALGERIA'" +
+                        "    GROUP BY id, value" +
+                        ")," +
+                        "joined as (\n" +
+                        "    SELECT coalesce(l.id, r.id) id, l.value left_value, r.value right_value\n" +
+                        "    FROM grouped l FULL JOIN grouped r ON l.id = r.id\n" +
+                        ")\n" +
+                        "SELECT joined.*\n" +
+                        "FROM joined JOIN (VALUES (0, 'ALGERIA')) t(id, name) on joined.id = t.id and name = right_value",
+                "VALUES (0, 'ALGERIA', 'ALGERIA')");
     }
 
     @Test
     public void testJoinOnMultipleFields()
     {
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate = orders.orderdate");
+
+        assertQuery(
+                "WITH t(x, y) AS (VALUES (1, 1)) " +
+                        "SELECT * FROM t a FULL JOIN t b ON a.x = b.x AND a.y = b.y",
+                "VALUES (1, 1, 1, 1)");
     }
 
     @Test
