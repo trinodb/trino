@@ -170,7 +170,8 @@ public class MockConnector
     @Override
     public ConnectorSplitManager getSplitManager()
     {
-        return new ConnectorSplitManager() {
+        return new ConnectorSplitManager()
+        {
             @Override
             public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, DynamicFilter dynamicFilter)
             {
