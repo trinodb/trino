@@ -56,8 +56,6 @@ import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-import org.weakref.jmx.MBeanExporter;
-import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.util.List;
 import java.util.Optional;
@@ -425,7 +423,6 @@ public abstract class AbstractTestQueryFramework
                 new TypeAnalyzer(sqlParser, metadata),
                 new TaskManagerConfig(),
                 forceSingleNode,
-                new MBeanExporter(new TestingMBeanServer()),
                 queryRunner.getSplitManager(),
                 queryRunner.getPageSourceManager(),
                 queryRunner.getStatsCalculator(),
