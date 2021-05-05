@@ -179,8 +179,6 @@ import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
 import io.trino.util.FinalizerService;
 import org.intellij.lang.annotations.Language;
-import org.weakref.jmx.MBeanExporter;
-import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -865,7 +863,6 @@ public class LocalQueryRunner
                 new TypeAnalyzer(sqlParser, metadata),
                 taskManagerConfig,
                 forceSingleNode,
-                new MBeanExporter(new TestingMBeanServer()),
                 splitManager,
                 pageSourceManager,
                 statsCalculator,
