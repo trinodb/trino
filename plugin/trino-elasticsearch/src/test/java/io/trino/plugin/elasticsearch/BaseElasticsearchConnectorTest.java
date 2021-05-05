@@ -593,6 +593,50 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testTimestamps()
+            throws IOException
+    {
+        String indexName = "timestamps";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"timestamp_column\":   { \"type\": \"date\" }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("timestamp_column", "2015-01-01")
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("timestamp_column", "2015-01-01T12:10:30Z")
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("timestamp_column", 1420070400001L)
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("timestamp_column", "1420070400001")
+                .build());
+
+        MaterializedResult rows = computeActual("SELECT timestamp_column FROM timestamps");
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row(LocalDateTime.parse("2015-01-01T00:00:00"))
+                .row(LocalDateTime.parse("2015-01-01T12:10:30"))
+                .row(LocalDateTime.parse("2015-01-01T00:00:00.001"))
+                .row(LocalDateTime.parse("2015-01-01T00:00:00.001"))
+                .build();
+
+        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+    }
+
+    @Test
     public void testCoercions()
             throws IOException
     {
