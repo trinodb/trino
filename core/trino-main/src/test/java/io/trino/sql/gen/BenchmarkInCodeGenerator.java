@@ -16,10 +16,12 @@ package io.trino.sql.gen;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.sql.relational.RowExpression;
@@ -39,7 +41,9 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -83,31 +87,43 @@ public class BenchmarkInCodeGenerator
         public void setup()
         {
             Random random = new Random();
-            RowExpression[] arguments = new RowExpression[1 + inListCount];
+            List<RowExpression> arguments = new ArrayList<>(1 + inListCount);
+
             switch (type) {
                 case StandardTypes.BIGINT:
                     trinoType = BIGINT;
-                    for (int i = 1; i <= inListCount; i++) {
-                        arguments[i] = constant((long) random.nextInt(), BIGINT);
-                    }
                     break;
                 case StandardTypes.DOUBLE:
                     trinoType = DOUBLE;
-                    for (int i = 1; i <= inListCount; i++) {
-                        arguments[i] = constant(random.nextDouble(), DOUBLE);
-                    }
                     break;
                 case StandardTypes.VARCHAR:
                     trinoType = VARCHAR;
+                    break;
+                default:
+                    throw new IllegalStateException();
+            }
+
+            arguments.add(field(0, trinoType));
+            switch (type) {
+                case StandardTypes.BIGINT:
                     for (int i = 1; i <= inListCount; i++) {
-                        arguments[i] = constant(Slices.utf8Slice(Long.toString(random.nextLong())), VARCHAR);
+                        arguments.add(constant((long) random.nextInt(), BIGINT));
+                    }
+                    break;
+                case StandardTypes.DOUBLE:
+                    for (int i = 1; i <= inListCount; i++) {
+                        arguments.add(constant(random.nextDouble(), DOUBLE));
+                    }
+                    break;
+                case StandardTypes.VARCHAR:
+                    for (int i = 1; i <= inListCount; i++) {
+                        arguments.add(constant(Slices.utf8Slice(Long.toString(random.nextLong())), VARCHAR));
                     }
                     break;
                 default:
                     throw new IllegalStateException();
             }
 
-            arguments[0] = field(0, trinoType);
             RowExpression project = field(0, trinoType);
 
             PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(trinoType));
@@ -128,9 +144,14 @@ public class BenchmarkInCodeGenerator
             }
             inputPage = pageBuilder.build();
 
-            RowExpression filter = new SpecialForm(IN, BOOLEAN, arguments);
-
             Metadata metadata = createTestMetadataManager();
+
+            List<ResolvedFunction> functionalDependencies = ImmutableList.of(
+                    metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(trinoType, trinoType)),
+                    metadata.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(trinoType)),
+                    metadata.resolveOperator(OperatorType.INDETERMINATE, ImmutableList.of(trinoType)));
+            RowExpression filter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
+
             processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
         }
     }
@@ -144,6 +165,14 @@ public class BenchmarkInCodeGenerator
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         data.inputPage));
+    }
+
+    @Test
+    public void testBenchmarkInCodeGenerator()
+    {
+        BenchmarkData benchmarkData = new BenchmarkData();
+        benchmarkData.setup();
+        benchmark(benchmarkData);
     }
 
     public static void main(String[] args)
