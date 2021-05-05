@@ -199,7 +199,7 @@ H
 - :func:`hmac_sha256`
 - :func:`hmac_sha512`
 - :func:`hour`
-- ``human_readable_seconds``
+- :func:`human_readable_seconds`
 
 I
 -
