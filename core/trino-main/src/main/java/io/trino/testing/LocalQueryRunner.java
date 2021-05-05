@@ -262,6 +262,7 @@ public class LocalQueryRunner
     private final boolean alwaysRevokeMemory;
     private final NodeSpillConfig nodeSpillConfig;
     private final FeaturesConfig featuresConfig;
+    private final PlanOptimizersProvider planOptimizersProvider;
     private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -283,7 +284,8 @@ public class LocalQueryRunner
             boolean withInitialTransaction,
             boolean alwaysRevokeMemory,
             int nodeCountForStats,
-            Map<String, List<PropertyMetadata<?>>> defaultSessionProperties)
+            Map<String, List<PropertyMetadata<?>>> defaultSessionProperties,
+            PlanOptimizersProvider planOptimizersProvider)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         requireNonNull(defaultSessionProperties, "defaultSessionProperties is null");
@@ -291,6 +293,7 @@ public class LocalQueryRunner
 
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
         this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
+        this.planOptimizersProvider = requireNonNull(planOptimizersProvider, "planOptimizersProvider is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
         this.yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
@@ -857,20 +860,20 @@ public class LocalQueryRunner
 
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
     {
-        return new PlanOptimizers(
+        return planOptimizersProvider.getPlanOptimizers(
+                forceSingleNode,
+                sqlParser,
                 metadata,
                 typeOperators,
-                new TypeAnalyzer(sqlParser, metadata),
                 taskManagerConfig,
-                forceSingleNode,
                 splitManager,
                 pageSourceManager,
                 statsCalculator,
                 costCalculator,
                 estimatedExchangesCostCalculator,
-                new CostComparator(featuresConfig),
+                featuresConfig,
                 taskCountEstimator,
-                nodePartitioningManager).get();
+                nodePartitioningManager);
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)
@@ -928,6 +931,24 @@ public class LocalQueryRunner
                 .findAll();
     }
 
+    public interface PlanOptimizersProvider
+    {
+        List<PlanOptimizer> getPlanOptimizers(
+                boolean forceSingleNode,
+                SqlParser sqlParser,
+                MetadataManager metadata,
+                TypeOperators typeOperators,
+                TaskManagerConfig taskManagerConfig,
+                SplitManager splitManager,
+                PageSourceManager pageSourceManager,
+                StatsCalculator statsCalculator,
+                CostCalculator costCalculator,
+                CostCalculator estimatedExchangesCostCalculator,
+                FeaturesConfig featuresConfig,
+                TaskCountEstimator taskCountEstimator,
+                NodePartitioningManager nodePartitioningManager);
+    }
+
     public static class Builder
     {
         private final Session defaultSession;
@@ -937,6 +958,34 @@ public class LocalQueryRunner
         private boolean alwaysRevokeMemory;
         private Map<String, List<PropertyMetadata<?>>> defaultSessionProperties = ImmutableMap.of();
         private int nodeCountForStats;
+        private PlanOptimizersProvider planOptimizersProvider = (
+                forceSingleNode,
+                sqlParser,
+                metadata,
+                typeOperators,
+                taskManagerConfig,
+                splitManager,
+                pageSourceManager,
+                statsCalculator,
+                costCalculator,
+                estimatedExchangesCostCalculator,
+                featuresConfig,
+                taskCountEstimator,
+                nodePartitioningManager) ->
+                new PlanOptimizers(
+                        metadata,
+                        typeOperators,
+                        new TypeAnalyzer(sqlParser, metadata),
+                        taskManagerConfig,
+                        forceSingleNode,
+                        splitManager,
+                        pageSourceManager,
+                        statsCalculator,
+                        costCalculator,
+                        estimatedExchangesCostCalculator,
+                        new CostComparator(featuresConfig),
+                        taskCountEstimator,
+                        nodePartitioningManager).get();
 
         private Builder(Session defaultSession)
         {
@@ -979,6 +1028,12 @@ public class LocalQueryRunner
             return this;
         }
 
+        public Builder withPlanOptimizersProvider(PlanOptimizersProvider planOptimizersProvider)
+        {
+            this.planOptimizersProvider = requireNonNull(planOptimizersProvider, "planOptimizersProvider is null");
+            return this;
+        }
+
         public LocalQueryRunner build()
         {
             return new LocalQueryRunner(
@@ -988,7 +1043,8 @@ public class LocalQueryRunner
                     initialTransaction,
                     alwaysRevokeMemory,
                     nodeCountForStats,
-                    defaultSessionProperties);
+                    defaultSessionProperties,
+                    planOptimizersProvider);
         }
     }
 }
