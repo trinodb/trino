@@ -90,7 +90,7 @@ public class BenchmarkInCodeGenerator
         @Setup
         public void setup()
         {
-            Random random = new Random();
+            Random random = new Random(0);
             List<RowExpression> arguments = new ArrayList<>(1 + inListCount);
 
             switch (type) {
