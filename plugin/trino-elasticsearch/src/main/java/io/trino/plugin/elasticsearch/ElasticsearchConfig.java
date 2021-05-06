@@ -17,7 +17,6 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -87,7 +86,6 @@ public class ElasticsearchConfig
     }
 
     @Config("aggregation-pushdown.enabled")
-    @LegacyConfig("allow-aggregation-pushdown")
     @ConfigDescription("Enable aggregation pushdown")
     public ElasticsearchConfig setAggregationPushdownEnabled(boolean aggregationPushdownEnabled)
     {

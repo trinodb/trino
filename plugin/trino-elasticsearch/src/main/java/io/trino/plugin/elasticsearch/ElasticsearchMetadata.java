@@ -53,6 +53,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
+import org.elasticsearch.Version;
 
 import javax.inject.Inject;
 
@@ -135,6 +136,11 @@ public class ElasticsearchMetadata
             // aggregation pushdown currently not supported passthrough query
             return Optional.empty();
         }
+        Version version = client.getVersion();
+        // in order to support null bucket, we need missing_bucket in composite aggregation which is introduced after 6.4.0
+        if (version == null || version.before(ElasticsearchClient.MINIMUM_VERSION_REQUIRE_FOR_AGG_PUSHDOWN)) {
+            return Optional.empty();
+        }
         // Global aggregation is represented by [[]]
         verify(!groupingSets.isEmpty(), "No grouping sets provided");
         if (handle.getTermAggregations() != null && !handle.getTermAggregations().isEmpty()) {
@@ -165,7 +171,8 @@ public class ElasticsearchMetadata
             ElasticsearchColumnHandle newColumn = new ElasticsearchColumnHandle(
                     colName,
                     aggregationFunction.getOutputType(),
-                    true);
+                    // new column never support predicates
+                    false);
             projections.add(new Variable(colName, aggregationFunction.getOutputType()));
             resultAssignments.add(new Assignment(colName, newColumn, aggregationFunction.getOutputType()));
             metricAggregations.add(metricAggregation.get());
@@ -531,8 +538,8 @@ public class ElasticsearchMetadata
                 handle.getConstraint(),
                 handle.getQuery(),
                 OptionalLong.of(limit),
-                ImmutableList.of(),
-                ImmutableList.of());
+                handle.getTermAggregations(),
+                handle.getMetricAggregations());
 
         return Optional.of(new LimitApplicationResult<>(handle, false, false));
     }
@@ -575,8 +582,8 @@ public class ElasticsearchMetadata
                 newDomain,
                 handle.getQuery(),
                 handle.getLimit(),
-                ImmutableList.of(),
-                ImmutableList.of());
+                handle.getTermAggregations(),
+                handle.getMetricAggregations());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), false));
     }

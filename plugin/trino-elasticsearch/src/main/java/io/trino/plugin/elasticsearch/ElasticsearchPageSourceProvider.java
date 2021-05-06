@@ -73,7 +73,7 @@ public class ElasticsearchPageSourceProvider
                     columns.stream()
                             .map(ElasticsearchColumnHandle.class::cast)
                             .collect(toImmutableList()),
-                    pageSize); //TODO: set individual setting for page size
+                    pageSize);
         }
 
         if (columns.isEmpty()) {

@@ -49,6 +49,7 @@ import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.ElasticsearchStatusException;
+import org.elasticsearch.Version;
 import org.elasticsearch.action.search.ClearScrollRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -124,6 +125,7 @@ public class ElasticsearchClient
     private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
     private static final JsonCodec<CountResponse> COUNT_RESPONSE_CODEC = jsonCodec(CountResponse.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    public static final Version MINIMUM_VERSION_REQUIRE_FOR_AGG_PUSHDOWN = Version.fromString("6.4.0");
 
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
 
@@ -137,6 +139,7 @@ public class ElasticsearchClient
     private final Duration refreshInterval;
     private final boolean tlsEnabled;
     private final boolean ignorePublishAddress;
+    private Version version;
 
     private final TimeStat searchStats = new TimeStat(MILLISECONDS);
     private final TimeStat nextPageStats = new TimeStat(MILLISECONDS);
@@ -158,6 +161,7 @@ public class ElasticsearchClient
         this.scrollTimeout = config.getScrollTimeout();
         this.refreshInterval = config.getNodeRefreshInterval();
         this.tlsEnabled = config.isTlsEnabled();
+        this.version = org.elasticsearch.Version.V_6_0_0;
     }
 
     @PostConstruct
@@ -166,6 +170,7 @@ public class ElasticsearchClient
         if (!started.getAndSet(true)) {
             // do the first refresh eagerly
             refreshNodes();
+            fetchVersion();
 
             executor.scheduleWithFixedDelay(this::refreshNodes, refreshInterval.toMillis(), refreshInterval.toMillis(), MILLISECONDS);
         }
@@ -445,6 +450,25 @@ public class ElasticsearchClient
         }
 
         return left.isPrimary() ? 1 : -1;
+    }
+
+    public void fetchVersion()
+    {
+        this.version = doRequest("/", body -> {
+            try {
+                JsonNode root = OBJECT_MAPPER.readTree(body);
+                String versionString = root.get("version").get("number").asText();
+                return Version.fromString(versionString);
+            }
+            catch (IOException e) {
+                throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            }
+        });
+    }
+
+    public Version getVersion()
+    {
+        return this.version;
     }
 
     public boolean indexExists(String index)

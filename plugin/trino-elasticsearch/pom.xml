@@ -16,7 +16,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.log4j.version>2.13.3</dep.log4j.version>
-        <dep.elasticsearch.version>6.2.2</dep.elasticsearch.version>
+        <dep.elasticsearch.version>6.0.0</dep.elasticsearch.version>
     </properties>
 
     <dependencies>
@@ -118,6 +118,12 @@
         </dependency>
 
         <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+            <version>2.10.9</version>
+        </dependency>
+
+        <dependency>
             <groupId>net.jodah</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
@@ -173,6 +179,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-core</artifactId>
+            <version>7.0.1</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.elasticsearch</groupId>
             <artifactId>elasticsearch</artifactId>
             <version>${dep.elasticsearch.version}</version>
@@ -196,6 +208,10 @@
                 <exclusion>
                     <groupId>org.apache.lucene</groupId>
                     <artifactId>lucene-highlighter</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.lucene</groupId>
+                    <artifactId>lucene-join</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.lucene</groupId>
@@ -248,12 +264,6 @@
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-high-level-client</artifactId>
             <version>${dep.elasticsearch.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.elasticsearch</groupId>
-                    <artifactId>jna</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>

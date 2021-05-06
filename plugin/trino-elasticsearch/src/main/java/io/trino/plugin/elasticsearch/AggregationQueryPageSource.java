@@ -15,6 +15,7 @@ package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.plugin.elasticsearch.client.composite.CompositeAggregation;
 import io.trino.plugin.elasticsearch.decoders.Decoder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -24,7 +25,6 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
-import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregation;
 import org.elasticsearch.search.aggregations.metrics.NumericMetricsAggregation;
 
 import java.io.IOException;
@@ -162,7 +162,7 @@ public class AggregationQueryPageSource
             if (agg instanceof CompositeAggregation) {
                 hasBucketsAggregation = true;
                 if (hasMetricAggregation) {
-                    throw new UnsupportedOperationException("Impossible merge different bucket and metric aggregation, this must not be appear.");
+                    throw new IllegalStateException("Bucket and metric aggregations should not be both present.");
                 }
                 CompositeAggregation compositeAggregation = (CompositeAggregation) agg;
                 for (CompositeAggregation.Bucket bucket : compositeAggregation.getBuckets()) {
@@ -171,7 +171,7 @@ public class AggregationQueryPageSource
                     for (Aggregation metricAgg : bucket.getAggregations()) {
                         if (metricAgg instanceof NumericMetricsAggregation.SingleValue) {
                             NumericMetricsAggregation.SingleValue sv = (NumericMetricsAggregation.SingleValue) metricAgg;
-                            line.put(metricAgg.getName(), sv.value());
+                            line.put(metricAgg.getName(), extractSingleValue(sv));
                         }
                     }
                     result.add(line);
@@ -180,10 +180,10 @@ public class AggregationQueryPageSource
             else if (agg instanceof NumericMetricsAggregation.SingleValue) {
                 hasMetricAggregation = true;
                 if (hasBucketsAggregation) {
-                    throw new UnsupportedOperationException("Impossible merge different bucket and metric aggregation, this must not be appear.");
+                    throw new IllegalStateException("Bucket and metric aggregations should not be both present.");
                 }
                 NumericMetricsAggregation.SingleValue sv = (NumericMetricsAggregation.SingleValue) agg;
-                singleValueMap.put(agg.getName(), sv.value());
+                singleValueMap.put(agg.getName(), extractSingleValue(sv));
             }
         }
         if (hasBucketsAggregation) {
@@ -191,6 +191,16 @@ public class AggregationQueryPageSource
         }
         else {
             return ImmutableList.of(singleValueMap);
+        }
+    }
+
+    private Double extractSingleValue(NumericMetricsAggregation.SingleValue singleValue)
+    {
+        if (singleValue.value() == Double.POSITIVE_INFINITY) {
+            return null;
+        }
+        else {
+            return singleValue.value();
         }
     }
 

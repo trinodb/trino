@@ -14,6 +14,7 @@
 package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.planner.plan.AggregationNode;
 import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
 import org.intellij.lang.annotations.Language;
@@ -22,13 +23,14 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestElasticsearch6ConnectorTest
         extends BaseElasticsearchConnectorTest
 {
     public TestElasticsearch6ConnectorTest()
     {
-        super("docker.elastic.co/elasticsearch/elasticsearch:6.3.2");
+        super("docker.elastic.co/elasticsearch/elasticsearch:6.0.0");
     }
 
     @Test
@@ -45,6 +47,12 @@ public class TestElasticsearch6ConnectorTest
                 .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mappings, ContentType.APPLICATION_JSON));
 
         assertTableDoesNotExist(indexName);
+    }
+
+    @Test
+    public void testNoAggregationPushdown()
+    {
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(AggregationNode.class);
     }
 
     @Override
