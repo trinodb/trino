@@ -13,6 +13,7 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -21,11 +22,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static io.trino.spi.expression.Constant.TRUE;
 import static java.util.Objects.requireNonNull;
 
 public class Constraint
 {
     private final TupleDomain<ColumnHandle> summary;
+    private final ConnectorExpression expression;
     private final Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate;
     private final Optional<Set<ColumnHandle>> predicateColumns;
 
@@ -41,17 +44,36 @@ public class Constraint
 
     public Constraint(TupleDomain<ColumnHandle> summary)
     {
-        this(summary, Optional.empty(), Optional.empty());
+        this(summary, TRUE, Optional.empty(), Optional.empty());
     }
 
     public Constraint(TupleDomain<ColumnHandle> summary, Predicate<Map<ColumnHandle, NullableValue>> predicate, Set<ColumnHandle> predicateColumns)
     {
-        this(summary, Optional.of(predicate), Optional.of(predicateColumns));
+        this(summary, TRUE, Optional.of(predicate), Optional.of(predicateColumns));
     }
 
-    private Constraint(TupleDomain<ColumnHandle> summary, Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate, Optional<Set<ColumnHandle>> predicateColumns)
+    public Constraint(TupleDomain<ColumnHandle> summary, ConnectorExpression expression)
+    {
+        this(summary, expression, Optional.empty(), Optional.empty());
+    }
+
+    public Constraint(
+            TupleDomain<ColumnHandle> summary,
+            ConnectorExpression expression,
+            Predicate<Map<ColumnHandle, NullableValue>> predicate,
+            Set<ColumnHandle> predicateColumns)
+    {
+        this(summary, expression, Optional.of(predicate), Optional.of(predicateColumns));
+    }
+
+    private Constraint(
+            TupleDomain<ColumnHandle> summary,
+            ConnectorExpression expression,
+            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate,
+            Optional<Set<ColumnHandle>> predicateColumns)
     {
         this.summary = requireNonNull(summary, "summary is null");
+        this.expression = requireNonNull(expression, "expression is null");
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
 
@@ -69,7 +91,15 @@ public class Constraint
     }
 
     /**
-     * A predicate that can be used to filter data. If present, it is equivalent to, or stricter than, {@link #getSummary()}.
+     * @return an expression predicate which is different from, and should be AND-ed with, {@link #getSummary} or {@link #predicate} (if present).
+     */
+    public ConnectorExpression getExpression()
+    {
+        return expression;
+    }
+
+    /**
+     * A predicate that can be used to filter data. If present, it is equivalent to, or stricter than, {@link #getSummary()} and different from, and should be AND-ed with, {@link #getExpression()}.
      * <p>
      * For Constraint provided in {@link ConnectorMetadata#applyFilter(ConnectorSession, ConnectorTableHandle, Constraint)},
      * the predicate cannot be held on to after the call returns.

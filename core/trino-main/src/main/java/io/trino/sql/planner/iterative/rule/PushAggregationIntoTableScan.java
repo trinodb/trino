@@ -179,7 +179,7 @@ public class PushAggregationIntoTableScan
         }
 
         List<Expression> newProjections = result.getProjections().stream()
-                .map(expression -> ConnectorExpressionTranslator.translate(context.getSession(), expression, variableMappings, new LiteralEncoder(plannerContext)))
+                .map(expression -> ConnectorExpressionTranslator.translate(context.getSession(), expression, plannerContext, variableMappings, new LiteralEncoder(plannerContext)))
                 .collect(toImmutableList());
 
         verify(aggregationOutputSymbols.size() == newProjections.size());

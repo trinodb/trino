@@ -130,6 +130,7 @@ public class FeaturesConfig
     private boolean optimizeTopNRanking = true;
     private boolean lateMaterializationEnabled;
     private boolean skipRedundantSort = true;
+    private boolean complexExpressionPushdown = true;
     private boolean predicatePushdownUseTableProperties = true;
     private boolean ignoreDownstreamPreferences;
     private boolean rewriteFilteringSemiJoinToInnerJoin = true;
@@ -945,6 +946,18 @@ public class FeaturesConfig
     public FeaturesConfig setSkipRedundantSort(boolean value)
     {
         this.skipRedundantSort = value;
+        return this;
+    }
+
+    public boolean isComplexExpressionPushdown()
+    {
+        return complexExpressionPushdown;
+    }
+
+    @Config("optimizer.complex-expression-pushdown")
+    public FeaturesConfig setComplexExpressionPushdown(boolean complexExpressionPushdown)
+    {
+        this.complexExpressionPushdown = complexExpressionPushdown;
         return this;
     }
 
