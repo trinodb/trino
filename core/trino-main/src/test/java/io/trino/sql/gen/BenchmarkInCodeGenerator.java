@@ -14,6 +14,7 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -79,6 +80,9 @@ public class BenchmarkInCodeGenerator
         @Param({StandardTypes.BIGINT, StandardTypes.DOUBLE, StandardTypes.VARCHAR})
         private String type = StandardTypes.BIGINT;
 
+        @Param({"0.0", "0.05", "0.50", "1.0"})
+        private double hitRate;
+
         private Page inputPage;
         private PageProcessor processor;
         private Type trinoType;
@@ -103,21 +107,28 @@ public class BenchmarkInCodeGenerator
                     throw new IllegalStateException();
             }
 
+            List<Object> inList = new ArrayList<>();
             arguments.add(field(0, trinoType));
             switch (type) {
                 case StandardTypes.BIGINT:
                     for (int i = 1; i <= inListCount; i++) {
-                        arguments.add(constant((long) random.nextInt(), BIGINT));
+                        int value = random.nextInt();
+                        inList.add((long) value);
+                        arguments.add(constant((long) value, BIGINT));
                     }
                     break;
                 case StandardTypes.DOUBLE:
                     for (int i = 1; i <= inListCount; i++) {
-                        arguments.add(constant(random.nextDouble(), DOUBLE));
+                        double value = random.nextDouble();
+                        inList.add(value);
+                        arguments.add(constant(value, DOUBLE));
                     }
                     break;
                 case StandardTypes.VARCHAR:
                     for (int i = 1; i <= inListCount; i++) {
-                        arguments.add(constant(Slices.utf8Slice(Long.toString(random.nextLong())), VARCHAR));
+                        Slice value = Slices.utf8Slice(Long.toString(random.nextLong()));
+                        inList.add(value);
+                        arguments.add(constant(value, VARCHAR));
                     }
                     break;
                 default:
@@ -130,16 +141,33 @@ public class BenchmarkInCodeGenerator
             for (int i = 0; i < 10_000; i++) {
                 pageBuilder.declarePosition();
 
-                switch (type) {
-                    case StandardTypes.BIGINT:
-                        BIGINT.writeLong(pageBuilder.getBlockBuilder(0), random.nextInt());
-                        break;
-                    case StandardTypes.DOUBLE:
-                        DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), random.nextDouble());
-                        break;
-                    case StandardTypes.VARCHAR:
-                        VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), Slices.utf8Slice(Long.toString(random.nextLong())));
-                        break;
+                if (random.nextDouble() <= hitRate) {
+                    // pick one of the values from in list as value written to page
+                    switch (type) {
+                        case StandardTypes.BIGINT:
+                            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), (long) inList.get(random.nextInt(inList.size())));
+                            break;
+                        case StandardTypes.DOUBLE:
+                            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), (double) inList.get(random.nextInt(inList.size())));
+                            break;
+                        case StandardTypes.VARCHAR:
+                            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), (Slice) inList.get(random.nextInt(inList.size())));
+                            break;
+                    }
+                }
+                else {
+                    // use random value; universum is wide so we can safely assume it will not be on of values in inList
+                    switch (type) {
+                        case StandardTypes.BIGINT:
+                            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), random.nextInt());
+                            break;
+                        case StandardTypes.DOUBLE:
+                            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), random.nextDouble());
+                            break;
+                        case StandardTypes.VARCHAR:
+                            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), Slices.utf8Slice(Long.toString(random.nextLong())));
+                            break;
+                    }
                 }
             }
             inputPage = pageBuilder.build();
