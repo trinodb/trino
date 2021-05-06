@@ -93,6 +93,7 @@ public class TestEliminateSorts
         TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), getQueryRunner().getMetadata());
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new IterativeOptimizer(
+                        getQueryRunner().getMetadata(),
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getCostCalculator(),

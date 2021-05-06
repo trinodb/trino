@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
@@ -61,6 +62,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
 import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.Cast;
@@ -127,6 +129,8 @@ import static java.util.Objects.requireNonNull;
 
 public class LogicalPlanner
 {
+    private static final Logger LOG = Logger.get(LogicalPlanner.class);
+
     public enum Stage
     {
         CREATED, OPTIMIZED, OPTIMIZED_AND_VALIDATED
@@ -201,12 +205,20 @@ public class LogicalPlanner
     {
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Initial plan:\n%s", PlanPrinter.textLogicalPlan(root, symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false));
+        }
+
         planSanityChecker.validateIntermediatePlan(root, session, metadata, typeOperators, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
                 root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
                 requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
+
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(root, symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false));
+                }
             }
         }
 

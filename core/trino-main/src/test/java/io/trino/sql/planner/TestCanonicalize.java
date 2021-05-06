@@ -72,6 +72,7 @@ public class TestCanonicalize
                 ImmutableList.of(
                         new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                         new IterativeOptimizer(
+                                getQueryRunner().getMetadata(),
                                 new RuleStatsRecorder(),
                                 getQueryRunner().getStatsCalculator(),
                                 getQueryRunner().getCostCalculator(),
