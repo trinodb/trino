@@ -13,7 +13,11 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
+
+import java.util.Optional;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
@@ -21,6 +25,7 @@ public class ConstraintApplicationResult<T>
 {
     private final T handle;
     private final TupleDomain<ColumnHandle> remainingFilter;
+    private final Optional<ConnectorExpression> remainingExpression;
     private final boolean precalculateStatistics;
 
     /**
@@ -29,8 +34,30 @@ public class ConstraintApplicationResult<T>
      */
     public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, boolean precalculateStatistics)
     {
+        this(handle, remainingFilter, Optional.empty(), precalculateStatistics);
+    }
+
+    /**
+     * @param remainingExpression the remaining expression, which will be AND-ed with {@code remainingFilter},
+     * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
+     * as the connector may be unable to provide good table statistics for {@code handle}.
+     */
+    public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, ConnectorExpression remainingExpression, boolean precalculateStatistics)
+    {
+        this(handle, remainingFilter, Optional.of(remainingExpression), precalculateStatistics);
+    }
+
+    /**
+     * @param remainingExpression the remaining expression, which will be AND-ed with {@code remainingFilter},
+     * or {@link Optional#empty()} if the remaining expression is equal to the original expression.
+     * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
+     * as the connector may be unable to provide good table statistics for {@code handle}.
+     */
+    private ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, Optional<ConnectorExpression> remainingExpression, boolean precalculateStatistics)
+    {
         this.handle = requireNonNull(handle, "handle is null");
         this.remainingFilter = requireNonNull(remainingFilter, "remainingFilter is null");
+        this.remainingExpression = requireNonNull(remainingExpression, "remainingExpression is null");
         this.precalculateStatistics = precalculateStatistics;
     }
 
@@ -44,8 +71,18 @@ public class ConstraintApplicationResult<T>
         return remainingFilter;
     }
 
+    public Optional<ConnectorExpression> getRemainingExpression()
+    {
+        return remainingExpression;
+    }
+
     public boolean isPrecalculateStatistics()
     {
         return precalculateStatistics;
+    }
+
+    public <U> ConstraintApplicationResult<U> transform(Function<T, U> transformHandle)
+    {
+        return new ConstraintApplicationResult<>(transformHandle.apply(handle), remainingFilter, remainingExpression, precalculateStatistics);
     }
 }
