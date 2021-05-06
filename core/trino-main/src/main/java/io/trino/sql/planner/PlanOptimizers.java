@@ -366,6 +366,7 @@ public class PlanOptimizers
                 new PushDownDereferencesThroughTopNRanking(typeAnalyzer));
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
@@ -374,6 +375,7 @@ public class PlanOptimizers
                         new RemoveRedundantIdentityProjections()));
 
         IterativeOptimizer simplifyOptimizer = new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
@@ -386,6 +388,7 @@ public class PlanOptimizers
                         .build());
 
         IterativeOptimizer columnPruningOptimizer = new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
@@ -396,6 +399,7 @@ public class PlanOptimizers
         builder.add(
                 // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -410,6 +414,7 @@ public class PlanOptimizers
                                 .addAll(new DesugarRowSubscript(typeAnalyzer).rules())
                                 .build()),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -418,6 +423,7 @@ public class PlanOptimizers
                                 .add(new OptimizeRowPattern())
                                 .build()),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -465,6 +471,7 @@ public class PlanOptimizers
                                         new SimplifyCountOverConstant(metadata)))
                                 .build()),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -472,11 +479,13 @@ public class PlanOptimizers
                 simplifyOptimizer,
                 new UnaliasSymbolReferences(metadata),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -486,6 +495,7 @@ public class PlanOptimizers
                                 new MergeExcept(),
                                 new PruneDistinctAggregation())),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -498,17 +508,20 @@ public class PlanOptimizers
                 columnPruningOptimizer,
                 inlineProjections,
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         columnPruningRules),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new TransformExistsApplyToCorrelatedJoin(metadata))),
                 new TransformQuantifiedComparisonApplyToCorrelatedJoin(metadata),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -528,6 +541,7 @@ public class PlanOptimizers
                                 new TransformCorrelatedGroupedAggregationWithProjection(metadata),
                                 new TransformCorrelatedGroupedAggregationWithoutProjection(metadata))),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -539,6 +553,7 @@ public class PlanOptimizers
                                 new TransformCorrelatedJoinToJoin(metadata),
                                 new ImplementFilteredAggregations(metadata))),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -555,6 +570,7 @@ public class PlanOptimizers
                         optimizerStats,
                         new PredicatePushDown(metadata, typeOperators, typeAnalyzer, false, false)),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -572,6 +588,7 @@ public class PlanOptimizers
         // Column pruning rules need to be run after redirection
         builder.add(
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -593,6 +610,7 @@ public class PlanOptimizers
                 .add(new PushTopNIntoTableScan(metadata))
                 .build();
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
@@ -602,6 +620,7 @@ public class PlanOptimizers
         builder.add(pushIntoTableScanOptimizer); // TODO (https://github.com/trinodb/trino/issues/811) merge with the above after migrating UnaliasSymbolReferences to rules
 
         IterativeOptimizer pushProjectionIntoTableScanOptimizer = new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
@@ -612,6 +631,7 @@ public class PlanOptimizers
 
         builder.add(
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -620,6 +640,7 @@ public class PlanOptimizers
                         ImmutableSet.of(new ImplementBernoulliSampleAsFilter(metadata))),
                 columnPruningOptimizer,
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -636,6 +657,7 @@ public class PlanOptimizers
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, typeOperators, typeAnalyzer, true, false)),
                 simplifyOptimizer,  // Should be always run after PredicatePushDown
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -646,6 +668,7 @@ public class PlanOptimizers
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
                 // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -658,6 +681,7 @@ public class PlanOptimizers
                                 new PushdownFilterIntoWindow(metadata, typeOperators),
                                 new ReplaceWindowWithRowNumber(metadata))),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -671,12 +695,14 @@ public class PlanOptimizers
                 inlineProjections,
                 columnPruningOptimizer, // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new MetadataQueryOptimizer(metadata),
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -686,6 +712,7 @@ public class PlanOptimizers
                         new PredicatePushDown(metadata, typeOperators, typeAnalyzer, true, false)),
                 simplifyOptimizer, // Should be always run after PredicatePushDown
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -697,6 +724,7 @@ public class PlanOptimizers
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, typeOperators, typeAnalyzer, true, false)),
                 simplifyOptimizer,  // Should be always run after PredicatePushDown
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -704,6 +732,7 @@ public class PlanOptimizers
                                 new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))),
                 columnPruningOptimizer,
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -711,6 +740,7 @@ public class PlanOptimizers
                 // Prefer write partitioning rule requires accurate stats.
                 // Run it before reorder joins which also depends on accurate stats.
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -720,6 +750,7 @@ public class PlanOptimizers
                 // need to run beforehand in order to produce an optimal join order
                 // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -727,6 +758,7 @@ public class PlanOptimizers
 
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
         builder.add(new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
@@ -737,6 +769,7 @@ public class PlanOptimizers
                         new PushTopNThroughUnion(),
                         new PushTopNIntoTableScan(metadata))));
         builder.add(new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
@@ -747,6 +780,7 @@ public class PlanOptimizers
                         .build()));
 
         builder.add(new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
@@ -761,6 +795,7 @@ public class PlanOptimizers
         if (!forceSingleNode) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
             builder.add(new IterativeOptimizer(
+                    metadata,
                     ruleStats,
                     statsCalculator,
                     estimatedExchangesCostCalculator,
@@ -771,6 +806,7 @@ public class PlanOptimizers
                             new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
 
             builder.add(new IterativeOptimizer(
+                    metadata,
                     ruleStats,
                     statsCalculator,
                     estimatedExchangesCostCalculator,
@@ -786,6 +822,7 @@ public class PlanOptimizers
 
             builder.add(
                     new IterativeOptimizer(
+                            metadata,
                             ruleStats,
                             statsCalculator,
                             estimatedExchangesCostCalculator,
@@ -800,6 +837,7 @@ public class PlanOptimizers
 
         builder.add(
                 new IterativeOptimizer(
+                        metadata,
                         ruleStats,
                         statsCalculator,
                         costCalculator,
@@ -812,6 +850,7 @@ public class PlanOptimizers
                 new PredicatePushDown(metadata, typeOperators, typeAnalyzer, true, false)));
         builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
         builder.add(new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
@@ -824,6 +863,7 @@ public class PlanOptimizers
         builder.add(new RemoveUnsupportedDynamicFilters(metadata)); // Remove unsupported dynamic filters introduced by PredicatePushdown
         builder.add(simplifyOptimizer); // Should always run after PredicatePushdown
         builder.add(new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
@@ -833,6 +873,7 @@ public class PlanOptimizers
         builder.add(columnPruningOptimizer);
 
         builder.add(new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
@@ -848,6 +889,7 @@ public class PlanOptimizers
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
         builder.add(new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
@@ -857,11 +899,13 @@ public class PlanOptimizers
                         new PruneJoinColumns(),
                         new PruneJoinChildrenColumns())));
         builder.add(new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
                 new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(metadata, typeOperators, typeAnalyzer, taskCountEstimator, taskManagerConfig).rules()));
         builder.add(new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
@@ -872,6 +916,7 @@ public class PlanOptimizers
 
         // Remove any remaining sugar
         builder.add(new IterativeOptimizer(
+                metadata,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
