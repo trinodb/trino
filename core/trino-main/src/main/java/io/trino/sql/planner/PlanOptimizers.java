@@ -235,7 +235,6 @@ import io.trino.sql.planner.optimizations.TableDeleteOptimizer;
 import io.trino.sql.planner.optimizations.TransformQuantifiedComparisonApplyToCorrelatedJoin;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.optimizations.WindowFilterPushDown;
-import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Inject;
 
@@ -258,7 +257,6 @@ public class PlanOptimizers
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
             TaskManagerConfig taskManagerConfig,
-            MBeanExporter exporter,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
             StatsCalculator statsCalculator,
@@ -273,7 +271,6 @@ public class PlanOptimizers
                 typeAnalyzer,
                 taskManagerConfig,
                 false,
-                exporter,
                 splitManager,
                 pageSourceManager,
                 statsCalculator,
@@ -290,7 +287,6 @@ public class PlanOptimizers
             TypeAnalyzer typeAnalyzer,
             TaskManagerConfig taskManagerConfig,
             boolean forceSingleNode,
-            MBeanExporter exporter,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
             StatsCalculator statsCalculator,

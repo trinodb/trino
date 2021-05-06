@@ -865,7 +865,6 @@ public class LocalQueryRunner
                 new TypeAnalyzer(sqlParser, metadata),
                 taskManagerConfig,
                 forceSingleNode,
-                new MBeanExporter(new TestingMBeanServer()),
                 splitManager,
                 pageSourceManager,
                 statsCalculator,
