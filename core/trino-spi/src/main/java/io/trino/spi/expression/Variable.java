@@ -42,6 +42,12 @@ public class Variable
     }
 
     @Override
+    protected <R, C> R accept(ConnectorExpressionVisitor<R, C> connectorExpressionVisitor, C context)
+    {
+        return connectorExpressionVisitor.visitVariable(this, context);
+    }
+
+    @Override
     public List<? extends ConnectorExpression> getChildren()
     {
         return emptyList();

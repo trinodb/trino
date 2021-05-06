@@ -14,13 +14,19 @@
 package io.trino.sql.planner;
 
 import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.ConnectorExpressionVisitor;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
+import io.trino.spi.expression.Function;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
+import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
@@ -28,15 +34,23 @@ import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 
+import javax.annotation.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,9 +58,11 @@ public final class ConnectorExpressionTranslator
 {
     private ConnectorExpressionTranslator() {}
 
-    public static Expression translate(ConnectorExpression expression, Map<String, Symbol> variableMappings, LiteralEncoder literalEncoder)
+    public static Expression translate(ConnectorExpression expression, Metadata metadata, LiteralEncoder literalEncoder, Optional<Map<String, Symbol>> variableMappings)
     {
-        return new ConnectorToSqlExpressionTranslator(variableMappings, literalEncoder).translate(expression);
+        return new ConnectorToSqlExpressionTranslator(metadata, literalEncoder, variableMappings)
+                .process(expression)
+                .orElseThrow(() -> new UnsupportedOperationException("Expression type not supported: " + expression.getClass().getName()));
     }
 
     public static Optional<ConnectorExpression> translate(Session session, Expression expression, TypeAnalyzer types, TypeProvider inputTypes)
@@ -56,32 +72,100 @@ public final class ConnectorExpressionTranslator
     }
 
     private static class ConnectorToSqlExpressionTranslator
+            extends ConnectorExpressionVisitor<Optional<Expression>, Void>
     {
-        private final Map<String, Symbol> variableMappings;
+        private final Metadata metadata;
         private final LiteralEncoder literalEncoder;
+        private final Optional<Map<String, Symbol>> variableMappings;
 
-        public ConnectorToSqlExpressionTranslator(Map<String, Symbol> variableMappings, LiteralEncoder literalEncoder)
+        public ConnectorToSqlExpressionTranslator(Metadata metadata, LiteralEncoder literalEncoder, Optional<Map<String, Symbol>> variableMappings)
         {
-            this.variableMappings = requireNonNull(variableMappings, "variableMappings is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
             this.literalEncoder = requireNonNull(literalEncoder, "literalEncoder is null");
+            this.variableMappings = requireNonNull(variableMappings, "variableMappings is null");
         }
 
-        public Expression translate(ConnectorExpression expression)
+        @Override
+        public Optional<Expression> process(ConnectorExpression node, @Nullable Void context)
         {
-            if (expression instanceof Variable) {
-                return variableMappings.get(((Variable) expression).getName()).toSymbolReference();
+            return super.process(node, context);
+        }
+
+        @Override
+        protected Optional<Expression> visitConstant(Constant node, Void context)
+        {
+            return Optional.of(literalEncoder.toExpression(node.getValue(), node.getType()));
+        }
+
+        @Override
+        protected Optional<Expression> visitFieldDereference(FieldDereference node, Void context)
+        {
+            Optional<Expression> base = process(node.getTarget());
+            return base.map(expression -> new SubscriptExpression(expression, new LongLiteral(Long.toString(node.getField() + 1))));
+        }
+
+        @Override
+        protected Optional<Expression> visitFunction(Function node, Void context)
+        {
+            if (Function.LIKE_FUNCTION_NAME.equals(node.getName())) {
+                return visitLikeFunction(node.getArguments().get(0), node.getArguments().get(1), context);
             }
 
-            if (expression instanceof Constant) {
-                return literalEncoder.toExpression(((Constant) expression).getValue(), expression.getType());
+            QualifiedName qualifiedName = getQualifiedName(node);
+
+            List<Expression> arguments = node.getArguments().stream()
+                                             .map(argument -> ConnectorExpressionPredicateTranslator.toPredicate(argument, literalEncoder, metadata))
+                                             .collect(Collectors.toList());
+
+            Optional<FunctionCall.NullTreatment> nullTreatment;
+            if (node.getNullTreatment().isEmpty()) {
+                nullTreatment = Optional.empty();
+            }
+            else if (node.getNullTreatment().get() == Function.NullTreatment.IGNORE) {
+                nullTreatment = Optional.of(FunctionCall.NullTreatment.IGNORE);
+            }
+            else if (node.getNullTreatment().get() == Function.NullTreatment.RESPECT) {
+                nullTreatment = Optional.of(FunctionCall.NullTreatment.RESPECT);
+            }
+            else {
+                throw new RuntimeException("Unknown NullTreatment value " + node.getNullTreatment().get().name());
             }
 
-            if (expression instanceof FieldDereference) {
-                FieldDereference dereference = (FieldDereference) expression;
-                return new SubscriptExpression(translate(dereference.getTarget()), new LongLiteral(Long.toString(dereference.getField() + 1)));
-            }
+            return Optional.of(new FunctionCall(Optional.empty(),
+                                                qualifiedName,
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                false,
+                                                nullTreatment,
+                                                Optional.empty(),
+                                                arguments));
+        }
 
-            throw new UnsupportedOperationException("Expression type not supported: " + expression.getClass().getName());
+        protected Optional<Expression> visitLikeFunction(ConnectorExpression value, ConnectorExpression pattern, Void context)
+        {
+            Optional<Expression> valueExpression = process(value);
+            Optional<Expression> patternExpression = process(pattern);
+            if (valueExpression.isPresent() && patternExpression.isPresent()) {
+                return Optional.of(new LikePredicate(valueExpression.get(), patternExpression.get(), Optional.empty()));
+            }
+            return Optional.empty();
+        }
+
+        @Override
+        protected Optional<Expression> visitVariable(Variable node, Void context)
+        {
+            Expression expression = variableMappings.map(map -> map.get(node.getName()).toSymbolReference())
+                                                    .orElse(new SymbolReference(node.getName()));
+            return Optional.of(expression);
+        }
+
+        private QualifiedName getQualifiedName(Function function)
+        {
+            List<TypeSignature> typeSignatures = function.getArguments().stream().map(argument -> argument.getType().getTypeSignature()).collect(Collectors.toList());
+            return metadata.resolveFunction(QualifiedName.of(function.getName()),
+                                            TypeSignatureProvider.fromTypeSignatures(typeSignatures))
+                           .toQualifiedName();
         }
     }
 
@@ -147,6 +231,62 @@ public final class ConnectorExpressionTranslator
         protected Optional<ConnectorExpression> visitNullLiteral(NullLiteral node, Void context)
         {
             return Optional.of(new Constant(null, typeOf(node)));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitFunctionCall(FunctionCall node, Void context)
+        {
+            if (!node.getFilter().isEmpty() || !node.getOrderBy().isEmpty() || !node.getWindow().isEmpty() || node.isDistinct()) {
+                return Optional.empty();
+            }
+
+            String functionName = ResolvedFunction.extractFunctionName(node.getName());
+
+            List<ConnectorExpression> arguments = new ArrayList<>();
+            for (Expression argumentExpression : node.getArguments()) {
+                if (argumentExpression instanceof SymbolReference || argumentExpression instanceof FunctionCall || argumentExpression instanceof StringLiteral) {
+                    Optional<ConnectorExpression> argument = process(argumentExpression);
+                    if (argument.isEmpty()) {
+                        return Optional.empty();
+                    }
+                    arguments.add(argument.get());
+                }
+            }
+
+            // Not sure if it can be relevant (maybe always Ignore \ Respect in applyFilter functions?)
+            Optional<Function.NullTreatment> nullTreatment;
+            if (node.getNullTreatment().isEmpty()) {
+                nullTreatment = Optional.empty();
+            }
+            else if (node.getNullTreatment().get() == FunctionCall.NullTreatment.IGNORE) {
+                nullTreatment = Optional.of(Function.NullTreatment.IGNORE);
+            }
+            else if (node.getNullTreatment().get() == FunctionCall.NullTreatment.RESPECT) {
+                nullTreatment = Optional.of(Function.NullTreatment.RESPECT);
+            }
+            else {
+                throw new RuntimeException("Unknown NullTreatment value " + node.getNullTreatment().get().name());
+            }
+
+            // TODO: replace after resolving the issue with FunctionPushdown
+            // return Optional.of(new Function(typeOf(node), functionName, arguments, nullTreatment));
+            return Optional.empty();
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitLikePredicate(LikePredicate node, Void context)
+        {
+            if (node.getValue() instanceof SymbolReference &&
+                    node.getPattern() instanceof StringLiteral &&
+                    node.getEscape().isEmpty()) {
+                Optional<ConnectorExpression> value = process(node.getValue());
+                Optional<ConnectorExpression> pattern = process(node.getPattern());
+                if (value.isPresent() && pattern.isPresent()) {
+                    Type columnType = typeOf(node.getValue());
+                    return Optional.of(Function.ofLikeFunction(columnType, value.get(), pattern.get()));
+                }
+            }
+            return Optional.empty();
         }
 
         @Override

@@ -36,6 +36,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
@@ -43,6 +44,8 @@ import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.ViewNotFoundException;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.Estimate;
@@ -54,6 +57,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,6 +74,7 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.SampleType.SYSTEM;
+import static io.trino.spi.expression.Constant.TRUE_CONSTANT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -435,5 +440,28 @@ public class MemoryMetadata
         return Optional.of(new SampleApplicationResult<>(
                 new MemoryTableHandle(table.getId(), table.getLimit(), OptionalDouble.of(table.getSampleRatio().orElse(1) * sampleRatio)),
                 true));
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(
+            ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    {
+        MemoryTableHandle table = (MemoryTableHandle) handle;
+        TupleDomain<MemoryColumnHandle> newPredicate = constraint.getSummary().transform(MemoryColumnHandle.class::cast).intersect(table.getPredicate());
+        Set<ConnectorExpression> connectorExpressions = new HashSet<>(table.getConnectorExpressions());
+        if (!TRUE_CONSTANT.equals(constraint.getConnectorExpression())) {
+            connectorExpressions.add(constraint.getConnectorExpression());
+        }
+        MemoryTableHandle newTable = new MemoryTableHandle(table.getId(), table.getLimit(), table.getSampleRatio(), newPredicate, connectorExpressions);
+        if (newTable.getPredicate().equals(table.getPredicate()) && newTable.getConnectorExpressions().size() == table.getConnectorExpressions().size()) {
+            return Optional.empty();
+        }
+        return Optional.of(new ConstraintApplicationResult<>(newTable, constraint.getSummary(), false, constraint.getConnectorExpression()));
+    }
+
+    @Override
+    public boolean supportsConnectorExpressionPushdown(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return true;
     }
 }

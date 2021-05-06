@@ -910,6 +910,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * @return whether connector handles {@link io.trino.spi.connector.Constraint#connectorExpression}
+     */
+    default boolean supportsConnectorExpressionPushdown(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return false;
+    }
+
+    /**
      * Attempt to push down the provided projections into the table.
      * <p>
      * Connectors can indicate whether they don't support projection pushdown or that the action had no effect

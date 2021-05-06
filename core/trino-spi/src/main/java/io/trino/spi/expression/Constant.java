@@ -13,6 +13,7 @@
  */
 package io.trino.spi.expression;
 
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -23,6 +24,9 @@ import static java.util.Collections.emptyList;
 public class Constant
         extends ConnectorExpression
 {
+    public static final Constant TRUE_CONSTANT = new Constant(true, BooleanType.BOOLEAN);
+    public static final Constant FALSE_CONSTANT = new Constant(false, BooleanType.BOOLEAN);
+
     private final Object value;
 
     /**
@@ -37,6 +41,12 @@ public class Constant
     public Object getValue()
     {
         return value;
+    }
+
+    @Override
+    protected <R, C> R accept(ConnectorExpressionVisitor<R, C> connectorExpressionVisitor, C context)
+    {
+        return connectorExpressionVisitor.visitConstant(this, context);
     }
 
     @Override

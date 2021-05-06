@@ -799,6 +799,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public boolean supportsConnectorExpressionPushdown(ConnectorSession session, ConnectorTableHandle table)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.supportsConnectorExpressionPushdown(session, table);
+        }
+    }
+
+    @Override
     public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session, ConnectorTableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

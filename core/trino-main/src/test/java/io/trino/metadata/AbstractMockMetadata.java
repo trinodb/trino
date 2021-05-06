@@ -534,6 +534,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public boolean supportsConnectorExpressionPushdown(Session session, TableHandle tableHandle)
+    {
+        return false;
+    }
+
+    @Override
     public Optional<SampleApplicationResult<TableHandle>> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio)
     {
         return Optional.empty();

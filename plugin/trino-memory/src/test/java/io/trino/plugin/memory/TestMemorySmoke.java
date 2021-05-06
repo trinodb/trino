@@ -16,12 +16,19 @@ package io.trino.plugin.memory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.operator.OperatorStats;
 import io.trino.spi.QueryId;
+import io.trino.spi.expression.Constant;
+import io.trino.spi.expression.Function;
+import io.trino.spi.expression.Variable;
 import io.trino.sql.analyzer.FeaturesConfig;
+import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -39,6 +46,7 @@ import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
@@ -49,6 +57,7 @@ import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.PART;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -377,6 +386,29 @@ public class TestMemorySmoke
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .build();
+    }
+
+    @Test
+    public void testLikeConnectorExpressionPushdown()
+    {
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(getSession(),
+                                                                                                      "SELECT custkey FROM customer WHERE name LIKE '%000001000'");
+        assertEquals(result.getResult().getRowCount(), 1);
+        MemoryTableHandle table = getSingleTableHandle(result.getQueryId());
+
+        assertEquals(table.getConnectorExpressions(),
+                     List.of(Function.ofLikeFunction(createVarcharType(25),
+                                                     new Variable("name", createVarcharType(25)),
+                                                     new Constant(Slices.wrappedBuffer("%000001000".getBytes(UTF_8)), createVarcharType(10)))));
+    }
+
+    private MemoryTableHandle getSingleTableHandle(QueryId queryId)
+    {
+        Plan plan = getDistributedQueryRunner().getQueryPlan(queryId);
+        TableScanNode scanNode = PlanNodeSearcher.searchFrom(plan.getRoot())
+                                                 .where(node -> node instanceof TableScanNode)
+                                                 .findOnlyElement();
+        return (MemoryTableHandle) scanNode.getTable().getConnectorHandle();
     }
 
     private Session withPartitionedJoin()

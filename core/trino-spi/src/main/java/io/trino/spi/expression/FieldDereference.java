@@ -52,6 +52,12 @@ public class FieldDereference
     }
 
     @Override
+    protected <R, C> R accept(ConnectorExpressionVisitor<R, C> connectorExpressionVisitor, C context)
+    {
+        return connectorExpressionVisitor.visitFieldDereference(this, context);
+    }
+
+    @Override
     public List<? extends ConnectorExpression> getChildren()
     {
         return singletonList(target);
