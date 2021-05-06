@@ -28,11 +28,15 @@ import io.trino.metadata.TableProperties.TablePartitioning;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.LayoutConstraintEvaluator;
+import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -42,15 +46,19 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.NodeRef;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.spi.expression.Constant.TRUE;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static io.trino.sql.ExpressionUtils.filterNonDeterministicConjuncts;
@@ -169,6 +177,10 @@ public class PushPredicateIntoTableScan
                 .transformKeys(node.getAssignments()::get)
                 .intersect(node.getEnforcedConstraint());
 
+        Map<NodeRef<Expression>, Type> remainingExpressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), decomposedPredicate.getRemainingExpression());
+        Optional<ConnectorExpression> connectorExpression = new ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator(session, remainingExpressionTypes, plannerContext)
+                .process(decomposedPredicate.getRemainingExpression());
+
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
         Constraint constraint;
@@ -186,12 +198,12 @@ public class PushPredicateIntoTableScan
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
                             domainTranslator.toPredicate(session, newDomain.simplify().transformKeys(assignments::get))));
-            constraint = new Constraint(newDomain, evaluator::isCandidate, evaluator.getArguments());
+            constraint = new Constraint(newDomain, connectorExpression.orElse(TRUE), evaluator::isCandidate, evaluator.getArguments());
         }
         else {
             // Currently, invoking the expression interpreter is very expensive.
             // TODO invoke the interpreter unconditionally when the interpreter becomes cheap enough.
-            constraint = new Constraint(newDomain);
+            constraint = new Constraint(newDomain, connectorExpression.orElse(TRUE));
         }
 
         // check if new domain is wider than domain already provided by table scan
@@ -234,6 +246,7 @@ public class PushPredicateIntoTableScan
         }
 
         TupleDomain<ColumnHandle> remainingFilter = result.get().getRemainingFilter();
+        Optional<ConnectorExpression> remainingConnectorExpression = result.get().getRemainingExpression();
         boolean precalculateStatistics = result.get().isPrecalculateStatistics();
 
         verifyTablePartitioning(session, plannerContext.getMetadata(), node, newTablePartitioning);
@@ -249,6 +262,16 @@ public class PushPredicateIntoTableScan
                 node.isUpdateTarget(),
                 node.getUseConnectorNodePartitioning());
 
+        Expression remainingDecomposedPredicate;
+        if (connectorExpression.isEmpty() || remainingConnectorExpression.isEmpty() || remainingConnectorExpression.equals(connectorExpression)) {
+            remainingDecomposedPredicate = decomposedPredicate.getRemainingExpression();
+        }
+        else {
+            Map<String, Symbol> variableMappings = assignments.values().stream()
+                    .collect(Collectors.toMap(Symbol::getName, Function.identity()));
+            remainingDecomposedPredicate = ConnectorExpressionTranslator.translate(session, remainingConnectorExpression.get(), plannerContext, variableMappings, new LiteralEncoder(plannerContext));
+        }
+
         Expression resultingPredicate = createResultingPredicate(
                 plannerContext,
                 session,
@@ -256,7 +279,7 @@ public class PushPredicateIntoTableScan
                 typeAnalyzer,
                 domainTranslator.toPredicate(session, remainingFilter.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
-                decomposedPredicate.getRemainingExpression());
+                remainingDecomposedPredicate);
 
         if (!TRUE_LITERAL.equals(resultingPredicate)) {
             return Optional.of(new FilterNode(filterNode.getId(), tableScan, resultingPredicate));
