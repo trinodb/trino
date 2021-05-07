@@ -68,7 +68,7 @@ public class HiveS3Config
     private boolean requesterPaysEnabled;
     private boolean s3StreamingUploadEnabled;
     private DataSize s3StreamingPartSize = DataSize.of(16, MEGABYTE);
-    private String s3SessionIdentifier;
+    private String s3SessionIdentifier = "trino-session";
 
     public String getS3AwsAccessKey()
     {
@@ -495,10 +495,13 @@ public class HiveS3Config
         return this;
     }
 
-    public String getS3SessionIdentifier() { return s3SessionIdentifier; }
+    public String getS3SessionIdentifier()
+    {
+        return s3SessionIdentifier;
+    }
 
     @Config("hive.s3.session-identifier")
-    @ConfigDescription("The session user prefix to use for S3 calls")
+    @ConfigDescription("Role session name for S3 access. ${USER} will be replaced with the Trino user.")
     public HiveS3Config setS3SessionIdentifier(String s3SessionIdentifier)
     {
         this.s3SessionIdentifier = s3SessionIdentifier;

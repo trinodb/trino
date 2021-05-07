@@ -69,7 +69,7 @@ public class TestHiveS3Config
                 .setRequesterPaysEnabled(false)
                 .setS3StreamingUploadEnabled(false)
                 .setS3StreamingPartSize(DataSize.of(16, Unit.MEGABYTE))
-                .setS3SessionIdentifier(null));
+                .setS3SessionIdentifier("trino-session"));
     }
 
     @Test
@@ -111,7 +111,7 @@ public class TestHiveS3Config
                 .put("hive.s3.requester-pays.enabled", "true")
                 .put("hive.s3.streaming.enabled", "true")
                 .put("hive.s3.streaming.part-size", "15MB")
-                .put("hive.s3.session-identifier","trino-user")
+                .put("hive.s3.session-identifier", "trino-user")
                 .build();
 
         HiveS3Config expected = new HiveS3Config()

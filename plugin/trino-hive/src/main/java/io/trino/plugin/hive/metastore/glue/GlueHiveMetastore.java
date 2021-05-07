@@ -107,6 +107,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -228,10 +229,10 @@ public class GlueHiveMetastore
     {
         String sessionIdentifier;
         try {
-            UserGroupInformation ugi = UserGroupInformation.getCurrentUser();
-            sessionIdentifier = ugi.getUserName();
-        } catch (IOException e) {
-            throw new RuntimeException(format("Error getting current username %s"), e);
+            sessionIdentifier = config.getS3SessionIdentifier().replace("${USER}", UserGroupInformation.getCurrentUser().getUserName());
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to get current user", e);
         }
         if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
             return new AWSStaticCredentialsProvider(

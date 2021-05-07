@@ -904,7 +904,8 @@ public class TrinoS3FileSystem
         }
     }
 
-    private AWSCredentialsProvider createAwsCredentialsProvider(URI uri, Configuration conf) throws IOException
+    private AWSCredentialsProvider createAwsCredentialsProvider(URI uri, Configuration conf)
+            throws IOException
     {
         // credentials embedded in the URI take precedence and are used alone
         Optional<AWSCredentials> credentials = getEmbeddedAwsCredentials(uri);
@@ -918,8 +919,7 @@ public class TrinoS3FileSystem
             return getCustomAWSCredentialsProvider(uri, conf, providerClass);
         }
 
-        String user = UserGroupInformation.getCurrentUser().getUserName();
-        String sessionIdentifier = s3SessionIdentifier.replace("${USER}", user);
+        String sessionIdentifier = s3SessionIdentifier.replace("${USER}", UserGroupInformation.getCurrentUser().getUserName());
 
         // use configured credentials or default chain with optional role
         AWSCredentialsProvider provider = getAwsCredentials(conf)
