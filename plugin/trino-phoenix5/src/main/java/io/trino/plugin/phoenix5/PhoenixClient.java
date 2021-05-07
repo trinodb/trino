@@ -429,12 +429,12 @@ public class PhoenixClient
                 }
                 return toColumnMapping(session, connection, elementTypeHandle)
                         .map(elementMapping -> {
-                            ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
+                            ArrayType trinoArrayType = new ArrayType(elementMapping.getType());
                             String jdbcTypeName = elementTypeHandle.getJdbcTypeName()
                                     .orElseThrow(() -> new TrinoException(
                                             PHOENIX_METADATA_ERROR,
                                             "Type name is missing for jdbc type: " + JDBCType.valueOf(elementTypeHandle.getJdbcType())));
-                            return arrayColumnMapping(session, prestoArrayType, jdbcTypeName);
+                            return arrayColumnMapping(session, trinoArrayType, jdbcTypeName);
                         });
         }
         return legacyToPrestoType(session, connection, typeHandle);
