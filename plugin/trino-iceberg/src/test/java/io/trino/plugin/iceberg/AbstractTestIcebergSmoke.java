@@ -997,34 +997,32 @@ public abstract class AbstractTestIcebergSmoke
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
     @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
-    public void testTruncateTransform()
+    public void testTruncateTextTransform()
     {
-        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_transform$partitions\"";
+        assertUpdate("CREATE TABLE test_truncate_text_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 2)'])");
+        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_text_transform$partitions\"";
 
-        assertUpdate("CREATE TABLE test_truncate_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 2)'])");
-
-        @Language("SQL") String insertSql = "INSERT INTO test_truncate_transform VALUES" +
+        assertUpdate("INSERT INTO test_truncate_text_transform VALUES" +
                 "('abcd', 1)," +
                 "('abxy', 2)," +
                 "('ab598', 3)," +
                 "('mommy', 4)," +
                 "('moscow', 5)," +
                 "('Greece', 6)," +
-                "('Grozny', 7)";
-        assertUpdate(insertSql, 7);
+                "('Grozny', 7)", 7);
 
-        assertQuery("SELECT COUNT(*) FROM \"test_truncate_transform$partitions\"", "SELECT 3");
+        assertQuery("SELECT d_trunc FROM \"test_truncate_text_transform$partitions\"", "VALUES 'ab', 'mo', 'Gr'");
 
-        assertQuery("SELECT b FROM test_truncate_transform WHERE substring(d, 1, 2) = 'ab'", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
-        assertQuery(select + " WHERE d_trunc = 'ab'", "VALUES('ab', 3, 'ab598', 'abxy', 1, 3)");
+        assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'ab'", "VALUES 1, 2, 3");
+        assertQuery(select + " WHERE d_trunc = 'ab'", "VALUES ('ab', 3, 'ab598', 'abxy', 1, 3)");
 
-        assertQuery("SELECT b FROM test_truncate_transform WHERE substring(d, 1, 2) = 'mo'", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
-        assertQuery(select + " WHERE d_trunc = 'mo'", "VALUES('mo', 2, 'mommy', 'moscow', 4, 5)");
+        assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'mo'", "VALUES 4, 5");
+        assertQuery(select + " WHERE d_trunc = 'mo'", "VALUES ('mo', 2, 'mommy', 'moscow', 4, 5)");
 
-        assertQuery("SELECT b FROM test_truncate_transform WHERE substring(d, 1, 2) = 'Gr'", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
-        assertQuery(select + " WHERE d_trunc = 'Gr'", "VALUES('Gr', 2, 'Greece', 'Grozny', 6, 7)");
+        assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'Gr'", "VALUES 6, 7");
+        assertQuery(select + " WHERE d_trunc = 'Gr'", "VALUES ('Gr', 2, 'Greece', 'Grozny', 6, 7)");
 
-        dropTable("test_truncate_transform");
+        dropTable("test_truncate_text_transform");
     }
 
     @Test
