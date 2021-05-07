@@ -350,7 +350,7 @@ public class PhoenixClient
     protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
-        return super.getTables(connection, toPhoenixSchemaName(schemaName), tableName);
+        return super.getTables(connection, schemaName.map(MetadataUtil::toPhoenixSchemaName), tableName);
     }
 
     @Override
@@ -516,17 +516,17 @@ public class PhoenixClient
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
-        Optional<String> schema = Optional.of(schemaTableName.getSchemaName());
+        String schema = schemaTableName.getSchemaName();
         String table = schemaTableName.getTableName();
 
-        if (!getSchemaNames(session).contains(schema.orElse(null))) {
-            throw new SchemaNotFoundException(schema.orElse(null));
+        if (!getSchemaNames(session).contains(schema)) {
+            throw new SchemaNotFoundException(schema);
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             if (uppercase) {
-                schema = schema.map(schemaName -> schemaName.toUpperCase(ENGLISH));
+                schema = schema.toUpperCase(ENGLISH);
                 table = table.toUpperCase(ENGLISH);
             }
             schema = toPhoenixSchemaName(schema);
@@ -614,7 +614,7 @@ public class PhoenixClient
 
         try (Connection connection = connectionFactory.openConnection(session);
                 Admin admin = connection.unwrap(PhoenixConnection.class).getQueryServices().getAdmin()) {
-            String schemaName = toPhoenixSchemaName(Optional.ofNullable(handle.getSchemaName())).orElse(null);
+            String schemaName = toPhoenixSchemaName(handle.getSchemaName());
             PTable table = getTable(connection, SchemaUtil.getTableName(schemaName, handle.getTableName()));
 
             boolean salted = table.getBucketNum() != null;
