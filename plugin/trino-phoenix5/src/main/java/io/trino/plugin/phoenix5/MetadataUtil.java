@@ -28,12 +28,12 @@ public final class MetadataUtil
         return SchemaUtil.getEscapedTableName(toPhoenixSchemaName(schema).orElse(null), table);
     }
 
-    public static Optional<String> toPhoenixSchemaName(Optional<String> prestoSchemaName)
+    public static Optional<String> toPhoenixSchemaName(Optional<String> trinoSchemaName)
     {
-        return prestoSchemaName.map(schemaName -> DEFAULT_SCHEMA.equalsIgnoreCase(schemaName) ? "" : schemaName);
+        return trinoSchemaName.map(schemaName -> DEFAULT_SCHEMA.equalsIgnoreCase(schemaName) ? "" : schemaName);
     }
 
-    public static Optional<String> toPrestoSchemaName(Optional<String> phoenixSchemaName)
+    public static Optional<String> toTrinoSchemaName(Optional<String> phoenixSchemaName)
     {
         return phoenixSchemaName.map(schemaName -> schemaName.isEmpty() ? DEFAULT_SCHEMA : schemaName);
     }

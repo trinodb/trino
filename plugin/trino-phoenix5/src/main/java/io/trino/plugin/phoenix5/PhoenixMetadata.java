@@ -47,7 +47,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.phoenix5.MetadataUtil.getEscapedTableName;
-import static io.trino.plugin.phoenix5.MetadataUtil.toPrestoSchemaName;
+import static io.trino.plugin.phoenix5.MetadataUtil.toTrinoSchemaName;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -78,7 +78,7 @@ public class PhoenixMetadata
                 .map(tableHandle -> new JdbcTableHandle(
                         schemaTableName,
                         tableHandle.getCatalogName(),
-                        toPrestoSchemaName(Optional.ofNullable(tableHandle.getSchemaName())).orElse(null),
+                        toTrinoSchemaName(Optional.ofNullable(tableHandle.getSchemaName())).orElse(null),
                         tableHandle.getTableName()))
                 .orElse(null);
     }
