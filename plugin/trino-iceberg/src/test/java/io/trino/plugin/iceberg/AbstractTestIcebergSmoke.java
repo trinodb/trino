@@ -46,6 +46,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -1023,6 +1024,64 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery(select + " WHERE d_trunc = 'Gr'", "VALUES ('Gr', 2, 'Greece', 'Grozny', 6, 7)");
 
         dropTable("test_truncate_text_transform");
+    }
+
+    @Test(dataProvider = "truncateNumberTypesProvider")
+    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
+    public void testTruncateIntegerTransform(String dataType)
+    {
+        String table = format("test_truncate_%s_transform", dataType);
+        assertUpdate(format("CREATE TABLE " + table + " (d %s, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])", dataType));
+        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"" + table + "$partitions\"";
+
+        assertUpdate("INSERT INTO " + table + " VALUES" +
+                "(0, 1)," +
+                "(1, 2)," +
+                "(5, 3)," +
+                "(9, 4)," +
+                "(10, 5)," +
+                "(11, 6)," +
+                "(120, 7)," +
+                "(121, 8)," +
+                "(123, 9)," +
+                "(-1, 10)," +
+                "(-5, 11)," +
+                "(-10, 12)," +
+                "(-11, 13)," +
+                "(-123, 14)," +
+                "(-130, 15)", 15);
+
+        assertQuery("SELECT d_trunc FROM \"" + table + "$partitions\"", "VALUES 0, 10, 120, -10, -20, -130");
+
+        assertQuery("SELECT b FROM " + table + " WHERE d IN (0, 1, 5, 9)", "VALUES 1, 2, 3, 4");
+        assertQuery(select + " WHERE d_trunc = 0", "VALUES (0, 4, 0, 9, 1, 4)");
+
+        assertQuery("SELECT b FROM " + table + " WHERE d IN (10, 11)", "VALUES 5, 6");
+        assertQuery(select + " WHERE d_trunc = 10", "VALUES (10, 2, 10, 11, 5, 6)");
+
+        assertQuery("SELECT b FROM " + table + " WHERE d IN (120, 121, 123)", "VALUES 7, 8, 9");
+        assertQuery(select + " WHERE d_trunc = 120", "VALUES (120, 3, 120, 123, 7, 9)");
+
+        assertQuery("SELECT b FROM " + table + " WHERE d IN (-1, -5, -10)", "VALUES 10, 11, 12");
+        assertQuery(select + " WHERE d_trunc = -10", "VALUES (-10, 3, -10, -1, 10, 12)");
+
+        assertQuery("SELECT b FROM " + table + " WHERE d = -11", "VALUES 13");
+        assertQuery(select + " WHERE d_trunc = -20", "VALUES (-20, 1, -11, -11, 13, 13)");
+
+        assertQuery("SELECT b FROM " + table + " WHERE d IN (-123, -130)", "VALUES 14, 15");
+        assertQuery(select + " WHERE d_trunc = -130", "VALUES (-130, 2, -130, -123, 14, 15)");
+
+        dropTable(table);
+    }
+
+    @DataProvider
+    public Object[][] truncateNumberTypesProvider()
+    {
+        return new Object[][] {
+                {"integer"},
+                {"bigint"},
+        };
     }
 
     @Test
