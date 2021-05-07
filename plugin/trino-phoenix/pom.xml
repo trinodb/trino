@@ -101,11 +101,6 @@
             <classifier>embedded</classifier>
         </dependency>
 
-        <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
-        </dependency>
-
         <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.airlift</groupId>
