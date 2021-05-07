@@ -271,6 +271,7 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Test
+    @Override
     public void testLimitPushdown()
     {
         assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
