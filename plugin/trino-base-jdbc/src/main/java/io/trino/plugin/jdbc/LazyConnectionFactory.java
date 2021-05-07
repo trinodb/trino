@@ -18,6 +18,7 @@ import io.trino.spi.connector.ConnectorSession;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -31,7 +32,8 @@ public final class LazyConnectionFactory
 {
     private final ConnectionFactory delegate;
 
-    public LazyConnectionFactory(ConnectionFactory delegate)
+    @Inject
+    public LazyConnectionFactory(@ForLazyConnectionFactory ConnectionFactory delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }

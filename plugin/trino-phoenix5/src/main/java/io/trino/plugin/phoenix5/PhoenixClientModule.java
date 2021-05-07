@@ -26,6 +26,7 @@ import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.ForLazyConnectionFactory;
 import io.trino.plugin.jdbc.ForRecordCursor;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcDiagnosticModule;
@@ -91,6 +92,12 @@ public class PhoenixClientModule
         binder.bind(ConnectorMetadata.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).to(ClassLoaderSafeConnectorMetadata.class).in(Scopes.SINGLETON);
 
+        binder.bind(ConnectionFactory.class)
+                .annotatedWith(ForLazyConnectionFactory.class)
+                .to(Key.get(ConnectionFactory.class, StatsCollecting.class))
+                .in(Scopes.SINGLETON);
+        binder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON);
+
         bindTablePropertiesProvider(binder, PhoenixTableProperties.class);
         binder.bind(PhoenixColumnProperties.class).in(Scopes.SINGLETON);
 
@@ -123,13 +130,6 @@ public class PhoenixClientModule
                 config.getConnectionUrl(),
                 getConnectionProperties(config),
                 new EmptyCredentialProvider());
-    }
-
-    @Provides
-    @Singleton
-    public ConnectionFactory createConnectionFactory(@StatsCollecting ConnectionFactory connectionFactory)
-    {
-        return new LazyConnectionFactory(connectionFactory);
     }
 
     public static Properties getConnectionProperties(PhoenixConfig config)
