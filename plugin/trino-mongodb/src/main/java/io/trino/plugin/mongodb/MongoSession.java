@@ -210,6 +210,26 @@ public class MongoSession
         tableCache.invalidate(schemaTableName);
     }
 
+    public void dropColumn(SchemaTableName schemaTableName, String columnName)
+    {
+        String remoteSchemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
+        String remoteTableName = toRemoteTableName(remoteSchemaName, schemaTableName.getTableName());
+
+        Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
+
+        List<Document> columns = getColumnMetadata(metadata).stream()
+                .filter(document -> !document.getString(FIELDS_NAME_KEY).equals(columnName))
+                .collect(toImmutableList());
+
+        metadata.append(FIELDS_KEY, columns);
+
+        MongoDatabase database = client.getDatabase(remoteSchemaName);
+        MongoCollection<Document> schema = database.getCollection(schemaCollection);
+        schema.findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
+
+        tableCache.invalidate(schemaTableName);
+    }
+
     private MongoTable loadTableSchema(SchemaTableName schemaTableName)
             throws TableNotFoundException
     {
