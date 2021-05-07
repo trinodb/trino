@@ -1087,6 +1087,38 @@ public abstract class AbstractTestIcebergSmoke
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
     @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
+    public void testTruncateDecimalTransform()
+    {
+        assertUpdate("CREATE TABLE test_truncate_decimal_transform (d DECIMAL(9, 2), b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])");
+        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_decimal_transform$partitions\"";
+
+        assertUpdate("INSERT INTO test_truncate_decimal_transform VALUES" +
+                "(12.34, 1)," +
+                "(12.30, 2)," +
+                "(12.29, 3)," +
+                "(0.05, 4)," +
+                "(-0.05, 5)", 5);
+
+        assertQuery("SELECT d_trunc FROM \"test_truncate_decimal_transform$partitions\"", "VALUES 12.30, 12.20, 0.00, -0.10");
+
+        assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d IN (12.34, 12.30)", "VALUES 1, 2");
+        assertQuery(select + " WHERE d_trunc = 12.30", "VALUES (12.30, 2, 12.30, 12.34, 1, 2)");
+
+        assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = 12.29", "VALUES 3");
+        assertQuery(select + " WHERE d_trunc = 12.20", "VALUES (12.20, 1, 12.29, 12.29, 3, 3)");
+
+        assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = 0.05", "VALUES 4");
+        assertQuery(select + " WHERE d_trunc = 0.00", "VALUES (0.00, 1, 0.05, 0.05, 4, 4)");
+
+        assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = -0.05", "VALUES 5");
+        assertQuery(select + " WHERE d_trunc = -0.10", "VALUES (-0.10, 1, -0.05, -0.05, 5, 5)");
+
+        dropTable("test_truncate_decimal_transform");
+    }
+
+    @Test
+    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testBucketTransform()
     {
         String select = "SELECT d_bucket, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_bucket_transform$partitions\"";

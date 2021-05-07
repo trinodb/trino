@@ -25,6 +25,8 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
@@ -43,6 +45,7 @@ import org.apache.iceberg.util.StructLikeWrapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -57,6 +60,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
@@ -299,6 +303,14 @@ public class PartitionTable
         }
         if (type instanceof Types.FloatType) {
             return Float.floatToIntBits((Float) value);
+        }
+        if (type instanceof Types.DecimalType) {
+            Types.DecimalType icebergDecimalType = (Types.DecimalType) type;
+            DecimalType trinoDecimalType = DecimalType.createDecimalType(icebergDecimalType.precision(), icebergDecimalType.scale());
+            if (isShortDecimal(trinoDecimalType)) {
+                return Decimals.encodeShortScaledValue((BigDecimal) value, trinoDecimalType.getScale());
+            }
+            return Decimals.encodeScaledValue((BigDecimal) value, trinoDecimalType.getScale());
         }
         return value;
     }
