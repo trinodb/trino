@@ -260,28 +260,6 @@ public class TestStarburstRemoteWithHiveConnectorTest
     }
 
     @Test
-    @Override
-    public void testLimitPushdown()
-    {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
-
-        // with filter over numeric column
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
-
-        // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isFullyPushedDown();
-
-        // with aggregation
-        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
-        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isFullyPushedDown();
-        assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
-
-        // with filter and aggregation
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
-    }
-
-    @Test
     public void testCreateView()
     {
         // The test ensures that we do not inherit CREATE VIEW capabilities from trino-base-jdbc.
@@ -340,5 +318,14 @@ public class TestStarburstRemoteWithHiveConnectorTest
         assertThatThrownBy(super::testJoinPushdown)
                 .hasMessageMatching("This connector does not support creating tables.*");
         throw new SkipException("test requires table creation");
+    }
+
+    @Override
+    protected Session joinPushdownEnabled(Session session)
+    {
+        return Session.builder(super.joinPushdownEnabled(session))
+                // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
+                .build();
     }
 }
