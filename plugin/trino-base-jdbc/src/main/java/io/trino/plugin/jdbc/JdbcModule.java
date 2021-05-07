@@ -17,7 +17,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.plugin.base.CatalogName;
@@ -30,7 +29,6 @@ import io.trino.spi.procedure.Procedure;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Provider;
-import javax.inject.Singleton;
 
 import java.util.concurrent.ExecutorService;
 
@@ -75,19 +73,18 @@ public class JdbcModule
         binder.bind(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).to(Key.get(CachingJdbcClient.class)).in(Scopes.SINGLETON);
 
+        binder.bind(ConnectionFactory.class)
+                .annotatedWith(ForLazyConnectionFactory.class)
+                .to(Key.get(ConnectionFactory.class, StatsCollecting.class))
+                .in(Scopes.SINGLETON);
+        binder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON);
+
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
 
         newOptionalBinder(binder, Key.get(ExecutorService.class, ForRecordCursor.class))
                 .setDefault()
                 .toProvider(MoreExecutors::newDirectExecutorService)
                 .in(Scopes.SINGLETON);
-    }
-
-    @Provides
-    @Singleton
-    public ConnectionFactory createConnectionFactory(@StatsCollecting ConnectionFactory connectionFactory)
-    {
-        return new LazyConnectionFactory(connectionFactory);
     }
 
     public static Multibinder<SessionPropertiesProvider> sessionPropertiesProviderBinder(Binder binder)
