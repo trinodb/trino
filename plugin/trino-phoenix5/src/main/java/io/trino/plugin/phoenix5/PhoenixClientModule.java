@@ -19,27 +19,26 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.log.Logger;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ForClassLoaderSafe;
-import io.trino.plugin.base.util.LoggingInvocationHandler;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForRecordCursor;
-import io.trino.plugin.jdbc.ForwardingJdbcClient;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcDiagnosticModule;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcMetadataSessionProperties;
 import io.trino.plugin.jdbc.JdbcPageSinkProvider;
 import io.trino.plugin.jdbc.JdbcRecordSetProvider;
+import io.trino.plugin.jdbc.LazyConnectionFactory;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
+import io.trino.plugin.jdbc.StatsCollecting;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
-import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
-import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -59,27 +58,16 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class PhoenixClientModule
         extends AbstractConfigurationAwareModule
 {
-    private final String catalogName;
-
-    public PhoenixClientModule(String catalogName)
-    {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-    }
-
     @Override
     protected void setup(Binder binder)
     {
@@ -98,6 +86,8 @@ public class PhoenixClientModule
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAllowDropTable(true));
 
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(Key.get(PhoenixClient.class)).in(Scopes.SINGLETON);
+        binder.bind(JdbcClient.class).to(Key.get(JdbcClient.class, StatsCollecting.class)).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).to(ClassLoaderSafeConnectorMetadata.class).in(Scopes.SINGLETON);
 
@@ -108,10 +98,7 @@ public class PhoenixClientModule
 
         checkConfiguration(buildConfigObject(PhoenixConfig.class).getConnectionUrl());
 
-        newExporter(binder).export(JdbcClient.class)
-                .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName));
-        newExporter(binder).export(ConnectionFactory.class)
-                .as(generator -> generator.generatedNameOf(ConnectionFactory.class, catalogName));
+        install(new JdbcDiagnosticModule());
     }
 
     private void checkConfiguration(String connectionUrl)
@@ -127,36 +114,22 @@ public class PhoenixClientModule
 
     @Provides
     @Singleton
-    public JdbcClient createJdbcClientWithStats(PhoenixClient client)
+    @ForBaseJdbc
+    public ConnectionFactory getConnectionFactory(PhoenixConfig config)
+            throws SQLException
     {
-        StatisticsAwareJdbcClient statisticsAwareJdbcClient = new StatisticsAwareJdbcClient(client);
-
-        Logger logger = Logger.get(format("io.trino.plugin.jdbc.%s.jdbcclient", catalogName));
-
-        JdbcClient loggingInvocationsJdbcClient = newProxy(JdbcClient.class, new LoggingInvocationHandler(
-                statisticsAwareJdbcClient,
-                new LoggingInvocationHandler.ReflectiveParameterNamesProvider(),
-                logger::debug));
-
-        return ForwardingJdbcClient.of(() -> {
-            if (logger.isDebugEnabled()) {
-                return loggingInvocationsJdbcClient;
-            }
-            return statisticsAwareJdbcClient;
-        });
+        return new DriverConnectionFactory(
+                DriverManager.getDriver(config.getConnectionUrl()),
+                config.getConnectionUrl(),
+                getConnectionProperties(config),
+                new EmptyCredentialProvider());
     }
 
     @Provides
     @Singleton
-    public ConnectionFactory getConnectionFactory(PhoenixConfig config)
-            throws SQLException
+    public ConnectionFactory createConnectionFactory(@StatsCollecting ConnectionFactory connectionFactory)
     {
-        return new StatisticsAwareConnectionFactory(
-                new DriverConnectionFactory(
-                        DriverManager.getDriver(config.getConnectionUrl()),
-                        config.getConnectionUrl(),
-                        getConnectionProperties(config),
-                        new EmptyCredentialProvider()));
+        return new LazyConnectionFactory(connectionFactory);
     }
 
     public static Properties getConnectionProperties(PhoenixConfig config)

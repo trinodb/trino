@@ -17,14 +17,12 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.type.TypeManager;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -60,9 +58,7 @@ public class PhoenixConnectorFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
-                    new MBeanServerModule(),
-                    new MBeanModule(),
-                    new PhoenixClientModule(catalogName),
+                    new PhoenixClientModule(),
                     binder -> {
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                         binder.bind(ClassLoader.class).toInstance(PhoenixConnectorFactory.class.getClassLoader());
