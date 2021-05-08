@@ -6,9 +6,9 @@ ObjectID() Function
 
 ObjectID()
 ----------------
-The ``ObjectID`` function can be used to create unique identifiers for any value in a database.
+The ``ObjectID`` function can be used to create unique identifiers for any document in a database. In MongoDB, any document that is created is assigned an ObjectID.
 
-Each ObjectID is generated randomly with the use of an algorithm to ensure the ObjectID's uniqueness. ObjectID values are 12-bytes in length and contain the following parameters in order:
+Each ObjectID is generated randomly with the use of an algorithm to ensure the ObjectID's uniqueness. ObjectID values are 12-bytes or 24 characters in length and contain the following parameters in order:
 
 1. **4 bytes:** Representing the timestamp value of the ObjectID's creation in seconds
 2. **5 bytes:** Representing a random value
