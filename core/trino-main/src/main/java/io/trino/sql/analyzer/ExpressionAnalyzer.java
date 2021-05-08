@@ -51,6 +51,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.analyzer.Analysis.PredicateCoercions;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
@@ -123,6 +124,7 @@ import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.type.FunctionType;
 import io.trino.type.TypeCoercion;
+import io.trino.type.UnknownType;
 
 import javax.annotation.Nullable;
 
@@ -251,6 +253,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Expression>, ResolvedFunction> frameBoundCalculations = new LinkedHashMap<>();
 
     private final Set<NodeRef<InPredicate>> subqueryInPredicates = new LinkedHashSet<>();
+    private final Map<NodeRef<Expression>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
     private final Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons = new LinkedHashSet<>();
@@ -360,6 +363,11 @@ public class ExpressionAnalyzer
     public Set<NodeRef<InPredicate>> getSubqueryInPredicates()
     {
         return unmodifiableSet(subqueryInPredicates);
+    }
+
+    public Map<NodeRef<Expression>, PredicateCoercions> getPredicateCoercions()
+    {
+        return unmodifiableMap(predicateCoercions);
     }
 
     public Map<NodeRef<Expression>, ResolvedField> getColumnReferences()
@@ -1821,7 +1829,7 @@ public class ExpressionAnalyzer
         protected Type visitInPredicate(InPredicate node, StackableAstVisitorContext<Context> context)
         {
             Expression value = node.getValue();
-            process(value, context);
+            Type declaredValueType = process(value, context);
 
             Expression valueList = node.getValueList();
             if (valueList instanceof InListExpression) {
@@ -1834,8 +1842,7 @@ public class ExpressionAnalyzer
             }
             else if (valueList instanceof SubqueryExpression) {
                 subqueryInPredicates.add(NodeRef.of(node));
-                analyzeSubquery((SubqueryExpression) valueList, context);
-                coerceToSingleType(context, node, "value and result of subquery must be of the same type for IN expression: %s vs %s", value, valueList);
+                analyzePredicateWithSubquery(node, declaredValueType, (SubqueryExpression) valueList, context);
             }
             else {
                 throw new IllegalArgumentException("Unexpected value list type for InPredicate: " + node.getValueList().getClass().getName());
@@ -1856,46 +1863,50 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSubqueryExpression(SubqueryExpression node, StackableAstVisitorContext<Context> context)
         {
-            Type type = analyzeScalarSubquery(node, context);
+            Type type = analyzeSubquery(node, context);
+
+            // the implied type of a scalar subquery is that of the unique field in the single-column row
+            if (type instanceof RowType && ((RowType) type).getFields().size() == 1) {
+                type = type.getTypeParameters().get(0);
+            }
+
+            setExpressionType(node, type);
             subqueries.add(NodeRef.of(node));
             return type;
         }
 
-        private Type analyzeScalarSubquery(SubqueryExpression node, StackableAstVisitorContext<Context> context)
+        /**
+         * @return the common supertype between the value type and subquery type
+         */
+        private Type analyzePredicateWithSubquery(Expression node, Type declaredValueType, SubqueryExpression subquery, StackableAstVisitorContext<Context> context)
         {
-            if (context.getContext().isInLambda()) {
-                throw semanticException(NOT_SUPPORTED, node, "Lambda expression cannot contain subqueries");
-            }
-            StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
-            Scope subqueryScope = Scope.builder()
-                    .withParent(context.getContext().getScope())
-                    .build();
-            Scope queryScope = analyzer.analyze(node.getQuery(), subqueryScope);
-
-            Type type;
-            if (queryScope.getRelationType().getVisibleFieldCount() == 1) {
-                type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
-            }
-            else {
-                ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
-                for (int i = 0; i < queryScope.getRelationType().getAllFieldCount(); i++) {
-                    Field field = queryScope.getRelationType().getFieldByIndex(i);
-                    if (!field.isHidden()) {
-                        if (field.getName().isPresent()) {
-                            fields.add(RowType.field(field.getName().get(), field.getType()));
-                        }
-                        else {
-                            fields.add(RowType.field(field.getType()));
-                        }
-                    }
-                }
-
-                type = RowType.from(fields.build());
+            Type valueRowType = declaredValueType;
+            if (!(declaredValueType instanceof RowType) && !(declaredValueType instanceof UnknownType)) {
+                valueRowType = RowType.anonymous(ImmutableList.of(declaredValueType));
             }
 
-            sourceFields.addAll(queryScope.getRelationType().getVisibleFields());
-            setExpressionType(node, type);
-            return type;
+            Type subqueryType = analyzeSubquery(subquery, context);
+            setExpressionType(subquery, subqueryType);
+
+            Optional<Type> commonType = typeCoercion.getCommonSuperType(valueRowType, subqueryType);
+
+            if (commonType.isEmpty()) {
+                throw semanticException(TYPE_MISMATCH, node, "Value expression and result of subquery must be of the same type: %s vs %s", valueRowType, subqueryType);
+            }
+
+            Optional<Type> valueCoercion = Optional.empty();
+            if (!valueRowType.equals(commonType.get())) {
+                valueCoercion = commonType;
+            }
+
+            Optional<Type> subQueryCoercion = Optional.empty();
+            if (!subqueryType.equals(commonType.get())) {
+                subQueryCoercion = commonType;
+            }
+
+            predicateCoercions.put(NodeRef.of(node), new PredicateCoercions(valueRowType, valueCoercion, subQueryCoercion));
+
+            return commonType.get();
         }
 
         private Type analyzeSubquery(SubqueryExpression node, StackableAstVisitorContext<Context> context)
@@ -1909,19 +1920,21 @@ public class ExpressionAnalyzer
                     .build();
             Scope queryScope = analyzer.analyze(node.getQuery(), subqueryScope);
 
-            // Subquery should only produce one column
-            if (queryScope.getRelationType().getVisibleFieldCount() != 1) {
-                throw semanticException(NOT_SUPPORTED,
-                        node,
-                        "Multiple columns returned by subquery are not yet supported. Found %s",
-                        queryScope.getRelationType().getVisibleFieldCount());
+            ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
+            for (int i = 0; i < queryScope.getRelationType().getAllFieldCount(); i++) {
+                Field field = queryScope.getRelationType().getFieldByIndex(i);
+                if (!field.isHidden()) {
+                    if (field.getName().isPresent()) {
+                        fields.add(RowType.field(field.getName().get(), field.getType()));
+                    }
+                    else {
+                        fields.add(RowType.field(field.getType()));
+                    }
+                }
             }
 
-            sourceFields.add(queryScope.getRelationType().getFieldByIndex(0));
-
-            Type type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
-            setExpressionType(node, type);
-            return type;
+            sourceFields.addAll(queryScope.getRelationType().getVisibleFields());
+            return RowType.from(fields.build());
         }
 
         @Override
@@ -1957,13 +1970,8 @@ public class ExpressionAnalyzer
         {
             quantifiedComparisons.add(NodeRef.of(node));
 
-            Expression value = node.getValue();
-            process(value, context);
-
-            Expression subquery = node.getSubquery();
-            analyzeSubquery((SubqueryExpression) subquery, context);
-
-            Type comparisonType = coerceToSingleType(context, node, "Value expression and result of subquery must be of the same type for quantified comparison: %s vs %s", value, subquery);
+            Type declaredValueType = process(node.getValue(), context);
+            Type comparisonType = analyzePredicateWithSubquery(node, declaredValueType, (SubqueryExpression) node.getSubquery(), context);
 
             switch (node.getOperator()) {
                 case LESS_THAN:
@@ -2459,6 +2467,7 @@ public class ExpressionAnalyzer
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());
         analysis.addLabelDereferences(analyzer.getLabelDereferences());
         analysis.addPatternRecognitionFunctions(analyzer.getPatternRecognitionFunctions());
+        analysis.addPredicateCoercions(analyzer.getPredicateCoercions());
     }
 
     public static ExpressionAnalyzer create(
