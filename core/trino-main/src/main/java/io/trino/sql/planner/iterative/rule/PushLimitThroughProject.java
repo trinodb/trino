@@ -19,6 +19,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.LimitNode;
@@ -30,11 +31,12 @@ import java.util.Set;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.iterative.rule.DereferencePushdown.exclusiveDereferences;
-import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractDereferences;
+import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractRowSubscripts;
 import static io.trino.sql.planner.iterative.rule.Util.transpose;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
+import static java.util.Objects.requireNonNull;
 
 public class PushLimitThroughProject
         implements Rule<LimitNode>
@@ -47,6 +49,13 @@ public class PushLimitThroughProject
                             // do not push limit through identity projection which could be there for column pruning purposes
                             .matching(projectNode -> !projectNode.isIdentity())
                             .capturedAs(CHILD)));
+
+    private final TypeAnalyzer typeAnalyzer;
+
+    public PushLimitThroughProject(TypeAnalyzer typeAnalyzer)
+    {
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+    }
 
     @Override
     public Pattern<LimitNode> getPattern()
@@ -63,7 +72,8 @@ public class PushLimitThroughProject
         // undoing of PushDownDereferencesThroughLimit. We still push limit in the case of overlapping dereferences since
         // it enables PushDownDereferencesThroughLimit rule to push optimal dereferences.
         Set<Expression> projections = ImmutableSet.copyOf(projectNode.getAssignments().getExpressions());
-        if (!extractDereferences(projections, false).isEmpty() && exclusiveDereferences(projections)) {
+        if (!extractRowSubscripts(projections, false, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes()).isEmpty()
+                && exclusiveDereferences(projections, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes())) {
             return Result.empty();
         }
 

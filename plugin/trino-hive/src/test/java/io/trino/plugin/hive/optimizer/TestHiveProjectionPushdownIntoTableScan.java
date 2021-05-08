@@ -128,7 +128,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 session,
                 any(
                         project(
-                                ImmutableMap.of("expr", expression("col0.a"), "expr_2", expression("col0.b")),
+                                ImmutableMap.of("expr", expression("col0[1]"), "expr_2", expression("col0[2]")),
                                 tableScan(testTable, ImmutableMap.of("col0", "col0")))));
     }
 
@@ -205,9 +205,9 @@ public class TestHiveProjectionPushdownIntoTableScan
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "expr_0_x", expression("expr_0.x"),
+                                        "expr_0_x", expression("expr_0[1]"),
                                         "expr_0", expression("expr_0"),
-                                        "expr_0_y", expression("expr_0.y")),
+                                        "expr_0_y", expression("expr_0[2]")),
                                 join(
                                         INNER,
                                         ImmutableList.of(equiJoinClause("t_expr_1", "s_expr_1")),

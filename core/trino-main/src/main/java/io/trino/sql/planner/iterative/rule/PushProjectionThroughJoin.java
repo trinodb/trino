@@ -15,10 +15,13 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
@@ -44,7 +47,14 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
  */
 public final class PushProjectionThroughJoin
 {
-    public static Optional<PlanNode> pushProjectionThroughJoin(Metadata metadata, ProjectNode projectNode, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator)
+    public static Optional<PlanNode> pushProjectionThroughJoin(
+            Metadata metadata,
+            ProjectNode projectNode,
+            Lookup lookup,
+            PlanNodeIdAllocator planNodeIdAllocator,
+            Session session,
+            TypeAnalyzer typeAnalyzer,
+            TypeProvider types)
     {
         if (!projectNode.getAssignments().getExpressions().stream().allMatch(expression -> isDeterministic(expression, metadata))) {
             return Optional.empty();
@@ -108,10 +118,16 @@ public final class PushProjectionThroughJoin
                 joinNode.getType(),
                 inlineProjections(
                         new ProjectNode(planNodeIdAllocator.getNextId(), leftChild, leftAssignments),
-                        lookup),
+                        lookup,
+                        session,
+                        typeAnalyzer,
+                        types),
                 inlineProjections(
                         new ProjectNode(planNodeIdAllocator.getNextId(), rightChild, rightAssignments),
-                        lookup),
+                        lookup,
+                        session,
+                        typeAnalyzer,
+                        types),
                 joinNode.getCriteria(),
                 leftOutputSymbols,
                 rightOutputSymbols,
@@ -125,7 +141,7 @@ public final class PushProjectionThroughJoin
                 joinNode.getReorderJoinStatsAndCost()));
     }
 
-    private static PlanNode inlineProjections(ProjectNode parentProjection, Lookup lookup)
+    private static PlanNode inlineProjections(ProjectNode parentProjection, Lookup lookup, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         PlanNode child = lookup.resolve(parentProjection.getSource());
         if (!(child instanceof ProjectNode)) {
@@ -133,8 +149,8 @@ public final class PushProjectionThroughJoin
         }
         ProjectNode childProjection = (ProjectNode) child;
 
-        return InlineProjections.inlineProjections(parentProjection, childProjection)
-                .map(node -> inlineProjections(node, lookup))
+        return InlineProjections.inlineProjections(parentProjection, childProjection, session, typeAnalyzer, types)
+                .map(node -> inlineProjections(node, lookup, session, typeAnalyzer, types))
                 .orElse(parentProjection);
     }
 
