@@ -30,7 +30,7 @@ You can assign an ObjectID to a variable by setting an argument to ``ObjectID``.
 
 Accessing an ObjectID
 --------------------
-You can access the ObjectID of a variable by converting the ObjectID into the string data type. The following code sample converts the ObjectID value as a string::
+You can access the ObjectID of a variable by converting the ObjectID into the string data type. The following code sample converts the ObjectID value to a string::
 
     ObjectID("60957e49e39ea7b4b103c181").str
     # returns the hexadecimal "60957e49e39ea7b4b103c181" in string format.
