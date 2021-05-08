@@ -162,6 +162,7 @@ public class Analysis
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
     private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, SubqueryAnalysis> subqueries = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
 
     private final Map<NodeRef<Table>, TableEntry> tables = new LinkedHashMap<>();
 
@@ -1047,6 +1048,16 @@ public class Analysis
         return implicitFromScopes.get(NodeRef.of(node));
     }
 
+    public void addPredicateCoercions(Map<NodeRef<Expression>, PredicateCoercions> coercions)
+    {
+        predicateCoercions.putAll(coercions);
+    }
+
+    public PredicateCoercions getPredicateCoercions(Expression expression)
+    {
+        return predicateCoercions.get(NodeRef.of(expression));
+    }
+
     @Immutable
     public static final class SelectExpression
     {
@@ -1359,6 +1370,38 @@ public class Analysis
         public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries()
         {
             return Collections.unmodifiableList(quantifiedComparisonSubqueries);
+        }
+    }
+
+    /**
+     * Analysis for predicates such as <code>x IN (subquery)</code> or <code>x = SOME (subquery)</code>
+     */
+    public static class PredicateCoercions
+    {
+        private final Type valueType;
+        private final Optional<Type> valueCoercion;
+        private final Optional<Type> subqueryCoercion;
+
+        public PredicateCoercions(Type valueType, Optional<Type> valueCoercion, Optional<Type> subqueryCoercion)
+        {
+            this.valueType = requireNonNull(valueType, "valueType is null");
+            this.valueCoercion = requireNonNull(valueCoercion, "valueCoercion is null");
+            this.subqueryCoercion = requireNonNull(subqueryCoercion, "subqueryCoercion is null");
+        }
+
+        public Type getValueType()
+        {
+            return valueType;
+        }
+
+        public Optional<Type> getValueCoercion()
+        {
+            return valueCoercion;
+        }
+
+        public Optional<Type> getSubqueryCoercion()
+        {
+            return subqueryCoercion;
         }
     }
 
