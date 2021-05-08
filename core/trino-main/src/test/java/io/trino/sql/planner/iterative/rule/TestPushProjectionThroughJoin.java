@@ -15,10 +15,13 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
@@ -87,10 +90,11 @@ public class TestPushProjectionThroughJoin
                         p.values(b0, b1),
                         new JoinNode.EquiJoinClause(a1, b1)));
 
-        Optional<PlanNode> rewritten = pushProjectionThroughJoin(metadata, planNode, noLookup(), idAllocator);
+        Session session = testSessionBuilder().build();
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(metadata, planNode, noLookup(), idAllocator, session, new TypeAnalyzer(new SqlParser(), metadata), p.getTypes());
         assertTrue(rewritten.isPresent());
         assertPlan(
-                testSessionBuilder().build(),
+                session,
                 dummyMetadata(),
                 node -> unknown(),
                 new Plan(rewritten.get(), p.getTypes(), empty()), noLookup(),
@@ -126,7 +130,7 @@ public class TestPushProjectionThroughJoin
                         INNER,
                         p.values(a),
                         p.values(b)));
-        Optional<PlanNode> rewritten = pushProjectionThroughJoin(metadata, planNode, noLookup(), new PlanNodeIdAllocator());
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(metadata, planNode, noLookup(), new PlanNodeIdAllocator(), testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), metadata), p.getTypes());
         assertThat(rewritten).isEmpty();
     }
 
@@ -145,7 +149,7 @@ public class TestPushProjectionThroughJoin
                         LEFT,
                         p.values(a),
                         p.values(b)));
-        Optional<PlanNode> rewritten = pushProjectionThroughJoin(metadata, planNode, noLookup(), new PlanNodeIdAllocator());
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(metadata, planNode, noLookup(), new PlanNodeIdAllocator(), testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), metadata), p.getTypes());
         assertThat(rewritten).isEmpty();
     }
 }
