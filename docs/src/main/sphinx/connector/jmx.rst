@@ -27,7 +27,7 @@ To enable periodical dumps, define the following properties:
 .. code-block:: text
 
     connector.name=jmx
-    jmx.dump-tables=java.lang:type=Runtime,trino.execution.scheduler:name=NodeScheduler
+    jmx.dump-tables=java.lang:type=Runtime\\,trino.execution.scheduler:name=NodeScheduler
     jmx.dump-period=10s
     jmx.max-entries=86400
 
@@ -41,8 +41,7 @@ Commas in MBean names should be escaped in the following manner:
 .. code-block:: text
 
     connector.name=jmx
-    jmx.dump-tables=trino.memory:name=general\\,type=memorypool,\
-       trino.memory:name=reserved\\,type=memorypool
+    jmx.dump-tables=trino.memory:name=general\\,type=memorypool\\,trino.memory:name=reserved\\,type=memorypool
 
 Querying JMX
 ------------
