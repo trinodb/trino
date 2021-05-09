@@ -313,7 +313,7 @@ O
 -
 
 - :func:`objectid() <objectid>`
-- :ref:`objectid_timestamp() <objectid_timestamp>`
+- :func:`objectid_timestamp() <objectid_timestamp>`
 - :ref:`OR <logical_operators>`
 
 P
