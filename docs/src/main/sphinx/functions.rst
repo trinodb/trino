@@ -43,4 +43,5 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     System              <functions/system>
     Teradata            <functions/teradata>
     Machine learning    <functions/ml>
+    ObjectID            <functions/objectid>
     functions/list
