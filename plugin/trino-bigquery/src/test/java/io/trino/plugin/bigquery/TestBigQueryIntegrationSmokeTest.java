@@ -244,6 +244,21 @@ public class TestBigQueryIntegrationSmokeTest
         assertEquals((long) actualValues.getOnlyValue(), 1L);
     }
 
+    @Test(description = "regression test for https://github.com/trinodb/trino/issues/7784")
+    public void testSelectWithSingleQuoteInWhereClause()
+    {
+        String tableName = "test.select_with_single_quote";
+
+        onBigQuery("DROP TABLE IF EXISTS " + tableName);
+        onBigQuery("CREATE TABLE " + tableName + "(col INT64, val STRING)");
+        onBigQuery("INSERT INTO " + tableName + " VALUES (1,'escape\\'single quote')");
+
+        MaterializedResult actualValues = computeActual("SELECT val FROM " + tableName + " WHERE val = 'escape''single quote'");
+
+        assertEquals(actualValues.getRowCount(), 1);
+        assertEquals(actualValues.getOnlyValue(), "escape'single quote");
+    }
+
     @Test(description = "regression test for https://github.com/trinodb/trino/issues/5618")
     public void testPredicatePushdownPrunnedColumns()
     {
