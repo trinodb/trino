@@ -1,10 +1,10 @@
 ===============================
-ObjectID() Function
+ObjectID Function
 ===============================
 
 .. _objectid:
 
-ObjectID()
+ObjectID
 ----------------
 The ``ObjectID`` function can be used to create unique identifiers for any document in a database. In MongoDB, any document that is created is assigned an ObjectID.
 
