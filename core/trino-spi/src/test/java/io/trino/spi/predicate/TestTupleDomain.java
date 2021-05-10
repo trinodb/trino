@@ -650,7 +650,7 @@ public class TestTupleDomain
 
         assertThatThrownBy(() -> domain.transform(input -> "x"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Every argument must have a unique mapping. 2 maps to [ SortedRangeSet[type=bigint, ranges=1, {[2,2]}] ] and [ SortedRangeSet[type=bigint, ranges=1, {[1,1]}] ]");
+                .hasMessage("Every argument must have a unique mapping. 2 maps to [ SortedRangeSet[type=bigint, ranges=1, {[2]}] ] and [ SortedRangeSet[type=bigint, ranges=1, {[1]}] ]");
     }
 
     private boolean overlaps(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2)
