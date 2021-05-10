@@ -313,6 +313,15 @@ public final class Domain
 
     public String toString(ConnectorSession session)
     {
+        if (isAll()) {
+            return "ALL";
+        }
+        if (isNone()) {
+            return "NONE";
+        }
+        if (isOnlyNull()) {
+            return "[NULL]";
+        }
         return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session) + " ]";
     }
 
