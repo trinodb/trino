@@ -304,10 +304,16 @@ public class EquatableValueSet
     @Override
     public String toString(ConnectorSession session)
     {
+        return toString(session, 10);
+    }
+
+    @Override
+    public String toString(ConnectorSession session, int limit)
+    {
         return new StringJoiner(", ", EquatableValueSet.class.getSimpleName() + "[", "]")
                 .add("type=" + type)
                 .add("values=" + getValuesCount())
-                .add(formatValues(session, 10))
+                .add(formatValues(session, limit))
                 .toString();
     }
 

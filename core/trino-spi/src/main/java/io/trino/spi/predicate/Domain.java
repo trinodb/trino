@@ -313,6 +313,11 @@ public final class Domain
 
     public String toString(ConnectorSession session)
     {
+        return toString(session, 10);
+    }
+
+    public String toString(ConnectorSession session, int limit)
+    {
         if (isAll()) {
             return "ALL";
         }
@@ -322,7 +327,7 @@ public final class Domain
         if (isOnlyNull()) {
             return "[NULL]";
         }
-        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session) + " ]";
+        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session, limit) + " ]";
     }
 
     static class DiscreteSet

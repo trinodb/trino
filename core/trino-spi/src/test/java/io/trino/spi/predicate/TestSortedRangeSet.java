@@ -128,6 +128,12 @@ public class TestSortedRangeSet
         assertFalse(rangeSet.containsValue(7L));
         assertTrue(rangeSet.containsValue(9L));
         assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=3, {[0], [2,5], [9,11)}]");
+        assertEquals(
+                rangeSet.toString(ToStringSession.INSTANCE, 2),
+                "SortedRangeSet[type=bigint, ranges=3, {[0], ..., [9,11)}]");
+        assertEquals(
+                rangeSet.toString(ToStringSession.INSTANCE, 1),
+                "SortedRangeSet[type=bigint, ranges=3, {[0], ...}]");
     }
 
     @Test
