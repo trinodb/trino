@@ -833,10 +833,16 @@ public final class SortedRangeSet
     @Override
     public String toString(ConnectorSession session)
     {
+        return toString(session, 10);
+    }
+
+    @Override
+    public String toString(ConnectorSession session, int limit)
+    {
         return new StringJoiner(", ", SortedRangeSet.class.getSimpleName() + "[", "]")
                 .add("type=" + type)
                 .add("ranges=" + getRangeCount())
-                .add(formatRanges(session, 10))
+                .add(formatRanges(session, limit))
                 .toString();
     }
 

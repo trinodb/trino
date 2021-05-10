@@ -122,6 +122,9 @@ public class TestEquatableValueSet
         assertTrue(equatables.containsValue(3L));
         assertFalse(equatables.containsValue(4L));
         assertEquals(equatables.toString(), "EquatableValueSet[type=id, values=3, {1, 2, 3}]");
+        assertEquals(
+                equatables.toString(ToStringSession.INSTANCE, 2),
+                "EquatableValueSet[type=id, values=3, {1, 2, ...}]");
 
         // exclusive
         assertEquals(complement.getType(), ID);
@@ -137,6 +140,9 @@ public class TestEquatableValueSet
         assertFalse(complement.containsValue(3L));
         assertTrue(complement.containsValue(4L));
         assertEquals(complement.toString(), "EquatableValueSet[type=id, values=3, EXCLUDES{1, 2, 3}]");
+        assertEquals(
+                complement.toString(ToStringSession.INSTANCE, 2),
+                "EquatableValueSet[type=id, values=3, EXCLUDES{1, 2, ...}]");
     }
 
     @Test
