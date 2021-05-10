@@ -164,6 +164,12 @@ public class AllOrNoneValueSet
     }
 
     @Override
+    public String toString(ConnectorSession session, int limit)
+    {
+        return toString();
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(type, all);
