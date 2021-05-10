@@ -7,14 +7,26 @@ external `PostgreSQL <https://www.postgresql.org/>`_ database. This can be used 
 different systems like PostgreSQL and Hive, or between different
 PostgreSQL instances.
 
+Requirements
+------------
+
+Requirements for using the connector in a catalog to connect to a PostgreSQL
+data source are:
+
+* PostgreSQL 9.6 or higher
+* Network access, by default on port 5432, from the Trino coordinator and
+  workers to PostgreSQL.
+
 Configuration
 -------------
 
-To configure the PostgreSQL connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``postgresql.properties``, to
-mount the PostgreSQL connector as the ``postgresql`` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+The connector can query a database on a PostgreSQL server. Create a catalog
+properties file that specifies the PostgreSQL connector by setting the
+``connector.name`` to ``postgresql``.
+
+For example, to access a database as the ``postgresqlsdb`` catalog, create the
+file ``etc/catalog/postgresqlsdb.properties``. Replace the connection properties
+as appropriate for your setup:
 
 .. code-block:: text
 
@@ -22,6 +34,18 @@ connection properties as appropriate for your setup:
     connection-url=jdbc:postgresql://example.net:5432/database
     connection-user=root
     connection-password=secret
+
+The ``connection-url`` defines the connection information and parameters to pass
+to the PostgreSQL JDBC driver. The parameters for the URL are available in the
+`PostgreSQL JDBC driver documentation
+<https://jdbc.postgresql.org/documentation/head/connect.html>`_. Some parameters
+can have adverse effects on the connector behavior or not work with the
+connector.
+
+The ``connection-user`` and ``connection-password`` are typically required and
+determine the user credentials for the connection, often a service user. You can
+use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
+properties files.
 
 Multiple PostgreSQL databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
