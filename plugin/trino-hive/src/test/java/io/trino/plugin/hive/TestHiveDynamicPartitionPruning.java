@@ -31,7 +31,6 @@ import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -45,7 +44,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.tpch.TpchTable.getTables;
+import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -113,8 +114,6 @@ public class TestHiveDynamicPartitionPruning
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 0);
         assertTrue(domainStats.getCollectionDuration().isPresent());
     }
 
@@ -138,8 +137,6 @@ public class TestHiveDynamicPartitionPruning
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     @Test(timeOut = 30_000)
@@ -160,11 +157,8 @@ public class TestHiveDynamicPartitionPruning
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
-                range(BIGINT, 1L, true, 100L, true)), false)
-                .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 100);
+        assertThat(domainStats.getSimplifiedDomain())
+                .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
     }
 
     @Test(timeOut = 30_000)
@@ -190,8 +184,6 @@ public class TestHiveDynamicPartitionPruning
                 Domain.create(
                         ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
                         .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     @Test(timeOut = 30_000)
@@ -216,11 +208,10 @@ public class TestHiveDynamicPartitionPruning
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 2);
 
         List<DynamicFilterDomainStats> domainStats = dynamicFiltersStats.getDynamicFilterDomainStats();
-        assertEquals(domainStats.size(), 2);
-        domainStats.forEach(stats -> {
-            assertGreaterThanOrEqual(stats.getRangeCount(), 1);
-            assertEquals(stats.getDiscreteValuesCount(), 0);
-        });
+        assertThat(domainStats).map(DynamicFilterDomainStats::getSimplifiedDomain)
+                .containsExactlyInAnyOrder(
+                        getSimplifiedDomainString(2L, 3L, 2, BIGINT),
+                        getSimplifiedDomainString(2L, 2L, 1, BIGINT));
     }
 
     @Test(timeOut = 30_000)
@@ -245,8 +236,6 @@ public class TestHiveDynamicPartitionPruning
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     @Test(timeOut = 30_000)
@@ -268,8 +257,6 @@ public class TestHiveDynamicPartitionPruning
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 0);
     }
 
     @Test(timeOut = 30_000)
@@ -291,8 +278,6 @@ public class TestHiveDynamicPartitionPruning
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     @Test(timeOut = 30_000)
@@ -313,11 +298,8 @@ public class TestHiveDynamicPartitionPruning
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
-                range(BIGINT, 1L, true, 100L, true)), false)
-                .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 100);
+        assertThat(domainStats.getSimplifiedDomain())
+                .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
     }
 
     @Test(timeOut = 30_000)
@@ -343,8 +325,6 @@ public class TestHiveDynamicPartitionPruning
                 Domain.create(
                         ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
                         .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     @Test(timeOut = 30_000)
@@ -366,8 +346,6 @@ public class TestHiveDynamicPartitionPruning
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 0);
     }
 
     @Test(timeOut = 30_000)
@@ -389,8 +367,6 @@ public class TestHiveDynamicPartitionPruning
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     @Test(timeOut = 30_000)
@@ -411,11 +387,8 @@ public class TestHiveDynamicPartitionPruning
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
-                range(BIGINT, 1L, true, 100L, true)), false)
-                .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 100);
+        assertThat(domainStats.getSimplifiedDomain())
+                .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
     }
 
     private DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)
