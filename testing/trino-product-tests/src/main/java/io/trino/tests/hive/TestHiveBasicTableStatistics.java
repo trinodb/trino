@@ -14,12 +14,13 @@
 package io.trino.tests.hive;
 
 import com.google.common.primitives.Longs;
-import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requires;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
+import org.testng.SkipException;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -28,8 +29,6 @@ import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.tests.TestGroups.SKIP_ON_CDH;
-import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.hive.util.TableLocationUtils.getTableLocation;
 import static io.trino.tests.utils.QueryExecutors.onHive;
 import static io.trino.tests.utils.QueryExecutors.onTrino;
@@ -39,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Requires(ImmutableNationTable.class)
 public class TestHiveBasicTableStatistics
-        extends ProductTest
+        extends HiveProductTest
 {
     @Test
     public void testCreateUnpartitioned()
@@ -176,15 +175,20 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore automatically gathers raw data size statistics on its own */)
-    public void testAnalyzePartitioned()
+    @Test(groups = SKIP_ON_CDH, // CDH 5 metastore automatically gathers raw data size statistics on its own
+            dataProvider = "transactionalNonTransactionalProvider")
+    public void testAnalyzePartitioned(boolean transactional)
     {
+        if (transactional) {
+            ensureTransactionalHive();
+        }
         String tableName = "test_basic_statistics_analyze_partitioned";
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         onTrino().executeQuery(format("" +
                 "CREATE TABLE %s " +
                 "WITH ( " +
+                "   transactional = %s, " +
                 "   partitioned_by = ARRAY['n_regionkey'], " +
                 "   bucketed_by = ARRAY['n_nationkey'], " +
                 "   bucket_count = 10 " +
@@ -192,7 +196,7 @@ public class TestHiveBasicTableStatistics
                 "AS " +
                 "SELECT n_nationkey, n_name, n_comment, n_regionkey " +
                 "FROM nation " +
-                "WHERE n_regionkey = 1", tableName));
+                "WHERE n_regionkey = 1", tableName, transactional));
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
@@ -220,18 +224,22 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test
-    public void testAnalyzeUnpartitioned()
+    @Test(dataProvider = "transactionalNonTransactionalProvider")
+    public void testAnalyzeUnpartitioned(boolean transactional)
     {
+        if (transactional) {
+            ensureTransactionalHive();
+        }
         String tableName = "test_basic_statistics_analyze_unpartitioned";
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         onTrino().executeQuery(format("" +
                 "CREATE TABLE %s " +
+                "WITH (transactional = %s) " +
                 "AS " +
                 "SELECT n_nationkey, n_name, n_comment, n_regionkey " +
                 "FROM nation " +
-                "WHERE n_regionkey = 1", tableName));
+                "WHERE n_regionkey = 1", tableName, transactional));
 
         try {
             BasicStatistics tableStatisticsBefore = getBasicStatisticsForTable(onHive(), tableName);
@@ -251,6 +259,15 @@ public class TestHiveBasicTableStatistics
         finally {
             onTrino().executeQuery(format("DROP TABLE %s", tableName));
         }
+    }
+
+    @DataProvider
+    public Object[][] transactionalNonTransactionalProvider()
+    {
+        return new Object[][] {
+                {false},
+                {true},
+        };
     }
 
     @Test
@@ -517,6 +534,13 @@ public class TestHiveBasicTableStatistics
         public OptionalLong getTotalSize()
         {
             return totalSize;
+        }
+    }
+
+    private void ensureTransactionalHive()
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
         }
     }
 }

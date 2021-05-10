@@ -19,6 +19,7 @@ import io.trino.plugin.base.util.LoggingInvocationHandler;
 import io.trino.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
 import io.trino.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
 import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.plugin.hive.acid.AcidTransaction;
 import org.apache.hadoop.hive.common.ValidTxnList;
 import org.apache.hadoop.hive.metastore.api.AbortTxnRequest;
 import org.apache.hadoop.hive.metastore.api.AddDynamicPartitions;
@@ -58,6 +59,7 @@ import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
+import org.apache.hadoop.hive.metastore.api.SetPartitionsStatsRequest;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
@@ -73,6 +75,7 @@ import java.util.Map;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static java.lang.String.format;
@@ -220,12 +223,29 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
+    public void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics, AcidTransaction transaction)
             throws TException
     {
         ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(true, databaseName, tableName);
-        ColumnStatistics request = new ColumnStatistics(statisticsDescription, statistics);
-        client.update_table_column_statistics(request);
+        ColumnStatistics columnStatistics = new ColumnStatistics(statisticsDescription, statistics);
+        if (transaction.isTransactional()) {
+            verify(transaction.isAnalyze(), "Stats collection for transactional tables is currently supported with ANALYZE only");
+            SetPartitionsStatsRequest request = new SetPartitionsStatsRequest();
+            request.setColStats(ImmutableList.of(columnStatistics));
+            request.setNeedMerge(false);
+            request.setWriteId(transaction.getWriteId());
+            // Valid writeIds are fetched here rather than at the start of the transaction.
+            // I believe the reason we can't fetch at the start of the transaction is that
+            // Hive metastore insists that the table or partition be locked for exclusive access,
+            // and that only happens when the transaction is being committed.  Moreover, fetching
+            // at this point matches Hive behavior - - Hive always fetches valid writeIds for each
+            // table or partition updated leading up to committing the transaction.
+            request.setValidWriteIdList(getTableWriteIds(databaseName, tableName, transaction.getAcidTransactionId()));
+            client.update_table_column_statistics_req(request);
+        }
+        else {
+            client.update_table_column_statistics(columnStatistics);
+        }
     }
 
     @Override
@@ -244,13 +264,30 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
+    public void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics, AcidTransaction transaction)
             throws TException
     {
         ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(false, databaseName, tableName);
+        ColumnStatistics columnStatistics = new ColumnStatistics(statisticsDescription, statistics);
         statisticsDescription.setPartName(partitionName);
-        ColumnStatistics request = new ColumnStatistics(statisticsDescription, statistics);
-        client.update_partition_column_statistics(request);
+        if (transaction.isTransactional()) {
+            verify(transaction.isAnalyze(), "Stats collection for transactional tables is currently supported with ANALYZE only");
+            SetPartitionsStatsRequest request = new SetPartitionsStatsRequest();
+            request.setColStats(ImmutableList.of(columnStatistics));
+            request.setNeedMerge(false);
+            request.setWriteId(transaction.getWriteId());
+            // Valid writeIds are fetched here rather than at the start of the transaction.
+            // I believe the reason we can't fetch at the start of the transaction is that
+            // Hive metastore insists that the table or partition be locked for exclusive access,
+            // and that only happens when the transaction is being committed.  Moreover, fetching
+            // at this point matches Hive behavior - - Hive always fetches valid writeIds for each
+            // table or partition updated leading up to committing the transaction.
+            request.setValidWriteIdList(getTableWriteIds(databaseName, tableName, transaction.getAcidTransactionId()));
+            client.update_partition_column_statistics_req(request);
+        }
+        else {
+            client.update_partition_column_statistics(columnStatistics);
+        }
     }
 
     @Override
@@ -577,9 +614,15 @@ public class ThriftHiveMetastoreClient
         table.setWriteId(writeId);
         checkArgument(writeId >= table.getWriteId(), "The writeId supplied %s should be greater than or equal to the table writeId %s", writeId, table.getWriteId());
         AlterTableRequest request = new AlterTableRequest(table.getDbName(), table.getTableName(), table);
-        request.setValidWriteIdList(getValidWriteIds(ImmutableList.of(format("%s.%s", table.getDbName(), table.getTableName())), transactionId));
+        request.setValidWriteIdList(getTableWriteIds(table.getDbName(), table.getTableName(), transactionId));
         request.setWriteId(writeId);
         request.setEnvironmentContext(environmentContext);
         client.alter_table_req(request);
+    }
+
+    private String getTableWriteIds(String databaseName, String tableName, long transactionId)
+            throws TException
+    {
+        return getValidWriteIds(ImmutableList.of(format("%s.%s", databaseName, tableName)), transactionId);
     }
 }

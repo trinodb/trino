@@ -96,6 +96,7 @@ public class DropStatsProcedure
         }
     }
 
+    // TODO: Make drop stats work for Hive transactional tables (Issue #7189)
     private void doDropStats(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<?> partitionValues)
     {
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
@@ -125,6 +126,7 @@ public class DropStatsProcedure
                     schema,
                     table,
                     makePartName(partitionColumns, values),
+                    NO_ACID_TRANSACTION,
                     stats -> PartitionStatistics.empty()));
         }
         else {
@@ -146,6 +148,7 @@ public class DropStatsProcedure
                                 schema,
                                 table,
                                 partitionName,
+                                NO_ACID_TRANSACTION,
                                 stats -> PartitionStatistics.empty())));
             }
         }

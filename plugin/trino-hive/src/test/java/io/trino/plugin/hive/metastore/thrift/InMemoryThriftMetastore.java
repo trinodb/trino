@@ -486,7 +486,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
     {
         PartitionName partitionKey = PartitionName.partition(table.getDbName(), table.getTableName(), partitionName);
         partitionColumnStatistics.put(partitionKey, update.apply(getPartitionStatistics(table.getDbName(), table.getTableName(), ImmutableSet.of(partitionName)).get(partitionName)));

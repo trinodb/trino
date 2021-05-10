@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.plugin.hive.acid.AcidTransaction;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsData;
@@ -188,7 +189,7 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
+    public void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics, AcidTransaction transaction)
     {
         throw new UnsupportedOperationException();
     }
@@ -219,7 +220,7 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
+    public void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics, AcidTransaction transaction)
     {
         accessCount.incrementAndGet();
         // No-op

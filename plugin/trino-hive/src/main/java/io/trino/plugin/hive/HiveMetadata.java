@@ -1236,8 +1236,12 @@ public class HiveMetadata
     public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
-        metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
+        Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        if (isTransactionalTable(table.getParameters())) {
+            return handle.withTransaction(metastore.beginStatisticsCollection(session, table));
+        }
         return tableHandle;
     }
 

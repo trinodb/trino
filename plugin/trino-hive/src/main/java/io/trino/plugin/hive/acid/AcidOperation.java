@@ -23,11 +23,25 @@ import java.util.Optional;
 public enum AcidOperation
 {
     // UPDATE and MERGE will be added when they are implemented
-    NONE,
-    CREATE_TABLE,
-    DELETE,
-    INSERT,
-    UPDATE;
+    NONE(false),
+    CREATE_TABLE(false),
+    DELETE(true),
+    INSERT(true),
+    UPDATE(true),
+    ANALYZE(true),
+    /**/;
+
+    final boolean acidTransaction;
+
+    AcidOperation(boolean acidTransaction)
+    {
+        this.acidTransaction = acidTransaction;
+    }
+
+    public boolean isAcidTransaction()
+    {
+        return acidTransaction;
+    }
 
     private static final Map<AcidOperation, DataOperationType> DATA_OPERATION_TYPES = ImmutableMap.of(
             DELETE, DataOperationType.DELETE,
