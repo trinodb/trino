@@ -52,7 +52,6 @@ import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver;
 
 import javax.annotation.PreDestroy;
 
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Properties;
@@ -126,7 +125,7 @@ public class PhoenixClientModule
             throws SQLException
     {
         return new DriverConnectionFactory(
-                DriverManager.getDriver(config.getConnectionUrl()),
+                PhoenixDriver.INSTANCE, // Note: for some reason new PhoenixDriver won't work.
                 config.getConnectionUrl(),
                 getConnectionProperties(config),
                 new EmptyCredentialProvider());
