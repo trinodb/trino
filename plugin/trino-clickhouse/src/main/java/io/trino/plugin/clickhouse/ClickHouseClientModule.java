@@ -47,6 +47,6 @@ public class ClickHouseClientModule
     @ForBaseJdbc
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
-        return new DriverConnectionFactory(new ClickHouseDriver(), config, credentialProvider);
+        return new ClickHouseConnectionFactory(new DriverConnectionFactory(new ClickHouseDriver(), config, credentialProvider));
     }
 }
