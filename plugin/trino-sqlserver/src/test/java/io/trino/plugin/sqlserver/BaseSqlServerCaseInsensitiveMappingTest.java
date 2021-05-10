@@ -118,10 +118,14 @@ public abstract class BaseSqlServerCaseInsensitiveMappingTest
                 String otherSchemaName = nameVariants[j];
                 try (AutoCloseable ignore1 = getSqlServer().withSchema(schemaName);
                         AutoCloseable ignore2 = getSqlServer().withSchema(otherSchemaName);
-                        AutoCloseable ignore3 = getSqlServer().withTable(schemaName + ".some_table_name", "(c varchar(5))")) {
+                        AutoCloseable ignore3 = getSqlServer().withTable(schemaName + ".some_table_name", "(c varchar(5))");
+                        AutoCloseable ignore4 = getSqlServer().withSchema("some_schema");
+                        AutoCloseable ignore5 = getSqlServer().withTable("some_schema.some_table", "(c int)")) {
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.trino.plugin.jdbc.JdbcClient.getSchemaNames to return a List
-                    assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name:.*Multiple entries with same key.*");
-                    assertQueryFails("SELECT * FROM casesensitivename.some_table_name", "Failed to find remote schema name:.*Multiple entries with same key.*");
+                    assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name: Ambiguous name: casesensitivename");
+                    assertQueryFails("SELECT * FROM casesensitivename.some_table_name", "Failed to find remote schema name: Ambiguous name: casesensitivename");
+                    assertQuery("SHOW TABLES FROM some_schema", "VALUES 'some_table'");
+                    assertQueryReturnsEmptyResult("SELECT * FROM some_schema.some_table");
                 }
             }
         }
@@ -140,10 +144,13 @@ public abstract class BaseSqlServerCaseInsensitiveMappingTest
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
                 try (AutoCloseable ignore1 = getSqlServer().withTable(nameVariants[i], "(c varchar(5))");
-                        AutoCloseable ignore2 = getSqlServer().withTable(nameVariants[j], "(d varchar(5))")) {
+                        AutoCloseable ignore2 = getSqlServer().withTable(nameVariants[j], "(d varchar(5))");
+                        AutoCloseable ignore3 = getSqlServer().withTable("some_table", "(d varchar(5))")) {
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO, should be 2
-                    assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name:.*Multiple entries with same key.*");
-                    assertQueryFails("SELECT * FROM casesensitivename", "Failed to find remote table name:.*Multiple entries with same key.*");
+                    assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
+                    assertQueryFails("SELECT * FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
+                    assertQuery("SHOW COLUMNS FROM some_table", "SELECT 'd', 'varchar(5)', '', ''");
+                    assertQueryReturnsEmptyResult("SELECT * FROM some_table");
                 }
             }
         }
