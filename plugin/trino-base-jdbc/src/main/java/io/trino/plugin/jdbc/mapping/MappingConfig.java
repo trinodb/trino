@@ -14,24 +14,31 @@
 package io.trino.plugin.jdbc.mapping;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
+
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class MappingConfig
 {
+    public static final String CASE_INSENSITIVE_NAME_MATCHING = "case-insensitive-name-matching";
+
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private String configFile;
+    private Duration refreshPeriod;
 
     public boolean isCaseInsensitiveNameMatching()
     {
         return caseInsensitiveNameMatching;
     }
 
-    @Config("case-insensitive-name-matching")
+    @Config(CASE_INSENSITIVE_NAME_MATCHING)
     public MappingConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
     {
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
@@ -49,6 +56,30 @@ public class MappingConfig
     public MappingConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        return this;
+    }
+
+    public Optional<@FileExists String> getCaseInsensitiveNameMatchingConfigFile()
+    {
+        return Optional.ofNullable(configFile);
+    }
+
+    @Config("case-insensitive-name-matching.config-file")
+    public MappingConfig setCaseInsensitiveNameMatchingConfigFile(String authToLocalConfigFile)
+    {
+        this.configFile = authToLocalConfigFile;
+        return this;
+    }
+
+    public Optional<@MinDuration("1ms") Duration> getCaseInsensitiveNameMatchingConfigFileRefreshPeriod()
+    {
+        return Optional.ofNullable(refreshPeriod);
+    }
+
+    @Config("case-insensitive-name-matching.config-file.refresh-period")
+    public MappingConfig setCaseInsensitiveNameMatchingConfigFileRefreshPeriod(Duration refreshPeriod)
+    {
+        this.refreshPeriod = refreshPeriod;
         return this;
     }
 }

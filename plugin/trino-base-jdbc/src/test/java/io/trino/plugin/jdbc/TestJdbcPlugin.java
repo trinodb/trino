@@ -13,12 +13,15 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.jdbc.mapping.MappingConfig.CASE_INSENSITIVE_NAME_MATCHING;
+import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 
 public class TestJdbcPlugin
 {
@@ -26,6 +29,21 @@ public class TestJdbcPlugin
     public void testCreateConnector()
     {
         getConnectorFactory().create("test", TestingH2JdbcModule.createProperties(), new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testRuleBasedIdentifierCanBeUsedTogetherWithCacheBased()
+            throws Exception
+    {
+        getConnectorFactory().create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .putAll(TestingH2JdbcModule.createProperties())
+                        .put(CASE_INSENSITIVE_NAME_MATCHING, "true")
+                        .put(CASE_INSENSITIVE_NAME_MATCHING + ".config-file", createRuleBasedIdentifierMappingFile().toFile().getAbsolutePath())
+                        .build(),
+                new TestingConnectorContext())
                 .shutdown();
     }
 
