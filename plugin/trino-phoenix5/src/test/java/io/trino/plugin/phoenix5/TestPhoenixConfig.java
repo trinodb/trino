@@ -14,7 +14,6 @@
 package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -25,8 +24,6 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestPhoenixConfig
 {
@@ -35,9 +32,7 @@ public class TestPhoenixConfig
     {
         assertRecordedDefaults(recordDefaults(PhoenixConfig.class)
                 .setConnectionUrl(null)
-                .setResourceConfigFiles("")
-                .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
+                .setResourceConfigFiles(""));
     }
 
     @Test
@@ -49,15 +44,11 @@ public class TestPhoenixConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("phoenix.connection-url", "jdbc:phoenix:localhost:2181:/hbase")
                 .put("phoenix.config.resources", configFile.toString())
-                .put("case-insensitive-name-matching", "true")
-                .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .build();
 
         PhoenixConfig expected = new PhoenixConfig()
                 .setConnectionUrl("jdbc:phoenix:localhost:2181:/hbase")
-                .setResourceConfigFiles(configFile.toString())
-                .setCaseInsensitiveNameMatching(true)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
+                .setResourceConfigFiles(configFile.toString());
 
         assertFullMapping(properties, expected);
     }

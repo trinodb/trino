@@ -17,21 +17,15 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.validation.FileExists;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
 
-import static java.util.concurrent.TimeUnit.MINUTES;
-
 public class PhoenixConfig
 {
     private String connectionUrl;
     private List<String> resourceConfigFiles = ImmutableList.of();
-    private boolean caseInsensitiveNameMatching;
-    private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
     @NotNull
     public String getConnectionUrl()
@@ -56,32 +50,6 @@ public class PhoenixConfig
     public PhoenixConfig setResourceConfigFiles(String files)
     {
         this.resourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
-        return this;
-    }
-
-    public boolean isCaseInsensitiveNameMatching()
-    {
-        return caseInsensitiveNameMatching;
-    }
-
-    @Config("case-insensitive-name-matching")
-    public PhoenixConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
-    {
-        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
-        return this;
-    }
-
-    @NotNull
-    @MinDuration("0ms")
-    public Duration getCaseInsensitiveNameMatchingCacheTtl()
-    {
-        return caseInsensitiveNameMatchingCacheTtl;
-    }
-
-    @Config("case-insensitive-name-matching.cache-ttl")
-    public PhoenixConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
-    {
-        this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
         return this;
     }
 }
