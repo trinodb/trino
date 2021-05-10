@@ -22,6 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -32,20 +33,28 @@ public class TestMappingConfig
     {
         assertRecordedDefaults(recordDefaults(MappingConfig.class)
                 .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
+                .setCaseInsensitiveNameMatchingConfigFile(null)
+                .setCaseInsensitiveNameMatchingConfigFileRefreshPeriod(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
+            throws Exception
     {
+        String configFile = createRuleBasedIdentifierMappingFile().toFile().getAbsolutePath();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("case-insensitive-name-matching", "true")
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
+                .put("case-insensitive-name-matching.config-file", configFile)
+                .put("case-insensitive-name-matching.config-file.refresh-period", "1s")
                 .build();
 
         MappingConfig expected = new MappingConfig()
                 .setCaseInsensitiveNameMatching(true)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
+                .setCaseInsensitiveNameMatchingConfigFile(configFile)
+                .setCaseInsensitiveNameMatchingConfigFileRefreshPeriod(new Duration(1, SECONDS));
 
         assertFullMapping(properties, expected);
     }
