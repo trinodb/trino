@@ -51,6 +51,7 @@ public class TestEquatableValueSet
         assertEquals(equatables.complement(), EquatableValueSet.all(ID));
         assertFalse(equatables.containsValue(0L));
         assertFalse(equatables.containsValue(1L));
+        assertEquals(equatables.toString(), "[  ]");
     }
 
     @Test
@@ -120,6 +121,7 @@ public class TestEquatableValueSet
         assertTrue(equatables.containsValue(2L));
         assertTrue(equatables.containsValue(3L));
         assertFalse(equatables.containsValue(4L));
+        assertEquals(equatables.toString(), "[ 1, 2, 3 ]");
 
         // exclusive
         assertEquals(complement.getType(), ID);
@@ -134,6 +136,7 @@ public class TestEquatableValueSet
         assertFalse(complement.containsValue(2L));
         assertFalse(complement.containsValue(3L));
         assertTrue(complement.containsValue(4L));
+        assertEquals(complement.toString(), "EXCLUDES[ 1, 2, 3 ]");
     }
 
     @Test
