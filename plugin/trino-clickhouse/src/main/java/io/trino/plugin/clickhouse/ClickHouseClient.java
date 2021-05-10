@@ -23,6 +23,7 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -95,7 +96,6 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.lang.String.join;
-import static java.util.Locale.ENGLISH;
 
 public class ClickHouseClient
         extends BaseJdbcClient
@@ -103,9 +103,14 @@ public class ClickHouseClient
     private final boolean mapStringAsVarchar;
 
     @Inject
-    public ClickHouseClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, TypeManager typeManager, ClickHouseConfig clickHouseConfig)
+    public ClickHouseClient(
+            BaseJdbcConfig config,
+            ConnectionFactory connectionFactory,
+            TypeManager typeManager,
+            ClickHouseConfig clickHouseConfig,
+            IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory);
+        super(config, "\"", connectionFactory, identifierMapping);
 
         // TODO (https://github.com/trinodb/trino/issues/7102) define session property
         this.mapStringAsVarchar = clickHouseConfig.isMapStringAsVarchar();
@@ -189,14 +194,11 @@ public class ClickHouseClient
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            String columnName = column.getName();
-            if (connection.getMetaData().storesUpperCaseIdentifiers()) {
-                columnName = columnName.toUpperCase(ENGLISH);
-            }
+            String remoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, column.getName());
             String sql = format(
                     "ALTER TABLE %s ADD COLUMN %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),
-                    getColumnDefinitionSql(session, column, columnName));
+                    getColumnDefinitionSql(session, column, remoteColumnName));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -208,14 +210,11 @@ public class ClickHouseClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                newColumnName = newColumnName.toUpperCase(ENGLISH);
-            }
+            String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
             String sql = format("ALTER TABLE %s RENAME COLUMN %s TO %s ",
                     quoted(handle.getRemoteTableName()),
                     quoted(jdbcColumn.getColumnName()),
-                    quoted(newColumnName));
+                    quoted(newRemoteColumnName));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -224,7 +223,7 @@ public class ClickHouseClient
     }
 
     @Override
-    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
+    public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
         // ClickHouse maps their "database" to SQL catalogs and does not have schemas
