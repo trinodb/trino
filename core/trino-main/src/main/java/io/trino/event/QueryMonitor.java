@@ -314,6 +314,7 @@ public class QueryMonitor
             if (queryInfo.getOutputStage().isPresent()) {
                 return Optional.of(textDistributedPlan(
                         queryInfo.getOutputStage().get(),
+                        queryInfo.getQueryStats(),
                         new ValuePrinter(metadata, queryInfo.getSession().toSession(sessionPropertyManager)),
                         false));
             }
