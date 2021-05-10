@@ -13,25 +13,25 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
-import static io.airlift.configuration.ConfigurationAwareModule.combine;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
-public class TestJdbcConnectorFactory
+public class TestJdbcPlugin
 {
     @Test
-    public void test()
+    public void testCreateConnector()
     {
-        ConnectorFactory connectorFactory = new JdbcConnectorFactory(
-                "test",
-                combine(
-                        new CredentialProviderModule(),
-                        new ExtraCredentialsBasedJdbcIdentityCacheMappingModule(),
-                        new TestingH2JdbcModule()));
+        getConnectorFactory().create("test", TestingH2JdbcModule.createProperties(), new TestingConnectorContext())
+                .shutdown();
+    }
 
-        connectorFactory.create("test", TestingH2JdbcModule.createProperties(), new TestingConnectorContext());
+    private static ConnectorFactory getConnectorFactory()
+    {
+        Plugin plugin = new JdbcPlugin("jdbc", new TestingH2JdbcModule());
+        return getOnlyElement(plugin.getConnectorFactories());
     }
 }
