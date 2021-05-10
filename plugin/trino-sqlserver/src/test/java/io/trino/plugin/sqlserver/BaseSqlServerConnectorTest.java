@@ -535,12 +535,12 @@ public abstract class BaseSqlServerConnectorTest
                 "('2013-01-01', '2014-01-01', '2015-01-01')");
         onRemoteDatabase().execute("CREATE PARTITION SCHEME psSales\n" +
                 "AS PARTITION pfSales \n" +
-                "ALL TO ([Primary])");
-        onRemoteDatabase().execute("CREATE TABLE partitionedSales (\n" +
+                "ALL TO ([PRIMARY])");
+        onRemoteDatabase().execute("CREATE TABLE partitionedsales (\n" +
                 "   SalesDate DATE,\n" +
                 "   Quantity INT\n" +
                 ") ON psSales(SalesDate) WITH (DATA_COMPRESSION = PAGE)");
-        assertThat((String) computeActual("SHOW CREATE TABLE partitionedSales").getOnlyValue())
+        assertThat((String) computeActual("SHOW CREATE TABLE partitionedsales").getOnlyValue())
                 .matches("CREATE TABLE \\w+\\.\\w+\\.partitionedsales \\Q(\n" +
                         "   salesdate date,\n" +
                         "   quantity integer\n" +
