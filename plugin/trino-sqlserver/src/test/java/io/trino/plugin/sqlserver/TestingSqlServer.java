@@ -31,6 +31,7 @@ import java.util.UUID;
 import static com.google.common.base.Throwables.getCausalChain;
 import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public final class TestingSqlServer
         implements AutoCloseable
@@ -56,8 +57,18 @@ public final class TestingSqlServer
 
     public TestingSqlServer()
     {
-        container = new MSSQLServerContainer<>(DOCKER_IMAGE_NAME);
+        container = new MSSQLServerContainer(DOCKER_IMAGE_NAME) {
+            @Override
+            public String getUsername()
+            {
+                // SQL Server is case sensitive (see usage of MSSQL_COLLATION env variable),
+                // so user name has to be overridden to match actual case
+                return super.getUsername().toLowerCase(ENGLISH);
+            }
+        };
         container.addEnv("ACCEPT_EULA", "yes");
+        // enable case sensitive (see the CS below) collation for SQL identifiers
+        container.addEnv("MSSQL_COLLATION", "Latin1_General_CS_AS");
         this.databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
     }
 
@@ -115,6 +126,18 @@ public final class TestingSqlServer
                 .run(() -> execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName)));
 
         container.withUrlParam("database", this.databaseName);
+    }
+
+    public AutoCloseable withSchema(String schemaName)
+    {
+        execute(format("CREATE SCHEMA %s ", schemaName));
+        return () -> execute("DROP SCHEMA " + schemaName);
+    }
+
+    public AutoCloseable withTable(String tableName, String tableDefinition)
+    {
+        execute(format("CREATE TABLE %s %s", tableName, tableDefinition));
+        return () -> execute(format("DROP TABLE %s", tableName));
     }
 
     @Override
