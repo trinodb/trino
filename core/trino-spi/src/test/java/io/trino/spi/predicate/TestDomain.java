@@ -58,7 +58,7 @@ public class TestDomain
         assertFalse(domain.includesNullableValue(Long.MAX_VALUE));
         assertFalse(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.all(BIGINT));
-        assertEquals(domain.toString(), "[ SortedRangeSet[type=bigint, ranges=0, {}] ]");
+        assertEquals(domain.toString(), "NONE");
     }
 
     @Test
@@ -75,7 +75,7 @@ public class TestDomain
         assertFalse(domain.includesNullableValue(0L));
         assertFalse(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.all(ID));
-        assertEquals(domain.toString(), "[ [  ] ]");
+        assertEquals(domain.toString(), "NONE");
     }
 
     @Test
@@ -92,7 +92,7 @@ public class TestDomain
         assertFalse(domain.includesNullableValue(Slices.EMPTY_SLICE));
         assertFalse(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.all(HYPER_LOG_LOG));
-        assertEquals(domain.toString(), "[ [NONE] ]");
+        assertEquals(domain.toString(), "NONE");
     }
 
     @Test
@@ -112,7 +112,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(Long.MAX_VALUE));
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.none(BIGINT));
-        assertEquals(domain.toString(), "[ NULL, SortedRangeSet[type=bigint, ranges=1, {(<min>,<max>)}] ]");
+        assertEquals(domain.toString(), "ALL");
     }
 
     @Test
@@ -135,7 +135,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue((long) floatToRawIntBits(Float.NaN)));
         assertTrue(domain.includesNullableValue((long) 0x7fc01234)); // different NaN representation
         assertEquals(domain.complement(), Domain.none(REAL));
-        assertEquals(domain.toString(), "[ NULL, SortedRangeSet[type=real, ranges=1, {(<min>,<max>)}] ]");
+        assertEquals(domain.toString(), "ALL");
 
         domain = Domain.all(DOUBLE);
         assertFalse(domain.isNone());
@@ -154,7 +154,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(Double.NaN));
         assertTrue(domain.includesNullableValue(longBitsToDouble(0x7ff8123412341234L))); // different NaN representation
         assertEquals(domain.complement(), Domain.none(DOUBLE));
-        assertEquals(domain.toString(), "[ NULL, SortedRangeSet[type=double, ranges=1, {(<min>,<max>)}] ]");
+        assertEquals(domain.toString(), "ALL");
     }
 
     @Test
@@ -172,7 +172,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(0L));
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.none(ID));
-        assertEquals(domain.toString(), "[ NULL, EXCLUDES[  ] ]");
+        assertEquals(domain.toString(), "ALL");
     }
 
     @Test
@@ -190,7 +190,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(Slices.EMPTY_SLICE));
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.none(HYPER_LOG_LOG));
-        assertEquals(domain.toString(), "[ NULL, [ALL] ]");
+        assertEquals(domain.toString(), "ALL");
     }
 
     @Test
@@ -211,7 +211,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.notNull(BIGINT));
         assertEquals(domain.getNullableSingleValue(), null);
-        assertEquals(domain.toString(), "[ NULL, SortedRangeSet[type=bigint, ranges=0, {}] ]");
+        assertEquals(domain.toString(), "[NULL]");
     }
 
     @Test
@@ -230,7 +230,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.notNull(ID));
         assertEquals(domain.getNullableSingleValue(), null);
-        assertEquals(domain.toString(), "[ NULL, [  ] ]");
+        assertEquals(domain.toString(), "[NULL]");
     }
 
     @Test
@@ -249,7 +249,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.notNull(HYPER_LOG_LOG));
         assertEquals(domain.getNullableSingleValue(), null);
-        assertEquals(domain.toString(), "[ NULL, [NONE] ]");
+        assertEquals(domain.toString(), "[NULL]");
     }
 
     @Test
