@@ -41,6 +41,7 @@ import io.trino.plugin.jdbc.StatsCollecting;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
+import io.trino.plugin.jdbc.mapping.IdentifierMappingModule;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -106,6 +107,7 @@ public class PhoenixClientModule
         checkConfiguration(buildConfigObject(PhoenixConfig.class).getConnectionUrl());
 
         install(new JdbcDiagnosticModule());
+        install(new IdentifierMappingModule());
     }
 
     private void checkConfiguration(String connectionUrl)

@@ -11,7 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc;
+package io.trino.plugin.jdbc.mapping;
+
+import io.trino.plugin.jdbc.JdbcIdentity;
 
 import java.util.Objects;
 
