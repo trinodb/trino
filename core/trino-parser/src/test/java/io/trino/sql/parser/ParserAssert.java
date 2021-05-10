@@ -73,15 +73,22 @@ public class ParserAssert
         return ignoringFieldsMatchingRegexes("(.*\\.)?location");
     }
 
-    private static <T extends Node> AssertProvider<ParserAssert> createAssertion(Function<String, T> parser, String sql)
+    private static <T extends Node> AssertProvider<ParserAssert> createAssertion(Function<String, T> parseOperation, String sql)
     {
-        return () -> new ParserAssert(parser.apply(sql), newRecursiveComparisonConfig())
+        final T actualStatement = parseOperation.apply(sql);
+
+        return () -> new ParserAssert(actualStatement, newRecursiveComparisonConfig())
                 .withRepresentation(NODE_REPRESENTATION)
-                .satisfies(parsed -> new ParserAssert(parser.apply(formatSql((Node) parsed)), newRecursiveComparisonConfig())
-                        .describedAs("Validate SQL->AST->SQL roundtrip")
-                        .withRepresentation(NODE_REPRESENTATION)
-                        .ignoringLocation()
-                        .isEqualTo(parser.apply(sql)));
+                .satisfies(parsedStatement -> {
+                    final String parsedFormattedSql = formatSql((Node) parsedStatement);
+                    final T parsedFormattedStatement = parseOperation.apply(parsedFormattedSql);
+
+                    new ParserAssert(parsedFormattedStatement, newRecursiveComparisonConfig())
+                            .describedAs("Validate SQL->AST->SQL roundtrip")
+                            .withRepresentation(NODE_REPRESENTATION)
+                            .ignoringLocation()
+                            .isEqualTo(actualStatement);
+                });
     }
 
     private static RecursiveComparisonConfiguration newRecursiveComparisonConfig()

@@ -93,14 +93,19 @@ public class DereferenceExpression
 
     public static Expression from(QualifiedName name)
     {
+        return from(Optional.empty(), name);
+    }
+
+    public static Expression from(Optional<NodeLocation> location, QualifiedName name)
+    {
         Expression result = null;
 
         for (String part : name.getParts()) {
             if (result == null) {
-                result = new Identifier(part);
+                result = new Identifier(location, part);
             }
             else {
-                result = new DereferenceExpression(result, new Identifier(part));
+                result = new DereferenceExpression(location, result, new Identifier(location, part));
             }
         }
 

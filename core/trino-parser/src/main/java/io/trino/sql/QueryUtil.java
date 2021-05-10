@@ -25,6 +25,7 @@ import io.trino.sql.tree.GroupBy;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LogicalBinaryExpression;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.QualifiedName;
@@ -62,11 +63,6 @@ public final class QueryUtil
         return new Identifier(name);
     }
 
-    public static Identifier quotedIdentifier(String name)
-    {
-        return new Identifier(name, true);
-    }
-
     public static Expression nameReference(String first, String... rest)
     {
         return DereferenceExpression.from(QualifiedName.of(first, rest));
@@ -96,6 +92,32 @@ public final class QueryUtil
         return new Select(false, items.build());
     }
 
+    public static Select selectList(NodeLocation location, Expression... expressions)
+    {
+        return new Select(location, false, selectListItems(expressions));
+    }
+
+    public static ImmutableList<SelectItem> selectListItems(Expression... expressions)
+    {
+        ImmutableList.Builder<SelectItem> items = ImmutableList.builder();
+
+        for (Expression expression : expressions) {
+            if (expression.getLocation().isPresent()) {
+                items.add(new SingleColumn(expression.getLocation().get(), expression, Optional.empty()));
+            }
+            else {
+                items.add(new SingleColumn(expression));
+            }
+        }
+
+        return items.build();
+    }
+
+    public static Select selectList(NodeLocation location, SelectItem... items)
+    {
+        return new Select(location, false, ImmutableList.copyOf(items));
+    }
+
     public static Select selectList(SelectItem... items)
     {
         return new Select(false, ImmutableList.copyOf(items));
@@ -116,9 +138,19 @@ public final class QueryUtil
         return new TableSubquery(query);
     }
 
+    public static Relation subquery(NodeLocation location, Query query)
+    {
+        return new TableSubquery(location, query);
+    }
+
     public static SortItem ascending(String name)
     {
         return new SortItem(identifier(name), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED);
+    }
+
+    public static SortItem ascending(NodeLocation location, String name)
+    {
+        return new SortItem(location, new Identifier(location, name, false), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED);
     }
 
     public static Expression logicalAnd(Expression left, Expression right)
@@ -146,14 +178,29 @@ public final class QueryUtil
         return new Values(ImmutableList.copyOf(row));
     }
 
+    public static Values values(NodeLocation location, Row... row)
+    {
+        return new Values(location, ImmutableList.copyOf(row));
+    }
+
     public static Row row(Expression... values)
     {
         return new Row(ImmutableList.copyOf(values));
     }
 
+    public static Row row(NodeLocation location, Expression... values)
+    {
+        return new Row(location, ImmutableList.copyOf(values));
+    }
+
     public static Relation aliased(Relation relation, String alias)
     {
         return new AliasedRelation(relation, identifier(alias), null);
+    }
+
+    public static Relation aliased(NodeLocation location, Relation relation, String alias)
+    {
+        return new AliasedRelation(location, relation, identifier(alias), null);
     }
 
     public static Relation aliased(Relation relation, String alias, List<String> columnAliases)
@@ -176,6 +223,11 @@ public final class QueryUtil
         return new OrderBy(ImmutableList.copyOf(items));
     }
 
+    public static OrderBy ordering(NodeLocation location, SortItem... items)
+    {
+        return new OrderBy(location, ImmutableList.copyOf(items));
+    }
+
     public static Query simpleQuery(Select select)
     {
         return query(new QuerySpecification(
@@ -190,14 +242,54 @@ public final class QueryUtil
                 Optional.empty()));
     }
 
+    public static Query simpleQuery(NodeLocation location, Select select)
+    {
+        return query(location, new QuerySpecification(
+                location,
+                select,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()));
+    }
+
+    public static QuerySpecification simpleQuerySpecification(NodeLocation location, Select select)
+    {
+        return new QuerySpecification(
+                location,
+                select,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+    }
+
     public static Query simpleQuery(Select select, Relation from)
     {
         return simpleQuery(select, from, Optional.empty(), Optional.empty());
     }
 
+    public static Query simpleQuery(NodeLocation location, Select select, Relation from)
+    {
+        return simpleQuery(location, select, from, Optional.empty(), Optional.empty());
+    }
+
     public static Query simpleQuery(Select select, Relation from, OrderBy orderBy)
     {
         return simpleQuery(select, from, Optional.empty(), Optional.of(orderBy));
+    }
+
+    public static Query simpleQuery(NodeLocation location, Select select, Relation from, OrderBy orderBy)
+    {
+        return simpleQuery(location, select, from, Optional.empty(), Optional.of(orderBy));
     }
 
     public static Query simpleQuery(Select select, Relation from, Expression where)
@@ -213,6 +305,25 @@ public final class QueryUtil
     public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, Optional<OrderBy> orderBy)
     {
         return simpleQuery(select, from, where, Optional.empty(), Optional.empty(), orderBy, Optional.empty(), Optional.empty());
+    }
+
+    public static Query simpleQuery(NodeLocation location, Select select, Relation from, Optional<Expression> where, Optional<OrderBy> orderBy)
+    {
+        return simpleQuery(location, select, from, where, Optional.empty(), Optional.empty(), orderBy, Optional.empty(), Optional.empty());
+    }
+
+    public static Query simpleQuery(
+            NodeLocation location,
+            Select select,
+            Relation from,
+            Optional<Expression> where,
+            Optional<GroupBy> groupBy,
+            Optional<Expression> having,
+            Optional<OrderBy> orderBy,
+            Optional<Offset> offset,
+            Optional<Node> limit)
+    {
+        return simpleQuery(location, select, from, where, groupBy, having, ImmutableList.of(), orderBy, offset, limit);
     }
 
     public static Query simpleQuery(
@@ -251,6 +362,31 @@ public final class QueryUtil
                 limit));
     }
 
+    public static Query simpleQuery(
+            NodeLocation location,
+            Select select,
+            Relation from,
+            Optional<Expression> where,
+            Optional<GroupBy> groupBy,
+            Optional<Expression> having,
+            List<WindowDefinition> windows,
+            Optional<OrderBy> orderBy,
+            Optional<Offset> offset,
+            Optional<Node> limit)
+    {
+        return query(location, new QuerySpecification(
+                location,
+                select,
+                Optional.of(from),
+                where,
+                groupBy,
+                having,
+                windows,
+                orderBy,
+                offset,
+                limit));
+    }
+
     public static Query singleValueQuery(String columnName, String value)
     {
         Relation values = values(row(new StringLiteral((value))));
@@ -270,6 +406,17 @@ public final class QueryUtil
     public static Query query(QueryBody body)
     {
         return new Query(
+                Optional.empty(),
+                body,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    public static Query query(NodeLocation location, QueryBody body)
+    {
+        return new Query(
+                location,
                 Optional.empty(),
                 body,
                 Optional.empty(),
