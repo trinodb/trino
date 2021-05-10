@@ -275,7 +275,7 @@ M
 - :func:`map_filter`
 - :func:`map_from_entries`
 - :func:`map_keys`
-- ``map_union``
+- :func:`map_union`
 - :func:`map_values`
 - :func:`map_zip_with`
 - :func:`max`
