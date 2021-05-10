@@ -71,7 +71,7 @@ public class TestSortedRangeSet
         assertEquals(rangeSet.getRangeCount(), 1);
         assertEquals(rangeSet.complement(), SortedRangeSet.none(BIGINT));
         assertTrue(rangeSet.containsValue(0L));
-        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=1, {(null,null)}]");
+        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=1, {(<min>,<max>)}]");
     }
 
     @Test
@@ -90,7 +90,7 @@ public class TestSortedRangeSet
         assertEquals(rangeSet.complement(), complement);
         assertTrue(rangeSet.containsValue(10L));
         assertFalse(rangeSet.containsValue(9L));
-        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=1, {[10,10]}]");
+        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=1, {[10]}]");
     }
 
     @Test
@@ -127,7 +127,7 @@ public class TestSortedRangeSet
         assertFalse(rangeSet.containsValue(1L));
         assertFalse(rangeSet.containsValue(7L));
         assertTrue(rangeSet.containsValue(9L));
-        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=3, {[0,0], [2,5], [9,11)}]");
+        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=3, {[0], [2,5], [9,11)}]");
     }
 
     @Test
@@ -161,7 +161,7 @@ public class TestSortedRangeSet
         assertTrue(rangeSet.containsValue(0L));
         assertTrue(rangeSet.containsValue(4L));
         assertFalse(rangeSet.containsValue(7L));
-        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=3, {(null,0], (1,6), (9,null)}]");
+        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=3, {(<min>,0], (1,6), (9,<max>)}]");
     }
 
     @Test

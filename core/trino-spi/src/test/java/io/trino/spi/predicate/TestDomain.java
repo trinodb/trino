@@ -112,7 +112,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(Long.MAX_VALUE));
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.none(BIGINT));
-        assertEquals(domain.toString(), "[ NULL, SortedRangeSet[type=bigint, ranges=1, {(null,null)}] ]");
+        assertEquals(domain.toString(), "[ NULL, SortedRangeSet[type=bigint, ranges=1, {(<min>,<max>)}] ]");
     }
 
     @Test
@@ -135,7 +135,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue((long) floatToRawIntBits(Float.NaN)));
         assertTrue(domain.includesNullableValue((long) 0x7fc01234)); // different NaN representation
         assertEquals(domain.complement(), Domain.none(REAL));
-        assertEquals(domain.toString(), "[ NULL, SortedRangeSet[type=real, ranges=1, {(null,null)}] ]");
+        assertEquals(domain.toString(), "[ NULL, SortedRangeSet[type=real, ranges=1, {(<min>,<max>)}] ]");
 
         domain = Domain.all(DOUBLE);
         assertFalse(domain.isNone());
@@ -154,7 +154,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(Double.NaN));
         assertTrue(domain.includesNullableValue(longBitsToDouble(0x7ff8123412341234L))); // different NaN representation
         assertEquals(domain.complement(), Domain.none(DOUBLE));
-        assertEquals(domain.toString(), "[ NULL, SortedRangeSet[type=double, ranges=1, {(null,null)}] ]");
+        assertEquals(domain.toString(), "[ NULL, SortedRangeSet[type=double, ranges=1, {(<min>,<max>)}] ]");
     }
 
     @Test
@@ -269,7 +269,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(Long.MAX_VALUE));
         assertFalse(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.onlyNull(BIGINT));
-        assertEquals(domain.toString(), "[ SortedRangeSet[type=bigint, ranges=1, {(null,null)}] ]");
+        assertEquals(domain.toString(), "[ SortedRangeSet[type=bigint, ranges=1, {(<min>,<max>)}] ]");
     }
 
     @Test
@@ -326,7 +326,7 @@ public class TestDomain
         assertEquals(domain.complement(), Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 0L), Range.greaterThan(BIGINT, 0L)), true));
         assertEquals(domain.getSingleValue(), 0L);
         assertEquals(domain.getNullableSingleValue(), 0L);
-        assertEquals(domain.toString(), "[ SortedRangeSet[type=bigint, ranges=1, {[0,0]}] ]");
+        assertEquals(domain.toString(), "[ SortedRangeSet[type=bigint, ranges=1, {[0]}] ]");
 
         assertThatThrownBy(() -> Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 2L, true)), false).getSingleValue())
                 .isInstanceOf(IllegalStateException.class)
