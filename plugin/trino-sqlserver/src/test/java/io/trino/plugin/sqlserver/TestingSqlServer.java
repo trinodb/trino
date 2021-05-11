@@ -128,18 +128,6 @@ public final class TestingSqlServer
         container.withUrlParam("database", this.databaseName);
     }
 
-    public AutoCloseable withSchema(String schemaName)
-    {
-        execute(format("CREATE SCHEMA %s ", schemaName));
-        return () -> execute("DROP SCHEMA " + schemaName);
-    }
-
-    public AutoCloseable withTable(String tableName, String tableDefinition)
-    {
-        execute(format("CREATE TABLE %s %s", tableName, tableDefinition));
-        return () -> execute(format("DROP TABLE %s", tableName));
-    }
-
     @Override
     public void close()
     {
