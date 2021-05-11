@@ -1287,7 +1287,9 @@ public class DecryptingAzureNativeFileSystemStore
 
     private boolean getUseTransactionalContentMD5()
     {
-        return sessionConfiguration.getBoolean(KEY_CHECK_BLOCK_MD5, true);
+        // TODO (SEP-6118): Find a way to enable MD5 checks by default (requires limiting reads to 4MB chunks, without performance decrease)
+        // return sessionConfiguration.getBoolean(KEY_CHECK_BLOCK_MD5, true);
+        return false;
     }
 
     private BlobRequestOptions getUploadOptions()

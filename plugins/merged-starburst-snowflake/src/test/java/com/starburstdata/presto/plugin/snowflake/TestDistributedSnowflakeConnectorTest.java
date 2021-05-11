@@ -60,6 +60,32 @@ public class TestDistributedSnowflakeConnectorTest
     }
 
     @Test
+    public void testLargeTableScan()
+    {
+        // Use "CREATE TABLE TEST_DB.TEST_SCHEMA_2.sf10_lineitem AS SELECT * FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF10.lineitem" in Snowflake UI to create test table
+        assertQuery("SELECT " +
+                        "count(l_orderkey + 1), " +
+                        "count(l_partkey + 1), " +
+                        "count(l_suppkey + 1), " +
+                        "count(l_linenumber + 1), " +
+                        "count(l_quantity + 1), " +
+                        "count(l_extendedprice + 1), " +
+                        "count(l_discount + 1), " +
+                        "count(l_tax + 1), " +
+                        "count(l_returnflag || 'F'), " +
+                        "count(l_linestatus || 'F'), " +
+                        "count(l_shipdate + interval '1' day), " +
+                        "count(l_commitdate + interval '1' day), " +
+                        "count(l_receiptdate + interval '1' day), " +
+                        "count(l_shipinstruct || 'F'), " +
+                        "count(l_shipmode || 'F'), " +
+                        "count(l_comment || 'F') " +
+                        "FROM sf10_lineitem",
+                "VALUES (59986052, 59986052, 59986052, 59986052, 59986052, 59986052, 59986052, 59986052, " +
+                        "59986052, 59986052, 59986052, 59986052, 59986052, 59986052, 59986052, 59986052)");
+    }
+
+    @Test
     public void testDynamicFilterIsApplied()
     {
         String sql = "SELECT l.partkey FROM lineitem l JOIN nation n ON n.regionkey = l.orderkey AND n.name < 'B' ";
