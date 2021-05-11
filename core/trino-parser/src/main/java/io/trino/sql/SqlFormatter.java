@@ -911,6 +911,9 @@ public final class SqlFormatter
             if (node.isAnalyze()) {
                 builder.append("ANALYZE ");
             }
+            if (node.isVerbose()) {
+                builder.append("VERBOSE ");
+            }
 
             List<String> options = new ArrayList<>();
 
