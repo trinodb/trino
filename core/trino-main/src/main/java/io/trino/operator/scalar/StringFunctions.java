@@ -406,6 +406,10 @@ public final class StringFunctions
             if (splitIndex < 0) {
                 break;
             }
+            if (delimiter.length() == 0) {
+                // For zero-length delimiter, create length one splits
+                splitIndex++;
+            }
             // Add the part from current index to found split
             VARCHAR.writeSlice(parts, string, index, splitIndex - index);
             // Continue searching after delimiter
