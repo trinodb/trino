@@ -287,7 +287,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(0L));
         assertFalse(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.onlyNull(ID));
-        assertEquals(domain.toString(), "[ EXCLUDES[  ] ]");
+        assertEquals(domain.toString(), "[ EquatableValueSet[type=id, values=0, EXCLUDES{}] ]");
     }
 
     @Test
@@ -350,7 +350,7 @@ public class TestDomain
         assertEquals(domain.complement(), Domain.create(ValueSet.of(ID, 0L).complement(), true));
         assertEquals(domain.getSingleValue(), 0L);
         assertEquals(domain.getNullableSingleValue(), 0L);
-        assertEquals(domain.toString(), "[ [ 0 ] ]");
+        assertEquals(domain.toString(), "[ EquatableValueSet[type=id, values=1, {0}] ]");
 
         assertThatThrownBy(() -> Domain.create(ValueSet.of(ID, 0L, 1L), false).getSingleValue())
                 .isInstanceOf(IllegalStateException.class)
