@@ -172,7 +172,17 @@ Hashing functions
 
 .. function:: murmur3(binary) -> varbinary
 
-    Computes the 128-bit murmur3 hash of ``binary``.
+    Computes the 128-bit murmur3 hash of ``binary``::
+
+    SELECT
+        murmur3(from_base64('aaaaaa')) AS mur_hash
+    FROM
+        event_write
+    LIMIT 1;
+
+                         mur_hash
+    -------------------------------------------------
+     ba 58 55 63 55 69 b4 2f 49 20 37 2c a0 e3 96 ef
 
 HMAC functions
 --------------

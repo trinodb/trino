@@ -291,7 +291,7 @@ M
 - :func:`month`
 - :func:`multimap_agg`
 - :func:`multimap_from_entries`
-- ``murmur3``
+- :func:`murmur3`
 
 N
 -
