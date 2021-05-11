@@ -180,7 +180,7 @@ Hashing functions
         event_write
     LIMIT 1;
 
-                         _col0
+                         mur_hash
     -------------------------------------------------
      ba 58 55 63 55 69 b4 2f 49 20 37 2c a0 e3 96 ef
 
