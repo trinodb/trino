@@ -1660,7 +1660,7 @@ public final class SqlFormatter
                 builder.append(node.getType().get());
                 builder.append(" ");
             }
-            builder.append(node.getName())
+            builder.append(formatName(node.getName()))
                     .append(" TO ")
                     .append(formatPrincipal(node.getGrantee()));
             if (node.isWithGrantOption()) {
@@ -1692,7 +1692,7 @@ public final class SqlFormatter
                 builder.append(node.getType().get());
                 builder.append(" ");
             }
-            builder.append(node.getName())
+            builder.append(formatName(node.getName()))
                     .append(" FROM ")
                     .append(formatPrincipal(node.getGrantee()));
 

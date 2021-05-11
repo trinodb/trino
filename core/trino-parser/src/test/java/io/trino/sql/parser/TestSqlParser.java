@@ -1815,8 +1815,7 @@ public class TestSqlParser
         assertThat(statement("CREATE TABLE foo " +
                 "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
                 "AS " +
-                "SELECT * FROM t")).isEqualTo(
-                new CreateTableAsSelect(location(1, 1), table, query3, false, properties, true, Optional.empty(), Optional.empty()));
+                "SELECT * FROM t")).isEqualTo(new CreateTableAsSelect(location(1, 1), table, query3, false, properties, true, Optional.empty(), Optional.empty()));
 
         final Query querySelectColumn3 = simpleQuery(location(1, 112), selectList(location(1, 112),
                 new Identifier(location(1, 119), "a", false)),
@@ -1844,8 +1843,8 @@ public class TestSqlParser
                 "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
                 "AS " +
                 "SELECT a FROM t")).isEqualTo(
-                new CreateTableAsSelect(location(1, 1), table, querySelectColumn3, false, properties2, true, Optional.of(ImmutableList.of(
-                        new Identifier(location(1, 18), "x", false))), Optional.empty()));
+                        new CreateTableAsSelect(location(1, 1), table, querySelectColumn3, false, properties2, true, Optional.of(ImmutableList.of(
+                                new Identifier(location(1, 18), "x", false))), Optional.empty()));
 
         final Query querySelectColumns3 = simpleQuery(location(1, 114), selectList(location(1, 114),
                 new Identifier(location(1, 121), "a", false),
@@ -1875,7 +1874,7 @@ public class TestSqlParser
                 "AS " +
                 "SELECT a,b FROM t")).isEqualTo(new CreateTableAsSelect(location(1, 1),
                 table, querySelectColumns3, false, properties3, true, Optional.of(ImmutableList.of(
-                new Identifier(location(1, 18), "x", false), new Identifier(location(1, 20), "y", false))), Optional.empty()));
+                        new Identifier(location(1, 18), "x", false), new Identifier(location(1, 20), "y", false))), Optional.empty()));
 
         final Query query4 = simpleQuery(location(1, 109), selectList(location(1, 109),
                 new AllColumns(location(1, 116), Optional.empty(), ImmutableList.of())),
@@ -1886,23 +1885,23 @@ public class TestSqlParser
                 "AS " +
                 "SELECT * FROM t " +
                 "WITH NO DATA")).isEqualTo(
-                new CreateTableAsSelect(location(1, 1), table, query4, false, properties, false, Optional.empty(), Optional.empty()));
+                        new CreateTableAsSelect(location(1, 1), table, query4, false, properties, false, Optional.empty(), Optional.empty()));
 
         assertThat(statement("CREATE TABLE foo(x) " +
                 "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
                 "AS " +
                 "SELECT a FROM t " +
                 "WITH NO DATA")).isEqualTo(new CreateTableAsSelect(location(1, 1), table, querySelectColumn3, false, properties2, false, Optional.of(ImmutableList.of(
-                new Identifier(location(1, 18), "x", false))), Optional.empty()));
+                        new Identifier(location(1, 18), "x", false))), Optional.empty()));
 
         assertThat(statement("CREATE TABLE foo(x,y) " +
                 "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
                 "AS " +
                 "SELECT a,b FROM t " +
                 "WITH NO DATA")).isEqualTo(
-                new CreateTableAsSelect(location(1, 1), table, querySelectColumns3, false, properties3, false, Optional.of(ImmutableList.of(
-                        new Identifier(location(1, 18), "x", false),
-                        new Identifier(location(1, 20), "y", false))), Optional.empty()));
+                        new CreateTableAsSelect(location(1, 1), table, querySelectColumns3, false, properties3, false, Optional.of(ImmutableList.of(
+                                new Identifier(location(1, 18), "x", false),
+                                new Identifier(location(1, 20), "y", false))), Optional.empty()));
 
         final Query query5 = simpleQuery(location(1, 123), selectList(location(1, 123),
                 new AllColumns(location(1, 130), Optional.empty(), ImmutableList.of())),
@@ -1931,7 +1930,7 @@ public class TestSqlParser
                 "AS " +
                 "SELECT * FROM t " +
                 "WITH NO DATA")).isEqualTo(
-                new CreateTableAsSelect(location(1, 1), table, query5, false, properties4, false, Optional.empty(), Optional.of("test")));
+                        new CreateTableAsSelect(location(1, 1), table, query5, false, properties4, false, Optional.empty(), Optional.of("test")));
 
         List<Property> properties5 = ImmutableList.of(
                 new Property(location(1, 42),
@@ -1960,8 +1959,8 @@ public class TestSqlParser
                 "AS " +
                 "SELECT a FROM t " +
                 "WITH NO DATA")).isEqualTo(
-                new CreateTableAsSelect(location(1, 1), table, querySelectColumn4, false, properties5, false, Optional.of(ImmutableList.of(
-                        new Identifier(location(1, 18), "x", false))), Optional.of("test")));
+                        new CreateTableAsSelect(location(1, 1), table, querySelectColumn4, false, properties5, false, Optional.of(ImmutableList.of(
+                                new Identifier(location(1, 18), "x", false))), Optional.of("test")));
 
         List<Property> properties6 = ImmutableList.of(
                 new Property(location(1, 44),
@@ -1992,7 +1991,7 @@ public class TestSqlParser
                 "SELECT a,b FROM t " +
                 "WITH NO DATA")).isEqualTo(new CreateTableAsSelect(location(1, 1),
                 table, querySelectColumns4, false, properties6, false, Optional.of(ImmutableList.of(
-                new Identifier(location(1, 18), "x", false), new Identifier(location(1, 20), "y", false))), Optional.of("test")));
+                        new Identifier(location(1, 18), "x", false), new Identifier(location(1, 20), "y", false))), Optional.of("test")));
 
         List<Property> properties7 = ImmutableList.of(
                 new Property(location(1, 44),
@@ -2022,9 +2021,9 @@ public class TestSqlParser
                 "AS " +
                 "SELECT a,b FROM t " +
                 "WITH NO DATA")).isEqualTo(
-                new CreateTableAsSelect(location(1, 1), table, querySelectColumns5, false, properties7, false, Optional.of(ImmutableList.of(
-                        new Identifier(location(1, 18), "x", false),
-                        new Identifier(location(1, 20), "y", false))), Optional.of("test")));
+                        new CreateTableAsSelect(location(1, 1), table, querySelectColumns5, false, properties7, false, Optional.of(ImmutableList.of(
+                                new Identifier(location(1, 18), "x", false),
+                                new Identifier(location(1, 20), "y", false))), Optional.of("test")));
     }
 
     @Test
@@ -2227,9 +2226,9 @@ public class TestSqlParser
                 new Delete(location(1, 1),
                         new Table(location(1, 1),
                                 qualifiedName(location(1, 13), "t")), Optional.of(
-                        new ComparisonExpression(location(1, 23), ComparisonExpression.Operator.EQUAL,
-                                new Identifier(location(1, 21), "a", false),
-                                new Identifier(location(1, 25), "b", false)))));
+                                        new ComparisonExpression(location(1, 23), ComparisonExpression.Operator.EQUAL,
+                                                new Identifier(location(1, 21), "a", false),
+                                                new Identifier(location(1, 25), "b", false)))));
     }
 
     @Test
@@ -4092,12 +4091,12 @@ public class TestSqlParser
         assertThat(statement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A partitioned materialized view' " +
                 "WITH (partitioned_by = ARRAY ['dateint'])" +
                 " AS WITH a (t, u) AS (SELECT * FROM x), b AS (SELECT * FROM a) TABLE b")).isEqualTo(
-                new CreateMaterializedView(Optional.of(location(1, 1)),
-                        QualifiedName.of(ImmutableList.of(
-                                new Identifier(location(1, 37), "catalog", false),
-                                new Identifier(location(1, 45), "schema", false),
-                                new Identifier(location(1, 52), "matview", false))), query4,
-                        true, false, properties2, Optional.of("A partitioned materialized view")));
+                        new CreateMaterializedView(Optional.of(location(1, 1)),
+                                QualifiedName.of(ImmutableList.of(
+                                        new Identifier(location(1, 37), "catalog", false),
+                                        new Identifier(location(1, 45), "schema", false),
+                                        new Identifier(location(1, 52), "matview", false))), query4,
+                                true, false, properties2, Optional.of("A partitioned materialized view")));
     }
 
     @Test
