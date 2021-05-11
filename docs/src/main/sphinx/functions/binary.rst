@@ -178,7 +178,7 @@ Hashing functions
         murmur3(from_base64('aaaaaa')) AS mur_hash
     FROM
         event_write
-    LIMIT 1;
+    LIMIT 1
 
                          mur_hash
     -------------------------------------------------
