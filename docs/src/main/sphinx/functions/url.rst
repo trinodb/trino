@@ -40,7 +40,7 @@ such as ``:`` or ``?``.
 
 .. function:: url_extract_protocol(url) -> varchar
 
-    ::
+    Returns the protocol from ``url``::
 
         SELECT url_extract_protocol('http://localhost:8080/req_path');
         -- http
@@ -48,16 +48,8 @@ such as ``:`` or ``?``.
         SELECT url_extract_protocol('https://127.0.0.1:8080/req_path');
         -- https
 
-    ::
-
-        SELECT url_extract_protocol('http://');
-        -- NULL
-
-        SELECT url_extract_protocol('127.0.0.1:8080/req_path');
-        -- NULL
-
-        SELECT url_extract_protocol('localhost:8080/req_path');
-        -- localhost
+        SELECT url_extract_protocol('ftp://path/file');
+        -- ftp
 
 .. function:: url_extract_query(url) -> varchar
 
