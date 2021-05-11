@@ -26,11 +26,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.plugin.pinot.MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC;
 import static io.trino.plugin.pinot.MetadataUtil.BROKER_RESPONSE_NATIVE_JSON_CODEC;
 import static io.trino.plugin.pinot.MetadataUtil.TABLES_JSON_CODEC;
 import static io.trino.plugin.pinot.MetadataUtil.TEST_TABLE;
 import static io.trino.plugin.pinot.MetadataUtil.TIME_BOUNDARY_JSON_CODEC;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class MockPinotClient
         extends PinotClient
@@ -54,6 +56,7 @@ public class MockPinotClient
                 pinotConfig,
                 new IdentityPinotHostMapper(),
                 new TestingHttpClient(request -> null),
+                newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-testing")),
                 TABLES_JSON_CODEC,
                 BROKERS_FOR_TABLE_JSON_CODEC,
                 TIME_BOUNDARY_JSON_CODEC,

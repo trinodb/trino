@@ -52,7 +52,7 @@ public class TestPinotSplitManager
     public void testSplitsBroker()
     {
         SchemaTableName schemaTableName = new SchemaTableName("default", format("SELECT %s, %s FROM %s LIMIT %d", "AirlineID", "OriginStateName", "airlineStats", 100));
-        DynamicTable dynamicTable = buildFromPql(pinotMetadata, schemaTableName);
+        DynamicTable dynamicTable = buildFromPql(pinotMetadata, mockClusterInfoFetcher, schemaTableName);
 
         PinotTableHandle pinotTableHandle = new PinotTableHandle("default", dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, 1, false);
