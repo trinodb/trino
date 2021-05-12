@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-# `${BASH_SOURCE%/*/*}` would not work if script invoked as `bin/ptl`
-exec "$(dirname "$0")/../testing/trino-product-tests-launcher/bin/run-launcher" "$@"
