@@ -139,7 +139,7 @@ public class TestOrcPageSourceMemoryTracking
     private static final int STRIPE_ROWS = 20000;
     private static final Metadata metadata = createTestMetadataManager();
     private static final ExpressionCompiler EXPRESSION_COMPILER = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
-    private static final ConnectorSession UNCACHED_SESSION = HiveTestUtils.getHiveSession(new HiveConfig(), new OrcReaderConfig().setTinyStripeThreshold(DataSize.of(0, BYTE)));
+    private static final ConnectorSession UNCACHED_SESSION = HiveTestUtils.getHiveSession(new HiveConfig(), new OrcReaderConfig().setLazyReadSmallRanges(true).setTinyStripeThreshold(DataSize.of(0, BYTE)));
     private static final ConnectorSession CACHED_SESSION = SESSION;
 
     private final Random random = new Random();
@@ -550,7 +550,7 @@ public class TestOrcPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
-            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, stats, UTC);
+            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions().withLazyReadSmallRanges(true), HDFS_ENVIRONMENT, stats, UTC);
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(orcPageSourceFactory),
                     ImmutableSet.of(),
@@ -614,7 +614,8 @@ public class TestOrcPageSourceMemoryTracking
                     DynamicFilter.EMPTY,
                     types,
                     DataSize.ofBytes(0),
-                    0);
+                    0,
+                    1.0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
             operator.noMoreSplits();

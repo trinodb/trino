@@ -751,7 +751,7 @@ public final class FunctionAssertions
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of());
 
-            return FilterAndProjectOperator.createOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(), DataSize.ofBytes(0), 0);
+            return FilterAndProjectOperator.createOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(), DataSize.ofBytes(0), 0, 1.0);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -765,7 +765,7 @@ public final class FunctionAssertions
     {
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(filter, ImmutableList.of(projection));
-            return FilterAndProjectOperator.createOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(projection.getType()), DataSize.ofBytes(0), 0);
+            return FilterAndProjectOperator.createOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(projection.getType()), DataSize.ofBytes(0), 0, 1.0);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -799,7 +799,8 @@ public final class FunctionAssertions
                     DynamicFilter.EMPTY,
                     ImmutableList.of(projection.getType()),
                     DataSize.ofBytes(0),
-                    0);
+                    0,
+                    1.0);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {

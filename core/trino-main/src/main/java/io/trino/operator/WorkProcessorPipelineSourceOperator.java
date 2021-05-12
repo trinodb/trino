@@ -78,24 +78,27 @@ public class WorkProcessorPipelineSourceOperator
     public static List<OperatorFactory> convertOperators(
             List<OperatorFactoryWithTypes> operatorFactoriesWithTypes,
             DataSize minOutputPageSize,
-            int minOutputPageRowCount)
+            int minOutputPageRowCount,
+            double maxSmallPagesRowRatio)
     {
         if (operatorFactoriesWithTypes.isEmpty() || !(operatorFactoriesWithTypes.get(0).getOperatorFactory() instanceof WorkProcessorSourceOperatorFactory)) {
             return toOperatorFactories(operatorFactoriesWithTypes);
         }
 
         WorkProcessorSourceOperatorFactory sourceOperatorFactory = (WorkProcessorSourceOperatorFactory) operatorFactoriesWithTypes.get(0).getOperatorFactory();
-        ImmutableList.Builder<WorkProcessorOperatorFactory> workProcessorOperatorFactoriesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<WorkProcessorOperatorFactory> operatorFactoriesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<List<Type>> outputTypesBuilder = ImmutableList.builder();
         int operatorIndex = 1;
         for (; operatorIndex < operatorFactoriesWithTypes.size(); ++operatorIndex) {
             OperatorFactory operatorFactory = operatorFactoriesWithTypes.get(operatorIndex).getOperatorFactory();
             if (!(operatorFactory instanceof WorkProcessorOperatorFactory)) {
                 break;
             }
-            workProcessorOperatorFactoriesBuilder.add((WorkProcessorOperatorFactory) operatorFactory);
+            operatorFactoriesBuilder.add((WorkProcessorOperatorFactory) operatorFactory);
+            outputTypesBuilder.add(operatorFactoriesWithTypes.get(operatorIndex).getTypes());
         }
 
-        List<WorkProcessorOperatorFactory> workProcessorOperatorFactories = workProcessorOperatorFactoriesBuilder.build();
+        List<WorkProcessorOperatorFactory> workProcessorOperatorFactories = operatorFactoriesBuilder.build();
         if (workProcessorOperatorFactories.isEmpty()) {
             return toOperatorFactories(operatorFactoriesWithTypes);
         }
@@ -104,9 +107,10 @@ public class WorkProcessorPipelineSourceOperator
                 .add(new WorkProcessorPipelineSourceOperatorFactory(
                         sourceOperatorFactory,
                         workProcessorOperatorFactories,
-                        operatorFactoriesWithTypes.get(operatorIndex - 1).getTypes(),
+                        outputTypesBuilder.build(),
                         minOutputPageSize,
-                        minOutputPageRowCount))
+                        minOutputPageRowCount,
+                        maxSmallPagesRowRatio))
                 .addAll(toOperatorFactories(operatorFactoriesWithTypes.subList(operatorIndex, operatorFactoriesWithTypes.size())))
                 .build();
     }
@@ -122,9 +126,10 @@ public class WorkProcessorPipelineSourceOperator
             DriverContext driverContext,
             WorkProcessorSourceOperatorFactory sourceOperatorFactory,
             List<WorkProcessorOperatorFactory> operatorFactories,
-            List<Type> outputTypes,
+            List<List<Type>> outputTypes,
             DataSize minOutputPageSize,
-            int minOutputPageRowCount)
+            int minOutputPageRowCount,
+            double maxSmallPagesRowRatio)
     {
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null");
@@ -177,13 +182,15 @@ public class WorkProcessorPipelineSourceOperator
             if (i == operatorFactories.size() - 1) {
                 // materialize output pages as there are no semantics guarantees for non WorkProcessor operators
                 pages = pages.map(Page::getLoadedPage);
-                pages = pages.transformProcessor(processor -> mergePages(
-                        outputTypes,
-                        minOutputPageSize.toBytes(),
-                        minOutputPageRowCount,
-                        processor,
-                        operatorContext.aggregateUserMemoryContext()));
             }
+            List<Type> operatorOutputTypes = outputTypes.get(i);
+            pages = pages.transformProcessor(processor -> mergePages(
+                    operatorOutputTypes,
+                    minOutputPageSize.toBytes(),
+                    minOutputPageRowCount,
+                    maxSmallPagesRowRatio,
+                    processor,
+                    operatorContext.aggregateUserMemoryContext()));
             pages = pages
                     .yielding(() -> operatorContext.getDriverContext().getYieldSignal().isSet())
                     .withProcessEntryMonitor(() -> workProcessorOperatorEntryMonitor(operatorIndex))
@@ -718,23 +725,26 @@ public class WorkProcessorPipelineSourceOperator
     {
         private final WorkProcessorSourceOperatorFactory sourceOperatorFactory;
         private final List<WorkProcessorOperatorFactory> operatorFactories;
-        private final List<Type> outputTypes;
+        private final List<List<Type>> outputTypes;
         private final DataSize minOutputPageSize;
         private final int minOutputPageRowCount;
+        private final double maxSmallPagesRowRatio;
         private boolean closed;
 
         private WorkProcessorPipelineSourceOperatorFactory(
                 WorkProcessorSourceOperatorFactory sourceOperatorFactory,
                 List<WorkProcessorOperatorFactory> operatorFactories,
-                List<Type> outputTypes,
+                List<List<Type>> outputTypes,
                 DataSize minOutputPageSize,
-                int minOutputPageRowCount)
+                int minOutputPageRowCount,
+                double maxSmallPagesRowRatio)
         {
             this.sourceOperatorFactory = requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null");
             this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
             this.outputTypes = requireNonNull(outputTypes, "outputTypes is null");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
+            this.maxSmallPagesRowRatio = maxSmallPagesRowRatio;
         }
 
         @Override
@@ -753,7 +763,8 @@ public class WorkProcessorPipelineSourceOperator
                     operatorFactories,
                     outputTypes,
                     minOutputPageSize,
-                    minOutputPageRowCount);
+                    minOutputPageRowCount,
+                    maxSmallPagesRowRatio);
         }
 
         @Override

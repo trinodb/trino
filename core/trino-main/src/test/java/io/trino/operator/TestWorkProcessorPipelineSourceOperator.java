@@ -110,7 +110,8 @@ public class TestWorkProcessorPipelineSourceOperator
                         new OperatorFactoryWithTypes(firstOperatorFactory, ImmutableList.of(BIGINT)),
                         new OperatorFactoryWithTypes(secondOperatorFactory, ImmutableList.of(BIGINT))),
                 DataSize.ofBytes(0),
-                0));
+                0,
+                1.0));
 
         DriverContext driverContext = TestingOperatorContext.create(scheduledExecutor).getDriverContext();
         SourceOperator pipelineOperator = pipelineOperatorFactory.createOperator(driverContext);
@@ -238,7 +239,8 @@ public class TestWorkProcessorPipelineSourceOperator
                         new OperatorFactoryWithTypes(sourceOperatorFactory, ImmutableList.of(BIGINT)),
                         new OperatorFactoryWithTypes(firstOperatorFactory, ImmutableList.of(BIGINT))),
                 DataSize.ofBytes(100),
-                100));
+                100,
+                1.0));
 
         DriverContext driverContext = TestingOperatorContext.create(scheduledExecutor).getDriverContext();
         SourceOperator pipelineOperator = pipelineOperatorFactory.createOperator(driverContext);

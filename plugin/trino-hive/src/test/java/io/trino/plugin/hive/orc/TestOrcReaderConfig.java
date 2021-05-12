@@ -37,7 +37,7 @@ public class TestOrcReaderConfig
                 .setStreamBufferSize(DataSize.of(8, Unit.MEGABYTE))
                 .setTinyStripeThreshold(DataSize.of(8, Unit.MEGABYTE))
                 .setMaxBlockSize(DataSize.of(16, Unit.MEGABYTE))
-                .setLazyReadSmallRanges(true)
+                .setLazyReadSmallRanges(false)
                 .setNestedLazy(true));
     }
 
@@ -52,7 +52,7 @@ public class TestOrcReaderConfig
                 .put("hive.orc.stream-buffer-size", "55kB")
                 .put("hive.orc.tiny-stripe-threshold", "61kB")
                 .put("hive.orc.max-read-block-size", "66kB")
-                .put("hive.orc.lazy-read-small-ranges", "false")
+                .put("hive.orc.lazy-read-small-ranges", "true")
                 .put("hive.orc.nested-lazy", "false")
                 .build();
 
@@ -64,7 +64,7 @@ public class TestOrcReaderConfig
                 .setStreamBufferSize(DataSize.of(55, Unit.KILOBYTE))
                 .setTinyStripeThreshold(DataSize.of(61, Unit.KILOBYTE))
                 .setMaxBlockSize(DataSize.of(66, Unit.KILOBYTE))
-                .setLazyReadSmallRanges(false)
+                .setLazyReadSmallRanges(true)
                 .setNestedLazy(false);
 
         assertFullMapping(properties, expected);

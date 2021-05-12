@@ -104,7 +104,8 @@ public class TestFilterAndProjectOperator
                 processor,
                 ImmutableList.of(VARCHAR, BIGINT),
                 DataSize.ofBytes(0),
-                0);
+                0,
+                1.0);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("0", 5L)
@@ -148,7 +149,8 @@ public class TestFilterAndProjectOperator
                 processor,
                 ImmutableList.of(BIGINT),
                 DataSize.of(64, KILOBYTE),
-                2);
+                2,
+                1.0);
 
         List<Page> expected = rowPagesBuilder(BIGINT)
                 .row(10L)

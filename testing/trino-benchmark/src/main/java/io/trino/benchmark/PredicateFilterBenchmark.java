@@ -60,7 +60,8 @@ public class PredicateFilterBenchmark
                 pageProcessor,
                 ImmutableList.of(DOUBLE),
                 DataSize.ofBytes(0),
-                0);
+                0,
+                1.0);
 
         return ImmutableList.of(tableScanOperator, filterAndProjectOperator);
     }

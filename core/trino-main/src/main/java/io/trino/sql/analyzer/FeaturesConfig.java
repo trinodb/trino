@@ -123,7 +123,7 @@ public class FeaturesConfig
     private boolean useMarkDistinct = true;
     private boolean preferPartialAggregation = true;
     private boolean optimizeTopNRanking = true;
-    private boolean lateMaterializationEnabled;
+    private boolean lateMaterializationEnabled = true;
     private boolean skipRedundantSort = true;
     private boolean predicatePushdownUseTableProperties = true;
     private boolean ignoreDownstreamPreferences;
@@ -138,6 +138,7 @@ public class FeaturesConfig
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
+    private double mergePagesMaxSmallPagesRowRatio = 0.1;
     private int maxGroupingSets = 2048;
 
     public enum JoinReorderingStrategy
@@ -902,6 +903,19 @@ public class FeaturesConfig
         return this;
     }
 
+    @Min(0)
+    public double getMergePagesMaxSmallPagesRowRatio()
+    {
+        return mergePagesMaxSmallPagesRowRatio;
+    }
+
+    @Config("experimental.merge-pages-small-pages-row-ratio-threshold")
+    public FeaturesConfig setMergePagesMaxSmallPagesRowRatio(double mergePagesMaxSmallPagesRowRatio)
+    {
+        this.mergePagesMaxSmallPagesRowRatio = mergePagesMaxSmallPagesRowRatio;
+        return this;
+    }
+
     public boolean isDistributedSortEnabled()
     {
         return distributedSort;
@@ -944,8 +958,8 @@ public class FeaturesConfig
         return lateMaterializationEnabled;
     }
 
-    @Config("experimental.late-materialization.enabled")
-    @LegacyConfig("experimental.work-processor-pipelines")
+    @Config("late-materialization.enabled")
+    @LegacyConfig({"experimental.work-processor-pipelines", "experimental.late-materialization.enabled"})
     public FeaturesConfig setLateMaterializationEnabled(boolean lateMaterializationEnabled)
     {
         this.lateMaterializationEnabled = lateMaterializationEnabled;
