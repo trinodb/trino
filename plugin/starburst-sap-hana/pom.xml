@@ -142,7 +142,7 @@
 
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-presto-testing</artifactId>
+            <artifactId>starburst-trino-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
