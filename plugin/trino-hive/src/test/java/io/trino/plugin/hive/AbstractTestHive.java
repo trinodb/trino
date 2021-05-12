@@ -2161,6 +2161,13 @@ public abstract class AbstractTestHive
     }
 
     @Test
+    public void testTypesCsv()
+            throws Exception
+    {
+        assertGetRecords("trino_test_types_csv", CSV);
+    }
+
+    @Test
     public void testTypesParquet()
             throws Exception
     {
