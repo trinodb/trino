@@ -142,11 +142,6 @@ public final class DynamicTableBuilder
 
     private static String getOutputColumnName(AggregationInfo aggregationInfo, String pinotColumnName)
     {
-        /*
-        if (pinotColumnName.equals(WILDCARD)) {
-            pinotColumnName = STAR;
-        }
-         */
         return format("%s(%s)", aggregationInfo.getAggregationType(), pinotColumnName).toLowerCase(ENGLISH);
     }
 
