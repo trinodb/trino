@@ -14,6 +14,7 @@ may be used to tune Trino or alter its behavior when required.
     Spilling <properties-spilling>
     Exchange <properties-exchange>
     Task <properties-task>
+    Write partitioning <properties-write-partitioning>
     Writer scaling <properties-writer-scaling>
     Node scheduler <properties-node-scheduler>
     Optimizer <properties-optimizer>
