@@ -28,9 +28,9 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-jdbc</artifactId>
+            <type>test-jar</type>
             <version>${dep.presto-jdbc-under-test}</version>
             <scope>test</scope>
-            <type>test-jar</type>
         </dependency>
 
         <dependency>

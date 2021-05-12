@@ -232,8 +232,8 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-example-http</artifactId>
-                <version>${project.version}</version>
                 <type>zip</type>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -257,8 +257,8 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-hive</artifactId>
-                <version>${project.version}</version>
                 <type>test-jar</type>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -300,8 +300,8 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-main</artifactId>
-                <version>${project.version}</version>
                 <type>test-jar</type>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -362,8 +362,8 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-parser</artifactId>
-                <version>${project.version}</version>
                 <type>test-jar</type>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -417,8 +417,8 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-resource-group-managers</artifactId>
-                <version>${project.version}</version>
                 <type>test-jar</type>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -442,8 +442,8 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-session-property-managers</artifactId>
-                <version>${project.version}</version>
                 <type>test-jar</type>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -455,8 +455,8 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-spi</artifactId>
-                <version>${project.version}</version>
                 <type>test-jar</type>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -492,13 +492,7 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-thrift</artifactId>
-                <version>${project.version}</version>
                 <type>zip</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-thrift-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -506,7 +500,13 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-thrift-api</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-thrift-api</artifactId>
                 <type>test-jar</type>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -1507,8 +1507,8 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>${dep.testcontainers.version}</version>
                 <type>pom</type>
+                <version>${dep.testcontainers.version}</version>
                 <scope>import</scope>
             </dependency>
 
@@ -1601,13 +1601,14 @@
                     <configuration>
                         <rules>
                             <compound implementation="com.github.ferstl.maven.pomenforcers.CompoundPedanticEnforcer">
-                                <enforcers>POM_SECTION_ORDER,MODULE_ORDER,DEPENDENCY_MANAGEMENT_ORDER,DEPENDENCY_ORDER</enforcers>
+                                <enforcers>POM_SECTION_ORDER,MODULE_ORDER,DEPENDENCY_MANAGEMENT_ORDER,DEPENDENCY_ORDER,DEPENDENCY_ELEMENT</enforcers>
                                 <pomSectionPriorities>modelVersion,parent,groupId,artifactId,version,name,description,packaging,url,inceptionYear,licenses,scm,properties,modules</pomSectionPriorities>
                                 <dependenciesGroupIdPriorities>io.trino,io.airlift</dependenciesGroupIdPriorities>
                                 <dependenciesOrderBy>scope,groupId,artifactId</dependenciesOrderBy>
                                 <dependenciesScopePriorities>compile,runtime,provided,test</dependenciesScopePriorities>
                                 <dependencyManagementOrderBy>groupId,artifactId</dependencyManagementOrderBy>
                                 <dependencyManagementGroupIdPriorities>io.trino,io.airlift</dependencyManagementGroupIdPriorities>
+                                <dependencyElementOrdering>groupId,artifactId,type,version</dependencyElementOrdering>
                             </compound>
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
