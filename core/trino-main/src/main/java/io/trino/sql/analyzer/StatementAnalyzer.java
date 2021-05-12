@@ -1643,8 +1643,18 @@ class StatementAnalyzer
         private List<Field> analyzeTableOutputFields(Table table, QualifiedObjectName tableName, TableSchema tableSchema, Map<String, ColumnHandle> columnHandles)
         {
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
+            QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
+            Set<String> accessibleColumnNames = accessControl.filterColumns(
+                    session.toSecurityContext(),
+                    name.asCatalogSchemaTableName(),
+                    tableSchema.getColumns().stream()
+                            .map(ColumnSchema::getName)
+                            .collect(toImmutableSet()));
+            List<ColumnSchema> accessibleColumns = tableSchema.getColumns().stream()
+                    .filter(column -> accessibleColumnNames.contains(column.getName()))
+                    .collect(toImmutableList());
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
-            for (ColumnSchema column : tableSchema.getColumns()) {
+            for (ColumnSchema column : accessibleColumns) {
                 Field field = Field.newQualified(
                         table.getName(),
                         Optional.of(column.getName()),
