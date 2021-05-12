@@ -230,6 +230,12 @@ public class DenyAllAccessControl
     }
 
     @Override
+    public Set<String> filterTableSchema(SecurityContext context, QualifiedObjectName tableName, Set<String> columns)
+    {
+        return ImmutableSet.of();
+    }
+
+    @Override
     public void checkCanShowSchemas(SecurityContext context, String catalogName)
     {
         denyShowSchemas();

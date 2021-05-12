@@ -117,6 +117,12 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public Set<String> filterTableSchema(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
+    {
+        return columns;
+    }
+
+    @Override
     public void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }

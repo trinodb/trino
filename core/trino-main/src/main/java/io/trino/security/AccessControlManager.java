@@ -533,6 +533,23 @@ public class AccessControlManager
     }
 
     @Override
+    public Set<String> filterTableSchema(SecurityContext securityContext, QualifiedObjectName table, Set<String> columns)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(table, "tableName is null");
+
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
+            columns = systemAccessControl.filterTableSchema(securityContext.toSystemSecurityContext(), table.asCatalogSchemaTableName(), columns);
+        }
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(securityContext.getTransactionId(), table.getCatalogName());
+        if (entry != null) {
+            columns = entry.getAccessControl().filterTableSchema(entry.toConnectorSecurityContext(securityContext), table.asSchemaTableName(), columns);
+        }
+        return columns;
+    }
+
+    @Override
     public void checkCanAddColumns(SecurityContext securityContext, QualifiedObjectName tableName)
     {
         requireNonNull(securityContext, "securityContext is null");

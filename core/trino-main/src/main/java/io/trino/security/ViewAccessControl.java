@@ -83,6 +83,12 @@ public class ViewAccessControl
         return delegate.getColumnMasks(context, tableName, columnName, type);
     }
 
+    @Override
+    public Set<String> filterTableSchema(SecurityContext context, QualifiedObjectName tableName, Set<String> columns)
+    {
+        return delegate.filterTableSchema(context, tableName, columns);
+    }
+
     private static void wrapAccessDeniedException(Runnable runnable)
     {
         try {

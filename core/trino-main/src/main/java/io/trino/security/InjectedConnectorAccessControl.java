@@ -167,6 +167,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public Set<String> filterTableSchema(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
+    {
+        checkArgument(context == null, "context must be null");
+        return accessControl.filterTableSchema(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), columns);
+    }
+
+    @Override
     public void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         checkArgument(context == null, "context must be null");

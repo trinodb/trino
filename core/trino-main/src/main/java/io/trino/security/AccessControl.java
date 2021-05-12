@@ -222,9 +222,14 @@ public interface AccessControl
     void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName table);
 
     /**
-     * Filter the list of columns to those visible to the identity.
+     * Filter the list of columns to those visible to the identity when executing SHOW COLUMNS, DESCRIBE, etc.
      */
     Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns);
+
+    /**
+     * Filter the list of columns to those visible to the identity when querying the table.
+     */
+    Set<String> filterTableSchema(SecurityContext context, QualifiedObjectName tableName, Set<String> columns);
 
     /**
      * Check if identity is allowed to add columns to the specified table.

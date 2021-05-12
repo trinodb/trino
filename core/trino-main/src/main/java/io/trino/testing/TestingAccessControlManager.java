@@ -119,6 +119,7 @@ public class TestingAccessControlManager
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
     private final Map<ColumnMaskKey, List<ViewExpression>> columnMasks = new HashMap<>();
+    private final Map<TableSchemaFilterKey, Set<String>> tableSchemaFilters = new HashMap<>();
     private Predicate<String> deniedCatalogs = s -> true;
     private Predicate<SchemaTableName> deniedTables = s -> true;
     private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
@@ -161,6 +162,11 @@ public class TestingAccessControlManager
                 .add(mask);
     }
 
+    public void setTableSchemaFilter(QualifiedObjectName table, String identity, Set<String> columns)
+    {
+        tableSchemaFilters.put(new TableSchemaFilterKey(identity, table), columns);
+    }
+
     public void reset()
     {
         denyPrivileges.clear();
@@ -169,6 +175,7 @@ public class TestingAccessControlManager
         denyIdentityTable = IDENTITY_TABLE_TRUE;
         rowFilters.clear();
         columnMasks.clear();
+        tableSchemaFilters.clear();
     }
 
     public void denyCatalogs(Predicate<String> deniedCatalogs)
@@ -560,6 +567,16 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public Set<String> filterTableSchema(SecurityContext securityContext, QualifiedObjectName table, Set<String> columns)
+    {
+        Set<String> accessibleColumns = tableSchemaFilters.get(new TableSchemaFilterKey(securityContext.getIdentity().getUser(), table));
+        if (accessibleColumns != null) {
+            return accessibleColumns;
+        }
+        return super.filterTableSchema(securityContext, table, columns);
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(SecurityContext context, String catalogName, String propertyName)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), catalogName + "." + propertyName, SET_SESSION)) {
@@ -765,6 +782,38 @@ public class TestingAccessControlManager
         public int hashCode()
         {
             return Objects.hash(identity, table, column);
+        }
+    }
+
+    private static class TableSchemaFilterKey
+    {
+        private final String identity;
+        private final QualifiedObjectName table;
+
+        public TableSchemaFilterKey(String identity, QualifiedObjectName table)
+        {
+            this.identity = requireNonNull(identity, "identity is null");
+            this.table = requireNonNull(table, "table is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TableSchemaFilterKey that = (TableSchemaFilterKey) o;
+            return identity.equals(that.identity) &&
+                    table.equals(that.table);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(identity, table);
         }
     }
 }

@@ -206,6 +206,12 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public Set<String> filterTableSchema(SystemSecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
+    {
+        return columns;
+    }
+
+    @Override
     public void checkCanAddColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }

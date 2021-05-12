@@ -595,6 +595,13 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public Set<String> filterTableSchema(SystemSecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
+    {
+        // TODO
+        return columns;
+    }
+
+    @Override
     public void checkCanAddColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {

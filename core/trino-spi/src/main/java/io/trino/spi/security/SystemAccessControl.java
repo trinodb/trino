@@ -358,11 +358,19 @@ public interface SystemAccessControl
     }
 
     /**
-     * Filter the list of columns to those visible to the identity.
+     * Filter the list of columns to those visible to the identity when executing SHOW COLUMNS, DESCRIBE, etc.
      */
     default Set<String> filterColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         return emptySet();
+    }
+
+    /**
+     * Filter the list of columns to those visible to the identity when querying the table.
+     */
+    default Set<String> filterTableSchema(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    {
+        return columns;
     }
 
     /**
