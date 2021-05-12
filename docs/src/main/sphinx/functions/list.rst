@@ -459,7 +459,7 @@ T
 
 - :func:`tan`
 - :func:`tanh`
-- ``tdigest_agg``
+- :func:`tdigest_agg`
 - :func:`timezone_hour`
 - :func:`timezone_minute`
 - :func:`to_base`
