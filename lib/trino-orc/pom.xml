@@ -90,8 +90,8 @@
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
-            <optional>true</optional>
             <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
