@@ -45,6 +45,7 @@ import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
 import io.trino.plugin.jdbc.expression.ImplementMinMax;
 import io.trino.plugin.jdbc.expression.ImplementSum;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -155,9 +156,9 @@ public class SqlServerClient
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
 
     @Inject
-    public SqlServerClient(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, ConnectionFactory connectionFactory)
+    public SqlServerClient(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory);
+        super(config, "\"", connectionFactory, identifierMapping);
 
         requireNonNull(sqlServerConfig, "sqlServerConfig is null");
         snapshotIsolationDisabled = sqlServerConfig.isSnapshotIsolationDisabled();

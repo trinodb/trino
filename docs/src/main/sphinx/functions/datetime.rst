@@ -309,13 +309,17 @@ Unit    Description
 
 .. function:: human_readable_seconds(double) -> varchar
 
-    Returns ``seconds`` expressed in terms of ``human readable interval``::
+    Formats the double value of ``seconds`` into a human readable string containing
+    ``weeks``, ``days``, ``hours``, ``minutes``, and ``seconds``::
+
+        SELECT human_readable_seconds(96);
+        -- 1 minute, 36 seconds
+
+        SELECT human_readable_seconds(3762);
+        -- 1 hour, 2 minutes, 42 seconds
 
         SELECT human_readable_seconds(56363463);
         -- 93 weeks, 1 day, 8 hours, 31 minutes, 3 seconds
-
-        SELECT human_readable_seconds(61);
-        -- 1 minute, 1 second
 
 MySQL date functions
 --------------------

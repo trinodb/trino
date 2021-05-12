@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
-import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -21,7 +20,6 @@ import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.trino.type.DateTimes.MICROSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.MILLISECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 
@@ -32,14 +30,9 @@ public final class ToUnixTime
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.DOUBLE)
-    public static double toUnixTime(@LiteralParameter("p") long precision, @SqlType("timestamp(p) with time zone") long timestamp)
+    public static double toUnixTime(@SqlType("timestamp(p) with time zone") long timestamp)
     {
-        long epochMillis = unpackMillisUtc(timestamp);
-        if (precision <= 3) {
-            return epochMillis * 1.0 / MILLISECONDS_PER_SECOND;
-        }
-
-        return epochMillis * 1.0 / MICROSECONDS_PER_SECOND;
+        return unpackMillisUtc(timestamp) * 1.0 / MILLISECONDS_PER_SECOND;
     }
 
     @LiteralParameters("p")

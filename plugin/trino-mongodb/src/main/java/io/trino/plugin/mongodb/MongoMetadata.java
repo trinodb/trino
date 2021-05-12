@@ -174,6 +174,12 @@ public class MongoMetadata
     }
 
     @Override
+    public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        mongoSession.dropColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), ((MongoColumnHandle) column).getName());
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         List<MongoColumnHandle> columns = buildColumnHandles(tableMetadata);

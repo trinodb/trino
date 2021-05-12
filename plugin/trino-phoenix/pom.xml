@@ -50,11 +50,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
@@ -99,11 +94,6 @@
             <artifactId>phoenix-client</artifactId>
             <version>4.14.1-HBase-1.4</version>
             <classifier>embedded</classifier>
-        </dependency>
-
-        <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
         </dependency>
 
         <!-- used by tests but also needed transitively -->

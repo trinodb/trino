@@ -58,6 +58,7 @@ import io.trino.plugin.jdbc.expression.ImplementStddevSamp;
 import io.trino.plugin.jdbc.expression.ImplementSum;
 import io.trino.plugin.jdbc.expression.ImplementVariancePop;
 import io.trino.plugin.jdbc.expression.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -245,9 +246,10 @@ public class PostgreSqlClient
             BaseJdbcConfig config,
             PostgreSqlConfig postgreSqlConfig,
             ConnectionFactory connectionFactory,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory);
+        super(config, "\"", connectionFactory, identifierMapping);
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
@@ -312,6 +314,7 @@ public class PostgreSqlClient
     public PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException
     {
+        // fetch-size is ignored when connection is in auto-commit
         connection.setAutoCommit(false);
         PreparedStatement statement = connection.prepareStatement(sql);
         statement.setFetchSize(1000);

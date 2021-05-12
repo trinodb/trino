@@ -90,9 +90,9 @@ public class TestDynamicTable
     public void testFilter()
     {
         String tableName = realtimeOnlyTable.getTableName();
-        String query = format("select FlightNum, AirlineID from %s where (((CancellationCode IN ('strike', 'weather', 'pilot_bac')) AND (Origin = 'jfk')) " +
-                        "OR (((OriginCityName != 'catfish paradise') AND (OriginState != 'az')) AND (AirTime between 1 and 5))) " +
-                        "OR (((((DepDelayMinutes < 10) AND (Distance >= 3)) AND (ArrDelay > 4)) AND (SecurityDelay < 5)) AND (LateAircraftDelay <= 7)) limit 60",
+        String query = format("select FlightNum, AirlineID from %s where ((CancellationCode IN ('strike', 'weather', 'pilot_bac')) AND (Origin = 'jfk')) " +
+                        "OR ((OriginCityName != 'catfish paradise') AND (OriginState != 'az') AND (AirTime between 1 and 5)) " +
+                        "OR ((DepDelayMinutes < 10) AND (Distance >= 3) AND (ArrDelay > 4) AND (SecurityDelay < 5) AND (LateAircraftDelay <= 7)) limit 60",
                 tableName.toLowerCase(ENGLISH));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query));
         assertEquals(extractPql(dynamicTable, TupleDomain.all(), ImmutableList.of()), query);

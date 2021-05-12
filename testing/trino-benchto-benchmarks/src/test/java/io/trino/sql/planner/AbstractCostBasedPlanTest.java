@@ -122,7 +122,7 @@ public abstract class AbstractCostBasedPlanTest
         return joinOrderPrinter.result();
     }
 
-    private static Path getSourcePath()
+    protected Path getSourcePath()
     {
         Path workingDir = Paths.get(System.getProperty("user.dir"));
         verify(isDirectory(workingDir), "Working directory is not a directory");

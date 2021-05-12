@@ -16,9 +16,9 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import org.testng.annotations.Test;
@@ -260,7 +260,7 @@ public class TestPlanMatchingFramework
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinNode.DistributionType.PARTITIONED.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .build();
     }
 }

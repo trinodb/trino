@@ -199,7 +199,7 @@ H
 - :func:`hmac_sha256`
 - :func:`hmac_sha512`
 - :func:`hour`
-- ``human_readable_seconds``
+- :func:`human_readable_seconds`
 
 I
 -
@@ -378,6 +378,7 @@ S
 - :func:`skewness`
 - :func:`slice`
 - :ref:`SOME <quantified_comparison_predicates>`
+- :func:`soundex`
 - ``spatial_partitioning``
 - ``spatial_partitions``
 - :func:`split`
