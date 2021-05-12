@@ -410,5 +410,5 @@ jobs:
           rm -rf ~/.m2/repository
       - name: Product Tests
         run: |
-          bin/ptl suite run \
+          testing/bin/ptl suite run \
             --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h

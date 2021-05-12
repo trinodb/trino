@@ -13,10 +13,10 @@ debugging Trino). The tests run in a separate JVM and they can be started
 using the launcher found in `testing/trino-product-tests-launcher/bin/run-launcher`. The product
 tests are run using the [Tempto](https://github.com/trinodb/tempto) harness.
 
-**There is a helper script at `bin/ptl` which calls
+**There is a helper script at `testing/bin/ptl` which calls
 `testing/trino-product-tests-launcher/bin/run-launcher` and helps you avoid
 typing the full path to the launcher everytime. Rest of this document uses
-`bin/ptl` to start the launcher but you can use the full path too.**
+`testing/bin/ptl` to start the launcher but you can use the full path too.**
 
 Developers should consider writing product tests in addition to any unit tests
 when making changes to user visible features. The product tests should also
@@ -57,7 +57,7 @@ groups run the following command:
 
 ```
 ./mvnw install -DskipTests
-bin/ptl test run --environment <environment> \
+testing/bin/ptl test run --environment <environment> \
 [--config <environment config>] \
 -- <tempto arguments>
 ```
@@ -102,7 +102,7 @@ You can obtain list of available environments using command:
  
 ```
 ./mvnw install -DskipTests
-bin/ptl env list
+testing/bin/ptl env list
 ```
 
 #### Environment config
@@ -116,7 +116,7 @@ Most of the Hadoop-based environments can be run in multiple configurations that
 You can obtain list of available environment configurations using command:
 
 ```
-bin/ptl env list
+testing/bin/ptl env list
 ```
 
 All of `test run`, `env up` and `suite run` commands accept `--config <environment config>` setting.
@@ -130,13 +130,13 @@ and each type can be run individually with the following commands:
 
 ```
 # Run single Java based test
-bin/ptl test run \
+testing/bin/ptl test run \
             --environment <environment> \
             [--config <environment config>] \
             -- -t io.trino.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
 
 # Run single convention based test
-bin/ptl test run \
+testing/bin/ptl test run \
             --environment <environment> \
             [--config <environment config>] \
             -- -t sql_tests.testcases.system.selectInformationSchemaTables
@@ -153,7 +153,7 @@ particular group, use the `-g` argument as shown:
 
 ```
 # Run all tests in the string_functions and create_table groups
-bin/ptl test run \
+testing/bin/ptl test run \
             --environment <environment> \
             [--config <environment config>] \
             -- -g string_functions,create_tables
@@ -190,16 +190,16 @@ Tests are further organized into suites which contain execution of multiple test
 You can obtain list of available test suites using command:
 
 ```
-bin/ptl suite list
+testing/bin/ptl suite list
 ```
 
-Command `bin/ptl suite describe --suite <suite name>` shows list of tests that will be executed and environments 
+Command `testing/bin/ptl suite describe --suite <suite name>` shows list of tests that will be executed and environments 
 that will be used when `suite run` is invoked.
 
 You can execute single suite using command:
 
 ```
-bin/ptl suite run --suite <suite name> \
+testing/bin/ptl suite run --suite <suite name> \
     [--config <environment config>]
 ```
 
@@ -222,7 +222,7 @@ For example to debug the `TestHiveViews.testFromUtcTimestampCornerCases` on the
 `multinode` environment you can run:
 
 ```
-bin/ptl test run \
+testing/bin/ptl test run \
     --environment multinode \
     --debug \
     -- -t TestHiveViews.testFromUtcTimestampCornerCases
