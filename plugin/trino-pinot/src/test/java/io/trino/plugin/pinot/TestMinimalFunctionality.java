@@ -178,6 +178,18 @@ public class TestMinimalFunctionality
     }
 
     @Test
+    public void testBrokerQueriesWithCaseStatementsInFilter()
+    {
+        // Need to invoke the UPPER function since identifiers are lower case
+        assertQuery("SELECT city, \"avg(lucky_number)\", \"avg(price)\", \"avg(long_number)\"" +
+                "  FROM \"SELECT city, AVG(price), AVG(lucky_number), AVG(long_number) FROM my_table WHERE " +
+                "  CASE WHEN city = CONCAT(CONCAT(UPPER('N'), 'ew ', ''), CONCAT(UPPER('Y'), 'ork', ''), '') THEN city WHEN city = CONCAT(CONCAT(UPPER('L'), 'os ', ''), CONCAT(UPPER('A'), 'ngeles', ''), '') THEN city ELSE 'gotham' END != 'gotham'" +
+                "  AND CASE WHEN vendor = 'vendor1' THEN 'vendor1' WHEN vendor = 'vendor2' THEN 'vendor2' ELSE vendor END != 'vendor7' GROUP BY city\"", "VALUES" +
+                "  ('New York', 7.0, 5.5, 10000.0)," +
+                "  ('Los Angeles', 7.75, 6.25, 10000.0)");
+    }
+
+    @Test
     public void testLimitForSegmentQueries()
     {
         assertQuerySucceeds("SELECT * FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'");
