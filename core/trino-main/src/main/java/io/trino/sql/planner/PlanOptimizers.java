@@ -130,6 +130,7 @@ import io.trino.sql.planner.iterative.rule.PruneValuesColumns;
 import io.trino.sql.planner.iterative.rule.PruneWindowColumns;
 import io.trino.sql.planner.iterative.rule.PushAggregationIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
+import io.trino.sql.planner.iterative.rule.PushCastIntoRow;
 import io.trino.sql.planner.iterative.rule.PushDeleteIntoConnector;
 import io.trino.sql.planner.iterative.rule.PushDistinctLimitIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushDownDereferenceThroughFilter;
@@ -385,6 +386,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(new SimplifyExpressions(metadata, typeAnalyzer).rules())
                         .addAll(new UnwrapRowSubscript().rules())
+                        .addAll(new PushCastIntoRow().rules())
                         .addAll(new UnwrapCastInComparison(metadata, typeOperators, typeAnalyzer).rules())
                         .addAll(new RemoveDuplicateConditions(metadata).rules())
                         .addAll(new CanonicalizeExpressions(metadata, typeAnalyzer).rules())
@@ -434,6 +436,7 @@ public class PlanOptimizers
                                 .addAll(columnPruningRules)
                                 .addAll(projectionPushdownRules)
                                 .addAll(new UnwrapRowSubscript().rules())
+                                .addAll(new PushCastIntoRow().rules())
                                 .addAll(ImmutableSet.of(
                                         new UnwrapSingleColumnRowInApply(typeAnalyzer),
                                         new RemoveEmptyUnionBranches(),
