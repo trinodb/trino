@@ -95,6 +95,15 @@ public class TestPinotQueryBase
                         .addSingleValueDimension("col_2", DataType.LONG)
                         .addSingleValueDimension("col_3", DataType.STRING)
                         .build())
+                .put("primitive_types_table", new SchemaBuilder().setSchemaName("primitive_types_table")
+                        .addSingleValueDimension("string_col", DataType.STRING)
+                        .addSingleValueDimension("long_col", DataType.LONG)
+                        .addSingleValueDimension("int_col", DataType.INT)
+                        .addSingleValueDimension("bool_col", DataType.BOOLEAN)
+                        .addSingleValueDimension("double_col", DataType.DOUBLE)
+                        .addSingleValueDimension("float_col", DataType.FLOAT)
+                        .addSingleValueDimension("bytes_col", DataType.BYTES)
+                        .build())
                 .build();
     }
 }
