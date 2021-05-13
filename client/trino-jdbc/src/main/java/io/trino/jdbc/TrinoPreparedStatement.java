@@ -56,6 +56,7 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -109,10 +110,10 @@ public class TrinoPreparedStatement
     private final String originalSql;
     private boolean isBatch;
 
-    TrinoPreparedStatement(TrinoConnection connection, String statementName, String sql)
+    TrinoPreparedStatement(TrinoConnection connection, Consumer<TrinoStatement> onClose, String statementName, String sql)
             throws SQLException
     {
-        super(connection);
+        super(connection, onClose);
         this.statementName = requireNonNull(statementName, "statementName is null");
         this.originalSql = requireNonNull(sql, "sql is null");
         super.execute(format("PREPARE %s FROM %s", statementName, sql));
