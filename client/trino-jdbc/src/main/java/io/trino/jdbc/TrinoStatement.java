@@ -83,7 +83,10 @@ public class TrinoStatement
     public void close()
             throws SQLException
     {
-        connection.set(null);
+        TrinoConnection connection = this.connection.getAndSet(null);
+        if (connection == null) {
+            return;
+        }
         closeResultSet();
     }
 
