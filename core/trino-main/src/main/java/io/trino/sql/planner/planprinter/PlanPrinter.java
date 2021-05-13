@@ -939,7 +939,7 @@ public class PlanPrinter
                 DynamicFilters.ExtractResult extractResult = extractDynamicFilters(predicate);
                 arguments.add(unresolveFunctions(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts())));
                 if (!extractResult.getDynamicConjuncts().isEmpty()) {
-                    formatString += "dynamicFilter = %s, ";
+                    formatString += "dynamicFilters = %s, ";
                     arguments.add(printDynamicFilters(extractResult.getDynamicConjuncts()));
                 }
             }
