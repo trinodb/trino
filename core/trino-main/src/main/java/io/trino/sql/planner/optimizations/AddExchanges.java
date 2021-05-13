@@ -534,8 +534,8 @@ public class AddExchanges
         {
             if (node.getSource() instanceof TableScanNode) {
                 Optional<PlanNode> plan = PushPredicateIntoTableScan.pushFilterIntoTableScan(
+                        node,
                         (TableScanNode) node.getSource(),
-                        node.getPredicate(),
                         true,
                         session,
                         types,
