@@ -23,7 +23,7 @@ You can create a new ObjectID by using the ``ObjectID`` function without an argu
 This code sample generates a unique ObjectID for ``apples``.
 
 Assigning a specific ObjectID
---------------------
+-----------------------------------
 You can assign an ObjectID to a variable by setting an argument to the ``ObjectID`` function. The following code sample assigns a variable with an unique ObjectID. :: 
 
     oranges = ObjectID("60957e49e39ea7b4b103c181")
@@ -31,7 +31,7 @@ You can assign an ObjectID to a variable by setting an argument to the ``ObjectI
 The argument assigns ``oranges`` with an ObjectID of "60957e49e39ea7b4b103c181".
 
 Accessing an ObjectID
---------------------
+----------------------------------
 You can access the ObjectID of a variable by converting the ObjectID into the string data type. The following code sample converts the ObjectID value to a string. ::
 
     ObjectID("60957e49e39ea7b4b103c181").str
