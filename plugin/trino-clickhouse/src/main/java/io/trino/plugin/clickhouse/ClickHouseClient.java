@@ -15,6 +15,7 @@ package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -24,6 +25,7 @@ import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
@@ -43,8 +45,10 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
@@ -59,9 +63,12 @@ import java.sql.Types;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -104,6 +111,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.Long.reverseBytes;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -111,10 +119,11 @@ import static java.lang.String.join;
 public class ClickHouseClient
         extends BaseJdbcClient
 {
+    static final int CLICKHOUSE_MAX_DECIMAL_PRECISION = 76;
+
     private final boolean mapStringAsVarchar;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
-
-    static final int CLICKHOUSE_MAX_DECIMAL_PRECISION = 76;
+    private final Type uuidType;
 
     @Inject
     public ClickHouseClient(
@@ -125,7 +134,7 @@ public class ClickHouseClient
             IdentifierMapping identifierMapping)
     {
         super(config, "\"", connectionFactory, identifierMapping);
-
+        this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         // TODO (https://github.com/trinodb/trino/issues/7102) define session property
         this.mapStringAsVarchar = clickHouseConfig.isMapStringAsVarchar();
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -318,8 +327,6 @@ public class ClickHouseClient
             case "IPv4":
             case "IPv6":
                 // TODO (https://github.com/trinodb/trino/issues/7098) map to Trino IPADDRESS
-            case "UUID":
-                // TODO (https://github.com/trinodb/trino/issues/7097) map to Trino UUID
             case "Enum8":
             case "Enum16":
                 return Optional.of(ColumnMapping.sliceMapping(
@@ -340,6 +347,8 @@ public class ClickHouseClient
                 }
                 // TODO (https://github.com/trinodb/trino/issues/7100) test & enable predicate pushdown
                 return Optional.of(varbinaryColumnMapping());
+            case "UUID":
+                return Optional.of(uuidColumnMapping());
         }
 
         switch (typeHandle.getJdbcType()) {
@@ -436,6 +445,9 @@ public class ClickHouseClient
         if (type == DATE) {
             return WriteMapping.longMapping("Date", dateWriteFunction());
         }
+        if (type.equals(uuidType)) {
+            return WriteMapping.sliceMapping("UUID", uuidWriteFunction());
+        }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type);
     }
 
@@ -458,5 +470,31 @@ public class ClickHouseClient
             // include more than one columns
             return Optional.of("(" + String.join(",", prop) + ")");
         }
+    }
+
+    private ColumnMapping uuidColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                uuidType,
+                (resultSet, columnIndex) -> uuidSlice((UUID) resultSet.getObject(columnIndex)),
+                uuidWriteFunction());
+    }
+
+    // see io.trino.type.UuidType#getObjectValue
+    private static SliceWriteFunction uuidWriteFunction()
+    {
+        return (statement, index, value) -> {
+            long high = reverseBytes(value.getLong(0));
+            long low = reverseBytes(value.getLong(SIZE_OF_LONG));
+            UUID uuid = new UUID(high, low);
+            statement.setObject(index, uuid, Types.OTHER);
+        };
+    }
+
+    private static Slice uuidSlice(UUID uuid)
+    {
+        return wrappedLongArray(
+                reverseBytes(uuid.getMostSignificantBits()),
+                reverseBytes(uuid.getLeastSignificantBits()));
     }
 }
