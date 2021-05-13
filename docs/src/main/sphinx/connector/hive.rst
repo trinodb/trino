@@ -397,6 +397,9 @@ with ORC files performed by the Hive connector.
     :widths: 30, 50, 20
     :header-rows: 1
 
+    * - Property Name
+      - Description
+      - Default
     * - ``hive.orc.time-zone``
       - Sets the default time zone for legacy ORC files that did not declare a
         time zone.
@@ -417,6 +420,9 @@ with Parquet files performed by the Hive connector.
     :widths: 30, 50, 20
     :header-rows: 1
 
+    * - Property Name
+      - Description
+      - Default
     * - ``hive.parquet.time-zone``
       - Adjusts timestamp values to a specific time zone. For Hive 3.1+, set
         this to UTC.
