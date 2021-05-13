@@ -62,15 +62,14 @@ import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.Expressions.field;
 import static io.trino.sql.relational.SpecialForm.Form.IN;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static java.time.LocalDate.now;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
-@Fork(10)
-@Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Fork(2)
+@Warmup(iterations = 6, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 6, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(AverageTime)
 @SuppressWarnings({"FieldMayBeFinal", "FieldCanBeLocal"})
 public class BenchmarkInCodeGenerator
