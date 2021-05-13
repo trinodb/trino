@@ -16,8 +16,10 @@ package io.trino.plugin.phoenix5;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -51,7 +53,6 @@ import static io.trino.plugin.phoenix5.MetadataUtil.toTrinoSchemaName;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
 
@@ -63,12 +64,14 @@ public class PhoenixMetadata
     // col name used for PK if none provided in DDL
     private static final String ROWKEY = "ROWKEY";
     private final PhoenixClient phoenixClient;
+    private final IdentifierMapping identifierMapping;
 
     @Inject
-    public PhoenixMetadata(PhoenixClient phoenixClient, JdbcMetadataConfig metadataConfig)
+    public PhoenixMetadata(PhoenixClient phoenixClient, JdbcMetadataConfig metadataConfig, IdentifierMapping identifierMapping)
     {
         super(phoenixClient, metadataConfig.isAllowDropTable());
         this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
+        this.identifierMapping = requireNonNull(identifierMapping, "identifierMapping is null");
     }
 
     @Override
@@ -119,7 +122,7 @@ public class PhoenixMetadata
         if (DEFAULT_SCHEMA.equalsIgnoreCase(schemaName)) {
             throw new TrinoException(NOT_SUPPORTED, "Can't create 'default' schema which maps to Phoenix empty schema");
         }
-        phoenixClient.execute(session, format("CREATE SCHEMA %s", getEscapedArgument(toMetadataCasing(session, schemaName))));
+        phoenixClient.execute(session, format("CREATE SCHEMA %s", getEscapedArgument(toRemoteSchemaName(session, schemaName))));
     }
 
     @Override
@@ -128,21 +131,17 @@ public class PhoenixMetadata
         if (DEFAULT_SCHEMA.equalsIgnoreCase(schemaName)) {
             throw new TrinoException(NOT_SUPPORTED, "Can't drop 'default' schema which maps to Phoenix empty schema");
         }
-        phoenixClient.execute(session, format("DROP SCHEMA %s", getEscapedArgument(toMetadataCasing(session, schemaName))));
+        phoenixClient.execute(session, format("DROP SCHEMA %s", getEscapedArgument(toRemoteSchemaName(session, schemaName))));
     }
 
-    private String toMetadataCasing(ConnectorSession session, String schemaName)
+    private String toRemoteSchemaName(ConnectorSession session, String schemaName)
     {
         try (Connection connection = phoenixClient.getConnection(session)) {
-            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
-            if (uppercase) {
-                schemaName = schemaName.toUpperCase(ENGLISH);
-            }
+            return identifierMapping.toRemoteSchemaName(JdbcIdentity.from(session), connection, schemaName);
         }
         catch (SQLException e) {
             throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get casing for the schema name", e);
         }
-        return schemaName;
     }
 
     @Override

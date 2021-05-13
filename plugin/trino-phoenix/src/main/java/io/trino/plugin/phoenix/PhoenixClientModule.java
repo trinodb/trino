@@ -23,6 +23,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ForClassLoaderSafe;
+import io.trino.plugin.jdbc.ConfiguringConnectionFactory;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
@@ -40,6 +41,7 @@ import io.trino.plugin.jdbc.StatsCollecting;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
+import io.trino.plugin.jdbc.mapping.IdentifierMappingModule;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -52,7 +54,6 @@ import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver;
 
 import javax.annotation.PreDestroy;
 
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Properties;
@@ -106,6 +107,7 @@ public class PhoenixClientModule
         checkConfiguration(buildConfigObject(PhoenixConfig.class).getConnectionUrl());
 
         install(new JdbcDiagnosticModule());
+        install(new IdentifierMappingModule());
     }
 
     private void checkConfiguration(String connectionUrl)
@@ -125,11 +127,17 @@ public class PhoenixClientModule
     public ConnectionFactory getConnectionFactory(PhoenixConfig config)
             throws SQLException
     {
-        return new DriverConnectionFactory(
-                DriverManager.getDriver(config.getConnectionUrl()),
-                config.getConnectionUrl(),
-                getConnectionProperties(config),
-                new EmptyCredentialProvider());
+        return new ConfiguringConnectionFactory(
+                new DriverConnectionFactory(
+                        PhoenixDriver.INSTANCE, // Note: for some reason new PhoenixDriver won't work.
+                        config.getConnectionUrl(),
+                        getConnectionProperties(config),
+                        new EmptyCredentialProvider()),
+                connection -> {
+                    // Per JDBC spec, a Driver is expected to have new connections in auto-commit mode.
+                    // This seems not to be true for PhoenixDriver, so we need to be explicit here.
+                    connection.setAutoCommit(true);
+                });
     }
 
     public static Properties getConnectionProperties(PhoenixConfig config)

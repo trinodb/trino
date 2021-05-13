@@ -155,4 +155,144 @@ public class TestSetOperations
                         "    ) t(v))"))
                 .matches("VALUES (ARRAY[1], ARRAY[1, 1, 2])");
     }
+
+    @Test
+    public void testExceptWithEmptyBranches()
+    {
+        assertThat(assertions.query(
+                "SELECT 0 WHERE false " +
+                        "EXCEPT ALL " +
+                        "SELECT 1 WHERE false " +
+                        "EXCEPT ALL " +
+                        "SELECT 2 WHERE false"))
+                .describedAs("EXCEPT ALL with all empty branches")
+                .returnsEmptyResult();
+
+        assertThat(assertions.query(
+                "SELECT 0 WHERE false " +
+                        "EXCEPT DISTINCT " +
+                        "SELECT 1 WHERE false " +
+                        "EXCEPT DISTINCT " +
+                        "SELECT 2 WHERE false"))
+                .describedAs("EXCEPT DISTINCT with all empty branches")
+                .returnsEmptyResult();
+
+        assertThat(assertions.query(
+                "VALUES 1, 1, 2, 2, 3 " +
+                        "EXCEPT ALL " +
+                        "SELECT 1 WHERE false " +
+                        "EXCEPT ALL " +
+                        "SELECT 2 WHERE false"))
+                .describedAs("EXCEPT ALL with empty subtractions")
+                .matches("VALUES 1, 1, 2, 2, 3");
+
+        assertThat(assertions.query(
+                "VALUES 1, 1, 2, 2, 3 " +
+                        "EXCEPT DISTINCT " +
+                        "SELECT 1 WHERE false " +
+                        "EXCEPT DISTINCT " +
+                        "SELECT 2 WHERE false "))
+                .describedAs("EXCEPT DISTINCT with empty subtractions")
+                .matches("VALUES 1, 2, 3");
+
+        assertThat(assertions.query(
+                "SELECT 1 WHERE false " +
+                        "EXCEPT ALL " +
+                        "VALUES 2, 3"))
+                .describedAs("EXCEPT ALL with empty set")
+                .returnsEmptyResult();
+
+        assertThat(assertions.query(
+                "SELECT 1 WHERE false " +
+                        "EXCEPT DISTINCT " +
+                        "VALUES 2, 3"))
+                .describedAs("EXCEPT DISTINCT with empty set")
+                .returnsEmptyResult();
+    }
+
+    @Test
+    public void testUnionWithEmptyBranches()
+    {
+        assertThat(assertions.query(
+                "SELECT 0 WHERE false " +
+                        "UNION ALL " +
+                        "SELECT 0 WHERE false"))
+                .describedAs("UNION ALL with all empty branches")
+                .returnsEmptyResult();
+
+        assertThat(assertions.query(
+                "SELECT 0 WHERE false " +
+                        "UNION DISTINCT " +
+                        "SELECT 0 WHERE false"))
+                .describedAs("UNION DISTINCT with all empty branches")
+                .returnsEmptyResult();
+
+        assertThat(assertions.query(
+                "VALUES 1, 1, 2, 2, 3 " +
+                        "UNION ALL " +
+                        "VALUES 1, 3, 3, 4 " +
+                        "UNION ALL " +
+                        "SELECT 0 WHERE false"))
+                .describedAs("UNION ALL with empty branches")
+                .matches("VALUES 1, 1, 1, 2, 2, 3, 3, 3, 4");
+
+        assertThat(assertions.query(
+                "VALUES 1, 1, 2, 2, 3 " +
+                        "UNION DISTINCT " +
+                        "VALUES 1, 3, 3, 4 " +
+                        "UNION DISTINCT " +
+                        "SELECT 0 WHERE false"))
+                .describedAs("UNION DISTINCT with empty branches")
+                .matches("VALUES 1, 2, 3, 4");
+
+        assertThat(assertions.query(
+                "VALUES 1, 1, 2, 2, 3 " +
+                        "UNION DISTINCT " +
+                        "SELECT 0 WHERE false " +
+                        "UNION DISTINCT " +
+                        "SELECT 0 WHERE false"))
+                .describedAs("UNION DISTINCT with single non-empty branch")
+                .matches("VALUES 1, 2, 3");
+
+        assertThat(assertions.query(
+                "VALUES 1, 1, 2, 2, 3 " +
+                        "UNION ALL " +
+                        "SELECT 0 WHERE false " +
+                        "UNION ALL " +
+                        "SELECT 0 WHERE false"))
+                .describedAs("UNION ALL with single non-empty branch")
+                .matches("VALUES 1, 1, 2, 2, 3");
+    }
+
+    @Test
+    public void testIntersectWithEmptyBranches()
+    {
+        assertThat(assertions.query(
+                "SELECT 0 WHERE false " +
+                        "INTERSECT ALL " +
+                        "SELECT 0 WHERE false"))
+                .describedAs("INTERSECT ALL with all empty branches")
+                .returnsEmptyResult();
+
+        assertThat(assertions.query(
+                "SELECT 0 WHERE false " +
+                        "INTERSECT DISTINCT " +
+                        "SELECT 0 WHERE false"))
+                .describedAs("INTERSECT DISTINCT with all empty branches")
+                .returnsEmptyResult();
+
+        assertThat(assertions.query(
+                "VALUES 1, 1, 2, 2, 3 " +
+                        "INTERSECT ALL " +
+                        "SELECT 0 WHERE false"))
+                .describedAs("INTERSECT ALL with empty branches")
+                .returnsEmptyResult();
+
+        assertThat(assertions.query(
+                "VALUES 1, 1, 2, 2, 3 " +
+                        "INTERSECT DISTINCT " +
+                        "SELECT 0 WHERE false"))
+                .describedAs("INTERSECT DISTINCT with empty branches")
+                .returnsEmptyResult();
+    }
 }

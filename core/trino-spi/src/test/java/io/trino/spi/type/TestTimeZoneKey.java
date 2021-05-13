@@ -13,11 +13,13 @@
  */
 package io.trino.spi.type;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.SortedSet;
 
@@ -219,6 +221,19 @@ public class TestTimeZoneKey
         }
         // Zone file should not (normally) be changed, so let's make this more difficult
         assertEquals(hasher.hash().asLong(), 6334606028834602490L, "zone-index.properties file contents changed!");
+    }
+
+    @Test
+    public void testRoundTripSerialization()
+            throws IOException
+    {
+        ObjectMapper mapper = new ObjectMapper();
+
+        for (TimeZoneKey zoneKey : TimeZoneKey.getTimeZoneKeys()) {
+            String json = mapper.writeValueAsString(zoneKey);
+            Object value = mapper.readValue(json, zoneKey.getClass());
+            assertEquals(value, zoneKey);
+        }
     }
 
     public void assertTimeZoneNotSupported(String zoneId)

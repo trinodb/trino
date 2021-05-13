@@ -52,6 +52,7 @@ import io.trino.sql.planner.iterative.rule.DeterminePreferredWritePartitioning;
 import io.trino.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
 import io.trino.sql.planner.iterative.rule.EliminateCrossJoins;
+import io.trino.sql.planner.iterative.rule.EvaluateEmptyIntersect;
 import io.trino.sql.planner.iterative.rule.EvaluateZeroSample;
 import io.trino.sql.planner.iterative.rule.ExtractDereferencesFromFilterAboveScan;
 import io.trino.sql.planner.iterative.rule.ExtractSpatialJoins;
@@ -175,6 +176,8 @@ import io.trino.sql.planner.iterative.rule.PushdownLimitIntoWindow;
 import io.trino.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
 import io.trino.sql.planner.iterative.rule.RemoveDuplicateConditions;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyDelete;
+import io.trino.sql.planner.iterative.rule.RemoveEmptyExceptBranches;
+import io.trino.sql.planner.iterative.rule.RemoveEmptyUnionBranches;
 import io.trino.sql.planner.iterative.rule.RemoveFullSample;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantEnforceSingleRowNode;
@@ -433,6 +436,9 @@ public class PlanOptimizers
                                 .addAll(new DesugarRowSubscript(typeAnalyzer).rules())
                                 .addAll(ImmutableSet.of(
                                         new UnwrapSingleColumnRowInApply(typeAnalyzer),
+                                        new RemoveEmptyUnionBranches(),
+                                        new EvaluateEmptyIntersect(),
+                                        new RemoveEmptyExceptBranches(),
                                         new MergeFilters(metadata),
                                         new InlineProjections(),
                                         new RemoveRedundantIdentityProjections(),
@@ -575,6 +581,9 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
+                                new RemoveEmptyUnionBranches(),
+                                new EvaluateEmptyIntersect(),
+                                new RemoveEmptyExceptBranches(),
                                 new TransformFilteringSemiJoinToInnerJoin(),
                                 new InlineProjectIntoFilter(metadata),
                                 new SimplifyFilterPredicate(metadata)))); // must run after PredicatePushDown
@@ -645,6 +654,9 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
+                                new RemoveEmptyUnionBranches(),
+                                new EvaluateEmptyIntersect(),
+                                new RemoveEmptyExceptBranches(),
                                 new RemoveRedundantIdentityProjections(),
                                 new PushAggregationThroughOuterJoin(),
                                 new ReplaceRedundantJoinWithSource())), // Run this after PredicatePushDown optimizer as it inlines filter constants
@@ -675,6 +687,9 @@ public class PlanOptimizers
                         SystemSessionProperties::useLegacyWindowFilterPushdown,
                         ImmutableList.of(new WindowFilterPushDown(metadata, typeOperators)),
                         ImmutableSet.of(// should run after DecorrelateUnnest and ImplementLimitWithTies
+                                new RemoveEmptyUnionBranches(),
+                                new EvaluateEmptyIntersect(),
+                                new RemoveEmptyExceptBranches(),
                                 new PushdownLimitIntoRowNumber(),
                                 new PushdownLimitIntoWindow(metadata),
                                 new PushdownFilterIntoRowNumber(metadata, typeOperators),

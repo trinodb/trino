@@ -20,7 +20,6 @@ import io.trino.benchmark.BenchmarkSuite;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.testing.TestingHiveConnectorFactory;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.LocalQueryRunner;

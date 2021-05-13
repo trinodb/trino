@@ -99,13 +99,16 @@ Transform                             Description
 ``truncate(s, nchars)``               The partition value is the first ``nchars`` characters of ``s``.
 ===================================== ====================================================================
 
-In this example, the table is partitioned by month and further divided into 10 buckets based on a hash of the account number::
+In this example, the table is partitioned by the month of ``order_date``, a hash of
+``account_number`` (with 10 buckets), and ``country``::
 
     CREATE TABLE iceberg.testdb.sample_partitioned (
+        order_id BIGINT,
         order_date DATE,
         account_number BIGINT,
-        customer VARCHAR)
-    WITH (partitioning = ARRAY['month(order_date)', 'bucket(account_number, 10)'])
+        customer VARCHAR,
+        country VARCHAR)
+    WITH (partitioning = ARRAY['month(order_date)', 'bucket(account_number, 10)', 'country'])
 
 Deletion by partition
 ---------------------
@@ -113,17 +116,17 @@ Deletion by partition
 For partitioned tables, the Iceberg connector supports the deletion of entire
 partitions if the ``WHERE`` clause specifies an identity transform of a partition
 column.  Given the table definition above, this SQL will delete all partitions
-for which ``order_date`` is in the month of June, 2018::
+for which ``country`` is ``US``::
 
     DELETE FROM iceberg.testdb.sample_partitioned
-    WHERE date_trunc(month, order_date) = date_trunc(month, DATE '2018-06-01')
+    WHERE country = 'US'
 
 Currently, the Iceberg connector only supports deletion by partition.
 This SQL below will fail because the ``WHERE`` clause selects only some of the rows
 in the partition::
 
     DELETE FROM iceberg.testdb.sample_partitioned
-    WHERE date_trunc(month, order_date) = date_trunc(month, DATE '2018-06-01') AND customer = 'Freds Foods'
+    WHERE country = 'US' AND customer = 'Freds Foods'
 
 Rolling back to a previous snapshot
 -----------------------------------

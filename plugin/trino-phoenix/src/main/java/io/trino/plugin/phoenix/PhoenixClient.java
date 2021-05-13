@@ -20,6 +20,7 @@ import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
@@ -31,6 +32,7 @@ import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnMetadata;
@@ -190,15 +192,14 @@ public class PhoenixClient
     private final Configuration configuration;
 
     @Inject
-    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory)
+    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
             throws SQLException
     {
         super(
                 ESCAPE_CHARACTER,
                 connectionFactory,
                 ImmutableSet.of(),
-                config.isCaseInsensitiveNameMatching(),
-                config.getCaseInsensitiveNameMatchingCacheTtl());
+                identifierMapping);
         this.configuration = new Configuration(false);
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));
     }
@@ -222,7 +223,7 @@ public class PhoenixClient
     }
 
     @Override
-    protected Collection<String> listSchemas(Connection connection)
+    public Collection<String> listSchemas(Connection connection)
     {
         try (ResultSet resultSet = connection.getMetaData().getSchemas()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
@@ -346,7 +347,7 @@ public class PhoenixClient
     }
 
     @Override
-    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
+    public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
         return super.getTables(connection, schemaName.map(MetadataUtil::toPhoenixSchemaName), tableName);
@@ -523,11 +524,9 @@ public class PhoenixClient
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
-            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
-            if (uppercase) {
-                schema = schema.toUpperCase(ENGLISH);
-                table = table.toUpperCase(ENGLISH);
-            }
+            final JdbcIdentity identity = JdbcIdentity.from(session);
+            schema = getIdentifierMapping().toRemoteSchemaName(identity, connection, schema);
+            table = getIdentifierMapping().toRemoteTableName(identity, connection, schema, table);
             schema = toPhoenixSchemaName(schema);
             LinkedList<ColumnMetadata> tableColumns = new LinkedList<>(tableMetadata.getColumns());
             Map<String, Object> tableProperties = tableMetadata.getProperties();
@@ -548,10 +547,7 @@ public class PhoenixClient
                 rowkeyColumn = Optional.of(ROWKEY);
             }
             for (ColumnMetadata column : tableColumns) {
-                String columnName = column.getName();
-                if (uppercase) {
-                    columnName = columnName.toUpperCase(ENGLISH);
-                }
+                String columnName = getIdentifierMapping().toRemoteColumnName(connection, column.getName());
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 String typeStatement = toWriteMapping(session, column.getType()).getDataType();

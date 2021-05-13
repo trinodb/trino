@@ -24,6 +24,10 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-matching</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
@@ -51,6 +55,11 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
         </dependency>
 
         <dependency>

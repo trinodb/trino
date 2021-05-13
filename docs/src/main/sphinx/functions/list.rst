@@ -199,7 +199,7 @@ H
 - :func:`hmac_sha256`
 - :func:`hmac_sha512`
 - :func:`hour`
-- ``human_readable_seconds``
+- :func:`human_readable_seconds`
 
 I
 -
@@ -275,7 +275,7 @@ M
 - :func:`map_filter`
 - :func:`map_from_entries`
 - :func:`map_keys`
-- ``map_union``
+- :func:`map_union`
 - :func:`map_values`
 - :func:`map_zip_with`
 - :func:`max`
@@ -378,6 +378,7 @@ S
 - :func:`skewness`
 - :func:`slice`
 - :ref:`SOME <quantified_comparison_predicates>`
+- :func:`soundex`
 - ``spatial_partitioning``
 - ``spatial_partitions``
 - :func:`split`
@@ -458,7 +459,7 @@ T
 
 - :func:`tan`
 - :func:`tanh`
-- ``tdigest_agg``
+- :func:`tdigest_agg`
 - :func:`timezone_hour`
 - :func:`timezone_minute`
 - :func:`to_base`
