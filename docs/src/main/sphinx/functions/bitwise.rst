@@ -16,17 +16,37 @@ Bitwise functions
 
     Returns the bitwise AND of ``x`` and ``y`` in 2's complement representation.
 
+    Bitwise AND of ``19`` (binary: ``10011``) and ``25`` (binary: ``11001``) results in
+    ``17`` (binary: ``10001``)::
+
+      SELECT bitwise_and(19,25); -- 17
+
 .. function:: bitwise_not(x) -> bigint
 
-    Returns the bitwise NOT of ``x`` in 2's complement representation.
+    Returns the bitwise NOT of ``x`` in 2's complement representation
+    (``NOT x = -x - 1``)::
+
+        SELECT bitwise_not(-12); --  11
+        SELECT bitwise_not(19);  -- -20
+        SELECT bitwise_not(25);  -- -26
 
 .. function:: bitwise_or(x, y) -> bigint
 
     Returns the bitwise OR of ``x`` and ``y`` in 2's complement representation.
 
+    Bitwise OR of ``19`` (binary: ``10011``) and ``25`` (binary: ``11001``) results in
+    ``27`` (binary: ``11011``)::
+
+      SELECT bitwise_or(19,25); -- 27
+
 .. function:: bitwise_xor(x, y) -> bigint
 
     Returns the bitwise XOR of ``x`` and ``y`` in 2's complement representation.
+
+    Bitwise XOR of ``19`` (binary: ``10011``) and ``25`` (binary: ``11001``) results in
+    ``10`` (binary: ``01010``)::
+
+      SELECT bitwise_xor(19,25); -- 10
 
 .. function:: bitwise_left_shift(value, shift) -> [same as value]
 
