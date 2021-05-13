@@ -1287,7 +1287,7 @@ public class DecryptingAzureNativeFileSystemStore
 
     private boolean getUseTransactionalContentMD5()
     {
-        return sessionConfiguration.getBoolean(KEY_CHECK_BLOCK_MD5, false);
+        return sessionConfiguration.getBoolean(KEY_CHECK_BLOCK_MD5, true);
     }
 
     private BlobRequestOptions getUploadOptions()
