@@ -558,7 +558,8 @@ public final class Session
         private ResourceEstimates resourceEstimates;
         private Instant start = Instant.now();
         private final Map<String, String> systemProperties = new HashMap<>();
-        private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
+        private final Map<CatalogName, Map<String, String>> connectorProperties = new HashMap<>();
+        private final Map<String, Map<String, String>> unprocessedCatalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
         private ProtocolHeaders protocolHeaders = TRINO_HEADERS;
@@ -590,8 +591,10 @@ public final class Session
             this.clientTags = ImmutableSet.copyOf(session.clientTags);
             this.start = session.start;
             this.systemProperties.putAll(session.systemProperties);
+            session.connectorProperties
+                    .forEach((catalogName, properties) -> connectorProperties.put(catalogName, new HashMap<>(properties)));
             session.unprocessedCatalogProperties
-                    .forEach((catalog, properties) -> catalogSessionProperties.put(catalog, new HashMap<>(properties)));
+                    .forEach((catalog, properties) -> unprocessedCatalogSessionProperties.put(catalog, new HashMap<>(properties)));
             this.preparedStatements.putAll(session.preparedStatements);
             this.protocolHeaders = session.protocolHeaders;
         }
@@ -604,7 +607,7 @@ public final class Session
 
         public SessionBuilder setTransactionId(TransactionId transactionId)
         {
-            checkArgument(catalogSessionProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
+            checkArgument(unprocessedCatalogSessionProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
             this.transactionId = transactionId;
             return this;
         }
@@ -727,13 +730,26 @@ public final class Session
         }
 
         /**
+         * Extracts processed connector properties from provided session and sets them in the builder.
+         * An explicit set method is not added for this field to prevent SessionBuilder callers
+         * from doing so without proper validation. Any previously set connectorProperties are discarded.
+         */
+        public SessionBuilder setProcessedConnectorPropertiesFrom(Session session)
+        {
+            requireNonNull(session, "session is null");
+            this.connectorProperties.clear();
+            this.connectorProperties.putAll(session.getConnectorProperties());
+            return this;
+        }
+
+        /**
          * Sets a catalog property for the session.  The property name and value must
          * only contain characters from US-ASCII and must not be for '='.
          */
         public SessionBuilder setCatalogSessionProperty(String catalogName, String propertyName, String propertyValue)
         {
             checkArgument(transactionId == null, "Catalog session properties cannot be set if there is an open transaction");
-            catalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
+            unprocessedCatalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
             return this;
         }
 
@@ -771,8 +787,8 @@ public final class Session
                     Optional.ofNullable(resourceEstimates).orElse(new ResourceEstimateBuilder().build()),
                     start,
                     systemProperties,
-                    ImmutableMap.of(),
-                    catalogSessionProperties,
+                    connectorProperties,
+                    unprocessedCatalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements,
                     protocolHeaders);

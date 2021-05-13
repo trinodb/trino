@@ -7602,11 +7602,13 @@ public class TestHiveConnectorTest
 
         // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
-        assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
+        assertThatThrownBy(() -> query(nanosSessions, "SELECT ts FROM " + prestoViewNameDefault))
+                .hasMessageContaining("is stale or in invalid state: column [ts] of type timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
 
         // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
-        assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
+        assertThatThrownBy(() -> query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault))
+                .hasMessageContaining("is stale or in invalid state: column [ts] of type timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
 
         // Presto view created with config property set to MILLIS and session property set to NANOS
         String prestoViewNameNanos = "presto_view_ts_nanos_" + randomTableSuffix();
@@ -7628,13 +7630,9 @@ public class TestHiveConnectorTest
         // should be: assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
         assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
-        assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
+        assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'");
 
-        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
-        assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
+        assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'");
     }
 
     @Test(dataProvider = "legalUseColumnNamesProvider")

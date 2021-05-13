@@ -318,17 +318,15 @@ public abstract class AbstractTestHiveViews
         setSessionProperty("hive_timestamp_nanos.timestamp_precision", "'MILLISECONDS'");
 
         assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
-        assertThatThrownBy(
-                // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
-                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"))
-        ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
+        assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
 
         setSessionProperty("hive.timestamp_precision", "'NANOSECONDS'");
         setSessionProperty("hive_timestamp_nanos.timestamp_precision", "'NANOSECONDS'");
 
         // TODO(https://github.com/prestosql/presto/issues/6295) timestamp_precision has no effect on Hive views
         // should be: assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
-        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
+        assertThatThrownBy(() -> query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view"))
+                .hasMessageContaining("is stale or in invalid state: column [ts] of type timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
         assertThatThrownBy(
                 // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
                 () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
