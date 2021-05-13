@@ -464,7 +464,7 @@ T
 - :func:`timezone_minute`
 - :func:`to_base`
 - :func:`to_base64`
-- ``to_base64url``
+- :func:`to_base64url`
 - :func:`to_big_endian_32`
 - :func:`to_big_endian_64`
 - :func:`to_char`
