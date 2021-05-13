@@ -34,7 +34,7 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.predicate.Predicate;
-import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.MetadataSource;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HdfsEnvironment;
@@ -124,6 +124,7 @@ public class IcebergPageSourceProvider
 {
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
+    private final MetadataSource metadataSource;
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
 
@@ -131,11 +132,13 @@ public class IcebergPageSourceProvider
     public IcebergPageSourceProvider(
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats fileFormatDataSourceStats,
+            MetadataSource metadataSource,
             OrcReaderConfig orcReaderConfig,
             ParquetReaderConfig parquetReaderConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
+        this.metadataSource = requireNonNull(metadataSource, "metadataSource is null");
         this.orcReaderOptions = requireNonNull(orcReaderConfig, "orcReaderConfig is null").toOrcReaderOptions();
         this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
     }
@@ -423,7 +426,7 @@ public class IcebergPageSourceProvider
         }
     }
 
-    private static ConnectorPageSource createParquetPageSource(
+    private ConnectorPageSource createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
             String user,
             Configuration configuration,
@@ -444,7 +447,7 @@ public class IcebergPageSourceProvider
             FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
             dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), fileSize, inputStream, fileFormatDataSourceStats, options);
             ParquetDataSource theDataSource = dataSource; // extra variable required for lambda below
-            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(theDataSource));
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> metadataSource.readMetadata(theDataSource));
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 

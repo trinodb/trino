@@ -20,6 +20,8 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
+import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.MetadataSource;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -126,6 +128,7 @@ public class HiveModule
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
         fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(SINGLETON);
+        binder.bind(MetadataSource.class).to(MetadataReader.class).in(SINGLETON);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
 

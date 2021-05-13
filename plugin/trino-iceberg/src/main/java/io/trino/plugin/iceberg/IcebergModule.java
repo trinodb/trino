@@ -16,6 +16,8 @@ package io.trino.plugin.iceberg;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.Multibinder;
+import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.MetadataSource;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveNodePartitioningProvider;
@@ -61,6 +63,7 @@ public class IcebergModule
 
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
+        binder.bind(MetadataSource.class).to(MetadataReader.class).in(SINGLETON);
 
         binder.bind(IcebergMetadataFactory.class).in(SINGLETON);
 

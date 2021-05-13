@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.trino.PagesIndexPageSorter;
 import io.trino.metadata.Metadata;
 import io.trino.operator.PagesIndex;
+import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
 import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
@@ -138,7 +139,7 @@ public final class HiveTestUtils
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, stats, hiveConfig))
-                .add(new ParquetPageSourceFactory(hdfsEnvironment, stats, new ParquetReaderConfig(), hiveConfig))
+                .add(new ParquetPageSourceFactory(hdfsEnvironment, stats, new MetadataReader(), new ParquetReaderConfig(), hiveConfig))
                 .build();
     }
 

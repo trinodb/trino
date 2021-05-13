@@ -63,15 +63,15 @@ import static org.apache.parquet.format.Util.readFileMetaData;
 import static org.apache.parquet.format.converter.ParquetMetadataConverterUtil.getLogicalTypeAnnotation;
 
 public final class MetadataReader
+        implements MetadataSource
 {
     private static final Slice MAGIC = Slices.utf8Slice("PAR1");
     private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
     private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
     private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
 
-    private MetadataReader() {}
-
-    public static ParquetMetadata readFooter(ParquetDataSource dataSource)
+    @Override
+    public ParquetMetadata readMetadata(ParquetDataSource dataSource)
             throws IOException
     {
         // Parquet File Layout:

@@ -23,7 +23,7 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.predicate.Predicate;
-import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.MetadataSource;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -117,14 +117,16 @@ public class ParquetPageSourceFactory
 
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
+    private final MetadataSource metadataSource;
     private final ParquetReaderOptions options;
     private final DateTimeZone timeZone;
 
     @Inject
-    public ParquetPageSourceFactory(HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, ParquetReaderConfig config, HiveConfig hiveConfig)
+    public ParquetPageSourceFactory(HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, MetadataSource metadataSource, ParquetReaderConfig config, HiveConfig hiveConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.metadataSource = requireNonNull(metadataSource, "metadataSource is null");
         requireNonNull(config, "config is null");
 
         options = config.toParquetReaderOptions();
@@ -170,10 +172,7 @@ public class ParquetPageSourceFactory
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))));
     }
 
-    /**
-     * This method is available for other callers to use directly.
-     */
-    public static ReaderPageSource createPageSource(
+    public ReaderPageSource createPageSource(
             Path path,
             long start,
             long length,
@@ -201,7 +200,7 @@ public class ParquetPageSourceFactory
             FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
             dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), estimatedFileSize, inputStream, stats, options);
 
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+            ParquetMetadata parquetMetadata = metadataSource.readMetadata(dataSource);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
 
