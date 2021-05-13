@@ -55,6 +55,17 @@ number of threads.
 Controls staleness of task information, which is used in scheduling. Larger values
 can reduce coordinator CPU load, but may result in suboptimal split scheduling.
 
+``task.max-drivers-per-task``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default Value:** ``2147483647``
+
+Controls the maximum number of drivers a task runs concurrently. Setting this value
+reduces the likelihood that a task uses too many drivers and can improve concurrent query
+performance. This can lead to resource waste if it runs too few concurrent queries.
+
 ``task.max-partial-aggregation-memory``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -89,6 +100,16 @@ each leaf task is guaranteed at least ``3`` running splits. Non-leaf tasks are a
 guaranteed to run in order to prevent deadlocks. A lower value may improve responsiveness
 for new tasks, but can result in underutilized resources. A higher value can increase
 resource utilization, but uses additional memory.
+
+``task.min-drivers-per-task``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default Value:** ``3``
+
+The minimum number of drivers guaranteed to run concurrently for a single task given
+the task has remaining splits to process.
 
 ``task.writer-count``
 ^^^^^^^^^^^^^^^^^^^^^
