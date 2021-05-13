@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
@@ -31,6 +30,7 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
 
+import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -42,19 +42,19 @@ public class IcebergModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergTransactionManager.class).in(SINGLETON);
 
         configBinder(binder).bindConfig(HiveConfig.class);
         configBinder(binder).bindConfig(IcebergConfig.class);
         configBinder(binder).bindConfig(MetastoreConfig.class);
 
-        binder.bind(IcebergSessionProperties.class).in(Scopes.SINGLETON);
-        binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergSessionProperties.class).in(SINGLETON);
+        binder.bind(IcebergTableProperties.class).in(SINGLETON);
 
-        binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorPageSourceProvider.class).to(IcebergPageSourceProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorPageSinkProvider.class).to(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(SINGLETON);
+        binder.bind(ConnectorPageSourceProvider.class).to(IcebergPageSourceProvider.class).in(SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).to(IcebergPageSinkProvider.class).in(SINGLETON);
+        binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(SINGLETON);
 
         configBinder(binder).bindConfig(OrcReaderConfig.class);
         configBinder(binder).bindConfig(OrcWriterConfig.class);
@@ -62,19 +62,19 @@ public class IcebergModule
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
 
-        binder.bind(IcebergMetadataFactory.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergMetadataFactory.class).in(SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(CommitTaskData.class);
 
-        binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
+        binder.bind(FileFormatDataSourceStats.class).in(SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
-        binder.bind(HiveTableOperationsProvider.class).in(Scopes.SINGLETON);
+        binder.bind(HiveTableOperationsProvider.class).in(SINGLETON);
 
-        binder.bind(IcebergFileWriterFactory.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergFileWriterFactory.class).in(SINGLETON);
         newExporter(binder).export(IcebergFileWriterFactory.class).withGeneratedName();
 
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
-        procedures.addBinding().toProvider(RollbackToSnapshotProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(RollbackToSnapshotProcedure.class).in(SINGLETON);
     }
 }

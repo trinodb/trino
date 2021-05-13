@@ -18,7 +18,6 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
 import io.trino.plugin.base.CatalogName;
@@ -51,6 +50,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
+import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -68,64 +68,64 @@ public class HiveModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
+        binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(SINGLETON);
         configBinder(binder).bindConfig(HiveConfig.class);
         configBinder(binder).bindConfig(MetastoreConfig.class);
 
-        binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
-        binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
-        binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
+        binder.bind(HiveSessionProperties.class).in(SINGLETON);
+        binder.bind(HiveTableProperties.class).in(SINGLETON);
+        binder.bind(HiveAnalyzeProperties.class).in(SINGLETON);
 
-        binder.bind(TrinoS3ClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(TrinoS3ClientFactory.class).in(SINGLETON);
 
-        binder.bind(CachingDirectoryLister.class).in(Scopes.SINGLETON);
+        binder.bind(CachingDirectoryLister.class).in(SINGLETON);
         newExporter(binder).export(CachingDirectoryLister.class).withGeneratedName();
 
-        binder.bind(HiveWriterStats.class).in(Scopes.SINGLETON);
+        binder.bind(HiveWriterStats.class).in(SINGLETON);
         newExporter(binder).export(HiveWriterStats.class).withGeneratedName();
 
-        newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
-        binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
-        binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(SINGLETON);
+        binder.bind(HivePartitionManager.class).in(SINGLETON);
+        binder.bind(LocationService.class).to(HiveLocationService.class).in(SINGLETON);
         newOptionalBinder(binder, HiveRedirectionsProvider.class)
-                .setDefault().to(NoneHiveRedirectionsProvider.class).in(Scopes.SINGLETON);
+                .setDefault().to(NoneHiveRedirectionsProvider.class).in(SINGLETON);
         newOptionalBinder(binder, HiveMaterializedViewMetadata.class)
-                .setDefault().to(NoneHiveMaterializedViewMetadata.class).in(Scopes.SINGLETON);
+                .setDefault().to(NoneHiveMaterializedViewMetadata.class).in(SINGLETON);
         newOptionalBinder(binder, TransactionalMetadataFactory.class)
-                .setDefault().to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
+                .setDefault().to(HiveMetadataFactory.class).in(SINGLETON);
+        binder.bind(HiveTransactionManager.class).in(SINGLETON);
+        binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generator -> generator.generatedNameOf(HiveSplitManager.class));
-        binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(SINGLETON);
+        binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(PartitionUpdate.class);
 
-        binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
+        binder.bind(FileFormatDataSourceStats.class).in(SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
         Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HivePageSourceFactory.class);
-        pageSourceFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(Scopes.SINGLETON);
-        pageSourceFactoryBinder.addBinding().to(ParquetPageSourceFactory.class).in(Scopes.SINGLETON);
-        pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
+        pageSourceFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(SINGLETON);
+        pageSourceFactoryBinder.addBinding().to(ParquetPageSourceFactory.class).in(SINGLETON);
+        pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(SINGLETON);
 
         Multibinder<HiveRecordCursorProvider> recordCursorProviderBinder = newSetBinder(binder, HiveRecordCursorProvider.class);
-        recordCursorProviderBinder.addBinding().to(S3SelectRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(S3SelectRecordCursorProvider.class).in(SINGLETON);
 
-        binder.bind(GenericHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
+        binder.bind(GenericHiveRecordCursorProvider.class).in(SINGLETON);
 
         Multibinder<HiveFileWriterFactory> fileWriterFactoryBinder = newSetBinder(binder, HiveFileWriterFactory.class);
-        binder.bind(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
+        binder.bind(OrcFileWriterFactory.class).in(SINGLETON);
         newExporter(binder).export(OrcFileWriterFactory.class).withGeneratedName();
         configBinder(binder).bindConfig(OrcReaderConfig.class);
         configBinder(binder).bindConfig(OrcWriterConfig.class);
-        fileWriterFactoryBinder.addBinding().to(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
-        fileWriterFactoryBinder.addBinding().to(RcFileFileWriterFactory.class).in(Scopes.SINGLETON);
+        fileWriterFactoryBinder.addBinding().to(OrcFileWriterFactory.class).in(SINGLETON);
+        fileWriterFactoryBinder.addBinding().to(RcFileFileWriterFactory.class).in(SINGLETON);
 
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
-        fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(Scopes.SINGLETON);
+        fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(SINGLETON);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
 
