@@ -396,11 +396,6 @@ public class SnowflakeSplitSource
         }
     }
 
-    private String getCredential(String credentialName)
-    {
-        return requireNonNull(transferAgent.getStageInfo().getCredentials().get(credentialName), format("%s is null", credentialName)).toString();
-    }
-
     private boolean isEmptyExport()
     {
         return transferAgent.getEncryptionMaterial().isEmpty();
