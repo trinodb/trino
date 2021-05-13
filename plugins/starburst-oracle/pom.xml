@@ -200,8 +200,8 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
-            <scope>test</scope>
             <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -213,8 +213,8 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-oracle</artifactId>
-            <scope>test</scope>
             <type>test-jar</type>
+            <scope>test</scope>
             <exclusions>
                 <exclusion>
                     <groupId>com.oracle.ojdbc</groupId>
