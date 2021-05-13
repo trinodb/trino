@@ -24,6 +24,8 @@ import io.trino.client.ClientSession;
 import io.trino.client.ServerInfo;
 import io.trino.client.StatementClient;
 
+import javax.annotation.Nullable;
+
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
 import java.sql.Array;
@@ -49,6 +51,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -57,6 +60,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.fromProperties;
 import static io.trino.jdbc.ClientInfoProperty.APPLICATION_NAME;
@@ -65,6 +69,7 @@ import static io.trino.jdbc.ClientInfoProperty.CLIENT_TAGS;
 import static io.trino.jdbc.ClientInfoProperty.TRACE_TOKEN;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -101,6 +106,7 @@ public class TrinoConnection
     private final Map<String, ClientSelectedRole> roles = new ConcurrentHashMap<>();
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
+    private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
 
     TrinoConnection(TrinoDriverUri uri, QueryExecutor queryExecutor)
             throws SQLException
@@ -132,8 +138,16 @@ public class TrinoConnection
     public Statement createStatement()
             throws SQLException
     {
+        return doCreateStatement();
+    }
+
+    private TrinoStatement doCreateStatement()
+            throws SQLException
+    {
         checkOpen();
-        return new TrinoStatement(this);
+        TrinoStatement statement = new TrinoStatement(this, this::unregisterStatement);
+        registerStatement(statement);
+        return statement;
     }
 
     @Override
@@ -142,7 +156,9 @@ public class TrinoConnection
     {
         checkOpen();
         String name = "statement" + nextStatementId.getAndIncrement();
-        return new TrinoPreparedStatement(this, name, sql);
+        TrinoPreparedStatement statement = new TrinoPreparedStatement(this, this::unregisterStatement, name, sql);
+        registerStatement(statement);
+        return statement;
     }
 
     @Override
@@ -191,7 +207,7 @@ public class TrinoConnection
             // empty transaction
             return;
         }
-        try (TrinoStatement statement = new TrinoStatement(this)) {
+        try (TrinoStatement statement = doCreateStatement()) {
             statement.internalExecute("COMMIT");
         }
     }
@@ -208,7 +224,7 @@ public class TrinoConnection
             // empty transaction
             return;
         }
-        try (TrinoStatement statement = new TrinoStatement(this)) {
+        try (TrinoStatement statement = doCreateStatement()) {
             statement.internalExecute("ROLLBACK");
         }
     }
@@ -218,10 +234,25 @@ public class TrinoConnection
             throws SQLException
     {
         try {
-            if (!closed.get() && (transactionId.get() != null)) {
-                try (TrinoStatement statement = new TrinoStatement(this)) {
-                    statement.internalExecute("ROLLBACK");
+            if (!closed.get()) {
+                SqlExceptionHolder heldException = new SqlExceptionHolder();
+                for (TrinoStatement statement : statements) {
+                    try {
+                        statement.close();
+                    }
+                    catch (SQLException | RuntimeException e) {
+                        heldException.hold(e);
+                    }
                 }
+                if (transactionId.get() != null) {
+                    try (TrinoStatement statement = doCreateStatement()) {
+                        statement.internalExecute("ROLLBACK");
+                    }
+                    catch (SQLException | RuntimeException e) {
+                        heldException.hold(e);
+                    }
+                }
+                heldException.throwIfHeld();
             }
         }
         finally {
@@ -755,6 +786,16 @@ public class TrinoConnection
         }
     }
 
+    private void registerStatement(TrinoStatement statement)
+    {
+        checkState(statements.add(statement), "Statement is already registered");
+    }
+
+    private void unregisterStatement(TrinoStatement statement)
+    {
+        checkState(statements.remove(statement), "Statement is not registered");
+    }
+
     private void checkOpen()
             throws SQLException
     {
@@ -815,5 +856,29 @@ public class TrinoConnection
             source = applicationName;
         }
         return source;
+    }
+
+    private static final class SqlExceptionHolder
+    {
+        @Nullable
+        private Exception heldException;
+
+        public void hold(Exception exception)
+        {
+            if (heldException == null) {
+                heldException = exception;
+            }
+            else if (heldException != exception) {
+                heldException.addSuppressed(exception);
+            }
+        }
+
+        public void throwIfHeld()
+                throws SQLException
+        {
+            if (heldException != null) {
+                throw new SQLException(heldException);
+            }
+        }
     }
 }
