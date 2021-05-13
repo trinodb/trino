@@ -22,6 +22,8 @@ import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.MetadataSource;
+import io.trino.parquet.reader.cache.CachingMetadataSource;
+import io.trino.parquet.reader.cache.MetadataCacheConfig;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -44,6 +46,7 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
+import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -128,11 +131,20 @@ public class HiveModule
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
         fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(SINGLETON);
-        binder.bind(MetadataSource.class).to(MetadataReader.class).in(SINGLETON);
+        configBinder(binder).bindConfig(MetadataCacheConfig.class);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
 
         newSetBinder(binder, SystemTable.class);
+    }
+
+    @Singleton
+    @Provides
+    public MetadataSource createMetadataSource(MetadataCacheConfig config, MBeanExporter exporter, CatalogName catalogName)
+    {
+        CachingMetadataSource metadataSource = new CachingMetadataSource(config, new MetadataReader());
+        exporter.exportWithGeneratedName(metadataSource, CachingMetadataSource.class, catalogName.toString());
+        return metadataSource;
     }
 
     @Singleton

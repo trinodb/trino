@@ -15,9 +15,13 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.MetadataSource;
+import io.trino.parquet.reader.cache.CachingMetadataSource;
+import io.trino.parquet.reader.cache.MetadataCacheConfig;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveNodePartitioningProvider;
@@ -31,6 +35,9 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
+import org.weakref.jmx.MBeanExporter;
+
+import javax.inject.Singleton;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -49,6 +56,7 @@ public class IcebergModule
         configBinder(binder).bindConfig(HiveConfig.class);
         configBinder(binder).bindConfig(IcebergConfig.class);
         configBinder(binder).bindConfig(MetastoreConfig.class);
+        configBinder(binder).bindConfig(MetadataCacheConfig.class);
 
         binder.bind(IcebergSessionProperties.class).in(SINGLETON);
         binder.bind(IcebergTableProperties.class).in(SINGLETON);
@@ -63,7 +71,6 @@ public class IcebergModule
 
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
-        binder.bind(MetadataSource.class).to(MetadataReader.class).in(SINGLETON);
 
         binder.bind(IcebergMetadataFactory.class).in(SINGLETON);
 
@@ -79,5 +86,14 @@ public class IcebergModule
 
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(RollbackToSnapshotProcedure.class).in(SINGLETON);
+    }
+
+    @Singleton
+    @Provides
+    public MetadataSource createMetadataSource(MetadataCacheConfig config, MBeanExporter exporter, CatalogName catalogName)
+    {
+        CachingMetadataSource metadataSource = new CachingMetadataSource(config, new MetadataReader());
+        exporter.exportWithGeneratedName(metadataSource, CachingMetadataSource.class, catalogName.toString());
+        return metadataSource;
     }
 }

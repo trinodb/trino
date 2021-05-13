@@ -433,6 +433,13 @@ with Parquet files performed by the Hive connector.
         definition. The equivalent catalog session property is
         ``parquet_use_column_names``.
       - ``true``
+    * - ``parquet.metadata-cache.max-entries``
+      - Maximum number of entries in Parquet metadata cache. Setting this value
+        to 0 disables the cache.
+      - 0 (disabled)
+    * - ``parquet.metadata-cache.ttl``
+      - Time after which the cache metadata entry is removed if not being accessed
+      - 1h
 
 
 Metastore configuration properties
