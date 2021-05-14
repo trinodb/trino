@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
 import io.trino.Session;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.sqlserver.TestingSqlServer;
@@ -76,7 +77,7 @@ public final class StarburstSqlServerQueryRunner
             throws Exception
     {
         Session session = createSession(sqlServer.getUsername());
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner.builder(session).build();
         try {
             Session modifiedSession = sessionModifier.apply(session);
 
