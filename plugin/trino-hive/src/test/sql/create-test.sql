@@ -311,9 +311,14 @@ CREATE TABLE trino_test_types_parquet
 STORED AS PARQUET
 AS SELECT * FROM trino_test_types_orc;
 
+CREATE TABLE trino_test_types_csv
+STORED AS CSV
+AS SELECT * FROM trino_test_types_orc;
+
 ALTER TABLE trino_test_types_textfile ADD COLUMNS (new_column INT);
 ALTER TABLE trino_test_types_sequencefile ADD COLUMNS (new_column INT);
 ALTER TABLE trino_test_types_rctext ADD COLUMNS (new_column INT);
 ALTER TABLE trino_test_types_rcbinary ADD COLUMNS (new_column INT);
 ALTER TABLE trino_test_types_orc ADD COLUMNS (new_column INT);
 ALTER TABLE trino_test_types_parquet ADD COLUMNS (new_column INT);
+ALTER TABLE trino_test_types_csv ADD COLUMNS (new_column INT);
