@@ -69,7 +69,7 @@ public class TestMinimalFunctionality
                 new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor4", "New York", Arrays.asList("foo4", "bar2", "baz2"), Arrays.asList(8, 9, 10), Arrays.asList(6.5F, 8.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 10)),
                 new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor5", "Los Angeles", Arrays.asList("foo5", "bar3", "baz2"), Arrays.asList(9, 10, 11), Arrays.asList(7.5F, 9.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
                 new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor6", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(8.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
-                new ProducerRecord<>(TOPIC_AND_TABLE, key, createTestRecord("vendor7", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(8.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12))));
+                new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor7", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(9.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12))));
 
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("schema.json"), TOPIC_AND_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("realtimeSpec.json"), TOPIC_AND_TABLE);
@@ -194,6 +194,32 @@ public class TestMinimalFunctionality
     {
         assertQuerySucceeds("SELECT * FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'");
         assertQueryFails("SELECT * FROM " + TOPIC_AND_TABLE, "Segment query returned.*");
+    }
+
+    @Test
+    public void testFilterWithRealLiteral()
+    {
+        String expectedSingleValue = "VALUES ('3.5', 'vendor1')";
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price = 3.5", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price <= 3.5", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price BETWEEN 3 AND 4", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price > 3 AND price < 4", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price >= 3.5 AND price <= 4", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price < 3.6", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price IN (3.5)", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price IN (3.5, 4)", expectedSingleValue);
+        // NOT IN is not pushed down
+        assertQueryFails("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price NOT IN (4.5, 5.5, 6.5, 7.5, 8.5, 9.5)", "Segment query returned.*");
+
+        String expectedMultipleValues = "VALUES" +
+                "  ('3.5', 'vendor1')," +
+                "  ('4.5', 'vendor2')";
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price < 4.6", expectedMultipleValues);
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price BETWEEN 3.5 AND 4.5", expectedMultipleValues);
+
+        String expectedMaxValue = "VALUES ('9.5', 'vendor7')";
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price > 9", expectedMaxValue);
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price >= 9", expectedMaxValue);
     }
 
     private static Object createTestRecord(
