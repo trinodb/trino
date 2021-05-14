@@ -47,6 +47,7 @@ import io.trino.plugin.jdbc.expression.ImplementStddevSamp;
 import io.trino.plugin.jdbc.expression.ImplementSum;
 import io.trino.plugin.jdbc.expression.ImplementVariancePop;
 import io.trino.plugin.jdbc.expression.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -182,9 +183,13 @@ public class SapHanaClient
     private final TableStatisticsClient tableStatisticsClient;
 
     @Inject
-    public SapHanaClient(BaseJdbcConfig baseJdbcConfig, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory)
+    public SapHanaClient(
+            BaseJdbcConfig baseJdbcConfig,
+            JdbcStatisticsConfig statisticsConfig,
+            ConnectionFactory connectionFactory,
+            IdentifierMapping identifierMapping)
     {
-        super(baseJdbcConfig, "\"", connectionFactory);
+        super(baseJdbcConfig, "\"", connectionFactory, identifierMapping);
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), 0, 0, Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
