@@ -40,6 +40,11 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+      - name: Test Server Dependencies
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          # verify that dependencies in pom.xml match what's used in the Provisio descriptor
+          ./mvnw provisio:validateDependencies ${MAVEN_FAST_INSTALL} -pl :trino-server
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
