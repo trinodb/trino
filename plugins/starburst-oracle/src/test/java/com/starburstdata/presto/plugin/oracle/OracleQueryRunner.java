@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Runnables;
 import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConnectionFactory;
+import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -65,7 +66,7 @@ public final class OracleQueryRunner
         logging.setLevel(KerberosConnectionFactory.class.getName(), DEBUG);
 
         Session session = sessionModifier.apply(createSession(ALICE_USER));
-        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = StarburstDistributedQueryRunner.builder(session)
                 .setNodeCount(nodesCount)
                 .setCoordinatorProperties(coordinatorProperties)
                 .build();
