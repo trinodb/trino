@@ -161,6 +161,26 @@
         </dependency>
 
         <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-server-main</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- TODO provided by the incorrectly shaded com.linkedin.calcite:calcite-core:{version}:jar:shaded -->
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-lang3</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-server-main</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
             <type>test-jar</type>

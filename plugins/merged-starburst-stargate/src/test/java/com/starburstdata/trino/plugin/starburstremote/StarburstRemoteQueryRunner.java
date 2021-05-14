@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugin.starburstremote;
 
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.postgresql.StarburstPostgreSqlPlugin;
+import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -52,7 +53,7 @@ public final class StarburstRemoteQueryRunner
                     .setCatalog("unspecified_catalog")
                     .setSchema("unspecified_schema")
                     .build();
-            DistributedQueryRunner.Builder queryRunnerBuilder = DistributedQueryRunner.builder(session)
+            DistributedQueryRunner.Builder queryRunnerBuilder = StarburstDistributedQueryRunner.builder(session)
                     .setNodeCount(1) // 1 is perfectly enough until we do parallel Starburst Remote connector
                     .setExtraProperties(extraProperties);
 
@@ -209,7 +210,7 @@ public final class StarburstRemoteQueryRunner
 
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(session)
+            queryRunner = StarburstDistributedQueryRunner.builder(session)
                     .setExtraProperties(extraProperties)
                     .build();
 
