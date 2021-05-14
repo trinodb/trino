@@ -222,6 +222,14 @@ public class TestMinimalFunctionality
         assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE price >= 9", expectedMaxValue);
     }
 
+    @Test
+    public void testArrayFilter()
+    {
+        String expected = "VALUES ('3.5', 'vendor1')";
+        assertQuery("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7' AND prices = ARRAY[3.5, 5.5]", expected);
+        assertQueryFails("SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE prices = ARRAY[3.5, 5.5]", "Segment query returned.*");
+    }
+
     private static Object createTestRecord(
             String vendor,
             String city,

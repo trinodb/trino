@@ -38,6 +38,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
 import org.apache.pinot.spi.data.Schema;
 
 import javax.inject.Inject;
@@ -253,7 +254,9 @@ public class PinotMetadata
     {
         PinotTableHandle handle = (PinotTableHandle) table;
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
-        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        // Pinot does not support array literals
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary())
+                .filter((columnHandle, domain) -> !(((PinotColumnHandle) columnHandle).getDataType() instanceof ArrayType));
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }
