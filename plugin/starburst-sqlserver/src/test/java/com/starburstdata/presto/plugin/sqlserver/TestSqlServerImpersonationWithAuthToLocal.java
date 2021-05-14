@@ -25,7 +25,6 @@ import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryR
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createSession;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 
-@Test
 public class TestSqlServerImpersonationWithAuthToLocal
         extends AbstractTestQueryFramework
 {
