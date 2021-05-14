@@ -22,6 +22,7 @@ import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -98,9 +99,10 @@ public class SalesforceJdbcClient
             BaseJdbcConfig baseJdbcConfig,
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
-            @EnableWrites boolean enableWrites)
+            @EnableWrites boolean enableWrites,
+            IdentifierMapping identifierMapping)
     {
-        super(baseJdbcConfig, "\"", connectionFactory);
+        super(baseJdbcConfig, "\"", connectionFactory, identifierMapping);
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.enableWrites = enableWrites;
     }
