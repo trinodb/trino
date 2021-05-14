@@ -36,6 +36,7 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -162,9 +163,10 @@ public class StarburstRemoteClient
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             TypeManager typeManager,
-            @EnableWrites boolean enableWrites)
+            @EnableWrites boolean enableWrites,
+            IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory);
+        super(config, "\"", connectionFactory, identifierMapping);
         this.enableWrites = enableWrites;
         this.jsonType = requireNonNull(typeManager, "typeManager is null").getType(new TypeSignature(JSON));
 
