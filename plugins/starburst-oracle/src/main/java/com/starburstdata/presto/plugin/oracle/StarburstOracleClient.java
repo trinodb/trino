@@ -45,6 +45,7 @@ import io.trino.plugin.jdbc.expression.ImplementStddevSamp;
 import io.trino.plugin.jdbc.expression.ImplementSum;
 import io.trino.plugin.jdbc.expression.ImplementVariancePop;
 import io.trino.plugin.jdbc.expression.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.oracle.OracleClient;
 import io.trino.plugin.oracle.OracleConfig;
 import io.trino.spi.TrinoException;
@@ -112,9 +113,10 @@ public class StarburstOracleClient
             JdbcStatisticsConfig statisticsConfig,
             TableScanRedirection tableScanRedirection,
             OracleConfig oracleConfig,
-            ConnectionFactory connectionFactory)
+            ConnectionFactory connectionFactory,
+            IdentifierMapping identifierMapping)
     {
-        super(config, oracleConfig, connectionFactory);
+        super(config, oracleConfig, connectionFactory, identifierMapping);
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(PRESTO_BIGINT_TYPE, Optional.empty(), 0, 0, Optional.empty());
