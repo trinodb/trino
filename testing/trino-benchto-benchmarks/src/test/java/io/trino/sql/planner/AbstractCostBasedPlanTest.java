@@ -117,9 +117,9 @@ public abstract class AbstractCostBasedPlanTest
                 .replace("\"${database}\".\"${schema}\".\"${prefix}", "\"");
         Plan plan = plan(sql, OPTIMIZED_AND_VALIDATED, false);
 
-        JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter();
-        plan.getRoot().accept(joinOrderPrinter, 0);
-        return joinOrderPrinter.result();
+        SelectivePlanPrinter selectivePlanPrinter = new SelectivePlanPrinter();
+        plan.getRoot().accept(selectivePlanPrinter, 0);
+        return selectivePlanPrinter.result();
     }
 
     protected Path getSourcePath()
@@ -137,7 +137,7 @@ public abstract class AbstractCostBasedPlanTest
         }
     }
 
-    private static class JoinOrderPrinter
+    protected static class SelectivePlanPrinter
             extends SimplePlanVisitor<Integer>
     {
         private final StringBuilder result = new StringBuilder();
