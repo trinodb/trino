@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.synapse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
+import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
@@ -102,7 +103,7 @@ public final class SynapseQueryRunner
             throws Exception
     {
         Session session = createSession(USERNAME, catalogName);
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner.builder(session).build();
         try {
             Session modifiedSession = sessionModifier.apply(session);
 

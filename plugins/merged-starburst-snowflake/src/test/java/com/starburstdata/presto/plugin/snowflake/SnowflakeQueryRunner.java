@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableMap;
+import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.jmx.JmxPlugin;
@@ -122,7 +123,7 @@ class SnowflakeQueryRunner
                 PUBLIC_DB,
                 "CREATE VIEW IF NOT EXISTS public.user_context (user, role) AS SELECT current_user(), current_role();",
                 "GRANT SELECT ON VIEW USER_CONTEXT TO ROLE \"PUBLIC\";");
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession(useOktaCredentials))
+        DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner.builder(createSession(useOktaCredentials))
                 .setNodeCount(nodeCount)
                 .build();
 
