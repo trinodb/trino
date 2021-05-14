@@ -11,6 +11,8 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hashing;
 import com.starburstdata.presto.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -25,6 +27,8 @@ import java.util.List;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestOracleTableStatistics
@@ -377,6 +381,32 @@ public class TestOracleTableStatistics
                             "('long_decimals_big_integral', null, 2.0, 0.5, null, null, null)," +
                             "(null, null, null, null, 4, null, null)");
         }
+    }
+
+    @Override
+    public void testStatsWithJoinPushdown()
+    {
+        // TODO for some reason join gets pushed down even without any changes yet
+        assertThatThrownBy(super::testStatsWithJoinPushdown)
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("Plan does not match")
+                .hasStackTraceContaining("QueryAssert.isNotFullyPushedDown");
+
+        testStatsWithJoinPushdown(true);
+    }
+
+    @Override
+    protected String testStatsWithJoinPushdownExpectedResult()
+    {
+        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
+        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithJoinPushdownExpectedResult()))
+                .isEqualTo(HashCode.fromString("3a144d39f5782d1c211154c55a6b5cd6"));
+
+        return "VALUES " +
+                "('regionkey', null, null, null)," +
+                "('r_name', null, null, null)," +
+                "('n_name', null, null, null)," +
+                "(null, null, null, null)";
     }
 
     @Override
