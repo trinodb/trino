@@ -10,13 +10,16 @@ local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["s_state"])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                scan store_sales
+                                                filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk", 'EQUAL', 'df_2111', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk", 'EQUAL', 'df_2112', false))
+                                                    scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan date_dim
+                                                        filter ("d_month_seq" BETWEEN 1200 AND 1211)
+                                                            scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan store
+                                                    filter "@$internal$dynamic_filter_function@52QIVVB4180DA100O841Q73GGSL18519H4DP70I4VTKUAL03LFP4BL7JSD5LDVBVF0VD2O9S8M8BL0RC4KJ8I38EC3PUP4PAQ89046SGM2JUHK1RF1T02G7836M1NQME4ONAR83NL0O4OGFJ22IBCHBTF8P6OLPM0AHBG2H3425IR5QF68K9F2KRDIS3KBKNGVA53MQU2QC76A0D00UH4K7S6UK7HF84CSLHR7M898VP1ONAGMB06O26S0CL2PU0G432K2IK2BJCG==="("s_state", 'EQUAL', 'df_2110', false)
+                                                        scan store
                                     single aggregation over (s_state_47)
                                         final aggregation over (s_state_47)
                                             local exchange (GATHER, SINGLE, [])
@@ -24,10 +27,12 @@ local exchange (GATHER, SINGLE, [])
                                                     partial aggregation over (s_state_47)
                                                         join (INNER, REPLICATED):
                                                             join (INNER, REPLICATED):
-                                                                scan store_sales
+                                                                filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk_7", 'EQUAL', 'df_2122', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk_0", 'EQUAL', 'df_2123', false))
+                                                                    scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan date_dim
+                                                                        filter ("d_month_seq_55" BETWEEN 1200 AND 1211)
+                                                                            scan date_dim
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan store

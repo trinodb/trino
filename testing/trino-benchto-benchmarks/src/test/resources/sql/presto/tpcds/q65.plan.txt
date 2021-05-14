@@ -7,15 +7,18 @@ local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["ss_item_sk_2", "ss_store_sk_7"])
                             partial aggregation over (ss_item_sk_2, ss_store_sk_7)
                                 join (INNER, REPLICATED):
-                                    scan store_sales
+                                    filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_item_sk_2", 'EQUAL', 'df_1671', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk_7", 'EQUAL', 'df_1672', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk_0", 'EQUAL', 'df_1673', false))
+                                        scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan date_dim
+                                            filter ("d_month_seq_26" BETWEEN 1176 AND 1187)
+                                                scan date_dim
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPLICATE, BROADCAST, [])
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, ["s_store_sk"])
-                                scan store
+                                filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("s_store_sk", 'EQUAL', 'df_1679', false)
+                                    scan store
                             final aggregation over (ss_store_sk)
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["ss_store_sk"])
@@ -25,10 +28,12 @@ local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_store_sk"])
                                                         partial aggregation over (ss_item_sk, ss_store_sk)
                                                             join (INNER, REPLICATED):
-                                                                scan store_sales
+                                                                filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk", 'EQUAL', 'df_1681', false)
+                                                                    scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan date_dim
+                                                                        filter ("d_month_seq" BETWEEN 1176 AND 1187)
+                                                                            scan date_dim
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPLICATE, BROADCAST, [])
                     scan item

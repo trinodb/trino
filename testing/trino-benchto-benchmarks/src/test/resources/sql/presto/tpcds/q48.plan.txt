@@ -7,16 +7,19 @@ final aggregation over ()
                         remote exchange (REPARTITION, HASH, ["ss_addr_sk"])
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    scan store_sales
+                                    filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk", 'EQUAL', 'df_1082', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_addr_sk", 'EQUAL', 'df_1083', false)) AND ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk", 'EQUAL', 'df_1084', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_cdemo_sk", 'EQUAL', 'df_1085', false)))
+                                        scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan customer_demographics
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan date_dim
+                                        filter ("d_year" = 2000)
+                                            scan date_dim
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["ca_address_sk"])
-                                scan customer_address
+                                filter ("ca_country" = CAST('United States' AS varchar(20)))
+                                    scan customer_address
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPLICATE, BROADCAST, [])
                             scan store

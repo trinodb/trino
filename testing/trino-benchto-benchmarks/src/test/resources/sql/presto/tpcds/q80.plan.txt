@@ -15,19 +15,24 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, REPLICATED):
                                                             join (LEFT, PARTITIONED):
                                                                 remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_ticket_number"])
-                                                                    scan store_sales
+                                                                    filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk", 'EQUAL', 'df_4575', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_promo_sk", 'EQUAL', 'df_4576', false)) AND ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_item_sk", 'EQUAL', 'df_4577', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk", 'EQUAL', 'df_4578', false)))
+                                                                        scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, ["sr_item_sk", "sr_ticket_number"])
-                                                                        scan store_returns
+                                                                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("sr_item_sk", 'EQUAL', 'df_4577', false)
+                                                                            scan store_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    scan date_dim
+                                                                    filter ("d_date" BETWEEN DATE '2000-08-23' AND DATE '2000-09-22')
+                                                                        scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan item
+                                                                filter ("i_current_price" > CAST(DECIMAL '50.00' AS decimal(7, 2)))
+                                                                    scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan promotion
+                                                            filter ("p_channel_tv" = CAST('N' AS char(1)))
+                                                                scan promotion
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan store
@@ -41,19 +46,24 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, REPLICATED):
                                                             join (LEFT, PARTITIONED):
                                                                 remote exchange (REPARTITION, HASH, ["cs_item_sk", "cs_order_number"])
-                                                                    scan catalog_sales
+                                                                    filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("cs_catalog_page_sk", 'EQUAL', 'df_4599', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("cs_promo_sk", 'EQUAL', 'df_4600', false)) AND ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("cs_item_sk", 'EQUAL', 'df_4601', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("cs_sold_date_sk", 'EQUAL', 'df_4602', false)))
+                                                                        scan catalog_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, ["cr_item_sk", "cr_order_number"])
-                                                                        scan catalog_returns
+                                                                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("cr_item_sk", 'EQUAL', 'df_4601', false)
+                                                                            scan catalog_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    scan date_dim
+                                                                    filter ("d_date_13" BETWEEN DATE '2000-08-23' AND DATE '2000-09-22')
+                                                                        scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan item
+                                                                filter ("i_current_price_44" > CAST(DECIMAL '50.00' AS decimal(7, 2)))
+                                                                    scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan promotion
+                                                            filter ("p_channel_tv_72" = CAST('N' AS char(1)))
+                                                                scan promotion
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan catalog_page
@@ -67,19 +77,24 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, REPLICATED):
                                                             join (LEFT, PARTITIONED):
                                                                 remote exchange (REPARTITION, HASH, ["ws_item_sk", "ws_order_number"])
-                                                                    scan web_sales
+                                                                    filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_web_site_sk", 'EQUAL', 'df_4623', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_promo_sk", 'EQUAL', 'df_4624', false)) AND ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_item_sk", 'EQUAL', 'df_4625', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_sold_date_sk", 'EQUAL', 'df_4626', false)))
+                                                                        scan web_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
-                                                                        scan web_returns
+                                                                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("wr_item_sk", 'EQUAL', 'df_4625', false)
+                                                                            scan web_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    scan date_dim
+                                                                    filter ("d_date_89" BETWEEN DATE '2000-08-23' AND DATE '2000-09-22')
+                                                                        scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan item
+                                                                filter ("i_current_price_120" > CAST(DECIMAL '50.00' AS decimal(7, 2)))
+                                                                    scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan promotion
+                                                            filter ("p_channel_tv_148" = CAST('N' AS char(1)))
+                                                                scan promotion
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan web_site

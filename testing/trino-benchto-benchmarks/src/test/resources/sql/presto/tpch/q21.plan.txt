@@ -4,30 +4,37 @@ local exchange (GATHER, SINGLE, [])
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["name"])
                     partial aggregation over (name)
-                        single aggregation over (commitdate, exists, name, name_8, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique)
-                            join (LEFT, PARTITIONED):
-                                final aggregation over (commitdate, name, name_8, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique_49)
-                                    local exchange (GATHER, SINGLE, [])
-                                        partial aggregation over (commitdate, name, name_8, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique_49)
-                                            join (LEFT, PARTITIONED):
-                                                join (INNER, REPLICATED):
-                                                    join (INNER, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, ["orderkey"])
+                        filter ("count_45" <= BIGINT '0')
+                            single aggregation over (commitdate, exists, name, name_8, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique)
+                                join (LEFT, PARTITIONED):
+                                    filter ("count_47" > BIGINT '0')
+                                        final aggregation over (commitdate, name, name_8, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique_49)
+                                            local exchange (GATHER, SINGLE, [])
+                                                partial aggregation over (commitdate, name, name_8, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique_49)
+                                                    join (LEFT, PARTITIONED):
+                                                        join (INNER, REPLICATED):
                                                             join (INNER, PARTITIONED):
-                                                                remote exchange (REPARTITION, HASH, ["suppkey"])
-                                                                    scan supplier
+                                                                remote exchange (REPARTITION, HASH, ["orderkey"])
+                                                                    join (INNER, PARTITIONED):
+                                                                        remote exchange (REPARTITION, HASH, ["suppkey"])
+                                                                            filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("nationkey", 'EQUAL', 'df_2008', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("suppkey", 'EQUAL', 'df_2010', false))
+                                                                                scan supplier
+                                                                        local exchange (GATHER, SINGLE, [])
+                                                                            remote exchange (REPARTITION, HASH, ["suppkey_1"])
+                                                                                filter (("receiptdate" > "commitdate") AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("orderkey", 'EQUAL', 'df_2009', false))
+                                                                                    scan lineitem
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPARTITION, HASH, ["suppkey_1"])
-                                                                        scan lineitem
+                                                                    remote exchange (REPARTITION, HASH, ["orderkey_4"])
+                                                                        filter ("orderstatus" = 'F')
+                                                                            scan orders
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    filter ("name_8" = CAST('SAUDI ARABIA' AS varchar(25)))
+                                                                        scan nation
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, ["orderkey_4"])
-                                                                scan orders
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan nation
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["orderkey_11"])
-                                                        scan lineitem
-                                local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["orderkey_29"])
-                                        scan lineitem
+                                                            remote exchange (REPARTITION, HASH, ["orderkey_11"])
+                                                                scan lineitem
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["orderkey_29"])
+                                            filter ("receiptdate_41" > "commitdate_40")
+                                                scan lineitem

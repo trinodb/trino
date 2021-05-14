@@ -8,11 +8,13 @@ local exchange (GATHER, SINGLE, [])
                             partial aggregation over (i_item_id_57)
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        scan catalog_sales
+                                        filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("cs_item_sk", 'EQUAL', 'df_3905', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("cs_sold_date_sk", 'EQUAL', 'df_3906', false))
+                                            scan catalog_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 join (INNER, REPLICATED):
-                                                    scan date_dim
+                                                    filter "@$internal$dynamic_filter_function@52QIVVB40S0CA100Q841Q73G0T73802919CICC49DUSN4303LFP4BR6FAV9G4L8LHO7KUG8S7L73L0QC4MNC8187E1KVCA01K0IGGR60C93KV8B7K3Q0T3KEFFLK8ELJH54INQ0T4A555C1K0IKMQKCFJO55N5FD60A1EOC7K5C75MDC06SL9N34OF9J3EDSIE7DLTLIO2C3M08C00UH487S6UK7HF84CSLHR7M8P8UP1INA0LDITS4CL0PU0G032K2M2TD4RG======"("d_date_80", 'EQUAL', 'df_3908', false)
+                                                        scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             final aggregation over (d_date_109)
@@ -20,26 +22,31 @@ local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, ["d_date_109"])
                                                                         partial aggregation over (d_date_109)
                                                                             join (INNER, REPLICATED, can skip output duplicates):
-                                                                                scan date_dim
+                                                                                filter "@$internal$dynamic_filter_function@52QIVVB4180CQ100MB41O73GGSL18519H4DP70J0JDD6CARNOLGVPVF9HMOQ3VOVG87L2G9S8M8BL0RC4KF8I386C3PUP4P2KGEG0R71C17L2S849ENU1QCAP44NAPOJIUBEG79A1GPT0F02L5ML37SU1JDPA39H2HBM325HR1PFI743EAKRHIC6LFHN4UA83MQUQPE2JH1G23807K951V1NL1SBQ1375CEPTI2A7U8E5QG55L4KSO6DEESSTBC1LR50ODS39NM0===="("d_week_seq_111", 'EQUAL', 'df_3910', false)
+                                                                                    scan date_dim
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                             remote exchange (GATHER, SINGLE, [])
-                                                                                                scan date_dim
+                                                                                                filter ("d_date_137" = DATE '2000-01-03')
+                                                                                                    scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan item
+                                            filter ("@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OKE2EKO728G9LBN0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBK0A053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA18D6HVUH"("i_item_id_57", 'EQUAL', 'df_3903', false) AND "@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OKE2EKO728G9LBN0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBK0A053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA18D6HVUH"("i_item_id_57", 'EQUAL', 'df_3904', false))
+                                                scan item
                 final aggregation over (i_item_id_166)
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["i_item_id_166"])
                             partial aggregation over (i_item_id_166)
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        scan web_sales
+                                        filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_item_sk", 'EQUAL', 'df_3926', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_sold_date_sk", 'EQUAL', 'df_3927', false))
+                                            scan web_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 join (INNER, REPLICATED):
-                                                    scan date_dim
+                                                    filter "@$internal$dynamic_filter_function@52QIVVB40S0CA100Q841Q73G0T73802919CICC49DUSN4303LFP4BR6FAV9G4L8LHO7KUG8S7L73L0QC4MNC8187E1KVCA01K0IGGR60C93KV8B7K3Q0T3KEFFLK8ELJH54INQ0T4A555C1K0IKMQKCFJO55N5FD60A1EOC7K5C75MDC06SL9N34OF9J3EDSIE7DLTLIO2C3M08C00UH487S6UK7HF84CSLHR7M8P8UP1INA0LDITS4CL0PU0G032K2M2TD4RG======"("d_date_189", 'EQUAL', 'df_3929', false)
+                                                        scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             final aggregation over (d_date_218)
@@ -47,26 +54,31 @@ local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, ["d_date_218"])
                                                                         partial aggregation over (d_date_218)
                                                                             join (INNER, REPLICATED, can skip output duplicates):
-                                                                                scan date_dim
+                                                                                filter "@$internal$dynamic_filter_function@52QIVVB4180CQ100MB41O73GGSL18519H4DP70J0JDD6CARNOLGVPVF9HMOQ3VOVG87L2G9S8M8BL0RC4KF8I386C3PUP4P2KGEG0R71C17L2S849ENU1QCAP44NAPOJIUBEG79A1GPT0F02L5ML37SU1JDPA39H2HBM325HR1PFI743EAKRHIC6LFHN4UA83MQUQPE2JH1G23807K951V1NL1SBQ1375CEPTI2A7U8E5QG55L4KSO6DEESSTBC1LR50ODS39NM0===="("d_week_seq_220", 'EQUAL', 'df_3931', false)
+                                                                                    scan date_dim
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                             remote exchange (GATHER, SINGLE, [])
-                                                                                                scan date_dim
+                                                                                                filter ("d_date_246" = DATE '2000-01-03')
+                                                                                                    scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan item
+                                            filter "@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OKE2EKO728G9LBN0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBK0A053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA18D6HVUH"("i_item_id_166", 'EQUAL', 'df_3903', false)
+                                                scan item
             final aggregation over (i_item_id)
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["i_item_id"])
                         partial aggregation over (i_item_id)
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    scan store_sales
+                                    filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_item_sk", 'EQUAL', 'df_3950', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk", 'EQUAL', 'df_3951', false))
+                                        scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             join (INNER, REPLICATED):
-                                                scan date_dim
+                                                filter "@$internal$dynamic_filter_function@52QIVVB40S0CA100Q841Q73G0T73802919CICC49DUSN4303LFP4BR6FAV9G4L8LHO7KUG8S7L73L0QC4MNC8187E1KVCA01K0IGGR60C93KV8B7K3Q0T3KEFFLK8ELJH54INQ0T4A555C1K0IKMQKCFJO55N5FD60A1EOC7K5C75MDC06SL9N34OF9J3EDSIE7DLTLIO2C3M08C00UH487S6UK7HF84CSLHR7M8P8UP1INA0LDITS4CL0PU0G032K2M2TD4RG======"("d_date", 'EQUAL', 'df_3953', false)
+                                                    scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         final aggregation over (d_date_2)
@@ -74,12 +86,14 @@ local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["d_date_2"])
                                                                     partial aggregation over (d_date_2)
                                                                         join (INNER, REPLICATED, can skip output duplicates):
-                                                                            scan date_dim
+                                                                            filter "@$internal$dynamic_filter_function@52QIVVB4180CQ100MB41O73GGSL18519H4DP70J0JDD6CARNOLGVPVF9HMOQ3VOVG87L2G9S8M8BL0RC4KF8I386C3PUP4P2KGEG0R71C17L2S849ENU1QCAP44NAPOJIUBEG79A1GPT0F02L5ML37SU1JDPA39H2HBM325HR1PFI743EAKRHIC6LFHN4UA83MQUQPE2JH1G23807K951V1NL1SBQ1375CEPTI2A7U8E5QG55L4KSO6DEESSTBC1LR50ODS39NM0===="("d_week_seq_4", 'EQUAL', 'df_3955', false)
+                                                                                scan date_dim
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                                     local exchange (GATHER, SINGLE, [])
                                                                                         remote exchange (GATHER, SINGLE, [])
-                                                                                            scan date_dim
+                                                                                            filter ("d_date_30" = DATE '2000-01-03')
+                                                                                                scan date_dim
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         scan item

@@ -5,15 +5,19 @@ local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["i_current_price", "i_item_desc", "i_item_id"])
                     partial aggregation over (i_current_price, i_item_desc, i_item_id)
                         join (INNER, REPLICATED, can skip output duplicates):
-                            scan catalog_sales
+                            filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("cs_item_sk", 'EQUAL', 'df_1048', false)
+                                scan catalog_sales
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     join (INNER, REPLICATED, can skip output duplicates):
                                         join (INNER, REPLICATED, can skip output duplicates):
-                                            scan inventory
+                                            filter ((("inv_quantity_on_hand" BETWEEN 100 AND 500) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("inv_date_sk", 'EQUAL', 'df_1050', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("inv_item_sk", 'EQUAL', 'df_1051', false))
+                                                scan inventory
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan item
+                                                    filter (("i_current_price" BETWEEN CAST(DECIMAL '68.00' AS decimal(7, 2)) AND CAST(DECIMAL '98.00' AS decimal(7, 2))) AND ("i_manufact_id" IN (677, 694, 808, 940)))
+                                                        scan item
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan date_dim
+                                                filter ("d_date" BETWEEN DATE '2000-02-01' AND DATE '2000-04-01')
+                                                    scan date_dim

@@ -9,22 +9,27 @@ local exchange (GATHER, SINGLE, [])
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["i_manufact_id_16"])
                                         partial aggregation over (i_manufact_id_16)
-                                            scan item
+                                            filter (("i_category_15" = CAST('Electronics' AS char(50))) AND "@$internal$dynamic_filter_function@52QIVVB4180CQ100MB41O73GGSL18519H4DP70J0JDD6CARNOLGVPVF9HMOQ3VOVG87L2G9S8M8BL0RC4KF8I386C3PUP4P2KGEG0R71C17L2S849ENU1QCAP44NAPOJIUBEG79A1GPT0F02L5ML37SU1JDPA39H2HBM325HR1PFI743EAKRHIC6LFHN4UA83MQUQPE2JH1G23807K951V1NL1SBQ1375CEPTI2A7U8E5QG55L4KSO6DEESSTBC1LR50ODS39NM0===="("i_manufact_id_16", 'EQUAL', 'df_4014', false))
+                                                scan item
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["i_manufact_id_2"])
                                     join (INNER, REPLICATED):
-                                        scan item
+                                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("i_item_sk", 'EQUAL', 'df_4016', false)
+                                            scan item
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 join (INNER, REPLICATED):
-                                                    scan date_dim
+                                                    filter ((("d_year" = 1998) AND ("d_moy" = 5)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("d_date_sk", 'EQUAL', 'df_4018', false))
+                                                        scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             join (INNER, REPLICATED):
-                                                                scan store_sales
+                                                                filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_addr_sk", 'EQUAL', 'df_4020', false)
+                                                                    scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan customer_address
+                                                                        filter ("ca_gmt_offset" = CAST(DECIMAL '-5.00' AS decimal(5, 2)))
+                                                                            scan customer_address
                 partial aggregation over (i_manufact_id_102)
                     single aggregation over (i_manufact_id_102)
                         join (INNER, PARTITIONED):
@@ -32,22 +37,27 @@ local exchange (GATHER, SINGLE, [])
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["i_manufact_id_102"])
                                         partial aggregation over (i_manufact_id_102)
-                                            scan item
+                                            filter (("i_category_101" = CAST('Electronics' AS char(50))) AND "@$internal$dynamic_filter_function@52QIVVB4180CQ100MB41O73GGSL18519H4DP70J0JDD6CARNOLGVPVF9HMOQ3VOVG87L2G9S8M8BL0RC4KF8I386C3PUP4P2KGEG0R71C17L2S849ENU1QCAP44NAPOJIUBEG79A1GPT0F02L5ML37SU1JDPA39H2HBM325HR1PFI743EAKRHIC6LFHN4UA83MQUQPE2JH1G23807K951V1NL1SBQ1375CEPTI2A7U8E5QG55L4KSO6DEESSTBC1LR50ODS39NM0===="("i_manufact_id_102", 'EQUAL', 'df_4035', false))
+                                                scan item
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["i_manufact_id_79"])
                                     join (INNER, REPLICATED):
-                                        scan item
+                                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("i_item_sk_66", 'EQUAL', 'df_4037', false)
+                                            scan item
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 join (INNER, REPLICATED):
-                                                    scan date_dim
+                                                    filter ((("d_year_31" = 1998) AND ("d_moy_33" = 5)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("d_date_sk_25", 'EQUAL', 'df_4039', false))
+                                                        scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             join (INNER, REPLICATED):
-                                                                scan catalog_sales
+                                                                filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("cs_bill_addr_sk", 'EQUAL', 'df_4041', false)
+                                                                    scan catalog_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan customer_address
+                                                                        filter ("ca_gmt_offset_64" = CAST(DECIMAL '-5.00' AS decimal(5, 2)))
+                                                                            scan customer_address
                 partial aggregation over (i_manufact_id_190)
                     single aggregation over (i_manufact_id_190)
                         join (INNER, PARTITIONED):
@@ -55,19 +65,24 @@ local exchange (GATHER, SINGLE, [])
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["i_manufact_id_190"])
                                         partial aggregation over (i_manufact_id_190)
-                                            scan item
+                                            filter (("i_category_189" = CAST('Electronics' AS char(50))) AND "@$internal$dynamic_filter_function@52QIVVB4180CQ100MB41O73GGSL18519H4DP70J0JDD6CARNOLGVPVF9HMOQ3VOVG87L2G9S8M8BL0RC4KF8I386C3PUP4P2KGEG0R71C17L2S849ENU1QCAP44NAPOJIUBEG79A1GPT0F02L5ML37SU1JDPA39H2HBM325HR1PFI743EAKRHIC6LFHN4UA83MQUQPE2JH1G23807K951V1NL1SBQ1375CEPTI2A7U8E5QG55L4KSO6DEESSTBC1LR50ODS39NM0===="("i_manufact_id_190", 'EQUAL', 'df_4056', false))
+                                                scan item
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["i_manufact_id_167"])
                                     join (INNER, REPLICATED):
-                                        scan item
+                                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("i_item_sk_154", 'EQUAL', 'df_4058', false)
+                                            scan item
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 join (INNER, REPLICATED):
-                                                    scan date_dim
+                                                    filter ((("d_year_119" = 1998) AND ("d_moy_121" = 5)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("d_date_sk_113", 'EQUAL', 'df_4060', false))
+                                                        scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             join (INNER, REPLICATED):
-                                                                scan web_sales
+                                                                filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_bill_addr_sk", 'EQUAL', 'df_4062', false)
+                                                                    scan web_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan customer_address
+                                                                        filter ("ca_gmt_offset_152" = CAST(DECIMAL '-5.00' AS decimal(5, 2)))
+                                                                            scan customer_address

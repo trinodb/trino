@@ -4,26 +4,31 @@ local exchange (GATHER, SINGLE, [])
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["ca_city", "ca_zip"])
                     partial aggregation over (ca_city, ca_zip)
-                        semijoin (REPLICATED):
-                            join (INNER, REPLICATED):
-                                join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk"])
-                                        join (INNER, REPLICATED):
-                                            scan web_sales
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan date_dim
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["c_customer_sk"])
-                                            join (INNER, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, ["c_current_addr_sk"])
-                                                    scan customer
+                        filter (("@substr@52QIVV94P4IG803I0SCHL4270NE74ASJOJ36D0GRR56VKG22IJA587MEVQVSK3UHC6I02DU98PS8K83LEQCE8ABPPK4QSUEMA52IK722O6JUHM640M8HNQJCUECBDQ3QF80GG45Q1A4QSGVJ1H9DN7HUBMBI33ATVMC9B1UK9VDQSN4G3K50M07MH27SGBK93ULBG80KHR9NDED01F5ISFQD0CL1KCKOCMPLCJB8"("ca_zip", BIGINT '1', BIGINT '5') IN (CAST('85669' AS varchar(10)), CAST('86197' AS varchar(10)), CAST('88274' AS varchar(10)), CAST('83405' AS varchar(10)), CAST('86475' AS varchar(10)), CAST('85392' AS varchar(10)), CAST('85460' AS varchar(10)), CAST('80348' AS varchar(10)), CAST('81792' AS varchar(10)))) OR "expr")
+                            semijoin (REPLICATED):
+                                join (INNER, REPLICATED):
+                                    join (INNER, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk"])
+                                            join (INNER, REPLICATED):
+                                                filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_item_sk", 'EQUAL', 'df_1483', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_bill_customer_sk", 'EQUAL', 'df_1484', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_sold_date_sk", 'EQUAL', 'df_1485', false))
+                                                    scan web_sales
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["ca_address_sk"])
-                                                        scan customer_address
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        filter (("d_qoy" = 2) AND ("d_year" = 2001))
+                                                            scan date_dim
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["c_customer_sk"])
+                                                join (INNER, PARTITIONED):
+                                                    remote exchange (REPARTITION, HASH, ["c_current_addr_sk"])
+                                                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("c_current_addr_sk", 'EQUAL', 'df_1491', false)
+                                                            scan customer
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPARTITION, HASH, ["ca_address_sk"])
+                                                            scan customer_address
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan item
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan item
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
-                                    scan item
+                                        filter ("i_item_sk_0" IN (BIGINT '2', BIGINT '3', BIGINT '5', BIGINT '7', BIGINT '11', BIGINT '13', BIGINT '17', BIGINT '19', BIGINT '23', BIGINT '29'))
+                                            scan item

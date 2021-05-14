@@ -1,32 +1,39 @@
 remote exchange (GATHER, SINGLE, [])
     local exchange (GATHER, UNKNOWN, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
-            cross join:
-                final aggregation over (partkey)
+            filter ("sum" > "expr_28")
+                cross join:
+                    final aggregation over (partkey)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["partkey"])
+                                partial aggregation over (partkey)
+                                    join (INNER, REPLICATED):
+                                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("suppkey", 'EQUAL', 'df_1608', false)
+                                            scan partsupp
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                join (INNER, REPLICATED):
+                                                    filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("nationkey", 'EQUAL', 'df_1610', false)
+                                                        scan supplier
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            filter ("name_5" = CAST('GERMANY' AS varchar(25)))
+                                                                scan nation
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["partkey"])
-                            partial aggregation over (partkey)
-                                join (INNER, REPLICATED):
-                                    scan partsupp
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                        remote exchange (REPLICATE, BROADCAST, [])
+                            final aggregation over ()
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (GATHER, SINGLE, [])
+                                        partial aggregation over ()
                                             join (INNER, REPLICATED):
-                                                scan supplier
+                                                filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("suppkey_9", 'EQUAL', 'df_1620', false)
+                                                    scan partsupp
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan nation
-                local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPLICATE, BROADCAST, [])
-                        final aggregation over ()
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (GATHER, SINGLE, [])
-                                    partial aggregation over ()
-                                        join (INNER, REPLICATED):
-                                            scan partsupp
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    join (INNER, REPLICATED):
-                                                        scan supplier
-                                                        local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan nation
+                                                        join (INNER, REPLICATED):
+                                                            filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("nationkey_17", 'EQUAL', 'df_1622', false)
+                                                                scan supplier
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    filter ("name_23" = CAST('GERMANY' AS varchar(25)))
+                                                                        scan nation

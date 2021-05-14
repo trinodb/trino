@@ -2,29 +2,35 @@ final aggregation over ()
     local exchange (GATHER, SINGLE, [])
         remote exchange (GATHER, SINGLE, [])
             partial aggregation over ()
-                cross join:
-                    join (RIGHT, PARTITIONED):
-                        final aggregation over (ws_item_sk_3)
+                filter (CAST("ws_ext_discount_amt" AS decimal(9, 3)) > (COALESCE("avg", "avg_64") * CAST(DECIMAL '1.3' AS decimal(2, 1))))
+                    cross join:
+                        join (RIGHT, PARTITIONED):
+                            final aggregation over (ws_item_sk_3)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["ws_item_sk_3"])
+                                        partial aggregation over (ws_item_sk_3)
+                                            join (INNER, REPLICATED):
+                                                filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_item_sk_3", 'EQUAL', 'df_1563', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_sold_date_sk_0", 'EQUAL', 'df_1564', false))
+                                                    scan web_sales
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        filter ("d_date_36" BETWEEN DATE '2000-01-27' AND DATE '2000-04-26')
+                                                            scan date_dim
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["ws_item_sk_3"])
-                                    partial aggregation over (ws_item_sk_3)
+                                remote exchange (REPARTITION, HASH, ["ws_item_sk"])
+                                    join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            scan web_sales
+                                            filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_sold_date_sk", 'EQUAL', 'df_1570', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_item_sk", 'EQUAL', 'df_1571', false))
+                                                scan web_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan date_dim
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["ws_item_sk"])
-                                join (INNER, REPLICATED):
-                                    join (INNER, REPLICATED):
-                                        scan web_sales
+                                                    filter ("i_manufact_id" = 350)
+                                                        scan item
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan item
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
-                                            scan date_dim
-                    local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPLICATE, BROADCAST, [])
-                            single aggregation over ()
-                                values (1 rows)
+                                                filter ("d_date" BETWEEN DATE '2000-01-27' AND DATE '2000-04-26')
+                                                    scan date_dim
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                single aggregation over ()
+                                    values (1 rows)

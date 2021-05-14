@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -188,6 +189,13 @@ public abstract class AbstractCostBasedPlanTest
                             .sorted() // Currently, order of hash columns is not deterministic
                             .collect(joining(", ", "[", "]")));
 
+            return visitPlan(node, indent + 1);
+        }
+
+        @Override
+        public Void visitFilter(FilterNode node, Integer indent)
+        {
+            output(indent, "filter %s", node.getPredicate());
             return visitPlan(node, indent + 1);
         }
 

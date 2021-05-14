@@ -1,21 +1,25 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
-        local exchange (GATHER, SINGLE, [])
-            remote exchange (REPARTITION, HASH, ["i_manufact_id"])
-                final aggregation over (d_qoy, i_manufact_id)
-                    local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["d_qoy", "i_manufact_id"])
-                            partial aggregation over (d_qoy, i_manufact_id)
-                                join (INNER, REPLICATED):
+        filter ((CASE WHEN ("avg" > CAST(DECIMAL '0.00' AS decimal(38, 2))) THEN ("@abs@52QIVV94M6UG6012OSBHJ0590AGP43BEVIBIBVEDGSE1KK49PFJLK3GOM10NRIB15H13RD6GU16A5EAJGLBD6AMJG6PC8UUUIJH945A97M9S6C3NDTQK394TST5I01C0S9O9CGKQB21B039UDN7RNGLPN6NB73V6RBG3N2P8USC0E07956VPHF3SP1QV0K48DA150DJAQOI063UN6KG0===="((CAST("sum" AS DECIMAL(38, 4)) - "avg")) / "avg") END) > CAST(DECIMAL '0.1000' AS decimal(38, 4)))
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["i_manufact_id"])
+                    final aggregation over (d_qoy, i_manufact_id)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["d_qoy", "i_manufact_id"])
+                                partial aggregation over (d_qoy, i_manufact_id)
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            scan store_sales
+                                            join (INNER, REPLICATED):
+                                                filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk", 'EQUAL', 'df_1186', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk", 'EQUAL', 'df_1187', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_item_sk", 'EQUAL', 'df_1188', false))
+                                                    scan store_sales
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        filter ((("i_category" IN (CAST('Books' AS char(50)), CAST('Children' AS char(50)), CAST('Electronics' AS char(50)), CAST('Men' AS char(50)), CAST('Music' AS char(50)), CAST('Women' AS char(50)))) AND ("i_class" IN (CAST('accessories' AS char(50)), CAST('classical' AS char(50)), CAST('fragrances' AS char(50)), CAST('pants' AS char(50)), CAST('personal' AS char(50)), CAST('portable' AS char(50)), CAST('reference' AS char(50)), CAST('self-help' AS char(50))))) AND (("i_brand" IN (CAST('amalgimporto #1' AS char(50)), CAST('edu packscholar #1' AS char(50)), CAST('exportiimporto #1' AS char(50)), CAST('exportiunivamalg #9' AS char(50)), CAST('importoamalg #1' AS char(50)), CAST('scholaramalgamalg #14' AS char(50)), CAST('scholaramalgamalg #7' AS char(50)), CAST('scholaramalgamalg #9' AS char(50)))) AND (((("i_category" IN (CAST('Books' AS char(50)), CAST('Children' AS char(50)), CAST('Electronics' AS char(50)))) AND ("i_class" IN (CAST('personal' AS char(50)), CAST('portable' AS char(50)), CAST('reference' AS char(50)), CAST('self-help' AS char(50))))) AND ("i_brand" IN (CAST('scholaramalgamalg #14' AS char(50)), CAST('scholaramalgamalg #7' AS char(50)), CAST('exportiunivamalg #9' AS char(50)), CAST('scholaramalgamalg #9' AS char(50))))) OR ((("i_category" IN (CAST('Women' AS char(50)), CAST('Music' AS char(50)), CAST('Men' AS char(50)))) AND ("i_class" IN (CAST('accessories' AS char(50)), CAST('classical' AS char(50)), CAST('fragrances' AS char(50)), CAST('pants' AS char(50))))) AND ("i_brand" IN (CAST('amalgimporto #1' AS char(50)), CAST('edu packscholar #1' AS char(50)), CAST('exportiimporto #1' AS char(50)), CAST('importoamalg #1' AS char(50))))))))
+                                                            scan item
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan item
+                                                    filter ("d_month_seq" IN (1200, 1201, 1202, 1203, 1204, 1205, 1206, 1207, 1208, 1209, 1210, 1211))
+                                                        scan date_dim
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan date_dim
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
-                                            scan store
+                                                scan store

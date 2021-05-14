@@ -5,11 +5,14 @@ local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["s_store_id", "s_store_name"])
                     partial aggregation over (s_store_id, s_store_name)
                         join (INNER, REPLICATED):
-                            scan date_dim
+                            filter (("d_year" = 2000) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("d_date_sk", 'EQUAL', 'df_816', false))
+                                scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     join (INNER, REPLICATED):
-                                        scan store_sales
+                                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk", 'EQUAL', 'df_818', false)
+                                            scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan store
+                                                filter ("s_gmt_offset" = CAST(DECIMAL '-5.00' AS decimal(5, 2)))
+                                                    scan store

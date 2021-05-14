@@ -3,23 +3,28 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             join (INNER, PARTITIONED):
                 remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
-                    final aggregation over (ss_customer_sk, ss_ticket_number)
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["ss_customer_sk", "ss_ticket_number"])
-                                partial aggregation over (ss_customer_sk, ss_ticket_number)
-                                    join (INNER, REPLICATED):
+                    filter ("count" BETWEEN BIGINT '15' AND BIGINT '20')
+                        final aggregation over (ss_customer_sk, ss_ticket_number)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["ss_customer_sk", "ss_ticket_number"])
+                                    partial aggregation over (ss_customer_sk, ss_ticket_number)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                scan store_sales
+                                                join (INNER, REPLICATED):
+                                                    filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_customer_sk", 'EQUAL', 'df_1301', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_hdemo_sk", 'EQUAL', 'df_1302', false)) AND ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk", 'EQUAL', 'df_1303', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk", 'EQUAL', 'df_1304', false)))
+                                                        scan store_sales
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            filter ("s_county" = CAST('Williamson County' AS varchar(30)))
+                                                                scan store
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan store
+                                                        filter ((("d_dom" BETWEEN 1 AND 3) OR ("d_dom" BETWEEN 25 AND 28)) AND ("d_year" IN (1999, 2000, 2001)))
+                                                            scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan date_dim
-                                        local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                scan household_demographics
+                                                    filter ((("hd_buy_potential" IN (CAST('>10000' AS char(15)), CAST('Unknown' AS char(15)))) AND ("hd_vehicle_count" > 0)) AND ((CASE WHEN ("hd_vehicle_count" > 0) THEN (CAST("hd_dep_count" AS DECIMAL(7, 2)) / CAST("hd_vehicle_count" AS decimal(10, 0))) END) > CAST(DECIMAL '1.20' AS decimal(7, 2))))
+                                                        scan household_demographics
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["c_customer_sk"])
                         scan customer

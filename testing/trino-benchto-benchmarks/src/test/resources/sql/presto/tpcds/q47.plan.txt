@@ -2,25 +2,31 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         join (INNER, PARTITIONED):
             join (INNER, PARTITIONED):
-                local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["i_brand", "i_category", "s_company_name", "s_store_name"])
-                        final aggregation over (d_moy, d_year, i_brand, i_category, s_company_name, s_store_name)
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["d_moy", "d_year", "i_brand", "i_category", "s_company_name", "s_store_name"])
-                                    partial aggregation over (d_moy, d_year, i_brand, i_category, s_company_name, s_store_name)
-                                        join (INNER, REPLICATED):
-                                            join (INNER, REPLICATED):
+                filter (("avg" > CAST(DECIMAL '0.00' AS decimal(38, 2))) AND ((CASE WHEN ("avg" > CAST(DECIMAL '0.00' AS decimal(38, 2))) THEN ("@abs@52QIVV94M6UG6012OSBHJ0590AGP43BEVIBIBVEDGSE1KK49R7ALK3GOM10NRIB15H13RD6GU16A5EAJGLBD6AMJG6PC8UUUIJH945A97M9S6C3NDTQK394TSS5I01C1S9O9CGKQB21B039UDN7RNGLPN6NB73V6RBG3N2P8USC0E07956VPHF3SP1QV0K48DA150DJAQOI064G91H70===="(("sum" - "avg")) / "avg") END) > CAST(DECIMAL '0.10' AS decimal(38, 2))))
+                    filter ("d_year" = 1999)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["i_brand", "i_category", "s_company_name", "s_store_name"])
+                                final aggregation over (d_moy, d_year, i_brand, i_category, s_company_name, s_store_name)
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["d_moy", "d_year", "i_brand", "i_category", "s_company_name", "s_store_name"])
+                                            partial aggregation over (d_moy, d_year, i_brand, i_category, s_company_name, s_store_name)
                                                 join (INNER, REPLICATED):
-                                                    scan store_sales
+                                                    join (INNER, REPLICATED):
+                                                        join (INNER, REPLICATED):
+                                                            filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_item_sk", 'EQUAL', 'df_3320', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk", 'EQUAL', 'df_3321', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk", 'EQUAL', 'df_3322', false))
+                                                                scan store_sales
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    filter (("d_year" IN (1998, 1999, 2000)) AND ((("d_year" = 1999) OR (("d_year" = 1998) AND ("d_moy" = 12))) OR (("d_year" = 2000) AND ("d_moy" = 1))))
+                                                                        scan date_dim
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                filter (("@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VPLM7TIA8VTUL6HVKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L853B1TCEF"("s_store_name", 'EQUAL', 'df_3312', false) AND "@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VPLM7TIA8VTUL6HVKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L853B1TCEF"("s_company_name", 'EQUAL', 'df_3313', false)) AND ("@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VPLM7TIA8VTUL6HVKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L853B1TCEF"("s_store_name", 'EQUAL', 'df_3317', false) AND "@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VPLM7TIA8VTUL6HVKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L853B1TCEF"("s_company_name", 'EQUAL', 'df_3318', false)))
+                                                                    scan store
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan date_dim
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan store
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan item
+                                                            filter (("@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OK9QKDK7BCGCLJA0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBKG8053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA1BKCK8KV"("i_category", 'EQUAL', 'df_3310', false) AND "@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OK9QKDK7BCGCLJA0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBKG8053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA1BKCK8KV"("i_brand", 'EQUAL', 'df_3311', false)) AND ("@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OK9QKDK7BCGCLJA0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBKG8053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA1BKCK8KV"("i_category", 'EQUAL', 'df_3315', false) AND "@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OK9QKDK7BCGCLJA0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBKG8053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA1BKCK8KV"("i_brand", 'EQUAL', 'df_3316', false)))
+                                                                scan item
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["i_brand_8", "i_category_12", "s_company_name_90", "s_store_name_78"])
                         final aggregation over (d_moy_53, d_year_51, i_brand_8, i_category_12, s_company_name_90, s_store_name_78)
@@ -30,16 +36,20 @@ local exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    scan store_sales
+                                                    filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_item_sk_24", 'EQUAL', 'df_3338', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk_29", 'EQUAL', 'df_3339', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk_22", 'EQUAL', 'df_3340', false))
+                                                        scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan date_dim
+                                                            filter (("d_year_51" IN (1998, 1999, 2000)) AND ((("d_year_51" = 1999) OR (("d_year_51" = 1998) AND ("d_moy_53" = 12))) OR (("d_year_51" = 2000) AND ("d_moy_53" = 1))))
+                                                                scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan store
+                                                        filter ("@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VPLM7TIA8VTUL6HVKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L853B1TCEF"("s_store_name_78", 'EQUAL', 'df_3312', false) AND "@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VPLM7TIA8VTUL6HVKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L853B1TCEF"("s_company_name_90", 'EQUAL', 'df_3313', false))
+                                                            scan store
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan item
+                                                    filter ("@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OK9QKDK7BCGCLJA0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBKG8053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA1BKCK8KV"("i_category_12", 'EQUAL', 'df_3310', false) AND "@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OK9QKDK7BCGCLJA0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBKG8053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA1BKCK8KV"("i_brand_8", 'EQUAL', 'df_3311', false))
+                                                        scan item
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["i_brand_119", "i_category_123", "s_company_name_201", "s_store_name_189"])
                     final aggregation over (d_moy_164, d_year_162, i_brand_119, i_category_123, s_company_name_201, s_store_name_189)
@@ -49,10 +59,12 @@ local exchange (GATHER, SINGLE, [])
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                scan store_sales
+                                                filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_item_sk_135", 'EQUAL', 'df_3358', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk_140", 'EQUAL', 'df_3359', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk_133", 'EQUAL', 'df_3360', false))
+                                                    scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan date_dim
+                                                        filter (("d_year_162" IN (1998, 1999, 2000)) AND ((("d_year_162" = 1999) OR (("d_year_162" = 1998) AND ("d_moy_164" = 12))) OR (("d_year_162" = 2000) AND ("d_moy_164" = 1))))
+                                                            scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan store

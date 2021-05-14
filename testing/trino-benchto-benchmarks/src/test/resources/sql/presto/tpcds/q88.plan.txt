@@ -12,16 +12,20 @@ cross join:
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        scan store_sales
+                                                        filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_hdemo_sk", 'EQUAL', 'df_8066', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk", 'EQUAL', 'df_8067', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_time_sk", 'EQUAL', 'df_8068', false))
+                                                            scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan time_dim
+                                                                filter (("t_hour" = 8) AND ("t_minute" >= 30))
+                                                                    scan time_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan store
+                                                            filter ("s_store_name" = CAST('ese' AS varchar(50)))
+                                                                scan store
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan household_demographics
+                                                        filter ((("hd_dep_count" IN (0, 2, 4)) AND ("hd_vehicle_count" <= 6)) AND (((("hd_dep_count" = 4) AND ("hd_vehicle_count" <= 6)) OR (("hd_dep_count" = 2) AND ("hd_vehicle_count" <= 4))) OR (("hd_dep_count" = 0) AND ("hd_vehicle_count" <= 2))))
+                                                            scan household_demographics
                             final aggregation over ()
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (GATHER, SINGLE, [])
@@ -29,16 +33,20 @@ cross join:
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        scan store_sales
+                                                        filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_hdemo_sk_5", 'EQUAL', 'df_8082', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk_7", 'EQUAL', 'df_8083', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_time_sk_1", 'EQUAL', 'df_8084', false))
+                                                            scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan time_dim
+                                                                filter (("t_hour_31" = 9) AND ("t_minute_32" < 30))
+                                                                    scan time_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan store
+                                                            filter ("s_store_name_43" = CAST('ese' AS varchar(50)))
+                                                                scan store
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan household_demographics
+                                                        filter ((("hd_dep_count_26" IN (0, 2, 4)) AND ("hd_vehicle_count_27" <= 6)) AND (((("hd_dep_count_26" = 4) AND ("hd_vehicle_count_27" <= 6)) OR (("hd_dep_count_26" = 2) AND ("hd_vehicle_count_27" <= 4))) OR (("hd_dep_count_26" = 0) AND ("hd_vehicle_count_27" <= 2))))
+                                                            scan household_demographics
                         final aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (GATHER, SINGLE, [])
@@ -46,16 +54,20 @@ cross join:
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    scan store_sales
+                                                    filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_hdemo_sk_73", 'EQUAL', 'df_8100', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk_75", 'EQUAL', 'df_8101', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_time_sk_69", 'EQUAL', 'df_8102', false))
+                                                        scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan time_dim
+                                                            filter (("t_hour_99" = 9) AND ("t_minute_100" >= 30))
+                                                                scan time_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan store
+                                                        filter ("s_store_name_111" = CAST('ese' AS varchar(50)))
+                                                            scan store
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan household_demographics
+                                                    filter ((("hd_dep_count_94" IN (0, 2, 4)) AND ("hd_vehicle_count_95" <= 6)) AND (((("hd_dep_count_94" = 4) AND ("hd_vehicle_count_95" <= 6)) OR (("hd_dep_count_94" = 2) AND ("hd_vehicle_count_95" <= 4))) OR (("hd_dep_count_94" = 0) AND ("hd_vehicle_count_95" <= 2))))
+                                                        scan household_demographics
                     final aggregation over ()
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (GATHER, SINGLE, [])
@@ -63,16 +75,20 @@ cross join:
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                scan store_sales
+                                                filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_hdemo_sk_141", 'EQUAL', 'df_8118', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk_143", 'EQUAL', 'df_8119', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_time_sk_137", 'EQUAL', 'df_8120', false))
+                                                    scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan time_dim
+                                                        filter (("t_hour_167" = 10) AND ("t_minute_168" < 30))
+                                                            scan time_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan store
+                                                    filter ("s_store_name_179" = CAST('ese' AS varchar(50)))
+                                                        scan store
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan household_demographics
+                                                filter ((("hd_dep_count_162" IN (0, 2, 4)) AND ("hd_vehicle_count_163" <= 6)) AND (((("hd_dep_count_162" = 4) AND ("hd_vehicle_count_163" <= 6)) OR (("hd_dep_count_162" = 2) AND ("hd_vehicle_count_163" <= 4))) OR (("hd_dep_count_162" = 0) AND ("hd_vehicle_count_163" <= 2))))
+                                                    scan household_demographics
                 final aggregation over ()
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (GATHER, SINGLE, [])
@@ -80,16 +96,20 @@ cross join:
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            scan store_sales
+                                            filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_hdemo_sk_209", 'EQUAL', 'df_8136', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk_211", 'EQUAL', 'df_8137', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_time_sk_205", 'EQUAL', 'df_8138', false))
+                                                scan store_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan time_dim
+                                                    filter (("t_hour_235" = 10) AND ("t_minute_236" >= 30))
+                                                        scan time_dim
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan store
+                                                filter ("s_store_name_247" = CAST('ese' AS varchar(50)))
+                                                    scan store
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan household_demographics
+                                            filter ((("hd_dep_count_230" IN (0, 2, 4)) AND ("hd_vehicle_count_231" <= 6)) AND (((("hd_dep_count_230" = 4) AND ("hd_vehicle_count_231" <= 6)) OR (("hd_dep_count_230" = 2) AND ("hd_vehicle_count_231" <= 4))) OR (("hd_dep_count_230" = 0) AND ("hd_vehicle_count_231" <= 2))))
+                                                scan household_demographics
             final aggregation over ()
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (GATHER, SINGLE, [])
@@ -97,16 +117,20 @@ cross join:
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        scan store_sales
+                                        filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_hdemo_sk_277", 'EQUAL', 'df_8154', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk_279", 'EQUAL', 'df_8155', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_time_sk_273", 'EQUAL', 'df_8156', false))
+                                            scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan time_dim
+                                                filter (("t_hour_303" = 11) AND ("t_minute_304" < 30))
+                                                    scan time_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan store
+                                            filter ("s_store_name_315" = CAST('ese' AS varchar(50)))
+                                                scan store
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan household_demographics
+                                        filter ((("hd_dep_count_298" IN (0, 2, 4)) AND ("hd_vehicle_count_299" <= 6)) AND (((("hd_dep_count_298" = 4) AND ("hd_vehicle_count_299" <= 6)) OR (("hd_dep_count_298" = 2) AND ("hd_vehicle_count_299" <= 4))) OR (("hd_dep_count_298" = 0) AND ("hd_vehicle_count_299" <= 2))))
+                                            scan household_demographics
         final aggregation over ()
             local exchange (GATHER, SINGLE, [])
                 remote exchange (GATHER, SINGLE, [])
@@ -114,16 +138,20 @@ cross join:
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    scan store_sales
+                                    filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_hdemo_sk_345", 'EQUAL', 'df_8172', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk_347", 'EQUAL', 'df_8173', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_time_sk_341", 'EQUAL', 'df_8174', false))
+                                        scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan time_dim
+                                            filter (("t_hour_371" = 11) AND ("t_minute_372" >= 30))
+                                                scan time_dim
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan store
+                                        filter ("s_store_name_383" = CAST('ese' AS varchar(50)))
+                                            scan store
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    scan household_demographics
+                                    filter ((("hd_dep_count_366" IN (0, 2, 4)) AND ("hd_vehicle_count_367" <= 6)) AND (((("hd_dep_count_366" = 4) AND ("hd_vehicle_count_367" <= 6)) OR (("hd_dep_count_366" = 2) AND ("hd_vehicle_count_367" <= 4))) OR (("hd_dep_count_366" = 0) AND ("hd_vehicle_count_367" <= 2))))
+                                        scan household_demographics
     final aggregation over ()
         local exchange (GATHER, SINGLE, [])
             remote exchange (GATHER, SINGLE, [])
@@ -131,13 +159,17 @@ cross join:
                     join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
-                                scan store_sales
+                                filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_hdemo_sk_413", 'EQUAL', 'df_8190', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_store_sk_415", 'EQUAL', 'df_8191', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_time_sk_409", 'EQUAL', 'df_8192', false))
+                                    scan store_sales
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan time_dim
+                                        filter (("t_hour_439" = 12) AND ("t_minute_440" < 30))
+                                            scan time_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    scan store
+                                    filter ("s_store_name_451" = CAST('ese' AS varchar(50)))
+                                        scan store
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPLICATE, BROADCAST, [])
-                                scan household_demographics
+                                filter ((("hd_dep_count_434" IN (0, 2, 4)) AND ("hd_vehicle_count_435" <= 6)) AND (((("hd_dep_count_434" = 4) AND ("hd_vehicle_count_435" <= 6)) OR (("hd_dep_count_434" = 2) AND ("hd_vehicle_count_435" <= 4))) OR (("hd_dep_count_434" = 0) AND ("hd_vehicle_count_435" <= 2))))
+                                    scan household_demographics

@@ -9,39 +9,45 @@ cross join:
                                 partial aggregation over ()
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["ss_list_price"])
-                                            scan store_sales
+                                            filter (("ss_quantity" BETWEEN 0 AND 5) AND (((CAST("ss_list_price" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '8.00' AS decimal(12, 2)) AND CAST(DECIMAL '18.00' AS decimal(12, 2))) OR (CAST("ss_coupon_amt" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '459.00' AS decimal(12, 2)) AND CAST(DECIMAL '1459.00' AS decimal(12, 2)))) OR (CAST("ss_wholesale_cost" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '57.00' AS decimal(12, 2)) AND CAST(DECIMAL '77.00' AS decimal(12, 2)))))
+                                                scan store_sales
                     final aggregation over ()
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (GATHER, SINGLE, [])
                                 partial aggregation over ()
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["ss_list_price_13"])
-                                            scan store_sales
+                                            filter (("ss_quantity_11" BETWEEN 6 AND 10) AND (((CAST("ss_list_price_13" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '90.00' AS decimal(12, 2)) AND CAST(DECIMAL '100.00' AS decimal(12, 2))) OR (CAST("ss_coupon_amt_20" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '2323.00' AS decimal(12, 2)) AND CAST(DECIMAL '3323.00' AS decimal(12, 2)))) OR (CAST("ss_wholesale_cost_12" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '31.00' AS decimal(12, 2)) AND CAST(DECIMAL '51.00' AS decimal(12, 2)))))
+                                                scan store_sales
                 final aggregation over ()
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (GATHER, SINGLE, [])
                             partial aggregation over ()
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["ss_list_price_39"])
-                                        scan store_sales
+                                        filter (("ss_quantity_37" BETWEEN 11 AND 15) AND (((CAST("ss_list_price_39" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '142.00' AS decimal(12, 2)) AND CAST(DECIMAL '152.00' AS decimal(12, 2))) OR (CAST("ss_coupon_amt_46" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '12214.00' AS decimal(12, 2)) AND CAST(DECIMAL '13214.00' AS decimal(12, 2)))) OR (CAST("ss_wholesale_cost_38" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '79.00' AS decimal(12, 2)) AND CAST(DECIMAL '99.00' AS decimal(12, 2)))))
+                                            scan store_sales
             final aggregation over ()
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (GATHER, SINGLE, [])
                         partial aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["ss_list_price_65"])
-                                    scan store_sales
+                                    filter (("ss_quantity_63" BETWEEN 16 AND 20) AND (((CAST("ss_list_price_65" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '135.00' AS decimal(12, 2)) AND CAST(DECIMAL '145.00' AS decimal(12, 2))) OR (CAST("ss_coupon_amt_72" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '6071.00' AS decimal(12, 2)) AND CAST(DECIMAL '7071.00' AS decimal(12, 2)))) OR (CAST("ss_wholesale_cost_64" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '38.00' AS decimal(12, 2)) AND CAST(DECIMAL '58.00' AS decimal(12, 2)))))
+                                        scan store_sales
         final aggregation over ()
             local exchange (GATHER, SINGLE, [])
                 remote exchange (GATHER, SINGLE, [])
                     partial aggregation over ()
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["ss_list_price_91"])
-                                scan store_sales
+                                filter (("ss_quantity_89" BETWEEN 21 AND 25) AND (((CAST("ss_list_price_91" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '122.00' AS decimal(12, 2)) AND CAST(DECIMAL '132.00' AS decimal(12, 2))) OR (CAST("ss_coupon_amt_98" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '836.00' AS decimal(12, 2)) AND CAST(DECIMAL '1836.00' AS decimal(12, 2)))) OR (CAST("ss_wholesale_cost_90" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '17.00' AS decimal(12, 2)) AND CAST(DECIMAL '37.00' AS decimal(12, 2)))))
+                                    scan store_sales
     final aggregation over ()
         local exchange (GATHER, SINGLE, [])
             remote exchange (GATHER, SINGLE, [])
                 partial aggregation over ()
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["ss_list_price_117"])
-                            scan store_sales
+                            filter (("ss_quantity_115" BETWEEN 26 AND 30) AND (((CAST("ss_list_price_117" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '154.00' AS decimal(12, 2)) AND CAST(DECIMAL '164.00' AS decimal(12, 2))) OR (CAST("ss_coupon_amt_124" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '7326.00' AS decimal(12, 2)) AND CAST(DECIMAL '8326.00' AS decimal(12, 2)))) OR (CAST("ss_wholesale_cost_116" AS decimal(12, 2)) BETWEEN CAST(DECIMAL '7.00' AS decimal(12, 2)) AND CAST(DECIMAL '27.00' AS decimal(12, 2)))))
+                                scan store_sales

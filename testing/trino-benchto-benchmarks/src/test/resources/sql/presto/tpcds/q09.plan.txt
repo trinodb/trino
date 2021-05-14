@@ -17,77 +17,93 @@ cross join:
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (GATHER, SINGLE, [])
                                                                         partial aggregation over ()
-                                                                            scan store_sales
+                                                                            filter ("ss_quantity" BETWEEN 1 AND 20)
+                                                                                scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (GATHER, SINGLE, [])
-                                                                    scan reason
+                                                                    filter ("r_reason_sk" = BIGINT '1')
+                                                                        scan reason
                                                         final aggregation over ()
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (GATHER, SINGLE, [])
                                                                     partial aggregation over ()
-                                                                        scan store_sales
+                                                                        filter ("ss_quantity_10" BETWEEN 1 AND 20)
+                                                                            scan store_sales
                                                     final aggregation over ()
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (GATHER, SINGLE, [])
                                                                 partial aggregation over ()
-                                                                    scan store_sales
+                                                                    filter ("ss_quantity_33" BETWEEN 1 AND 20)
+                                                                        scan store_sales
                                                 final aggregation over ()
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (GATHER, SINGLE, [])
                                                             partial aggregation over ()
-                                                                scan store_sales
+                                                                filter ("ss_quantity_57" BETWEEN 21 AND 40)
+                                                                    scan store_sales
                                             final aggregation over ()
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (GATHER, SINGLE, [])
                                                         partial aggregation over ()
-                                                            scan store_sales
+                                                            filter ("ss_quantity_81" BETWEEN 21 AND 40)
+                                                                scan store_sales
                                         final aggregation over ()
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (GATHER, SINGLE, [])
                                                     partial aggregation over ()
-                                                        scan store_sales
+                                                        filter ("ss_quantity_105" BETWEEN 21 AND 40)
+                                                            scan store_sales
                                     final aggregation over ()
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (GATHER, SINGLE, [])
                                                 partial aggregation over ()
-                                                    scan store_sales
+                                                    filter ("ss_quantity_129" BETWEEN 41 AND 60)
+                                                        scan store_sales
                                 final aggregation over ()
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (GATHER, SINGLE, [])
                                             partial aggregation over ()
-                                                scan store_sales
+                                                filter ("ss_quantity_153" BETWEEN 41 AND 60)
+                                                    scan store_sales
                             final aggregation over ()
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (GATHER, SINGLE, [])
                                         partial aggregation over ()
-                                            scan store_sales
+                                            filter ("ss_quantity_177" BETWEEN 41 AND 60)
+                                                scan store_sales
                         final aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (GATHER, SINGLE, [])
                                     partial aggregation over ()
-                                        scan store_sales
+                                        filter ("ss_quantity_201" BETWEEN 61 AND 80)
+                                            scan store_sales
                     final aggregation over ()
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (GATHER, SINGLE, [])
                                 partial aggregation over ()
-                                    scan store_sales
+                                    filter ("ss_quantity_225" BETWEEN 61 AND 80)
+                                        scan store_sales
                 final aggregation over ()
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (GATHER, SINGLE, [])
                             partial aggregation over ()
-                                scan store_sales
+                                filter ("ss_quantity_249" BETWEEN 61 AND 80)
+                                    scan store_sales
             final aggregation over ()
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (GATHER, SINGLE, [])
                         partial aggregation over ()
-                            scan store_sales
+                            filter ("ss_quantity_273" BETWEEN 81 AND 100)
+                                scan store_sales
         final aggregation over ()
             local exchange (GATHER, SINGLE, [])
                 remote exchange (GATHER, SINGLE, [])
                     partial aggregation over ()
-                        scan store_sales
+                        filter ("ss_quantity_297" BETWEEN 81 AND 100)
+                            scan store_sales
     final aggregation over ()
         local exchange (GATHER, SINGLE, [])
             remote exchange (GATHER, SINGLE, [])
                 partial aggregation over ()
-                    scan store_sales
+                    filter ("ss_quantity_321" BETWEEN 81 AND 100)
+                        scan store_sales

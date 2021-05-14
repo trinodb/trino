@@ -4,12 +4,14 @@ remote exchange (GATHER, SINGLE, [])
             join (INNER, REPLICATED):
                 join (INNER, PARTITIONED):
                     remote exchange (REPARTITION, HASH, ["suppkey"])
-                        scan supplier
+                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("suppkey", 'EQUAL', 'df_1127', false)
+                            scan supplier
                     final aggregation over (suppkey_1)
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["suppkey_1"])
                                 partial aggregation over (suppkey_1)
-                                    scan lineitem
+                                    filter (("shipdate" >= DATE '1996-01-01') AND ("shipdate" < DATE '1996-04-01'))
+                                        scan lineitem
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPLICATE, BROADCAST, [])
                         final aggregation over ()
@@ -20,4 +22,5 @@ remote exchange (GATHER, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["suppkey_6"])
                                                     partial aggregation over (suppkey_6)
-                                                        scan lineitem
+                                                        filter (("shipdate_14" >= DATE '1996-01-01') AND ("shipdate_14" < DATE '1996-04-01'))
+                                                            scan lineitem

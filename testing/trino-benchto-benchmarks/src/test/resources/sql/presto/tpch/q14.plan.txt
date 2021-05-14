@@ -4,7 +4,9 @@ final aggregation over ()
             partial aggregation over ()
                 join (INNER, PARTITIONED):
                     remote exchange (REPARTITION, HASH, ["partkey_1"])
-                        scan part
+                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("partkey_1", 'EQUAL', 'df_538', false)
+                            scan part
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["partkey"])
-                            scan lineitem
+                            filter (("shipdate" >= DATE '1995-09-01') AND ("shipdate" < DATE '1995-10-01'))
+                                scan lineitem

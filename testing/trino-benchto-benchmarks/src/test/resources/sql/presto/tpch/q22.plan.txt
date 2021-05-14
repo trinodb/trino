@@ -5,19 +5,23 @@ remote exchange (GATHER, SINGLE, [])
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["substr$gid"])
                         partial aggregation over (substr$gid)
-                            join (LEFT, PARTITIONED):
-                                remote exchange (REPARTITION, HASH, ["custkey"])
-                                    cross join:
-                                        scan customer
+                            filter (NOT COALESCE("subquerytrue", false))
+                                join (LEFT, PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["custkey"])
+                                        filter ("acctbal" > "avg")
+                                            cross join:
+                                                filter (("@substr@52QIVV94PSAG80420SCHKS492DQ1A939CGAMR590CR4TKAQTN15O0C6BVBVJ0VUFC6I62RCIHNO7N73KGOLKIL0I3CA614UORS9JL118IJQNN3MDMKMC8I37JF4B8HELTSK00A2K2K95B1P66546R2VQNCN466JR78P2LRT4KER5BE9CEOJGK001UBQO9A72898NH8KIVE2L4M5M49A16G2P8DDB635AL5SG0==="("phone", BIGINT '1', BIGINT '2') IN (CAST('13' AS varchar(15)), CAST('31' AS varchar(15)), CAST('23' AS varchar(15)), CAST('29' AS varchar(15)), CAST('30' AS varchar(15)), CAST('18' AS varchar(15)), CAST('17' AS varchar(15)))) AND "@$internal$dynamic_filter_function@52QIVVB4140DA100UA41Q7BG4LN0084OA8520CQGD9HP5HM0PVATJHVOGH5PE1L8FBO0EJQ141T9P14C6AQRKLGN0N8AAQA4D605KK38O9H8H7K2AD0723H089MSESOBH624PBPA5VGKOREE3L5H7C7SB8CH3BJ3LNR221JB6U31H2H9N76HKMHEDCNHMC515ASUG92KFQEPMC06JK600F8I83U3FA3ONK26EAOTJR4CKFKGRBL0AMSEU46ASCRAK20J40V0GCCQ0==="("acctbal", 'GREATER_THAN', 'df_1258', false))
+                                                    scan customer
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        final aggregation over ()
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (GATHER, SINGLE, [])
+                                                                    partial aggregation over ()
+                                                                        filter (("acctbal_6" > 0E0) AND ("@substr@52QIVV94PSAG80420SCHKS492DQ1A939CGAMR590CR4TKAQTN15O0C6BVBVJ0VUFC6I62RCIHNO7N73KGOLKIL0I3CA614UORS9JL118IJQNN3MDMKMC8I37JF4B8HELTSK00A2K2K95B1P66546R2VQNCN466JR78P2LRT4KER5BE9CEOJGK001UBQO9A72898NH8KIVE2L4M5M49A16G2P8DDB635AL5SG0==="("phone_5", BIGINT '1', BIGINT '2') IN (CAST('13' AS varchar(15)), CAST('31' AS varchar(15)), CAST('23' AS varchar(15)), CAST('29' AS varchar(15)), CAST('30' AS varchar(15)), CAST('18' AS varchar(15)), CAST('17' AS varchar(15)))))
+                                                                            scan customer
+                                    final aggregation over (custkey_10)
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                final aggregation over ()
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (GATHER, SINGLE, [])
-                                                            partial aggregation over ()
-                                                                scan customer
-                                final aggregation over (custkey_10)
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["custkey_10"])
-                                            partial aggregation over (custkey_10)
-                                                scan orders
+                                            remote exchange (REPARTITION, HASH, ["custkey_10"])
+                                                partial aggregation over (custkey_10)
+                                                    scan orders

@@ -4,17 +4,20 @@ local exchange (GATHER, SINGLE, [])
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["i_product_name"])
                     partial aggregation over (i_product_name)
-                        cross join (can skip output duplicates):
-                            join (LEFT, REPLICATED, can skip output duplicates):
-                                scan item
+                        filter (COALESCE("count", "count_23") > BIGINT '0')
+                            cross join (can skip output duplicates):
+                                join (LEFT, REPLICATED, can skip output duplicates):
+                                    filter ("i_manufact_id" BETWEEN 738 AND 778)
+                                        scan item
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            final aggregation over (i_manufact_14)
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPARTITION, HASH, ["i_manufact_14"])
+                                                        partial aggregation over (i_manufact_14)
+                                                            filter (((("i_category_12" IN (CAST('Men' AS char(50)), CAST('Women' AS char(50)))) AND ("i_color_17" IN (CAST('brown' AS char(20)), CAST('cornflower' AS char(20)), CAST('cyan' AS char(20)), CAST('deep' AS char(20)), CAST('floral' AS char(20)), CAST('forest' AS char(20)), CAST('frosted' AS char(20)), CAST('ghost' AS char(20)), CAST('honeydew' AS char(20)), CAST('khaki' AS char(20)), CAST('light' AS char(20)), CAST('midnight' AS char(20)), CAST('orange' AS char(20)), CAST('papaya' AS char(20)), CAST('powder' AS char(20)), CAST('snow' AS char(20))))) AND (("i_units_18" IN (CAST('Box' AS char(10)), CAST('Bunch' AS char(10)), CAST('Bundle' AS char(10)), CAST('Cup' AS char(10)), CAST('Dozen' AS char(10)), CAST('Dram' AS char(10)), CAST('Each' AS char(10)), CAST('Gross' AS char(10)), CAST('Lb' AS char(10)), CAST('N/A' AS char(10)), CAST('Ounce' AS char(10)), CAST('Oz' AS char(10)), CAST('Pallet' AS char(10)), CAST('Pound' AS char(10)), CAST('Tbl' AS char(10)), CAST('Ton' AS char(10)))) AND ("i_size_15" IN (CAST('N/A' AS char(20)), CAST('extra large' AS char(20)), CAST('large' AS char(20)), CAST('medium' AS char(20)), CAST('petite' AS char(20)), CAST('small' AS char(20)))))) AND (((((("i_category_12" = CAST('Women' AS char(50))) AND (("i_color_17" = CAST('powder' AS char(20))) OR ("i_color_17" = CAST('khaki' AS char(20))))) AND ((("i_units_18" = CAST('Ounce' AS char(10))) OR ("i_units_18" = CAST('Oz' AS char(10)))) AND (("i_size_15" = CAST('medium' AS char(20))) OR ("i_size_15" = CAST('extra large' AS char(20)))))) OR ((("i_category_12" = CAST('Women' AS char(50))) AND (("i_color_17" = CAST('brown' AS char(20))) OR ("i_color_17" = CAST('honeydew' AS char(20))))) AND ((("i_units_18" = CAST('Bunch' AS char(10))) OR ("i_units_18" = CAST('Ton' AS char(10)))) AND (("i_size_15" = CAST('N/A' AS char(20))) OR ("i_size_15" = CAST('small' AS char(20))))))) OR (((("i_category_12" = CAST('Men' AS char(50))) AND (("i_color_17" = CAST('floral' AS char(20))) OR ("i_color_17" = CAST('deep' AS char(20))))) AND ((("i_units_18" = CAST('N/A' AS char(10))) OR ("i_units_18" = CAST('Dozen' AS char(10)))) AND (("i_size_15" = CAST('petite' AS char(20))) OR ("i_size_15" = CAST('large' AS char(20)))))) OR ((("i_category_12" = CAST('Men' AS char(50))) AND (("i_color_17" = CAST('light' AS char(20))) OR ("i_color_17" = CAST('cornflower' AS char(20))))) AND ((("i_units_18" = CAST('Box' AS char(10))) OR ("i_units_18" = CAST('Pound' AS char(10)))) AND (("i_size_15" = CAST('medium' AS char(20))) OR ("i_size_15" = CAST('extra large' AS char(20)))))))) OR ((((("i_category_12" = CAST('Women' AS char(50))) AND (("i_color_17" = CAST('midnight' AS char(20))) OR ("i_color_17" = CAST('snow' AS char(20))))) AND ((("i_units_18" = CAST('Pallet' AS char(10))) OR ("i_units_18" = CAST('Gross' AS char(10)))) AND (("i_size_15" = CAST('medium' AS char(20))) OR ("i_size_15" = CAST('extra large' AS char(20)))))) OR ((("i_category_12" = CAST('Women' AS char(50))) AND (("i_color_17" = CAST('cyan' AS char(20))) OR ("i_color_17" = CAST('papaya' AS char(20))))) AND ((("i_units_18" = CAST('Cup' AS char(10))) OR ("i_units_18" = CAST('Dram' AS char(10)))) AND (("i_size_15" = CAST('N/A' AS char(20))) OR ("i_size_15" = CAST('small' AS char(20))))))) OR (((("i_category_12" = CAST('Men' AS char(50))) AND (("i_color_17" = CAST('orange' AS char(20))) OR ("i_color_17" = CAST('frosted' AS char(20))))) AND ((("i_units_18" = CAST('Each' AS char(10))) OR ("i_units_18" = CAST('Tbl' AS char(10)))) AND (("i_size_15" = CAST('petite' AS char(20))) OR ("i_size_15" = CAST('large' AS char(20)))))) OR ((("i_category_12" = CAST('Men' AS char(50))) AND (("i_color_17" = CAST('forest' AS char(20))) OR ("i_color_17" = CAST('ghost' AS char(20))))) AND ((("i_units_18" = CAST('Lb' AS char(10))) OR ("i_units_18" = CAST('Bundle' AS char(10)))) AND (("i_size_15" = CAST('medium' AS char(20))) OR ("i_size_15" = CAST('extra large' AS char(20))))))))))
+                                                                scan item
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        final aggregation over (i_manufact_14)
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["i_manufact_14"])
-                                                    partial aggregation over (i_manufact_14)
-                                                        scan item
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
-                                    single aggregation over ()
-                                        values (1 rows)
+                                        single aggregation over ()
+                                            values (1 rows)

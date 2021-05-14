@@ -4,20 +4,24 @@ local exchange (GATHER, SINGLE, [])
             join (INNER, PARTITIONED):
                 join (INNER, PARTITIONED):
                     remote exchange (REPARTITION, HASH, ["c_customer_id"])
-                        final aggregation over (c_birth_country, c_customer_id, c_email_address, c_first_name, c_last_name, c_login, c_preferred_cust_flag, d_year)
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["c_birth_country", "c_customer_id", "c_email_address", "c_first_name", "c_last_name", "c_login", "c_preferred_cust_flag", "d_year"])
-                                    partial aggregation over (c_birth_country, c_customer_id, c_email_address, c_first_name, c_last_name, c_login, c_preferred_cust_flag, d_year)
-                                        join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
-                                                join (INNER, REPLICATED):
-                                                    scan store_sales
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan date_dim
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["c_customer_sk"])
-                                                    scan customer
+                        filter ("sum" > CAST(DECIMAL '0.00' AS decimal(38, 2)))
+                            final aggregation over (c_birth_country, c_customer_id, c_email_address, c_first_name, c_last_name, c_login, c_preferred_cust_flag, d_year)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["c_birth_country", "c_customer_id", "c_email_address", "c_first_name", "c_last_name", "c_login", "c_preferred_cust_flag", "d_year"])
+                                        partial aggregation over (c_birth_country, c_customer_id, c_email_address, c_first_name, c_last_name, c_login, c_preferred_cust_flag, d_year)
+                                            join (INNER, PARTITIONED):
+                                                remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
+                                                    join (INNER, REPLICATED):
+                                                        filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_customer_sk", 'EQUAL', 'df_5210', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk", 'EQUAL', 'df_5211', false))
+                                                            scan store_sales
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                filter ("d_year" = 2001)
+                                                                    scan date_dim
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPARTITION, HASH, ["c_customer_sk"])
+                                                        filter (("@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OKE2EKO728G9LBN0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBK0A053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA18D6HVUH"("c_customer_id", 'EQUAL', 'df_5207', false) AND "@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OKE2EKO728G9LBN0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBK0A053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA18D6HVUH"("c_customer_id", 'EQUAL', 'df_5208', false)) AND "@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OKE2EKO728G9LBN0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBK0A053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA18D6HVUH"("c_customer_id", 'EQUAL', 'df_5209', false))
+                                                            scan customer
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["c_customer_id_69"])
                             final aggregation over (c_birth_country_82, c_customer_id_69, c_email_address_84, c_first_name_76, c_last_name_77, c_login_83, c_preferred_cust_flag_78, d_year_115)
@@ -27,29 +31,36 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, ["ss_customer_sk_89"])
                                                     join (INNER, REPLICATED):
-                                                        scan store_sales
+                                                        filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_customer_sk_89", 'EQUAL', 'df_5222', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk_86", 'EQUAL', 'df_5223', false))
+                                                            scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan date_dim
+                                                                filter ("d_year_115" = 2002)
+                                                                    scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["c_customer_sk_68"])
-                                                        scan customer
+                                                        filter ("@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OKE2EKO728G9LBN0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBK0A053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA18D6HVUH"("c_customer_id_69", 'EQUAL', 'df_5207', false) AND "@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OKE2EKO728G9LBN0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBK0A053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA18D6HVUH"("c_customer_id_69", 'EQUAL', 'df_5208', false))
+                                                            scan customer
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["c_customer_id_330"])
-                        final aggregation over (c_birth_country_343, c_customer_id_330, c_email_address_345, c_first_name_337, c_last_name_338, c_login_344, c_preferred_cust_flag_339, d_year_387)
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["c_birth_country_343", "c_customer_id_330", "c_email_address_345", "c_first_name_337", "c_last_name_338", "c_login_344", "c_preferred_cust_flag_339", "d_year_387"])
-                                    partial aggregation over (c_birth_country_343, c_customer_id_330, c_email_address_345, c_first_name_337, c_last_name_338, c_login_344, c_preferred_cust_flag_339, d_year_387)
-                                        join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk_351"])
-                                                join (INNER, REPLICATED):
-                                                    scan web_sales
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan date_dim
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["c_customer_sk_329"])
-                                                    scan customer
+                        filter ("sum_418" > CAST(DECIMAL '0.00' AS decimal(38, 2)))
+                            final aggregation over (c_birth_country_343, c_customer_id_330, c_email_address_345, c_first_name_337, c_last_name_338, c_login_344, c_preferred_cust_flag_339, d_year_387)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["c_birth_country_343", "c_customer_id_330", "c_email_address_345", "c_first_name_337", "c_last_name_338", "c_login_344", "c_preferred_cust_flag_339", "d_year_387"])
+                                        partial aggregation over (c_birth_country_343, c_customer_id_330, c_email_address_345, c_first_name_337, c_last_name_338, c_login_344, c_preferred_cust_flag_339, d_year_387)
+                                            join (INNER, PARTITIONED):
+                                                remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk_351"])
+                                                    join (INNER, REPLICATED):
+                                                        filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_bill_customer_sk_351", 'EQUAL', 'df_5235', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_sold_date_sk_347", 'EQUAL', 'df_5236', false))
+                                                            scan web_sales
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                filter ("d_year_387" = 2001)
+                                                                    scan date_dim
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPARTITION, HASH, ["c_customer_sk_329"])
+                                                        filter "@$internal$dynamic_filter_function@52QIVVB41C0EA100QA41Q7C04SL6O7P5CKRD77Q4QO9CJH4OO0S0OKE2EKO728G9LBN0U4BI7H2P1EK3DGIID28D1PGF7R4J6B91C0GRI2OAE26H7DSBK0A053Q0PLGFELJH75RMQ0TL8656K1SGGKMRK8V3Q6DM5EDQ385O18PH85IR5QFO8K1E2KRHISBLBGN0VAD3MQUJOC77A06G0F8IC3U3FA3ONK26EAOTJR4CKFSGTBL8B5G3CD3E06AHCV0821HA18D6HVUH"("c_customer_id_330", 'EQUAL', 'df_5207', false)
+                                                            scan customer
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["c_customer_id_511"])
                     final aggregation over (c_birth_country_524, c_customer_id_511, c_email_address_526, c_first_name_518, c_last_name_519, c_login_525, c_preferred_cust_flag_520, d_year_568)
@@ -59,10 +70,12 @@ local exchange (GATHER, SINGLE, [])
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk_532"])
                                             join (INNER, REPLICATED):
-                                                scan web_sales
+                                                filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_bill_customer_sk_532", 'EQUAL', 'df_5249', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_sold_date_sk_528", 'EQUAL', 'df_5250', false))
+                                                    scan web_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan date_dim
+                                                        filter ("d_year_568" = 2002)
+                                                            scan date_dim
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["c_customer_sk_510"])
                                                 scan customer

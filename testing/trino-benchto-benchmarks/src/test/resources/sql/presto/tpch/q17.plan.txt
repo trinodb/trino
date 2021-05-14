@@ -2,21 +2,25 @@ final aggregation over ()
     local exchange (GATHER, SINGLE, [])
         remote exchange (GATHER, SINGLE, [])
             partial aggregation over ()
-                cross join:
-                    join (RIGHT, PARTITIONED):
-                        final aggregation over (partkey_5)
+                filter ("quantity" < (COALESCE("avg", "avg_23") * 2E-1))
+                    cross join:
+                        join (RIGHT, PARTITIONED):
+                            final aggregation over (partkey_5)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["partkey_5"])
+                                        partial aggregation over (partkey_5)
+                                            filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("partkey_5", 'EQUAL', 'df_1116', false)
+                                                scan lineitem
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["partkey_5"])
-                                    partial aggregation over (partkey_5)
-                                        scan lineitem
+                                remote exchange (REPARTITION, HASH, ["partkey"])
+                                    join (INNER, REPLICATED):
+                                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("partkey", 'EQUAL', 'df_1118', false)
+                                            scan lineitem
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                filter (("brand" = CAST('Brand#23' AS varchar(10))) AND ("container" = CAST('MED BOX' AS varchar(10))))
+                                                    scan part
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["partkey"])
-                                join (INNER, REPLICATED):
-                                    scan lineitem
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
-                                            scan part
-                    local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPLICATE, BROADCAST, [])
-                            single aggregation over ()
-                                values (1 rows)
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                single aggregation over ()
+                                    values (1 rows)

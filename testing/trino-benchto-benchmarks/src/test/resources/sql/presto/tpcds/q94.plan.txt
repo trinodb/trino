@@ -2,30 +2,37 @@ final aggregation over ()
     local exchange (GATHER, SINGLE, [])
         remote exchange (GATHER, SINGLE, [])
             partial aggregation over ()
-                join (LEFT, PARTITIONED):
-                    final aggregation over (ca_state, d_date, unique, web_company_name, ws_ext_ship_cost, ws_net_profit, ws_order_number, ws_ship_addr_sk, ws_ship_date_sk, ws_warehouse_sk, ws_web_site_sk)
-                        local exchange (GATHER, SINGLE, [])
-                            partial aggregation over (ca_state, d_date, unique, web_company_name, ws_ext_ship_cost, ws_net_profit, ws_order_number, ws_ship_addr_sk, ws_ship_date_sk, ws_warehouse_sk, ws_web_site_sk)
-                                join (RIGHT, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, ["ws_order_number_17"])
-                                        scan web_sales
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["ws_order_number"])
-                                            join (INNER, REPLICATED):
-                                                join (INNER, REPLICATED):
+                filter (NOT COALESCE("subquerytrue", false))
+                    join (LEFT, PARTITIONED):
+                        filter ("count_37" > BIGINT '0')
+                            final aggregation over (ca_state, d_date, unique, web_company_name, ws_ext_ship_cost, ws_net_profit, ws_order_number, ws_ship_addr_sk, ws_ship_date_sk, ws_warehouse_sk, ws_web_site_sk)
+                                local exchange (GATHER, SINGLE, [])
+                                    partial aggregation over (ca_state, d_date, unique, web_company_name, ws_ext_ship_cost, ws_net_profit, ws_order_number, ws_ship_addr_sk, ws_ship_date_sk, ws_warehouse_sk, ws_web_site_sk)
+                                        join (RIGHT, PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, ["ws_order_number_17"])
+                                                filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_order_number_17", 'EQUAL', 'df_1875', false)
+                                                    scan web_sales
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["ws_order_number"])
                                                     join (INNER, REPLICATED):
-                                                        scan web_sales
+                                                        join (INNER, REPLICATED):
+                                                            join (INNER, REPLICATED):
+                                                                filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_web_site_sk", 'EQUAL', 'df_1877', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_ship_date_sk", 'EQUAL', 'df_1878', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_ship_addr_sk", 'EQUAL', 'df_1879', false))
+                                                                    scan web_sales
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        filter ("ca_state" = CAST('IL' AS char(2)))
+                                                                            scan customer_address
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    filter ("d_date" BETWEEN DATE '1999-02-01' AND DATE '1999-04-02')
+                                                                        scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan customer_address
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan date_dim
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan web_site
-                    final aggregation over (wr_order_number)
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["wr_order_number"])
-                                partial aggregation over (wr_order_number)
-                                    scan web_returns
+                                                                filter ("web_company_name" = CAST('pri' AS char(50)))
+                                                                    scan web_site
+                        final aggregation over (wr_order_number)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["wr_order_number"])
+                                    partial aggregation over (wr_order_number)
+                                        scan web_returns

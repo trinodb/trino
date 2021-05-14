@@ -3,39 +3,47 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             join (INNER, PARTITIONED):
                 remote exchange (REPARTITION, HASH, ["inv_item_sk", "inv_warehouse_sk"])
-                    final aggregation over (d_moy, inv_item_sk, inv_warehouse_sk, w_warehouse_name)
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["d_moy", "inv_item_sk", "inv_warehouse_sk", "w_warehouse_name"])
-                                partial aggregation over (d_moy, inv_item_sk, inv_warehouse_sk, w_warehouse_name)
-                                    join (INNER, REPLICATED):
-                                        join (INNER, REPLICATED):
-                                            join (INNER, REPLICATED):
-                                                scan inventory
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan date_dim
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan item
-                                        local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                scan warehouse
-                local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["inv_item_sk_3", "inv_warehouse_sk_4"])
-                        final aggregation over (d_moy_50, inv_item_sk_3, inv_warehouse_sk_4, w_warehouse_name_30)
+                    filter (((CASE "avg" WHEN 0E0 THEN 0E0 ELSE ("stddev_samp" / "avg") END) > 1E0) AND ((CASE "avg" WHEN 0E0 THEN CAST(null AS double) ELSE ("stddev_samp" / "avg") END) > 1.5E0))
+                        final aggregation over (d_moy, inv_item_sk, inv_warehouse_sk, w_warehouse_name)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["d_moy_50", "inv_item_sk_3", "inv_warehouse_sk_4", "w_warehouse_name_30"])
-                                    partial aggregation over (d_moy_50, inv_item_sk_3, inv_warehouse_sk_4, w_warehouse_name_30)
+                                remote exchange (REPARTITION, HASH, ["d_moy", "inv_item_sk", "inv_warehouse_sk", "w_warehouse_name"])
+                                    partial aggregation over (d_moy, inv_item_sk, inv_warehouse_sk, w_warehouse_name)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    scan inventory
+                                                    filter ((("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("inv_item_sk", 'EQUAL', 'df_2360', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("inv_warehouse_sk", 'EQUAL', 'df_2361', false)) AND ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("inv_warehouse_sk", 'EQUAL', 'df_2362', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("inv_item_sk", 'EQUAL', 'df_2363', false))) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("inv_date_sk", 'EQUAL', 'df_2364', false))
+                                                        scan inventory
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan date_dim
+                                                            filter (("d_year" = 2001) AND ("d_moy" = 1))
+                                                                scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan item
+                                                        filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("i_item_sk", 'EQUAL', 'df_2360', false)
+                                                            scan item
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan warehouse
+                                                    filter "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("w_warehouse_sk", 'EQUAL', 'df_2361', false)
+                                                        scan warehouse
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["inv_item_sk_3", "inv_warehouse_sk_4"])
+                        filter ((CASE "avg_77" WHEN 0E0 THEN 0E0 ELSE ("stddev_samp_76" / "avg_77") END) > 1E0)
+                            final aggregation over (d_moy_50, inv_item_sk_3, inv_warehouse_sk_4, w_warehouse_name_30)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["d_moy_50", "inv_item_sk_3", "inv_warehouse_sk_4", "w_warehouse_name_30"])
+                                        partial aggregation over (d_moy_50, inv_item_sk_3, inv_warehouse_sk_4, w_warehouse_name_30)
+                                            join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED):
+                                                    join (INNER, REPLICATED):
+                                                        filter (("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("inv_warehouse_sk_4", 'EQUAL', 'df_2379', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("inv_item_sk_3", 'EQUAL', 'df_2380', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("inv_date_sk_2", 'EQUAL', 'df_2381', false))
+                                                            scan inventory
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                filter (("d_year_48" = 2001) AND ("d_moy_50" = 2))
+                                                                    scan date_dim
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan item
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan warehouse

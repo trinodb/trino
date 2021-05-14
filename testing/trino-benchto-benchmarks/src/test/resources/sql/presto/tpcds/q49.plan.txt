@@ -4,55 +4,67 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, HASH, ["channel", "currency_rank", "item", "return_rank", "return_ratio"])
                 remote exchange (REPARTITION, HASH, ["expr_13", "expr_17", "rank", "rank_15", "wr_item_sk"])
                     partial aggregation over (expr_13, expr_17, rank, rank_15, wr_item_sk)
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (GATHER, SINGLE, [])
-                                final aggregation over (wr_item_sk)
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["wr_item_sk"])
-                                            partial aggregation over (wr_item_sk)
-                                                join (INNER, PARTITIONED):
-                                                    remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
-                                                        scan web_returns
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, ["ws_item_sk", "ws_order_number"])
-                                                            join (INNER, REPLICATED):
-                                                                scan web_sales
-                                                                local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan date_dim
+                        filter (("rank" <= BIGINT '10') OR ("rank_15" <= BIGINT '10'))
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (GATHER, SINGLE, [])
+                                    final aggregation over (wr_item_sk)
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["wr_item_sk"])
+                                                partial aggregation over (wr_item_sk)
+                                                    join (INNER, PARTITIONED):
+                                                        remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
+                                                            filter ((("wr_return_amt" > CAST(DECIMAL '10000.00' AS decimal(7, 2))) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("wr_order_number", 'EQUAL', 'df_4064', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("wr_item_sk", 'EQUAL', 'df_4065', false))
+                                                                scan web_returns
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPARTITION, HASH, ["ws_item_sk", "ws_order_number"])
+                                                                join (INNER, REPLICATED):
+                                                                    filter ((("ws_net_profit" > CAST(DECIMAL '1.00' AS decimal(7, 2))) AND ("ws_net_paid" > CAST(DECIMAL '0.00' AS decimal(7, 2)))) AND (("ws_quantity" > 0) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_sold_date_sk", 'EQUAL', 'df_4067', false)))
+                                                                        scan web_sales
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            filter (("d_year" = 2001) AND ("d_moy" = 12))
+                                                                                scan date_dim
                 remote exchange (REPARTITION, HASH, ["cr_item_sk", "expr_56", "expr_60", "rank_58", "rank_59"])
                     partial aggregation over (cr_item_sk, expr_56, expr_60, rank_58, rank_59)
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (GATHER, SINGLE, [])
-                                final aggregation over (cr_item_sk)
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["cr_item_sk"])
-                                            partial aggregation over (cr_item_sk)
-                                                join (INNER, PARTITIONED):
-                                                    remote exchange (REPARTITION, HASH, ["cr_item_sk", "cr_order_number"])
-                                                        scan catalog_returns
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, ["cs_item_sk", "cs_order_number"])
-                                                            join (INNER, REPLICATED):
-                                                                scan catalog_sales
-                                                                local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan date_dim
+                        filter (("rank_58" <= BIGINT '10') OR ("rank_59" <= BIGINT '10'))
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (GATHER, SINGLE, [])
+                                    final aggregation over (cr_item_sk)
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["cr_item_sk"])
+                                                partial aggregation over (cr_item_sk)
+                                                    join (INNER, PARTITIONED):
+                                                        remote exchange (REPARTITION, HASH, ["cr_item_sk", "cr_order_number"])
+                                                            filter ((("cr_return_amount" > CAST(DECIMAL '10000.00' AS decimal(7, 2))) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("cr_order_number", 'EQUAL', 'df_4077', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("cr_item_sk", 'EQUAL', 'df_4078', false))
+                                                                scan catalog_returns
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPARTITION, HASH, ["cs_item_sk", "cs_order_number"])
+                                                                join (INNER, REPLICATED):
+                                                                    filter ((("cs_net_profit" > CAST(DECIMAL '1.00' AS decimal(7, 2))) AND ("cs_net_paid" > CAST(DECIMAL '0.00' AS decimal(7, 2)))) AND (("cs_quantity" > 0) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("cs_sold_date_sk", 'EQUAL', 'df_4080', false)))
+                                                                        scan catalog_sales
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            filter (("d_year_24" = 2001) AND ("d_moy_26" = 12))
+                                                                                scan date_dim
                 remote exchange (REPARTITION, HASH, ["expr_104", "expr_99", "rank_101", "rank_102", "sr_item_sk"])
                     partial aggregation over (expr_104, expr_99, rank_101, rank_102, sr_item_sk)
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (GATHER, SINGLE, [])
-                                final aggregation over (sr_item_sk)
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["sr_item_sk"])
-                                            partial aggregation over (sr_item_sk)
-                                                join (INNER, PARTITIONED):
-                                                    remote exchange (REPARTITION, HASH, ["sr_item_sk", "sr_ticket_number"])
-                                                        scan store_returns
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_ticket_number"])
-                                                            join (INNER, REPLICATED):
-                                                                scan store_sales
-                                                                local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan date_dim
+                        filter (("rank_101" <= BIGINT '10') OR ("rank_102" <= BIGINT '10'))
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (GATHER, SINGLE, [])
+                                    final aggregation over (sr_item_sk)
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["sr_item_sk"])
+                                                partial aggregation over (sr_item_sk)
+                                                    join (INNER, PARTITIONED):
+                                                        remote exchange (REPARTITION, HASH, ["sr_item_sk", "sr_ticket_number"])
+                                                            filter ((("sr_return_amt" > CAST(DECIMAL '10000.00' AS decimal(7, 2))) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("sr_ticket_number", 'EQUAL', 'df_4090', false)) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("sr_item_sk", 'EQUAL', 'df_4091', false))
+                                                                scan store_returns
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_ticket_number"])
+                                                                join (INNER, REPLICATED):
+                                                                    filter ((("ss_net_profit" > CAST(DECIMAL '1.00' AS decimal(7, 2))) AND ("ss_net_paid" > CAST(DECIMAL '0.00' AS decimal(7, 2)))) AND (("ss_quantity" > 0) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk", 'EQUAL', 'df_4093', false)))
+                                                                        scan store_sales
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            filter (("d_year_67" = 2001) AND ("d_moy_69" = 12))
+                                                                                scan date_dim

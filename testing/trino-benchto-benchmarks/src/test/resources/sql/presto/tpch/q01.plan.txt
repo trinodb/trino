@@ -5,4 +5,5 @@ remote exchange (GATHER, SINGLE, [])
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["linestatus", "returnflag"])
                         partial aggregation over (linestatus, returnflag)
-                            scan lineitem
+                            filter ("shipdate" <= DATE '1998-09-02')
+                                scan lineitem

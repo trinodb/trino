@@ -11,13 +11,16 @@ remote exchange (GATHER, SINGLE, [])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, ["ss_addr_sk_6"])
                                                 join (INNER, REPLICATED):
-                                                    scan store_sales
+                                                    filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_addr_sk_6", 'EQUAL', 'df_4574', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk_0", 'EQUAL', 'df_4575', false))
+                                                        scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan date_dim
+                                                            filter (("d_year_29" = 2000) AND ("d_qoy_33" = 2))
+                                                                scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["ca_address_sk_51"])
-                                                    scan customer_address
+                                                    filter (("@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VR0K6TKNGRRTSTJTKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L851N3QVMB"("ca_county_58", 'EQUAL', 'df_4571', false) AND "@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VR0K6TKNGRRTSTJTKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L851N3QVMB"("ca_county_58", 'EQUAL', 'df_4572', false)) AND "@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VR0K6TKNGRRTSTJTKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L851N3QVMB"("ca_county_58", 'EQUAL', 'df_4573', false))
+                                                        scan customer_address
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["ca_county_126", NullableValue{type=integer, value=2000}, NullableValue{type=integer, value=2}])
                                 final aggregation over (ca_county_126, d_qoy_101, d_year_97)
@@ -27,13 +30,16 @@ remote exchange (GATHER, SINGLE, [])
                                                 join (INNER, PARTITIONED):
                                                     remote exchange (REPARTITION, HASH, ["ss_addr_sk_74"])
                                                         join (INNER, REPLICATED):
-                                                            scan store_sales
+                                                            filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_addr_sk_74", 'EQUAL', 'df_4585', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk_68", 'EQUAL', 'df_4586', false))
+                                                                scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    scan date_dim
+                                                                    filter (("d_year_97" = 2000) AND ("d_qoy_101" = 3))
+                                                                        scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["ca_address_sk_119"])
-                                                            scan customer_address
+                                                            filter ("@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VR0K6TKNGRRTSTJTKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L851N3QVMB"("ca_county_126", 'EQUAL', 'df_4571', false) AND "@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VR0K6TKNGRRTSTJTKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L851N3QVMB"("ca_county_126", 'EQUAL', 'df_4572', false))
+                                                                scan customer_address
                     join (INNER, PARTITIONED):
                         final aggregation over (ca_county_250, d_qoy_225, d_year_221)
                             local exchange (GATHER, SINGLE, [])
@@ -42,13 +48,16 @@ remote exchange (GATHER, SINGLE, [])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, ["ws_bill_addr_sk_188"])
                                                 join (INNER, REPLICATED):
-                                                    scan web_sales
+                                                    filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_bill_addr_sk_188", 'EQUAL', 'df_4600', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_sold_date_sk_181", 'EQUAL', 'df_4601', false))
+                                                        scan web_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan date_dim
+                                                            filter (("d_year_221" = 2000) AND ("d_qoy_225" = 2))
+                                                                scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["ca_address_sk_243"])
-                                                    scan customer_address
+                                                    filter ("@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VR0K6TKNGRRTSTJTKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L851N3QVMB"("ca_county_250", 'EQUAL', 'df_4571', false) AND "@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VR0K6TKNGRRTSTJTKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L851N3QVMB"("ca_county_250", 'EQUAL', 'df_4599', false))
+                                                        scan customer_address
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["ca_county_329", NullableValue{type=integer, value=2000}, NullableValue{type=integer, value=2}])
                                 final aggregation over (ca_county_329, d_qoy_304, d_year_300)
@@ -58,13 +67,16 @@ remote exchange (GATHER, SINGLE, [])
                                                 join (INNER, PARTITIONED):
                                                     remote exchange (REPARTITION, HASH, ["ws_bill_addr_sk_267"])
                                                         join (INNER, REPLICATED):
-                                                            scan web_sales
+                                                            filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_bill_addr_sk_267", 'EQUAL', 'df_4611', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_sold_date_sk_260", 'EQUAL', 'df_4612', false))
+                                                                scan web_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    scan date_dim
+                                                                    filter (("d_year_300" = 2000) AND ("d_qoy_304" = 3))
+                                                                        scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["ca_address_sk_322"])
-                                                            scan customer_address
+                                                            filter "@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VR0K6TKNGRRTSTJTKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L851N3QVMB"("ca_county_329", 'EQUAL', 'df_4571', false)
+                                                                scan customer_address
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["ca_county", NullableValue{type=integer, value=2000}, NullableValue{type=integer, value=2}])
                         join (INNER, PARTITIONED):
@@ -75,13 +87,16 @@ remote exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, ["ss_addr_sk"])
                                                     join (INNER, REPLICATED):
-                                                        scan store_sales
+                                                        filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_addr_sk", 'EQUAL', 'df_4629', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ss_sold_date_sk", 'EQUAL', 'df_4630', false))
+                                                            scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan date_dim
+                                                                filter (("d_qoy" = 1) AND ("d_year" = 2000))
+                                                                    scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["ca_address_sk"])
-                                                        scan customer_address
+                                                        filter "@$internal$dynamic_filter_function@52QIVVB41O0EA100OA41Q7B00VAG0B1L4RQ6D2L5ERLAQ0I0O2FV8VR0K6TKNGRRTSTJTKR1JIDA8TAG5BDKODKV1J42FQIJLD84Q03K478L7KT1LOC102260B35GS667AK3F6TM61H353HJU1205ITDID7TQEMQDIDO4S1MKC5C5D61HM983GF5TJAU3LJ5GDTT5EN4QQS8MGH70K6G0F8II3U3FA3ONK26EAOTNB44L0CH0B10MB87H14O2PQ4JK0GE6L851N3QVMB"("ca_county", 'EQUAL', 'df_4628', false)
+                                                            scan customer_address
                             final aggregation over (ca_county_171, d_qoy_146, d_year_142)
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["ca_county_171", "d_qoy_146", "d_year_142"])
@@ -89,10 +104,12 @@ remote exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, ["ws_bill_addr_sk"])
                                                     join (INNER, REPLICATED):
-                                                        scan web_sales
+                                                        filter ("@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_bill_addr_sk", 'EQUAL', 'df_4640', false) AND "@$internal$dynamic_filter_function@52QIVVB4140BQ100UB41O6JGAS6H8D16SHJ2H9BMT9LA24OGG790BO798805A3VUID8PP6L4EL82LMQC6QFI9P0JUMKHAK0D32Q21KAJIF0MGO4CGT9TFASB49BQP0RQMDKGM8P6SCSCG4OLIPDIF7TQEMQDIDN5S1M4D5C3D61HM984GF5TJAU4LN5GDTT4EN4QQS8NGL70K3007K941V1NL1SBQ1375CEPTI6A7Q8DLQG5BE7F235E6DLA109I0E478USL"("ws_sold_date_sk", 'EQUAL', 'df_4641', false))
+                                                            scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan date_dim
+                                                                filter (("d_qoy_146" = 1) AND ("d_year_142" = 2000))
+                                                                    scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["ca_address_sk_164"])
                                                         scan customer_address
