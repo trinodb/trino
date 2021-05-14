@@ -18,6 +18,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
@@ -62,14 +63,21 @@ public class StarburstSynapseClient
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
 
     @Inject
-    public StarburstSynapseClient(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, JdbcStatisticsConfig statisticsConfig, TableScanRedirection tableScanRedirection, ConnectionFactory connectionFactory)
+    public StarburstSynapseClient(
+            BaseJdbcConfig config,
+            SqlServerConfig sqlServerConfig,
+            JdbcStatisticsConfig statisticsConfig,
+            TableScanRedirection tableScanRedirection,
+            ConnectionFactory connectionFactory,
+            IdentifierMapping identifierMapping)
     {
         super(
                 config,
                 sqlServerConfig,
                 statisticsConfig,
                 tableScanRedirection,
-                connectionFactory);
+                connectionFactory,
+                identifierMapping);
     }
 
     @Override

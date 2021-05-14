@@ -51,6 +51,7 @@ import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
 import javax.inject.Qualifier;
@@ -133,9 +134,10 @@ public class SnowflakeJdbcClientModule
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
             TableScanRedirection tableScanRedirection,
-            ConnectionFactory connectionFactory)
+            ConnectionFactory connectionFactory,
+            IdentifierMapping identifierMapping)
     {
-        return new SnowflakeClient(config, statisticsConfig, tableScanRedirection, connectionFactory, distributedConnector);
+        return new SnowflakeClient(config, statisticsConfig, tableScanRedirection, connectionFactory, distributedConnector, identifierMapping);
     }
 
     @Provides

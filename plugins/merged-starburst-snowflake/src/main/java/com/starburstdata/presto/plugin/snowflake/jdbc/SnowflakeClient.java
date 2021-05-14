@@ -49,6 +49,7 @@ import io.trino.plugin.jdbc.expression.ImplementStddevSamp;
 import io.trino.plugin.jdbc.expression.ImplementSum;
 import io.trino.plugin.jdbc.expression.ImplementVariancePop;
 import io.trino.plugin.jdbc.expression.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -155,9 +156,10 @@ public class SnowflakeClient
             JdbcStatisticsConfig statisticsConfig,
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
-            boolean distributedConnector)
+            boolean distributedConnector,
+            IdentifierMapping identifierMapping)
     {
-        super(config, IDENTIFIER_QUOTE, connectionFactory);
+        super(config, IDENTIFIER_QUOTE, connectionFactory, identifierMapping);
         this.tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.distributedConnector = distributedConnector;
