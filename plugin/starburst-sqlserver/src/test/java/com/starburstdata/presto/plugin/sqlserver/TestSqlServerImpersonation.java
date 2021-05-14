@@ -52,8 +52,8 @@ public class TestSqlServerImpersonation
     @Test
     public void testUserImpersonation()
     {
-        assertQuery(createSession(ALICE_USER), "SELECT * FROM user_context", "SELECT 'alice_login', 'SA', 'alice_login', 'alice', 'alice'");
-        assertQuery(createSession(BOB_USER), "SELECT * FROM user_context", "SELECT 'bob_login', 'SA', 'bob_login', 'bob', 'bob'");
+        assertQuery(createSession(ALICE_USER), "SELECT * FROM user_context", "SELECT 'alice_login', 'sa', 'alice_login', 'alice', 'alice'");
+        assertQuery(createSession(BOB_USER), "SELECT * FROM user_context", "SELECT 'bob_login', 'sa', 'bob_login', 'bob', 'bob'");
         assertQueryFails(createSession(CHARLIE_USER), "SELECT * FROM user_context", "line 1:15: Table 'sqlserver.dbo.user_context' does not exist");
         assertQueryFails(
                 createSession(UNKNOWN_USER),

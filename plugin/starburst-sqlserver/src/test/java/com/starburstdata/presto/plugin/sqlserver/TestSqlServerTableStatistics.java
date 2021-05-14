@@ -298,7 +298,15 @@ public class TestSqlServerTableStatistics
                 "INTO " + tableName + " " +
                 "FROM orders");
         try {
-            gatherStats(tableName);
+            gatherStats(
+                    tableName,
+                    ImmutableList.of(
+                            "CASE_UNQUOTED_UPPER",
+                            "case_unquoted_lower",
+                            "cASe_uNQuoTeD_miXED",
+                            "CASE_QUOTED_UPPER",
+                            "case_quoted_lower",
+                            "CasE_QuoTeD_miXED"));
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
@@ -379,6 +387,11 @@ public class TestSqlServerTableStatistics
         List<String> columnNames = stream(computeActual("SHOW COLUMNS FROM " + tableName))
                 .map(row -> (String) row.getField(0))
                 .collect(toImmutableList());
+        gatherStats(tableName, columnNames);
+    }
+
+    private void gatherStats(String tableName, List<String> columnNames)
+    {
         for (Object columnName : columnNames) {
             sqlServer.execute(format("CREATE STATISTICS %1$s ON %2$s (%1$s)", columnName, tableName));
         }
