@@ -272,6 +272,7 @@ public final class ExpressionUtils
         return combineConjuncts(metadata, conjuncts);
     }
 
+    @SafeVarargs
     public static Function<Expression, Expression> expressionOrNullSymbols(Predicate<Symbol>... nullSymbolScopes)
     {
         return expression -> {
