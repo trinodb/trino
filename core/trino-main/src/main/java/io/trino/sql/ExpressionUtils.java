@@ -272,13 +272,6 @@ public final class ExpressionUtils
         return combineConjuncts(metadata, conjuncts);
     }
 
-    public static boolean referencesAny(Expression expression, Collection<Symbol> variables)
-    {
-        Set<Symbol> references = SymbolsExtractor.extractUnique(expression);
-
-        return variables.stream().anyMatch(references::contains);
-    }
-
     public static Function<Expression, Expression> expressionOrNullSymbols(Predicate<Symbol>... nullSymbolScopes)
     {
         return expression -> {
