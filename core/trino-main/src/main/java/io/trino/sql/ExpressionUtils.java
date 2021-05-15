@@ -14,7 +14,6 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.Symbol;
@@ -284,7 +283,7 @@ public final class ExpressionUtils
                         .filter(nullSymbolScope)
                         .collect(toImmutableList());
 
-                if (Iterables.isEmpty(symbols)) {
+                if (symbols.isEmpty()) {
                     continue;
                 }
 
