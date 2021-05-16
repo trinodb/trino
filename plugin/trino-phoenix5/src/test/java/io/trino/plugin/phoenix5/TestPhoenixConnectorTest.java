@@ -19,6 +19,7 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -61,6 +62,7 @@ public class TestPhoenixConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -302,6 +304,19 @@ public class TestPhoenixConnectorTest
         assertUpdate("INSERT INTO test_col_insert(pk, col1) VALUES('1', 'val1')", 1);
         assertUpdate("INSERT INTO test_col_insert(pk, col2) VALUES('1', 'val2')", 1);
         assertQuery("SELECT * FROM test_col_insert", "SELECT 1, 'val1', 'val2'");
+    }
+
+    @Override
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return sql -> {
+            try {
+                executeInPhoenix(sql);
+            }
+            catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        };
     }
 
     private void executeInPhoenix(String sql)

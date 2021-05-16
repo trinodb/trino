@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.spi.QueryId;
@@ -24,6 +25,7 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -31,6 +33,7 @@ import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
@@ -48,6 +51,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_ENABLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
@@ -124,6 +128,210 @@ public abstract class BaseJdbcConnectorTest
     }
 
     // TODO move common tests from connector-specific classes here
+
+    @Test
+    public void testAggregationPushdown()
+    {
+        if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            assertThat(query("SELECT count(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+            return;
+        }
+
+        // TODO support aggregation pushdown with GROUPING SETS
+        // TODO support aggregation over expressions
+
+        // count()
+        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, count(1) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        try (TestTable emptyTable = createAggregationTestTable(getSession().getSchema().orElseThrow() + ".empty_table", ImmutableList.of())) {
+            assertThat(query("SELECT count(*) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT count(a_bigint) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT count(1) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT count() FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT a_bigint, count(1) FROM " + emptyTable.getName() + " GROUP BY a_bigint")).isFullyPushedDown();
+        }
+
+        // GROUP BY
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        try (TestTable emptyTable = createAggregationTestTable(getSession().getSchema().orElseThrow() + ".empty_table", ImmutableList.of())) {
+            assertThat(query("SELECT t_double, min(a_bigint) FROM " + emptyTable.getName() + " GROUP BY t_double")).isFullyPushedDown();
+            assertThat(query("SELECT t_double, max(a_bigint) FROM " + emptyTable.getName() + " GROUP BY t_double")).isFullyPushedDown();
+            assertThat(query("SELECT t_double, sum(a_bigint) FROM " + emptyTable.getName() + " GROUP BY t_double")).isFullyPushedDown();
+            assertThat(query("SELECT t_double, avg(a_bigint) FROM " + emptyTable.getName() + " GROUP BY t_double")).isFullyPushedDown();
+        }
+
+        // GROUP BY and WHERE on bigint column
+        // GROUP BY and WHERE on aggregation key
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
+
+        // GROUP BY and WHERE on varchar column
+        // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey",
+                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
+                node(FilterNode.class, node(TableScanNode.class)));
+        // GROUP BY above WHERE and LIMIT
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT regionkey, sum(nationkey) FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) GROUP BY regionkey",
+                hasBehavior(SUPPORTS_LIMIT_PUSHDOWN),
+                node(LimitNode.class, anyTree(node(TableScanNode.class))));
+        // GROUP BY above TopN
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT clerk, sum(totalprice) FROM (SELECT clerk, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY clerk",
+                hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
+                node(TopNNode.class, anyTree(node(TableScanNode.class))));
+        // GROUP BY with JOIN
+        assertConditionallyPushedDown(
+                joinPushdownEnabled(getSession()),
+                "SELECT n.regionkey, sum(c.acctbal) acctbals FROM nation n LEFT JOIN customer c USING (nationkey) GROUP BY 1",
+                hasBehavior(SUPPORTS_JOIN_PUSHDOWN),
+                node(JoinNode.class, anyTree(node(TableScanNode.class)), anyTree(node(TableScanNode.class))));
+        // GROUP BY with WHERE on neither grouping nor aggregation column
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT nationkey, min(regionkey) FROM nation WHERE name = 'ARGENTINA' GROUP BY nationkey",
+                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
+                node(FilterNode.class, node(TableScanNode.class)));
+        // aggregation on varchar column
+        assertThat(query("SELECT min(name) FROM nation")).isFullyPushedDown();
+        // aggregation on varchar column with GROUPING
+        assertThat(query("SELECT nationkey, min(name) FROM nation GROUP BY nationkey")).isFullyPushedDown();
+        // aggregation on varchar column with WHERE
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT min(name) FROM nation WHERE name = 'ARGENTINA'",
+                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
+                node(FilterNode.class, node(TableScanNode.class)));
+    }
+
+    @Test
+    public void testAggregationWithUnsupportedResultType()
+    {
+        // TODO array_agg returns array, so it could be supported
+        assertThat(query("SELECT array_agg(nationkey) FROM nation"))
+                .skipResultsCorrectnessCheckForPushdown() // array_agg doesn't have a deterministic order of elements in result array
+                .isNotFullyPushedDown(AggregationNode.class);
+        // histogram returns map, which is not supported
+        assertThat(query("SELECT histogram(regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        // multimap_agg returns multimap, which is not supported
+        assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation"))
+                .skipResultsCorrectnessCheckForPushdown() // multimap_agg doesn't have a deterministic order of values for a key
+                .isNotFullyPushedDown(AggregationNode.class);
+        // approx_set returns HyperLogLog, which is not supported
+        assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+    }
+
+    @Test
+    public void testDistinctAggregationPushdown()
+    {
+        if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+            return;
+        }
+
+        // SELECT DISTINCT
+        assertThat(query("SELECT DISTINCT regionkey FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT min(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        try (TestTable emptyTable = createAggregationTestTable(getSession().getSchema().orElseThrow() + ".empty_table", ImmutableList.of())) {
+            assertThat(query("SELECT DISTINCT a_bigint FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT min(DISTINCT a_bigint) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT DISTINCT t_double, min(a_bigint) FROM " + emptyTable.getName() + " GROUP BY t_double")).isFullyPushedDown();
+        }
+
+        Session withMarkDistinct = Session.builder(getSession())
+                .setSystemProperty(USE_MARK_DISTINCT, "true")
+                .build();
+        // distinct aggregation
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        // distinct aggregation with GROUP BY
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        // distinct aggregation with varchar
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
+        // two distinct aggregations
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
+                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+        // distinct aggregation and a non-distinct aggregation
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
+                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+
+        Session withoutMarkDistinct = Session.builder(getSession())
+                .setSystemProperty(USE_MARK_DISTINCT, "false")
+                .build();
+        // distinct aggregation
+        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        // distinct aggregation with GROUP BY
+        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        // distinct aggregation with varchar
+        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
+        // two distinct aggregations
+        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
+        // distinct aggregation and a non-distinct aggregation
+        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
+    }
+
+    @Test
+    public void testNumericAggregationPushdown()
+    {
+        if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            assertThat(query("SELECT min(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT max(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT sum(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT avg(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+            return;
+        }
+
+        String schemaName = getSession().getSchema().orElseThrow();
+        // empty table
+        try (TestTable emptyTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown", ImmutableList.of())) {
+            assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
+        }
+
+        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown",
+                ImmutableList.of("100.000, 100000000.000000000, 100.000, 100000000", "123.321, 123456789.987654321, 123.321, 123456789"))) {
+            assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            // smoke testing of more complex cases
+            // WHERE on aggregation column
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 AND long_decimal < 124")).isFullyPushedDown();
+            // WHERE on non-aggregation column
+            assertThat(query("SELECT min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110")).isFullyPushedDown();
+            // GROUP BY
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " GROUP BY short_decimal")).isFullyPushedDown();
+            // GROUP BY with WHERE on both grouping and aggregation column
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 AND long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
+            // GROUP BY with WHERE on grouping column
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 GROUP BY short_decimal")).isFullyPushedDown();
+            // GROUP BY with WHERE on aggregation column
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
+        }
+    }
+
+    /**
+     * Creates a table with columns {@code short_decimal decimal(9, 3), long_decimal decimal(30, 10), t_double double, a_bigint bigint} populated
+     * with the provided rows.
+     */
+    protected TestTable createAggregationTestTable(String name, List<String> rows)
+    {
+        return new TestTable(onRemoteDatabase(), name, "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), t_double double precision, a_bigint bigint)", rows);
+    }
 
     @Test
     public void testLimitPushdown()
@@ -738,4 +946,6 @@ public abstract class BaseJdbcConnectorTest
     {
         throw new UnsupportedOperationException();
     }
+
+    protected abstract SqlExecutor onRemoteDatabase();
 }
