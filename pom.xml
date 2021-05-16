@@ -1635,7 +1635,7 @@
                 <plugin>
                     <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                     <artifactId>provisio-maven-plugin</artifactId>
-                    <version>1.0.9</version>
+                    <version>1.0.16</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -1644,7 +1644,7 @@
             <plugin>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-maven-plugin</artifactId>
-                <version>10</version>
+                <version>11</version>
                 <extensions>true</extensions>
             </plugin>
 
