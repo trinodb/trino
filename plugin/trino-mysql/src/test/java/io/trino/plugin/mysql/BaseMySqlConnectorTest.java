@@ -16,25 +16,18 @@ package io.trino.plugin.mysql;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
-import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.MarkDistinctNode;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -306,99 +299,6 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Test
-    public void testAggregationPushdown()
-            throws Exception
-    {
-        // TODO support aggregation pushdown with GROUPING SETS
-        // TODO support aggregation over expressions
-
-        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, count(1) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-
-        Session withMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(USE_MARK_DISTINCT, "true")
-                .build();
-
-        // distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
-        // distinct aggregation with GROUP BY
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        // distinct aggregation with varchar
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
-        // two distinct aggregations
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
-                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
-        // distinct aggregation and a non-distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
-                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
-
-        Session withoutMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(USE_MARK_DISTINCT, "false")
-                .build();
-
-        // distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
-        // distinct aggregation with GROUP BY
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        // distinct aggregation with varchar
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
-        // two distinct aggregations
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
-        // distinct aggregation and a non-distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
-
-        // GROUP BY and WHERE on bigint column
-        // GROUP BY and WHERE on aggregation key
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
-
-        // GROUP BY and WHERE on varchar column
-        // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isNotFullyPushedDown(FilterNode.class);
-
-        // GROUP BY above WHERE and LIMIT
-        assertThat(query("" +
-                "SELECT regionkey, sum(nationkey) " +
-                "FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) " +
-                "GROUP BY regionkey"))
-                .isFullyPushedDown();
-
-        // decimals
-        try (TestTable testTable = new TestTable(
-                onRemoteDatabase(),
-                "tpch.test_aggregation_pushdown",
-                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))",
-                List.of(
-                        "100.000, 100000000.000000000",
-                        "123.321, 123456789.987654321"))) {
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        // array_agg returns array, which is not supported
-        assertThat(query("SELECT array_agg(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        // histogram returns map, which is not supported
-        assertThat(query("SELECT histogram(regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        // multimap_agg returns multimap, which is not supported
-        assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        // approx_set returns HyperLogLog, which is not supported
-        assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-    }
-
-    @Test
     public void testStddevAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
@@ -531,6 +431,4 @@ public abstract class BaseMySqlConnectorTest
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
                 .isFullyPushedDown();
     }
-
-    protected abstract SqlExecutor onRemoteDatabase();
 }
