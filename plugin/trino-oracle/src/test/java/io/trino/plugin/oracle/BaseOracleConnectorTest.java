@@ -23,7 +23,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
@@ -482,6 +481,4 @@ public abstract class BaseOracleConnectorTest
     {
         return TEST_USER;
     }
-
-    protected abstract SqlExecutor onRemoteDatabase();
 }

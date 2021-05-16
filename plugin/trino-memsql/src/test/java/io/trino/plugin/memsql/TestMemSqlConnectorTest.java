@@ -369,6 +369,7 @@ public class TestMemSqlConnectorTest
         memSqlServer.execute(sql);
     }
 
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return memSqlServer::execute;

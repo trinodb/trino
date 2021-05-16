@@ -63,6 +63,7 @@ public class TestPhoenixConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -315,6 +316,7 @@ public class TestPhoenixConnectorTest
         assertQuery("SELECT * FROM test_col_insert", "SELECT 1, 'val1', 'val2'");
     }
 
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return sql -> {
