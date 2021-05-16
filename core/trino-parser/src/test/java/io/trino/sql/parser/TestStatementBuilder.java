@@ -35,6 +35,14 @@ public class TestStatementBuilder
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     @Test
+    public void testPreparedGrantWithQuotes()
+    {
+        printStatement("prepare p from grant select on table hive.test.\"case\" to role test");
+        printStatement("prepare p from grant select on hive.test.\"case\" to role test");
+        printStatement("prepare p from grant select on table hive.test.\"case\" to role \"case\"");
+    }
+
+    @Test
     public void testStatementBuilder()
     {
         printStatement("select * from foo");
