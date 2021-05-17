@@ -23,7 +23,6 @@ import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetTypeUtils;
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.dictionary.Dictionary;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -33,23 +32,19 @@ import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
-import org.apache.parquet.schema.OriginalType;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.parquet.ParquetReaderUtils.toInputStream;
-import static io.trino.parquet.ParquetTypeUtils.createDecimalType;
 import static io.trino.parquet.ValuesType.DEFINITION_LEVEL;
 import static io.trino.parquet.ValuesType.REPETITION_LEVEL;
 import static io.trino.parquet.ValuesType.VALUES;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public abstract class PrimitiveColumnReader
+        implements ColumnReader
 {
     private static final int EMPTY_LEVEL_VALUE = -1;
     protected final RichColumnDescriptor columnDescriptor;
@@ -78,56 +73,19 @@ public abstract class PrimitiveColumnReader
         return ParquetTypeUtils.isValueNull(columnDescriptor.isRequired(), definitionLevel, columnDescriptor.getMaxDefinitionLevel());
     }
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, DateTimeZone timeZone)
-    {
-        switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
-            case BOOLEAN:
-                return new BooleanColumnReader(descriptor);
-            case INT32:
-                return createDecimalColumnReader(descriptor).orElse(new IntColumnReader(descriptor));
-            case INT64:
-                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIME_MICROS) {
-                    return new TimeMicrosColumnReader(descriptor);
-                }
-                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MICROS) {
-                    return new TimestampMicrosColumnReader(descriptor);
-                }
-                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
-                    return new Int64TimestampMillisColumnReader(descriptor);
-                }
-                return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
-            case INT96:
-                return new TimestampColumnReader(descriptor, timeZone);
-            case FLOAT:
-                return new FloatColumnReader(descriptor);
-            case DOUBLE:
-                return new DoubleColumnReader(descriptor);
-            case BINARY:
-                return createDecimalColumnReader(descriptor).orElse(new BinaryColumnReader(descriptor));
-            case FIXED_LEN_BYTE_ARRAY:
-                return createDecimalColumnReader(descriptor)
-                        .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, " type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
-        }
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
-    }
-
-    private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
-    {
-        return createDecimalType(descriptor)
-                .map(decimalType -> DecimalColumnReaderFactory.createReader(descriptor, decimalType));
-    }
-
     public PrimitiveColumnReader(RichColumnDescriptor columnDescriptor)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor");
         pageReader = null;
     }
 
+    @Override
     public boolean isPageReaderNull()
     {
         return pageReader == null;
     }
 
+    @Override
     public void setPageReader(PageReader pageReader)
     {
         this.pageReader = requireNonNull(pageReader, "pageReader");
@@ -148,12 +106,14 @@ public abstract class PrimitiveColumnReader
         totalValueCount = pageReader.getTotalValueCount();
     }
 
+    @Override
     public void prepareNextRead(int batchSize)
     {
         readOffset = readOffset + nextBatchSize;
         nextBatchSize = batchSize;
     }
 
+    @Override
     public ColumnChunk readPrimitive(Field field)
     {
         IntList definitionLevels = new IntArrayList();

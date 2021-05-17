@@ -23,6 +23,7 @@ import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
 import io.trino.orc.metadata.OrcType;
+import io.trino.parquet.reader.ColumnReaderFactory;
 import io.trino.parquet.reader.ParquetReader.ParquetReaderFactory;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
@@ -199,7 +200,7 @@ public enum FileFormat
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new ParquetPageSourceFactory(hdfsEnvironment, new FileFormatDataSourceStats(), new ParquetReaderFactory(), new ParquetReaderConfig(), new HiveConfig().setParquetTimeZone("UTC")));
+            return Optional.of(new ParquetPageSourceFactory(hdfsEnvironment, new FileFormatDataSourceStats(), new ParquetReaderFactory(new ColumnReaderFactory()), new ParquetReaderConfig(), new HiveConfig().setParquetTimeZone("UTC")));
         }
 
         @Override

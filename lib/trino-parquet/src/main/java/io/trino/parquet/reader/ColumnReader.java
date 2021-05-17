@@ -13,19 +13,15 @@
  */
 package io.trino.parquet.reader;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import io.trino.parquet.reader.ParquetReader.ParquetReaderFactory;
+import io.trino.parquet.Field;
 
-import static com.google.inject.Scopes.SINGLETON;
-
-public class ParquetReaderModule
-        implements Module
+public interface ColumnReader
 {
-    @Override
-    public void configure(Binder binder)
-    {
-        binder.bind(ParquetReaderFactory.class).in(SINGLETON);
-        binder.bind(ColumnReaderFactory.class).in(SINGLETON);
-    }
+    boolean isPageReaderNull();
+
+    void setPageReader(PageReader pageReader);
+
+    void prepareNextRead(int batchSize);
+
+    ColumnChunk readPrimitive(Field field);
 }

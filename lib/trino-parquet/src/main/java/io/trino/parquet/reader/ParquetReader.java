@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ChunkKey;
@@ -76,6 +77,7 @@ public class ParquetReader
     private final ParquetDataSource dataSource;
     private final DateTimeZone timeZone;
     private final AggregatedMemoryContext systemMemoryContext;
+    private final ColumnReaderFactory columnReaderFactory;
 
     private int currentRowGroup = -1;
     private BlockMetaData currentBlockMetadata;
@@ -90,7 +92,7 @@ public class ParquetReader
     private long nextRowInGroup;
     private int batchSize;
     private int nextBatchSize = INITIAL_BATCH_SIZE;
-    private final PrimitiveColumnReader[] columnReaders;
+    private final ColumnReader[] columnReaders;
     private final long[] maxBytesPerCell;
     private long maxCombinedBytesPerRow;
     private final ParquetReaderOptions options;
@@ -107,7 +109,8 @@ public class ParquetReader
             ParquetDataSource dataSource,
             DateTimeZone timeZone,
             AggregatedMemoryContext systemMemoryContext,
-            ParquetReaderOptions options)
+            ParquetReaderOptions options,
+            ColumnReaderFactory columnReaderFactory)
             throws IOException
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
@@ -119,6 +122,7 @@ public class ParquetReader
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");
+        this.columnReaderFactory = requireNonNull(columnReaderFactory, "columnReaderFactory is null");
         this.columnReaders = new PrimitiveColumnReader[columns.size()];
         this.maxBytesPerCell = new long[columns.size()];
 
@@ -268,7 +272,7 @@ public class ParquetReader
     {
         ColumnDescriptor columnDescriptor = field.getDescriptor();
         int fieldId = field.getId();
-        PrimitiveColumnReader columnReader = columnReaders[fieldId];
+        ColumnReader columnReader = columnReaders[fieldId];
         if (columnReader.isPageReaderNull()) {
             validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group has 0 rows");
             ColumnChunkMetaData metadata = getColumnChunkMetaData(currentBlockMetadata, columnDescriptor);
@@ -310,7 +314,7 @@ public class ParquetReader
     {
         for (PrimitiveColumnIO columnIO : columns) {
             RichColumnDescriptor column = new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-            columnReaders[columnIO.getId()] = PrimitiveColumnReader.createReader(column, timeZone);
+            columnReaders[columnIO.getId()] = columnReaderFactory.create(column, timeZone);
         }
     }
 
@@ -351,6 +355,14 @@ public class ParquetReader
 
     public static class ParquetReaderFactory
     {
+        private final ColumnReaderFactory columnReaderFactory;
+
+        @Inject
+        public ParquetReaderFactory(ColumnReaderFactory columnReaderFactory)
+        {
+            this.columnReaderFactory = requireNonNull(columnReaderFactory, "columnReaderFactory is null");
+        }
+
         public ParquetReader create(
                 Optional<String> fileCreatedBy,
                 MessageColumnIO messageColumnIO,
@@ -370,7 +382,8 @@ public class ParquetReader
                     dataSource,
                     timeZone,
                     systemMemoryContext,
-                    options);
+                    options,
+                    columnReaderFactory);
         }
     }
 }
