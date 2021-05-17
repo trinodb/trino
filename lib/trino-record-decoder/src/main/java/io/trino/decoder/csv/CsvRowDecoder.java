@@ -14,6 +14,7 @@
 package io.trino.decoder.csv;
 
 import au.com.bytecode.opencsv.CSVParser;
+import io.trino.decoder.CsvColumnsDecoder;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
@@ -35,7 +36,7 @@ public class CsvRowDecoder
 {
     public static final String NAME = "csv";
 
-    private final Map<DecoderColumnHandle, CsvColumnDecoder> columnDecoders;
+    private final Map<DecoderColumnHandle, CsvColumnsDecoder> columnDecoders;
     private final CSVParser parser = new CSVParser();
 
     public CsvRowDecoder(Set<DecoderColumnHandle> columnHandles)
@@ -45,9 +46,9 @@ public class CsvRowDecoder
                 .collect(toImmutableMap(identity(), this::createColumnDecoder));
     }
 
-    private CsvColumnDecoder createColumnDecoder(DecoderColumnHandle columnHandle)
+    private CsvColumnsDecoder createColumnDecoder(DecoderColumnHandle columnHandle)
     {
-        return new CsvColumnDecoder(columnHandle);
+        return new CsvColumnsDecoder(columnHandle);
     }
 
     @Override

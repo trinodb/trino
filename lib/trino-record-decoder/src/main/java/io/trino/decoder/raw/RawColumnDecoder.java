@@ -83,7 +83,6 @@ public class RawColumnDecoder
         try {
             requireNonNull(columnHandle, "columnHandle is null");
             checkArgument(!columnHandle.isInternal(), "unexpected internal column '%s'", columnHandle.getName());
-            checkArgument(columnHandle.getFormatHint() == null, "unexpected format hint '%s' defined for column '%s'", columnHandle.getFormatHint(), columnHandle.getName());
 
             columnName = columnHandle.getName();
             columnType = columnHandle.getType();

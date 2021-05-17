@@ -80,7 +80,6 @@ public class AvroColumnDecoder
 
             this.columnName = columnHandle.getName();
             checkArgument(!columnHandle.isInternal(), "unexpected internal column '%s'", columnName);
-            checkArgument(columnHandle.getFormatHint() == null, "unexpected format hint '%s' defined for column '%s'", columnHandle.getFormatHint(), columnName);
             checkArgument(columnHandle.getDataFormat() == null, "unexpected data format '%s' defined for column '%s'", columnHandle.getDataFormat(), columnName);
             checkArgument(columnHandle.getMapping() != null, "mapping not defined for column '%s'", columnName);
 

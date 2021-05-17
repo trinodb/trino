@@ -83,7 +83,6 @@ public class RawRowEncoder
 
         for (EncoderColumnHandle handle : this.columnHandles) {
             checkArgument(isSupportedType(handle.getType()), "Unsupported column type '%s' for column '%s'", handle.getType().getDisplayName(), handle.getName());
-            checkArgument(handle.getFormatHint() == null, "Unexpected format hint '%s' defined for column '%s'", handle.getFormatHint(), handle.getName());
         }
 
         // parse column mappings from column handles

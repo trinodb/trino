@@ -82,14 +82,10 @@ public class JsonRowEncoder
                 if (dataFormat == DateTimeFormat.CUSTOM_DATE_TIME) {
                     checkArgument(columnHandle.getFormatHint() != null, "No format hint defined for column '%s'", columnHandle.getName());
                 }
-                else {
-                    checkArgument(columnHandle.getFormatHint() == null, "Unexpected format hint '%s' defined for column '%s'", columnHandle.getFormatHint(), columnHandle.getName());
-                }
 
                 dateTimeFormatters.add(dataFormat.getFormatter(Optional.ofNullable(columnHandle.getFormatHint())));
             }
             else {
-                checkArgument(columnHandle.getFormatHint() == null, "Unexpected format hint '%s' defined for column '%s'", columnHandle.getFormatHint(), columnHandle.getName());
                 checkArgument(columnHandle.getDataFormat() == null, "Unexpected data format '%s' defined for column '%s'", columnHandle.getDataFormat(), columnHandle.getName());
                 dateTimeFormatters.add(new UnimplementedJsonDateTimeFormatter());
             }

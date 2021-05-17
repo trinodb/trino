@@ -11,12 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.decoder.csv;
+package io.trino.decoder;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.trino.decoder.DecoderColumnHandle;
-import io.trino.decoder.FieldValueProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -36,13 +34,13 @@ import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class CsvColumnDecoder
+public class CsvColumnsDecoder
 {
     private final String columnName;
     private final Type columnType;
     private final int columnIndex;
 
-    public CsvColumnDecoder(DecoderColumnHandle columnHandle)
+    public CsvColumnsDecoder(DecoderColumnHandle columnHandle)
     {
         try {
             requireNonNull(columnHandle, "columnHandle is null");
