@@ -78,6 +78,7 @@ import io.trino.server.protocol.QueryInfoUrlFactory;
 import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
+import io.trino.spi.VersionEmbedder;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.security.SelectedRole;
 import io.trino.sql.analyzer.QueryExplainer;
@@ -89,7 +90,6 @@ import io.trino.transaction.ForTransactionManager;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerConfig;
-import io.trino.version.EmbedVersion;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -324,11 +324,11 @@ public class CoordinatorModule
     public static TransactionManager createTransactionManager(
             TransactionManagerConfig config,
             CatalogManager catalogManager,
-            EmbedVersion embedVersion,
+            VersionEmbedder versionEmbedder,
             @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
             @ForTransactionManager ExecutorService finishingExecutor)
     {
-        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, embedVersion.embedVersion(finishingExecutor));
+        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, versionEmbedder.embedVersion(finishingExecutor));
     }
 
     private void bindLowMemoryKiller(LowMemoryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)

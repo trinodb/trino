@@ -42,11 +42,11 @@ import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.VersionEmbedder;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.version.EmbedVersion;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -90,7 +90,7 @@ public class SqlTaskManager
 {
     private static final Logger log = Logger.get(SqlTaskManager.class);
 
-    private final EmbedVersion embedVersion;
+    private final VersionEmbedder versionEmbedder;
     private final ExecutorService taskNotificationExecutor;
     private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
 
@@ -119,7 +119,7 @@ public class SqlTaskManager
 
     @Inject
     public SqlTaskManager(
-            EmbedVersion embedVersion,
+            VersionEmbedder versionEmbedder,
             LocalExecutionPlanner planner,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
@@ -141,7 +141,7 @@ public class SqlTaskManager
         DataSize maxBufferSize = config.getSinkMaxBufferSize();
         DataSize maxBroadcastBufferSize = config.getSinkMaxBroadcastBufferSize();
 
-        this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
+        this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
@@ -370,7 +370,7 @@ public class SqlTaskManager
     public TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions)
     {
         try {
-            return embedVersion.embedVersion(() -> doUpdateTask(session, taskId, fragment, sources, outputBuffers, totalPartitions)).call();
+            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, fragment, sources, outputBuffers, totalPartitions)).call();
         }
         catch (Exception e) {
             throwIfUnchecked(e);

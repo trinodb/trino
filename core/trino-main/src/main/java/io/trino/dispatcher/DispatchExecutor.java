@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.trino.execution.QueryManagerConfig;
-import io.trino.version.EmbedVersion;
+import io.trino.spi.VersionEmbedder;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -48,7 +48,7 @@ public class DispatchExecutor
     private final DispatchExecutorMBeans mbeans;
 
     @Inject
-    public DispatchExecutor(QueryManagerConfig config, EmbedVersion embedVersion)
+    public DispatchExecutor(QueryManagerConfig config, VersionEmbedder versionEmbedder)
     {
         ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("dispatcher-query-%s"));
         closer.register(coreExecutor::shutdownNow);
@@ -59,13 +59,13 @@ public class DispatchExecutor
                     @Override
                     public Runnable decorate(Runnable command)
                     {
-                        return embedVersion.embedVersion(command);
+                        return versionEmbedder.embedVersion(command);
                     }
 
                     @Override
                     public <T> Callable<T> decorate(Callable<T> task)
                     {
-                        return embedVersion.embedVersion(task);
+                        return versionEmbedder.embedVersion(task);
                     }
                 });
 
