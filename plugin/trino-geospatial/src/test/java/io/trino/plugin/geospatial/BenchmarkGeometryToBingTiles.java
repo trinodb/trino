@@ -25,11 +25,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,6 +33,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import static io.trino.jmh.Benchmarks.benchmark;
 
 @State(Scope.Thread)
 @Fork(2)
@@ -88,10 +86,6 @@ public class BenchmarkGeometryToBingTiles
         data.setup();
         new BenchmarkGeometryToBingTiles().geometryToBingTiles(data);
 
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkGeometryToBingTiles.class.getSimpleName() + ".*")
-                .build();
-        new Runner(options).run();
+        benchmark(BenchmarkGeometryToBingTiles.class).run();
     }
 }

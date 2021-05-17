@@ -24,15 +24,12 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.io.IOException;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static io.trino.plugin.geospatial.GeoFunctions.stXMin;
 import static io.trino.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
@@ -77,10 +74,6 @@ public class BenchmarkSTXMin
     public static void main(String[] args)
             throws RunnerException
     {
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkSTXMin.class.getSimpleName() + ".*")
-                .build();
-        new Runner(options).run();
+        benchmark(BenchmarkSTXMin.class).run();
     }
 }

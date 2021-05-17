@@ -16,6 +16,7 @@ package io.trino.execution.resourcegroups;
 import io.airlift.units.DataSize;
 import io.trino.execution.MockManagedQueryExecution;
 import io.trino.execution.MockManagedQueryExecution.MockManagedQueryExecutionBuilder;
+import io.trino.jmh.Benchmarks;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -28,10 +29,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -105,10 +102,6 @@ public class BenchmarkResourceGroup
     public static void main(String[] args)
             throws Exception
     {
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkResourceGroup.class.getSimpleName() + ".*")
-                .build();
-        new Runner(options).run();
+        Benchmarks.benchmark(BenchmarkResourceGroup.class).run();
     }
 }

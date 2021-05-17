@@ -38,11 +38,7 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.profile.GCProfiler;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -58,6 +54,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -411,12 +408,8 @@ public class BenchmarkUnnestOperator
     public static void main(String[] args)
             throws RunnerException
     {
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkUnnestOperator.class.getSimpleName() + ".*")
-                .addProfiler(GCProfiler.class)
-                .build();
-
-        new Runner(options).run();
+        benchmark(BenchmarkUnnestOperator.class)
+                .withOptions(optionsBuilder -> optionsBuilder.addProfiler(GCProfiler.class))
+                .run();
     }
 }
