@@ -236,7 +236,7 @@ public class TestTimeZoneKey
         }
     }
 
-    public void assertTimeZoneNotSupported(String zoneId)
+    private void assertTimeZoneNotSupported(String zoneId)
     {
         assertThatThrownBy(() -> TimeZoneKey.getTimeZoneKey(zoneId))
                 .isInstanceOf(TimeZoneNotSupportedException.class)
