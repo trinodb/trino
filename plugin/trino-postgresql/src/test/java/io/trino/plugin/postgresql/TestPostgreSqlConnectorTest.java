@@ -472,39 +472,6 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
-    public void testVarianceAggregationPushdown()
-    {
-        String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = new TestTable(postgreSqlServer::execute, schemaName + ".test_variance_pushdown",
-                "(t_double DOUBLE PRECISION)")) {
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
-
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        try (TestTable testTable = new TestTable(postgreSqlServer::execute, schemaName + ".test_variance_pushdown",
-                "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "3", "4", "5"))) {
-            // Test non-whole number results
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-    }
-
-    @Test
     public void testCovarianceAggregationPushdown()
     {
         // empty table
