@@ -23,8 +23,6 @@ import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
 import io.trino.orc.metadata.OrcType;
-import io.trino.parquet.reader.ColumnReaderFactory;
-import io.trino.parquet.reader.ParquetReader.ParquetReaderFactory;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
@@ -49,6 +47,7 @@ import io.trino.plugin.hive.TableToPartitionMapping;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.TestingParquetReaderFactory;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.rcfile.AircompressorCodecFactory;
 import io.trino.rcfile.HadoopCodecFactory;
@@ -200,7 +199,7 @@ public enum FileFormat
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new ParquetPageSourceFactory(hdfsEnvironment, new FileFormatDataSourceStats(), new ParquetReaderFactory(new ColumnReaderFactory()), new ParquetReaderConfig(), new HiveConfig().setParquetTimeZone("UTC")));
+            return Optional.of(new ParquetPageSourceFactory(hdfsEnvironment, new FileFormatDataSourceStats(), new TestingParquetReaderFactory(), new ParquetReaderConfig(), new HiveConfig().setParquetTimeZone("UTC")));
         }
 
         @Override

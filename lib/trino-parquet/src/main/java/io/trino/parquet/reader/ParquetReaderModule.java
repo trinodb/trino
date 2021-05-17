@@ -14,18 +14,20 @@
 package io.trino.parquet.reader;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.parquet.reader.ColumnReaderFactory.ColumnReaderModule;
 import io.trino.parquet.reader.ParquetReader.ParquetReaderFactory;
 
 import static com.google.inject.Scopes.SINGLETON;
 
 public class ParquetReaderModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         binder.bind(ParquetReaderFactory.class).in(SINGLETON);
         binder.bind(ColumnReaderFactory.class).in(SINGLETON);
+        install(new ColumnReaderModule());
     }
 }

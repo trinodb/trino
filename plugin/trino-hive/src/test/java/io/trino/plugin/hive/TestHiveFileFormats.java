@@ -20,8 +20,6 @@ import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriterOptions;
-import io.trino.parquet.reader.ColumnReaderFactory;
-import io.trino.parquet.reader.ParquetReader.ParquetReaderFactory;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -30,6 +28,7 @@ import io.trino.plugin.hive.parquet.ParquetFileWriterFactory;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.hive.parquet.TestingParquetReaderFactory;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -110,7 +109,7 @@ public class TestHiveFileFormats
     private static final ConnectorSession PARQUET_SESSION = getHiveSession(createParquetHiveConfig(false));
     private static final ConnectorSession PARQUET_SESSION_USE_NAME = getHiveSession(createParquetHiveConfig(true));
     private static final Supplier<ParquetPageSourceFactory> PARQUET_PAGE_SOURCE_FACTORY = () ->
-            new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderFactory(new ColumnReaderFactory()), new ParquetReaderConfig(), new HiveConfig());
+            new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new TestingParquetReaderFactory(), new ParquetReaderConfig(), new HiveConfig());
 
     @DataProvider(name = "rowCount")
     public static Object[][] rowCountProvider()
