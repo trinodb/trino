@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.postgresql;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
@@ -468,39 +467,6 @@ public class TestPostgreSqlConnectorTest
         }
         finally {
             postgreSqlServer.execute("DROP TYPE " + enumType);
-        }
-    }
-
-    @Test
-    public void testRegrAggregationPushdown()
-    {
-        // empty table
-        try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
-                "test_regr_pushdown",
-                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)")) {
-            assertThat(query("SELECT regr_intercept(t_double1, t_double2), regr_intercept(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT regr_slope(t_double1, t_double2), regr_slope(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        // test some values for which the aggregate functions return whole numbers
-        try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
-                "test_regr_pushdown",
-                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
-                ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
-            assertThat(query("SELECT regr_intercept(t_double1, t_double2), regr_intercept(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT regr_slope(t_double1, t_double2), regr_slope(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        // non-whole number results
-        try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
-                "test_regr_pushdown",
-                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
-                ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
-            assertThat(query("SELECT regr_intercept(t_double1, t_double2), regr_intercept(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT regr_slope(t_double1, t_double2), regr_slope(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
         }
     }
 
