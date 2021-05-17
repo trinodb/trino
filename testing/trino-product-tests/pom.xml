@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <main-class>io.trino.tests.TemptoProductTestRunner</main-class>
+        <main-class>io.trino.tests.product.TemptoProductTestRunner</main-class>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
     </properties>
 
