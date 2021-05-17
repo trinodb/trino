@@ -25,9 +25,6 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.SwitchStatement.SwitchBuilder;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.Type;
 import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.RowExpression;
@@ -98,7 +95,7 @@ public class InCodeGenerator
             return SwitchGenerationCase.SET_CONTAINS;
         }
 
-        if (!(type instanceof IntegerType || type instanceof BigintType || type instanceof DateType)) {
+        if (type.getJavaType() != long.class) {
             return SwitchGenerationCase.HASH_SWITCH;
         }
         for (RowExpression expression : values) {
