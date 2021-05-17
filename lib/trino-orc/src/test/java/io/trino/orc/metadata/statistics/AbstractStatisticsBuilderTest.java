@@ -68,7 +68,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         assertNoColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(Optional.empty()), 0);
     }
 
-    public void assertMinAverageValueBytes(long expectedAverageValueBytes, List<T> values)
+    protected void assertMinAverageValueBytes(long expectedAverageValueBytes, List<T> values)
     {
         // test add value
         B statisticsBuilder = statisticsBuilderSupplier.get();
@@ -92,7 +92,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         assertEquals(mergeColumnStatistics(ImmutableList.of(firstStats, secondStats)).getMinAverageValueSizeInBytes(), expectedAverageValueBytes);
     }
 
-    public void assertMinMaxValues(T expectedMin, T expectedMax)
+    protected void assertMinMaxValues(T expectedMin, T expectedMax)
     {
         // just min
         assertValues(expectedMin, expectedMin, ImmutableList.of(expectedMin));
@@ -104,7 +104,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         assertValues(expectedMin, expectedMax, ImmutableList.of(expectedMin, expectedMax));
     }
 
-    public void assertValues(T expectedMin, T expectedMax, List<T> values)
+    protected void assertValues(T expectedMin, T expectedMax, List<T> values)
     {
         assertValuesInternal(expectedMin, expectedMax, values);
         assertValuesInternal(expectedMin, expectedMax, ImmutableList.copyOf(values).reverse());
@@ -130,7 +130,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         }
     }
 
-    public static void assertNoColumnStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues)
+    protected static void assertNoColumnStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues)
     {
         assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
         assertNull(columnStatistics.getBooleanStatistics());
@@ -175,7 +175,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         return newStatisticsList;
     }
 
-    public void assertColumnStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, T expectedMin, T expectedMax)
+    protected void assertColumnStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, T expectedMin, T expectedMax)
     {
         assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
 
