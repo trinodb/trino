@@ -259,6 +259,7 @@
                 <extensions>true</extensions>
                 <configuration>
                     <allowedProvidedDependencies>
+                        <id>com.starburstdata.presto:starburst-spi</id>
                         <id>com.sap.cloud.db.jdbc:ngdbc</id>
                     </allowedProvidedDependencies>
                 </configuration>
