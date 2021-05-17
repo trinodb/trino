@@ -157,7 +157,7 @@
         <module>testing/trino-test-jdbc-compatibility-old-server</module>
         <module>testing/trino-testing</module>
         <module>testing/trino-testing-kafka</module>
-        <module>testing/trino-testng-services</module>
+        <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
     </modules>
 
@@ -479,7 +479,7 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-testng-services</artifactId>
+                <artifactId>trino-testing-services</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
