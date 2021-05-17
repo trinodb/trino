@@ -330,7 +330,7 @@ public final class KuduTableProperties
     private static List<RangePartition> getRangePartitionList(KuduTable table, long deadline)
     {
         List<RangePartition> rangePartitions = new ArrayList<>();
-        if (!table.getPartitionSchema().getRangeSchema().getColumns().isEmpty()) {
+        if (!table.getPartitionSchema().getRangeSchema().getColumnIds().isEmpty()) {
             try {
                 for (LocatedTablet tablet : table.getTabletsLocations(deadline)) {
                     Partition partition = tablet.getPartition();
@@ -365,7 +365,7 @@ public final class KuduTableProperties
             Schema schema = table.getSchema();
             PartitionSchema partitionSchema = table.getPartitionSchema();
             PartitionSchema.RangeSchema rangeSchema = partitionSchema.getRangeSchema();
-            List<Integer> rangeColumns = rangeSchema.getColumns();
+            List<Integer> rangeColumns = rangeSchema.getColumnIds();
 
             int numColumns = rangeColumns.size();
 
@@ -427,7 +427,7 @@ public final class KuduTableProperties
                 }).collect(toImmutableList());
         partitionDesign.setHash(hashPartitions);
 
-        List<Integer> rangeColumns = partitionSchema.getRangeSchema().getColumns();
+        List<Integer> rangeColumns = partitionSchema.getRangeSchema().getColumnIds();
         if (!rangeColumns.isEmpty()) {
             RangePartitionDefinition definition = new RangePartitionDefinition();
             definition.setColumns(rangeColumns.stream()
