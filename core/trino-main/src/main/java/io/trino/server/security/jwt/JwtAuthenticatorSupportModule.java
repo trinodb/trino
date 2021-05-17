@@ -51,7 +51,17 @@ public class JwtAuthenticatorSupportModule
             binder.bind(SigningKeyResolver.class).to(JwkSigningKeyResolver.class).in(Scopes.SINGLETON);
             binder.bind(JwkService.class).in(Scopes.SINGLETON);
             httpClientBinder(binder)
-                    .bindHttpClient("jwk", ForJwk.class);
+                    .bindHttpClient("jwk", ForJwk.class)
+                    // Reset HttpClient default configuration to override InternalCommunicationModule changes.
+                    // Setting a keystore and/or a truststore for internal communication changes the default SSL configuration
+                    // for all clients in the same guice context. This, however, does not make sense for this client which will
+                    // very rarely use the same SSL setup as internal communication, so using the system default truststore
+                    // makes more sense.
+                    .withConfigDefaults(config -> config
+                            .setKeyStorePath(null)
+                            .setKeyStorePassword(null)
+                            .setTrustStorePath(null)
+                            .setTrustStorePassword(null));
         }
 
         // this module can be added multiple times, and this prevents multiple processing by Guice
