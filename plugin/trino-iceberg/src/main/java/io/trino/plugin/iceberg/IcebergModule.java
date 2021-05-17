@@ -14,9 +14,10 @@
 package io.trino.plugin.iceberg;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.parquet.reader.ParquetReaderModule;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveNodePartitioningProvider;
@@ -37,10 +38,10 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class IcebergModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);
 
@@ -59,6 +60,7 @@ public class IcebergModule
         configBinder(binder).bindConfig(OrcReaderConfig.class);
         configBinder(binder).bindConfig(OrcWriterConfig.class);
 
+        install(new ParquetReaderModule());
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
 

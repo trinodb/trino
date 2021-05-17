@@ -25,6 +25,7 @@ import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.predicate.Predicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
+import io.trino.parquet.reader.ParquetReader.ParquetReaderFactory;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HdfsEnvironment;
@@ -117,14 +118,21 @@ public class ParquetPageSourceFactory
 
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
+    private final ParquetReaderFactory parquetReaderFactory;
     private final ParquetReaderOptions options;
     private final DateTimeZone timeZone;
 
     @Inject
-    public ParquetPageSourceFactory(HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, ParquetReaderConfig config, HiveConfig hiveConfig)
+    public ParquetPageSourceFactory(
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            ParquetReaderFactory parquetReaderFactory,
+            ParquetReaderConfig config,
+            HiveConfig hiveConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.parquetReaderFactory = requireNonNull(parquetReaderFactory, "parquetReaderFactory is null");
         requireNonNull(config, "config is null");
 
         options = config.toParquetReaderOptions();
@@ -167,7 +175,8 @@ public class ParquetPageSourceFactory
                 timeZone,
                 stats,
                 options.withIgnoreStatistics(isParquetIgnoreStatistics(session))
-                        .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))));
+                        .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
+                parquetReaderFactory));
     }
 
     /**
@@ -186,7 +195,8 @@ public class ParquetPageSourceFactory
             String user,
             DateTimeZone timeZone,
             FileFormatDataSourceStats stats,
-            ParquetReaderOptions options)
+            ParquetReaderOptions options,
+            ParquetReaderFactory parquetReaderFactory)
     {
         // Ignore predicates on partial columns for now.
         effectivePredicate = effectivePredicate.filter((column, domain) -> column.isBaseColumn());
@@ -211,9 +221,7 @@ public class ParquetPageSourceFactory
                             .collect(toUnmodifiableList()))
                     .orElse(columns).stream()
                     .filter(column -> column.getColumnType() == REGULAR)
-                    .map(column -> getColumnType(column, fileSchema, useColumnNames))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
+                    .flatMap(column -> getColumnType(column, fileSchema, useColumnNames).stream())
                     .map(type -> new MessageType(fileSchema.getName(), type))
                     .reduce(MessageType::union);
 
@@ -239,7 +247,7 @@ public class ParquetPageSourceFactory
                 }
                 nextStart += block.getRowCount();
             }
-            parquetReader = new ParquetReader(
+            parquetReader = parquetReaderFactory.create(
                     Optional.ofNullable(fileMetaData.getCreatedBy()),
                     messageColumn,
                     blocks.build(),

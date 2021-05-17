@@ -99,7 +99,7 @@ public class ParquetReader
     private AggregatedMemoryContext currentRowGroupMemoryContext;
     private final Map<ChunkKey, ChunkReader> chunkReaders;
 
-    public ParquetReader(
+    private ParquetReader(
             Optional<String> fileCreatedBy,
             MessageColumnIO messageColumnIO,
             List<BlockMetaData> blocks,
@@ -347,5 +347,30 @@ public class ParquetReader
     public AggregatedMemoryContext getSystemMemoryContext()
     {
         return systemMemoryContext;
+    }
+
+    public static class ParquetReaderFactory
+    {
+        public ParquetReader create(
+                Optional<String> fileCreatedBy,
+                MessageColumnIO messageColumnIO,
+                List<BlockMetaData> blocks,
+                Optional<List<Long>> firstRowsOfBlocks,
+                ParquetDataSource dataSource,
+                DateTimeZone timeZone,
+                AggregatedMemoryContext systemMemoryContext,
+                ParquetReaderOptions options)
+                throws IOException
+        {
+            return new ParquetReader(
+                    fileCreatedBy,
+                    messageColumnIO,
+                    blocks,
+                    firstRowsOfBlocks,
+                    dataSource,
+                    timeZone,
+                    systemMemoryContext,
+                    options);
+        }
     }
 }

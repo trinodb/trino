@@ -36,6 +36,7 @@ import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.predicate.Predicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
+import io.trino.parquet.reader.ParquetReader.ParquetReaderFactory;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -124,6 +125,7 @@ public class IcebergPageSourceProvider
 {
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
+    private final ParquetReaderFactory parquetReaderFactory;
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
 
@@ -131,11 +133,13 @@ public class IcebergPageSourceProvider
     public IcebergPageSourceProvider(
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats fileFormatDataSourceStats,
+            ParquetReaderFactory parquetReaderFactory,
             OrcReaderConfig orcReaderConfig,
             ParquetReaderConfig parquetReaderConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
+        this.parquetReaderFactory = requireNonNull(parquetReaderFactory, "parquetReaderFactory is null");
         this.orcReaderOptions = requireNonNull(orcReaderConfig, "orcReaderConfig is null").toOrcReaderOptions();
         this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
     }
@@ -423,7 +427,7 @@ public class IcebergPageSourceProvider
         }
     }
 
-    private static ConnectorPageSource createParquetPageSource(
+    private ConnectorPageSource createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
             String user,
             Configuration configuration,
@@ -478,7 +482,7 @@ public class IcebergPageSourceProvider
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
-            ParquetReader parquetReader = new ParquetReader(
+            ParquetReader parquetReader = parquetReaderFactory.create(
                     Optional.ofNullable(fileMetaData.getCreatedBy()),
                     messageColumnIO,
                     blocks,

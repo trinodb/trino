@@ -20,6 +20,7 @@ import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriterOptions;
+import io.trino.parquet.reader.ParquetReader.ParquetReaderFactory;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -108,7 +109,7 @@ public class TestHiveFileFormats
     private static final ConnectorSession PARQUET_SESSION = getHiveSession(createParquetHiveConfig(false));
     private static final ConnectorSession PARQUET_SESSION_USE_NAME = getHiveSession(createParquetHiveConfig(true));
     private static final Supplier<ParquetPageSourceFactory> PARQUET_PAGE_SOURCE_FACTORY = () ->
-            new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig(), new HiveConfig());
+            new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderFactory(), new ParquetReaderConfig(), new HiveConfig());
 
     @DataProvider(name = "rowCount")
     public static Object[][] rowCountProvider()
