@@ -114,9 +114,9 @@ Deletion by partition
 ---------------------
 
 For partitioned tables, the Iceberg connector supports the deletion of entire
-partitions if the ``WHERE`` clause specifies an identity transform of a partition
-column.  Given the table definition above, this SQL will delete all partitions
-for which ``country`` is ``US``::
+partitions if the ``WHERE`` clause specifies filters only on the identity-transformed
+partitioning columns, that can match entire partitions. Given the table definition
+above, this SQL will delete all partitions for which ``country`` is ``US``::
 
     DELETE FROM iceberg.testdb.sample_partitioned
     WHERE country = 'US'
