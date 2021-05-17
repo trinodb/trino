@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
+import io.trino.jmh.Benchmarks;
 import io.trino.metadata.Metadata;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
@@ -38,10 +39,6 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 import org.testng.annotations.Test;
 
@@ -194,11 +191,6 @@ public class BenchmarkJsonToArrayCast
         data.setup();
         new BenchmarkJsonToArrayCast().benchmark(data);
 
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkJsonToArrayCast.class.getSimpleName() + ".*")
-                .warmupMode(WarmupMode.BULK_INDI)
-                .build();
-        new Runner(options).run();
+        Benchmarks.benchmark(BenchmarkJsonToArrayCast.class, WarmupMode.BULK_INDI).run();
     }
 }

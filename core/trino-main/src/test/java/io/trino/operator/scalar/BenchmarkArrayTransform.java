@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.jmh.Benchmarks;
 import io.trino.metadata.Metadata;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
@@ -44,10 +45,6 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.List;
 import java.util.Optional;
@@ -175,10 +172,6 @@ public class BenchmarkArrayTransform
         data.setup();
         new BenchmarkArrayTransform().benchmark(data);
 
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkArrayTransform.class.getSimpleName() + ".*")
-                .build();
-        new Runner(options).run();
+        Benchmarks.benchmark(BenchmarkArrayTransform.class).run();
     }
 }

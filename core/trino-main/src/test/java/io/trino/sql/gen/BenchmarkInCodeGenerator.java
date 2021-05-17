@@ -16,6 +16,7 @@ package io.trino.sql.gen;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.jmh.Benchmarks;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.DriverYieldSignal;
@@ -37,15 +38,9 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.results.format.ResultFormatType;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 import org.testng.annotations.Test;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -62,7 +57,6 @@ import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.Expressions.field;
 import static io.trino.sql.relational.SpecialForm.Form.IN;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
 @State(Scope.Thread)
@@ -209,13 +203,6 @@ public class BenchmarkInCodeGenerator
     public static void main(String[] args)
             throws RunnerException
     {
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkInCodeGenerator.class.getSimpleName() + ".*")
-                .resultFormat(ResultFormatType.JSON)
-                .result(System.getProperty("java.io.tmpdir") + "/BenchmarkInCodeGenerator-result-" + ISO_DATE_TIME.format(LocalDateTime.now()) + ".json")
-                .build();
-
-        new Runner(options).run();
+        Benchmarks.benchmark(BenchmarkInCodeGenerator.class).run();
     }
 }
