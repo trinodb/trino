@@ -97,7 +97,6 @@ public class S3TableConfigClient
     @PostConstruct
     protected void startS3Updates()
     {
-        // TODO: if required make the update interval configurable
         if (this.bucketUrl.isPresent()) {
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
             this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5_000, tableDescriptionRefreshInterval.toMillis(), TimeUnit.MILLISECONDS);
