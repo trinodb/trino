@@ -14,6 +14,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
@@ -41,5 +42,24 @@ public class IdentifierMappingRules
     public List<TableMappingRule> getTableMapping()
     {
         return tables;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        IdentifierMappingRules that = (IdentifierMappingRules) o;
+        return schemas.equals(that.schemas) && tables.equals(that.tables);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(schemas, tables);
     }
 }
