@@ -81,7 +81,7 @@ public class TestInCodeGenerator
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 
-        for (long i = 6; i <= 32; ++i) {
+        for (long i = 6; i <= 15; ++i) {
             values.add(constant(i, BIGINT));
         }
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);

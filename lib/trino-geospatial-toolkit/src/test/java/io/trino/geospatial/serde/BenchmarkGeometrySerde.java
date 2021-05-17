@@ -25,11 +25,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 
 import static com.esri.core.geometry.ogc.OGCGeometry.fromText;
 import static io.trino.geospatial.serde.BenchmarkGeometrySerializationData.GEOMETRYCOLLECTION;
@@ -43,6 +39,7 @@ import static io.trino.geospatial.serde.BenchmarkGeometrySerializationData.readR
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.geospatial.serde.GeometrySerde.deserializeEnvelope;
 import static io.trino.geospatial.serde.GeometrySerde.serialize;
+import static io.trino.jmh.Benchmarks.benchmark;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.openjdk.jmh.annotations.Mode.Throughput;
 
@@ -384,10 +381,6 @@ public class BenchmarkGeometrySerde
     public static void main(String[] args)
             throws RunnerException
     {
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkGeometrySerde.class.getSimpleName() + ".*")
-                .build();
-        new Runner(options).run();
+        benchmark(BenchmarkGeometrySerde.class).run();
     }
 }

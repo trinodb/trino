@@ -25,11 +25,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.profile.GCProfiler;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.util.concurrent.ThreadLocalRandom;
@@ -39,6 +35,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static io.airlift.slice.Slices.wrappedLongArray;
+import static io.trino.jmh.Benchmarks.benchmark;
 
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Fork(4)
@@ -120,14 +117,10 @@ public class BenchmarkReferenceCountMap
     public static void main(String[] args)
             throws RunnerException
     {
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .warmupMode(WarmupMode.BULK)
-                .include(".*" + BenchmarkReferenceCountMap.class.getSimpleName() + ".*")
-                .addProfiler(GCProfiler.class)
-                .jvmArgs("-XX:+UseG1GC")
-                .build();
-
-        new Runner(options).run();
+        benchmark(BenchmarkReferenceCountMap.class, WarmupMode.BULK)
+                .withOptions(optionsBuilder -> optionsBuilder
+                        .addProfiler(GCProfiler.class)
+                        .jvmArgs("-XX:+UseG1GC"))
+                .run();
     }
 }

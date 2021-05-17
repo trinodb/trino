@@ -39,9 +39,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -59,6 +56,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
@@ -336,12 +334,9 @@ public class BenchmarkProjectionPushdownHive
     public static void main(String[] args)
             throws Exception
     {
-        Options opt = new OptionsBuilder()
-                .include(".*\\." + BenchmarkProjectionPushdownHive.class.getSimpleName() + ".*")
-                .jvmArgsAppend("-Xmx4g", "-Xms4g", "-XX:+UseG1GC")
-                .build();
-
-        new Runner(opt).run();
+        benchmark(BenchmarkProjectionPushdownHive.class)
+                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g", "-XX:+UseG1GC"))
+                .run();
     }
 
     @SuppressWarnings("SameParameterValue")
