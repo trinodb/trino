@@ -59,6 +59,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CANCELLATION;
@@ -340,7 +341,7 @@ public abstract class BaseJdbcConnectorTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV)) {
-            try (TestTable testTable = createTableWithDoubleColumn(schemaName + ".test_stddev_pushdown", ImmutableList.of())) {
+            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_stddev_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
@@ -348,7 +349,7 @@ public abstract class BaseJdbcConnectorTest
             }
         }
 
-        try (TestTable testTable = createTableWithDoubleColumn(schemaName + ".test_stddev_pushdown", ImmutableList.of())) {
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_stddev_pushdown", ImmutableList.of())) {
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -360,21 +361,21 @@ public abstract class BaseJdbcConnectorTest
             assertThat(query("SELECT \"StdDEv\"(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT \"StdDEv_SaMP\"(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = createTableWithDoubleColumn(schemaName + ".test_stddev_pushdown",
-                ImmutableList.of("1", "2", "4", "5"))) {
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_stddev_pushdown",
+                ImmutableList.of("1, 1, 1, 1", "2, 2, 2, 2", "4, 4, 4, 4", "5, 5, 5, 5"))) {
             // Test non-whole number results
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -387,7 +388,7 @@ public abstract class BaseJdbcConnectorTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE)) {
-            try (TestTable testTable = createTableWithDoubleColumn(schemaName + ".test_variance_pushdown", ImmutableList.of())) {
+            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_variance_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
@@ -395,7 +396,7 @@ public abstract class BaseJdbcConnectorTest
             }
         }
 
-        try (TestTable testTable = createTableWithDoubleColumn(schemaName + ".test_variance_pushdown", ImmutableList.of())) {
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_variance_pushdown", ImmutableList.of())) {
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -413,8 +414,8 @@ public abstract class BaseJdbcConnectorTest
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = createTableWithDoubleColumn(schemaName + ".test_variance_pushdown",
-                ImmutableList.of("1", "2", "4", "5"))) {
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_variance_pushdown",
+                ImmutableList.of("1, 1, 1, 1", "2, 2, 2, 2", "4, 4, 4, 4", "5, 5, 5, 5"))) {
             // Test non-whole number results
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -422,12 +423,45 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
-    /**
-     * Creates a table with column {@code t_double double} populated with the provided rows.
-     */
-    protected TestTable createTableWithDoubleColumn(String name, List<String> rows)
+    @Test
+    public void testCovarianceAggregationPushdown()
     {
-        return new TestTable(onRemoteDatabase(), name, "(t_double double precision)", rows);
+        String schemaName = getSession().getSchema().orElseThrow();
+        if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE)) {
+            try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covariance_pushdown", ImmutableList.of())) {
+                assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
+                assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
+                return;
+            }
+        }
+
+        // empty table
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covariance_pushdown", ImmutableList.of())) {
+            assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        // test some values for which the aggregate functions return whole numbers
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covariance_pushdown",
+                ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
+            assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        // non-whole number results
+        try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covariance_pushdown",
+                ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
+            assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+    }
+
+    /**
+     * Creates a table with columns {@code t_double double, u_double double, v_real real, w_real real} populated with the provided rows.
+     */
+    protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
+    {
+        return new TestTable(onRemoteDatabase(), name, "(t_double double precision, u_double double precision, v_real real, w_real real)", rows);
     }
 
     @Test

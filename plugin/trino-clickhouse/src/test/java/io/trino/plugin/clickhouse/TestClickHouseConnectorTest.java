@@ -362,9 +362,9 @@ public class TestClickHouseConnectorTest
     }
 
     @Override
-    protected TestTable createTableWithDoubleColumn(String name, List<String> rows)
+    protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
     {
-        return new TestTable(onRemoteDatabase(), name, "(t_double Nullable(Float64)) Engine=Log", rows);
+        return new TestTable(onRemoteDatabase(), name, "(t_double Nullable(Float64), u_double Nullable(Float64), v_real Nullable(Float32), w_real Nullable(Float32)) Engine=Log", rows);
     }
 
     @Override
