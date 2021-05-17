@@ -28,6 +28,12 @@ public class InternalCommunicationModule
     {
         InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
+            // Set defaults for all HttpClients in the same guice context
+            // so in case of any additions or alternations here an update in:
+            //   io.trino.server.security.jwt.JwtAuthenticatorSupportModule.JwkModule.configure
+            // and
+            //   io.trino.server.security.oauth2.OAuth2ServiceModule.setup
+            // may also be required.
             config.setHttp2Enabled(internalCommunicationConfig.isHttp2Enabled());
             config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
             config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
