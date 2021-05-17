@@ -311,9 +311,71 @@ CREATE TABLE trino_test_types_parquet
 STORED AS PARQUET
 AS SELECT * FROM trino_test_types_orc;
 
-CREATE TABLE trino_test_types_csv
-STORED AS CSV
-AS SELECT * FROM trino_test_types_orc;
+dfs -mkdir -p /tmp/trino_test_types_csv_tmp;
+CREATE EXTERNAL TABLE trino_test_types_csv_tmp (
+  t_string STRING
+, t_tinyint TINYINT
+, t_smallint SMALLINT
+, t_int INT
+, t_bigint BIGINT
+, t_float FLOAT
+, t_double DOUBLE
+, t_boolean BOOLEAN
+, t_timestamp TIMESTAMP
+, t_binary BINARY
+, t_date DATE
+, t_varchar VARCHAR(50)
+, t_char CHAR(25)
+, t_map MAP<STRING, STRING>
+, t_array_string ARRAY<STRING>
+, t_array_timestamp ARRAY<TIMESTAMP>
+, t_array_struct ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
+, t_struct STRUCT<s_string: STRING, s_double:DOUBLE>
+, t_complex MAP<INT, ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>>
+)
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'
+WITH SERDEPROPERTIES ('field.delim'=',', 'escape.delim'='\\', 'serialization.null.format'='' )
+STORED as textfile
+LOCATION '/tmp/trino_test_types_csv_tmp';
+
+INSERT INTO TABLE trino_test_types_csv_tmp SELECT * FROM trino_test_types_orc;
+dfs -mkdir /tmp/trino_test_types_csv;
+dfs -cp /tmp/trino_test_types_csv_tmp/000000_0 /tmp/trino_test_types_csv/output.csv;
+CREATE TABLE trino_test_types_csv (
+  t_string STRING
+, t_tinyint TINYINT
+, t_smallint SMALLINT
+, t_int INT
+, t_bigint BIGINT
+, t_float FLOAT
+, t_double DOUBLE
+, t_boolean BOOLEAN
+, t_timestamp TIMESTAMP
+, t_binary BINARY
+, t_date DATE
+, t_varchar VARCHAR(50)
+, t_char CHAR(25)
+, t_map MAP<STRING, STRING>
+, t_array_string ARRAY<STRING>
+, t_array_timestamp ARRAY<TIMESTAMP>
+, t_array_struct ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
+, t_struct STRUCT<s_string: STRING, s_double:DOUBLE>
+, t_complex MAP<INT, ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>>
+)
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+WITH SERDEPROPERTIES
+(
+    'separatorChar' = ',',
+    'quoteChar'     = '\"',
+    'escapeChar'    = '\\'
+);
+
+LOAD DATA INPATH '/tmp/trino_test_types_csv/output.csv'
+INTO TABLE trino_test_types_csv;
+
+DROP TABLE trino_test_types_csv_tmp;
+dfs -rm -r -f /tmp/trino_test_types_csv;
+dfs -rm -r -f /tmp/trino_test_types_csv_tmp;
 
 ALTER TABLE trino_test_types_textfile ADD COLUMNS (new_column INT);
 ALTER TABLE trino_test_types_sequencefile ADD COLUMNS (new_column INT);
@@ -322,3 +384,16 @@ ALTER TABLE trino_test_types_rcbinary ADD COLUMNS (new_column INT);
 ALTER TABLE trino_test_types_orc ADD COLUMNS (new_column INT);
 ALTER TABLE trino_test_types_parquet ADD COLUMNS (new_column INT);
 ALTER TABLE trino_test_types_csv ADD COLUMNS (new_column INT);
+
+CREATE TABLE table_csv_export_data
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n'
+STORED as textfile
+AS
+select
+'id' as id
+,'first_name' as first_name
+,'last_name' as last_name
+,'join_date' as join_date;
+
+

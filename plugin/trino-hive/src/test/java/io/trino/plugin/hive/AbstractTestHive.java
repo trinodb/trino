@@ -4456,193 +4456,14 @@ public abstract class AbstractTestHive
                 }
 
                 rowNumber++;
-                Integer index;
-                Object value;
-
-                // STRING
-                index = columnIndex.get("t_string");
-                value = row.getField(index);
-                if (rowNumber % 19 == 0) {
-                    assertNull(value);
-                }
-                else if (rowNumber % 19 == 1) {
-                    assertEquals(value, "");
+                if (CSV.equals(hiveStorageFormat)) {
+                    //assert OpenCSVSerde table column value in the row
+                    //The real data type of all column values is string
+                    assertCsvColumnValue(columnIndex, rowNumber, row);
                 }
                 else {
-                    assertEquals(value, "test");
+                    assertColumnValue(hiveStorageFormat, columnIndex, rowNumber, row);
                 }
-
-                // NUMBERS
-                assertEquals(row.getField(columnIndex.get("t_tinyint")), (byte) (1 + rowNumber));
-                assertEquals(row.getField(columnIndex.get("t_smallint")), (short) (2 + rowNumber));
-                assertEquals(row.getField(columnIndex.get("t_int")), (int) (3 + rowNumber));
-
-                index = columnIndex.get("t_bigint");
-                if ((rowNumber % 13) == 0) {
-                    assertNull(row.getField(index));
-                }
-                else {
-                    assertEquals(row.getField(index), 4 + rowNumber);
-                }
-
-                assertEquals((Float) row.getField(columnIndex.get("t_float")), 5.1f + rowNumber, 0.001);
-                assertEquals(row.getField(columnIndex.get("t_double")), 6.2 + rowNumber);
-
-                // BOOLEAN
-                index = columnIndex.get("t_boolean");
-                if ((rowNumber % 3) == 2) {
-                    assertNull(row.getField(index));
-                }
-                else {
-                    assertEquals(row.getField(index), (rowNumber % 3) != 0);
-                }
-
-                // TIMESTAMP
-                index = columnIndex.get("t_timestamp");
-                if (index != null) {
-                    if ((rowNumber % 17) == 0) {
-                        assertNull(row.getField(index));
-                    }
-                    else {
-                        SqlTimestamp expected = sqlTimestampOf(3, 2011, 5, 6, 7, 8, 9, 123);
-                        assertEquals(row.getField(index), expected);
-                    }
-                }
-
-                // BINARY
-                index = columnIndex.get("t_binary");
-                if (index != null) {
-                    if ((rowNumber % 23) == 0) {
-                        assertNull(row.getField(index));
-                    }
-                    else {
-                        assertEquals(row.getField(index), new SqlVarbinary("test binary".getBytes(UTF_8)));
-                    }
-                }
-
-                // DATE
-                index = columnIndex.get("t_date");
-                if (index != null) {
-                    if ((rowNumber % 37) == 0) {
-                        assertNull(row.getField(index));
-                    }
-                    else {
-                        SqlDate expected = new SqlDate(toIntExact(MILLISECONDS.toDays(new DateTime(2013, 8, 9, 0, 0, 0, UTC).getMillis())));
-                        assertEquals(row.getField(index), expected);
-                    }
-                }
-
-                // VARCHAR(50)
-                index = columnIndex.get("t_varchar");
-                if (index != null) {
-                    value = row.getField(index);
-                    if (rowNumber % 39 == 0) {
-                        assertNull(value);
-                    }
-                    else if (rowNumber % 39 == 1) {
-                        // https://issues.apache.org/jira/browse/HIVE-13289
-                        // RCBINARY reads empty VARCHAR as null
-                        if (hiveStorageFormat == RCBINARY) {
-                            assertNull(value);
-                        }
-                        else {
-                            assertEquals(value, "");
-                        }
-                    }
-                    else {
-                        assertEquals(value, "test varchar");
-                    }
-                }
-
-                //CHAR(25)
-                index = columnIndex.get("t_char");
-                if (index != null) {
-                    value = row.getField(index);
-                    if ((rowNumber % 41) == 0) {
-                        assertNull(value);
-                    }
-                    else {
-                        assertEquals(value, (rowNumber % 41) == 1 ? "                         " : "test char                ");
-                    }
-                }
-
-                // MAP<STRING, STRING>
-                index = columnIndex.get("t_map");
-                if (index != null) {
-                    if ((rowNumber % 27) == 0) {
-                        assertNull(row.getField(index));
-                    }
-                    else {
-                        assertEquals(row.getField(index), ImmutableMap.of("test key", "test value"));
-                    }
-                }
-
-                // ARRAY<STRING>
-                index = columnIndex.get("t_array_string");
-                if (index != null) {
-                    if ((rowNumber % 29) == 0) {
-                        assertNull(row.getField(index));
-                    }
-                    else {
-                        assertEquals(row.getField(index), ImmutableList.of("abc", "xyz", "data"));
-                    }
-                }
-
-                // ARRAY<TIMESTAMP>
-                index = columnIndex.get("t_array_timestamp");
-                if (index != null) {
-                    if ((rowNumber % 43) == 0) {
-                        assertNull(row.getField(index));
-                    }
-                    else {
-                        SqlTimestamp expected = sqlTimestampOf(3, LocalDateTime.of(2011, 5, 6, 7, 8, 9, 123_000_000));
-                        assertEquals(row.getField(index), ImmutableList.of(expected));
-                    }
-                }
-
-                // ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
-                index = columnIndex.get("t_array_struct");
-                if (index != null) {
-                    if ((rowNumber % 31) == 0) {
-                        assertNull(row.getField(index));
-                    }
-                    else {
-                        List<Object> expected1 = ImmutableList.of("test abc", 0.1);
-                        List<Object> expected2 = ImmutableList.of("test xyz", 0.2);
-                        assertEquals(row.getField(index), ImmutableList.of(expected1, expected2));
-                    }
-                }
-
-                // STRUCT<s_string: STRING, s_double:DOUBLE>
-                index = columnIndex.get("t_struct");
-                if (index != null) {
-                    if ((rowNumber % 31) == 0) {
-                        assertNull(row.getField(index));
-                    }
-                    else {
-                        assertTrue(row.getField(index) instanceof List);
-                        List<?> values = (List<?>) row.getField(index);
-                        assertEquals(values.size(), 2);
-                        assertEquals(values.get(0), "test abc");
-                        assertEquals(values.get(1), 0.1);
-                    }
-                }
-
-                // MAP<INT, ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>>
-                index = columnIndex.get("t_complex");
-                if (index != null) {
-                    if ((rowNumber % 33) == 0) {
-                        assertNull(row.getField(index));
-                    }
-                    else {
-                        List<Object> expected1 = ImmutableList.of("test abc", 0.1);
-                        List<Object> expected2 = ImmutableList.of("test xyz", 0.2);
-                        assertEquals(row.getField(index), ImmutableMap.of(1, ImmutableList.of(expected1, expected2)));
-                    }
-                }
-
-                // NEW COLUMN
-                assertNull(row.getField(columnIndex.get("new_column")));
 
                 long newCompletedBytes = pageSource.getCompletedBytes();
                 assertTrue(newCompletedBytes >= completedBytes);
@@ -4657,6 +4478,368 @@ public abstract class AbstractTestHive
         finally {
             pageSource.close();
         }
+    }
+
+    private void assertColumnValue(HiveStorageFormat hiveStorageFormat, ImmutableMap<String, Integer> columnIndex, long rowNumber, MaterializedRow row) {
+        Integer index;
+        Object value;
+
+        // STRING
+        index = columnIndex.get("t_string");
+        value = row.getField(index);
+        if (rowNumber % 19 == 0) {
+            assertNull(value);
+        }
+        else if (rowNumber % 19 == 1) {
+            assertEquals(value, "");
+        }
+        else {
+            assertEquals(value, "test");
+        }
+
+        // NUMBERS
+        assertEquals(row.getField(columnIndex.get("t_tinyint")), (byte) (1 + rowNumber));
+        assertEquals(row.getField(columnIndex.get("t_smallint")), (short) (2 + rowNumber));
+        assertEquals(row.getField(columnIndex.get("t_int")), (int) (3 + rowNumber));
+
+        index = columnIndex.get("t_bigint");
+        if ((rowNumber % 13) == 0) {
+            assertNull(row.getField(index));
+        }
+        else {
+            assertEquals(row.getField(index), 4 + rowNumber);
+        }
+
+        assertEquals((Float) row.getField(columnIndex.get("t_float")), 5.1f + rowNumber, 0.001);
+        assertEquals(row.getField(columnIndex.get("t_double")), 6.2 + rowNumber);
+
+        // BOOLEAN
+        index = columnIndex.get("t_boolean");
+        if ((rowNumber % 3) == 2) {
+            assertNull(row.getField(index));
+        }
+        else {
+            assertEquals(row.getField(index), (rowNumber % 3) != 0);
+        }
+
+        // TIMESTAMP
+        index = columnIndex.get("t_timestamp");
+        if (index != null) {
+            if ((rowNumber % 17) == 0) {
+                assertNull(row.getField(index));
+            }
+            else {
+                SqlTimestamp expected = sqlTimestampOf(3, 2011, 5, 6, 7, 8, 9, 123);
+                assertEquals(row.getField(index), expected);
+            }
+        }
+
+        // BINARY
+        index = columnIndex.get("t_binary");
+        if (index != null) {
+            if ((rowNumber % 23) == 0) {
+                assertNull(row.getField(index));
+            }
+            else {
+                assertEquals(row.getField(index), new SqlVarbinary("test binary".getBytes(UTF_8)));
+            }
+        }
+
+        // DATE
+        index = columnIndex.get("t_date");
+        if (index != null) {
+            if ((rowNumber % 37) == 0) {
+                assertNull(row.getField(index));
+            }
+            else {
+                SqlDate expected = new SqlDate(toIntExact(MILLISECONDS.toDays(new DateTime(2013, 8, 9, 0, 0, 0, UTC).getMillis())));
+                assertEquals(row.getField(index), expected);
+            }
+        }
+
+        // VARCHAR(50)
+        index = columnIndex.get("t_varchar");
+        if (index != null) {
+            value = row.getField(index);
+            if (rowNumber % 39 == 0) {
+                assertNull(value);
+            }
+            else if (rowNumber % 39 == 1) {
+                // https://issues.apache.org/jira/browse/HIVE-13289
+                // RCBINARY reads empty VARCHAR as null
+                if (hiveStorageFormat == RCBINARY) {
+                    assertNull(value);
+                }
+                else {
+                    assertEquals(value, "");
+                }
+            }
+            else {
+                assertEquals(value, "test varchar");
+            }
+        }
+
+        //CHAR(25)
+        index = columnIndex.get("t_char");
+        if (index != null) {
+            value = row.getField(index);
+            if ((rowNumber % 41) == 0) {
+                assertNull(value);
+            }
+            else {
+                assertEquals(value, (rowNumber % 41) == 1 ? "                         " : "test char                ");
+            }
+        }
+
+        // MAP<STRING, STRING>
+        index = columnIndex.get("t_map");
+        if (index != null) {
+            if ((rowNumber % 27) == 0) {
+                assertEquals(row.getField(index), "");
+            }
+            else {
+                assertEquals(row.getField(index), ImmutableMap.of("test key", "test value"));
+            }
+        }
+
+        // ARRAY<STRING>
+        index = columnIndex.get("t_array_string");
+        if (index != null) {
+            if ((rowNumber % 29) == 0) {
+                assertNull(row.getField(index));
+            }
+            else {
+                assertEquals(row.getField(index), ImmutableList.of("abc", "xyz", "data"));
+            }
+        }
+
+        // ARRAY<TIMESTAMP>
+        index = columnIndex.get("t_array_timestamp");
+        if (index != null) {
+            if ((rowNumber % 43) == 0) {
+                assertNull(row.getField(index));
+            }
+            else {
+                SqlTimestamp expected = sqlTimestampOf(3, LocalDateTime.of(2011, 5, 6, 7, 8, 9, 123_000_000));
+                assertEquals(row.getField(index), ImmutableList.of(expected));
+            }
+        }
+
+        // ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
+        index = columnIndex.get("t_array_struct");
+        if (index != null) {
+            if ((rowNumber % 31) == 0) {
+                assertNull(row.getField(index));
+            }
+            else {
+                List<Object> expected1 = ImmutableList.of("test abc", 0.1);
+                List<Object> expected2 = ImmutableList.of("test xyz", 0.2);
+                assertEquals(row.getField(index), ImmutableList.of(expected1, expected2));
+            }
+        }
+
+        // STRUCT<s_string: STRING, s_double:DOUBLE>
+        index = columnIndex.get("t_struct");
+        if (index != null) {
+            if ((rowNumber % 31) == 0) {
+                assertNull(row.getField(index));
+            }
+            else {
+                assertTrue(row.getField(index) instanceof List);
+                List<?> values = (List<?>) row.getField(index);
+                assertEquals(values.size(), 2);
+                assertEquals(values.get(0), "test abc");
+                assertEquals(values.get(1), 0.1);
+            }
+        }
+
+        // MAP<INT, ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>>
+        index = columnIndex.get("t_complex");
+        if (index != null) {
+            if ((rowNumber % 33) == 0) {
+                assertNull(row.getField(index));
+            }
+            else {
+                List<Object> expected1 = ImmutableList.of("test abc", 0.1);
+                List<Object> expected2 = ImmutableList.of("test xyz", 0.2);
+                assertEquals(row.getField(index), ImmutableMap.of(1, ImmutableList.of(expected1, expected2)));
+            }
+        }
+
+        // NEW COLUMN
+        assertNull(row.getField(columnIndex.get("new_column")));
+    }
+
+    private void assertCsvColumnValue(ImmutableMap<String, Integer> columnIndex, long rowNumber, MaterializedRow row) {
+        Integer index;
+        Object value;
+
+        // STRING
+        index = columnIndex.get("t_string");
+        value = row.getField(index);
+        if (rowNumber % 19 == 0) {
+            assertEquals(value, "");
+        }
+        else if (rowNumber % 19 == 1) {
+            assertEquals(value, "");
+        }
+        else {
+            assertEquals(value, "test");
+        }
+
+        // NUMBERS
+        assertEquals(row.getField(columnIndex.get("t_tinyint")), String.valueOf(1 + rowNumber));
+        assertEquals(row.getField(columnIndex.get("t_smallint")), String.valueOf(2 + rowNumber));
+        assertEquals(row.getField(columnIndex.get("t_int")), String.valueOf(3 + rowNumber));
+
+        index = columnIndex.get("t_bigint");
+        if ((rowNumber % 13) == 0) {
+            assertEquals(row.getField(index), "");
+        }
+        else {
+            assertEquals(row.getField(index), String.valueOf(4 + rowNumber));
+        }
+
+        assertEquals(row.getField(columnIndex.get("t_float")), String.valueOf(5.1f + rowNumber));
+        assertEquals(row.getField(columnIndex.get("t_double")), String.valueOf(6.2 + rowNumber));
+
+        // BOOLEAN
+        index = columnIndex.get("t_boolean");
+        if ((rowNumber % 3) == 2) {
+            assertEquals(row.getField(index), "");
+        }
+        else {
+            assertEquals(row.getField(index), String.valueOf((rowNumber % 3) != 0));
+        }
+
+        // TIMESTAMP
+        index = columnIndex.get("t_timestamp");
+        if (index != null) {
+            if ((rowNumber % 17) == 0) {
+                assertEquals(row.getField(index), "");
+            }
+            else {
+                assertEquals(row.getField(index), "2011-05-06 07:08:09.1234567");
+            }
+        }
+
+        // BINARY
+        index = columnIndex.get("t_binary");
+        if (index != null) {
+            if ((rowNumber % 23) == 0) {
+                assertEquals(row.getField(index), "");
+            }
+            else {
+                assertEquals(row.getField(index), "dGVzdCBiaW5hcnk=");
+            }
+        }
+
+        // DATE
+        index = columnIndex.get("t_date");
+        if (index != null) {
+            if ((rowNumber % 37) == 0) {
+                assertEquals(row.getField(index), "");
+            }
+            else {
+                assertEquals(row.getField(index), "2013-08-09");
+            }
+        }
+
+        // VARCHAR(50)
+        index = columnIndex.get("t_varchar");
+        if (index != null) {
+            value = row.getField(index);
+            if (rowNumber % 39 == 0) {
+                assertEquals(value, "");
+            }
+            else if (rowNumber % 39 == 1) {
+                assertEquals(value, "");
+            }
+            else {
+                assertEquals(value, "test varchar");
+            }
+        }
+
+        //CHAR(25)
+        index = columnIndex.get("t_char");
+        if (index != null) {
+            value = row.getField(index);
+            if ((rowNumber % 41) == 0) {
+                assertEquals(value, "");
+            }
+            else {
+                assertEquals(value, (rowNumber % 41) == 1 ? "                         " : "test char                ");
+            }
+        }
+
+        // MAP<STRING, STRING>
+        index = columnIndex.get("t_map");
+        if (index != null) {
+            if ((rowNumber % 27) == 0) {
+                assertEquals(row.getField(index), "");
+            }
+            else {
+                assertEquals(row.getField(index), "test key" + "\u0003" + "test value");
+            }
+        }
+
+        // ARRAY<STRING>
+        index = columnIndex.get("t_array_string");
+        if (index != null) {
+            if ((rowNumber % 29) == 0) {
+                assertEquals(row.getField(index), "");
+            }
+            else {
+                assertEquals(row.getField(index), "abc" + "\u0002" + "xyz" + "\u0002" + "data");
+            }
+        }
+
+        // ARRAY<TIMESTAMP>
+        index = columnIndex.get("t_array_timestamp");
+        if (index != null) {
+            if ((rowNumber % 43) == 0) {
+                assertEquals(row.getField(index), "");
+            }
+            else {
+                assertEquals(row.getField(index), "2011-05-06 07:08:09.1234567");
+            }
+        }
+
+        // ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
+        index = columnIndex.get("t_array_struct");
+        if (index != null) {
+            if ((rowNumber % 31) == 0) {
+                assertEquals(row.getField(index), "");
+            }
+            else {
+                assertEquals(row.getField(index), "test abc" + "\u0003" + "0.1" + "\u0002" + "test xyz" + "\u0003" + "0.2");
+            }
+        }
+
+        // STRUCT<s_string: STRING, s_double:DOUBLE>
+        index = columnIndex.get("t_struct");
+        if (index != null) {
+            if ((rowNumber % 31) == 0) {
+                assertEquals(row.getField(index), "");
+            }
+            else {
+                assertEquals(row.getField(index), "test abc" + "\u0002" + "0.1");
+            }
+        }
+
+        // MAP<INT, ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>>
+        index = columnIndex.get("t_complex");
+        if (index != null) {
+            if ((rowNumber % 33) == 0) {
+                assertEquals(row.getField(index), "");
+            }
+            else {
+                assertEquals(row.getField(index), "1\u0003test abc\u00050.1\u0004test xyz\u00050.2");
+            }
+        }
+
+        // NEW COLUMN
+        assertEquals(row.getField(columnIndex.get("new_column")), "");
     }
 
     protected void dropTable(SchemaTableName table)
@@ -4805,6 +4988,7 @@ public abstract class AbstractTestHive
         }
     }
 
+    //Test to convert the value to the column type saved in the metadata
     private static void assertValueTypes(MaterializedRow row, List<ColumnMetadata> schema)
     {
         for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
