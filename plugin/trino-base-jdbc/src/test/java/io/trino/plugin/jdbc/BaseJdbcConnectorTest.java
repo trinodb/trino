@@ -59,6 +59,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CANCELLATION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM;
@@ -331,6 +332,61 @@ public abstract class BaseJdbcConnectorTest
     protected TestTable createAggregationTestTable(String name, List<String> rows)
     {
         return new TestTable(onRemoteDatabase(), name, "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), t_double double precision, a_bigint bigint)", rows);
+    }
+
+    @Test
+    public void testStddevAggregationPushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV)) {
+            try (TestTable testTable = createTableWithDoubleColumn(schemaName + ".test_stddev_pushdown", ImmutableList.of())) {
+                assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
+                assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
+                assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
+                return;
+            }
+        }
+
+        try (TestTable testTable = createTableWithDoubleColumn(schemaName + ".test_stddev_pushdown", ImmutableList.of())) {
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            // with non-lowercase name on input
+            assertThat(query("SELECT StdDEv(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT StdDEv_SaMP(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            // with delimited, non-lowercase name on input
+            assertThat(query("SELECT \"StdDEv\"(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT \"StdDEv_SaMP\"(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        try (TestTable testTable = createTableWithDoubleColumn(schemaName + ".test_stddev_pushdown",
+                ImmutableList.of("1", "2", "4", "5"))) {
+            // Test non-whole number results
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+    }
+
+    /**
+     * Creates a table with column {@code t_double double} populated with the provided rows.
+     */
+    protected TestTable createTableWithDoubleColumn(String name, List<String> rows)
+    {
+        return new TestTable(onRemoteDatabase(), name, "(t_double double precision)", rows);
     }
 
     @Test
