@@ -269,7 +269,7 @@ public class ParquetReader
         ColumnDescriptor columnDescriptor = field.getDescriptor();
         int fieldId = field.getId();
         PrimitiveColumnReader columnReader = columnReaders[fieldId];
-        if (columnReader.getPageReader() == null) {
+        if (columnReader.isPageReaderNull()) {
             validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group has 0 rows");
             ColumnChunkMetaData metadata = getColumnChunkMetaData(currentBlockMetadata, columnDescriptor);
 

@@ -123,9 +123,9 @@ public abstract class PrimitiveColumnReader
         pageReader = null;
     }
 
-    public PageReader getPageReader()
+    public boolean isPageReaderNull()
     {
-        return pageReader;
+        return pageReader == null;
     }
 
     public void setPageReader(PageReader pageReader)
