@@ -362,6 +362,12 @@ public class TestClickHouseConnectorTest
     }
 
     @Override
+    protected TestTable createTableWithDoubleColumn(String name, List<String> rows)
+    {
+        return new TestTable(onRemoteDatabase(), name, "(t_double Nullable(Float64)) Engine=Log", rows);
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return clickhouseServer::execute;
