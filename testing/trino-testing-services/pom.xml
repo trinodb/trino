@@ -9,8 +9,8 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>trino-testng-services</artifactId>
-    <name>trino-testng-services</name>
+    <artifactId>trino-testing-services</artifactId>
+    <name>trino-testing-services</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
