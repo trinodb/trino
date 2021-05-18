@@ -34,7 +34,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LookupSymbolResolver;
-import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -115,7 +114,6 @@ public class PushPredicateIntoTableScan
                 false,
                 context.getSession(),
                 context.getSymbolAllocator().getTypes(),
-                context.getIdAllocator(),
                 metadata,
                 typeOperators,
                 typeAnalyzer,
@@ -155,7 +153,6 @@ public class PushPredicateIntoTableScan
             boolean pruneWithPredicateExpression,
             Session session,
             TypeProvider types,
-            PlanNodeIdAllocator idAllocator,
             Metadata metadata,
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
