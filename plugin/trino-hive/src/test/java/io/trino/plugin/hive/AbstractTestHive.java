@@ -4480,7 +4480,8 @@ public abstract class AbstractTestHive
         }
     }
 
-    private void assertColumnValue(HiveStorageFormat hiveStorageFormat, ImmutableMap<String, Integer> columnIndex, long rowNumber, MaterializedRow row) {
+    private void assertColumnValue(HiveStorageFormat hiveStorageFormat, ImmutableMap<String, Integer> columnIndex, long rowNumber, MaterializedRow row)
+    {
         Integer index;
         Object value;
 
@@ -4670,7 +4671,8 @@ public abstract class AbstractTestHive
         assertNull(row.getField(columnIndex.get("new_column")));
     }
 
-    private void assertCsvColumnValue(ImmutableMap<String, Integer> columnIndex, long rowNumber, MaterializedRow row) {
+    private void assertCsvColumnValue(ImmutableMap<String, Integer> columnIndex, long rowNumber, MaterializedRow row)
+    {
         Integer index;
         Object value;
 
