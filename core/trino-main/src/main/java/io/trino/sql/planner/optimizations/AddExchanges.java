@@ -539,7 +539,6 @@ public class AddExchanges
                         true,
                         session,
                         types,
-                        idAllocator,
                         metadata,
                         typeOperators,
                         typeAnalyzer,
