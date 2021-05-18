@@ -133,6 +133,7 @@
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
+        <module>plugin/trino-queryeventlistener</module>
         <module>plugin/trino-raptor-legacy</module>
         <module>plugin/trino-redis</module>
         <module>plugin/trino-redshift</module>
