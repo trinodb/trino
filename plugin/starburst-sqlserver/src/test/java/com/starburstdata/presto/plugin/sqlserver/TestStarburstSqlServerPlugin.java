@@ -43,7 +43,7 @@ public class TestStarburstSqlServerPlugin
                         "sqlserver.impersonation.enabled", "true"),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("PrestoLicenseException: Valid license required to use the feature: jdbc-impersonation");
+                .hasStackTraceContaining("StarburstLicenseException: Valid license required to use the feature: jdbc-impersonation");
     }
 
     @Test
