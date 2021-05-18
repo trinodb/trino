@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.trino.Session;
@@ -156,6 +157,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.primitives.Primitives.wrap;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
@@ -935,6 +937,22 @@ public final class MetadataManager
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
         return metadata.finishInsert(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), fragments, computedStatistics);
+    }
+
+    @Override
+    public boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName)
+    {
+        CatalogName catalogName = new CatalogName(viewName.getCatalogName());
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        return metadata.delegateMaterializedViewRefreshToConnector(session.toConnectorSession(catalogName), viewName.asSchemaTableName());
+    }
+
+    @Override
+    public ListenableFuture<?> refreshMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        CatalogName catalogName = new CatalogName(viewName.getCatalogName());
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        return toListenableFuture(metadata.refreshMaterializedView(session.toConnectorSession(catalogName), viewName.asSchemaTableName()));
     }
 
     @Override

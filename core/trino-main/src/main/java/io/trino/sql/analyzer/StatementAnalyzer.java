@@ -531,6 +531,16 @@ class StatementAnalyzer
 
             accessControl.checkCanRefreshMaterializedView(session.toSecurityContext(), name);
 
+            if (metadata.delegateMaterializedViewRefreshToConnector(session, name)) {
+                analysis.setDelegatedRefreshMaterializedView(name);
+                analysis.setUpdateType(
+                        "REFRESH MATERIALIZED VIEW",
+                        name,
+                        Optional.empty(),
+                        Optional.empty());
+                return createAndAssignScope(refreshMaterializedView, scope);
+            }
+
             Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalView.get());
 
             if (storageName.isEmpty()) {
