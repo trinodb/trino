@@ -1076,8 +1076,9 @@ public class HiveMetadata
     {
         try {
             if (!isS3FileSystem(context, hdfsEnvironment, path)) {
-                if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
-                    throw new TrinoException(INVALID_TABLE_PROPERTY, "External location must be a directory: " + path);
+                FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
+                if (fileSystem.exists(path) && !fileSystem.getFileStatus(path).isDirectory()) {
+                    throw new TrinoException(INVALID_TABLE_PROPERTY, "External location exists but is not a directory: " + path);
                 }
             }
         }
