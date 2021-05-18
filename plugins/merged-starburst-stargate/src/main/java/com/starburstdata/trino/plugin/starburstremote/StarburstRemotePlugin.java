@@ -18,7 +18,7 @@ import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteri
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
-import static com.starburstdata.presto.license.StarburstPrestoFeature.STARBURST_CONNECTOR;
+import static com.starburstdata.presto.license.StarburstFeature.STARBURST_CONNECTOR;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
