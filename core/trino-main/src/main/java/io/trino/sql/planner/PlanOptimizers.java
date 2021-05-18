@@ -378,20 +378,21 @@ public class PlanOptimizers
                         new InlineProjections(typeAnalyzer),
                         new RemoveRedundantIdentityProjections()));
 
+        Set<Rule<?>> simplifyOptimizerRules = ImmutableSet.<Rule<?>>builder()
+                .addAll(new SimplifyExpressions(metadata, typeAnalyzer).rules())
+                .addAll(new UnwrapRowSubscript().rules())
+                .addAll(new PushCastIntoRow().rules())
+                .addAll(new UnwrapCastInComparison(metadata, typeOperators, typeAnalyzer).rules())
+                .addAll(new RemoveDuplicateConditions(metadata).rules())
+                .addAll(new CanonicalizeExpressions(metadata, typeAnalyzer).rules())
+                .add(new RemoveTrivialFilters())
+                .build();
         IterativeOptimizer simplifyOptimizer = new IterativeOptimizer(
                 metadata,
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                ImmutableSet.<Rule<?>>builder()
-                        .addAll(new SimplifyExpressions(metadata, typeAnalyzer).rules())
-                        .addAll(new UnwrapRowSubscript().rules())
-                        .addAll(new PushCastIntoRow().rules())
-                        .addAll(new UnwrapCastInComparison(metadata, typeOperators, typeAnalyzer).rules())
-                        .addAll(new RemoveDuplicateConditions(metadata).rules())
-                        .addAll(new CanonicalizeExpressions(metadata, typeAnalyzer).rules())
-                        .add(new RemoveTrivialFilters())
-                        .build());
+                simplifyOptimizerRules);
 
         IterativeOptimizer columnPruningOptimizer = new IterativeOptimizer(
                 metadata,
@@ -670,13 +671,15 @@ public class PlanOptimizers
                 // pushdown into the connectors. We invoke PredicatePushdown and PushPredicateIntoTableScan after this
                 // to leverage predicate pushdown on projected columns.
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, typeOperators, typeAnalyzer, true, false)),
-                simplifyOptimizer,  // Should be always run after PredicatePushDown
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
+                                .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
+                                .build()),
                 new UnaliasSymbolReferences(metadata), // Run again because predicate pushdown and projection pushdown might add more projections
                 columnPruningOptimizer, // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata, typeOperators), // Run this after projections and filters have been fully simplified and pushed down
@@ -728,26 +731,29 @@ public class PlanOptimizers
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
                         new PredicatePushDown(metadata, typeOperators, typeAnalyzer, true, false)),
-                simplifyOptimizer, // Should be always run after PredicatePushDown
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
+                                .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
+                                .build()),
                 pushProjectionIntoTableScanOptimizer,
                 // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
                 // pushdown into the connectors. Invoke PredicatePushdown and PushPredicateIntoTableScan after this
                 // to leverage predicate pushdown on projected columns.
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, typeOperators, typeAnalyzer, true, false)),
-                simplifyOptimizer,  // Should be always run after PredicatePushDown
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(
-                                new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
+                                .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
+                                .build()),
                 columnPruningOptimizer,
                 new IterativeOptimizer(
                         metadata,
@@ -866,26 +872,30 @@ public class PlanOptimizers
         builder.add(new StatsRecordingPlanOptimizer(
                 optimizerStats,
                 new PredicatePushDown(metadata, typeOperators, typeAnalyzer, true, false)));
-        builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
         builder.add(new IterativeOptimizer(
                 metadata,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                ImmutableSet.of(new RemoveRedundantTableScanPredicate(metadata, typeOperators))));
+                ImmutableSet.<Rule<?>>builder()
+                        .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
+                        .add(new RemoveRedundantTableScanPredicate(metadata, typeOperators))
+                        .build()));
         builder.add(pushProjectionIntoTableScanOptimizer);
         // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
         // pushdown into the connectors. Invoke PredicatePushdown and PushPredicateIntoTableScan after this
         // to leverage predicate pushdown on projected columns.
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, typeOperators, typeAnalyzer, true, true)));
         builder.add(new RemoveUnsupportedDynamicFilters(metadata)); // Remove unsupported dynamic filters introduced by PredicatePushdown
-        builder.add(simplifyOptimizer); // Should always run after PredicatePushdown
         builder.add(new IterativeOptimizer(
                 metadata,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                ImmutableSet.of(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))));
+                ImmutableSet.<Rule<?>>builder()
+                        .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
+                        .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
+                        .build()));
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences(metadata)); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(columnPruningOptimizer);
