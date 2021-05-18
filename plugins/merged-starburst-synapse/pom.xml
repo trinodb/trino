@@ -81,15 +81,9 @@
 
         <dependency>
             <groupId>com.microsoft.azure</groupId>
-            <artifactId>adal4j</artifactId>
-            <version>1.6.5</version>
+            <artifactId>msal4j</artifactId>
+            <version>1.9.1</version>
             <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>javax.activation</groupId>
-                    <artifactId>activation</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <!-- Trino SPI -->
