@@ -39,7 +39,7 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
-import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE_EXTENSIONS;
+import static com.starburstdata.presto.license.StarburstFeature.ORACLE_EXTENSIONS;
 import static com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringSplitManager.isColumnEligibleForDynamicFilter;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.PARTITIONS;

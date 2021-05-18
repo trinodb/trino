@@ -23,7 +23,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import static com.starburstdata.presto.license.StarburstPrestoFeature.JDBC_IMPERSONATION;
+import static com.starburstdata.presto.license.StarburstFeature.JDBC_IMPERSONATION;
 import static java.util.Objects.requireNonNull;
 
 public class OracleImpersonatingConnectionFactory

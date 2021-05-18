@@ -81,7 +81,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE_EXTENSIONS;
+import static com.starburstdata.presto.license.StarburstFeature.ORACLE_EXTENSIONS;
 import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;

@@ -19,7 +19,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE_EXTENSIONS;
+import static com.starburstdata.presto.license.StarburstFeature.ORACLE_EXTENSIONS;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;

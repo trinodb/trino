@@ -31,7 +31,7 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE_EXTENSIONS;
+import static com.starburstdata.presto.license.StarburstFeature.ORACLE_EXTENSIONS;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindProcedure;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;

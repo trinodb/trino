@@ -65,7 +65,7 @@ public class TestStarburstOraclePlugin
                         "oracle.impersonation.enabled", "true"),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("PrestoLicenseException: Valid license required to use the feature: jdbc-impersonation");
+                .hasStackTraceContaining("StarburstLicenseException: Valid license required to use the feature: jdbc-impersonation");
     }
 
     @Test
@@ -85,7 +85,7 @@ public class TestStarburstOraclePlugin
                         .build(),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("PrestoLicenseException: Valid license required to use the feature: jdbc-kerberos");
+                .hasStackTraceContaining("StarburstLicenseException: Valid license required to use the feature: jdbc-kerberos");
     }
 
     @Test
@@ -102,7 +102,7 @@ public class TestStarburstOraclePlugin
                         .build(),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("PrestoLicenseException: Valid license required to use the feature: oracle-extensions");
+                .hasStackTraceContaining("StarburstLicenseException: Valid license required to use the feature: oracle-extensions");
     }
 
     @Test
