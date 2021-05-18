@@ -822,7 +822,7 @@ public abstract class AbstractTestHive
                             ImmutableMap.of(),
                             TupleDomain.all()));
                 },
-                new NoneHiveMaterializedViewMetadata()
+                () -> new NoneHiveMaterializedViewMetadata()
                 {
                     @Override
                     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)

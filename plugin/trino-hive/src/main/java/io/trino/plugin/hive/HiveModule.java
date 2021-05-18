@@ -89,8 +89,8 @@ public class HiveModule
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, HiveRedirectionsProvider.class)
                 .setDefault().to(NoneHiveRedirectionsProvider.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, HiveMaterializedViewMetadata.class)
-                .setDefault().to(NoneHiveMaterializedViewMetadata.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, HiveMaterializedViewMetadataFactory.class)
+                .setDefault().to(DefaultHiveMaterializedViewMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, TransactionalMetadataFactory.class)
                 .setDefault().to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
