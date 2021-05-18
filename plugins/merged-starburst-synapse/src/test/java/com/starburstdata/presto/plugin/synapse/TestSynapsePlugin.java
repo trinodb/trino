@@ -35,7 +35,7 @@ public class TestSynapsePlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:sqlserver:test"), new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
-                .hasToString("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: synapse");
+                .hasToString("com.starburstdata.presto.license.StarburstLicenseException: Valid license required to use the feature: synapse");
     }
 
     @Test
@@ -51,6 +51,6 @@ public class TestSynapsePlugin
                         "synapse.impersonation.enabled", "true"),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("PrestoLicenseException: Valid license required to use the feature: synapse");
+                .hasStackTraceContaining("StarburstLicenseException: Valid license required to use the feature: synapse");
     }
 }

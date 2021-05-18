@@ -24,7 +24,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.starburstdata.presto.license.StarburstPrestoFeature.SNOWFLAKE;
+import static com.starburstdata.presto.license.StarburstFeature.SNOWFLAKE;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class SnowflakePlugin

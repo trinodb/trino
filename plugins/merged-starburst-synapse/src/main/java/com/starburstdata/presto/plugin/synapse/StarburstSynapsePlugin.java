@@ -14,7 +14,7 @@ import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.license.LicenseManagerProvider;
-import com.starburstdata.presto.license.StarburstPrestoFeature;
+import com.starburstdata.presto.license.StarburstFeature;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
@@ -29,7 +29,7 @@ public class StarburstSynapsePlugin
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return ImmutableList.of(new LicenceCheckingConnectorFactory(
-                StarburstPrestoFeature.SYNAPSE,
+                StarburstFeature.SYNAPSE,
                 getConnectorFactory(new LicenseManagerProvider().get())));
     }
 
