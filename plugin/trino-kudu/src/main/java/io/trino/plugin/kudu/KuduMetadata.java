@@ -236,26 +236,6 @@ public class KuduMetadata
         return hashBucketCount;
     }
 
-    private Optional<List<KuduRangePartition>> getKuduRangePartitions(KuduTable table)
-    {
-        List<Partition> rangePartitions = getRangePartitions(table);
-        List<KuduRangePartition> kuduRangePartitions = rangePartitions.stream().map(partition ->
-                new KuduRangePartition(partition.getRangeKeyStart(), partition.getRangeKeyEnd())
-        ).collect(Collectors.toList());
-        return kuduRangePartitions.isEmpty() ? Optional.empty() : Optional.of(kuduRangePartitions);
-    }
-
-    private List<Partition> getRangePartitions(KuduTable table)
-    {
-        final long fetchTabletsTimeoutInMillis = 60 * 1000;
-        try {
-            return table.getRangePartitions(fetchTabletsTimeoutInMillis);
-        }
-        catch (Exception e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unable to get list of tablets for table " + table.getName(), e);
-        }
-    }
-
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
@@ -595,5 +575,25 @@ public class KuduMetadata
                 OptionalLong.of(limit));
 
         return Optional.of(new LimitApplicationResult<>(handle, false));
+    }
+
+    private static Optional<List<KuduRangePartition>> getKuduRangePartitions(KuduTable table)
+    {
+        List<Partition> rangePartitions = getRangePartitions(table);
+        List<KuduRangePartition> kuduRangePartitions = rangePartitions.stream()
+                .map(partition -> new KuduRangePartition(partition.getRangeKeyStart(), partition.getRangeKeyEnd()))
+                .collect(toImmutableList());
+        return kuduRangePartitions.isEmpty() ? Optional.empty() : Optional.of(kuduRangePartitions);
+    }
+
+    private static List<Partition> getRangePartitions(KuduTable table)
+    {
+        final long fetchTabletsTimeoutInMillis = 60 * 1000;
+        try {
+            return table.getRangePartitions(fetchTabletsTimeoutInMillis);
+        }
+        catch (Exception e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unable to get list of tablets for table " + table.getName(), e);
+        }
     }
 }
