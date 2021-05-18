@@ -80,6 +80,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -1188,6 +1189,14 @@ public class PlanPrinter
             addNode(node, "Except", node.isDistinct() ? " distinct" : " all");
 
             return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitRefreshMaterializedView(RefreshMaterializedViewNode node, Void context)
+        {
+            addNode(node, "RefreshMaterializedView", format("[%s]", node.getViewName()));
+
+            return null;
         }
 
         @Override

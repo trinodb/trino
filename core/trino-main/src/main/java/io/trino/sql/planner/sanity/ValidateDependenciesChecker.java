@@ -50,6 +50,7 @@ import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -598,6 +599,12 @@ public final class ValidateDependenciesChecker
 
             checkDependencies(node.getOutputSymbols(), node.getPartitioningScheme().getOutputLayout(), "EXCHANGE must provide all of the necessary symbols for partition function");
 
+            return null;
+        }
+
+        @Override
+        public Void visitRefreshMaterializedView(RefreshMaterializedViewNode node, Set<Symbol> boundSymbols)
+        {
             return null;
         }
 

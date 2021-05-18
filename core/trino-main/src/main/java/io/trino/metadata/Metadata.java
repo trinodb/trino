@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
@@ -289,6 +290,16 @@ public interface Metadata
      * Finish insert query
      */
     Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+
+    /**
+     * Returns true if materialized view refresh should be delegated to connector
+     */
+    boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Refresh materialized view
+     */
+    ListenableFuture<?> refreshMaterializedView(Session session, QualifiedObjectName viewName);
 
     /**
      * Begin refresh materialized view query
