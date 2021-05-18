@@ -709,7 +709,6 @@ public class WindowOperator
             if (finishing && inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0 && spiller.isEmpty()) {
                 localRevocableMemoryContext.close();
                 localUserMemoryContext.close();
-                closeSpiller();
                 return TransformationState.finished();
             }
 
