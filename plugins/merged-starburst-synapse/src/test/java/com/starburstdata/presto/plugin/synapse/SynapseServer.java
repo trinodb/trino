@@ -29,9 +29,6 @@ public class SynapseServer
     static final String USERNAME = requireNonNull(System.getProperty("test.synapse.jdbc.user"), "test.synapse.jdbc.user is not set");
     static final String PASSWORD = requireNonNull(System.getProperty("test.synapse.jdbc.password"), "test.synapse.jdbc.password is not set");
 
-    static final String ACTIVE_DIRECTORY_USERNAME = requireNonNull(System.getProperty("test.synapse.jdbc.active-directory-user"), "test.synapse.jdbc.active-directory-user is not set");
-    static final String ACTIVE_DIRECTORY_PASSWORD = requireNonNull(System.getProperty("test.synapse.jdbc.active-directory-password"), "test.synapse.jdbc.active-directory-password is not set");
-
     private static final String DATABASE = "SQLPOOL1";
     private static final String PORT = "1433";
 

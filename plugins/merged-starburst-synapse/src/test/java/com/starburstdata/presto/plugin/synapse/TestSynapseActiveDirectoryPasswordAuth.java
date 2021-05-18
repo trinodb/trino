@@ -17,15 +17,17 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
-import static com.starburstdata.presto.plugin.synapse.SynapseServer.ACTIVE_DIRECTORY_PASSWORD;
-import static com.starburstdata.presto.plugin.synapse.SynapseServer.ACTIVE_DIRECTORY_USERNAME;
 import static com.starburstdata.presto.plugin.synapse.SynapseServer.JDBC_URL;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSynapseActiveDirectoryPasswordAuth
         extends AbstractTestIntegrationSmokeTest
 {
+    private static final String ACTIVE_DIRECTORY_USERNAME = requireNonNull(System.getProperty("test.synapse.jdbc.active-directory-user"), "test.synapse.jdbc.active-directory-user is not set");
+    private static final String ACTIVE_DIRECTORY_PASSWORD = requireNonNull(System.getProperty("test.synapse.jdbc.active-directory-password"), "test.synapse.jdbc.active-directory-password is not set");
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
