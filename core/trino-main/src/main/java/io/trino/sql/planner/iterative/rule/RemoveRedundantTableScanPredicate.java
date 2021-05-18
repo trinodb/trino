@@ -119,28 +119,26 @@ public class RemoveRedundantTableScanPredicate
         TupleDomain<ColumnHandle> predicateDomain = decomposedPredicate.getTupleDomain()
                 .transform(node.getAssignments()::get);
 
-        TupleDomain<ColumnHandle> unenforcedDomain;
-        if (predicateDomain.getDomains().isPresent()) {
-            // table scans with none domain should be converted to ValuesNode
-            checkState(node.getEnforcedConstraint().getDomains().isPresent());
-            Map<ColumnHandle, Domain> enforcedColumnDomains = node.getEnforcedConstraint().getDomains().get();
-
-            unenforcedDomain = predicateDomain.transformDomains((columnHandle, predicateColumnDomain) -> {
-                Type type = predicateColumnDomain.getType();
-                Domain enforcedColumnDomain = Optional.ofNullable(enforcedColumnDomains.get(columnHandle)).orElseGet(() -> Domain.all(type));
-                if (predicateColumnDomain.contains(enforcedColumnDomain)) {
-                    // full enforced
-                    return Domain.all(type);
-                }
-                return predicateColumnDomain.intersect(enforcedColumnDomain);
-            });
-        }
-        else {
+        if (predicateDomain.isNone()) {
             // TODO: DomainTranslator.fromPredicate can infer that the expression is "false" in some cases (TupleDomain.none()).
             // This should move to another rule that simplifies the filter using that logic and then rely on RemoveTrivialFilters
             // to turn the subtree into a Values node
             return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
         }
+
+        // table scans with none domain should be converted to ValuesNode
+        checkState(node.getEnforcedConstraint().getDomains().isPresent());
+        Map<ColumnHandle, Domain> enforcedColumnDomains = node.getEnforcedConstraint().getDomains().get();
+
+        TupleDomain<ColumnHandle> unenforcedDomain = predicateDomain.transformDomains((columnHandle, predicateColumnDomain) -> {
+            Type type = predicateColumnDomain.getType();
+            Domain enforcedColumnDomain = Optional.ofNullable(enforcedColumnDomains.get(columnHandle)).orElseGet(() -> Domain.all(type));
+            if (predicateColumnDomain.contains(enforcedColumnDomain)) {
+                // full enforced
+                return Domain.all(type);
+            }
+            return predicateColumnDomain.intersect(enforcedColumnDomain);
+        });
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
         Expression resultingPredicate = createResultingPredicate(
