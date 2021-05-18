@@ -61,7 +61,8 @@ public class JwtAuthenticatorSupportModule
                             .setKeyStorePath(null)
                             .setKeyStorePassword(null)
                             .setTrustStorePath(null)
-                            .setTrustStorePassword(null));
+                            .setTrustStorePassword(null)
+                            .setAutomaticHttpsSharedSecret(null));
         }
 
         // this module can be added multiple times, and this prevents multiple processing by Guice

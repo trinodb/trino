@@ -59,7 +59,8 @@ public class OAuth2ServiceModule
                         .setKeyStorePath(null)
                         .setKeyStorePassword(null)
                         .setTrustStorePath(null)
-                        .setTrustStorePassword(null));
+                        .setTrustStorePassword(null)
+                        .setAutomaticHttpsSharedSecret(null));
     }
 
     @Provides
