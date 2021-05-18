@@ -121,6 +121,7 @@ public class ParquetReader
         this.options = requireNonNull(options, "options is null");
         this.columnReaders = new PrimitiveColumnReader[columns.size()];
         this.maxBytesPerCell = new long[columns.size()];
+        initializeColumnReaders();
 
         firstRowsOfBlocks.ifPresent(firstRows -> {
             checkArgument(blocks.size() == firstRows.size(), "elements of firstRowsOfBlocks must correspond to blocks");
@@ -188,7 +189,6 @@ public class ParquetReader
         firstRowIndexInGroup = firstRowsOfBlocks.map(firstRows -> firstRows.get(currentRowGroup));
         nextRowInGroup = 0L;
         currentGroupRowCount = currentBlockMetadata.getRowCount();
-        initializeColumnReaders();
         return true;
     }
 
