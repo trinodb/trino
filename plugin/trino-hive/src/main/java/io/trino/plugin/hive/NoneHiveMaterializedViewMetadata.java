@@ -24,6 +24,7 @@ import io.trino.spi.connector.SchemaTableName;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -65,5 +66,17 @@ public class NoneHiveMaterializedViewMetadata
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         throw new TrinoException(NOT_FOUND, "This connector does not support materialized views");
+    }
+
+    @Override
+    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping materialized views");
+    }
+
+    @Override
+    public CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping materialized views");
     }
 }
