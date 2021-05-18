@@ -733,7 +733,7 @@ public class WindowOperator
             spiller = Optional.empty();
         }
 
-        void clear()
+        void clearIndexes()
         {
             inMemoryPagesIndexWithHashStrategies.pagesIndex.clear();
             mergedPagesIndexWithHashStrategies.pagesIndex.clear();
@@ -943,7 +943,7 @@ public class WindowOperator
     public void close()
     {
         driverWindowInfo.set(Optional.of(windowInfo.build()));
-        spillablePagesToPagesIndexes.ifPresent(SpillablePagesToPagesIndexes::clear);
+        spillablePagesToPagesIndexes.ifPresent(SpillablePagesToPagesIndexes::clearIndexes);
         spillablePagesToPagesIndexes.ifPresent(SpillablePagesToPagesIndexes::closeSpiller);
     }
 }
