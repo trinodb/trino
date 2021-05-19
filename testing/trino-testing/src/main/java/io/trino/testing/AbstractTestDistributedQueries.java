@@ -24,6 +24,7 @@ import io.trino.execution.QueryManager;
 import io.trino.server.BasicQueryInfo;
 import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
+import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -48,6 +49,7 @@ import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
 import static java.util.Locale.ENGLISH;
@@ -71,6 +73,11 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableSet.<TpchTable<?>>builder()
+            .addAll(AbstractTestQueries.REQUIRED_TPCH_TABLES)
+            .add(LINE_ITEM)
+            .build().asList();
+
     protected boolean supportsCreateSchema()
     {
         return true;
