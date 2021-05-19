@@ -14,7 +14,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
-import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -97,6 +96,7 @@ import java.util.TimeZone;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
@@ -180,7 +180,7 @@ public class SapHanaClient
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of("UTC"));
 
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
-    private final TableStatisticsClient tableStatisticsClient;
+    private final boolean statisticsEnabled;
 
     @Inject
     public SapHanaClient(
@@ -207,7 +207,7 @@ public class SapHanaClient
                         .add(new ImplementVarianceSamp())
                         .add(new ImplementVariancePop())
                         .build());
-        tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
+        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
@@ -715,7 +715,16 @@ public class SapHanaClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tableStatisticsClient.getTableStatistics(session, handle);
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
     }
 
     private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
