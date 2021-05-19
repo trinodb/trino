@@ -176,11 +176,6 @@
                     <groupId>org.apache.commons</groupId>
                     <artifactId>commons-lang3</artifactId>
                 </exclusion>
-                <exclusion>
-                    <!-- TODO provided by the incorrectly shaded com.starburstdata.ranger:starburst-ranger-client:{version} -->
-                    <groupId>com.fasterxml.woodstox</groupId>
-                    <artifactId>woodstox-core</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 
@@ -296,12 +291,12 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <!-- conflicts with starburst-ranger-client -->
+                    <!-- conflicts with starburst-ranger-client; native code prevents it from being shaded -->
                     <groupId>net.java.dev.jna</groupId>
                     <artifactId>jna</artifactId>
                 </exclusion>
                 <exclusion>
-                    <!-- conflicts with starburst-ranger-client -->
+                    <!-- conflicts with starburst-ranger-client; native code prevents it from being shaded -->
                     <groupId>net.java.dev.jna</groupId>
                     <artifactId>jna-platform</artifactId>
                 </exclusion>
