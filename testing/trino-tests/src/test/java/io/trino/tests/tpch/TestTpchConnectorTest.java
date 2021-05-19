@@ -160,6 +160,18 @@ public class TestTpchConnectorTest
                         ")");
     }
 
+    @Override
+    public void testPredicateReflectedInExplain()
+    {
+        // this connector specific test is supplementary to the generic one
+        super.testPredicateReflectedInExplain();
+
+        // TPCH connector supports predicate pushdown for e.g. orderstatus
+        assertExplain(
+                "EXPLAIN SELECT orderkey FROM orders WHERE orderstatus = 'F'",
+                "\\Q:: [[F]]");
+    }
+
     private Session createSession(String schemaName)
     {
         return testSessionBuilder()
