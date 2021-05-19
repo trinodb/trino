@@ -17,7 +17,6 @@ import com.starburstdata.presto.plugin.jdbc.expression.ImplementCovariancePop;
 import com.starburstdata.presto.plugin.jdbc.expression.ImplementCovarianceSamp;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
-import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -80,6 +79,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.license.StarburstFeature.ORACLE_EXTENSIONS;
 import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
@@ -102,7 +102,7 @@ public class StarburstOracleClient
     private final boolean synonymsEnabled;
     private final LicenseManager licenseManager;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
-    private final TableStatisticsClient tableStatisticsClient;
+    private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
 
     @Inject
@@ -136,7 +136,7 @@ public class StarburstOracleClient
                         .add(new ImplementCovarianceSamp())
                         .add(new ImplementCovariancePop())
                         .build());
-        tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
+        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
 
         if (jdbcMetadataConfig.isAggregationPushdownEnabled()) {
@@ -384,7 +384,16 @@ public class StarburstOracleClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tableStatisticsClient.getTableStatistics(session, handle);
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
     }
 
     private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
