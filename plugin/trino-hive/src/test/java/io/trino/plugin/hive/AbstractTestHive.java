@@ -4841,7 +4841,7 @@ public abstract class AbstractTestHive
         }
 
         // NEW COLUMN
-        assertEquals(row.getField(columnIndex.get("new_column")), "");
+        assertNull(row.getField(columnIndex.get("new_column")), "");
     }
 
     protected void dropTable(SchemaTableName table)
