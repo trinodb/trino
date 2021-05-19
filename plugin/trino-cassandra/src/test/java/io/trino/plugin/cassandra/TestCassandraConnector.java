@@ -301,8 +301,8 @@ public class TestCassandraConnector
 
     private CassandraPartition createPartition(long value1, long value2)
     {
-        CassandraColumnHandle column1 = new CassandraColumnHandle("partition_one", 1, CassandraType.BIGINT, true, false, false, false);
-        CassandraColumnHandle column2 = new CassandraColumnHandle("partition_two", 2, CassandraType.INT, true, false, false, false);
+        CassandraColumnHandle column1 = new CassandraColumnHandle("partition_one", 1, CassandraTypes.BIGINT, true, false, false, false);
+        CassandraColumnHandle column2 = new CassandraColumnHandle("partition_two", 2, CassandraTypes.INT, true, false, false, false);
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         column1, Domain.singleValue(BIGINT, value1),
