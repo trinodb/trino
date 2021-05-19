@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.server.testing.TestingTrinoServer;
@@ -27,6 +28,7 @@ import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.utility.MountableFile;
 
 import java.time.Duration;
+import java.util.List;
 
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 
@@ -87,7 +89,7 @@ public class TestingHydraIdentityProvider
             String clientId,
             String clientSecret,
             TokenEndpointAuthMethod tokenEndpointAuthMethod,
-            String audience,
+            List<String> audiences,
             String callbackUrl)
     {
         createHydraContainer()
@@ -96,7 +98,7 @@ public class TestingHydraIdentityProvider
                         "--skip-tls-verify",
                         "--id", clientId,
                         "--secret", clientSecret,
-                        "--audience", audience,
+                        "--audience", String.join(",", audiences),
                         "-g", "authorization_code,refresh_token,client_credentials",
                         "-r", "token,code,id_token",
                         "--scope", "openid,offline",
@@ -106,7 +108,7 @@ public class TestingHydraIdentityProvider
                 .start();
     }
 
-    public String getToken(String clientId, String clientSecret, String audience)
+    public String getToken(String clientId, String clientSecret, List<String> audiences)
     {
         FixedHostPortGenericContainer<?> container = createHydraContainer()
                 .withCommand("token", "client",
@@ -114,7 +116,7 @@ public class TestingHydraIdentityProvider
                         "--skip-tls-verify",
                         "--client-id", clientId,
                         "--client-secret", clientSecret,
-                        "--audience", audience)
+                        "--audience", String.join(",", audiences))
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)));
         container.start();
         return container.getLogs(OutputFrame.OutputType.STDOUT).replaceAll("\\s+", "");
@@ -156,7 +158,7 @@ public class TestingHydraIdentityProvider
                     "trino-client",
                     "trino-secret",
                     CLIENT_SECRET_BASIC,
-                    "https://localhost:8443/ui",
+                    ImmutableList.of("https://localhost:8443/ui"),
                     "https://localhost:8443/oauth2/callback");
             try (TestingTrinoServer ignored = TestingTrinoServer.builder()
                     .setCoordinator(true)

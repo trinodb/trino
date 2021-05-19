@@ -86,6 +86,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     private static final String TRINO_CLIENT_ID = "trino-client";
     private static final String TRINO_CLIENT_SECRET = "trino-secret";
     private static final String TRINO_AUDIENCE = EXPOSED_SERVER_URL + "/ui";
+    private static final String ADDITIONAL_AUDIENCE = "https://external-service.com";
     private static final String TRUSTED_CLIENT_ID = "trusted-client";
     private static final String TRUSTED_CLIENT_SECRET = "trusted-secret";
     private static final String UNTRUSTED_CLIENT_ID = "untrusted-client";
@@ -119,19 +120,19 @@ public class TestOAuth2WebUiAuthenticationFilter
                 TRINO_CLIENT_ID,
                 TRINO_CLIENT_SECRET,
                 CLIENT_SECRET_BASIC,
-                TRINO_AUDIENCE,
+                ImmutableList.of(TRINO_AUDIENCE, ADDITIONAL_AUDIENCE),
                 EXPOSED_SERVER_URL + "/oauth2/callback");
         hydraIdP.createClient(
                 TRUSTED_CLIENT_ID,
                 TRUSTED_CLIENT_SECRET,
                 CLIENT_SECRET_POST,
-                TRINO_AUDIENCE,
+                ImmutableList.of(TRINO_AUDIENCE),
                 EXPOSED_SERVER_URL + "/oauth2/callback");
         hydraIdP.createClient(
                 UNTRUSTED_CLIENT_ID,
                 UNTRUSTED_CLIENT_SECRET,
                 CLIENT_SECRET_POST,
-                UNTRUSTED_CLIENT_AUDIENCE,
+                ImmutableList.of(UNTRUSTED_CLIENT_AUDIENCE),
                 "https://untrusted.com/callback");
 
         server = TestingTrinoServer.builder()
@@ -227,7 +228,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     public void testTokenWithInvalidAudience()
             throws IOException
     {
-        String token = hydraIdP.getToken(UNTRUSTED_CLIENT_ID, UNTRUSTED_CLIENT_SECRET, UNTRUSTED_CLIENT_AUDIENCE);
+        String token = hydraIdP.getToken(UNTRUSTED_CLIENT_ID, UNTRUSTED_CLIENT_SECRET, ImmutableList.of(UNTRUSTED_CLIENT_AUDIENCE));
         try (Response response = httpClientUsingCookie(new Cookie.Builder(OAUTH2_COOKIE, token).build())
                 .newCall(uiCall().build())
                 .execute()) {
@@ -239,7 +240,15 @@ public class TestOAuth2WebUiAuthenticationFilter
     public void testTokenFromTrustedClient()
             throws IOException
     {
-        String token = hydraIdP.getToken(TRUSTED_CLIENT_ID, TRUSTED_CLIENT_SECRET, TRINO_AUDIENCE);
+        String token = hydraIdP.getToken(TRUSTED_CLIENT_ID, TRUSTED_CLIENT_SECRET, ImmutableList.of(TRINO_AUDIENCE));
+        assertUICallWithCookie(new Cookie.Builder(OAUTH2_COOKIE, token).build());
+    }
+
+    @Test
+    public void testTokenWithMultipleAudiences()
+            throws IOException
+    {
+        String token = hydraIdP.getToken(TRINO_CLIENT_ID, TRINO_CLIENT_SECRET, ImmutableList.of(TRINO_AUDIENCE, ADDITIONAL_AUDIENCE));
         assertUICallWithCookie(new Cookie.Builder(OAUTH2_COOKIE, token).build());
     }
 
