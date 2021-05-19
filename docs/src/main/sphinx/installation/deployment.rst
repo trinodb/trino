@@ -163,7 +163,6 @@ The following is a minimal configuration for the coordinator:
     query.max-memory=50GB
     query.max-memory-per-node=1GB
     query.max-total-memory-per-node=2GB
-    discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
 And this is a minimal configuration for the workers:
@@ -188,7 +187,6 @@ functions as both a coordinator and worker, use this configuration:
     query.max-memory=5GB
     query.max-memory-per-node=1GB
     query.max-total-memory-per-node=2GB
-    discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
 These properties require some explanation:
@@ -218,20 +216,14 @@ These properties require some explanation:
   The maximum amount of user and system memory, that a query may use on any one machine,
   where system memory is the memory used during execution by readers, writers, and network buffers, etc.
 
-* ``discovery-server.enabled``:
-  Trino uses the Discovery service to find all the nodes in the cluster.
-  Every Trino instance registers itself with the Discovery service
-  on startup. In order to simplify deployment and avoid running an additional
-  service, the Trino coordinator can run an embedded version of the
-  Discovery service. It shares the HTTP server with Trino and thus uses
-  the same port.
-
 * ``discovery.uri``:
-  The URI to the Discovery server. Because we have enabled the embedded
-  version of Discovery in the Trino coordinator, this should be the
-  URI of the Trino coordinator. Replace ``example.net:8080`` to match
-  the host and port of the Trino coordinator. This URI must not end
-  in a slash.
+  The Trino coordinator has a discovery service that is used by all the nodes
+  to find each other. Every Trino instance registers itself with the discovery
+  service on startup and continuously heartbeats to keep its registration
+  active. The discovery service shares the HTTP server with Trino and thus
+  uses the same port. Replace ``example.net:8080`` to match the host and
+  port of the Trino coordinator. If you have disabled HTTP on the coordinator,
+  the URI scheme must be ``https``, not ``http``.
 
 The above configuration properties are a minimal set to help you get started.
 Please see :doc:`/admin` and :doc:`/security` for a more comprehensive list.
