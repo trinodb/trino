@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests;
+package io.trino.tests.tpch;
 
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
