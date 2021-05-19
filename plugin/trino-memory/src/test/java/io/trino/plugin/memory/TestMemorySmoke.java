@@ -20,7 +20,11 @@ import io.trino.Session;
 import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.operator.OperatorStats;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.QueryId;
+import io.trino.spi.metrics.Count;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -33,6 +37,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
@@ -49,6 +54,7 @@ import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.PART;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -105,6 +111,40 @@ public class TestMemorySmoke
         assertQueryResult("INSERT INTO test_select SELECT * FROM tpch.tiny.nation", 25L);
 
         assertQueryResult("SELECT count(*) FROM test_select", 75L);
+    }
+
+    @Test
+    public void testCustomMetricsScanFilter()
+    {
+        Map<String, Metric> metrics = collectCustomMetrics("SELECT partkey FROM part WHERE partkey % 1000 > 0");
+        assertThat(metrics.get("rows")).isEqualTo(new LongCount(PART_COUNT));
+        assertThat(metrics.get("started")).isEqualTo(metrics.get("finished"));
+        assertThat(((Count) metrics.get("finished")).getTotal()).isGreaterThan(0);
+    }
+
+    @Test
+    public void testCustomMetricsScanOnly()
+    {
+        Map<String, Metric> metrics = collectCustomMetrics("SELECT partkey FROM part");
+        assertThat(metrics.get("rows")).isEqualTo(new LongCount(PART_COUNT));
+        assertThat(metrics.get("started")).isEqualTo(metrics.get("finished"));
+        assertThat(((Count) metrics.get("finished")).getTotal()).isGreaterThan(0);
+    }
+
+    private Map<String, Metric> collectCustomMetrics(String sql)
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(getSession(), sql);
+        return runner
+                .getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(result.getQueryId())
+                .getQueryStats()
+                .getOperatorSummaries()
+                .stream()
+                .map(OperatorStats::getMetrics)
+                .reduce(Metrics.EMPTY, Metrics::mergeWith)
+                .getMetrics();
     }
 
     @Test
