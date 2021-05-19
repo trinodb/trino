@@ -16,7 +16,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
-import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.jdbc.TrinoConnection;
@@ -80,6 +79,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
@@ -94,6 +94,7 @@ import static com.starburstdata.trino.plugin.starburstremote.StarburstRemoteColu
 import static com.starburstdata.trino.plugin.starburstremote.StarburstRemoteColumnMappings.remoteTimestampWriteMapping;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -153,7 +154,7 @@ public class StarburstRemoteClient
     private final boolean enableWrites;
     private final Cache<FunctionsCacheKey, Set<String>> supportedAggregateFunctions;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
-    private final TableStatisticsClient tableStatisticsClient;
+    private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
 
     @Inject
@@ -177,7 +178,7 @@ public class StarburstRemoteClient
                 new StarburstRemoteAggregateFunctionRewriteRule(
                         this::getSupportedAggregateFunctions,
                         this::toTypeHandle)));
-        this.tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
+        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
     }
 
@@ -648,7 +649,16 @@ public class StarburstRemoteClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tableStatisticsClient.getTableStatistics(session, handle);
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
     }
 
     @Override
@@ -704,7 +714,8 @@ public class StarburstRemoteClient
         }
     }
 
-    private static Connection configureConnectionForShowStats(Connection connection) throws SQLException
+    private static Connection configureConnectionForShowStats(Connection connection)
+            throws SQLException
     {
         try {
             TrinoConnection remoteConnection = connection.unwrap(TrinoConnection.class);
