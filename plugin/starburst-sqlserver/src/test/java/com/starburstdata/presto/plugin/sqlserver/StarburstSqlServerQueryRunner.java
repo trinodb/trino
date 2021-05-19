@@ -12,6 +12,8 @@ package com.starburstdata.presto.plugin.sqlserver;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.sqlserver.TestingSqlServer;
@@ -76,8 +78,23 @@ public final class StarburstSqlServerQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createStarburstSqlServerQueryRunner(sqlServer, ImmutableMap.of(), sessionModifier, unlockEnterpriseFeatures, connectorProperties, tables);
+    }
+
+    public static DistributedQueryRunner createStarburstSqlServerQueryRunner(
+            TestingSqlServer sqlServer,
+            Map<String, String> extraProperties,
+            Function<Session, Session> sessionModifier,
+            boolean unlockEnterpriseFeatures,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
         Session session = createSession(sqlServer.getUsername());
-        DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner.builder(session).build();
+        DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner
+                .builder(session)
+                .setExtraProperties(extraProperties)
+                .build();
         try {
             Session modifiedSession = sessionModifier.apply(session);
 
@@ -147,5 +164,25 @@ public final class StarburstSqlServerQueryRunner
                 .setSchema(TEST_SCHEMA)
                 .setIdentity(Identity.ofUser(user))
                 .build();
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+
+        TestingSqlServer testingSqlServer = new TestingSqlServer();
+
+        DistributedQueryRunner queryRunner = createStarburstSqlServerQueryRunner(
+                testingSqlServer,
+                ImmutableMap.of("http-server.http.port", "8080"),
+                Function.identity(),
+                false,
+                ImmutableMap.of(),
+                ImmutableList.of());
+
+        Logger log = Logger.get(StarburstSqlServerQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
