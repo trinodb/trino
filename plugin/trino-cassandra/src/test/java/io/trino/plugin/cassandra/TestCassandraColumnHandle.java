@@ -13,20 +13,38 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
+import io.trino.plugin.base.TypeDeserializer;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
+import io.trino.type.InternalTypeManager;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraColumnHandle
 {
-    private final JsonCodec<CassandraColumnHandle> codec = jsonCodec(CassandraColumnHandle.class);
+    private JsonCodec<CassandraColumnHandle> codec;
+
+    @BeforeClass
+    public void setup()
+    {
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(typeManager)));
+        codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(CassandraColumnHandle.class);
+    }
 
     @Test
     public void testRoundTrip()
     {
-        CassandraColumnHandle expected = new CassandraColumnHandle("name", 42, CassandraType.FLOAT, true, false, false, false);
+        CassandraColumnHandle expected = new CassandraColumnHandle("name", 42, CassandraTypes.FLOAT, true, false, false, false);
 
         String json = codec.toJson(expected);
         CassandraColumnHandle actual = codec.fromJson(json);
@@ -44,7 +62,7 @@ public class TestCassandraColumnHandle
         CassandraColumnHandle expected = new CassandraColumnHandle(
                 "name2",
                 1,
-                CassandraType.MAP,
+                CassandraTypes.MAP,
                 false,
                 true,
                 false,
