@@ -14,7 +14,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
-import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import com.starburstdata.presto.plugin.toolkit.UtcTimeZoneCalendar;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -88,6 +87,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -147,7 +147,7 @@ public class SnowflakeClient
     private static final UtcTimeZoneCalendar UTC_TZ_PASSING_CALENDAR = UtcTimeZoneCalendar.getUtcTimeZoneCalendarInstance();
 
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
-    private final TableStatisticsClient tableStatisticsClient;
+    private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
     private final boolean distributedConnector;
 
@@ -160,7 +160,7 @@ public class SnowflakeClient
             IdentifierMapping identifierMapping)
     {
         super(config, IDENTIFIER_QUOTE, connectionFactory, identifierMapping);
-        this.tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
+        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.distributedConnector = distributedConnector;
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -225,7 +225,16 @@ public class SnowflakeClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tableStatisticsClient.getTableStatistics(session, handle);
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
     }
 
     @Override
