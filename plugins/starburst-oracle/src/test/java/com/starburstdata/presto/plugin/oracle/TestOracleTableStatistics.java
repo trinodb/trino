@@ -35,7 +35,7 @@ public class TestOracleTableStatistics
             throws Exception
     {
         return OracleQueryRunner.builder()
-            .withConnectorProperties(ImmutableMap.<String, String>builder()
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("case-insensitive-name-matching", "true")
                         .build())
