@@ -342,7 +342,7 @@ public abstract class BaseJdbcClient
      * @deprecated Each connector should provide its own explicit type mapping, along with respective tests.
      */
     @Deprecated
-    protected Optional<ColumnMapping> legacyToPrestoType(ConnectorSession session, @SuppressWarnings("unused") Connection connection, JdbcTypeHandle typeHandle)
+    protected Optional<ColumnMapping> legacyColumnMapping(ConnectorSession session, @SuppressWarnings("unused") Connection connection, JdbcTypeHandle typeHandle)
     {
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
         if (mapping.isPresent()) {
