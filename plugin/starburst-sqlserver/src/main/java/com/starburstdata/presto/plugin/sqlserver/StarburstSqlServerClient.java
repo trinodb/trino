@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
-import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -22,6 +21,7 @@ import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.sqlserver.SqlServerClient;
 import io.trino.plugin.sqlserver.SqlServerConfig;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinStatistics;
@@ -46,8 +46,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -56,7 +58,7 @@ public class StarburstSqlServerClient
 {
     private static final Logger log = Logger.get(StarburstSqlServerClient.class);
 
-    private final TableStatisticsClient tableStatisticsClient;
+    private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
 
     @Inject
@@ -69,7 +71,7 @@ public class StarburstSqlServerClient
             IdentifierMapping identifierMapping)
     {
         super(config, sqlServerConfig, connectionFactory, identifierMapping);
-        tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
+        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
     }
 
@@ -102,7 +104,16 @@ public class StarburstSqlServerClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tableStatisticsClient.getTableStatistics(session, handle);
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
     }
 
     private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
