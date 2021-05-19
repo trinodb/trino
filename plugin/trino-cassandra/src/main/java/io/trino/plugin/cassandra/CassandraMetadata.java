@@ -302,7 +302,7 @@ public class CassandraMetadata
             queryBuilder.append(", ")
                     .append(validColumnName(name))
                     .append(" ")
-                    .append(toCassandraType(type, cassandraSession.getProtocolVersion()).name().toLowerCase(ENGLISH));
+                    .append(toCassandraType(type, cassandraSession.getProtocolVersion()).getName().toLowerCase(ENGLISH));
         }
         queryBuilder.append(") ");
 
@@ -370,7 +370,7 @@ public class CassandraMetadata
     @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new CassandraColumnHandle("$update_row_id", 0, CassandraType.TEXT, false, false, false, true);
+        return new CassandraColumnHandle("$update_row_id", 0, CassandraTypes.TEXT, false, false, false, true);
     }
 
     @Override

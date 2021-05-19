@@ -19,6 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
+import io.trino.type.InternalTypeManager;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -26,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -52,7 +57,9 @@ public class TestJsonCassandraHandles
     private static final Map<String, Object> COLUMN_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
             .put("name", "column")
             .put("ordinalPosition", 42)
-            .put("cassandraType", "BIGINT")
+            .put("cassandraType", ImmutableMap.of(
+                    "kind", "BIGINT",
+                    "trinoType", "bigint"))
             .put("partitionKey", false)
             .put("clusteringKey", true)
             .put("indexed", false)
@@ -62,7 +69,9 @@ public class TestJsonCassandraHandles
     private static final Map<String, Object> COLUMN2_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
             .put("name", "column2")
             .put("ordinalPosition", 0)
-            .put("cassandraType", "SET")
+            .put("cassandraType", ImmutableMap.of(
+                    "kind", "SET",
+                    "trinoType", "varchar"))
             .put("partitionKey", false)
             .put("clusteringKey", false)
             .put("indexed", false)
@@ -76,7 +85,14 @@ public class TestJsonCassandraHandles
                     TupleDomain.all(),
                     true)));
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final ObjectMapper OBJECT_MAPPER;
+
+    static {
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new CassandraClientModule.TypeDeserializer(typeManager)));
+        OBJECT_MAPPER = objectMapperProvider.get();
+    }
 
     @Test
     public void testTableHandleSerialize()
@@ -132,7 +148,7 @@ public class TestJsonCassandraHandles
     public void testColumnHandleSerialize()
             throws Exception
     {
-        CassandraColumnHandle columnHandle = new CassandraColumnHandle("column", 42, CassandraType.BIGINT, false, true, false, false);
+        CassandraColumnHandle columnHandle = new CassandraColumnHandle("column", 42, CassandraTypes.BIGINT, false, true, false, false);
 
         assertTrue(OBJECT_MAPPER.canSerialize(CassandraColumnHandle.class));
         String json = OBJECT_MAPPER.writeValueAsString(columnHandle);
@@ -146,7 +162,7 @@ public class TestJsonCassandraHandles
         CassandraColumnHandle columnHandle = new CassandraColumnHandle(
                 "column2",
                 0,
-                CassandraType.SET,
+                CassandraTypes.SET,
                 false,
                 false,
                 false,
@@ -167,7 +183,7 @@ public class TestJsonCassandraHandles
 
         assertEquals(columnHandle.getName(), "column");
         assertEquals(columnHandle.getOrdinalPosition(), 42);
-        assertEquals(columnHandle.getCassandraType(), CassandraType.BIGINT);
+        assertEquals(columnHandle.getCassandraType(), CassandraTypes.BIGINT);
         assertEquals(columnHandle.isPartitionKey(), false);
         assertEquals(columnHandle.isClusteringKey(), true);
     }
@@ -182,7 +198,7 @@ public class TestJsonCassandraHandles
 
         assertEquals(columnHandle.getName(), "column2");
         assertEquals(columnHandle.getOrdinalPosition(), 0);
-        assertEquals(columnHandle.getCassandraType(), CassandraType.SET);
+        assertEquals(columnHandle.getCassandraType(), CassandraTypes.SET);
         assertEquals(columnHandle.isPartitionKey(), false);
         assertEquals(columnHandle.isClusteringKey(), false);
     }
