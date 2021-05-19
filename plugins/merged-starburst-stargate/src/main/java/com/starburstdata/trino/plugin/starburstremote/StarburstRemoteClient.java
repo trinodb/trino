@@ -658,6 +658,11 @@ public class StarburstRemoteClient
         if (!statisticsEnabled) {
             return TableStatistics.empty();
         }
+
+        // Currently the engine never sets TupleDomain for getTableStatistics, relying on predicate pushdown happening first.
+        // Handling of tupleDomain would be easy here, but should come with set of tests that verify it does not interfere with caching.
+        verify(tupleDomain.isAll(), "tupleDomain other than all: %s", tupleDomain);
+
         try {
             return readTableStatistics(session, handle);
         }
