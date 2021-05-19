@@ -48,6 +48,7 @@ public class CsvColumnDecoder
             requireNonNull(columnHandle, "columnHandle is null");
             checkArgument(!columnHandle.isInternal(), "unexpected internal column '%s'", columnHandle.getName());
             columnName = columnHandle.getName();
+            checkArgument(columnHandle.getFormatHint() == null, "unexpected format hint '%s' defined for column '%s'", columnHandle.getFormatHint(), columnName);
             checkArgument(columnHandle.getDataFormat() == null, "unexpected data format '%s' defined for column '%s'", columnHandle.getDataFormat(), columnName);
             columnType = columnHandle.getType();
 
