@@ -647,6 +647,12 @@ public class StarburstRemoteClient
     }
 
     @Override
+    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return tableScanRedirection.getTableScanRedirection(session, handle, this);
+    }
+
+    @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
         if (!statisticsEnabled) {
@@ -659,12 +665,6 @@ public class StarburstRemoteClient
             throwIfInstanceOf(e, TrinoException.class);
             throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
         }
-    }
-
-    @Override
-    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
-    {
-        return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 
     private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
