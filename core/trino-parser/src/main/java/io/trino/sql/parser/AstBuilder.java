@@ -2177,9 +2177,9 @@ class AstBuilder
     {
         return new WindowFrame(
                 getLocation(context),
-                getFrameType(context.frameType),
-                (FrameBound) visit(context.start),
-                visitIfPresent(context.end, FrameBound.class));
+                getFrameType(context.frameExtent().frameType),
+                (FrameBound) visit(context.frameExtent().start),
+                visitIfPresent(context.frameExtent().end, FrameBound.class));
     }
 
     @Override
