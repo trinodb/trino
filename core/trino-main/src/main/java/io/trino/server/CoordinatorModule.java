@@ -20,7 +20,6 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -125,9 +124,6 @@ public class CoordinatorModule
     protected void setup(Binder binder)
     {
         install(new WebUiModule());
-
-        // discovery server
-        install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
 
         // coordinator announcement
         discoveryBinder(binder).bindHttpAnnouncement("trino-coordinator");

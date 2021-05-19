@@ -13,23 +13,19 @@
  */
 package io.trino.server;
 
-import io.airlift.configuration.Config;
+import com.google.inject.Binder;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 
-public class EmbeddedDiscoveryConfig
+public class CoordinatorDiscoveryModule
+        extends AbstractConfigurationAwareModule
 {
-    private boolean enabled = true;
-
-    @Deprecated
-    public boolean isEnabled()
+    @Override
+    protected void setup(Binder binder)
     {
-        return enabled;
-    }
-
-    @Deprecated
-    @Config("discovery-server.enabled")
-    public EmbeddedDiscoveryConfig setEnabled(boolean enabled)
-    {
-        this.enabled = enabled;
-        return this;
+        if (buildConfigObject(ServerConfig.class).isCoordinator() &&
+                buildConfigObject(EmbeddedDiscoveryConfig.class).isEnabled()) {
+            install(new EmbeddedDiscoveryModule());
+        }
     }
 }
