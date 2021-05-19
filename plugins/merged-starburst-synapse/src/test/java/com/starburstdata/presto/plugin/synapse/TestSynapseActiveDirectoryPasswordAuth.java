@@ -37,11 +37,11 @@ public class TestSynapseActiveDirectoryPasswordAuth
                 synapseServer,
                 true,
                 ImmutableMap.<String, String>builder()
-                    .put("connection-url", JDBC_URL)
-                    .put("connection-user", ACTIVE_DIRECTORY_USERNAME)
-                    .put("connection-password", ACTIVE_DIRECTORY_PASSWORD)
-                    .put("synapse.authentication.type", "ACTIVE_DIRECTORY_PASSWORD")
-                    .build(),
+                        .put("connection-url", JDBC_URL)
+                        .put("connection-user", ACTIVE_DIRECTORY_USERNAME)
+                        .put("connection-password", ACTIVE_DIRECTORY_PASSWORD)
+                        .put("synapse.authentication.type", "ACTIVE_DIRECTORY_PASSWORD")
+                        .build(),
                 List.of());
     }
 
