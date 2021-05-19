@@ -83,7 +83,6 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.tpch.OrderColumn.ORDER_STATUS;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -293,8 +292,8 @@ public class TpchMetadata
             return asMap(columns, key -> emptyList());
         }
         else {
-            Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().get();
-            Optional<Domain> orderStatusDomain = Optional.ofNullable(domains.get(toColumnHandle(ORDER_STATUS)));
+            Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().orElseThrow();
+            Optional<Domain> orderStatusDomain = Optional.ofNullable(domains.get(toColumnHandle(OrderColumn.ORDER_STATUS)));
             Optional<Map<TpchColumn<?>, List<Object>>> allowedColumnValues = orderStatusDomain.map(domain -> {
                 List<Object> allowedValues = ORDER_STATUS_VALUES.stream()
                         .filter(domain::includesNullableValue)
@@ -305,13 +304,13 @@ public class TpchMetadata
         }
     }
 
-    private Map<TpchColumn<?>, List<Object>> avoidTrivialOrderStatusRestriction(List<Object> allowedValues)
+    private static Map<TpchColumn<?>, List<Object>> avoidTrivialOrderStatusRestriction(List<Object> allowedValues)
     {
         if (allowedValues.containsAll(ORDER_STATUS_VALUES)) {
             return emptyMap();
         }
         else {
-            return ImmutableMap.of(ORDER_STATUS, allowedValues);
+            return ImmutableMap.of(OrderColumn.ORDER_STATUS, allowedValues);
         }
     }
 
@@ -332,7 +331,7 @@ public class TpchMetadata
         return columnHandles.get(columnNaming.getName(table.getColumn(columnName)));
     }
 
-    private ColumnStatistics toColumnStatistics(ColumnStatisticsData stats, Type columnType)
+    private static ColumnStatistics toColumnStatistics(ColumnStatisticsData stats, Type columnType)
     {
         return ColumnStatistics.builder()
                 .setNullsFraction(Estimate.zero())
@@ -358,11 +357,13 @@ public class TpchMetadata
         if (value instanceof String && columnType.equals(DATE)) {
             return LocalDate.parse((CharSequence) value).toEpochDay();
         }
-        if (columnType.equals(BIGINT) || columnType.equals(INTEGER) || columnType.equals(DATE)) {
-            return ((Number) value).longValue();
-        }
-        if (columnType.equals(DOUBLE)) {
-            return ((Number) value).doubleValue();
+        if (value instanceof Number) {
+            if (columnType.equals(BIGINT) || columnType.equals(INTEGER) || columnType.equals(DATE)) {
+                return ((Number) value).longValue();
+            }
+            if (columnType.equals(DOUBLE)) {
+                return ((Number) value).doubleValue();
+            }
         }
         throw new IllegalArgumentException("unsupported column type " + columnType);
     }
@@ -538,7 +539,7 @@ public class TpchMetadata
                                 .transformKeys(TpchColumnHandle::getColumnName)));
     }
 
-    private TupleDomain<ColumnHandle> toTupleDomain(Map<TpchColumnHandle, Set<NullableValue>> predicate)
+    private static TupleDomain<ColumnHandle> toTupleDomain(Map<TpchColumnHandle, Set<NullableValue>> predicate)
     {
         return TupleDomain.withColumnDomains(predicate.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
@@ -597,12 +598,12 @@ public class TpchMetadata
             case DOUBLE:
                 return DOUBLE;
             case VARCHAR:
-                return createVarcharType((int) (long) tpchType.getPrecision().get());
+                return createVarcharType((int) (long) tpchType.getPrecision().orElseThrow());
         }
         throw new IllegalArgumentException("Unsupported type " + tpchType);
     }
 
-    private long calculateTotalRows(int scaleBase, double scaleFactor)
+    private static long calculateTotalRows(int scaleBase, double scaleFactor)
     {
         double totalRows = scaleBase * scaleFactor;
         if (totalRows > Long.MAX_VALUE) {
