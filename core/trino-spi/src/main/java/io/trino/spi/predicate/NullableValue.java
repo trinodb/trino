@@ -16,6 +16,8 @@ package io.trino.spi.predicate;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -43,7 +45,9 @@ public final class NullableValue
     {
         requireNonNull(type, "type is null");
         if (value != null && !Primitives.wrap(type.getJavaType()).isInstance(value)) {
-            throw new IllegalArgumentException(format("Object '%s' does not match type %s", value, type.getJavaType()));
+            if (!(type instanceof DateType && value instanceof LongTimestampWithTimeZone)) {
+                throw new IllegalArgumentException(format("Object '%s' does not match type %s", value, type.getJavaType()));
+            }
         }
 
         this.type = type;
