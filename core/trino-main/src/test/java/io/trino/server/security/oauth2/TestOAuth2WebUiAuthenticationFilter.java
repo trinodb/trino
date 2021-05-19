@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.testing.Closeables;
 import io.jsonwebtoken.Claims;
@@ -29,6 +30,7 @@ import io.trino.server.security.jwt.JwkService;
 import io.trino.server.security.jwt.JwkSigningKeyResolver;
 import io.trino.server.security.jwt.JwtAuthenticatorConfig;
 import io.trino.server.testing.TestingTrinoServer;
+import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiModule;
 import io.trino.testng.services.Flaky;
 import okhttp3.CookieJar;
@@ -91,6 +93,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     private static final String UNTRUSTED_CLIENT_AUDIENCE = "https://untrusted.com";
 
     private final TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider();
+    private final Logging logging = Logging.initialize();
     private final OkHttpClient httpClient;
 
     private TestingTrinoServer server;
@@ -108,7 +111,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     public void setup()
             throws Exception
     {
-        Logging.initialize();
+        logging.setLevel(OAuth2WebUiAuthenticationFilter.class.getName(), Level.DEBUG);
 
         Testcontainers.exposeHostPorts(HTTPS_PORT);
         hydraIdP.start();
@@ -159,6 +162,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     public void tearDown()
             throws Exception
     {
+        logging.clearLevel(OAuth2WebUiAuthenticationFilter.class.getName());
         Closeables.closeAll(server, hydraIdP);
     }
 
