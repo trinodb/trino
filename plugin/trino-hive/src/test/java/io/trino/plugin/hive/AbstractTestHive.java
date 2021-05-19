@@ -4596,7 +4596,7 @@ public abstract class AbstractTestHive
         index = columnIndex.get("t_map");
         if (index != null) {
             if ((rowNumber % 27) == 0) {
-                assertNull(value);
+                assertNull(row.getField(index));
             }
             else {
                 assertEquals(row.getField(index), ImmutableMap.of("test key", "test value"));
