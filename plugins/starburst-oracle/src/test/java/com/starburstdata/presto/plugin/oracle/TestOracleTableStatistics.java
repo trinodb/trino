@@ -35,6 +35,8 @@ public class TestOracleTableStatistics
             throws Exception
     {
         return OracleQueryRunner.builder()
+                // See TestStarburstOracleConnectorSmokeTest.testBasicStatisticsWithoutLicense for test coverage when license not present
+                .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("case-insensitive-name-matching", "true")
@@ -379,6 +381,11 @@ public class TestOracleTableStatistics
 
     @Override
     protected void gatherStats(String tableName)
+    {
+        gatherStatisticsInOracle(tableName);
+    }
+
+    static void gatherStatisticsInOracle(String tableName)
     {
         executeInOracle(connection -> {
             try (CallableStatement statement = connection.prepareCall("{CALL DBMS_STATS.GATHER_TABLE_STATS(?, ?)}")) {
