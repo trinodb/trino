@@ -11,7 +11,15 @@ broken down into cells by using table definition files.
 Only Redis string and hash value types are supported; sets and zsets cannot be
 queried from Trino.
 
-The connector requires Redis 2.8.0 or later.
+Requirements
+------------
+
+Requirements for using the connector in a catalog to connect to a Redis data
+source are:
+
+* Redis 2.8.0 or higher
+* Network access, by default on port 6379, from the Trino coordinator and
+  workers to Redis.
 
 Configuration
 -------------
