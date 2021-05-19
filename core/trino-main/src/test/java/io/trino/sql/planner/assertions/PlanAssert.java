@@ -20,8 +20,12 @@ import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.PlanNode;
+
+import java.util.stream.Stream;
 
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.iterative.Plans.resolveGroupReferences;
@@ -48,6 +52,12 @@ public final class PlanAssert
         MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, statsProvider, lookup), pattern);
         if (!matches.isMatch()) {
             String formattedPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
+            if (!containsGroupReferences(actual.getRoot())) {
+                throw new AssertionError(format(
+                        "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]",
+                        pattern,
+                        formattedPlan));
+            }
             PlanNode resolvedPlan = resolveGroupReferences(actual.getRoot(), lookup);
             String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, actual.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
             throw new AssertionError(format(
@@ -56,5 +66,12 @@ public final class PlanAssert
                     formattedPlan,
                     resolvedFormattedPlan));
         }
+    }
+
+    private static boolean containsGroupReferences(PlanNode node)
+    {
+        return PlanNodeSearcher.searchFrom(node, Lookup.from(Stream::of))
+                .where(GroupReference.class::isInstance)
+                .findFirst().isPresent();
     }
 }
