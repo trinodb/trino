@@ -527,6 +527,10 @@ over
     ;
 
 windowFrame
+    : frameExtent
+    ;
+
+frameExtent
     : frameType=RANGE start=frameBound
     | frameType=ROWS start=frameBound
     | frameType=GROUPS start=frameBound
