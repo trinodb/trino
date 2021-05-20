@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.synapse;
 
 import com.starburstdata.presto.plugin.jdbc.joinpushdown.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
-import org.testng.SkipException;
 
 import java.util.List;
 import java.util.Map;
@@ -38,13 +37,6 @@ public class TestSynapseAutomaticJoinPushdown
                 Function.identity(),
                 Map.of(),
                 List.of());
-    }
-
-    @Override
-    public void testJoinPushdownAutomatic()
-    {
-        // TODO(https://starburstdata.atlassian.net/browse/SEP-5962) make it no flaky and reenable
-        throw new SkipException("Temporarily disabled, flaky due to poor stats estimation in Synapse");
     }
 
     @Override
