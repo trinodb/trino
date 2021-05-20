@@ -1,5 +1,5 @@
 ===============================
-MongoDB ObjectID function
+MongoDB ObjectID functions
 ===============================
 
 .. _objectid:
@@ -37,7 +37,8 @@ assigns a variable with an unique ObjectID. ::
 
     oranges = ObjectID("60957e49e39ea7b4b103c181")
 
-The argument assigns ``oranges`` with an ObjectID of "60957e49e39ea7b4b103c181".
+The argument assigns ``oranges`` with an ObjectID of 
+"60957e49e39ea7b4b103c181".
 
 Accessing an ObjectID
 -----------------------
@@ -47,8 +48,8 @@ converts the ObjectID value to a string. ::
 
     ObjectID("60957e49e39ea7b4b103c181").str
 
-The code sample returns the hexadecimal "60957e49e39ea7b4b103c181" 
-in string format.
+The code sample returns the hexadecimal 
+"60957e49e39ea7b4b103c181" in string format.
 
 .. _objectid_timestamp:
 
