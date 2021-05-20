@@ -17,7 +17,7 @@ Requirements
 Requirements for using the connector in a catalog to connect to a Redis data
 source are:
 
-* Redis 2.8.0 or higher
+* Redis 2.8.0 or higher (Redis Cluster is not supported)
 * Network access, by default on port 6379, from the Trino coordinator and
   workers to Redis.
 
@@ -90,7 +90,7 @@ The ``hostname:port`` pair for the Redis server.
 
 This property is required; there is no default.
 
-Redis clusters are not supported.
+Redis Cluster is not supported.
 
 ``redis.scan-count``
 ^^^^^^^^^^^^^^^^^^^^
