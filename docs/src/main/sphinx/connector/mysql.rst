@@ -6,6 +6,16 @@ The MySQL connector allows querying and creating tables in an external
 `MySQL <https://www.mysql.com/>`_ instance. This can be used to join data between different
 systems like MySQL and Hive, or between two different MySQL instances.
 
+Requirements
+------------
+
+Requirements for using the connector in a catalog to connect to a MySQL data
+source are:
+
+* MySQL 5.6, 5.7, 8.0 and higher
+* Network access, by default on port 3306, from the Trino coordinator and
+  workers to MySQL.
+
 Configuration
 -------------
 
@@ -31,8 +41,13 @@ with a different name, making sure it ends in ``.properties``. For
 example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
+.. _mysql-type-mapping:
+
+Type mapping
+------------
+
 Decimal type handling
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 ``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
 by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
@@ -44,6 +59,8 @@ is controlled via the ``decimal-rounding-mode`` configuration property or the ``
 property, which can be set to ``UNNECESSARY`` (the default),
 ``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
 (see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+
+.. include:: jdbc-type-mapping.fragment
 
 Querying MySQL
 --------------

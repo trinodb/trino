@@ -152,4 +152,6 @@ public interface ValueSet
     String toString();
 
     String toString(ConnectorSession session);
+
+    String toString(ConnectorSession session, int limit);
 }

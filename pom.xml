@@ -44,6 +44,8 @@
         <air.java.version>11.0.7</air.java.version>
         <air.modernizer.java-version>8</air.modernizer.java-version>
 
+        <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
+
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.9</dep.antlr.version>
@@ -157,7 +159,7 @@
         <module>testing/trino-test-jdbc-compatibility-old-server</module>
         <module>testing/trino-testing</module>
         <module>testing/trino-testing-kafka</module>
-        <module>testing/trino-testng-services</module>
+        <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
     </modules>
 
@@ -479,7 +481,7 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-testng-services</artifactId>
+                <artifactId>trino-testing-services</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1072,7 +1074,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>8.4.1.jre8</version>
+                <version>9.2.1.jre8</version>
             </dependency>
 
             <dependency>
@@ -1631,17 +1633,9 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-release-plugin</artifactId>
-                    <configuration>
-                        <preparationGoals>clean verify -DskipTests</preparationGoals>
-                    </configuration>
-                </plugin>
-
-                <plugin>
                     <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                     <artifactId>provisio-maven-plugin</artifactId>
-                    <version>1.0.9</version>
+                    <version>1.0.16</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -1650,7 +1644,7 @@
             <plugin>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-maven-plugin</artifactId>
-                <version>10</version>
+                <version>11</version>
                 <extensions>true</extensions>
             </plugin>
 

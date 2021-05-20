@@ -40,11 +40,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.profile.GCProfiler;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -54,6 +50,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -402,12 +399,10 @@ public class BenchmarkGroupByHash
         singleChannelBenchmarkData.setup();
         new BenchmarkGroupByHash().bigintGroupByHash(singleChannelBenchmarkData);
 
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkGroupByHash.class.getSimpleName() + ".*")
-                .addProfiler(GCProfiler.class)
-                .jvmArgs("-Xmx10g")
-                .build();
-        new Runner(options).run();
+        benchmark(BenchmarkGroupByHash.class)
+                .withOptions(optionsBuilder -> optionsBuilder
+                        .addProfiler(GCProfiler.class)
+                        .jvmArgs("-Xmx10g"))
+                        .run();
     }
 }

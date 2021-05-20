@@ -24,7 +24,7 @@ jobs:
       matrix:
         java-version:
           - 11
-          - 15
+          - 16
     timeout-minutes: 45
     steps:
       - name: Free Disk Space

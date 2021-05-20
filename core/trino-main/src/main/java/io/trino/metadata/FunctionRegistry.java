@@ -108,6 +108,7 @@ import io.trino.operator.scalar.DataSizeFunctions;
 import io.trino.operator.scalar.DateTimeFunctions;
 import io.trino.operator.scalar.EmptyMapConstructor;
 import io.trino.operator.scalar.FailureFunction;
+import io.trino.operator.scalar.FormatNumberFunction;
 import io.trino.operator.scalar.GenericComparisonOperator;
 import io.trino.operator.scalar.GenericDistinctFromOperator;
 import io.trino.operator.scalar.GenericEqualOperator;
@@ -504,6 +505,7 @@ public class FunctionRegistry
                 .scalars(ArrayFunctions.class)
                 .scalars(HmacFunctions.class)
                 .scalars(DataSizeFunctions.class)
+                .scalars(FormatNumberFunction.class)
                 .scalar(ArrayCardinalityFunction.class)
                 .scalar(ArrayContains.class)
                 .scalar(ArrayContainsSequence.class)

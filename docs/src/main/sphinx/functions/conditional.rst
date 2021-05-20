@@ -56,15 +56,9 @@ returned if it exists, otherwise null is returned. Example::
 IF
 --
 
-The ``IF`` function is actually a language construct
-that is equivalent to the following ``CASE`` expression:
-
-.. code-block:: text
-
-    CASE
-        WHEN condition THEN true_value
-        [ ELSE false_value ]
-    END
+The ``IF`` expression has two forms, one supplying only a
+``true_value`` and the other supplying both a ``true_value`` and a
+``false_value``:
 
 .. function:: if(condition, true_value)
 
@@ -76,6 +70,27 @@ that is equivalent to the following ``CASE`` expression:
 
     Evaluates and returns ``true_value`` if ``condition`` is true,
     otherwise evaluates and returns ``false_value``.
+
+The following ``IF`` and ``CASE`` expressions are equivalent:
+
+.. code-block:: sql
+
+  SELECT
+    orderkey,
+    totalprice,
+    IF(totalprice >= 150000, 'High Value', 'Low Value')
+  FROM tpch.sf1.orders;
+
+.. code-block:: sql
+
+  SELECT
+    orderkey,
+    totalprice,
+    CASE
+      WHEN totalprice >= 150000 THEN 'High Value'
+      ELSE 'Low Value'
+    END
+  FROM tpch.sf1.orders;
 
 .. _coalesce_function:
 

@@ -1412,7 +1412,7 @@ public class ThriftHiveMetastore
     public List<Partition> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames)
     {
         requireNonNull(partitionNames, "partitionNames is null");
-        checkArgument(!Iterables.isEmpty(partitionNames), "partitionNames is empty");
+        checkArgument(!partitionNames.isEmpty(), "partitionNames is empty");
 
         try {
             return retry()

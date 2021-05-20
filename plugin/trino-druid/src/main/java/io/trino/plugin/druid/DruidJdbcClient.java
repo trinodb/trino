@@ -149,7 +149,7 @@ public class DruidJdbcClient
                 return Optional.of(defaultVarcharColumnMapping(columnSize, true));
         }
         // TODO implement proper type mapping
-        return legacyToPrestoType(session, connection, typeHandle);
+        return legacyColumnMapping(session, connection, typeHandle);
     }
 
     @Override

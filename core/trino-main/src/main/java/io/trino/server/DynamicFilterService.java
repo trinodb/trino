@@ -32,10 +32,9 @@ import io.trino.metadata.Metadata;
 import io.trino.operator.JoinUtils;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -66,6 +65,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Functions.identity;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -172,25 +172,14 @@ public class DynamicFilterService
         int replicatedFilters = context.getReplicatedDynamicFilters().size();
         int totalDynamicFilters = context.getTotalDynamicFilters();
 
+        ConnectorSession connectorSession = session.toConnectorSession();
         List<DynamicFilterDomainStats> dynamicFilterDomainStats = context.getDynamicFilterSummaries().entrySet().stream()
                 .map(entry -> {
                     DynamicFilterId dynamicFilterId = entry.getKey();
-                    Domain domain = entry.getValue();
-                    // simplify for readability
-                    String simplifiedDomain = domain.simplify(1).toString(session.toConnectorSession());
-                    int rangeCount = domain.getValues().getValuesProcessor().transform(
-                            Ranges::getRangeCount,
-                            discreteValues -> 0,
-                            allOrNone -> 0);
-                    int discreteValuesCount = domain.getValues().getValuesProcessor().transform(
-                            ranges -> 0,
-                            DiscreteValues::getValuesCount,
-                            allOrNone -> 0);
                     return new DynamicFilterDomainStats(
                             dynamicFilterId,
-                            simplifiedDomain,
-                            rangeCount,
-                            discreteValuesCount,
+                            // use small limit for readability
+                            entry.getValue().toString(connectorSession, 2),
                             context.getDynamicFilterCollectionDuration(dynamicFilterId));
                 })
                 .collect(toImmutableList());
@@ -555,32 +544,22 @@ public class DynamicFilterService
     {
         private final DynamicFilterId dynamicFilterId;
         private final String simplifiedDomain;
-        private final int rangeCount;
-        private final int discreteValuesCount;
         private final Optional<Duration> collectionDuration;
 
         @VisibleForTesting
-        DynamicFilterDomainStats(
-                DynamicFilterId dynamicFilterId,
-                String simplifiedDomain,
-                int rangeCount,
-                int discreteValuesCount)
+        DynamicFilterDomainStats(DynamicFilterId dynamicFilterId, String simplifiedDomain)
         {
-            this(dynamicFilterId, simplifiedDomain, rangeCount, discreteValuesCount, Optional.empty());
+            this(dynamicFilterId, simplifiedDomain, Optional.empty());
         }
 
         @JsonCreator
         public DynamicFilterDomainStats(
                 @JsonProperty("dynamicFilterId") DynamicFilterId dynamicFilterId,
                 @JsonProperty("simplifiedDomain") String simplifiedDomain,
-                @JsonProperty("rangeCount") int rangeCount,
-                @JsonProperty("discreteValuesCount") int discreteValuesCount,
                 @JsonProperty("collectionDuration") Optional<Duration> collectionDuration)
         {
             this.dynamicFilterId = requireNonNull(dynamicFilterId, "dynamicFilterId is null");
             this.simplifiedDomain = requireNonNull(simplifiedDomain, "simplifiedDomain is null");
-            this.rangeCount = rangeCount;
-            this.discreteValuesCount = discreteValuesCount;
             this.collectionDuration = requireNonNull(collectionDuration, "collectionDuration is null");
         }
 
@@ -594,18 +573,6 @@ public class DynamicFilterService
         public String getSimplifiedDomain()
         {
             return simplifiedDomain;
-        }
-
-        @JsonProperty
-        public int getRangeCount()
-        {
-            return rangeCount;
-        }
-
-        @JsonProperty
-        public int getDiscreteValuesCount()
-        {
-            return discreteValuesCount;
         }
 
         @JsonProperty
@@ -623,17 +590,25 @@ public class DynamicFilterService
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            DynamicFilterDomainStats that = (DynamicFilterDomainStats) o;
-            return rangeCount == that.rangeCount &&
-                    discreteValuesCount == that.discreteValuesCount &&
-                    Objects.equals(dynamicFilterId, that.dynamicFilterId) &&
-                    Objects.equals(simplifiedDomain, that.simplifiedDomain);
+            DynamicFilterDomainStats stats = (DynamicFilterDomainStats) o;
+            return Objects.equals(dynamicFilterId, stats.dynamicFilterId) &&
+                    Objects.equals(simplifiedDomain, stats.simplifiedDomain);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(dynamicFilterId, simplifiedDomain, rangeCount, discreteValuesCount);
+            return Objects.hash(dynamicFilterId, simplifiedDomain);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("dynamicFilterId", dynamicFilterId)
+                    .add("simplifiedDomain", simplifiedDomain)
+                    .add("collectionDuration", collectionDuration)
+                    .toString();
         }
     }
 

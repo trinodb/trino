@@ -649,33 +649,29 @@ public abstract class AbstractTestDistributedQueries
 
         // delete using a subquery
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM lineitem", "SELECT count(*) FROM lineitem");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
 
-        assertUpdate(
-                "DELETE FROM " + tableName + " WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')",
-                "SELECT count(*) FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')");
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%')", 15);
         assertQuery(
                 "SELECT * FROM " + tableName,
-                "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus <> 'F')");
+                "SELECT * FROM nation WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%')");
 
         assertUpdate("DROP TABLE " + tableName);
 
         // delete with multiple SemiJoin
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM lineitem", "SELECT count(*) FROM lineitem");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
 
         assertUpdate(
-                "DELETE FROM " + tableName + "\n" +
-                        "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')\n" +
-                        "  AND orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)\n",
-                "SELECT count(*) FROM lineitem\n" +
-                        "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')\n" +
-                        "  AND orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)");
+                "DELETE FROM " + tableName + " " +
+                        "WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%') " +
+                        "  AND regionkey IN (SELECT regionkey FROM region WHERE length(comment) < 50)",
+                10);
         assertQuery(
                 "SELECT * FROM " + tableName,
-                "SELECT * FROM lineitem\n" +
-                        "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus <> 'F')\n" +
-                        "  OR orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 <> 0)");
+                "SELECT * FROM nation " +
+                        "WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%') " +
+                        "  OR regionkey IN (SELECT regionkey FROM region WHERE length(comment) >= 50)");
 
         assertUpdate("DROP TABLE " + tableName);
 
@@ -685,7 +681,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate(
                 "DELETE FROM " + tableName + "\n" +
-                        "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NULL\n",
+                        "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM tpch.tiny.lineitem)) IS NULL\n",
                 "SELECT count(*) FROM orders\n" +
                         "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NULL\n");
         assertQuery(
@@ -837,7 +833,6 @@ public abstract class AbstractTestDistributedQueries
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("customer", "BASE TABLE")
-                .row("lineitem", "BASE TABLE")
                 .row(viewName, "VIEW")
                 .row("nation", "BASE TABLE")
                 .row("orders", "BASE TABLE")

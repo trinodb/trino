@@ -22,8 +22,10 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
+import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.RuleAssert;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
@@ -681,6 +683,6 @@ public class TestReorderJoins
 
     private RuleAssert assertReorderJoins()
     {
-        return tester.assertThat(new ReorderJoins(metadata, new CostComparator(1, 1, 1)));
+        return tester.assertThat(new ReorderJoins(metadata, new CostComparator(1, 1, 1), new TypeAnalyzer(new SqlParser(), metadata)));
     }
 }

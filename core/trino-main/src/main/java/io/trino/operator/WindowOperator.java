@@ -709,7 +709,6 @@ public class WindowOperator
             if (finishing && inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0 && spiller.isEmpty()) {
                 localRevocableMemoryContext.close();
                 localUserMemoryContext.close();
-                closeSpiller();
                 return TransformationState.finished();
             }
 
@@ -731,6 +730,12 @@ public class WindowOperator
         {
             spiller.ifPresent(Spiller::close);
             spiller = Optional.empty();
+        }
+
+        void clearIndexes()
+        {
+            inMemoryPagesIndexWithHashStrategies.pagesIndex.clear();
+            mergedPagesIndexWithHashStrategies.pagesIndex.clear();
         }
 
         TransformationState<WorkProcessor<PagesIndexWithHashStrategies>> fullGroupBuffered()
@@ -937,6 +942,7 @@ public class WindowOperator
     public void close()
     {
         driverWindowInfo.set(Optional.of(windowInfo.build()));
+        spillablePagesToPagesIndexes.ifPresent(SpillablePagesToPagesIndexes::clearIndexes);
         spillablePagesToPagesIndexes.ifPresent(SpillablePagesToPagesIndexes::closeSpiller);
     }
 }

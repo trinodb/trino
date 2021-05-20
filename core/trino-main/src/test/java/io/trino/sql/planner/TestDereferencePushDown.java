@@ -49,7 +49,7 @@ public class TestDereferencePushDown
                 output(ImmutableList.of("a_msg_x", "a_msg", "b_msg_y"),
                         strictProject(
                                 ImmutableMap.of(
-                                        "a_msg_x", PlanMatchPattern.expression("a_msg.x"),
+                                        "a_msg_x", PlanMatchPattern.expression("a_msg[1]"),
                                         "a_msg", PlanMatchPattern.expression("a_msg"),
                                         "b_msg_y", PlanMatchPattern.expression("b_msg_y")),
                                 join(INNER, ImmutableList.of(),
@@ -71,10 +71,10 @@ public class TestDereferencePushDown
                                 filter(
                                         "a_y = b_y",
                                         values(
-                                                ImmutableList.of("b_y", "b_x", "a_y"),
+                                                ImmutableList.of("b_x", "b_y", "a_y"),
                                                 ImmutableList.of(ImmutableList.of(
-                                                        new DoubleLiteral("2e0"),
                                                         new GenericLiteral("BIGINT", "1"),
+                                                        new DoubleLiteral("2e0"),
                                                         new DoubleLiteral("2e0"))))))));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
@@ -98,8 +98,8 @@ public class TestDereferencePushDown
                                 project(filter(
                                         "b_y = 2e0",
                                         values(
-                                                ImmutableList.of("b_y", "b_x"),
-                                                ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"), new GenericLiteral("BIGINT", "1")))))))));
+                                                ImmutableList.of("b_x", "b_y"),
+                                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0")))))))));
     }
 
     @Test
@@ -116,12 +116,12 @@ public class TestDereferencePushDown
                                 filter(
                                         "((a_x = BIGINT '7') OR is_finite(b_y))",
                                         values(
-                                                ImmutableList.of("b_y", "b_x", "a_y", "a_x"),
+                                                ImmutableList.of("b_x", "b_y", "a_x", "a_y"),
                                                 ImmutableList.of(ImmutableList.of(
-                                                        new DoubleLiteral("2e0"),
                                                         new GenericLiteral("BIGINT", "1"),
                                                         new DoubleLiteral("2e0"),
-                                                        new GenericLiteral("BIGINT", "1"))))))));
+                                                        new GenericLiteral("BIGINT", "1"),
+                                                        new DoubleLiteral("2e0"))))))));
     }
 
     @Test
@@ -132,8 +132,8 @@ public class TestDereferencePushDown
                         "FROM t ",
                 anyTree(
                         project(values(
-                                ImmutableList.of("y", "x"),
-                                ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"), new GenericLiteral("BIGINT", "1")))))));
+                                ImmutableList.of("x", "y"),
+                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0")))))));
 
         assertPlanWithSession(
                 "WITH t(msg1, msg2, msg3, msg4, msg5) AS (VALUES " +
@@ -169,8 +169,8 @@ public class TestDereferencePushDown
                                         "msg1", expression("msg1"), // not pushed down because used in partition by
                                         "msg2", expression("msg2"), // not pushed down because used in order by
                                         "msg3", expression("msg3"), // not pushed down because used in window function
-                                        "msg4_x", expression("msg4.x"), // pushed down because msg4.x used in window function
-                                        "msg5_x", expression("msg5.x")), // pushed down because window node does not refer it
+                                        "msg4_x", expression("msg4[1]"), // pushed down because msg4.x used in window function
+                                        "msg5_x", expression("msg5[1]")), // pushed down because window node does not refer it
                                 values("msg1", "msg2", "msg3", "msg4", "msg5"))));
     }
 
@@ -188,7 +188,7 @@ public class TestDereferencePushDown
                 anyTree(
                         semiJoin("a_x", "b_z", "semi_join_symbol",
                                 project(
-                                        ImmutableMap.of("a_y", expression("msg.y")),
+                                        ImmutableMap.of("a_y", expression("msg[2]")),
                                         values(ImmutableList.of("msg", "a_x"), ImmutableList.of())),
                                 project(values(ImmutableList.of("b_z"), ImmutableList.of())))));
     }
@@ -201,7 +201,7 @@ public class TestDereferencePushDown
                 anyTree(
                         strictProject(ImmutableMap.of("x_into_3", expression("msg_x * BIGINT '3'")),
                                 limit(1,
-                                        strictProject(ImmutableMap.of("msg_x", expression("msg.x")),
+                                        strictProject(ImmutableMap.of("msg_x", expression("msg[1]")),
                                                 values("msg"))))));
 
         // dereference pushdown + constant folding
@@ -218,10 +218,10 @@ public class TestDereferencePushDown
                                         filter(
                                                 "a_y = b_y",
                                                 values(
-                                                        ImmutableList.of("b_y", "b_x", "a_y"),
+                                                        ImmutableList.of("b_x", "b_y", "a_y"),
                                                         ImmutableList.of(ImmutableList.of(
-                                                                new DoubleLiteral("2e0"),
                                                                 new GenericLiteral("BIGINT", "1"),
+                                                                new DoubleLiteral("2e0"),
                                                                 new DoubleLiteral("2e0")))))))));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
@@ -245,8 +245,8 @@ public class TestDereferencePushDown
                         project(filter(
                                 "b_y = 2e0",
                                 values(
-                                        ImmutableList.of("b_y", "b_x"),
-                                        ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"), new GenericLiteral("BIGINT", "1")))))))));
+                                        ImmutableList.of("b_x", "b_y"),
+                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0")))))))));
     }
 
     @Test
@@ -264,7 +264,7 @@ public class TestDereferencePushDown
                                                 project(
                                                         filter(
                                                                 "a_y = 2e0",
-                                                                values("array", "a_y", "a_x"))),
+                                                                values("array", "a_x", "a_y"))),
                                                 project(
                                                         filter(
                                                                 "b_y = 2e0",

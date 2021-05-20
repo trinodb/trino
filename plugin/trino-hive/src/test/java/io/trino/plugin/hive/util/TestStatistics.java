@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.metastore.BooleanStatistics;
@@ -22,7 +23,12 @@ import io.trino.plugin.hive.metastore.DoubleStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.IntegerStatistics;
 import io.trino.spi.block.Block;
+import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
+import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.TableStatisticType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -31,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
+import java.util.function.Function;
 
 import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.plugin.hive.HiveBasicStatistics.createZeroStatistics;
@@ -45,8 +52,12 @@ import static io.trino.plugin.hive.util.Statistics.reduce;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
+import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -302,6 +313,39 @@ public class TestStatistics
                 "column3", createBinaryColumnStatistics(OptionalLong.of(6), OptionalLong.of(10), OptionalLong.of(20)));
         assertThat(merge(first, second)).isEqualTo(expected);
         assertThat(merge(ImmutableMap.of(), ImmutableMap.of())).isEqualTo(ImmutableMap.of());
+    }
+
+    @Test
+    public void testFromComputedStatistics()
+    {
+        Function<Integer, Block> singleIntegerValueBlock = value ->
+                BigintType.BIGINT.createBlockBuilder(null, 1).writeLong(value).build();
+
+        ComputedStatistics statistics = ComputedStatistics.builder(ImmutableList.of(), ImmutableList.of())
+                .addTableStatistic(TableStatisticType.ROW_COUNT, singleIntegerValueBlock.apply(5))
+                .addColumnStatistic(new ColumnStatisticMetadata("a_column", MIN_VALUE), singleIntegerValueBlock.apply(1))
+                .addColumnStatistic(new ColumnStatisticMetadata("a_column", MAX_VALUE), singleIntegerValueBlock.apply(5))
+                .addColumnStatistic(new ColumnStatisticMetadata("a_column", NUMBER_OF_DISTINCT_VALUES), singleIntegerValueBlock.apply(5))
+                .addColumnStatistic(new ColumnStatisticMetadata("a_column", NUMBER_OF_NON_NULL_VALUES), singleIntegerValueBlock.apply(5))
+                .addColumnStatistic(new ColumnStatisticMetadata("b_column", NUMBER_OF_NON_NULL_VALUES), singleIntegerValueBlock.apply(4))
+                .build();
+
+        Map<String, Type> columnTypes = ImmutableMap.of("a_column", INTEGER, "b_column", VARCHAR);
+
+        Map<String, HiveColumnStatistics> columnStatistics = Statistics.fromComputedStatistics(statistics.getColumnStatistics(), columnTypes, 5);
+
+        assertThat(columnStatistics).hasSize(2);
+        assertThat(columnStatistics.keySet()).contains("a_column", "b_column");
+        assertThat(columnStatistics.get("a_column")).isEqualTo(
+                HiveColumnStatistics.builder()
+                        .setIntegerStatistics(new IntegerStatistics(OptionalLong.of(1), OptionalLong.of(5)))
+                        .setNullsCount(0)
+                        .setDistinctValuesCount(5)
+                        .build());
+        assertThat(columnStatistics.get("b_column")).isEqualTo(
+                HiveColumnStatistics.builder()
+                        .setNullsCount(1)
+                        .build());
     }
 
     private static void assertMergeHiveColumnStatistics(HiveColumnStatistics first, HiveColumnStatistics second, HiveColumnStatistics expected)

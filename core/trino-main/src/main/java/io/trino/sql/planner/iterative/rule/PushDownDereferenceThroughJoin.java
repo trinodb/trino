@@ -27,8 +27,8 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
@@ -41,7 +41,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.SymbolsExtractor.extractAll;
-import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractDereferences;
+import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractRowSubscripts;
 import static io.trino.sql.planner.iterative.rule.DereferencePushdown.getBase;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.project;
@@ -100,7 +100,7 @@ public class PushDownDereferenceThroughJoin
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
         expressionsBuilder.addAll(projectNode.getAssignments().getExpressions());
         joinNode.getFilter().ifPresent(expressionsBuilder::add);
-        Set<DereferenceExpression> dereferences = extractDereferences(expressionsBuilder.build(), false);
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(expressionsBuilder.build(), false, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
 
         // Exclude criteria symbols
         ImmutableSet.Builder<Symbol> criteriaSymbolsBuilder = ImmutableSet.builder();

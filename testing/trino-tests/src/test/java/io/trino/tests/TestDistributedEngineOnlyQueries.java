@@ -30,6 +30,7 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.TestingSession.createBogusTestingCatalog;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -197,6 +198,12 @@ public class TestDistributedEngineOnlyQueries
                 "Left \\(probe\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
                 "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
                 "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
+
+        // ExplainAnalyzeOperator may finish before dynamic filter stats are reported to QueryInfo
+        assertEventually(() -> assertExplainAnalyze(
+                "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
+                "Dynamic filters: \n.*ranges=25, \\{\\[0], ..., \\[24]}.* collection time=\\d+.*"));
+
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT nationkey FROM nation GROUP BY nationkey",
                 "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");

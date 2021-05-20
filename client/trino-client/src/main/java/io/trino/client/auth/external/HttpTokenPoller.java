@@ -23,6 +23,7 @@ import net.jodah.failsafe.RetryPolicy;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.Response;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -77,7 +78,7 @@ public class HttpTokenPoller
                     .withMaxDuration(timeout)
                     .withBackoff(100, 500, MILLIS)
                     .handle(IOException.class))
-                    .get(() -> executePoll(createRequest(tokenUri)));
+                    .get(() -> executePoll(prepareRequestBuilder(tokenUri).build()));
         }
         catch (FailsafeException e) {
             if (e.getCause() instanceof IOException) {
@@ -87,7 +88,34 @@ public class HttpTokenPoller
         }
     }
 
-    private static Request createRequest(URI tokenUri)
+    @Override
+    public void tokenReceived(URI tokenUri)
+    {
+        try {
+            Failsafe.with(new RetryPolicy<Integer>()
+                    .withMaxAttempts(-1)
+                    .withMaxDuration(Duration.ofSeconds(4))
+                    .withBackoff(100, 500, MILLIS)
+                    .handleResultIf(code -> code != HTTP_OK))
+                    .get(() -> {
+                        Request request = prepareRequestBuilder(tokenUri)
+                                .delete()
+                                .build();
+                        try (Response response = client.get().newCall(request)
+                                .execute()) {
+                            return response.code();
+                        }
+                    });
+        }
+        catch (FailsafeException e) {
+            if (e.getCause() instanceof IOException) {
+                throw new UncheckedIOException((IOException) e.getCause());
+            }
+            throw e;
+        }
+    }
+
+    private static Request.Builder prepareRequestBuilder(URI tokenUri)
     {
         HttpUrl url = HttpUrl.get(tokenUri);
         if (url == null) {
@@ -96,8 +124,7 @@ public class HttpTokenPoller
 
         return new Request.Builder()
                 .url(url)
-                .addHeader(USER_AGENT, USER_AGENT_VALUE)
-                .build();
+                .addHeader(USER_AGENT, USER_AGENT_VALUE);
     }
 
     private TokenPollResult executePoll(Request request)

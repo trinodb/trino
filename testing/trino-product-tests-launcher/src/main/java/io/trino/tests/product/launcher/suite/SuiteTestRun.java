@@ -98,7 +98,7 @@ public class SuiteTestRun
             arguments.add(TEMPTO_GROUP_ARG, joiner.join(groups));
         }
 
-        if (!Iterables.isEmpty(excludedGroups)) {
+        if (!excludedGroups.isEmpty()) {
             arguments.add(TEMPTO_EXCLUDE_GROUP_ARG, joiner.join(excludedGroups));
         }
 
@@ -106,7 +106,7 @@ public class SuiteTestRun
             arguments.add(TEMPTO_TEST_ARG, joiner.join(tests));
         }
 
-        if (!Iterables.isEmpty(excludedTests)) {
+        if (!excludedTests.isEmpty()) {
             arguments.add(TEMPTO_EXCLUDE_TEST_ARG, joiner.join(excludedTests));
         }
 

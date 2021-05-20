@@ -110,8 +110,8 @@ public class PushPredicateIntoTableScan
         TableScanNode tableScan = captures.get(TABLE_SCAN);
 
         Optional<PlanNode> rewritten = pushFilterIntoTableScan(
+                filterNode,
                 tableScan,
-                filterNode.getPredicate(),
                 false,
                 context.getSession(),
                 context.getSymbolAllocator().getTypes(),
@@ -150,8 +150,8 @@ public class PushPredicateIntoTableScan
     }
 
     public static Optional<PlanNode> pushFilterIntoTableScan(
+            FilterNode filterNode,
             TableScanNode node,
-            Expression predicate,
             boolean pruneWithPredicateExpression,
             Session session,
             TypeProvider types,
@@ -164,6 +164,8 @@ public class PushPredicateIntoTableScan
         if (!isAllowPushdownIntoConnectors(session)) {
             return Optional.empty();
         }
+
+        Expression predicate = filterNode.getPredicate();
 
         // don't include non-deterministic predicates
         Expression deterministicPredicate = filterDeterministicConjuncts(metadata, predicate);
@@ -218,7 +220,7 @@ public class PushPredicateIntoTableScan
                         decomposedPredicate.getRemainingExpression());
 
                 if (!TRUE_LITERAL.equals(resultingPredicate)) {
-                    return Optional.of(new FilterNode(idAllocator.getNextId(), node, resultingPredicate));
+                    return Optional.of(new FilterNode(filterNode.getId(), node, resultingPredicate));
                 }
 
                 return Optional.of(node);
@@ -283,7 +285,7 @@ public class PushPredicateIntoTableScan
                 decomposedPredicate.getRemainingExpression());
 
         if (!TRUE_LITERAL.equals(resultingPredicate)) {
-            return Optional.of(new FilterNode(idAllocator.getNextId(), tableScan, resultingPredicate));
+            return Optional.of(new FilterNode(filterNode.getId(), tableScan, resultingPredicate));
         }
 
         return Optional.of(tableScan);

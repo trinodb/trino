@@ -239,8 +239,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression("CAST(\"row\" AS ROW(f0 bigint,f1 varchar(25))).f0"),
-                                        "output_2", expression("CAST(\"row\" AS ROW(f0 bigint,f1 varchar(25))).f1")),
+                                        "output_1", expression("row[1]"),
+                                        "output_2", expression("row[2]")),
                                 project(
                                         ImmutableMap.of("row", expression("ROW(min, max)")),
                                         aggregation(
@@ -268,8 +268,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression("CAST(row AS ROW(f0 double,f1 double)).f0"),
-                                        "output_2", expression("CAST(row AS ROW(f0 double,f1 double)).f1")),
+                                        "output_1", expression("row[1]"),
+                                        "output_2", expression("row[2]")),
                                 project(
                                         ImmutableMap.of("row", expression("ROW(\"rand\", \"rand\")")),
                                         values(
@@ -280,8 +280,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression("CAST(r AS ROW(f0 double,f1 double)).f0"),
-                                        "output_2", expression("CAST(r AS ROW(f0 double,f1 double)).f1")),
+                                        "output_1", expression("r[1]"),
+                                        "output_2", expression("r[2]")),
                                 values(
                                         ImmutableList.of("r"),
                                         ImmutableList.of(ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))));
@@ -293,8 +293,8 @@ public class TestLogicalPlanner
                                 any(
                                         project(
                                                 ImmutableMap.of(
-                                                        "output_1", expression("CAST(row AS ROW(f0 double,f1 double)).f0"),
-                                                        "output_2", expression("CAST(row AS ROW(f0 double,f1 double)).f1")),
+                                                        "output_1", expression("row[1]"),
+                                                        "output_2", expression("row[2]")),
                                                 values(
                                                         ImmutableList.of("row"),
                                                         ImmutableList.of(

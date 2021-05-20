@@ -21,8 +21,8 @@ import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.DereferenceExpression;
-import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
@@ -46,7 +46,7 @@ public class TestPushLimitThroughProject
     @Test
     public void testPushdownLimitNonIdentityProjection()
     {
-        tester().assertThat(new PushLimitThroughProject())
+        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(1,
@@ -63,7 +63,7 @@ public class TestPushLimitThroughProject
     @Test
     public void testPushdownLimitWithTiesNNonIdentityProjection()
     {
-        tester().assertThat(new PushLimitThroughProject())
+        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -85,7 +85,7 @@ public class TestPushLimitThroughProject
     @Test
     public void testPushdownLimitWithTiesThroughProjectionWithExpression()
     {
-        tester().assertThat(new PushLimitThroughProject())
+        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -109,7 +109,7 @@ public class TestPushLimitThroughProject
     @Test
     public void testDoNotPushdownLimitWithTiesThroughProjectionWithExpression()
     {
-        tester().assertThat(new PushLimitThroughProject())
+        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -130,7 +130,7 @@ public class TestPushLimitThroughProject
     @Test
     public void testDoesntPushdownLimitThroughIdentityProjection()
     {
-        tester().assertThat(new PushLimitThroughProject())
+        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(1,
@@ -145,14 +145,14 @@ public class TestPushLimitThroughProject
     {
         RowType rowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));
 
-        tester().assertThat(new PushLimitThroughProject())
+        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a", rowType);
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new DereferenceExpression(a.toSymbolReference(), new Identifier("x")),
-                                            p.symbol("c"), new DereferenceExpression(a.toSymbolReference(), new Identifier("y"))),
+                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")),
+                                            p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("2"))),
                                     p.values(a)));
                 })
                 .doesNotFire();
@@ -163,19 +163,19 @@ public class TestPushLimitThroughProject
     {
         RowType rowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));
 
-        tester().assertThat(new PushLimitThroughProject())
+        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a", rowType);
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new DereferenceExpression(a.toSymbolReference(), new Identifier("x")),
+                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")),
                                             p.symbol("c", rowType), a.toSymbolReference()),
                                     p.values(a)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression("a.x"), "c", expression("a")),
+                                ImmutableMap.of("b", expression("a[1]"), "c", expression("a")),
                                 limit(1,
                                         values("a"))));
     }

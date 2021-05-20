@@ -45,10 +45,9 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
@@ -106,7 +105,7 @@ public class TestPushProjectionIntoTableScan
                     .on(p -> {
                         Symbol symbol = p.symbol(columnName, columnType);
                         return p.project(
-                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new DereferenceExpression(symbol.toSymbolReference(), new Identifier("a"))),
+                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new SubscriptExpression(symbol.toSymbolReference(), new LongLiteral("1"))),
                                 p.tableScan(TEST_TABLE_HANDLE, ImmutableList.of(symbol), ImmutableMap.of(symbol, inputColumnHandle)));
                     })
                     .withSession(MOCK_SESSION)
@@ -145,7 +144,7 @@ public class TestPushProjectionIntoTableScan
             // Prepare project node assignments
             ImmutableMap<Symbol, Expression> inputProjections = ImmutableMap.of(
                     identity, baseColumn.toSymbolReference(),
-                    dereference, new DereferenceExpression(baseColumn.toSymbolReference(), new Identifier("a")),
+                    dereference, new SubscriptExpression(baseColumn.toSymbolReference(), new LongLiteral("1")),
                     constant, new LongLiteral("5"));
 
             // Compute expected symbols after applyProjection

@@ -46,6 +46,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -997,34 +998,122 @@ public abstract class AbstractTestIcebergSmoke
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
     @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
-    public void testTruncateTransform()
+    public void testTruncateTextTransform()
     {
-        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_transform$partitions\"";
+        assertUpdate("CREATE TABLE test_truncate_text_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 2)'])");
+        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_text_transform$partitions\"";
 
-        assertUpdate("CREATE TABLE test_truncate_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 2)'])");
-
-        @Language("SQL") String insertSql = "INSERT INTO test_truncate_transform VALUES" +
+        assertUpdate("INSERT INTO test_truncate_text_transform VALUES" +
                 "('abcd', 1)," +
                 "('abxy', 2)," +
                 "('ab598', 3)," +
                 "('mommy', 4)," +
                 "('moscow', 5)," +
                 "('Greece', 6)," +
-                "('Grozny', 7)";
-        assertUpdate(insertSql, 7);
+                "('Grozny', 7)", 7);
 
-        assertQuery("SELECT COUNT(*) FROM \"test_truncate_transform$partitions\"", "SELECT 3");
+        assertQuery("SELECT d_trunc FROM \"test_truncate_text_transform$partitions\"", "VALUES 'ab', 'mo', 'Gr'");
 
-        assertQuery("SELECT b FROM test_truncate_transform WHERE substring(d, 1, 2) = 'ab'", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
-        assertQuery(select + " WHERE d_trunc = 'ab'", "VALUES('ab', 3, 'ab598', 'abxy', 1, 3)");
+        assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'ab'", "VALUES 1, 2, 3");
+        assertQuery(select + " WHERE d_trunc = 'ab'", "VALUES ('ab', 3, 'ab598', 'abxy', 1, 3)");
 
-        assertQuery("SELECT b FROM test_truncate_transform WHERE substring(d, 1, 2) = 'mo'", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
-        assertQuery(select + " WHERE d_trunc = 'mo'", "VALUES('mo', 2, 'mommy', 'moscow', 4, 5)");
+        assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'mo'", "VALUES 4, 5");
+        assertQuery(select + " WHERE d_trunc = 'mo'", "VALUES ('mo', 2, 'mommy', 'moscow', 4, 5)");
 
-        assertQuery("SELECT b FROM test_truncate_transform WHERE substring(d, 1, 2) = 'Gr'", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
-        assertQuery(select + " WHERE d_trunc = 'Gr'", "VALUES('Gr', 2, 'Greece', 'Grozny', 6, 7)");
+        assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'Gr'", "VALUES 6, 7");
+        assertQuery(select + " WHERE d_trunc = 'Gr'", "VALUES ('Gr', 2, 'Greece', 'Grozny', 6, 7)");
 
-        dropTable("test_truncate_transform");
+        dropTable("test_truncate_text_transform");
+    }
+
+    @Test(dataProvider = "truncateNumberTypesProvider")
+    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
+    public void testTruncateIntegerTransform(String dataType)
+    {
+        String table = format("test_truncate_%s_transform", dataType);
+        assertUpdate(format("CREATE TABLE " + table + " (d %s, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])", dataType));
+        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"" + table + "$partitions\"";
+
+        assertUpdate("INSERT INTO " + table + " VALUES" +
+                "(0, 1)," +
+                "(1, 2)," +
+                "(5, 3)," +
+                "(9, 4)," +
+                "(10, 5)," +
+                "(11, 6)," +
+                "(120, 7)," +
+                "(121, 8)," +
+                "(123, 9)," +
+                "(-1, 10)," +
+                "(-5, 11)," +
+                "(-10, 12)," +
+                "(-11, 13)," +
+                "(-123, 14)," +
+                "(-130, 15)", 15);
+
+        assertQuery("SELECT d_trunc FROM \"" + table + "$partitions\"", "VALUES 0, 10, 120, -10, -20, -130");
+
+        assertQuery("SELECT b FROM " + table + " WHERE d IN (0, 1, 5, 9)", "VALUES 1, 2, 3, 4");
+        assertQuery(select + " WHERE d_trunc = 0", "VALUES (0, 4, 0, 9, 1, 4)");
+
+        assertQuery("SELECT b FROM " + table + " WHERE d IN (10, 11)", "VALUES 5, 6");
+        assertQuery(select + " WHERE d_trunc = 10", "VALUES (10, 2, 10, 11, 5, 6)");
+
+        assertQuery("SELECT b FROM " + table + " WHERE d IN (120, 121, 123)", "VALUES 7, 8, 9");
+        assertQuery(select + " WHERE d_trunc = 120", "VALUES (120, 3, 120, 123, 7, 9)");
+
+        assertQuery("SELECT b FROM " + table + " WHERE d IN (-1, -5, -10)", "VALUES 10, 11, 12");
+        assertQuery(select + " WHERE d_trunc = -10", "VALUES (-10, 3, -10, -1, 10, 12)");
+
+        assertQuery("SELECT b FROM " + table + " WHERE d = -11", "VALUES 13");
+        assertQuery(select + " WHERE d_trunc = -20", "VALUES (-20, 1, -11, -11, 13, 13)");
+
+        assertQuery("SELECT b FROM " + table + " WHERE d IN (-123, -130)", "VALUES 14, 15");
+        assertQuery(select + " WHERE d_trunc = -130", "VALUES (-130, 2, -130, -123, 14, 15)");
+
+        dropTable(table);
+    }
+
+    @DataProvider
+    public Object[][] truncateNumberTypesProvider()
+    {
+        return new Object[][] {
+                {"integer"},
+                {"bigint"},
+        };
+    }
+
+    @Test
+    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
+    public void testTruncateDecimalTransform()
+    {
+        assertUpdate("CREATE TABLE test_truncate_decimal_transform (d DECIMAL(9, 2), b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])");
+        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_decimal_transform$partitions\"";
+
+        assertUpdate("INSERT INTO test_truncate_decimal_transform VALUES" +
+                "(12.34, 1)," +
+                "(12.30, 2)," +
+                "(12.29, 3)," +
+                "(0.05, 4)," +
+                "(-0.05, 5)", 5);
+
+        assertQuery("SELECT d_trunc FROM \"test_truncate_decimal_transform$partitions\"", "VALUES 12.30, 12.20, 0.00, -0.10");
+
+        assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d IN (12.34, 12.30)", "VALUES 1, 2");
+        assertQuery(select + " WHERE d_trunc = 12.30", "VALUES (12.30, 2, 12.30, 12.34, 1, 2)");
+
+        assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = 12.29", "VALUES 3");
+        assertQuery(select + " WHERE d_trunc = 12.20", "VALUES (12.20, 1, 12.29, 12.29, 3, 3)");
+
+        assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = 0.05", "VALUES 4");
+        assertQuery(select + " WHERE d_trunc = 0.00", "VALUES (0.00, 1, 0.05, 0.05, 4, 4)");
+
+        assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = -0.05", "VALUES 5");
+        assertQuery(select + " WHERE d_trunc = -0.10", "VALUES (-0.10, 1, -0.05, -0.05, 5, 5)");
+
+        dropTable("test_truncate_decimal_transform");
     }
 
     @Test

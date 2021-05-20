@@ -46,6 +46,7 @@ public class TrinoStatement
     private final AtomicBoolean escapeProcessing = new AtomicBoolean(true);
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
     private final AtomicReference<TrinoConnection> connection;
+    private final Consumer<TrinoStatement> onClose;
     private final AtomicReference<StatementClient> executingClient = new AtomicReference<>();
     private final AtomicReference<TrinoResultSet> currentResult = new AtomicReference<>();
     private final AtomicReference<Optional<WarningsManager>> currentWarningsManager = new AtomicReference<>(Optional.empty());
@@ -54,9 +55,10 @@ public class TrinoStatement
     private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
     private final Consumer<QueryStats> progressConsumer = value -> progressCallback.get().ifPresent(callback -> callback.accept(value));
 
-    TrinoStatement(TrinoConnection connection)
+    TrinoStatement(TrinoConnection connection, Consumer<TrinoStatement> onClose)
     {
         this.connection = new AtomicReference<>(requireNonNull(connection, "connection is null"));
+        this.onClose = requireNonNull(onClose, "onClose is null");
     }
 
     public void setProgressMonitor(Consumer<QueryStats> progressMonitor)
@@ -83,7 +85,18 @@ public class TrinoStatement
     public void close()
             throws SQLException
     {
-        connection.set(null);
+        TrinoConnection connection = this.connection.getAndSet(null);
+        if (connection == null) {
+            return;
+        }
+
+        onClose.accept(this);
+
+        StatementClient client = executingClient.get();
+        if (client != null) {
+            client.close();
+        }
+
         closeResultSet();
     }
 
