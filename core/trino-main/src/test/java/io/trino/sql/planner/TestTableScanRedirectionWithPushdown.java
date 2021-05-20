@@ -421,7 +421,7 @@ public class TestTableScanRedirectionWithPushdown
                             new CatalogSchemaTableName(MOCK_CATALOG, DESTINATION_TABLE),
                             redirectionMapping,
                             mockConnectorTable.getConstraint()
-                                    .transform(MockConnectorColumnHandle.class::cast)
+                                    .transformKeys(MockConnectorColumnHandle.class::cast)
                                     .transform(redirectionMapping::get)));
         };
     }

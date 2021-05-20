@@ -195,7 +195,7 @@ public class TestOrcPredicates
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(columnsToRead);
 
-        TupleDomain<HiveColumnHandle> predicate = effectivePredicate.transform(testColumn -> {
+        TupleDomain<HiveColumnHandle> predicate = effectivePredicate.transformKeys(testColumn -> {
             Optional<HiveColumnHandle> handle = columnHandles.stream()
                     .filter(column -> testColumn.getName().equals(column.getName()))
                     .findFirst();

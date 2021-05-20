@@ -148,7 +148,7 @@ public class ApplyTableScanRedirection
                 .addAll(scanNode.getOutputSymbols());
         Map<ColumnHandle, Symbol> inverseAssignments = ImmutableBiMap.copyOf(scanNode.getAssignments()).inverse();
         Map<String, ColumnHandle> inverseColumnsMapping = ImmutableBiMap.copyOf(columnMapping).inverse();
-        TupleDomain<Symbol> transformedConstraint = requiredFilter.transform(destinationColumn -> {
+        TupleDomain<Symbol> transformedConstraint = requiredFilter.transformKeys(destinationColumn -> {
             ColumnHandle sourceColumnHandle = inverseColumnsMapping.get(destinationColumn);
             if (sourceColumnHandle == null) {
                 throw new TrinoException(COLUMN_NOT_FOUND, format("Did not find mapping for destination column %s in table scan redirection", destinationColumn));
