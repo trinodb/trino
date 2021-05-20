@@ -79,7 +79,7 @@ public class TableStatisticsMaker
         }
 
         TupleDomain<IcebergColumnHandle> intersection = constraint.getSummary()
-                .transform(IcebergColumnHandle.class::cast)
+                .transformKeys(IcebergColumnHandle.class::cast)
                 .intersect(tableHandle.getEnforcedPredicate());
 
         if (intersection.isNone()) {
