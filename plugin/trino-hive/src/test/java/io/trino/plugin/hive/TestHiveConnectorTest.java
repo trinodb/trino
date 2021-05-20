@@ -132,6 +132,7 @@ import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.ABOVE;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
+import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
@@ -7651,6 +7652,14 @@ public class TestHiveConnectorTest
         }
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testExplainOfCreateTableAs()
+    {
+        String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
+        MaterializedResult result = computeActual("EXPLAIN " + query);
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, DISTRIBUTED));
     }
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
