@@ -79,6 +79,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.license.StarburstFeature.ORACLE_EXTENSIONS;
@@ -387,6 +388,10 @@ public class StarburstOracleClient
         if (!statisticsEnabled) {
             return TableStatistics.empty();
         }
+        if (!handle.isNamedRelation()) {
+            // TODO retrieve statistics for base table and derive statistics for the aggregation
+            return TableStatistics.empty();
+        }
         try {
             return readTableStatistics(session, handle);
         }
@@ -399,10 +404,7 @@ public class StarburstOracleClient
     private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
-        if (!table.isNamedRelation()) {
-            // TODO retrieve statistics for base table and derive statistics for the aggregation
-            return TableStatistics.empty();
-        }
+        checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
 
         try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
