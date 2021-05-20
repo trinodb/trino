@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.TimeZone;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
@@ -145,6 +146,7 @@ public class HiveConfig
     private boolean optimizeSymlinkListing = true;
 
     private boolean legacyHiveViewTranslation;
+    private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
 
     public int getMaxInitialSplits()
     {
@@ -212,6 +214,19 @@ public class HiveConfig
     public HiveConfig setDomainCompactionThreshold(int domainCompactionThreshold)
     {
         this.domainCompactionThreshold = domainCompactionThreshold;
+        return this;
+    }
+
+    public DataSize getTargetMaxFileSize()
+    {
+        return targetMaxFileSize;
+    }
+
+    @Config("hive.target-max-file-size")
+    @ConfigDescription("Target maximum size of written files; the actual size may be larger")
+    public HiveConfig setTargetMaxFileSize(DataSize targetMaxFileSize)
+    {
+        this.targetMaxFileSize = targetMaxFileSize;
         return this;
     }
 

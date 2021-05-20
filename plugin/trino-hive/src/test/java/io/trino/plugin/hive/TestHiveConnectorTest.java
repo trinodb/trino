@@ -20,6 +20,8 @@ import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
@@ -1651,6 +1653,41 @@ public class TestHiveConnectorTest
     {
         assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type(x time)", "\\QUnsupported Hive type: time(3)\\E");
         assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type AS SELECT TIME '00:00:00' x", "\\QUnsupported Hive type: time(0)\\E");
+    }
+
+    @Test
+    public void testTargetMaxFileSize()
+    {
+        @Language("SQL") String createTableSql = "CREATE TABLE test_max_file_size AS SELECT * FROM tpch.sf1.lineitem LIMIT 1000000";
+        @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\", \"$file_size\" FROM test_max_file_size";
+
+        // verify the default behavior is one file per node
+        Session session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "1")
+                .build();
+        assertUpdate(session, createTableSql, 1000000);
+        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(3);
+        assertUpdate("DROP TABLE test_max_file_size");
+
+        // Write table with small limit and verify we get multiple files per node near the expected size
+        // Writer writes chunks of rows that are about 40k
+        // We use TEXTFILE in this test because is has a very consistent and predictable size
+        DataSize maxSize = DataSize.of(40, Unit.KILOBYTE);
+        session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "1")
+                .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
+                .setCatalogSessionProperty("hive", "hive_storage_format", "TEXTFILE")
+                .build();
+
+        assertUpdate(session, createTableSql, 1000000);
+        MaterializedResult result = computeActual(selectFileInfo);
+        assertThat(result.getRowCount()).isGreaterThan(3);
+        for (MaterializedRow row : result) {
+            // allow up to a larger delta due to the very small max size and the relatively large writer chunk size
+            assertThat((Long) row.getField(1)).isLessThan(maxSize.toBytes() * 3);
+        }
+
+        assertUpdate("DROP TABLE test_max_file_size");
     }
 
     @Test
