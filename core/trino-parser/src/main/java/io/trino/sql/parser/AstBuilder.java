@@ -1883,6 +1883,64 @@ class AstBuilder
         return new Extract(getLocation(context), (Expression) visit(context.valueExpression()), field);
     }
 
+    /**
+     * Returns the corresponding {@link FunctionCall} for the `LISTAGG` primary expression.
+     *
+     * Although the syntax tree should represent the structure of the original parsed query
+     * as closely as possible and any semantic interpretation should be part of the
+     * analysis/planning phase, in case of `LISTAGG` aggregation function it is more pragmatic
+     * now to create a synthetic {@link FunctionCall} expression during the parsing of the syntax tree.
+     *
+     * @param context `LISTAGG` expression context
+     */
+    @Override
+    public Node visitListagg(SqlBaseParser.ListaggContext context)
+    {
+        Optional<Window> window = Optional.empty();
+        OrderBy orderBy = new OrderBy(visit(context.sortItem(), SortItem.class));
+        boolean distinct = isDistinct(context.setQuantifier());
+
+        Expression expression = (Expression) visit(context.expression());
+        StringLiteral separator = context.string() == null ? new StringLiteral(getLocation(context), "") : (StringLiteral) (visit(context.string()));
+        BooleanLiteral overflowError = new BooleanLiteral(getLocation(context), "true");
+        StringLiteral overflowTruncationFiller = new StringLiteral(getLocation(context), "...");
+        BooleanLiteral overflowTruncationCountIndication = new BooleanLiteral(getLocation(context), "false");
+
+        SqlBaseParser.ListAggOverflowBehaviorContext listAggOverflowBehaviorContext = context.listAggOverflowBehavior();
+        if (listAggOverflowBehaviorContext != null) {
+            if (listAggOverflowBehaviorContext.ERROR() != null) {
+                overflowError = new BooleanLiteral(getLocation(context), "true");
+            }
+            else if (listAggOverflowBehaviorContext.TRUNCATE() != null) {
+                overflowError = new BooleanLiteral(getLocation(context), "false");
+                if (listAggOverflowBehaviorContext.string() != null) {
+                    overflowTruncationFiller = (StringLiteral) (visit(listAggOverflowBehaviorContext.string()));
+                }
+                SqlBaseParser.ListaggCountIndicationContext listaggCountIndicationContext = listAggOverflowBehaviorContext.listaggCountIndication();
+                if (listaggCountIndicationContext.WITH() != null) {
+                    overflowTruncationCountIndication = new BooleanLiteral(getLocation(context), "true");
+                }
+                else if (listaggCountIndicationContext.WITHOUT() != null) {
+                    overflowTruncationCountIndication = new BooleanLiteral(getLocation(context), "false");
+                }
+            }
+        }
+
+        List<Expression> arguments = ImmutableList.of(expression, separator,
+                overflowError, overflowTruncationFiller, overflowTruncationCountIndication);
+
+        return new FunctionCall(
+                Optional.of(getLocation(context)),
+                QualifiedName.of("LISTAGG"),
+                window,
+                Optional.empty(),
+                Optional.of(orderBy),
+                distinct,
+                Optional.empty(),
+                Optional.empty(),
+                arguments);
+    }
+
     @Override
     public Node visitSubstring(SqlBaseParser.SubstringContext context)
     {
@@ -1977,6 +2035,10 @@ class AstBuilder
         SqlBaseParser.NullTreatmentContext nullTreatment = context.nullTreatment();
 
         SqlBaseParser.ProcessingModeContext processingMode = context.processingMode();
+
+        if (name.toString().equalsIgnoreCase("listagg")) {
+            throw parseError("incorrect syntax for 'listagg' function", context);
+        }
 
         if (name.toString().equalsIgnoreCase("if")) {
             check(context.expression().size() == 2 || context.expression().size() == 3, "Invalid number of arguments for 'if' function", context);

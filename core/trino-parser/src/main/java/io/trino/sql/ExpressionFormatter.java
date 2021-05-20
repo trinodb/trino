@@ -74,6 +74,7 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Rollup;
 import io.trino.sql.tree.Row;
@@ -380,6 +381,10 @@ public final class ExpressionFormatter
         @Override
         protected String visitFunctionCall(FunctionCall node, Void context)
         {
+            if (QualifiedName.of("LISTAGG").equals(node.getName())) {
+                return visitListagg(node);
+            }
+
             StringBuilder builder = new StringBuilder();
 
             if (node.getProcessingMode().isPresent()) {
@@ -787,6 +792,62 @@ public final class ExpressionFormatter
                     .map((e) -> process(e, null))
                     .iterator());
         }
+
+        /**
+         * Returns the formatted `LISTAGG` function call corresponding to the specified node.
+         *
+         * During the parsing of the syntax tree, the `LISTAGG` expression is synthetically converted
+         * to a function call. This method formats the specified {@link FunctionCall} node to correspond
+         * to the standardised syntax of the `LISTAGG` expression.
+         *
+         * @param node the `LISTAGG` function call
+         */
+        private String visitListagg(FunctionCall node)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            List<Expression> arguments = node.getArguments();
+            Expression expression = arguments.get(0);
+            Expression separator = arguments.get(1);
+            BooleanLiteral overflowError = (BooleanLiteral) arguments.get(2);
+            Expression overflowTruncationFiller = arguments.get(3);
+            BooleanLiteral overflowTruncationCountIndication = (BooleanLiteral) arguments.get(4);
+
+            String innerArguments = joinExpressions(ImmutableList.of(expression, separator));
+            if (node.isDistinct()) {
+                innerArguments = "DISTINCT " + innerArguments;
+            }
+
+            builder.append("LISTAGG")
+                    .append('(').append(innerArguments);
+
+            builder.append(" ON OVERFLOW ");
+            if (overflowError.getValue()) {
+                builder.append(" ERROR");
+            }
+            else {
+                builder.append(" TRUNCATE")
+                        .append(' ')
+                        .append(process(overflowTruncationFiller, null));
+                if (overflowTruncationCountIndication.getValue()) {
+                    builder.append(" WITH COUNT");
+                }
+                else {
+                    builder.append(" WITHOUT COUNT");
+                }
+            }
+
+            builder.append(')');
+
+            if (node.getOrderBy().isPresent()) {
+                builder.append(" WITHIN GROUP ")
+                        .append('(')
+                        .append(formatOrderBy(node.getOrderBy().get()))
+                        .append(')');
+            }
+
+            return builder.toString();
+        }
     }
 
     static String formatStringLiteral(String s)
@@ -845,6 +906,11 @@ public final class ExpressionFormatter
 
     static String formatWindowSpecification(WindowSpecification windowSpecification)
     {
+        return formatWindowSpecification(windowSpecification, true);
+    }
+
+    private static String formatWindowSpecification(WindowSpecification windowSpecification, boolean includeOrderBy)
+    {
         List<String> parts = new ArrayList<>();
 
         if (windowSpecification.getExistingWindowName().isPresent()) {
@@ -855,7 +921,7 @@ public final class ExpressionFormatter
                     .map(ExpressionFormatter::formatExpression)
                     .collect(joining(", ")));
         }
-        if (windowSpecification.getOrderBy().isPresent()) {
+        if (includeOrderBy && windowSpecification.getOrderBy().isPresent()) {
             parts.add(formatOrderBy(windowSpecification.getOrderBy().get()));
         }
         if (windowSpecification.getFrame().isPresent()) {
