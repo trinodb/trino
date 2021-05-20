@@ -76,7 +76,7 @@ import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -941,55 +941,63 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitLogicalBinaryExpression(LogicalBinaryExpression node, Object context)
+        protected Object visitLogicalExpression(LogicalExpression node, Object context)
         {
-            Object left = processWithExceptionHandling(node.getLeft(), context);
-            Object right;
+            List<Object> terms = new ArrayList<>();
+            List<Type> types = new ArrayList<>();
 
-            switch (node.getOperator()) {
-                case AND: {
-                    if (Boolean.FALSE.equals(left)) {
-                        return false;
-                    }
+            for (Expression term : node.getTerms()) {
+                Object processed = processWithExceptionHandling(term, context);
 
-                    right = processWithExceptionHandling(node.getRight(), context);
+                switch (node.getOperator()) {
+                    case AND:
+                        if (Boolean.FALSE.equals(processed)) {
+                            return false;
+                        }
 
-                    if (Boolean.FALSE.equals(left) || Boolean.TRUE.equals(right)) {
-                        return left;
-                    }
+                        if (!Boolean.TRUE.equals(processed)) {
+                            terms.add(processed);
+                            types.add(type(term));
+                        }
 
-                    if (Boolean.FALSE.equals(right) || Boolean.TRUE.equals(left)) {
-                        return right;
-                    }
-                    break;
+                        break;
+                    case OR:
+                        if (Boolean.TRUE.equals(processed)) {
+                            return true;
+                        }
+
+                        if (!Boolean.FALSE.equals(processed)) {
+                            terms.add(processed);
+                            types.add(type(term));
+                        }
+                        break;
                 }
-                case OR: {
-                    if (Boolean.TRUE.equals(left)) {
-                        return true;
-                    }
-
-                    right = processWithExceptionHandling(node.getRight(), context);
-
-                    if (Boolean.TRUE.equals(left) || Boolean.FALSE.equals(right)) {
-                        return left;
-                    }
-
-                    if (Boolean.TRUE.equals(right) || Boolean.FALSE.equals(left)) {
-                        return right;
-                    }
-                    break;
-                }
-                default:
-                    throw new IllegalStateException("Unknown LogicalBinaryExpression#Type");
             }
 
-            if (left == null && right == null) {
+            if (terms.isEmpty()) {
+                switch (node.getOperator()) {
+                    case AND:
+                        // terms are true
+                        return true;
+                    case OR:
+                        // all terms are false
+                        return false;
+                }
+            }
+
+            if (terms.size() == 1) {
+                return terms.get(0);
+            }
+
+            if (terms.stream().allMatch(Objects::isNull)) {
                 return null;
             }
 
-            return new LogicalBinaryExpression(node.getOperator(),
-                    toExpression(left, type(node.getLeft())),
-                    toExpression(right, type(node.getRight())));
+            ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
+            for (int i = 0; i < terms.size(); i++) {
+                expressions.add(toExpression(terms.get(i), types.get(i)));
+            }
+            return new LogicalExpression(node.getOperator(), expressions.build());
         }
 
         @Override

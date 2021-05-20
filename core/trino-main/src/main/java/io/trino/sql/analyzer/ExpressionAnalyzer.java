@@ -97,7 +97,7 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
@@ -681,10 +681,11 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitLogicalBinaryExpression(LogicalBinaryExpression node, StackableAstVisitorContext<Context> context)
+        protected Type visitLogicalExpression(LogicalExpression node, StackableAstVisitorContext<Context> context)
         {
-            coerceType(context, node.getLeft(), BOOLEAN, "Left side of logical expression");
-            coerceType(context, node.getRight(), BOOLEAN, "Right side of logical expression");
+            for (Expression term : node.getTerms()) {
+                coerceType(context, term, BOOLEAN, "Logical expression term");
+            }
 
             return setExpressionType(node, BOOLEAN);
         }

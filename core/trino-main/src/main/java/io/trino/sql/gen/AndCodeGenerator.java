@@ -21,23 +21,25 @@ import io.airlift.bytecode.instruction.LabelNode;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 
+import java.util.List;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AndCodeGenerator
         implements BytecodeGenerator
 {
-    private final RowExpression left;
-    private final RowExpression right;
+    private final List<RowExpression> terms;
 
     public AndCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
 
-        checkArgument(specialForm.getArguments().size() == 2);
-        left = specialForm.getArguments().get(0);
-        right = specialForm.getArguments().get(1);
+        checkArgument(specialForm.getArguments().size() >= 2);
+
+        terms = specialForm.getArguments();
     }
 
     @Override
@@ -48,59 +50,41 @@ public class AndCodeGenerator
                 .comment("AND")
                 .setDescription("AND");
 
-        block.append(generator.generate(left));
-
-        IfStatement ifLeftIsNull = new IfStatement("if left wasNull...")
-                .condition(wasNull);
+        block.push(false); // keep track of whether we've seen a null so far
 
         LabelNode end = new LabelNode("end");
-        ifLeftIsNull.ifTrue()
-                .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
+        LabelNode returnFalse = new LabelNode("returnFalse");
+        for (int i = 0; i < terms.size(); i++) {
+            RowExpression term = terms.get(i);
+            block.append(generator.generate(term));
+
+            IfStatement ifWasNull = new IfStatement(format("if term %s wasNull...", i))
+                    .condition(wasNull);
+
+            ifWasNull.ifTrue()
+                    .comment("clear the null flag, pop residual value off stack, and push was null flag on the stack (true)")
+                    .pop(term.getType().getJavaType()) // discard residual value
+                    .pop(boolean.class) // discard the previous "we've seen a null flag"
+                    .push(true);
+
+            ifWasNull.ifFalse()
+                    .comment("if term is false, short circuit and return false")
+                    .ifFalseGoto(returnFalse);
+
+            block.append(ifWasNull)
+                    .append(wasNull.set(constantFalse())); // prepare for the next loop
+        }
+
+        block.putVariable(wasNull)
+                .push(true) // result is true
+                .gotoLabel(end);
+
+        block.visitLabel(returnFalse)
                 .append(wasNull.set(constantFalse()))
-                .pop(left.getType().getJavaType()) // discard left value
-                .push(true);
+                .pop(boolean.class) // discard the previous "we've seen a null flag"
+                .push(false); // result is false
 
-        LabelNode leftIsTrue = new LabelNode("leftIsTrue");
-        ifLeftIsNull.ifFalse()
-                .comment("if left is false, push false, and goto end")
-                .ifTrueGoto(leftIsTrue)
-                .push(false)
-                .gotoLabel(end)
-                .comment("left was true; push left null flag on the stack (false)")
-                .visitLabel(leftIsTrue)
-                .push(false);
-
-        block.append(ifLeftIsNull);
-
-        // At this point we know the left expression was either NULL or TRUE.  The stack contains a single boolean
-        // value for this expression which indicates if the left value was NULL.
-
-        // eval right!
-        block.append(generator.generate(right));
-
-        IfStatement ifRightIsNull = new IfStatement("if right wasNull...");
-        ifRightIsNull.condition()
-                .append(wasNull);
-
-        // this leaves a single boolean on the stack which is ignored since the value in NULL
-        ifRightIsNull.ifTrue()
-                .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
-                .pop(right.getType().getJavaType());
-
-        LabelNode rightIsTrue = new LabelNode("rightIsTrue");
-        ifRightIsNull.ifFalse()
-                .comment("if right is false, pop left null flag off stack, push false and goto end")
-                .ifTrueGoto(rightIsTrue)
-                .pop(boolean.class)
-                .push(false)
-                .gotoLabel(end)
-                .comment("right was true; store left null flag (on stack) in wasNull variable, and push true")
-                .visitLabel(rightIsTrue)
-                .putVariable(wasNull)
-                .push(true);
-
-        block.append(ifRightIsNull)
-                .visitLabel(end);
+        block.visitLabel(end);
 
         return block;
     }
