@@ -117,7 +117,7 @@ public class RemoveRedundantTableScanPredicate
                 types);
 
         TupleDomain<ColumnHandle> predicateDomain = decomposedPredicate.getTupleDomain()
-                .transform(node.getAssignments()::get);
+                .transformKeys(node.getAssignments()::get);
 
         if (predicateDomain.isNone()) {
             // TODO: DomainTranslator.fromPredicate can infer that the expression is "false" in some cases (TupleDomain.none()).
@@ -143,7 +143,7 @@ public class RemoveRedundantTableScanPredicate
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
         Expression resultingPredicate = createResultingPredicate(
                 metadata,
-                domainTranslator.toPredicate(unenforcedDomain.transform(assignments::get)),
+                domainTranslator.toPredicate(unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());
 

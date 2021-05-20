@@ -52,7 +52,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -241,11 +240,7 @@ public class PushJoinIntoTableScan
         if (nullable) {
             constraint = constraint.transformDomains((columnHandle, domain) -> domain.union(onlyNull(domain.getType())));
         }
-        return constraint.transform(handle -> {
-            ColumnHandle newHandle = columnMapping.get(handle);
-            checkArgument(newHandle != null, "Mapping not found for handle %s", handle);
-            return newHandle;
-        });
+        return constraint.transformKeys(columnMapping::get);
     }
 
     public Expression getEffectiveFilter(JoinNode node)
