@@ -23,7 +23,7 @@ import io.trino.sql.tree.ComparisonExpression.Operator;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 
@@ -65,8 +65,8 @@ public final class PushDownNegationsExpressionRewriter
         @Override
         public Expression rewriteNotExpression(NotExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (node.getValue() instanceof LogicalBinaryExpression) {
-                LogicalBinaryExpression child = (LogicalBinaryExpression) node.getValue();
+            if (node.getValue() instanceof LogicalExpression) {
+                LogicalExpression child = (LogicalExpression) node.getValue();
                 List<Expression> predicates = extractPredicates(child);
                 List<Expression> negatedPredicates = predicates.stream().map(predicate -> treeRewriter.rewrite((Expression) new NotExpression(predicate), context)).collect(toImmutableList());
                 return combinePredicates(metadata, child.getOperator().flip(), negatedPredicates);

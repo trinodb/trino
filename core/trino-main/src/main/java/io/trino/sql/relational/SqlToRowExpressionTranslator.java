@@ -56,7 +56,7 @@ import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -410,7 +410,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        protected RowExpression visitLogicalExpression(LogicalExpression node, Void context)
         {
             Form form;
             switch (node.getOperator()) {
@@ -426,8 +426,9 @@ public final class SqlToRowExpressionTranslator
             return new SpecialForm(
                     form,
                     BOOLEAN,
-                    process(node.getLeft(), context),
-                    process(node.getRight(), context));
+                    node.getTerms().stream()
+                            .map(term -> process(term, context))
+                            .collect(toImmutableList()));
         }
 
         @Override

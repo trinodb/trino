@@ -25,7 +25,7 @@ import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -40,8 +40,8 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.sql.ExpressionUtils.binaryExpression;
 import static io.trino.sql.ExpressionUtils.extractPredicates;
+import static io.trino.sql.ExpressionUtils.logicalExpression;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
@@ -118,6 +118,15 @@ public class TestSimplifyExpressions
                         " OR (A31 AND A32) OR (A33 AND A34) OR (A35 AND A36) OR (A37 AND A38) OR (A39 AND A40)" +
                         " OR (A41 AND A42) OR (A43 AND A44) OR (A45 AND A46) OR (A47 AND A48) OR (A49 AND A50)" +
                         " OR (A51 AND A52) OR (A53 AND A54) OR (A55 AND A56) OR (A57 AND A58) OR (A59 AND A60)");
+    }
+
+    @Test
+    public void testMultipleNulls()
+    {
+        assertSimplifies("null AND null AND null AND false", "false");
+        assertSimplifies("null AND null AND null AND B1", "null AND B1");
+        assertSimplifies("null OR null OR null OR true", "true");
+        assertSimplifies("null OR null OR null OR B1", "null OR B1");
     }
 
     private static void assertSimplifies(String expression, String expected)
@@ -230,13 +239,13 @@ public class TestSimplifyExpressions
             extends ExpressionRewriter<Void>
     {
         @Override
-        public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteLogicalExpression(LogicalExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             List<Expression> predicates = extractPredicates(node.getOperator(), node).stream()
                     .map(p -> treeRewriter.rewrite(p, context))
                     .sorted(Comparator.comparing(Expression::toString))
                     .collect(toList());
-            return binaryExpression(node.getOperator(), predicates);
+            return logicalExpression(node.getOperator(), predicates);
         }
     }
 }

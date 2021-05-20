@@ -116,7 +116,7 @@ import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Limit;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
@@ -235,9 +235,13 @@ import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -1406,13 +1410,56 @@ class AstBuilder
     }
 
     @Override
-    public Node visitLogicalBinary(SqlBaseParser.LogicalBinaryContext context)
+    public Node visitOr(SqlBaseParser.OrContext context)
     {
-        return new LogicalBinaryExpression(
-                getLocation(context.operator),
-                getLogicalBinaryOperator(context.operator),
-                (Expression) visit(context.left),
-                (Expression) visit(context.right));
+        List<ParserRuleContext> terms = flatten(context, element -> {
+            if (element instanceof SqlBaseParser.OrContext) {
+                SqlBaseParser.OrContext or = (SqlBaseParser.OrContext) element;
+                return Optional.of(or.booleanExpression());
+            }
+
+            return Optional.empty();
+        });
+
+        return new LogicalExpression(getLocation(context), LogicalExpression.Operator.OR, visit(terms, Expression.class));
+    }
+
+    @Override
+    public Node visitAnd(SqlBaseParser.AndContext context)
+    {
+        List<ParserRuleContext> terms = flatten(context, element -> {
+            if (element instanceof SqlBaseParser.AndContext) {
+                SqlBaseParser.AndContext and = (SqlBaseParser.AndContext) element;
+                return Optional.of(and.booleanExpression());
+            }
+
+            return Optional.empty();
+        });
+
+        return new LogicalExpression(getLocation(context), LogicalExpression.Operator.AND, visit(terms, Expression.class));
+    }
+
+    private static List<ParserRuleContext> flatten(ParserRuleContext root, Function<ParserRuleContext, Optional<List<? extends ParserRuleContext>>> extractChildren)
+    {
+        List<ParserRuleContext> result = new ArrayList<>();
+        Deque<ParserRuleContext> pending = new ArrayDeque<>();
+        pending.push(root);
+
+        while (!pending.isEmpty()) {
+            ParserRuleContext next = pending.pop();
+
+            Optional<List<? extends ParserRuleContext>> children = extractChildren.apply(next);
+            if (!children.isPresent()) {
+                result.add(next);
+            }
+            else {
+                for (int i = children.get().size() - 1; i >= 0; i--) {
+                    pending.push(children.get().get(i));
+                }
+            }
+        }
+
+        return result;
     }
 
     // *************** from clause *****************
@@ -2998,18 +3045,6 @@ class AstBuilder
         }
 
         throw new IllegalArgumentException("Unsupported sampling method: " + token.getText());
-    }
-
-    private static LogicalBinaryExpression.Operator getLogicalBinaryOperator(Token token)
-    {
-        switch (token.getType()) {
-            case SqlBaseLexer.AND:
-                return LogicalBinaryExpression.Operator.AND;
-            case SqlBaseLexer.OR:
-                return LogicalBinaryExpression.Operator.OR;
-        }
-
-        throw new IllegalArgumentException("Unsupported operator: " + token.getText());
     }
 
     private static SortItem.NullOrdering getNullOrderingType(Token token)

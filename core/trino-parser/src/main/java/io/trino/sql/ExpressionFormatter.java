@@ -65,7 +65,7 @@ import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NotExpression;
@@ -106,6 +106,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -465,9 +466,13 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        protected String visitLogicalExpression(LogicalExpression node, Void context)
         {
-            return formatBinaryExpression(node.getOperator().toString(), node.getLeft(), node.getRight());
+            return "(" +
+                    node.getTerms().stream()
+                            .map(term -> process(term, context))
+                            .collect(Collectors.joining(" " + node.getOperator().toString() + " ")) +
+                    ")";
         }
 
         @Override
