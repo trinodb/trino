@@ -40,7 +40,7 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -49,6 +49,8 @@ import io.trino.sql.tree.SymbolReference;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -170,69 +172,76 @@ public class FilterStatsCalculator
         }
 
         @Override
-        protected PlanNodeStatsEstimate visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        protected PlanNodeStatsEstimate visitLogicalExpression(LogicalExpression node, Void context)
         {
             switch (node.getOperator()) {
                 case AND:
-                    return estimateLogicalAnd(node.getLeft(), node.getRight());
+                    return estimateLogicalAnd(node.getTerms());
                 case OR:
-                    return estimateLogicalOr(node.getLeft(), node.getRight());
+                    return estimateLogicalOr(node.getTerms());
             }
             throw new IllegalArgumentException("Unexpected binary operator: " + node.getOperator());
         }
 
-        private PlanNodeStatsEstimate estimateLogicalAnd(Expression left, Expression right)
+        private PlanNodeStatsEstimate estimateLogicalAnd(List<Expression> terms)
         {
             // first try to estimate in the fair way
-            PlanNodeStatsEstimate leftEstimate = process(left);
-            if (!leftEstimate.isOutputRowCountUnknown()) {
-                PlanNodeStatsEstimate logicalAndEstimate = new FilterExpressionStatsCalculatingVisitor(leftEstimate, session, types).process(right);
-                if (!logicalAndEstimate.isOutputRowCountUnknown()) {
-                    return logicalAndEstimate;
+            PlanNodeStatsEstimate estimate = process(terms.get(0));
+            if (!estimate.isOutputRowCountUnknown()) {
+                for (int i = 1; i < terms.size(); i++) {
+                    estimate = new FilterExpressionStatsCalculatingVisitor(estimate, session, types).process(terms.get(i));
+
+                    if (estimate.isOutputRowCountUnknown()) {
+                        break;
+                    }
+                }
+
+                if (!estimate.isOutputRowCountUnknown()) {
+                    return estimate;
                 }
             }
 
             // If some of the filters cannot be estimated, take the smallest estimate.
             // Apply 0.9 filter factor as "unknown filter" factor.
-            PlanNodeStatsEstimate rightEstimate = process(right);
-            PlanNodeStatsEstimate smallestKnownEstimate;
-            if (leftEstimate.isOutputRowCountUnknown()) {
-                smallestKnownEstimate = rightEstimate;
-            }
-            else if (rightEstimate.isOutputRowCountUnknown()) {
-                smallestKnownEstimate = leftEstimate;
-            }
-            else {
-                smallestKnownEstimate = leftEstimate.getOutputRowCount() <= rightEstimate.getOutputRowCount() ? leftEstimate : rightEstimate;
-            }
-            if (smallestKnownEstimate.isOutputRowCountUnknown()) {
+            Optional<PlanNodeStatsEstimate> smallest = terms.stream()
+                    .map(this::process)
+                    .filter(termEstimate -> !termEstimate.isOutputRowCountUnknown())
+                    .sorted(Comparator.comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
+                    .findFirst();
+
+            if (smallest.isEmpty()) {
                 return PlanNodeStatsEstimate.unknown();
             }
-            return smallestKnownEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT);
+
+            return smallest.get().mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT);
         }
 
-        private PlanNodeStatsEstimate estimateLogicalOr(Expression left, Expression right)
+        private PlanNodeStatsEstimate estimateLogicalOr(List<Expression> terms)
         {
-            PlanNodeStatsEstimate leftEstimate = process(left);
-            if (leftEstimate.isOutputRowCountUnknown()) {
+            PlanNodeStatsEstimate previous = process(terms.get(0));
+            if (previous.isOutputRowCountUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            PlanNodeStatsEstimate rightEstimate = process(right);
-            if (rightEstimate.isOutputRowCountUnknown()) {
-                return PlanNodeStatsEstimate.unknown();
+            for (int i = 1; i < terms.size(); i++) {
+                PlanNodeStatsEstimate current = process(terms.get(i));
+                if (current.isOutputRowCountUnknown()) {
+                    return PlanNodeStatsEstimate.unknown();
+                }
+
+                PlanNodeStatsEstimate andEstimate = new FilterExpressionStatsCalculatingVisitor(previous, session, types).process(terms.get(i));
+                if (andEstimate.isOutputRowCountUnknown()) {
+                    return PlanNodeStatsEstimate.unknown();
+                }
+
+                previous = capStats(
+                        subtractSubsetStats(
+                                addStatsAndSumDistinctValues(previous, current),
+                                andEstimate),
+                        input);
             }
 
-            PlanNodeStatsEstimate andEstimate = new FilterExpressionStatsCalculatingVisitor(leftEstimate, session, types).process(right);
-            if (andEstimate.isOutputRowCountUnknown()) {
-                return PlanNodeStatsEstimate.unknown();
-            }
-
-            return capStats(
-                    subtractSubsetStats(
-                            addStatsAndSumDistinctValues(leftEstimate, rightEstimate),
-                            andEstimate),
-                    input);
+            return previous;
         }
 
         @Override

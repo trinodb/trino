@@ -383,10 +383,10 @@ expression
     ;
 
 booleanExpression
-    : valueExpression predicate[$valueExpression.ctx]?             #predicated
-    | NOT booleanExpression                                        #logicalNot
-    | left=booleanExpression operator=AND right=booleanExpression  #logicalBinary
-    | left=booleanExpression operator=OR right=booleanExpression   #logicalBinary
+    : valueExpression predicate[$valueExpression.ctx]?  #predicated
+    | NOT booleanExpression                             #logicalNot
+    | booleanExpression AND booleanExpression           #and
+    | booleanExpression OR booleanExpression            #or
     ;
 
 // workaround for https://github.com/antlr/antlr4/issues/780

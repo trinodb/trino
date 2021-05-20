@@ -19,9 +19,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class LogicalBinaryExpression
+public class LogicalExpression
         extends Expression
 {
     public enum Operator
@@ -41,29 +42,26 @@ public class LogicalBinaryExpression
     }
 
     private final Operator operator;
-    private final Expression left;
-    private final Expression right;
+    private final List<Expression> terms;
 
-    public LogicalBinaryExpression(Operator operator, Expression left, Expression right)
+    public LogicalExpression(Operator operator, List<Expression> terms)
     {
-        this(Optional.empty(), operator, left, right);
+        this(Optional.empty(), operator, terms);
     }
 
-    public LogicalBinaryExpression(NodeLocation location, Operator operator, Expression left, Expression right)
+    public LogicalExpression(NodeLocation location, Operator operator, List<Expression> terms)
     {
-        this(Optional.of(location), operator, left, right);
+        this(Optional.of(location), operator, terms);
     }
 
-    private LogicalBinaryExpression(Optional<NodeLocation> location, Operator operator, Expression left, Expression right)
+    private LogicalExpression(Optional<NodeLocation> location, Operator operator, List<Expression> terms)
     {
         super(location);
         requireNonNull(operator, "operator is null");
-        requireNonNull(left, "left is null");
-        requireNonNull(right, "right is null");
+        checkArgument(terms.size() >= 2, "Expected at least 2 terms");
 
         this.operator = operator;
-        this.left = left;
-        this.right = right;
+        this.terms = ImmutableList.copyOf(terms);
     }
 
     public Operator getOperator()
@@ -71,36 +69,31 @@ public class LogicalBinaryExpression
         return operator;
     }
 
-    public Expression getLeft()
+    public List<Expression> getTerms()
     {
-        return left;
-    }
-
-    public Expression getRight()
-    {
-        return right;
+        return terms;
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitLogicalBinaryExpression(this, context);
+        return visitor.visitLogicalExpression(this, context);
     }
 
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(left, right);
+        return ImmutableList.copyOf(terms);
     }
 
-    public static LogicalBinaryExpression and(Expression left, Expression right)
+    public static LogicalExpression and(Expression left, Expression right)
     {
-        return new LogicalBinaryExpression(Optional.empty(), Operator.AND, left, right);
+        return new LogicalExpression(Optional.empty(), Operator.AND, ImmutableList.of(left, right));
     }
 
-    public static LogicalBinaryExpression or(Expression left, Expression right)
+    public static LogicalExpression or(Expression left, Expression right)
     {
-        return new LogicalBinaryExpression(Optional.empty(), Operator.OR, left, right);
+        return new LogicalExpression(Optional.empty(), Operator.OR, ImmutableList.of(left, right));
     }
 
     @Override
@@ -112,17 +105,14 @@ public class LogicalBinaryExpression
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
-        LogicalBinaryExpression that = (LogicalBinaryExpression) o;
-        return operator == that.operator &&
-                Objects.equals(left, that.left) &&
-                Objects.equals(right, that.right);
+        LogicalExpression that = (LogicalExpression) o;
+        return operator == that.operator && Objects.equals(terms, that.terms);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(operator, left, right);
+        return Objects.hash(operator, terms);
     }
 
     @Override
@@ -132,6 +122,6 @@ public class LogicalBinaryExpression
             return false;
         }
 
-        return operator == ((LogicalBinaryExpression) other).operator;
+        return operator == ((LogicalExpression) other).operator;
     }
 }

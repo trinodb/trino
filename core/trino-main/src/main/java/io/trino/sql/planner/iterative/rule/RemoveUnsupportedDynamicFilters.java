@@ -40,7 +40,7 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.TypeCoercion;
@@ -355,26 +355,21 @@ public class RemoveUnsupportedDynamicFilters
             return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
             {
                 @Override
-                public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                public Expression rewriteLogicalExpression(LogicalExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
                 {
-                    LogicalBinaryExpression rewrittenNode = treeRewriter.defaultRewrite(node, context);
+                    LogicalExpression rewrittenNode = treeRewriter.defaultRewrite(node, context);
 
                     boolean modified = (node != rewrittenNode);
                     ImmutableList.Builder<Expression> expressionBuilder = ImmutableList.builder();
-                    if (isDynamicFilter(rewrittenNode.getLeft())) {
-                        expressionBuilder.add(TRUE_LITERAL);
-                        modified = true;
-                    }
-                    else {
-                        expressionBuilder.add(rewrittenNode.getLeft());
-                    }
 
-                    if (isDynamicFilter(rewrittenNode.getRight())) {
-                        expressionBuilder.add(TRUE_LITERAL);
-                        modified = true;
-                    }
-                    else {
-                        expressionBuilder.add(rewrittenNode.getRight());
+                    for (Expression term : rewrittenNode.getTerms()) {
+                        if (isDynamicFilter(term)) {
+                            expressionBuilder.add(TRUE_LITERAL);
+                            modified = true;
+                        }
+                        else {
+                            expressionBuilder.add(term);
+                        }
                     }
 
                     if (!modified) {
