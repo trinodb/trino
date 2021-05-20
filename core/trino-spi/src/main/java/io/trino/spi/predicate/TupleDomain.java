@@ -440,7 +440,7 @@ public final class TupleDomain<T>
 
     /**
      * @deprecated This method is deprecated because it drops part of the {@link TupleDomain} information
-     * when mapping function inadvertenly returns null. Use {@link #filter(BiPredicate)} or {@link #transformDomains(BiFunction)}
+     * when mapping function inadvertenly returns null. Use {@link #filter(BiPredicate)} or {@link #transformKeys(Function)}
      * instead.
      */
     @Deprecated
