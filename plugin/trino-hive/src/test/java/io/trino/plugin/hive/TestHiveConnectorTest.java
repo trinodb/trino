@@ -48,16 +48,18 @@ import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedRange;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.TableColumnInfo;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -141,10 +143,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -164,15 +162,14 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertFile;
 
-public class TestHiveIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+public class TestHiveConnectorTest
+        extends BaseConnectorTest
 {
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS");
     private final String catalog;
     private final Session bucketedSession;
 
-    public TestHiveIntegrationSmokeTest()
+    public TestHiveConnectorTest()
     {
         this.catalog = HIVE_CATALOG;
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
@@ -187,7 +184,7 @@ public class TestHiveIntegrationSmokeTest
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
                         "hive.writer-sort-buffer-size", "1MB"))
-                .setInitialTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
         // extra catalog with NANOSECOND timestamp precision
@@ -196,6 +193,23 @@ public class TestHiveIntegrationSmokeTest
                 "hive",
                 ImmutableMap.of("hive.timestamp-precision", "NANOSECONDS"));
         return queryRunner;
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Override
+    public void testDelete()
+    {
+        throw new SkipException("Hive connector supports row-by-row delete only for ACID tables but these currently cannot be used with file metastore.");
     }
 
     @Test
@@ -2478,6 +2492,7 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testInsert()
     {
         testWithAllStorageFormats(this::testInsert);
@@ -2762,6 +2777,7 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testInsertUnicode()
     {
         testWithAllStorageFormats(this::testInsertUnicode);
@@ -3601,72 +3617,6 @@ public class TestHiveIntegrationSmokeTest
         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
     }
 
-    @Test
-    public void testCommentTable()
-    {
-        String createTableSql = format("" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'RCBINARY'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                "test_comment_table");
-
-        assertUpdate(createTableSql);
-        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_comment_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
-
-        assertUpdate("COMMENT ON TABLE test_comment_table IS 'new comment'");
-        String commentedCreateTableSql = format("" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint\n" +
-                        ")\n" +
-                        "COMMENT 'new comment'\n" +
-                        "WITH (\n" +
-                        "   format = 'RCBINARY'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                "test_comment_table");
-        actualResult = computeActual("SHOW CREATE TABLE test_comment_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), commentedCreateTableSql);
-
-        assertUpdate("COMMENT ON TABLE test_comment_table IS 'updated comment'");
-        commentedCreateTableSql = format("" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint\n" +
-                        ")\n" +
-                        "COMMENT 'updated comment'\n" +
-                        "WITH (\n" +
-                        "   format = 'RCBINARY'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                "test_comment_table");
-        actualResult = computeActual("SHOW CREATE TABLE test_comment_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), commentedCreateTableSql);
-
-        assertUpdate("COMMENT ON TABLE test_comment_table IS ''");
-        commentedCreateTableSql = format("" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint\n" +
-                        ")\n" +
-                        "COMMENT ''\n" +
-                        "WITH (\n" +
-                        "   format = 'RCBINARY'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                "test_comment_table");
-        actualResult = computeActual("SHOW CREATE TABLE test_comment_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), commentedCreateTableSql);
-
-        assertUpdate("DROP TABLE test_comment_table");
-    }
-
     private void testCreateTableWithHeaderAndFooter(String format)
     {
         String name = format.toLowerCase(ENGLISH);
@@ -4215,19 +4165,12 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testAddColumn()
-    {
-        assertUpdate("CREATE TABLE test_add_column (a bigint COMMENT 'test comment AAA')");
-        assertUpdate("ALTER TABLE test_add_column ADD COLUMN b bigint COMMENT 'test comment BBB'");
-        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN a varchar", ".* Column 'a' already exists");
-        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bad_type", ".* Unknown type 'bad_type' for column 'c'");
-        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA'), ('b', 'bigint', '', 'test comment BBB')");
-        assertUpdate("DROP TABLE test_add_column");
-    }
-
-    @Test
+    @Override
     public void testRenameColumn()
     {
+        super.testRenameColumn();
+
+        // Additional tests for hive partition columns invariants
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_rename_column\n" +
                 "WITH (\n" +
@@ -4246,8 +4189,12 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    @Override
     public void testDropColumn()
     {
+        super.testDropColumn();
+
+        // Additional tests for hive partition columns invariants
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_drop_column\n" +
                 "WITH (\n" +
@@ -7352,6 +7299,25 @@ public class TestHiveIntegrationSmokeTest
         testWithStorageFormat(new TestingHiveStorageFormat(session, HiveStorageFormat.PARQUET), this::testColumnPruning);
     }
 
+    @Override
+    public void testColumnName(String columnName)
+    {
+        if (columnName.equals("atrailingspace ") || columnName.equals(" aleadingspace")) {
+            // TODO (https://github.com/trinodb/trino/issues/3461)
+            assertThatThrownBy(() -> super.testColumnName(columnName))
+                    .hasMessageMatching("Table '.*' does not have columns \\[" + columnName + "]");
+            throw new SkipException("works incorrectly, column name is trimmed");
+        }
+        if (columnName.equals("a,comma")) {
+            // TODO (https://github.com/trinodb/trino/issues/3537)
+            assertThatThrownBy(() -> super.testColumnName(columnName))
+                    .hasMessageMatching("Table '.*' does not have columns \\[a,comma]");
+            throw new SkipException("works incorrectly");
+        }
+
+        super.testColumnName(columnName);
+    }
+
     private void testColumnPruning(Session session, HiveStorageFormat storageFormat)
     {
         String tableName = "test_schema_evolution_column_pruning_" + storageFormat.name().toLowerCase(ENGLISH);
@@ -7898,6 +7864,24 @@ public class TestHiveIntegrationSmokeTest
                 {HiveTimestampPrecision.MILLISECONDS},
                 {HiveTimestampPrecision.MICROSECONDS},
                 {HiveTimestampPrecision.NANOSECONDS}};
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("time")
+                || typeName.equals("timestamp(3) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Hive connector does not support column default values");
     }
 
     private Session withTimestampPrecision(Session session, HiveTimestampPrecision precision)
