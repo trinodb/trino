@@ -383,7 +383,6 @@ ALTER TABLE trino_test_types_rctext ADD COLUMNS (new_column INT);
 ALTER TABLE trino_test_types_rcbinary ADD COLUMNS (new_column INT);
 ALTER TABLE trino_test_types_orc ADD COLUMNS (new_column INT);
 ALTER TABLE trino_test_types_parquet ADD COLUMNS (new_column INT);
-ALTER TABLE trino_test_types_csv ADD COLUMNS (new_column INT);
 
 CREATE TABLE table_csv_export_data
 ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
