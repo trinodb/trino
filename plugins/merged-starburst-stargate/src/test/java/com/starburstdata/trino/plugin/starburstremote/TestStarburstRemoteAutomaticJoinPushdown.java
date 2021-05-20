@@ -9,13 +9,12 @@
  */
 package com.starburstdata.trino.plugin.starburstremote;
 
-import com.google.common.base.Strings;
 import com.starburstdata.presto.plugin.jdbc.joinpushdown.BaseAutomaticJoinPushdownTest;
 import io.trino.Session;
 import io.trino.plugin.postgresql.TestingPostgreSqlServer;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.SqlExecutor;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.SkipException;
@@ -104,13 +103,8 @@ public class TestStarburstRemoteAutomaticJoinPushdown
     }
 
     @Override
-    protected TestTable joinTestTable(String name, long rowsCount, int keyDistinctValues, int paddingSize)
+    protected SqlExecutor tableCreator()
     {
-        String padding = Strings.repeat("x", paddingSize);
-
-        return new TestTable(
-                sql -> remoteStarburst.execute(remoteSession, sql),
-                name,
-                format("(key, padding) AS SELECT mod(orderkey, %s), '%s' FROM tpch.sf100.orders LIMIT %s", keyDistinctValues, padding, rowsCount));
+        return sql -> remoteStarburst.execute(remoteSession, sql);
     }
 }
