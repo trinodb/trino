@@ -1120,6 +1120,18 @@ public class ExpressionAnalyzer
 
             List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
 
+            if (QualifiedName.of("LISTAGG").equals(node.getName())) {
+                // Due to fact that the LISTAGG function is transformed out of pragmatic reasons
+                // in a synthetic function call, the type expression of this function call is evaluated
+                // explicitly here in order to make sure that it is a varchar.
+                List<Expression> arguments = node.getArguments();
+                Expression expression = arguments.get(0);
+                Type expressionType = process(expression, context);
+                if (!(expressionType instanceof VarcharType)) {
+                    throw semanticException(TYPE_MISMATCH, node, format("Expected expression of varchar, but '%s' has %s type", expression, expressionType.getDisplayName()));
+                }
+            }
+
             ResolvedFunction function;
             try {
                 function = metadata.resolveFunction(node.getName(), argumentTypes);

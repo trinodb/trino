@@ -158,7 +158,9 @@ public abstract class AbstractGroupCollectionAggregationState<T>
         short currentBlockId = headBlockIndex.get(getGroupId());
         int currentPosition = headPosition.get(getGroupId());
         while (currentBlockId != NULL) {
-            accept(consumer, values.get(currentBlockId), currentPosition);
+            if (!accept(consumer, values.get(currentBlockId), currentPosition)) {
+                break;
+            }
 
             long absoluteCurrentAddress = toAbsolutePosition(currentBlockId, currentPosition);
             currentBlockId = nextBlockIndex.get(absoluteCurrentAddress);
@@ -181,5 +183,5 @@ public abstract class AbstractGroupCollectionAggregationState<T>
         return sumPositions.get(blockId) + position;
     }
 
-    protected abstract void accept(T consumer, PageBuilder pageBuilder, int currentPosition);
+    protected abstract boolean accept(T consumer, PageBuilder pageBuilder, int currentPosition);
 }

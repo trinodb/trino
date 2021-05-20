@@ -255,6 +255,7 @@ L
 - :func:`levenshtein_distance`
 - :func:`line_interpolate_point`
 - :func:`line_interpolate_points`
+- :func:`listagg`
 - :func:`ln`
 - :data:`localtime`
 - :data:`localtimestamp`

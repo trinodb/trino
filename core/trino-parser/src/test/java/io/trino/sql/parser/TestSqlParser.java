@@ -3423,6 +3423,112 @@ public class TestSqlParser
                         Optional.empty()));
     }
 
+    @Test
+    public void testListagg()
+    {
+        assertExpression("LISTAGG(x) WITHIN GROUP (ORDER BY x)",
+                new FunctionCall(
+                        Optional.empty(),
+                        QualifiedName.of("LISTAGG"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x", false), ASCENDING, UNDEFINED)))),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                identifier("x"),
+                                new StringLiteral(""),
+                                new BooleanLiteral("true"),
+                                new StringLiteral("..."),
+                                new BooleanLiteral("false"))));
+
+        assertExpression("LISTAGG( DISTINCT x) WITHIN GROUP (ORDER BY x)",
+                new FunctionCall(
+                        Optional.empty(),
+                        QualifiedName.of("LISTAGG"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x", false), ASCENDING, UNDEFINED)))),
+                        true,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                identifier("x"),
+                                new StringLiteral(""),
+                                new BooleanLiteral("true"),
+                                new StringLiteral("..."),
+                                new BooleanLiteral("false"))));
+
+        assertExpression("LISTAGG(x, ',') WITHIN GROUP (ORDER BY y)",
+                new FunctionCall(
+                        Optional.empty(),
+                        QualifiedName.of("LISTAGG"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("y", false), ASCENDING, UNDEFINED)))),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                identifier("x"),
+                                new StringLiteral(","),
+                                new BooleanLiteral("true"),
+                                new StringLiteral("..."),
+                                new BooleanLiteral("false"))));
+
+        assertExpression("LISTAGG(x, ',' ON OVERFLOW ERROR) WITHIN GROUP (ORDER BY x)",
+                new FunctionCall(
+                        Optional.empty(),
+                        QualifiedName.of("LISTAGG"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x", false), ASCENDING, UNDEFINED)))),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                identifier("x"),
+                                new StringLiteral(","),
+                                new BooleanLiteral("true"),
+                                new StringLiteral("..."),
+                                new BooleanLiteral("false"))));
+
+        assertExpression("LISTAGG(x, ',' ON OVERFLOW TRUNCATE WITH COUNT) WITHIN GROUP (ORDER BY x)",
+                new FunctionCall(
+                        Optional.empty(),
+                        QualifiedName.of("LISTAGG"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x", false), ASCENDING, UNDEFINED)))),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                identifier("x"),
+                                new StringLiteral(","),
+                                new BooleanLiteral("false"),
+                                new StringLiteral("..."),
+                                new BooleanLiteral("true"))));
+
+        assertExpression("LISTAGG(x, ',' ON OVERFLOW TRUNCATE 'HIDDEN' WITHOUT COUNT) WITHIN GROUP (ORDER BY x)",
+                new FunctionCall(
+                        Optional.empty(),
+                        QualifiedName.of("LISTAGG"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x", false), ASCENDING, UNDEFINED)))),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                identifier("x"),
+                                new StringLiteral(","),
+                                new BooleanLiteral("false"),
+                                new StringLiteral("HIDDEN"),
+                                new BooleanLiteral("false"))));
+    }
+
     private static QualifiedName makeQualifiedName(String tableName)
     {
         List<Identifier> parts = Splitter.on('.').splitToList(tableName).stream()
