@@ -32,13 +32,13 @@ class UnimplementedHiveMetastore
         implements HiveMetastore
 {
     @Override
-    public Optional<Database> getDatabase(String databaseName)
+    public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<String> getAllDatabases()
+    public List<String> getAllDatabases(HiveIdentity identity)
     {
         throw new UnsupportedOperationException();
     }
@@ -80,19 +80,19 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
         throw new UnsupportedOperationException();
     }

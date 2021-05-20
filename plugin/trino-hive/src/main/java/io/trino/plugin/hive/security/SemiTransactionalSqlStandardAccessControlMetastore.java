@@ -59,6 +59,6 @@ public class SemiTransactionalSqlStandardAccessControlMetastore
     public Optional<Database> getDatabase(ConnectorSecurityContext context, String databaseName)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
-        return metastore.getDatabase(databaseName);
+        return metastore.getDatabase(new HiveIdentity(context.getIdentity()), databaseName);
     }
 }

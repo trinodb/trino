@@ -197,7 +197,7 @@ public class FileHiveMetastore
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database cannot be created with a location set");
         }
 
-        verifyDatabaseNotExists(database.getDatabaseName());
+        verifyDatabaseNotExists(identity, database.getDatabaseName());
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
         writeSchemaFile("database", databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, database), false);
@@ -208,8 +208,8 @@ public class FileHiveMetastore
     {
         requireNonNull(databaseName, "databaseName is null");
 
-        getRequiredDatabase(databaseName);
-        if (!getAllTables(databaseName).isEmpty()) {
+        getRequiredDatabase(identity, databaseName);
+        if (!getAllTables(identity, databaseName).isEmpty()) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
@@ -222,8 +222,8 @@ public class FileHiveMetastore
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(newDatabaseName, "newDatabaseName is null");
 
-        getRequiredDatabase(databaseName);
-        verifyDatabaseNotExists(newDatabaseName);
+        getRequiredDatabase(identity, databaseName);
+        verifyDatabaseNotExists(identity, newDatabaseName);
 
         try {
             if (!metadataFileSystem.rename(getDatabaseMetadataDirectory(databaseName), getDatabaseMetadataDirectory(newDatabaseName))) {
@@ -238,7 +238,7 @@ public class FileHiveMetastore
     @Override
     public synchronized void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
     {
-        Database database = getRequiredDatabase(databaseName);
+        Database database = getRequiredDatabase(identity, databaseName);
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
         Database newDatabase = Database.builder(database)
                 .setOwnerName(principal.getName())
@@ -249,7 +249,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Optional<Database> getDatabase(String databaseName)
+    public synchronized Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
         requireNonNull(databaseName, "databaseName is null");
 
@@ -261,21 +261,21 @@ public class FileHiveMetastore
                 });
     }
 
-    private Database getRequiredDatabase(String databaseName)
+    private Database getRequiredDatabase(HiveIdentity identity, String databaseName)
     {
-        return getDatabase(databaseName)
+        return getDatabase(identity, databaseName)
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName));
     }
 
-    private void verifyDatabaseNotExists(String databaseName)
+    private void verifyDatabaseNotExists(HiveIdentity identity, String databaseName)
     {
-        if (getDatabase(databaseName).isPresent()) {
+        if (getDatabase(identity, databaseName).isPresent()) {
             throw new SchemaAlreadyExistsException(databaseName);
         }
     }
 
     @Override
-    public synchronized List<String> getAllDatabases()
+    public synchronized List<String> getAllDatabases(HiveIdentity identity)
     {
         List<String> databases = getChildSchemaDirectories(catalogDirectory).stream()
                 .map(Path::getName)
@@ -450,22 +450,22 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getAllTables(String databaseName)
+    public synchronized List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
-        return listAllTables(databaseName).stream()
+        return listAllTables(identity, databaseName).stream()
                 .filter(hideDeltaLakeTables
-                        ? Predicate.not(ImmutableSet.copyOf(getTablesWithParameter(databaseName, SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER))::contains)
+                        ? Predicate.not(ImmutableSet.copyOf(getTablesWithParameter(identity, databaseName, SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER))::contains)
                         : tableName -> true)
                 .collect(toImmutableList());
     }
 
     @Override
-    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public synchronized List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
         requireNonNull(parameterKey, "parameterKey is null");
         requireNonNull(parameterValue, "parameterValue is null");
 
-        List<String> tables = listAllTables(databaseName);
+        List<String> tables = listAllTables(identity, databaseName);
 
         return tables.stream()
                 .map(tableName -> getTable(databaseName, tableName))
@@ -477,11 +477,11 @@ public class FileHiveMetastore
     }
 
     @GuardedBy("this")
-    private List<String> listAllTables(String databaseName)
+    private List<String> listAllTables(HiveIdentity identity, String databaseName)
     {
         requireNonNull(databaseName, "databaseName is null");
 
-        Optional<Database> database = getDatabase(databaseName);
+        Optional<Database> database = getDatabase(identity, databaseName);
         if (database.isEmpty()) {
             return ImmutableList.of();
         }
@@ -494,9 +494,9 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getAllViews(String databaseName)
+    public synchronized List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
-        return getAllTables(databaseName).stream()
+        return getAllTables(identity, databaseName).stream()
                 .map(tableName -> getTable(databaseName, tableName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -557,7 +557,7 @@ public class FileHiveMetastore
         requireNonNull(newTableName, "newTableName is null");
 
         Table table = getRequiredTable(databaseName, tableName);
-        getRequiredDatabase(newDatabaseName);
+        getRequiredDatabase(identity, newDatabaseName);
 
         if (isIcebergTable(table.getParameters())) {
             throw new TrinoException(NOT_SUPPORTED, "Rename not supported for Iceberg tables");

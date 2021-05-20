@@ -204,13 +204,13 @@ public class IcebergMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases();
+        return metastore.getAllDatabases(new HiveIdentity(session));
     }
 
     @Override
     public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        Optional<Database> db = metastore.getDatabase(schemaName.getSchemaName());
+        Optional<Database> db = metastore.getDatabase(new HiveIdentity(session), schemaName.getSchemaName());
         if (db.isPresent()) {
             return HiveSchemaProperties.fromDatabase(db.get());
         }
@@ -221,7 +221,7 @@ public class IcebergMetadata
     @Override
     public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        Optional<Database> database = metastore.getDatabase(schemaName.getSchemaName());
+        Optional<Database> database = metastore.getDatabase(new HiveIdentity(session), schemaName.getSchemaName());
         if (database.isPresent()) {
             return database.flatMap(db -> Optional.of(new TrinoPrincipal(db.getOwnerType(), db.getOwnerName())));
         }
@@ -388,24 +388,25 @@ public class IcebergMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
+        HiveIdentity identity = new HiveIdentity(session);
         ImmutableList.Builder<SchemaTableName> tablesListBuilder = ImmutableList.builder();
         schemaName.map(Collections::singletonList)
-                .orElseGet(metastore::getAllDatabases)
+                .orElseGet(() -> metastore.getAllDatabases(identity))
                 .stream()
                 .flatMap(schema -> Stream.concat(
                         // Get tables with parameter table_type set to  "ICEBERG" or "iceberg". This is required because
                         // Trino uses lowercase value whereas Spark and Flink use uppercase.
                         // TODO: use one metastore call to pass both the filters: https://github.com/trinodb/trino/issues/7710
-                        metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toLowerCase(Locale.ENGLISH)).stream()
+                        metastore.getTablesWithParameter(new HiveIdentity(session), schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toLowerCase(Locale.ENGLISH)).stream()
                                 .map(table -> new SchemaTableName(schema, table)),
-                        metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(Locale.ENGLISH)).stream()
+                        metastore.getTablesWithParameter(new HiveIdentity(session), schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(Locale.ENGLISH)).stream()
                                 .map(table -> new SchemaTableName(schema, table)))
                         .distinct())  // distinct() to avoid duplicates for case-insensitive HMS backends
                 .forEach(tablesListBuilder::add);
 
         schemaName.map(Collections::singletonList)
-                .orElseGet(metastore::getAllDatabases).stream()
-                .flatMap(schema -> metastore.getAllViews(schema).stream()
+                .orElseGet(() -> metastore.getAllDatabases(identity)).stream()
+                .flatMap(schema -> metastore.getAllViews(identity, schema).stream()
                         .map(table -> new SchemaTableName(schema, table)))
                 .forEach(tablesListBuilder::add);
         return tablesListBuilder.build();
@@ -531,7 +532,7 @@ public class IcebergMetadata
 
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
 
-        Database database = metastore.getDatabase(schemaName)
+        Database database = metastore.getDatabase(new HiveIdentity(session), schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
         HdfsContext hdfsContext = new HdfsContext(session);

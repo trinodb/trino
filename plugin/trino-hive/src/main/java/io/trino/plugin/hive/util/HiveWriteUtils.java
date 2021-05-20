@@ -22,6 +22,7 @@ import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveReadOnlyException;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.avro.AvroRecordWriter;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.Partition;
@@ -434,7 +435,7 @@ public final class HiveWriteUtils
 
     public static Path getTableDefaultLocation(HdfsContext context, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
-        Database database = metastore.getDatabase(schemaName)
+        Database database = metastore.getDatabase(new HiveIdentity(context.getIdentity()), schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
         return getTableDefaultLocation(database, context, hdfsEnvironment, schemaName, tableName);

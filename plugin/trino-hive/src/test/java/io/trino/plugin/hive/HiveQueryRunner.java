@@ -200,12 +200,12 @@ public final class HiveQueryRunner
         private void populateData(DistributedQueryRunner queryRunner, HiveMetastore metastore)
         {
             HiveIdentity identity = new HiveIdentity(SESSION);
-            if (metastore.getDatabase(TPCH_SCHEMA).isEmpty()) {
+            if (metastore.getDatabase(identity, TPCH_SCHEMA).isEmpty()) {
                 metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA));
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), initialTables);
             }
 
-            if (metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
+            if (metastore.getDatabase(identity, TPCH_BUCKETED_SCHEMA).isEmpty()) {
                 metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
                 copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), initialTables);
             }

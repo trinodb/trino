@@ -79,13 +79,13 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Optional<Database> getDatabase(String databaseName)
+    public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
         return delegate.getDatabase(databaseName).map(ThriftMetastoreUtil::fromMetastoreApiDatabase);
     }
 
     @Override
-    public List<String> getAllDatabases()
+    public List<String> getAllDatabases(HiveIdentity identity)
     {
         return delegate.getAllDatabases();
     }
@@ -140,19 +140,19 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
         return delegate.getAllTables(databaseName);
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
         return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
         return delegate.getAllViews(databaseName);
     }

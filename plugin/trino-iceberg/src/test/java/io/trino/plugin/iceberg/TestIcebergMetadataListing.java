@@ -23,6 +23,7 @@ import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
@@ -88,7 +89,7 @@ public class TestIcebergMetadataListing
         assertQuerySucceeds("CREATE TABLE iceberg.test_schema.iceberg_table1 (_string VARCHAR, _integer INTEGER)");
         assertQuerySucceeds("CREATE TABLE iceberg.test_schema.iceberg_table2 (_double DOUBLE) WITH (partitioning = ARRAY['_double'])");
         assertQuerySucceeds("CREATE TABLE hive.test_schema.hive_table (_double DOUBLE)");
-        assertEquals(ImmutableSet.copyOf(metastore.getAllTables("test_schema")), ImmutableSet.of("iceberg_table1", "iceberg_table2", "hive_table"));
+        assertEquals(ImmutableSet.copyOf(metastore.getAllTables(HiveIdentity.none(), "test_schema")), ImmutableSet.of("iceberg_table1", "iceberg_table2", "hive_table"));
     }
 
     @AfterClass(alwaysRun = true)

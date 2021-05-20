@@ -369,7 +369,7 @@ public class HiveMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases().stream()
+        return metastore.getAllDatabases(new HiveIdentity(session)).stream()
                 .filter(HiveMetadata::filterSchema)
                 .collect(toImmutableList());
     }
@@ -698,7 +698,7 @@ public class HiveMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(session, optionalSchemaName)) {
-            for (String tableName : metastore.getAllTables(schemaName)) {
+            for (String tableName : metastore.getAllTables(new HiveIdentity(session), schemaName)) {
                 tableNames.add(new SchemaTableName(schemaName, tableName));
             }
         }
@@ -1973,7 +1973,7 @@ public class HiveMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(session, optionalSchemaName)) {
-            for (String tableName : metastore.getAllViews(schemaName)) {
+            for (String tableName : metastore.getAllViews(new HiveIdentity(session), schemaName)) {
                 tableNames.add(new SchemaTableName(schemaName, tableName));
             }
         }
@@ -1985,7 +1985,7 @@ public class HiveMetadata
     {
         checkState(filterSchema(schemaName.getSchemaName()), "Schema is not accessible: %s", schemaName);
 
-        Optional<Database> db = metastore.getDatabase(schemaName.getSchemaName());
+        Optional<Database> db = metastore.getDatabase(new HiveIdentity(session), schemaName.getSchemaName());
         if (db.isPresent()) {
             return HiveSchemaProperties.fromDatabase(db.get());
         }
@@ -1998,7 +1998,7 @@ public class HiveMetadata
     {
         checkState(filterSchema(schemaName.getSchemaName()), "Schema is not accessible: %s", schemaName);
 
-        Optional<Database> database = metastore.getDatabase(schemaName.getSchemaName());
+        Optional<Database> database = metastore.getDatabase(new HiveIdentity(session), schemaName.getSchemaName());
         if (database.isPresent()) {
             return database.flatMap(db -> Optional.of(new TrinoPrincipal(db.getOwnerType(), db.getOwnerName())));
         }

@@ -55,14 +55,14 @@ public class HiveMetastoreClosure
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
-    public Optional<Database> getDatabase(String databaseName)
+    public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
-        return delegate.getDatabase(databaseName);
+        return delegate.getDatabase(identity, databaseName);
     }
 
-    public List<String> getAllDatabases()
+    public List<String> getAllDatabases(HiveIdentity identity)
     {
-        return delegate.getAllDatabases();
+        return delegate.getAllDatabases(identity);
     }
 
     private Table getExistingTable(HiveIdentity identity, String databaseName, String tableName)
@@ -104,19 +104,19 @@ public class HiveMetastoreClosure
         delegate.updatePartitionStatistics(identity, table, partitionName, update);
     }
 
-    public List<String> getAllTables(String databaseName)
+    public List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getAllTables(identity, databaseName);
     }
 
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
-        return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
+        return delegate.getTablesWithParameter(identity, databaseName, parameterKey, parameterValue);
     }
 
-    public List<String> getAllViews(String databaseName)
+    public List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getAllViews(identity, databaseName);
     }
 
     public void createDatabase(HiveIdentity identity, Database database)
