@@ -223,21 +223,6 @@ public class SnowflakeClient
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
-    {
-        if (!statisticsEnabled) {
-            return TableStatistics.empty();
-        }
-        try {
-            return readTableStatistics(session, handle);
-        }
-        catch (SQLException | RuntimeException e) {
-            throwIfInstanceOf(e, TrinoException.class);
-            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
-        }
-    }
-
-    @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
         return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
@@ -462,6 +447,21 @@ public class SnowflakeClient
     private static long toPrestoTime(Time sqlTime)
     {
         return PICOSECONDS_PER_MILLISECOND * sqlTime.getTime();
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
     }
 
     private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
