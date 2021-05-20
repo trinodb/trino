@@ -29,6 +29,7 @@ import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.benchmark.FileFormat;
+import io.trino.plugin.hive.benchmark.StandardFileFormats;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.write.MapKeyValuesSchemaConverter;
@@ -566,7 +567,7 @@ public class ParquetTester
 
     private static FileFormat getFileFormat()
     {
-        return OPTIMIZED ? FileFormat.TRINO_PARQUET : FileFormat.HIVE_PARQUET;
+        return OPTIMIZED ? StandardFileFormats.TRINO_PARQUET : StandardFileFormats.HIVE_PARQUET;
     }
 
     public static void writeParquetColumn(

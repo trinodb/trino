@@ -21,12 +21,12 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 
 import static io.trino.plugin.hive.HiveCompressionCodec.SNAPPY;
+import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.HIVE_RCBINARY;
+import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.TRINO_ORC;
+import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.TRINO_RCBINARY;
 import static io.trino.plugin.hive.benchmark.BenchmarkHiveFileFormat.DataSet.LARGE_MAP_VARCHAR_DOUBLE;
 import static io.trino.plugin.hive.benchmark.BenchmarkHiveFileFormat.DataSet.LINEITEM;
 import static io.trino.plugin.hive.benchmark.BenchmarkHiveFileFormat.DataSet.MAP_VARCHAR_DOUBLE;
-import static io.trino.plugin.hive.benchmark.FileFormat.HIVE_RCBINARY;
-import static io.trino.plugin.hive.benchmark.FileFormat.TRINO_ORC;
-import static io.trino.plugin.hive.benchmark.FileFormat.TRINO_RCBINARY;
 
 public class TestHiveFileFormatBenchmark
 {
@@ -63,7 +63,7 @@ public class TestHiveFileFormatBenchmark
         }
     }
 
-    private static void executeBenchmark(DataSet dataSet, HiveCompressionCodec codec, FileFormat format)
+    private static void executeBenchmark(DataSet dataSet, HiveCompressionCodec codec, BenchmarkFileFormat format)
             throws IOException
     {
         BenchmarkHiveFileFormat benchmark = new BenchmarkHiveFileFormat(dataSet, codec, format);

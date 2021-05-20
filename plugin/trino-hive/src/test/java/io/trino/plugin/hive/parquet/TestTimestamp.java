@@ -18,7 +18,7 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.benchmark.FileFormat;
+import io.trino.plugin.hive.benchmark.StandardFileFormats;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -80,7 +80,7 @@ public class TestTimestamp
                     false);
 
             Iterator<SqlTimestamp> expectedValues = timestamps.build().iterator();
-            try (ConnectorPageSource pageSource = FileFormat.TRINO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, tempFile.getFile(), columnNames, ImmutableList.of(TIMESTAMP_MILLIS))) {
+            try (ConnectorPageSource pageSource = StandardFileFormats.TRINO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, tempFile.getFile(), columnNames, ImmutableList.of(TIMESTAMP_MILLIS))) {
                 // skip a page to exercise the decoder's skip() logic
                 Page firstPage = pageSource.getNextPage();
 

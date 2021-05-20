@@ -114,8 +114,9 @@ public class BenchmarkHiveFileFormat
             "HIVE_RCTEXT",
             "HIVE_ORC",
             "HIVE_PARQUET"})
-    private FileFormat fileFormat;
+    private BenchmarkFileFormat benchmarkFileFormat;
 
+    private FileFormat fileFormat;
     private TestData data;
     private File dataFile;
 
@@ -125,17 +126,18 @@ public class BenchmarkHiveFileFormat
     {
     }
 
-    public BenchmarkHiveFileFormat(DataSet dataSet, HiveCompressionCodec compression, FileFormat fileFormat)
+    public BenchmarkHiveFileFormat(DataSet dataSet, HiveCompressionCodec compression, BenchmarkFileFormat fileFormat)
     {
         this.dataSet = dataSet;
         this.compression = compression;
-        this.fileFormat = fileFormat;
+        this.benchmarkFileFormat = fileFormat;
     }
 
     @Setup
     public void setup()
             throws IOException
     {
+        fileFormat = benchmarkFileFormat.getFormat();
         data = dataSet.createTestData(fileFormat);
 
         targetDir.mkdirs();
