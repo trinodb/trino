@@ -8,12 +8,11 @@ The ``mongodb`` connector allows the use of `MongoDB <https://www.mongodb.com/>`
 Requirements
 ------------
 
-Requirements for using the connector in a catalog to connect to a MongoDB
-data source are:
+To connect to a MongoDB data source, you need:
 
-* MongoDB 3.4 or higher
-* Network access, by default on port 27017, from the Trino coordinator and
-  workers to MongoDB.
+* MongoDB 3.4 or higher. 
+* Network access from the Trino coordinator and workers to MongoDB. 
+  Port 27017 is the default port and is used in the code examples.
 
 Configuration
 -------------

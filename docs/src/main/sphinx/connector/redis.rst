@@ -14,12 +14,11 @@ queried from Trino.
 Requirements
 ------------
 
-Requirements for using the connector in a catalog to connect to a Redis data
-source are:
+To connect to a Redis data source, you need:
 
-* Redis 2.8.0 or higher
-* Network access, by default on port 6379, from the Trino coordinator and
-  workers to Redis.
+* Redis 2.8.0 or higher. 
+* Network access from the Trino coordinator and workers to Redis. 
+  Port 6379 is the default port and is used in the code examples.
 
 Configuration
 -------------

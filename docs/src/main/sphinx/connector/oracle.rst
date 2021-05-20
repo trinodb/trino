@@ -9,12 +9,11 @@ like Oracle and Hive, or different Oracle database instances.
 Requirements
 ------------
 
-Requirements for using the connector in a catalog to connect to a Oracle data
-source are:
+To connect to an Oracle data source, you need:
 
-* Oracle 12 or higher
-* Network access, by default on port 1521, from the Trino coordinator and
-  workers to Oracle.
+* Oracle 12 or higher. 
+* Network access from the Trino coordinator and workers to Oracle. 
+  Port 1521 is the default port and is used in the code examples.
 
 Configuration
 -------------
@@ -275,8 +274,7 @@ to Trino ``TIMESTAMP``.
 Mapping character types
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino's ``VARCHAR(n)`` maps to ``VARCHAR2(n CHAR)`` if ``n`` is no greater than
-4000. A larger or unbounded ``VARCHAR`` maps to ``NCLOB``.
+Trino's ``VARCHAR(n)`` maps to ``VARCHAR2(n CHAR)`` if ``n`` is no greater than 4000. A larger or unbounded ``VARCHAR`` maps to ``NCLOB``.
 
 Trino's ``CHAR(n)`` maps to ``CHAR(n CHAR)`` if ``n`` is no greater than 2000.
 A larger ``CHAR`` maps to ``NCLOB``.

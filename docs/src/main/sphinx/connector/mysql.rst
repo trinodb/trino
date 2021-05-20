@@ -9,12 +9,11 @@ systems like MySQL and Hive, or between two different MySQL instances.
 Requirements
 ------------
 
-Requirements for using the connector in a catalog to connect to a MySQL data
-source are:
+To connect to a MySQL data source, you need:
 
-* MySQL 5.6, 5.7, 8.0 and higher
-* Network access, by default on port 3306, from the Trino coordinator and
-  workers to MySQL.
+* MySQL 5.7, 8.0 and higher. 
+* Network access from the Trino coordinator and workers to MySQL. 
+  Port 3306 is the default port and is used in the code examples.
 
 Configuration
 -------------

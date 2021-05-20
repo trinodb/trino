@@ -10,12 +10,11 @@ PostgreSQL instances.
 Requirements
 ------------
 
-Requirements for using the connector in a catalog to connect to a PostgreSQL
-data source are:
+To connect to a PostgreSQL data source, you need:
 
-* PostgreSQL 9.6 or higher
-* Network access, by default on port 5432, from the Trino coordinator and
-  workers to PostgreSQL.
+* PostgreSQL 9.6  or higher. 
+* Network access from the Trino coordinator and workers to PostgreSQL. 
+  Port 5432 is the default port and is used in the code examples.
 
 Configuration
 -------------
