@@ -54,7 +54,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -259,8 +258,7 @@ public final class CanonicalizeExpressionRewriter
         public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             String functionName = extractFunctionName(node.getName());
-            if (functionName.equals("date")) {
-                verify(node.getArguments().size() == 1);
+            if (functionName.equals("date") && node.getArguments().size() == 1) {
                 Expression argument = node.getArguments().get(0);
                 Type argumentType = expressionTypes.get(NodeRef.of(argument));
                 if (argumentType instanceof TimestampType
