@@ -597,7 +597,7 @@ public class PlanOptimizers
         // Perform redirection before push down of dereferences into table scan via PushProjectionIntoTableScan
         // Perform redirection after at least one PredicatePushDown and PushPredicateIntoTableScan to allow connector to use pushed down predicates in redirection decision
         // Perform redirection after at least table scan pruning rules because redirected table might have fewer columns
-        // PushPredicateIntoTableScan must be run after redirection
+        // PushPredicateIntoTableScan needs to be run again after redirection to ensure predicate push down into destination table scan
         // Column pruning rules need to be run after redirection
         builder.add(
                 new IterativeOptimizer(
