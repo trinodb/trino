@@ -153,7 +153,7 @@ public class HiveModule
     @Provides
     public Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> createMetastoreGetter(HiveTransactionManager transactionManager)
     {
-        return transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore();
+        return transactionHandle -> transactionManager.get(transactionHandle).getMetastore();
     }
 
     public static final class TypeDeserializer

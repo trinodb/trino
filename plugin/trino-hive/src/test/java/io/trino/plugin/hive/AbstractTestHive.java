@@ -844,7 +844,7 @@ public abstract class AbstractTestHive
                 SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
-                transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
+                transactionHandle -> transactionManager.get(transactionHandle).getMetastore(),
                 partitionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
@@ -972,7 +972,7 @@ public abstract class AbstractTestHive
         @Override
         public SemiTransactionalHiveMetastore getMetastore()
         {
-            return ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore();
+            return transactionManager.get(transactionHandle).getMetastore();
         }
 
         @Override
