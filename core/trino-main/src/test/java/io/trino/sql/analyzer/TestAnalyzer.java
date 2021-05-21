@@ -1345,6 +1345,46 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testWindowFrameWithPatternRecognition()
+    {
+        // in-line window specification
+        assertFails("SELECT rank() OVER (" +
+                "                           PARTITION BY x " +
+                "                           ORDER BY y " +
+                "                           MEASURES A.z AS last_z " +
+                "                           ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                           AFTER MATCH SKIP TO NEXT ROW " +
+                "                           SEEK " +
+                "                           PATTERN (A B C) " +
+                "                           SUBSET U = (A, B) " +
+                "                           DEFINE " +
+                "                               B AS false, " +
+                "                               C AS true " +
+                "                         ) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:128: Pattern recognition in window not yet supported");
+
+        // window clause
+        assertFails("SELECT rank() OVER w FROM (VALUES (1, 2, 3)) t(x, y, z) " +
+                "                       WINDOW w AS (" +
+                "                           PARTITION BY x " +
+                "                           ORDER BY y " +
+                "                           MEASURES A.z AS last_z " +
+                "                           ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                           AFTER MATCH SKIP TO NEXT ROW " +
+                "                           SEEK " +
+                "                           PATTERN (A B C) " +
+                "                           SUBSET U = (A, B) " +
+                "                           DEFINE " +
+                "                               B AS false, " +
+                "                               C AS true " +
+                "                      ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:200: Pattern recognition in window not yet supported");
+    }
+
+    @Test
     public void testDistinctInWindowFunctionParameter()
     {
         assertFails("SELECT a, count(DISTINCT b) OVER () FROM t1")

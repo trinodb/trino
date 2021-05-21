@@ -133,13 +133,13 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.trino.sql.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ExpressionFormatter.formatGroupBy;
 import static io.trino.sql.ExpressionFormatter.formatOrderBy;
+import static io.trino.sql.ExpressionFormatter.formatSkipTo;
 import static io.trino.sql.ExpressionFormatter.formatStringLiteral;
 import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
 import static io.trino.sql.RowPatternFormatter.formatPattern;
@@ -566,25 +566,7 @@ public final class SqlFormatter
                         .append("\n");
             }
             if (node.getAfterMatchSkipTo().isPresent()) {
-                String skipTo;
-                switch (node.getAfterMatchSkipTo().get().getPosition()) {
-                    case PAST_LAST:
-                        skipTo = "AFTER MATCH SKIP PAST LAST ROW";
-                        break;
-                    case NEXT:
-                        skipTo = "AFTER MATCH SKIP TO NEXT ROW";
-                        break;
-                    case LAST:
-                        checkState(node.getAfterMatchSkipTo().get().getIdentifier().isPresent(), "missing identifier in AFTER MATCH SKIP TO LAST");
-                        skipTo = "AFTER MATCH SKIP TO LAST " + formatExpression(node.getAfterMatchSkipTo().get().getIdentifier().get());
-                        break;
-                    case FIRST:
-                        checkState(node.getAfterMatchSkipTo().get().getIdentifier().isPresent(), "missing identifier in AFTER MATCH SKIP TO FIRST");
-                        skipTo = "AFTER MATCH SKIP TO FIRST " + formatExpression(node.getAfterMatchSkipTo().get().getIdentifier().get());
-                        break;
-                    default:
-                        throw new IllegalStateException("unexpected skipTo: " + node.getAfterMatchSkipTo().get());
-                }
+                String skipTo = formatSkipTo(node.getAfterMatchSkipTo().get());
                 append(indent + 1, skipTo)
                         .append("\n");
             }

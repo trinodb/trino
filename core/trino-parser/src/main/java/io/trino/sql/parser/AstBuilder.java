@@ -2175,11 +2175,25 @@ class AstBuilder
     @Override
     public Node visitWindowFrame(SqlBaseParser.WindowFrameContext context)
     {
+        Optional<PatternSearchMode> searchMode = Optional.empty();
+        if (context.INITIAL() != null) {
+            searchMode = Optional.of(new PatternSearchMode(getLocation(context.INITIAL()), INITIAL));
+        }
+        else if (context.SEEK() != null) {
+            searchMode = Optional.of(new PatternSearchMode(getLocation(context.SEEK()), SEEK));
+        }
+
         return new WindowFrame(
                 getLocation(context),
                 getFrameType(context.frameExtent().frameType),
                 (FrameBound) visit(context.frameExtent().start),
-                visitIfPresent(context.frameExtent().end, FrameBound.class));
+                visitIfPresent(context.frameExtent().end, FrameBound.class),
+                visit(context.measureDefinition(), MeasureDefinition.class),
+                visitIfPresent(context.skipTo(), SkipTo.class),
+                searchMode,
+                visitIfPresent(context.rowPattern(), RowPattern.class),
+                visit(context.subsetDefinition(), SubsetDefinition.class),
+                visit(context.variableDefinition(), VariableDefinition.class));
     }
 
     @Override
