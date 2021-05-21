@@ -94,6 +94,7 @@ import io.trino.sql.tree.TypeParameter;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowOperation;
 import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
 
@@ -423,6 +424,12 @@ public final class ExpressionFormatter
             }
 
             return builder.toString();
+        }
+
+        @Override
+        protected String visitWindowOperation(WindowOperation node, Void context)
+        {
+            return process(node.getName(), context) + " OVER " + formatWindow(node.getWindow());
         }
 
         @Override

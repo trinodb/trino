@@ -122,6 +122,7 @@ import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowOperation;
 import io.trino.type.FunctionType;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
@@ -1363,6 +1364,12 @@ public class ExpressionAnalyzer
             }
 
             frameBoundCalculations.put(NodeRef.of(offsetValue), function);
+        }
+
+        @Override
+        protected Type visitWindowOperation(WindowOperation node, StackableAstVisitorContext<Context> context)
+        {
+            throw semanticException(NOT_SUPPORTED, node, "Row pattern measures over window not yet supported");
         }
 
         public List<TypeSignatureProvider> getCallArgumentTypes(List<Expression> arguments, StackableAstVisitorContext<Context> context)

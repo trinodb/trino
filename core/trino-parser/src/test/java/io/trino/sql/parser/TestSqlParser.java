@@ -182,6 +182,7 @@ import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowOperation;
 import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
 import io.trino.sql.tree.With;
@@ -3301,6 +3302,42 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of()));
+    }
+
+    @Test
+    public void testMeasureOverWindow()
+    {
+        assertThat(expression("last_z OVER (" +
+                "                           MEASURES z AS last_z " +
+                "                           ROWS CURRENT ROW " +
+                "                           PATTERN (A) " +
+                "                           DEFINE a AS true " +
+                "                         )"))
+                .isEqualTo(new WindowOperation(
+                        location(1, 1),
+                        new Identifier(location(1, 1), "last_z", false),
+                        new WindowSpecification(
+                                location(1, 41),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.of(new WindowFrame(
+                                        location(1, 41),
+                                        ROWS,
+                                        new FrameBound(location(1, 94), CURRENT_ROW),
+                                        Optional.empty(),
+                                        ImmutableList.of(new MeasureDefinition(
+                                                location(1, 50),
+                                                new Identifier(location(1, 50), "z", false),
+                                                new Identifier(location(1, 55), "last_z", false))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.of(new PatternVariable(location(1, 142), new Identifier(location(1, 142), "A", false))),
+                                        ImmutableList.of(),
+                                        ImmutableList.of(new VariableDefinition(
+                                                location(1, 179),
+                                                new Identifier(location(1, 179), "a", false),
+                                                new BooleanLiteral(location(1, 184), "true"))))))));
     }
 
     @Test
