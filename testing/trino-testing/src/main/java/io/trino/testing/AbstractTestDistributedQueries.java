@@ -111,6 +111,11 @@ public abstract class AbstractTestDistributedQueries
         return true;
     }
 
+    protected boolean supportsRenameTable()
+    {
+        return true;
+    }
+
     /**
      * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
      * shortcuts, not exercising certain aspects.
@@ -271,11 +276,15 @@ public abstract class AbstractTestDistributedQueries
     public void testRenameTable()
     {
         skipTestUnless(supportsCreateTable());
-
         String tableName = "test_rename_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
 
         String renamedTable = "test_rename_new_" + randomTableSuffix();
+        if (!supportsRenameTable()) {
+            assertQueryFails("ALTER TABLE " + tableName + " RENAME TO " + renamedTable, "This connector does not support renaming tables");
+            return;
+        }
+
         assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
         assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
 

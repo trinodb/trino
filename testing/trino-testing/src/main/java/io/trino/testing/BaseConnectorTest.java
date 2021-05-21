@@ -133,6 +133,16 @@ public abstract class BaseConnectorTest
         return hasBehavior(SUPPORTS_COMMENT_ON_COLUMN);
     }
 
+    /**
+     * @deprecated Use {@link #hasBehavior(TestingConnectorBehavior)} instead.
+     */
+    @Deprecated
+    @Override
+    protected boolean supportsRenameTable()
+    {
+        return hasBehavior(SUPPORTS_RENAME_TABLE);
+    }
+
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
