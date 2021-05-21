@@ -97,6 +97,7 @@ import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalBinaryExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.Measure;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -1363,6 +1364,12 @@ public class ExpressionAnalyzer
             }
 
             frameBoundCalculations.put(NodeRef.of(offsetValue), function);
+        }
+
+        @Override
+        protected Type visitMeasure(Measure node, StackableAstVisitorContext<Context> context)
+        {
+            throw semanticException(NOT_SUPPORTED, node, "Row pattern measures over window not yet supported");
         }
 
         public List<TypeSignatureProvider> getCallArgumentTypes(List<Expression> arguments, StackableAstVisitorContext<Context> context)

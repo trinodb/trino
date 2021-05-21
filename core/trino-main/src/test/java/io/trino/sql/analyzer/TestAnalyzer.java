@@ -1385,6 +1385,20 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testMeasureOverWindow()
+    {
+        // in-line window specification
+        assertFails("SELECT last_z OVER () FROM (VALUES 1) t(z) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Row pattern measures over window not yet supported");
+
+        // named window reference
+        assertFails("SELECT last_z OVER w FROM (VALUES 1) t(z) WINDOW w AS ()")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Row pattern measures over window not yet supported");
+    }
+
+    @Test
     public void testDistinctInWindowFunctionParameter()
     {
         assertFails("SELECT a, count(DISTINCT b) OVER () FROM t1")

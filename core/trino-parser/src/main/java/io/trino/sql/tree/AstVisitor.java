@@ -297,6 +297,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitMeasure(Measure node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitLambdaExpression(LambdaExpression node, C context)
     {
         return visitExpression(node, context);

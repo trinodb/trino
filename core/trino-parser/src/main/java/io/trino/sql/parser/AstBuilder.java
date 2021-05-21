@@ -117,6 +117,7 @@ import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LogicalBinaryExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.Measure;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
@@ -2083,6 +2084,12 @@ class AstBuilder
                 nulls,
                 mode,
                 visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitMeasure(SqlBaseParser.MeasureContext context)
+    {
+        return new Measure(getLocation(context), (Identifier) visit(context.identifier()), (Window) visit(context.over()));
     }
 
     @Override

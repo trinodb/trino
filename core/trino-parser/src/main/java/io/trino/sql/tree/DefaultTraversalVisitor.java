@@ -210,6 +210,15 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitMeasure(Measure node, C context)
+    {
+        process(node.getName(), context);
+        process((Node) node.getWindow(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitGroupingOperation(GroupingOperation node, C context)
     {
         for (Expression columnArgument : node.getGroupingColumns()) {
