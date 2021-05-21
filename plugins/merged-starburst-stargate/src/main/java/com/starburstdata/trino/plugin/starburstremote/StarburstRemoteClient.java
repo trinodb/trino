@@ -748,6 +748,18 @@ public class StarburstRemoteClient
                 ImmutableMap.of(),
                 table.getConstraint(),
                 Optional.empty());
+
+        if (table.getLimit().isPresent()) {
+            if (table.getSortOrder().isPresent()) {
+                // TODO (https://github.com/trinodb/trino/pull/8028) include ORDER BY too, SET SESSION use_partial_topn=false; and switch to simpler:
+                //     preparedQuery = preparedQuery.transformQuery(applyLimit(tableHandle.getLimit().getAsLong()));
+            }
+            preparedQuery = preparedQuery.transformQuery(sql -> limitFunction().orElseThrow().apply(sql, table.getLimit().orElseThrow()));
+        }
+
+        // TODO https://github.com/trinodb/trino/pull/8026 remove wrapping in a subquery
+        preparedQuery = preparedQuery.transformQuery(sql -> "SELECT * FROM (" + sql + ")");
+
         preparedQuery = preparedQuery.transformQuery(sql -> "SHOW STATS FOR (" + sql + ")");
         return queryBuilder.prepareStatement(session, connection, preparedQuery);
     }

@@ -426,6 +426,32 @@ public class TestStarburstRemoteTableStatisticsWithHive
     }
 
     @Override
+    protected String testStatsWithLimitPushdownExpectedResult()
+    {
+        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
+        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithLimitPushdownExpectedResult()))
+                .isEqualTo(HashCode.fromString("74e9bbbffec330c99624761e566a7af1"));
+
+        return "VALUES " +
+                "('regionkey', 2e0, 0e0, null)," +
+                "('nationkey', 2e0, 0e0, null)," +
+                "(null, null, null, 2e0)";
+    }
+
+    @Override
+    protected String testStatsWithTopNPushdownExpectedResult()
+    {
+        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
+        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithTopNPushdownExpectedResult()))
+                .isEqualTo(HashCode.fromString("74e9bbbffec330c99624761e566a7af1"));
+
+        return "VALUES " +
+                "('regionkey', 2e0, 0e0, null)," +
+                "('nationkey', 2e0, 0e0, null)," +
+                "(null, null, null, 2e0)";
+    }
+
+    @Override
     protected String testStatsWithAggregationPushdownExpectedResult()
     {
         // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
@@ -461,9 +487,10 @@ public class TestStarburstRemoteTableStatisticsWithHive
                 .isEqualTo(HashCode.fromString("000789c529e02f4718f64e240e2413a0"));
 
         // Remote Hive doesn't accept aggregation pushdown, so the remote cluster can calculate the stats
+        // TODO https://starburstdata.atlassian.net/browse/SEP-6185 stats regressed when LIMIT also pushed into remote
         return "VALUES " +
-                "('regionkey', 5e0, 0e0, null)," +
-                "(null, null, null, 5e0)"; // TODO the row count should be 3
+                "('regionkey', null, null, null)," +
+                "(null, null, null, null)";
     }
 
     @Override
