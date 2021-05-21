@@ -409,6 +409,7 @@ primaryExpression
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
         (ORDER BY sortItem (',' sortItem)*)? ')' filter? (nullTreatment? over)?           #functionCall
+    | identifier over                                                                     #measure
     | identifier '->' expression                                                          #lambda
     | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
     | '(' query ')'                                                                       #subqueryExpression
