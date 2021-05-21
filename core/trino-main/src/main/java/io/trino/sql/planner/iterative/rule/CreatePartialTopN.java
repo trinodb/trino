@@ -13,11 +13,13 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.TopNNode;
 
+import static io.trino.SystemSessionProperties.isUsePartialTopN;
 import static io.trino.sql.planner.plan.Patterns.TopN.step;
 import static io.trino.sql.planner.plan.Patterns.topN;
 import static io.trino.sql.planner.plan.TopNNode.Step.FINAL;
@@ -29,6 +31,12 @@ public class CreatePartialTopN
 {
     private static final Pattern<TopNNode> PATTERN = topN()
             .with(step().equalTo(SINGLE));
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isUsePartialTopN(session);
+    }
 
     @Override
     public Pattern<TopNNode> getPattern()

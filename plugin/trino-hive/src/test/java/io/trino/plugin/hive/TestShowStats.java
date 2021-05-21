@@ -21,6 +21,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
+import static io.trino.SystemSessionProperties.USE_PARTIAL_TOPN;
 import static io.trino.tpch.TpchTable.NATION;
 
 public class TestShowStats
@@ -440,6 +441,31 @@ public class TestShowStats
         assertQuery(
                 // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
                 "SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation LIMIT 7))",
+                "VALUES " +
+                        "   ('nationkey', null, 7, 0, null, 0, 24), " +
+                        "   ('name', 49.56, 7, 0, null, null, null), " +
+                        "   ('comment', 519.96, 7, 0, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 7, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithTopN()
+    {
+        assertQuery(
+                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
+                "SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 7))",
+                "VALUES " +
+                        "   ('nationkey', null, null, null, null, null, null), " +
+                        "   ('name', null, null, null, null, null, null), " +
+                        "   ('comment', null, null, null, null, null, null), " +
+                        "   ('regionkey', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
+
+        assertQuery(
+                sessionWith(getSession(), USE_PARTIAL_TOPN, "false"),
+                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
+                "SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 7))",
                 "VALUES " +
                         "   ('nationkey', null, 7, 0, null, 0, 24), " +
                         "   ('name', 49.56, 7, 0, null, null, null), " +
