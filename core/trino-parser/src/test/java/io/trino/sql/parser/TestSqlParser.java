@@ -2523,8 +2523,12 @@ public class TestSqlParser
 
         for (String fullName : tableNames) {
             QualifiedName qualifiedName = makeQualifiedName(fullName);
+
+            // Simple SELECT
             assertStatement(format("SHOW STATS FOR (SELECT * FROM %s)", qualifiedName),
                     createShowStats(qualifiedName, ImmutableList.of(new AllColumns()), Optional.empty()));
+
+            // SELECT with predicate
             assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0)", qualifiedName),
                     createShowStats(qualifiedName,
                             ImmutableList.of(new AllColumns()),
@@ -2532,6 +2536,8 @@ public class TestSqlParser
                                     new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                             new Identifier("field"),
                                             new LongLiteral("0")))));
+
+            // SELECT with more complex predicate
             assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0 or field < 0)", qualifiedName),
                     createShowStats(qualifiedName,
                             ImmutableList.of(new AllColumns()),
@@ -2544,6 +2550,128 @@ public class TestSqlParser
                                                     new Identifier("field"),
                                                     new LongLiteral("0"))))));
         }
+
+        // SELECT with LIMIT
+        assertThat(statement("SHOW STATS FOR (SELECT * FROM t LIMIT 10)"))
+                .isEqualTo(
+                        new ShowStats(
+                                Optional.of(location(1, 1)),
+                                new TableSubquery(
+                                        new Query(
+                                                location(1, 17),
+                                                Optional.empty(),
+                                                new QuerySpecification(
+                                                        location(1, 17),
+                                                        new Select(
+                                                                location(1, 17),
+                                                                false,
+                                                                ImmutableList.of(new AllColumns(location(1, 24), Optional.empty(), ImmutableList.of()))),
+                                                        Optional.of(new Table(
+                                                                location(1, 31),
+                                                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 31), "t", false))))),
+                                                        Optional.empty(),
+                                                        Optional.empty(),
+                                                        Optional.empty(),
+                                                        ImmutableList.of(),
+                                                        Optional.empty(),
+                                                        Optional.empty(),
+                                                        Optional.of(new Limit(location(1, 33), new LongLiteral(location(1, 39), "10")))),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.empty()))));
+
+        // SELECT with ORDER BY ... LIMIT
+        assertThat(statement("SHOW STATS FOR (SELECT * FROM t ORDER BY field LIMIT 10)"))
+                .isEqualTo(
+                        new ShowStats(
+                                Optional.of(location(1, 1)),
+                                new TableSubquery(
+                                        new Query(
+                                                location(1, 17),
+                                                Optional.empty(),
+                                                new QuerySpecification(
+                                                        location(1, 17),
+                                                        new Select(
+                                                                location(1, 17),
+                                                                false,
+                                                                ImmutableList.of(new AllColumns(location(1, 24), Optional.empty(), ImmutableList.of()))),
+                                                        Optional.of(new Table(
+                                                                location(1, 31),
+                                                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 31), "t", false))))),
+                                                        Optional.empty(),
+                                                        Optional.empty(),
+                                                        Optional.empty(),
+                                                        ImmutableList.of(),
+                                                        Optional.of(new OrderBy(location(1, 33), ImmutableList.of(
+                                                                new SortItem(location(1, 42), new Identifier(location(1, 42), "field", false), ASCENDING, UNDEFINED)))),
+                                                        Optional.empty(),
+                                                        Optional.of(new Limit(location(1, 48), new LongLiteral(location(1, 54), "10")))),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.empty()))));
+
+        // SELECT with WITH
+        assertThat(statement("SHOW STATS FOR (\n" +
+                "   WITH t AS (SELECT 1 )\n" +
+                "   SELECT * FROM t)"))
+                .isEqualTo(
+                        new ShowStats(
+                                Optional.of(location(1, 1)),
+                                new TableSubquery(
+                                        new Query(
+                                                location(2, 4),
+                                                Optional.of(
+                                                        new With(
+                                                                location(2, 4),
+                                                                false,
+                                                                ImmutableList.of(
+                                                                        new WithQuery(
+                                                                                location(2, 9),
+                                                                                new Identifier(location(2, 9), "t", false),
+                                                                                new Query(
+                                                                                        location(2, 15),
+                                                                                        Optional.empty(),
+                                                                                        new QuerySpecification(
+                                                                                                location(2, 15),
+                                                                                                new Select(
+                                                                                                        location(2, 15),
+                                                                                                        false,
+                                                                                                        ImmutableList.of(
+                                                                                                                new SingleColumn(
+                                                                                                                        location(2, 22),
+                                                                                                                        new LongLiteral(location(2, 22), "1"),
+                                                                                                                        Optional.empty()))),
+                                                                                                Optional.empty(),
+                                                                                                Optional.empty(),
+                                                                                                Optional.empty(),
+                                                                                                Optional.empty(),
+                                                                                                ImmutableList.of(),
+                                                                                                Optional.empty(),
+                                                                                                Optional.empty(),
+                                                                                                Optional.empty()),
+                                                                                        Optional.empty(),
+                                                                                        Optional.empty(),
+                                                                                        Optional.empty()),
+                                                                                Optional.empty())))),
+                                                new QuerySpecification(
+                                                        location(3, 4),
+                                                        new Select(
+                                                                location(3, 4),
+                                                                false,
+                                                                ImmutableList.of(new AllColumns(location(3, 11), Optional.empty(), ImmutableList.of()))),
+                                                        Optional.of(new Table(
+                                                                location(3, 18),
+                                                                QualifiedName.of(ImmutableList.of(new Identifier(location(3, 18), "t", false))))),
+                                                        Optional.empty(),
+                                                        Optional.empty(),
+                                                        Optional.empty(),
+                                                        ImmutableList.of(),
+                                                        Optional.empty(),
+                                                        Optional.empty(),
+                                                        Optional.empty()),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.empty()))));
     }
 
     private static ShowStats createShowStats(QualifiedName name, List<SelectItem> selects, Optional<Expression> where)
