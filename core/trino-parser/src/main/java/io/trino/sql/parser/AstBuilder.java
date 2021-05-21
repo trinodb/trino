@@ -238,7 +238,6 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.sql.QueryUtil.query;
 import static io.trino.sql.parser.SqlBaseParser.TIME;
 import static io.trino.sql.parser.SqlBaseParser.TIMESTAMP;
 import static io.trino.sql.tree.AnchorPattern.Type.PARTITION_END;
@@ -1161,8 +1160,8 @@ class AstBuilder
     @Override
     public Node visitShowStatsForQuery(SqlBaseParser.ShowStatsForQueryContext context)
     {
-        QuerySpecification specification = (QuerySpecification) visitQuerySpecification(context.querySpecification());
-        return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query(specification)));
+        Query query = (Query) visit(context.query());
+        return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query));
     }
 
     @Override
