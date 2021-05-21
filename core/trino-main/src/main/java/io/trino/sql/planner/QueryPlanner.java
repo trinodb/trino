@@ -1310,24 +1310,27 @@ class QueryPlanner
         Assignments.Builder assignments = Assignments.builder();
         assignments.putIdentities(subPlan.getRoot().getOutputSymbols());
 
-        ImmutableMap.Builder<NodeRef<Expression>, Symbol> mappings = ImmutableMap.builder();
+        Map<NodeRef<Expression>, Symbol> mappings = new HashMap<>();
         for (Expression expression : expressions) {
             Type coercion = analysis.getCoercion(expression);
 
-            if (coercion != null) {
-                Type type = analysis.getType(expression);
-                Symbol symbol = symbolAllocator.newSymbol(expression, coercion);
+            // expressions may be repeated, for example, when resolving ordinal references in a GROUP BY clause
+            if (!mappings.containsKey(NodeRef.of(expression))) {
+                if (coercion != null) {
+                    Type type = analysis.getType(expression);
+                    Symbol symbol = symbolAllocator.newSymbol(expression, coercion);
 
-                assignments.put(symbol, new Cast(
-                        subPlan.rewrite(expression),
-                        toSqlType(coercion),
-                        false,
-                        typeCoercion.isTypeOnlyCoercion(type, coercion)));
+                    assignments.put(symbol, new Cast(
+                            subPlan.rewrite(expression),
+                            toSqlType(coercion),
+                            false,
+                            typeCoercion.isTypeOnlyCoercion(type, coercion)));
 
-                mappings.put(NodeRef.of(expression), symbol);
-            }
-            else {
-                mappings.put(NodeRef.of(expression), subPlan.translate(expression));
+                    mappings.put(NodeRef.of(expression), symbol);
+                }
+                else {
+                    mappings.put(NodeRef.of(expression), subPlan.translate(expression));
+                }
             }
         }
 
@@ -1337,7 +1340,7 @@ class QueryPlanner
                         subPlan.getRoot(),
                         assignments.build()));
 
-        return new PlanAndMappings(subPlan, mappings.build());
+        return new PlanAndMappings(subPlan, mappings);
     }
 
     public static Expression coerceIfNecessary(Analysis analysis, Expression original, Expression rewritten)
