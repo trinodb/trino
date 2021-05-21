@@ -222,6 +222,7 @@ import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowOperation;
 import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
 import io.trino.sql.tree.With;
@@ -2094,6 +2095,12 @@ class AstBuilder
                 nulls,
                 mode,
                 visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitMeasure(SqlBaseParser.MeasureContext context)
+    {
+        return new WindowOperation(getLocation(context), (Identifier) visit(context.identifier()), (Window) visit(context.over()));
     }
 
     @Override
