@@ -90,6 +90,7 @@ import static io.trino.SystemSessionProperties.ignoreDownStreamPreferences;
 import static io.trino.SystemSessionProperties.isColocatedJoinEnabled;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
 import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
+import static io.trino.SystemSessionProperties.isUsePartialDistinctLimit;
 import static io.trino.sql.planner.FragmentTableScanCounter.countSources;
 import static io.trino.sql.planner.FragmentTableScanCounter.hasMultipleSources;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -517,7 +518,7 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
-            if (!child.getProperties().isSingleNode()) {
+            if (!child.getProperties().isSingleNode() && isUsePartialDistinctLimit(session)) {
                 child = withDerivedProperties(
                         gatheringExchange(
                                 idAllocator.getNextId(),

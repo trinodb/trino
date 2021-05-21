@@ -21,6 +21,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
+import static io.trino.SystemSessionProperties.USE_PARTIAL_DISTINCT_LIMIT;
 import static io.trino.SystemSessionProperties.USE_PARTIAL_TOPN;
 import static io.trino.tpch.TpchTable.NATION;
 
@@ -433,6 +434,26 @@ public class TestShowStats
                 "VALUES " +
                         "   ('regionkey', null, 5, 0, null, 0, 4), " +
                         "   (null, null, null, null, 5, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithDistinctLimit()
+    {
+        // TODO calculate row count - https://github.com/trinodb/trino/issues/6323
+        assertQuery(
+                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
+                "SHOW STATS FOR (SELECT * FROM (SELECT DISTINCT regionkey FROM nation LIMIT 3))",
+                "VALUES " +
+                        "   ('regionkey', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
+
+        assertQuery(
+                sessionWith(getSession(), USE_PARTIAL_DISTINCT_LIMIT, "false"),
+                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
+                "SHOW STATS FOR (SELECT * FROM (SELECT DISTINCT regionkey FROM nation LIMIT 3))",
+                "VALUES " +
+                        "   ('regionkey', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
     }
 
     @Test
