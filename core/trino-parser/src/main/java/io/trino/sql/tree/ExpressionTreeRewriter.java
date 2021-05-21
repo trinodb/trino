@@ -529,8 +529,30 @@ public final class ExpressionTreeRewriter<C>
                             }
                         }
 
+                        // Frame properties for row pattern matching are not rewritten. They are planned as parts of
+                        // PatternRecognitionNode, and shouldn't be accessed past the Planner phase.
+                        // There are nested expressions in Measures and VariableDefinitions. They are not rewritten by default.
+                        // Rewriting them requires special handling of DereferenceExpression, aware of pattern labels.
+                        if (!frame.getMeasures().isEmpty() ||
+                                frame.getAfterMatchSkipTo().isPresent() ||
+                                frame.getPatternSearchMode().isPresent() ||
+                                frame.getPattern().isPresent() ||
+                                !frame.getSubsets().isEmpty() ||
+                                !frame.getVariableDefinitions().isEmpty()) {
+                            throw new UnsupportedOperationException("Cannot rewrite pattern recognition clauses in window");
+                        }
+
                         if ((frame.getStart() != start) || !sameElements(frame.getEnd(), rewrittenEnd)) {
-                            rewrittenFrame = Optional.of(new WindowFrame(frame.getType(), start, rewrittenEnd));
+                            rewrittenFrame = Optional.of(new WindowFrame(
+                                    frame.getType(),
+                                    start,
+                                    rewrittenEnd,
+                                    frame.getMeasures(),
+                                    frame.getAfterMatchSkipTo(),
+                                    frame.getPatternSearchMode(),
+                                    frame.getPattern(),
+                                    frame.getSubsets(),
+                                    frame.getVariableDefinitions()));
                         }
                     }
 

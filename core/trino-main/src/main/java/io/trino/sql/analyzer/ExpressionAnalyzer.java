@@ -1205,6 +1205,15 @@ public class ExpressionAnalyzer
             if (window.getFrame().isPresent() && !window.isFrameInherited()) {
                 WindowFrame frame = window.getFrame().get();
 
+                if (!frame.getMeasures().isEmpty() ||
+                        frame.getAfterMatchSkipTo().isPresent() ||
+                        frame.getPatternSearchMode().isPresent() ||
+                        frame.getPattern().isPresent() ||
+                        !frame.getSubsets().isEmpty() ||
+                        !frame.getVariableDefinitions().isEmpty()) {
+                    throw semanticException(NOT_SUPPORTED, frame, "Pattern recognition in window not yet supported");
+                }
+
                 // validate frame start and end types
                 FrameBound.Type startType = frame.getStart().getType();
                 FrameBound.Type endType = frame.getEnd().orElse(new FrameBound(CURRENT_ROW)).getType();
