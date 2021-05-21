@@ -432,12 +432,38 @@ public class TestStarburstRemoteTableStatisticsWithHive
         assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithAggregationPushdownExpectedResult()))
                 .isEqualTo(HashCode.fromString("3b2baf04d8448f48815fd44c8f19931b"));
 
-        // Remove Hive doesn't accept aggregation pushdown, so the remote cluster can calculate the regionkey stats, and the row count.
+        // Remote Hive doesn't accept aggregation pushdown, so the remote cluster can calculate the regionkey stats, and the row count.
         return "VALUES " +
                 "('regionkey', 5e0, 0e0, null)," +
                 "('max_nationkey', null, null, null)," +
                 "('c', null, null, null)," +
                 "(null, null, null, 5e0)";
+    }
+
+    @Override
+    protected String testStatsWithDistinctPushdownExpectedResult()
+    {
+        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
+        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithDistinctPushdownExpectedResult()))
+                .isEqualTo(HashCode.fromString("000789c529e02f4718f64e240e2413a0"));
+
+        // Remote Hive doesn't accept aggregation pushdown, so the remote cluster can calculate the stats
+        return "VALUES " +
+                "('regionkey', 5e0, 0e0, null)," +
+                "(null, null, null, 5e0)";
+    }
+
+    @Override
+    protected String testStatsWithDistinctLimitPushdownExpectedResult()
+    {
+        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
+        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithDistinctLimitPushdownExpectedResult()))
+                .isEqualTo(HashCode.fromString("000789c529e02f4718f64e240e2413a0"));
+
+        // Remote Hive doesn't accept aggregation pushdown, so the remote cluster can calculate the stats
+        return "VALUES " +
+                "('regionkey', 5e0, 0e0, null)," +
+                "(null, null, null, 5e0)"; // TODO the row count should be 3
     }
 
     @Override
@@ -447,7 +473,7 @@ public class TestStarburstRemoteTableStatisticsWithHive
         assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithSimpleJoinPushdownExpectedResults()))
                 .isEqualTo(HashCode.fromString("6ac1b84b47f4cb718a1fe7ca744821fc"));
 
-        // Remove Hive doesn't accept join pushdown, so the remote cluster can calculate the stats correctly.
+        // Remote Hive doesn't accept join pushdown, so the remote cluster can calculate the stats correctly.
         return "VALUES " +
                 "('n_name', 5e0, 0e0, null)," +
                 "(null, null, null, 5e0)";
@@ -467,7 +493,7 @@ public class TestStarburstRemoteTableStatisticsWithHive
         assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithJoinPushdownExpectedResult()))
                 .isEqualTo(HashCode.fromString("3a144d39f5782d1c211154c55a6b5cd6"));
 
-        // Remove Hive doesn't accept join pushdown, so the remote cluster can calculate the stats correctly.
+        // Remote Hive doesn't accept join pushdown, so the remote cluster can calculate the stats correctly.
         return "VALUES " +
                 "('regionkey', 1e0, 0e0, null)," +
                 "('r_name', 1e0, 0e0, null)," +
