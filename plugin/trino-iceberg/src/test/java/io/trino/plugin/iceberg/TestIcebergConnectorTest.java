@@ -58,14 +58,6 @@ public class TestIcebergConnectorTest
 
     @Test
     @Override
-    public void testRenameTable()
-    {
-        assertThatThrownBy(super::testRenameTable)
-                .hasMessage("Rename not supported for Iceberg tables");
-    }
-
-    @Test
-    @Override
     public void testDelete()
     {
         assertThatThrownBy(super::testDelete)

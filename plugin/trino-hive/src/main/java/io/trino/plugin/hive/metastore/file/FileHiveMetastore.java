@@ -560,7 +560,7 @@ public class FileHiveMetastore
         getRequiredDatabase(newDatabaseName);
 
         if (isIcebergTable(table.getParameters())) {
-            throw new TrinoException(NOT_SUPPORTED, "Rename not supported for Iceberg tables");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
         }
 
         // verify new table does not exist
