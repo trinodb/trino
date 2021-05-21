@@ -389,10 +389,18 @@ public class QueryAssertions
          */
         public QueryAssert isFullyPushedDown()
         {
-            checkState(!(runner instanceof LocalQueryRunner), "isFullyPushedDown() currently does not work with LocalQueryRunner");
-
             // Compare the results with pushdown disabled, so that explicit matches() call is not needed
             verifyResultsWithPushdownDisabled();
+
+            return isFullyPushedDownRegardlessOfResults();
+        }
+
+        /**
+         * Verifies query is fully pushed down
+         */
+        public QueryAssert isFullyPushedDownRegardlessOfResults()
+        {
+            checkState(!(runner instanceof LocalQueryRunner), "isFullyPushedDownRegardlessOfResults() currently does not work with LocalQueryRunner");
 
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {

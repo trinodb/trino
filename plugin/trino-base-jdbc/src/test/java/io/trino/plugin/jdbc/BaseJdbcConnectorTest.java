@@ -134,6 +134,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
+        assertThat(query("SELECT name FROM nation LIMIT 3")).isFullyPushedDownRegardlessOfResults();
 
         // with filter over numeric column
         assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
