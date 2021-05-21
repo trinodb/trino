@@ -136,6 +136,12 @@
 
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-hive-hadoop2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-license</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
@@ -169,6 +175,11 @@
                     <!-- TODO provided by the incorrectly shaded com.linkedin.calcite:calcite-core:{version}:jar:shaded -->
                     <groupId>org.apache.commons</groupId>
                     <artifactId>commons-lang3</artifactId>
+                </exclusion>
+                <exclusion>
+                    <!-- TODO provided by the incorrectly shaded com.starburstdata.ranger:starburst-ranger-client:{version} -->
+                    <groupId>com.fasterxml.woodstox</groupId>
+                    <artifactId>woodstox-core</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -283,6 +294,18 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- conflicts with starburst-ranger-client -->
+                    <groupId>net.java.dev.jna</groupId>
+                    <artifactId>jna</artifactId>
+                </exclusion>
+                <exclusion>
+                    <!-- conflicts with starburst-ranger-client -->
+                    <groupId>net.java.dev.jna</groupId>
+                    <artifactId>jna-platform</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
