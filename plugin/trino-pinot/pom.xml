@@ -17,6 +17,16 @@
         <dep.pinot.version>0.6.0</dep.pinot.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.glassfish.jersey.core</groupId>
+                <artifactId>jersey-common</artifactId>
+                <version>2.30</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>io.trino</groupId>
@@ -108,6 +118,12 @@
         <dependency>
             <groupId>javax.validation</groupId>
             <artifactId>validation-api</artifactId>
+        </dependency>
+
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
         </dependency>
 
         <dependency>
@@ -202,6 +218,10 @@
                 <exclusion>
                     <groupId>com.fasterxml.jackson.core</groupId>
                     <artifactId>jackson-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.activation</groupId>
+                    <artifactId>jakarta.activation</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>javax.validation</groupId>
@@ -382,6 +402,13 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-main</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -396,6 +423,18 @@
                     <artifactId>jersey-common</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-avro-serializer</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-schema-serializer</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
