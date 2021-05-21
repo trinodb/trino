@@ -106,6 +106,7 @@ public final class SystemSessionProperties
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
     public static final String DISTRIBUTED_SORT = "distributed_sort";
     public static final String USE_PARTIAL_TOPN = "use_partial_topn";
+    public static final String USE_PARTIAL_DISTINCT_LIMIT = "use_partial_distinct_limit";
     public static final String MAX_RECURSION_DEPTH = "max_recursion_depth";
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
@@ -459,6 +460,12 @@ public final class SystemSessionProperties
                         // Useful to make EXPLAIN or SHOW STATS provide stats for a query involving TopN
                         USE_PARTIAL_TOPN,
                         "Use partial TopN",
+                        true,
+                        true),
+                booleanProperty(
+                        // Useful to make EXPLAIN or SHOW STATS provide stats for a query involving TopN
+                        USE_PARTIAL_DISTINCT_LIMIT,
+                        "Use partial Distinct Limit",
                         true,
                         true),
                 new PropertyMetadata<>(
@@ -943,6 +950,11 @@ public final class SystemSessionProperties
     public static boolean isUsePartialTopN(Session session)
     {
         return session.getSystemProperty(USE_PARTIAL_TOPN, Boolean.class);
+    }
+
+    public static boolean isUsePartialDistinctLimit(Session session)
+    {
+        return session.getSystemProperty(USE_PARTIAL_DISTINCT_LIMIT, Boolean.class);
     }
 
     public static int getMaxRecursionDepth(Session session)
