@@ -264,7 +264,13 @@ public class SqlQueryExecution
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
                 warningCollector,
                 statsCalculator);
-        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
+        Analysis analysis;
+        try {
+            analysis = analyzer.analyze(preparedQuery.getStatement());
+        }
+        catch (StackOverflowError e) {
+            throw new TrinoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
+        }
 
         stateMachine.setUpdateType(analysis.getUpdateType());
         stateMachine.setReferencedTables(analysis.getReferencedTables());
