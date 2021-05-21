@@ -76,6 +76,9 @@ public class TestLdapAuthenticator
         ldapAuthenticator.invalidateCache();
         assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
         ldapAuthenticator.invalidateCache();
+
+        assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("john", "john-pass"))
+                .isInstanceOf(RuntimeException.class);
     }
 
     @Test
@@ -96,7 +99,7 @@ public class TestLdapAuthenticator
         assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown", "alice-pass"))
                 .isInstanceOf(RuntimeException.class);
         assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(RuntimeException.class);
         client.addGroupMember("alice");
         assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
     }
@@ -135,7 +138,7 @@ public class TestLdapAuthenticator
 
         client.addDistinguishedNameForUser("alice", "another-mapping");
         assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOf(RuntimeException.class);
     }
 
     @Test
