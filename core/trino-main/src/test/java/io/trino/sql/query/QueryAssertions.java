@@ -389,7 +389,7 @@ public class QueryAssertions
          */
         public QueryAssert isFullyPushedDown()
         {
-            checkState(!(runner instanceof LocalQueryRunner), "testIsFullyPushedDown() currently does not work with LocalQueryRunner");
+            checkState(!(runner instanceof LocalQueryRunner), "isFullyPushedDown() currently does not work with LocalQueryRunner");
 
             // Compare the results with pushdown disabled, so that explicit matches() call is not needed
             verifyResultsWithPushdownDisabled();
