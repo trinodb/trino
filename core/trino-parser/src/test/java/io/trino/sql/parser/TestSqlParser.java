@@ -3022,6 +3022,7 @@ public class TestSqlParser
                         Optional.empty()));
     }
 
+    @Test
     public void testUpdate()
     {
         assertStatement("" +
