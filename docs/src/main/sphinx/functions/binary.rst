@@ -172,8 +172,7 @@ Hashing functions
 
 .. function:: murmur3(binary) -> varbinary
 
-    Use MurmurHash3 `<https://en.wikipedia.org/wiki/MurmurHash>`_
-    to computes the 128-bit hash of ``binary``::
+    Computes the MurmurHash3 hash of ``binary``::
 
         SELECT murmur3(from_base64('aaaaaa'));
         -- ba 58 55 63 55 69 b4 2f 49 20 37 2c a0 e3 96 ef
