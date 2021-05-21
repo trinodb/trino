@@ -13,11 +13,14 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.spi.connector.ConnectorMetadata;
 
 public interface TransactionalMetadata
         extends ConnectorMetadata
 {
+    SemiTransactionalHiveMetastore getMetastore();
+
     void commit();
 
     void rollback();
