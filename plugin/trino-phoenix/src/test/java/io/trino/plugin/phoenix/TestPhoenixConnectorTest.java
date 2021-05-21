@@ -91,15 +91,6 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
-    public void testRenameTable()
-    {
-        assertThatThrownBy(super::testRenameTable)
-                // TODO (https://github.com/trinodb/trino/issues/7204) support table rename in Phoenix
-                .hasMessageContaining("This connector does not support renaming tables");
-        throw new SkipException("Rename table is not yet supported by Phoenix connector");
-    }
-
-    @Override
     public void testRenameColumn()
     {
         assertThatThrownBy(super::testRenameColumn)
