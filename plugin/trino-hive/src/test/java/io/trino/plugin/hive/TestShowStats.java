@@ -435,6 +435,20 @@ public class TestShowStats
     }
 
     @Test
+    public void testShowStatsWithLimit()
+    {
+        assertQuery(
+                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
+                "SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation LIMIT 7))",
+                "VALUES " +
+                        "   ('nationkey', null, 7, 0, null, 0, 24), " +
+                        "   ('name', 49.56, 7, 0, null, null, null), " +
+                        "   ('comment', 519.96, 7, 0, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 7, null, null)");
+    }
+
+    @Test
     public void testShowStatsWithSelectFunctionCall()
     {
         assertQuery(
