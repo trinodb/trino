@@ -83,6 +83,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
     {
         gatherStats("orders");
         gatherStats("nation");
+        gatherStats("region");
     }
 
     @Override
@@ -451,8 +452,6 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
                         "   ('shippriority', null, null, null, null, null, null), " +
                         "   ('comment', null, null, null, null, null, null), " +
                         "   (null, null, null, null, null, null, null)");
-
-        gatherStats("region");
 
         assertQuery(
                 "SHOW STATS FOR (SELECT DISTINCT regionkey FROM region)",
