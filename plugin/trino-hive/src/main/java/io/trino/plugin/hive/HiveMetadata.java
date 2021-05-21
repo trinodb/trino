@@ -361,6 +361,7 @@ public class HiveMetadata
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
     }
 
+    @Override
     public SemiTransactionalHiveMetastore getMetastore()
     {
         return metastore;
