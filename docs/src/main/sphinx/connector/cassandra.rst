@@ -8,12 +8,11 @@ The Cassandra connector allows querying data stored in
 Requirements
 ------------
 
-Requirements for using the connector in a catalog to connect to a Cassandra
-data source are:
+To connect to Cassandra, you need:
 
-* Cassandra version 2.2 or higher
-* Network access, by default on port 9042, from the Trino coordinator and
-  workers to Cassandra.
+* Cassandra version 2.2 or higher.
+* Network access from the Trino coordinator and workers to Cassandra.
+  Port 9042 is the default port.
 
 Configuration
 -------------
