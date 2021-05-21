@@ -338,6 +338,53 @@ public class TestShowStats
     }
 
     @Test
+    public void testShowStatsWithValues()
+    {
+        assertQuery(
+                "SHOW STATS FOR (VALUES 1, 2, 3)",
+                "VALUES " +
+                        "   ('_col0', null, 3, 0, null, 1, 3), " +
+                        "   (null, null, null, null, 3, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithTable()
+    {
+        assertQuery(
+                "SHOW STATS FOR (TABLE nation)",
+                "VALUES " +
+                        "   ('nationkey', null, 25, 0, null, 0, 24), " +
+                        "   ('name', 177, 25, 0, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   ('comment', 1857, 25, 0, null, null, null), " +
+                        "   (null, null, null, null, 25, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithWith()
+    {
+        assertQuery(
+                "SHOW STATS FOR ( " +
+                        "   WITH t AS (SELECT nationkey, name, regionkey FROM nation) " +
+                        "   SELECT * FROM t)",
+                "VALUES " +
+                        "   ('nationkey', null, 25, 0, null, 0, 24), " +
+                        "   ('name', 177, 25, 0, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 25, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithIntersect()
+    {
+        assertQuery(
+                "SHOW STATS FOR ((SELECT nationkey FROM nation) INTERSECT (SELECT regionkey FROM region))",
+                "VALUES " +
+                        "   ('nationkey', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
+    }
+
+    @Test
     public void testShowStatsWithAggregation()
     {
         // TODO - row count should be 1 - https://github.com/trinodb/trino/issues/6323
@@ -441,16 +488,14 @@ public class TestShowStats
     {
         // TODO calculate row count - https://github.com/trinodb/trino/issues/6323
         assertQuery(
-                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
-                "SHOW STATS FOR (SELECT * FROM (SELECT DISTINCT regionkey FROM nation LIMIT 3))",
+                "SHOW STATS FOR (SELECT DISTINCT regionkey FROM nation LIMIT 3)",
                 "VALUES " +
                         "   ('regionkey', null, null, null, null, null, null), " +
                         "   (null, null, null, null, null, null, null)");
 
         assertQuery(
                 sessionWith(getSession(), USE_PARTIAL_DISTINCT_LIMIT, "false"),
-                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
-                "SHOW STATS FOR (SELECT * FROM (SELECT DISTINCT regionkey FROM nation LIMIT 3))",
+                "SHOW STATS FOR (SELECT DISTINCT regionkey FROM nation LIMIT 3)",
                 "VALUES " +
                         "   ('regionkey', null, null, null, null, null, null), " +
                         "   (null, null, null, null, null, null, null)");
@@ -460,8 +505,7 @@ public class TestShowStats
     public void testShowStatsWithLimit()
     {
         assertQuery(
-                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
-                "SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation LIMIT 7))",
+                "SHOW STATS FOR (SELECT * FROM nation LIMIT 7)",
                 "VALUES " +
                         "   ('nationkey', null, 7, 0, null, 0, 24), " +
                         "   ('name', 49.56, 7, 0, null, null, null), " +
@@ -474,8 +518,7 @@ public class TestShowStats
     public void testShowStatsWithTopN()
     {
         assertQuery(
-                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
-                "SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 7))",
+                "SHOW STATS FOR (SELECT * FROM nation ORDER BY nationkey LIMIT 7)",
                 "VALUES " +
                         "   ('nationkey', null, null, null, null, null, null), " +
                         "   ('name', null, null, null, null, null, null), " +
@@ -485,8 +528,7 @@ public class TestShowStats
 
         assertQuery(
                 sessionWith(getSession(), USE_PARTIAL_TOPN, "false"),
-                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
-                "SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 7))",
+                "SHOW STATS FOR (SELECT * FROM nation ORDER BY nationkey LIMIT 7)",
                 "VALUES " +
                         "   ('nationkey', null, 7, 0, null, 0, 24), " +
                         "   ('name', 49.56, 7, 0, null, null, null), " +
