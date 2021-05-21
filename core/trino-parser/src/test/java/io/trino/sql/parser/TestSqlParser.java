@@ -97,6 +97,7 @@ import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LogicalBinaryExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
@@ -115,6 +116,7 @@ import io.trino.sql.tree.PathElement;
 import io.trino.sql.tree.PathSpecification;
 import io.trino.sql.tree.PatternAlternation;
 import io.trino.sql.tree.PatternConcatenation;
+import io.trino.sql.tree.PatternSearchMode;
 import io.trino.sql.tree.PatternVariable;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
@@ -164,6 +166,7 @@ import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TimeLiteral;
@@ -174,6 +177,7 @@ import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Values;
+import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.WindowFrame;
@@ -220,10 +224,14 @@ import static io.trino.sql.parser.TreeNodes.simpleType;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.positive;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
+import static io.trino.sql.tree.PatternSearchMode.Mode.SEEK;
 import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
 import static io.trino.sql.tree.ProcessingMode.Mode.RUNNING;
+import static io.trino.sql.tree.SkipTo.skipToNextRow;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
@@ -3095,7 +3103,7 @@ public class TestSqlParser
                                 Optional.of(new Identifier("someWindow")),
                                 ImmutableList.of(new Identifier("x")),
                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(ROWS, new FrameBound(CURRENT_ROW), Optional.empty())))),
+                                Optional.of(new WindowFrame(ROWS, new FrameBound(CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -3111,7 +3119,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(new Identifier("x")),
                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(ROWS, new FrameBound(CURRENT_ROW), Optional.empty())))),
+                                Optional.of(new WindowFrame(ROWS, new FrameBound(CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -3148,6 +3156,96 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testWindowFrameWithPatternRecognition()
+    {
+        assertThat(expression("rank() OVER (" +
+                "                           PARTITION BY x " +
+                "                           ORDER BY y " +
+                "                           MEASURES " +
+                "                               MATCH_NUMBER() AS match_no, " +
+                "                               LAST(A.z) AS last_z " +
+                "                           ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                           AFTER MATCH SKIP TO NEXT ROW " +
+                "                           SEEK " +
+                "                           PATTERN (A B C) " +
+                "                           SUBSET U = (A, B) " +
+                "                           DEFINE " +
+                "                               B AS false, " +
+                "                               C AS CLASSIFIER(U) = 'B' " +
+                "                         )"))
+                .isEqualTo(new FunctionCall(
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "rank", false))),
+                        Optional.of(new WindowSpecification(
+                                location(1, 41),
+                                Optional.empty(),
+                                ImmutableList.of(new Identifier(location(1, 54), "x", false)),
+                                Optional.of(new OrderBy(
+                                        location(1, 83),
+                                        ImmutableList.of(new SortItem(location(1, 92), new Identifier(location(1, 92), "y", false), ASCENDING, UNDEFINED)))),
+                                Optional.of(new WindowFrame(
+                                        location(1, 121),
+                                        ROWS,
+                                        new FrameBound(location(1, 280), CURRENT_ROW),
+                                        Optional.of(new FrameBound(location(1, 296), FOLLOWING, new LongLiteral(location(1, 296), "5"))),
+                                        ImmutableList.of(
+                                                new MeasureDefinition(
+                                                        location(1, 161),
+                                                        new FunctionCall(
+                                                                location(1, 161),
+                                                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 161), "MATCH_NUMBER", false))),
+                                                                ImmutableList.of()),
+                                                        new Identifier(location(1, 179), "match_no", false)),
+                                                new MeasureDefinition(
+                                                        location(1, 220),
+                                                        new FunctionCall(
+                                                                location(1, 220),
+                                                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 220), "LAST", false))),
+                                                                ImmutableList.of(new DereferenceExpression(
+                                                                        location(1, 225),
+                                                                        new Identifier(location(1, 225), "A", false),
+                                                                        new Identifier(location(1, 227), "z", false)))),
+                                                        new Identifier(location(1, 233), "last_z", false))),
+                                        Optional.of(skipToNextRow(location(1, 347))),
+                                        Optional.of(new PatternSearchMode(location(1, 391), SEEK)),
+                                        Optional.of(new PatternConcatenation(
+                                                location(1, 432),
+                                                ImmutableList.of(
+                                                        new PatternConcatenation(
+                                                                location(1, 432),
+                                                                ImmutableList.of(
+                                                                        new PatternVariable(location(1, 432), new Identifier(location(1, 432), "A", false)),
+                                                                        new PatternVariable(location(1, 434), new Identifier(location(1, 434), "B", false)))),
+                                                        new PatternVariable(location(1, 436), new Identifier(location(1, 436), "C", false))))),
+                                        ImmutableList.of(new SubsetDefinition(
+                                                location(1, 473),
+                                                new Identifier(location(1, 473), "U", false),
+                                                ImmutableList.of(new Identifier(location(1, 478), "A", false), new Identifier(location(1, 481), "B", false)))),
+                                        ImmutableList.of(
+                                                new VariableDefinition(
+                                                        location(1, 549),
+                                                        new Identifier(location(1, 549), "B", false),
+                                                        new BooleanLiteral(location(1, 554), "false")),
+                                                new VariableDefinition(
+                                                        location(1, 592),
+                                                        new Identifier(location(1, 592), "C", false),
+                                                        new ComparisonExpression(
+                                                                location(1, 611),
+                                                                EQUAL,
+                                                                new FunctionCall(
+                                                                        location(1, 597),
+                                                                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 597), "CLASSIFIER", false))),
+                                                                        ImmutableList.of(new Identifier(location(1, 608), "U", false))),
+                                                                new StringLiteral(location(1, 613), "B")))))))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of()));
     }
 
     @Test
