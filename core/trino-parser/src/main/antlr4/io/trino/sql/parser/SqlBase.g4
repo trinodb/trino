@@ -527,7 +527,13 @@ over
     ;
 
 windowFrame
-    : frameExtent
+    : (MEASURES measureDefinition (',' measureDefinition)*)?
+      frameExtent
+      (AFTER MATCH skipTo)?
+      (INITIAL | SEEK)?
+      (PATTERN '(' rowPattern ')')?
+      (SUBSET subsetDefinition (',' subsetDefinition)*)?
+      (DEFINE variableDefinition (',' variableDefinition)*)?
     ;
 
 frameExtent
