@@ -283,9 +283,13 @@ public abstract class BaseJdbcConnectorTest
 
         // TopN over LEFT join (enforces SINGLE TopN cannot be pushed below OUTER side of join)
         // We expect PARTIAL TopN on the LEFT side of join to be pushed down.
-        assertThat(query("SELECT * " +
-                "FROM nation n LEFT JOIN region r ON n.regionkey = r.regionkey " +
-                "ORDER BY n.nationkey LIMIT 3"))
+        assertThat(query(
+                // Explicitly disable join pushdown. The purpose of the this test is to verify partial TopN gets pushed down when Join is not.
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), JOIN_PUSHDOWN_ENABLED, "false")
+                        .build(),
+                "SELECT * FROM nation n LEFT JOIN region r ON n.regionkey = r.regionkey " +
+                        "ORDER BY n.nationkey LIMIT 3"))
                 .ordered()
                 .isNotFullyPushedDown(
                         node(TopNNode.class, // FINAL TopN
