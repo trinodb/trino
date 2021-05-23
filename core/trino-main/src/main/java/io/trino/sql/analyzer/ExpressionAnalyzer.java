@@ -160,6 +160,8 @@ import static io.trino.spi.StandardErrorCode.INVALID_PATTERN_RECOGNITION_FUNCTIO
 import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.MISSING_ORDER_BY;
+import static io.trino.spi.StandardErrorCode.MISSING_ROW_PATTERN;
+import static io.trino.spi.StandardErrorCode.MISSING_VARIABLE_DEFINITIONS;
 import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -1206,13 +1208,33 @@ public class ExpressionAnalyzer
             if (window.getFrame().isPresent() && !window.isFrameInherited()) {
                 WindowFrame frame = window.getFrame().get();
 
-                if (!frame.getMeasures().isEmpty() ||
-                        frame.getAfterMatchSkipTo().isPresent() ||
-                        frame.getPatternSearchMode().isPresent() ||
-                        frame.getPattern().isPresent() ||
-                        !frame.getSubsets().isEmpty() ||
-                        !frame.getVariableDefinitions().isEmpty()) {
-                    throw semanticException(NOT_SUPPORTED, frame, "Pattern recognition in window not yet supported");
+                if (frame.getPattern().isPresent()) {
+                    if (frame.getVariableDefinitions().isEmpty()) {
+                        throw semanticException(MISSING_VARIABLE_DEFINITIONS, frame, "Pattern recognition requires DEFINE clause");
+                    }
+                    if (frame.getType() != ROWS) {
+                        throw semanticException(INVALID_WINDOW_FRAME, frame, "Pattern recognition requires ROWS frame type");
+                    }
+                    if (frame.getStart().getType() != CURRENT_ROW || frame.getEnd().isEmpty()) {
+                        throw semanticException(INVALID_WINDOW_FRAME, frame, "Pattern recognition requires frame specified as BETWEEN CURRENT ROW AND ...");
+                    }
+                }
+                else {
+                    if (!frame.getMeasures().isEmpty()) {
+                        throw semanticException(MISSING_ROW_PATTERN, frame, "Row pattern measures require PATTERN clause");
+                    }
+                    if (frame.getAfterMatchSkipTo().isPresent()) {
+                        throw semanticException(MISSING_ROW_PATTERN, frame.getAfterMatchSkipTo().get(), "AFTER MATCH SKIP clause requires PATTERN clause");
+                    }
+                    if (frame.getPatternSearchMode().isPresent()) {
+                        throw semanticException(MISSING_ROW_PATTERN, frame.getPatternSearchMode().get(), "%s modifier requires PATTERN clause", frame.getPatternSearchMode().get().getMode().name());
+                    }
+                    if (!frame.getSubsets().isEmpty()) {
+                        throw semanticException(MISSING_ROW_PATTERN, frame.getSubsets().get(0), "Union variable definitions require PATTERN clause");
+                    }
+                    if (!frame.getVariableDefinitions().isEmpty()) {
+                        throw semanticException(MISSING_ROW_PATTERN, frame.getVariableDefinitions().get(0), "Primary pattern variable definitions require PATTERN clause");
+                    }
                 }
 
                 // validate frame start and end types

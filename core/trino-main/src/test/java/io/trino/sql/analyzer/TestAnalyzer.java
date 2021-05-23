@@ -117,7 +117,9 @@ import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_GROUP_BY;
 import static io.trino.spi.StandardErrorCode.MISSING_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.MISSING_OVER;
+import static io.trino.spi.StandardErrorCode.MISSING_ROW_PATTERN;
 import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
+import static io.trino.spi.StandardErrorCode.MISSING_VARIABLE_DEFINITIONS;
 import static io.trino.spi.StandardErrorCode.NESTED_AGGREGATION;
 import static io.trino.spi.StandardErrorCode.NESTED_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.NESTED_ROW_PATTERN_RECOGNITION;
@@ -1348,7 +1350,7 @@ public class TestAnalyzer
     public void testWindowFrameWithPatternRecognition()
     {
         // in-line window specification
-        assertFails("SELECT rank() OVER (" +
+        analyze("SELECT rank() OVER (" +
                 "                           PARTITION BY x " +
                 "                           ORDER BY y " +
                 "                           MEASURES A.z AS last_z " +
@@ -1361,12 +1363,10 @@ public class TestAnalyzer
                 "                               B AS false, " +
                 "                               C AS true " +
                 "                         ) " +
-                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:128: Pattern recognition in window not yet supported");
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)");
 
         // window clause
-        assertFails("SELECT rank() OVER w FROM (VALUES (1, 2, 3)) t(x, y, z) " +
+        analyze("SELECT rank() OVER w FROM (VALUES (1, 2, 3)) t(x, y, z) " +
                 "                       WINDOW w AS (" +
                 "                           PARTITION BY x " +
                 "                           ORDER BY y " +
@@ -1379,9 +1379,94 @@ public class TestAnalyzer
                 "                           DEFINE " +
                 "                               B AS false, " +
                 "                               C AS true " +
-                "                      ) ")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:200: Pattern recognition in window not yet supported");
+                "                      ) ");
+    }
+
+    @Test
+    public void testInvalidWindowFrameWithPatternRecognition()
+    {
+        assertFails("SELECT rank() OVER (" +
+                "                           PARTITION BY x " +
+                "                           ORDER BY y " +
+                "                           MEASURES A.z AS last_z " +
+                "                           ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                           AFTER MATCH SKIP TO NEXT ROW " +
+                "                           SEEK " +
+                "                           PATTERN (A B C) " +
+                "                           SUBSET U = (A, B) " +
+                "                         ) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(MISSING_VARIABLE_DEFINITIONS)
+                .hasMessage("line 1:128: Pattern recognition requires DEFINE clause");
+
+        assertFails("SELECT rank() OVER (" +
+                "                           PARTITION BY x " +
+                "                           ORDER BY y " +
+                "                           MEASURES A.z AS last_z " +
+                "                           RANGE BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                           AFTER MATCH SKIP TO NEXT ROW " +
+                "                           SEEK " +
+                "                           PATTERN (A B C) " +
+                "                           SUBSET U = (A, B) " +
+                "                           DEFINE " +
+                "                               B AS false, " +
+                "                               C AS true " +
+                "                         ) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:128: Pattern recognition requires ROWS frame type");
+
+        assertFails("SELECT rank() OVER (" +
+                "                           PARTITION BY x " +
+                "                           ORDER BY y " +
+                "                           MEASURES A.z AS last_z " +
+                "                           ROWS BETWEEN 5 PRECEDING AND 5 FOLLOWING " +
+                "                           AFTER MATCH SKIP TO NEXT ROW " +
+                "                           SEEK " +
+                "                           PATTERN (A B C) " +
+                "                           SUBSET U = (A, B) " +
+                "                           DEFINE " +
+                "                               B AS false, " +
+                "                               C AS true " +
+                "                         ) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:128: Pattern recognition requires frame specified as BETWEEN CURRENT ROW AND ...");
+
+        assertFails("SELECT rank() OVER ( " +
+                "                               MEASURES A.z AS last_z " +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(MISSING_ROW_PATTERN)
+                .hasMessage("line 1:53: Row pattern measures require PATTERN clause");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               AFTER MATCH SKIP TO NEXT ROW) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(MISSING_ROW_PATTERN)
+                .hasMessage("line 1:136: AFTER MATCH SKIP clause requires PATTERN clause");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               SEEK) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(MISSING_ROW_PATTERN)
+                .hasMessage("line 1:124: SEEK modifier requires PATTERN clause");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               SUBSET U = (A, B)) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(MISSING_ROW_PATTERN)
+                .hasMessage("line 1:131: Union variable definitions require PATTERN clause");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               DEFINE B AS false) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(MISSING_ROW_PATTERN)
+                .hasMessage("line 1:131: Primary pattern variable definitions require PATTERN clause");
     }
 
     @Test
