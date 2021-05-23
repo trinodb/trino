@@ -16,7 +16,6 @@ package io.trino.plugin.hive.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
@@ -46,6 +45,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Map;
 import java.util.Optional;
 
@@ -83,7 +84,11 @@ public class TestHiveProjectionPushdownIntoTableScan
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
     {
-        baseDir = Files.createTempDir();
+        try {
+            baseDir = Files.createTempDirectory("tmp").toFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         HdfsConfig config = new HdfsConfig();
         HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());

@@ -32,11 +32,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
 import java.util.BitSet;
 import java.util.List;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -70,8 +71,9 @@ public class TestOrcFileRewriter
 
     @BeforeClass
     public void setup()
+            throws IOException
     {
-        temporary = createTempDir();
+        temporary = Files.createTempDirectory("tmp").toFile();
     }
 
     @AfterClass(alwaysRun = true)

@@ -23,8 +23,8 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -50,7 +50,7 @@ public class TestHiveCreateExternalTable
     public void testCreateExternalTableWithData()
             throws IOException
     {
-        File tempDir = createTempDir();
+        File tempDir = Files.createTempDirectory("tmp").toFile();
         File tableLocation = new File(tempDir, "data");
 
         @Language("SQL") String createTableSql = format("" +
@@ -75,8 +75,9 @@ public class TestHiveCreateExternalTable
 
     @Test
     public void testCreateExternalTableAsWithExistingDirectory()
+            throws IOException
     {
-        File tempDir = createTempDir();
+        File tempDir = Files.createTempDirectory("tmp").toFile();
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external_exists " +

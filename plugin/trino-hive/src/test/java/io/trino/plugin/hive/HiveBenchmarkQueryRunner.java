@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import io.trino.Session;
 import io.trino.benchmark.BenchmarkSuite;
 import io.trino.plugin.hive.authentication.HiveIdentity;
@@ -26,6 +25,7 @@ import io.trino.testing.LocalQueryRunner;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Map;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -43,7 +43,7 @@ public final class HiveBenchmarkQueryRunner
             throws IOException
     {
         String outputDirectory = requireNonNull(System.getProperty("outputDirectory"), "Must specify -DoutputDirectory=...");
-        File tempDir = Files.createTempDir();
+        File tempDir = Files.createTempDirectory("tmp").toFile();
         try (LocalQueryRunner localQueryRunner = createLocalQueryRunner(tempDir)) {
             new BenchmarkSuite(localQueryRunner, outputDirectory).runAllBenchmarks();
         }

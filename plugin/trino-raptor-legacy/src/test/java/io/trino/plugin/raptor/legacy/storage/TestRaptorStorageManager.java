@@ -58,6 +58,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
@@ -70,7 +71,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.hash.Hashing.md5;
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Files.hash;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -139,8 +139,9 @@ public class TestRaptorStorageManager
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
-        temporary = createTempDir();
+        temporary = Files.createTempDirectory("tmp").toFile();
         File directory = new File(temporary, "data");
         storageService = new FileStorageService(directory);
         storageService.start();

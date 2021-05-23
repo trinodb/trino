@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import io.trino.Session;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Database;
@@ -28,6 +27,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -53,7 +54,11 @@ public class TestMetadataQueryOptimization
                 .setSchema(SCHEMA_NAME)
                 .build();
 
-        baseDir = Files.createTempDir();
+        try {
+            baseDir = Files.createTempDirectory("tmp").toFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
 

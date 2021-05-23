@@ -16,7 +16,6 @@ package io.trino.plugin.raptor.legacy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.slice.Slice;
 import io.trino.PagesIndexPageSorter;
@@ -54,6 +53,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Collection;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -85,6 +86,7 @@ public class TestRaptorConnector
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
         TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
@@ -92,7 +94,7 @@ public class TestRaptorConnector
         dummyHandle = dbi.open();
         metadataDao = dbi.onDemand(MetadataDao.class);
         createTablesWithRetry(dbi);
-        dataDir = Files.createTempDir();
+        dataDir = Files.createTempDirectory("tmp").toFile();
 
         RaptorConnectorId connectorId = new RaptorConnectorId("test");
         NodeManager nodeManager = new TestingNodeManager();

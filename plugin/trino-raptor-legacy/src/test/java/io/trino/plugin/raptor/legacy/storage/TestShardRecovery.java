@@ -14,7 +14,6 @@
 package io.trino.plugin.raptor.legacy.storage;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import io.airlift.units.Duration;
 import io.trino.plugin.raptor.legacy.backup.BackupStore;
 import io.trino.plugin.raptor.legacy.backup.FileBackupStore;
@@ -29,6 +28,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -36,7 +37,8 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.Files.asCharSink;
+import static com.google.common.io.Files.equal;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
@@ -65,8 +67,9 @@ public class TestShardRecovery
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
-        temporary = createTempDir();
+        temporary = Files.createTempDirectory("tmp").toFile();
         File directory = new File(temporary, "data");
         File backupDirectory = new File(temporary, "backup");
         backupStore = new FileBackupStore(backupDirectory);
@@ -100,7 +103,7 @@ public class TestShardRecovery
         File file = storageService.getStorageFile(shardUuid);
         File tempFile = createTempFile("tmp", null, temporary);
 
-        Files.write("test data", tempFile, UTF_8);
+        asCharSink(tempFile, UTF_8).write("test data");
 
         backupStore.backupShard(shardUuid, tempFile);
         assertTrue(backupStore.shardExists(shardUuid));
@@ -122,29 +125,29 @@ public class TestShardRecovery
 
         // write data and backup
         File tempFile = createTempFile("tmp", null, temporary);
-        Files.write("test data", tempFile, UTF_8);
+        asCharSink(tempFile, UTF_8).write("test data");
 
         backupStore.backupShard(shardUuid, tempFile);
         assertTrue(backupStore.shardExists(shardUuid));
 
         File backupFile = backupStore.getBackupFile(shardUuid);
-        assertTrue(Files.equal(tempFile, backupFile));
+        assertTrue(equal(tempFile, backupFile));
 
         // write corrupt storage file with wrong length
         File storageFile = storageService.getStorageFile(shardUuid);
         storageService.createParents(storageFile);
 
-        Files.write("bad data", storageFile, UTF_8);
+        asCharSink(storageFile, UTF_8).write("bad data");
 
         assertTrue(storageFile.exists());
         assertNotEquals(storageFile.length(), tempFile.length());
-        assertFalse(Files.equal(storageFile, tempFile));
+        assertFalse(equal(storageFile, tempFile));
 
         // restore from backup and verify
         recoveryManager.restoreFromBackup(shardUuid, tempFile.length(), OptionalLong.empty());
 
         assertTrue(storageFile.exists());
-        assertTrue(Files.equal(storageFile, tempFile));
+        assertTrue(equal(storageFile, tempFile));
 
         // verify quarantine exists
         List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());
@@ -160,29 +163,29 @@ public class TestShardRecovery
 
         // write data and backup
         File tempFile = createTempFile("tmp", null, temporary);
-        Files.write("test data", tempFile, UTF_8);
+        asCharSink(tempFile, UTF_8).write("test data");
 
         backupStore.backupShard(shardUuid, tempFile);
         assertTrue(backupStore.shardExists(shardUuid));
 
         File backupFile = backupStore.getBackupFile(shardUuid);
-        assertTrue(Files.equal(tempFile, backupFile));
+        assertTrue(equal(tempFile, backupFile));
 
         // write corrupt storage file with wrong data
         File storageFile = storageService.getStorageFile(shardUuid);
         storageService.createParents(storageFile);
 
-        Files.write("test xata", storageFile, UTF_8);
+        asCharSink(storageFile, UTF_8).write("test xata");
 
         assertTrue(storageFile.exists());
         assertEquals(storageFile.length(), tempFile.length());
-        assertFalse(Files.equal(storageFile, tempFile));
+        assertFalse(equal(storageFile, tempFile));
 
         // restore from backup and verify
         recoveryManager.restoreFromBackup(shardUuid, tempFile.length(), OptionalLong.of(xxhash64(tempFile)));
 
         assertTrue(storageFile.exists());
-        assertTrue(Files.equal(storageFile, tempFile));
+        assertTrue(equal(storageFile, tempFile));
 
         // verify quarantine exists
         List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());
@@ -200,7 +203,7 @@ public class TestShardRecovery
         File storageFile = storageService.getStorageFile(shardUuid);
         storageService.createParents(storageFile);
 
-        Files.write("test data", storageFile, UTF_8);
+        asCharSink(storageFile, UTF_8).write("test data");
 
         long size = storageFile.length();
         long xxhash64 = xxhash64(storageFile);
@@ -210,14 +213,14 @@ public class TestShardRecovery
 
         assertTrue(backupStore.shardExists(shardUuid));
         File backupFile = backupStore.getBackupFile(shardUuid);
-        assertTrue(Files.equal(storageFile, backupFile));
+        assertTrue(equal(storageFile, backupFile));
 
         // corrupt backup file
-        Files.write("test xata", backupFile, UTF_8);
+        asCharSink(backupFile, UTF_8).write("test xata");
 
         assertTrue(backupFile.exists());
         assertEquals(storageFile.length(), backupFile.length());
-        assertFalse(Files.equal(storageFile, backupFile));
+        assertFalse(equal(storageFile, backupFile));
 
         // delete local file to force restore
         assertTrue(storageFile.delete());

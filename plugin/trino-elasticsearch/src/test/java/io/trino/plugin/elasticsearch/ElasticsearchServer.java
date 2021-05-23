@@ -23,7 +23,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -48,7 +47,7 @@ public class ElasticsearchServer
         container.withNetwork(network);
         container.withNetworkAliases("elasticsearch-server");
 
-        configurationPath = createTempDir().toPath();
+        configurationPath = Files.createTempDirectory("tmp").toFile().toPath();
         for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
             String name = entry.getKey();
             String contents = entry.getValue();

@@ -35,10 +35,10 @@ import javax.inject.Singleton;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.override;
@@ -52,8 +52,9 @@ public class TestHttpBackupStore
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
-        temporary = createTempDir();
+        temporary = Files.createTempDirectory("tmp").toFile();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("backup.http.uri", "http://localhost:8080")

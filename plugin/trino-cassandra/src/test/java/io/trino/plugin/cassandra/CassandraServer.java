@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.concurrent.TimeoutException;
 
 import static com.datastax.driver.core.ProtocolVersion.V3;
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
 import static java.lang.String.format;
@@ -103,7 +102,7 @@ public class CassandraServer
     {
         String original = Resources.toString(getResource("cu-cassandra.yaml"), UTF_8);
 
-        File tempDirFile = createTempDir();
+        File tempDirFile = Files.createTempDirectory("tmp").toFile();
         tempDirFile.deleteOnExit();
         Path tmpDirPath = tempDirFile.toPath();
         Path dataDir = tmpDirPath.resolve("data");
