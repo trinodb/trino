@@ -58,7 +58,7 @@ class ExternalAuthentication
                 currentUri = result.getNextTokenUri();
                 continue;
             }
-
+            poller.tokenReceived(currentUri);
             return Optional.of(result.getToken());
         }
     }

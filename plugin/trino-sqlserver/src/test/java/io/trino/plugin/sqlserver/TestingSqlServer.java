@@ -28,6 +28,7 @@ import java.sql.Statement;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.getCausalChain;
 import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
@@ -42,8 +43,14 @@ public final class TestingSqlServer
             .withBackoff(1, 5, ChronoUnit.SECONDS)
             .withMaxRetries(5)
             .handleIf(throwable -> getCausalChain(throwable).stream()
-                            .filter(SQLException.class::isInstance)
-                            .anyMatch(exception -> exception.getMessage().contains("Rerun the transaction.")))
+                    .filter(SQLException.class::isInstance)
+                    .anyMatch(exception -> {
+                        String message = nullToEmpty(exception.getMessage());
+                        return message.contains("Rerun the transaction.") ||
+                                // Example: Failed to execute statement: ALTER DATABASE database_xyz SET READ_COMMITTED_SNAPSHOT ON
+                                //  User does not have permission to alter database 'database_xyz', the database does not exist, or the database is not in a state that allows access checks.
+                                message.contains("database is not in a state that allows access checks");
+                    }))
             .onRetry(event -> log.warn(
                     "Query failed on attempt %s, will retry. Exception: %s",
                     event.getAttemptCount(),
@@ -126,18 +133,6 @@ public final class TestingSqlServer
                 .run(() -> execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName)));
 
         container.withUrlParam("database", this.databaseName);
-    }
-
-    public AutoCloseable withSchema(String schemaName)
-    {
-        execute(format("CREATE SCHEMA %s ", schemaName));
-        return () -> execute("DROP SCHEMA " + schemaName);
-    }
-
-    public AutoCloseable withTable(String tableName, String tableDefinition)
-    {
-        execute(format("CREATE TABLE %s %s", tableName, tableDefinition));
-        return () -> execute(format("DROP TABLE %s", tableName));
     }
 
     @Override

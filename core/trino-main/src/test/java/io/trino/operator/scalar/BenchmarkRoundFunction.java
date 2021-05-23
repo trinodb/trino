@@ -26,12 +26,10 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.TimeUnit;
+
+import static io.trino.jmh.Benchmarks.benchmark;
 
 @State(Scope.Thread)
 @Fork(2)
@@ -128,10 +126,6 @@ public class BenchmarkRoundFunction
     public static void main(String[] args)
             throws Exception
     {
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkRoundFunction.class.getSimpleName() + ".*")
-                .build();
-        new Runner(options).run();
+        benchmark(BenchmarkRoundFunction.class).run();
     }
 }

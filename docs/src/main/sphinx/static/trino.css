@@ -18,6 +18,20 @@ div.highlight {
     color: #F57C00;
 }
 
+.md-typeset span[id]:target:before {
+    display:block;
+    margin-top:-40px;
+    padding-top:40px;
+    content:"";
+}
+
+.md-typeset dl[id]:target:before {
+    display:block;
+    margin-top:-82px;
+    padding-top:82px;
+    content:"";
+}
+
 .md-nav__button img {
     height: 48px;
 }

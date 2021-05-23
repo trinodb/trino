@@ -78,7 +78,7 @@ public class RedshiftClient
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         // TODO implement proper type mapping
-        return legacyToPrestoType(session, connection, typeHandle);
+        return legacyColumnMapping(session, connection, typeHandle);
     }
 
     @Override

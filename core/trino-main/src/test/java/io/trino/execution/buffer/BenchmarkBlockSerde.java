@@ -39,10 +39,6 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
@@ -56,6 +52,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.execution.buffer.BenchmarkDataGenerator.createValues;
 import static io.trino.execution.buffer.PagesSerdeUtil.readPages;
 import static io.trino.execution.buffer.PagesSerdeUtil.writePages;
+import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.tpch.TpchTables.getTablePages;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -381,11 +378,6 @@ public class BenchmarkBlockSerde
     public static void main(String[] args)
             throws Exception
     {
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkBlockSerde.class.getSimpleName() + ".*")
-                .build();
-
-        new Runner(options).run();
+        benchmark(BenchmarkBlockSerde.class).run();
     }
 }

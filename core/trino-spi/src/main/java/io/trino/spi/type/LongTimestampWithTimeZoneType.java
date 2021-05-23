@@ -103,7 +103,7 @@ class LongTimestampWithTimeZoneType
         }
         else {
             blockBuilder.writeLong(getPackedEpochMillis(block, position));
-            blockBuilder.writeInt(getFraction(block, position));
+            blockBuilder.writeInt(getPicosOfMilli(block, position));
             blockBuilder.closeEntry();
         }
     }
@@ -112,9 +112,9 @@ class LongTimestampWithTimeZoneType
     public Object getObject(Block block, int position)
     {
         long packedEpochMillis = getPackedEpochMillis(block, position);
-        int fraction = getFraction(block, position);
+        int picosOfMilli = getPicosOfMilli(block, position);
 
-        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(unpackMillisUtc(packedEpochMillis), fraction, unpackZoneKey(packedEpochMillis));
+        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(unpackMillisUtc(packedEpochMillis), picosOfMilli, unpackZoneKey(packedEpochMillis));
     }
 
     @Override
@@ -135,9 +135,9 @@ class LongTimestampWithTimeZoneType
         }
 
         long packedEpochMillis = getPackedEpochMillis(block, position);
-        int fraction = getFraction(block, position);
+        int picosOfMilli = getPicosOfMilli(block, position);
 
-        return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(packedEpochMillis), fraction, unpackZoneKey(packedEpochMillis));
+        return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(packedEpochMillis), picosOfMilli, unpackZoneKey(packedEpochMillis));
     }
 
     private static long getPackedEpochMillis(Block block, int position)
@@ -150,7 +150,7 @@ class LongTimestampWithTimeZoneType
         return unpackMillisUtc(getPackedEpochMillis(block, position));
     }
 
-    private static int getFraction(Block block, int position)
+    private static int getPicosOfMilli(Block block, int position)
     {
         return block.getInt(position, SIZE_OF_LONG);
     }
@@ -170,15 +170,15 @@ class LongTimestampWithTimeZoneType
     {
         return equal(
                 getEpochMillis(leftBlock, leftPosition),
-                getFraction(leftBlock, leftPosition),
+                getPicosOfMilli(leftBlock, leftPosition),
                 getEpochMillis(rightBlock, rightPosition),
-                getFraction(rightBlock, rightPosition));
+                getPicosOfMilli(rightBlock, rightPosition));
     }
 
-    private static boolean equal(long leftEpochMillis, int leftFraction, long rightEpochMillis, int rightFraction)
+    private static boolean equal(long leftEpochMillis, int leftPicosOfMilli, long rightEpochMillis, int rightPicosOfMilli)
     {
         return leftEpochMillis == rightEpochMillis &&
-                leftFraction == rightFraction;
+                leftPicosOfMilli == rightPicosOfMilli;
     }
 
     @ScalarOperator(XX_HASH_64)
@@ -192,12 +192,12 @@ class LongTimestampWithTimeZoneType
     {
         return xxHash64(
                 getEpochMillis(block, position),
-                getFraction(block, position));
+                getPicosOfMilli(block, position));
     }
 
-    private static long xxHash64(long epochMillis, int fraction)
+    private static long xxHash64(long epochMillis, int picosOfMilli)
     {
-        return XxHash64.hash(epochMillis) ^ XxHash64.hash(fraction);
+        return XxHash64.hash(epochMillis) ^ XxHash64.hash(picosOfMilli);
     }
 
     @ScalarOperator(COMPARISON)
@@ -211,9 +211,9 @@ class LongTimestampWithTimeZoneType
     {
         return comparison(
                 getEpochMillis(leftBlock, leftPosition),
-                getFraction(leftBlock, leftPosition),
+                getPicosOfMilli(leftBlock, leftPosition),
                 getEpochMillis(rightBlock, rightPosition),
-                getFraction(rightBlock, rightPosition));
+                getPicosOfMilli(rightBlock, rightPosition));
     }
 
     private static int comparison(long leftEpochMillis, int leftPicosOfMilli, long rightEpochMillis, int rightPicosOfMilli)
@@ -236,9 +236,9 @@ class LongTimestampWithTimeZoneType
     {
         return lessThan(
                 getEpochMillis(leftBlock, leftPosition),
-                getFraction(leftBlock, leftPosition),
+                getPicosOfMilli(leftBlock, leftPosition),
                 getEpochMillis(rightBlock, rightPosition),
-                getFraction(rightBlock, rightPosition));
+                getPicosOfMilli(rightBlock, rightPosition));
     }
 
     private static boolean lessThan(long leftEpochMillis, int leftPicosOfMilli, long rightEpochMillis, int rightPicosOfMilli)
@@ -258,9 +258,9 @@ class LongTimestampWithTimeZoneType
     {
         return lessThanOrEqual(
                 getEpochMillis(leftBlock, leftPosition),
-                getFraction(leftBlock, leftPosition),
+                getPicosOfMilli(leftBlock, leftPosition),
                 getEpochMillis(rightBlock, rightPosition),
-                getFraction(rightBlock, rightPosition));
+                getPicosOfMilli(rightBlock, rightPosition));
     }
 
     private static boolean lessThanOrEqual(long leftEpochMillis, int leftPicosOfMilli, long rightEpochMillis, int rightPicosOfMilli)

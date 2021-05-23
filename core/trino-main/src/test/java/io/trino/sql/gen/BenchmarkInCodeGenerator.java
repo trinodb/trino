@@ -14,12 +14,16 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.jmh.Benchmarks;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.sql.relational.RowExpression;
@@ -34,12 +38,10 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
+import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -59,97 +61,148 @@ import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
-@Fork(10)
-@Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Fork(2)
+@Warmup(iterations = 6, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 6, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(AverageTime)
 @SuppressWarnings({"FieldMayBeFinal", "FieldCanBeLocal"})
 public class BenchmarkInCodeGenerator
 {
-    @Param({"1", "5", "10", "25", "50", "75", "100", "150", "200", "250", "300", "350", "400", "450", "500", "750", "1000", "10000"})
-    private int inListCount = 1;
-
-    @Param({StandardTypes.BIGINT, StandardTypes.DOUBLE, StandardTypes.VARCHAR})
-    private String type = StandardTypes.BIGINT;
-
-    private Page inputPage;
-    private PageProcessor processor;
-    private Type trinoType;
-
-    @Setup
-    public void setup()
+    @State(Scope.Thread)
+    public static class BenchmarkData
     {
-        Random random = new Random();
-        RowExpression[] arguments = new RowExpression[1 + inListCount];
-        switch (type) {
-            case StandardTypes.BIGINT:
-                trinoType = BIGINT;
-                for (int i = 1; i <= inListCount; i++) {
-                    arguments[i] = constant((long) random.nextInt(), BIGINT);
-                }
-                break;
-            case StandardTypes.DOUBLE:
-                trinoType = DOUBLE;
-                for (int i = 1; i <= inListCount; i++) {
-                    arguments[i] = constant(random.nextDouble(), DOUBLE);
-                }
-                break;
-            case StandardTypes.VARCHAR:
-                trinoType = VARCHAR;
-                for (int i = 1; i <= inListCount; i++) {
-                    arguments[i] = constant(Slices.utf8Slice(Long.toString(random.nextLong())), VARCHAR);
-                }
-                break;
-            default:
-                throw new IllegalStateException();
-        }
+        @Param({"1", "5", "10", "25", "50", "75", "100", "150", "200", "250", "300", "350", "400", "450", "500", "750", "1000", "10000"})
+        private int inListCount = 1;
 
-        arguments[0] = field(0, trinoType);
-        RowExpression project = field(0, trinoType);
+        @Param({StandardTypes.BIGINT, StandardTypes.DOUBLE, StandardTypes.VARCHAR})
+        private String type = StandardTypes.BIGINT;
 
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(trinoType));
-        for (int i = 0; i < 10_000; i++) {
-            pageBuilder.declarePosition();
+        @Param({"0.0", "0.05", "0.50", "1.0"})
+        private double hitRate;
+
+        private Page inputPage;
+        private PageProcessor processor;
+        private Type trinoType;
+
+        @Setup
+        public void setup()
+        {
+            Random random = new Random(0);
+            List<RowExpression> arguments = new ArrayList<>(1 + inListCount);
 
             switch (type) {
                 case StandardTypes.BIGINT:
-                    BIGINT.writeLong(pageBuilder.getBlockBuilder(0), random.nextInt());
+                    trinoType = BIGINT;
                     break;
                 case StandardTypes.DOUBLE:
-                    DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), random.nextDouble());
+                    trinoType = DOUBLE;
                     break;
                 case StandardTypes.VARCHAR:
-                    VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), Slices.utf8Slice(Long.toString(random.nextLong())));
+                    trinoType = VARCHAR;
                     break;
+                default:
+                    throw new IllegalStateException();
             }
+
+            List<Object> inList = new ArrayList<>();
+            arguments.add(field(0, trinoType));
+            switch (type) {
+                case StandardTypes.BIGINT:
+                    for (int i = 1; i <= inListCount; i++) {
+                        int value = random.nextInt();
+                        inList.add((long) value);
+                        arguments.add(constant((long) value, BIGINT));
+                    }
+                    break;
+                case StandardTypes.DOUBLE:
+                    for (int i = 1; i <= inListCount; i++) {
+                        double value = random.nextDouble();
+                        inList.add(value);
+                        arguments.add(constant(value, DOUBLE));
+                    }
+                    break;
+                case StandardTypes.VARCHAR:
+                    for (int i = 1; i <= inListCount; i++) {
+                        Slice value = Slices.utf8Slice(Long.toString(random.nextLong()));
+                        inList.add(value);
+                        arguments.add(constant(value, VARCHAR));
+                    }
+                    break;
+                default:
+                    throw new IllegalStateException();
+            }
+
+            RowExpression project = field(0, trinoType);
+
+            PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(trinoType));
+            for (int i = 0; i < 10_000; i++) {
+                pageBuilder.declarePosition();
+
+                if (random.nextDouble() <= hitRate) {
+                    // pick one of the values from in list as value written to page
+                    switch (type) {
+                        case StandardTypes.BIGINT:
+                            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), (long) inList.get(random.nextInt(inList.size())));
+                            break;
+                        case StandardTypes.DOUBLE:
+                            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), (double) inList.get(random.nextInt(inList.size())));
+                            break;
+                        case StandardTypes.VARCHAR:
+                            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), (Slice) inList.get(random.nextInt(inList.size())));
+                            break;
+                    }
+                }
+                else {
+                    // use random value; universum is wide so we can safely assume it will not be on of values in inList
+                    switch (type) {
+                        case StandardTypes.BIGINT:
+                            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), random.nextInt());
+                            break;
+                        case StandardTypes.DOUBLE:
+                            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), random.nextDouble());
+                            break;
+                        case StandardTypes.VARCHAR:
+                            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), Slices.utf8Slice(Long.toString(random.nextLong())));
+                            break;
+                    }
+                }
+            }
+            inputPage = pageBuilder.build();
+
+            Metadata metadata = createTestMetadataManager();
+
+            List<ResolvedFunction> functionalDependencies = ImmutableList.of(
+                    metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(trinoType, trinoType)),
+                    metadata.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(trinoType)),
+                    metadata.resolveOperator(OperatorType.INDETERMINATE, ImmutableList.of(trinoType)));
+            RowExpression filter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
+
+            processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
         }
-        inputPage = pageBuilder.build();
-
-        RowExpression filter = new SpecialForm(IN, BOOLEAN, arguments);
-
-        Metadata metadata = createTestMetadataManager();
-        processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
     }
 
     @Benchmark
-    public List<Optional<Page>> benchmark()
+    public List<Optional<Page>> benchmark(BenchmarkData data)
     {
         return ImmutableList.copyOf(
-                processor.process(
+                data.processor.process(
                         SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        inputPage));
+                        data.inputPage));
+    }
+
+    @Test
+    public void testBenchmarkInCodeGenerator()
+    {
+        BenchmarkData benchmarkData = new BenchmarkData();
+        benchmarkData.setup();
+        benchmark(benchmarkData);
     }
 
     public static void main(String[] args)
             throws RunnerException
     {
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkInCodeGenerator.class.getSimpleName() + ".*")
-                .build();
-
-        new Runner(options).run();
+        Benchmarks.benchmark(BenchmarkInCodeGenerator.class).run();
     }
 }

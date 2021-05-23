@@ -41,9 +41,6 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.results.RunResult;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.util.Statistics;
 
 import java.io.File;
@@ -59,6 +56,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
@@ -524,12 +522,9 @@ public class BenchmarkHiveFileFormat
     public static void main(String[] args)
             throws Exception
     {
-        Options opt = new OptionsBuilder()
-                .include(".*\\." + BenchmarkHiveFileFormat.class.getSimpleName() + ".*")
-                .jvmArgsAppend("-Xmx4g", "-Xms4g", "-XX:+UseG1GC")
-                .build();
-
-        Collection<RunResult> results = new Runner(opt).run();
+        Collection<RunResult> results = benchmark(BenchmarkHiveFileFormat.class)
+                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g", "-XX:+UseG1GC"))
+                .run();
 
         for (RunResult result : results) {
             Statistics inputSizeStats = result.getSecondaryResults().get("inputSize").getStatistics();

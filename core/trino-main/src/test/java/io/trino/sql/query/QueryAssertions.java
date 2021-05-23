@@ -39,20 +39,25 @@ import org.assertj.core.presentation.StandardRepresentation;
 import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.query.QueryAssertions.ExpressionAssert.newExpressionAssert;
 import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -264,6 +269,25 @@ public class QueryAssertions
             this.runner = requireNonNull(runner, "runner is null");
             this.session = requireNonNull(session, "session is null");
             this.query = requireNonNull(query, "query is null");
+        }
+
+        public QueryAssert projected(int... columns)
+        {
+            return new QueryAssert(
+                    runner,
+                    session,
+                    format("%s projected with %s", query, Arrays.toString(columns)),
+                    new MaterializedResult(
+                            actual.getMaterializedRows().stream()
+                                    .map(row -> new MaterializedRow(
+                                            row.getPrecision(),
+                                            IntStream.of(columns)
+                                                    .mapToObj(row::getField)
+                                                    .collect(toList()))) // values are nullable
+                                    .collect(toImmutableList()),
+                            IntStream.of(columns)
+                                    .mapToObj(actual.getTypes()::get)
+                                    .collect(toImmutableList())));
         }
 
         public QueryAssert matches(BiFunction<Session, QueryRunner, MaterializedResult> evaluator)

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>357-SNAPSHOT</version>
+        <version>358-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -204,7 +204,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-testng-services</artifactId>
+            <artifactId>trino-testing-services</artifactId>
             <scope>test</scope>
         </dependency>
 

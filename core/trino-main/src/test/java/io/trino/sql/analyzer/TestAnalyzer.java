@@ -2916,7 +2916,7 @@ public class TestAnalyzer
     {
         analyze("SELECT * FROM t1 WHERE t1.a <= ALL (VALUES 10, 20)");
         assertFails("SELECT * FROM t1 WHERE t1.a = ANY (SELECT 1, 2)")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT * FROM t1 WHERE t1.a = SOME (VALUES ('abc'))")
                 .hasErrorCode(TYPE_MISMATCH);
 
@@ -2930,6 +2930,10 @@ public class TestAnalyzer
         assertFails("SELECT cast(NULL AS HyperLogLog) < ALL (VALUES cast(NULL AS HyperLogLog))")
                 .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT cast(NULL AS HyperLogLog) = ANY (VALUES cast(NULL AS HyperLogLog))")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // complex row with non-comparable field
+        assertFails("SELECT ROW(cast(NULL AS HyperLogLog), 1) = ANY (VALUES ROW(cast(NULL AS HyperLogLog), 1))")
                 .hasErrorCode(TYPE_MISMATCH);
 
         // qdigest is neither orderable nor comparable

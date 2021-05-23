@@ -54,6 +54,10 @@ public class TestBigQueryType
         assertThat(BigQueryType.stringToStringConverter(
                 utf8Slice("test")))
                 .isEqualTo("'test'");
+
+        assertThat(BigQueryType.stringToStringConverter(
+                utf8Slice("test's test")))
+                .isEqualTo("'test\\'s test'");
     }
 
     @Test

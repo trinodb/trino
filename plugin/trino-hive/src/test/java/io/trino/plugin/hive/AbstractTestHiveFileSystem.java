@@ -211,7 +211,7 @@ public abstract class AbstractTestHiveFileSystem
                 partitionUpdateCodec,
                 new NodeVersion("test_version"),
                 new NoneHiveRedirectionsProvider(),
-                new NoneHiveMaterializedViewMetadata(),
+                new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(

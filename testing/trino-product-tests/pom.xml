@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>357-SNAPSHOT</version>
+        <version>358-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <main-class>io.trino.tests.TemptoProductTestRunner</main-class>
+        <main-class>io.trino.tests.product.TemptoProductTestRunner</main-class>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
     </properties>
 
@@ -43,7 +43,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-testng-services</artifactId>
+            <artifactId>trino-testing-services</artifactId>
         </dependency>
 
         <dependency>

@@ -21,11 +21,30 @@ import java.util.Map;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.function.Function;
 
 public final class MockTokenPoller
         implements TokenPoller
 {
     private final Map<URI, BlockingDeque<TokenPollResult>> results = new ConcurrentHashMap<>();
+    private URI tokenReceivedUri;
+
+    public static TokenPoller onPoll(Function<URI, TokenPollResult> pollingStrategy)
+    {
+        return new TokenPoller()
+        {
+            @Override
+            public TokenPollResult pollForToken(URI tokenUri, Duration timeout)
+            {
+                return pollingStrategy.apply(tokenUri);
+            }
+
+            @Override
+            public void tokenReceived(URI tokenUri)
+            {
+            }
+        };
+    }
 
     public MockTokenPoller withResult(URI tokenUri, TokenPollResult result)
     {
@@ -47,5 +66,16 @@ public final class MockTokenPoller
             throw new IllegalArgumentException("Unknown token URI: " + tokenUri);
         }
         return queue.remove();
+    }
+
+    @Override
+    public void tokenReceived(URI tokenUri)
+    {
+        this.tokenReceivedUri = tokenUri;
+    }
+
+    public URI tokenReceivedUri()
+    {
+        return tokenReceivedUri;
     }
 }

@@ -98,6 +98,7 @@ import io.trino.server.SliceSerialization.SliceSerializer;
 import io.trino.server.remotetask.HttpLocationFactory;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
+import io.trino.spi.VersionEmbedder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
@@ -282,7 +283,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(NodeMemoryConfig.class);
         binder.bind(LocalMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
-        binder.bind(EmbedVersion.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, VersionEmbedder.class).setDefault().to(EmbedVersion.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskManager.class).withGeneratedName();
         binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
