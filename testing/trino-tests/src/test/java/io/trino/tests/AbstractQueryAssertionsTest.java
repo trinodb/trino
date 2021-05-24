@@ -13,6 +13,7 @@
  */
 package io.trino.tests;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.JdbcPlugin;
@@ -93,6 +94,46 @@ public abstract class AbstractQueryAssertionsTest
         QueryAssert queryAssert = assertThat(query("SELECT X'001234'"));
         assertThatThrownBy(() -> queryAssert.matches("VALUES '001234'"))
                 .hasMessageContaining("[Output types] expected:<[var[char(6)]]> but was:<[var[binary]]>");
+    }
+
+    @Test
+    public void testTolerance()
+    {
+        // allow tolerance of +/- 50%, test against both ranges
+        assertThat(query("VALUES (70),(150)")).ordered().withTolerancePercentages(ImmutableList.of(0.5)).matches("VALUES (100),(100)");
+
+        //allow tolerance of +/- 10% for the first column and third column, rest exact matches
+        assertThat(query("VALUES (91,100,109,100),(95,100,103,100)"))
+                .ordered()
+                .withTolerancePercentages(ImmutableList.of(0.1d, 1d, 0.1d))
+                .matches("VALUES (100,100,100,100),(100,100,100,100)");
+
+        //last exact match is mismatch
+        final QueryAssert queryAssertMismatch = assertThat(query("VALUES (91,100,109,100),(95,100,103,100)"))
+                .ordered()
+                .withTolerancePercentages(ImmutableList.of(0.1d, 1d, 0.1d));
+        assertThatThrownBy(() -> queryAssertMismatch.matches("VALUES (91,100,109,100),(95,100,103,101)"))
+                .hasMessageContaining("expected [101] but found [100]");
+
+        // value is outside of tolerance
+        QueryAssert queryAssert = assertThat(query("VALUES (49)")).ordered().withTolerancePercentages(ImmutableList.of(0.5));
+        assertThatThrownBy(() -> queryAssert.matches("VALUES (100)"))
+                .hasMessageContaining("row [49] has field 49 that is not contained in expected actual range [50.0..150.0]");
+
+        // value is of wrong type
+        QueryAssert stringWithToleranceAssert = assertThat(query("VALUES ('str')")).ordered().withTolerancePercentages(ImmutableList.of(0.5));
+        assertThatThrownBy(() -> stringWithToleranceAssert.matches("VALUES ('str')"))
+                .hasMessageContaining("tolerance is specified for the column but column is not a number and comparable ");
+
+        // expected has less rows
+        final QueryAssert queryAssertExpectedHasLessRows = assertThat(query("VALUES(1),(2)")).ordered().withTolerancePercentages(ImmutableList.of(1.0d));
+        assertThatThrownBy(() -> queryAssertExpectedHasLessRows.matches("VALUES (1)"))
+                .hasMessageContaining("Expected 1 but encountered 2: expected RowCount 1 not equal to 2");
+
+        // expected has more rows
+        final QueryAssert queryAssertExpectedHasMoreRows = assertThat(query("VALUES(1)")).ordered().withTolerancePercentages(ImmutableList.of(1.0d));
+        assertThatThrownBy(() -> queryAssertExpectedHasMoreRows.matches("VALUES (1),(2)"))
+                .hasMessageContaining("Expected 2 but encountered 1: expected RowCount 2 not equal to 1");
     }
 
     @Test
