@@ -322,7 +322,7 @@ public class CassandraSession
 
     private Optional<CassandraColumnHandle> buildColumnHandle(AbstractTableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
-        Optional<CassandraType> cassandraType = toCassandraType(columnMeta.getType().getName());
+        Optional<CassandraType> cassandraType = toCassandraType(columnMeta.getType());
         if (cassandraType.isEmpty()) {
             log.debug("Unsupported column type: %s", columnMeta.getType().getName());
             return Optional.empty();
