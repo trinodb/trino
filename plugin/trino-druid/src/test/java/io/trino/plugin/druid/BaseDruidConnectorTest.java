@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.druid;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -114,6 +115,12 @@ public abstract class BaseDruidConnectorTest
             "comment, " +
             "'1995-01-02' AS customer_druid_dummy_ts " +  // Dummy timestamp for Druid __time column
             "FROM tpch.tiny.customer";
+
+    protected static final String SELECT_SINGLE_ROW = "SELECT " +
+            "CAST(1 AS DOUBLE), " +
+            "CAST(1 AS REAL), " +
+            "CAST(1 AS BIGINT), " +
+            "'1995-01-02' AS DUMMY_TS ";
 
     protected TestingDruidServer druidServer;
 
@@ -303,6 +310,84 @@ public abstract class BaseDruidConnectorTest
     }
 
     @Test
+    public void testAggregationPushdown()
+    {
+        assertThat(query("SELECT count(*) FROM orders")).isFullyPushedDown();
+
+        // for varchar only count is pushed down
+        assertThat(query("SELECT count(comment) FROM orders")).isFullyPushedDown();
+
+        // for timestamp
+        assertThat(query("SELECT count(__time) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT min(__time) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT max(__time) FROM orders")).isFullyPushedDown();
+
+        // for double
+        assertThat(query("SELECT count(totalprice) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT min(totalprice) FROM orders group by custkey")).isFullyPushedDown();
+        assertThat(query("SELECT max(totalprice) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT sum(totalprice) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT avg(totalprice) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT stddev(totalprice) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_samp(totalprice) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_pop(totalprice) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT variance(totalprice) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT var_samp(totalprice) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT var_pop(totalprice) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT stddev(double_col) FROM singlerow")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_samp(double_col) FROM singlerow")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_pop(double_col) FROM singlerow")).isFullyPushedDown();
+        assertThat(query("SELECT variance(double_col) FROM singlerow")).isFullyPushedDown();
+        assertThat(query("SELECT var_samp(double_col) FROM singlerow")).isFullyPushedDown();
+        assertThat(query("SELECT var_pop(double_col) FROM singlerow")).isFullyPushedDown();
+        assertThat(query("SELECT stddev(double_col) FROM nodata")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_samp(double_col) FROM nodata")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_pop(double_col) FROM nodata")).isFullyPushedDown();
+        assertThat(query("SELECT variance(double_col) FROM nodata")).isFullyPushedDown();
+        assertThat(query("SELECT var_samp(double_col) FROM nodata")).isFullyPushedDown();
+        assertThat(query("SELECT var_pop(double_col) FROM nodata")).isFullyPushedDown();
+
+        // for bigint
+        assertThat(query("SELECT count(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT min(shippriority) FROM orders group by custkey")).isFullyPushedDown();
+        assertThat(query("SELECT max(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT sum(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT avg(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT stddev(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_samp(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_pop(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT variance(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT var_samp(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT var_pop(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT stddev(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_samp(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_pop(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT variance(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT var_samp(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT var_pop(shippriority) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT stddev(bigint_col) FROM nodata")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_samp(bigint_col) FROM nodata")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_pop(bigint_col) FROM nodata")).isFullyPushedDown();
+        assertThat(query("SELECT variance(bigint_col) FROM nodata")).isFullyPushedDown();
+        assertThat(query("SELECT var_samp(bigint_col) FROM nodata")).isFullyPushedDown();
+        assertThat(query("SELECT var_pop(bigint_col) FROM nodata")).isFullyPushedDown();
+        assertThat(query("SELECT stddev(bigint_col) FROM singlerow")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_samp(bigint_col) FROM singlerow")).isFullyPushedDown();
+        assertThat(query("SELECT stddev_pop(bigint_col) FROM singlerow")).isFullyPushedDown();
+        assertThat(query("SELECT variance(bigint_col) FROM singlerow")).isFullyPushedDown();
+        assertThat(query("SELECT var_samp(bigint_col) FROM singlerow")).isFullyPushedDown();
+        assertThat(query("SELECT var_pop(bigint_col) FROM singlerow")).isFullyPushedDown();
+
+        //distinct
+        assertThat(query("SELECT distinct shippriority,clerk FROM orders")).isFullyPushedDown();
+
+        assertThat(query("SELECT approx_distinct(custkey) FROM orders")).ordered().withTolerancePercentages(ImmutableList.of(0.05d)).isFullyPushedDown();
+        assertThat(query("SELECT approx_distinct(totalprice) FROM orders")).ordered().withTolerancePercentages(ImmutableList.of(0.05d)).isFullyPushedDown();
+        assertThat(query("SELECT approx_distinct(comment) FROM orders")).ordered().withTolerancePercentages(ImmutableList.of(0.05d)).isFullyPushedDown();
+        assertThat(query("SELECT approx_distinct(__time) FROM orders")).ordered().withTolerancePercentages(ImmutableList.of(0.05d)).isFullyPushedDown();
+    }
+
+    @Test
     public void testLimitPushDown()
     {
         assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
@@ -314,16 +399,18 @@ public abstract class BaseDruidConnectorTest
         assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isFullyPushedDown();
 
         // with aggregation
-        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isNotFullyPushedDown(AggregationNode.class); // global aggregation, LIMIT removed TODO https://github.com/trinodb/trino/pull/4313
-        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isNotFullyPushedDown(AggregationNode.class); // TODO https://github.com/trinodb/trino/pull/4313
+        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed TODO https://github.com/trinodb/trino/pull/4313
+        // druid does not support max over varchar
+        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey LIMIT 5")).isFullyPushedDown();
 
         // distinct limit can be pushed down even without aggregation pushdown
         assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
 
         // with aggregation and filter over numeric column
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(AggregationNode.class); // TODO https://github.com/trinodb/trino/pull/4313
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
         // with aggregation and filter over varchar column
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(AggregationNode.class); // TODO https://github.com/trinodb/trino/pull/4313
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
 
         // with TopN over numeric column
         assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5")).isNotFullyPushedDown(TopNNode.class);
@@ -350,5 +437,57 @@ public abstract class BaseDruidConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_enabled", "true")
                 .build();
+    }
+
+    @Override
+    @Test
+    public void testAggregation()
+    {
+        assertQuery("SELECT sum(orderkey) FROM orders");
+        assertQuery("SELECT sum(totalprice) FROM orders");
+        assertQuery("SELECT max(comment) FROM nation");
+
+        assertQuery("SELECT count(*) FROM orders");
+        assertQuery("SELECT count(*) FROM orders WHERE orderkey > 10");
+        // Commenting these until https://github.com/apache/druid/issues/9949 is fixed.
+        // assertQuery("SELECT count(*) FROM (SELECT * FROM orders LIMIT 10)");
+        // assertQuery("SELECT count(*) FROM (SELECT * FROM orders WHERE orderkey > 10 LIMIT 10)");
+
+        assertQuery("SELECT DISTINCT regionkey FROM nation");
+        assertQuery("SELECT regionkey FROM nation GROUP BY regionkey");
+
+        // TODO support aggregation pushdown with GROUPING SETS
+        assertQuery(
+                "SELECT regionkey, nationkey FROM nation GROUP BY GROUPING SETS ((regionkey), (nationkey))",
+                "SELECT NULL, nationkey FROM nation " +
+                        "UNION ALL SELECT DISTINCT regionkey, NULL FROM nation");
+        assertQuery(
+                "SELECT regionkey, nationkey, count(*) FROM nation GROUP BY GROUPING SETS ((), (regionkey), (nationkey), (regionkey, nationkey))",
+                "SELECT NULL, NULL, count(*) FROM nation " +
+                        "UNION ALL SELECT NULL, nationkey, 1 FROM nation " +
+                        "UNION ALL SELECT regionkey, NULL, count(*) FROM nation GROUP BY regionkey " +
+                        "UNION ALL SELECT regionkey, nationkey, 1 FROM nation");
+
+        assertQuery("SELECT count(regionkey) FROM nation");
+        assertQuery("SELECT count(DISTINCT regionkey) FROM nation");
+        assertQuery("SELECT regionkey, count(*) FROM nation GROUP BY regionkey");
+
+        assertQuery("SELECT min(regionkey), max(regionkey) FROM nation");
+        assertQuery("SELECT min(DISTINCT regionkey), max(DISTINCT regionkey) FROM nation");
+        assertQuery("SELECT regionkey, min(regionkey), min(name), max(regionkey), max(name) FROM nation GROUP BY regionkey");
+
+        assertQuery("SELECT sum(regionkey) FROM nation");
+        assertQuery("SELECT sum(DISTINCT regionkey) FROM nation");
+        assertQuery("SELECT regionkey, sum(regionkey) FROM nation GROUP BY regionkey");
+
+        assertQuery(
+                "SELECT avg(nationkey) FROM nation",
+                "SELECT avg(CAST(nationkey AS double)) FROM nation");
+        assertQuery(
+                "SELECT avg(DISTINCT nationkey) FROM nation",
+                "SELECT avg(DISTINCT CAST(nationkey AS double)) FROM nation");
+        assertQuery(
+                "SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey",
+                "SELECT regionkey, avg(CAST(nationkey AS double)) FROM nation GROUP BY regionkey");
     }
 }
