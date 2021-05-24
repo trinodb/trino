@@ -30,10 +30,13 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.TableStatistics;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.assertions.Assert;
+import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import io.trino.transaction.TransactionBuilder;
 import org.apache.avro.Schema;
@@ -46,6 +49,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -65,7 +69,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
@@ -75,7 +78,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -86,20 +88,19 @@ import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public abstract class AbstractTestIcebergSmoke
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+public class AbstractTestIcebergConnectorTest
+        extends BaseConnectorTest
 {
+    private final FileFormat format;
     private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
-    private final FileFormat format;
-
-    protected AbstractTestIcebergSmoke(FileFormat format)
+    public AbstractTestIcebergConnectorTest(FileFormat format)
     {
         this.format = requireNonNull(format, "format is null");
     }
@@ -108,7 +109,31 @@ public abstract class AbstractTestIcebergSmoke
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), format);
+        return createIcebergQueryRunner(ImmutableMap.of(), format, REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_RENAME_TABLE:
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+            case SUPPORTS_DELETE:
+                return true;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Test
+    @Override
+    public void testDelete()
+    {
+        // Deletes are covered with testMetadata*Delete test methods
+        assertThatThrownBy(super::testDelete)
+                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
     }
 
     @Test
@@ -124,10 +149,8 @@ public abstract class AbstractTestIcebergSmoke
                         "\\)");
     }
 
-    @Override
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
+    @Override
     public void testDescribeTable()
     {
         MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
@@ -142,17 +165,15 @@ public abstract class AbstractTestIcebergSmoke
                 .row("comment", "varchar", "", "")
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
+        Assert.assertEquals(actualColumns, expectedColumns);
     }
 
-    @Override
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
+    @Override
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE iceberg.tpch.orders (\n" +
+                .isEqualTo(format("CREATE TABLE iceberg.tpch.orders (\n" +
                         "   orderkey bigint,\n" +
                         "   custkey bigint,\n" +
                         "   orderstatus varchar,\n" +
@@ -164,8 +185,8 @@ public abstract class AbstractTestIcebergSmoke
                         "   comment varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = '" + format.name() + "'\n" +
-                        ")");
+                        "   format = '%s'\n" +
+                        ")", format.name()));
     }
 
     @Test
@@ -1243,7 +1264,7 @@ public abstract class AbstractTestIcebergSmoke
                         .row("col", null, null, 0.0, null, "-10.0", "100.0")
                         .row(null, null, null, null, 2.0, null, null)
                         .build();
-        assertEquals(result, expectedStatistics);
+        Assert.assertEquals(result, expectedStatistics);
 
         assertUpdate(insertStart + " VALUES 200", 1);
 
@@ -1253,7 +1274,7 @@ public abstract class AbstractTestIcebergSmoke
                         .row("col", null, null, 0.0, null, "-10.0", "200.0")
                         .row(null, null, null, null, 3.0, null, null)
                         .build();
-        assertEquals(result, expectedStatistics);
+        Assert.assertEquals(result, expectedStatistics);
 
         dropTable(tableName);
     }
@@ -1278,7 +1299,7 @@ public abstract class AbstractTestIcebergSmoke
                         .row("col3", null, null, 0.0, null, "2019-06-28", "2020-01-01")
                         .row(null, null, null, null, 2.0, null, null)
                         .build();
-        assertEquals(result, expectedStatistics);
+        Assert.assertEquals(result, expectedStatistics);
 
         assertUpdate(insertStart + " VALUES (200, 20, DATE '2020-06-28')", 1);
         result = computeActual("SHOW STATS FOR " + tableName);
@@ -1289,7 +1310,7 @@ public abstract class AbstractTestIcebergSmoke
                         .row("col3", null, null, 0.0, null, "2019-06-28", "2020-06-28")
                         .row(null, null, null, null, 3.0, null, null)
                         .build();
-        assertEquals(result, expectedStatistics);
+        Assert.assertEquals(result, expectedStatistics);
 
         assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(21, 25)
                 .mapToObj(i -> format("(200, %d, DATE '2020-07-%d')", i, i))
@@ -1308,7 +1329,7 @@ public abstract class AbstractTestIcebergSmoke
                         .row("col3", null, null, 0.0, null, "2019-06-28", "2020-07-25")
                         .row(null, null, null, null, 13.0, null, null)
                         .build();
-        assertEquals(result, expectedStatistics);
+        Assert.assertEquals(result, expectedStatistics);
 
         dropTable(tableName);
     }
@@ -1694,13 +1715,6 @@ public abstract class AbstractTestIcebergSmoke
                 .execute(getSession(), consumer);
     }
 
-    private void dropTable(String table)
-    {
-        Session session = getSession();
-        assertUpdate(session, "DROP TABLE " + table);
-        assertFalse(getQueryRunner().tableExists(session, table));
-    }
-
     @Test
     public void testOptimizedMetadataQueries()
     {
@@ -1764,7 +1778,7 @@ public abstract class AbstractTestIcebergSmoke
         dataFile.put("file_size_in_bytes", alteredValue);
 
         // Replace the file through HDFS client. This is required for correct checksums.
-        HdfsEnvironment.HdfsContext context = new HdfsContext(getSession().toConnectorSession());
+        HdfsEnvironment.HdfsContext context = new HdfsEnvironment.HdfsContext(getSession().toConnectorSession());
         Path manifestFilePath = new Path(manifestFile);
         FileSystem fs = HDFS_ENVIRONMENT.getFileSystem(context, manifestFilePath);
 
@@ -1785,5 +1799,55 @@ public abstract class AbstractTestIcebergSmoke
         assertQueryFails("SELECT * FROM test_iceberg_file_size", format("Error reading tail from .* with length %d", alteredValue));
 
         dropTable("test_iceberg_file_size");
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Iceberg connector does not support column default values");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("tinyint")
+                || typeName.equals("smallint")
+                || typeName.startsWith("char(")) {
+            // These types are not supported by Iceberg
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        if (typeName.startsWith("decimal(") || typeName.equals("time")) {
+            // Cases covered by testDecimal method
+            return Optional.empty();
+        }
+
+        if (typeName.equals("timestamp")) {
+            return Optional.of(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999999'"));
+        }
+
+        if (typeName.equals("timestamp(3) with time zone")) {
+            return Optional.of(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999999 +12:00'"));
+        }
+
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("char(1)")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    private void dropTable(String table)
+    {
+        Session session = getSession();
+        assertUpdate(session, "DROP TABLE " + table);
+        assertFalse(getQueryRunner().tableExists(session, table));
     }
 }

@@ -19,6 +19,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import org.apache.iceberg.avro.AvroSchemaUtil;
 
 import java.util.List;
 import java.util.Map;
@@ -42,7 +43,7 @@ public class PrimitiveTypeMapBuilder
     private Map<List<String>, Type> buildTypeMap(List<Type> types, List<String> columnNames)
     {
         for (int i = 0; i < types.size(); i++) {
-            visitType(types.get(i), columnNames.get(i), ImmutableList.of());
+            visitType(types.get(i), AvroSchemaUtil.makeCompatibleName(columnNames.get(i)), ImmutableList.of());
         }
         return builder.build();
     }
