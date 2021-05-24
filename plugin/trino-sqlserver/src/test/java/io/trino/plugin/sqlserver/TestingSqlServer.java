@@ -42,6 +42,12 @@ public final class TestingSqlServer
 {
     private static final Logger log = Logger.get(TestingSqlServer.class);
 
+    public static final BiConsumer<SqlExecutor, String> DEFAULT_DATABASE_SETUP = (executor, databaseName) -> {
+        // Enable snapshot isolation by default to reduce flakiness on CI
+        executor.execute(format("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON", databaseName));
+        executor.execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName));
+    };
+
     private static final RetryPolicy<InitializedState> CONTAINER_RETRY_POLICY = new RetryPolicy<InitializedState>()
             .withBackoff(1, 5, ChronoUnit.SECONDS)
             .withMaxRetries(5)
@@ -61,7 +67,7 @@ public final class TestingSqlServer
 
     public TestingSqlServer()
     {
-        this((executor, databaseName) -> {});
+        this(DEFAULT_DATABASE_SETUP);
     }
 
     public TestingSqlServer(BiConsumer<SqlExecutor, String> databaseSetUp)
@@ -104,6 +110,12 @@ public final class TestingSqlServer
         }
 
         return new InitializedState(container, databaseName, cleanup);
+    }
+
+    private static void setUpDatabase(SqlExecutor executor, String databaseName, BiConsumer<SqlExecutor, String> databaseSetUp)
+    {
+        executor.execute("CREATE DATABASE " + databaseName);
+        databaseSetUp.accept(executor, databaseName);
     }
 
     public String getDatabaseName()
@@ -149,17 +161,6 @@ public final class TestingSqlServer
     public String getJdbcUrl()
     {
         return container.getJdbcUrl();
-    }
-
-    private static void setUpDatabase(SqlExecutor executor, String databaseName, BiConsumer<SqlExecutor, String> databaseSetUp)
-    {
-        executor.execute("CREATE DATABASE " + databaseName);
-
-        // Enable snapshot isolation by default to reduce flakiness on CI
-        executor.execute(format("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON", databaseName));
-        executor.execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName));
-
-        databaseSetUp.accept(executor, databaseName);
     }
 
     @Override
