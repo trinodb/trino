@@ -17,6 +17,7 @@ import io.airlift.log.Logger;
 import io.trino.testing.sql.SqlExecutor;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
+import net.jodah.failsafe.Timeout;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -26,6 +27,7 @@ import java.io.UncheckedIOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import java.util.function.BiConsumer;
@@ -72,7 +74,7 @@ public final class TestingSqlServer
 
     public TestingSqlServer(BiConsumer<SqlExecutor, String> databaseSetUp)
     {
-        InitializedState initializedState = Failsafe.with(CONTAINER_RETRY_POLICY)
+        InitializedState initializedState = Failsafe.with(CONTAINER_RETRY_POLICY, Timeout.of(Duration.ofMinutes(5)))
                 .get(() -> createContainer(databaseSetUp));
 
         container = initializedState.container;
