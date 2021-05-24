@@ -195,7 +195,7 @@ public class PushPredicateIntoTableScan
                             deterministicPredicate,
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
-                            domainTranslator.toPredicate(newDomain.simplify().transform(assignments::get))));
+                            domainTranslator.toPredicate(newDomain.simplify().transformKeys(assignments::get))));
             constraint = new Constraint(newDomain, evaluator::isCandidate, evaluator.getArguments());
         }
         else {
@@ -277,7 +277,7 @@ public class PushPredicateIntoTableScan
 
         Expression resultingPredicate = createResultingPredicate(
                 metadata,
-                domainTranslator.toPredicate(remainingFilter.transform(assignments::get)),
+                domainTranslator.toPredicate(remainingFilter.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());
 
