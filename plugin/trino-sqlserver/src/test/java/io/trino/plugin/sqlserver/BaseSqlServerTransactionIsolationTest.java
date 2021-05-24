@@ -16,6 +16,7 @@ package io.trino.plugin.sqlserver;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.SqlExecutor;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -33,8 +34,7 @@ public abstract class BaseSqlServerTransactionIsolationTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingSqlServer sqlServer = closeAfterClass(new TestingSqlServer());
-        configureDatabase(sqlServer);
+        TestingSqlServer sqlServer = closeAfterClass(new TestingSqlServer(this::configureDatabase));
         return createSqlServerQueryRunner(
                 sqlServer,
                 Map.of(),
@@ -42,7 +42,7 @@ public abstract class BaseSqlServerTransactionIsolationTest
                 List.of(NATION));
     }
 
-    protected abstract void configureDatabase(TestingSqlServer sqlServer);
+    protected abstract void configureDatabase(SqlExecutor executor, String databaseName);
 
     @Test
     public void testCreateReadTable()

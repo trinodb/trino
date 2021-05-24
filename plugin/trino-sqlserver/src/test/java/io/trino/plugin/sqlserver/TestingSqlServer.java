@@ -14,6 +14,7 @@
 package io.trino.plugin.sqlserver;
 
 import io.airlift.log.Logger;
+import io.trino.testing.sql.SqlExecutor;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.MSSQLServerContainer;
@@ -27,6 +28,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 
 import static com.google.common.base.Throwables.getCausalChain;
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -51,11 +53,17 @@ public final class TestingSqlServer
 
     private static final DockerImageName DOCKER_IMAGE_NAME = DockerImageName.parse("microsoft/mssql-server-linux:2017-CU13")
             .asCompatibleSubstituteFor("mcr.microsoft.com/mssql/server:2017-CU12");
+
     private final MSSQLServerContainer<?> container;
     private final String databaseName;
     private final Closeable cleanup;
 
     public TestingSqlServer()
+    {
+        this((executor, databaseName) -> {});
+    }
+
+    public TestingSqlServer(BiConsumer<SqlExecutor, String> databaseSetUp)
     {
         container = new MSSQLServerContainer(DOCKER_IMAGE_NAME)
         {
@@ -74,7 +82,7 @@ public final class TestingSqlServer
 
         cleanup = startOrReuse(container);
         try {
-            setUpDatabase();
+            setUpDatabase(databaseSetUp);
         }
         catch (Exception e) {
             closeAllSuppress(e, cleanup);
@@ -119,7 +127,7 @@ public final class TestingSqlServer
         return container.getJdbcUrl();
     }
 
-    private void setUpDatabase()
+    private void setUpDatabase(BiConsumer<SqlExecutor, String> databaseSetUp)
     {
         execute("CREATE DATABASE " + databaseName);
 
@@ -128,6 +136,8 @@ public final class TestingSqlServer
                 .run(() -> execute(format("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON", databaseName)));
         Failsafe.with(QUERY_RETRY_POLICY)
                 .run(() -> execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName)));
+
+        databaseSetUp.accept(this::execute, databaseName);
 
         container.withUrlParam("database", this.databaseName);
     }
