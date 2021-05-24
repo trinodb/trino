@@ -11,18 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.spi.session.PropertyMetadata;
 
-public class DefaultHiveMaterializedViewMetadataFactory
-        implements HiveMaterializedViewMetadataFactory
+import java.util.List;
+
+public interface HiveMaterializedViewPropertiesProvider
 {
-    private static final HiveMaterializedViewMetadata NONE = new NoneHiveMaterializedViewMetadata();
-
-    @Override
-    public HiveMaterializedViewMetadata create(SemiTransactionalHiveMetastore metastore)
-    {
-        return NONE;
-    }
+    List<PropertyMetadata<?>> getMaterializedViewProperties();
 }
