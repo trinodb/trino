@@ -119,9 +119,9 @@ public class CassandraType
         return kind.name();
     }
 
-    public static Optional<CassandraType> toCassandraType(DataType.Name name)
+    public static Optional<CassandraType> toCassandraType(DataType dataType)
     {
-        switch (name) {
+        switch (dataType.getName()) {
             case ASCII:
                 return Optional.of(CassandraTypes.ASCII);
             case BIGINT:
@@ -354,7 +354,7 @@ public class CassandraType
 
     private static String objectToJson(Object cassandraValue, DataType dataType)
     {
-        CassandraType cassandraType = toCassandraType(dataType.getName())
+        CassandraType cassandraType = toCassandraType(dataType)
                 .orElseThrow(() -> new IllegalStateException("Unsupported type: " + dataType));
 
         switch (cassandraType.kind) {
@@ -468,7 +468,7 @@ public class CassandraType
 
     public static boolean isFullySupported(DataType dataType)
     {
-        if (toCassandraType(dataType.getName()).isEmpty()) {
+        if (toCassandraType(dataType).isEmpty()) {
             return false;
         }
 
