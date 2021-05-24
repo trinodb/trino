@@ -422,7 +422,8 @@ public class TestTableScanRedirectionWithPushdown
                             redirectionMapping,
                             mockConnectorTable.getConstraint()
                                     .transformKeys(MockConnectorColumnHandle.class::cast)
-                                    .transform(redirectionMapping::get)));
+                                    .filter((columnHandle, domain) -> redirectionMapping.containsKey(columnHandle))
+                                    .transformKeys(redirectionMapping::get)));
         };
     }
 
