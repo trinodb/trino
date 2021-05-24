@@ -64,7 +64,8 @@ public final class TestingSqlServer
 
     public TestingSqlServer()
     {
-        container = new MSSQLServerContainer(DOCKER_IMAGE_NAME) {
+        container = new MSSQLServerContainer(DOCKER_IMAGE_NAME)
+        {
             @Override
             public String getUsername()
             {
