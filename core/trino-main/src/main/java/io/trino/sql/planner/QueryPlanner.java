@@ -1530,7 +1530,7 @@ class QueryPlanner
         public PlanAndMappings(PlanBuilder subPlan, Map<NodeRef<Expression>, Symbol> mappings)
         {
             this.subPlan = subPlan;
-            this.mappings = mappings;
+            this.mappings = ImmutableMap.copyOf(mappings);
         }
 
         public PlanBuilder getSubPlan()
