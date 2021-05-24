@@ -618,43 +618,6 @@ public class TestTupleDomain
     }
 
     @Test
-    public void testTransform()
-    {
-        Map<Integer, Domain> domains = ImmutableMap.<Integer, Domain>builder()
-                .put(1, Domain.singleValue(BIGINT, 1L))
-                .put(2, Domain.singleValue(BIGINT, 2L))
-                .put(3, Domain.singleValue(BIGINT, 3L))
-                .build();
-
-        TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
-        TupleDomain<String> transformed = domain.transform(Object::toString);
-
-        Map<String, Domain> expected = ImmutableMap.<String, Domain>builder()
-                .put("1", Domain.singleValue(BIGINT, 1L))
-                .put("2", Domain.singleValue(BIGINT, 2L))
-                .put("3", Domain.singleValue(BIGINT, 3L))
-                .build();
-
-        assertEquals(transformed.getDomains().get(), expected);
-    }
-
-    @Test
-    public void testTransformFailsWithNonUniqueMapping()
-    {
-        Map<Integer, Domain> domains = ImmutableMap.<Integer, Domain>builder()
-                .put(1, Domain.singleValue(BIGINT, 1L))
-                .put(2, Domain.singleValue(BIGINT, 2L))
-                .put(3, Domain.singleValue(BIGINT, 3L))
-                .build();
-
-        TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
-
-        assertThatThrownBy(() -> domain.transform(input -> "x"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Every argument must have a unique mapping. 2 maps to [ SortedRangeSet[type=bigint, ranges=1, {[2]}] ] and [ SortedRangeSet[type=bigint, ranges=1, {[1]}] ]");
-    }
-
-    @Test
     public void testTransformKeys()
     {
         Map<Integer, Domain> domains = ImmutableMap.<Integer, Domain>builder()
