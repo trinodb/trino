@@ -21,6 +21,7 @@ import com.datastax.driver.core.utils.Bytes;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.trino.spi.predicate.NullableValue;
@@ -43,6 +44,7 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -92,14 +94,24 @@ public class CassandraType
 
     private final Kind kind;
     private final Type trinoType;
+    private final List<CassandraType> argumentTypes;
+
+    public CassandraType(
+            Kind kind,
+            Type trinoType)
+    {
+        this(kind, trinoType, ImmutableList.of());
+    }
 
     @JsonCreator
     public CassandraType(
             @JsonProperty("kind") Kind kind,
-            @JsonProperty("trinoType") Type trinoType)
+            @JsonProperty("trinoType") Type trinoType,
+            @JsonProperty("argumentTypes") List<CassandraType> argumentTypes)
     {
         this.kind = requireNonNull(kind, "kind is null");
         this.trinoType = requireNonNull(trinoType, "trinoType is null");
+        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
     @JsonProperty
@@ -112,6 +124,12 @@ public class CassandraType
     public Type getTrinoType()
     {
         return trinoType;
+    }
+
+    @JsonProperty
+    public List<CassandraType> getArgumentTypes()
+    {
+        return argumentTypes;
     }
 
     public String getName()
@@ -526,12 +544,12 @@ public class CassandraType
             return false;
         }
         CassandraType that = (CassandraType) o;
-        return kind == that.kind && Objects.equals(trinoType, that.trinoType);
+        return kind == that.kind && Objects.equals(trinoType, that.trinoType) && Objects.equals(argumentTypes, that.argumentTypes);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(kind, trinoType);
+        return Objects.hash(kind, trinoType, argumentTypes);
     }
 }
