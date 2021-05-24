@@ -30,7 +30,6 @@ public class TestSqlServerTypeMapping
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        sqlServer.start();
         return createSqlServerQueryRunner(
                 sqlServer,
                 ImmutableMap.of(),

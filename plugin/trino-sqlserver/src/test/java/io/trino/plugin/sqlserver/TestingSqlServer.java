@@ -29,6 +29,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import static com.google.common.base.Throwables.getCausalChain;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -52,7 +53,7 @@ public final class TestingSqlServer
             .asCompatibleSubstituteFor("mcr.microsoft.com/mssql/server:2017-CU12");
     private final MSSQLServerContainer<?> container;
     private final String databaseName;
-    private Closeable cleanup = () -> {};
+    private final Closeable cleanup;
 
     public TestingSqlServer()
     {
@@ -70,6 +71,15 @@ public final class TestingSqlServer
         // enable case sensitive (see the CS below) collation for SQL identifiers
         container.addEnv("MSSQL_COLLATION", "Latin1_General_CS_AS");
         this.databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
+
+        cleanup = startOrReuse(container);
+        try {
+            setUpDatabase();
+        }
+        catch (Exception e) {
+            closeAllSuppress(e, cleanup);
+            throw e;
+        }
     }
 
     public String getDatabaseName()
@@ -92,12 +102,6 @@ public final class TestingSqlServer
             throws SQLException
     {
         return container.createConnection("");
-    }
-
-    public void start()
-    {
-        cleanup = startOrReuse(container);
-        setUpDatabase();
     }
 
     public String getUsername()
