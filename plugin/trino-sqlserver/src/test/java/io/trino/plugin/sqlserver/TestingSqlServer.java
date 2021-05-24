@@ -35,13 +35,14 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public final class TestingSqlServer
         implements AutoCloseable
 {
     private static final Logger log = Logger.get(TestingSqlServer.class);
 
-    private static final RetryPolicy<?> QUERY_RETRY_POLICY = new RetryPolicy<>()
+    private static final RetryPolicy<InitializedState> CONTAINER_RETRY_POLICY = new RetryPolicy<InitializedState>()
             .withBackoff(1, 5, ChronoUnit.SECONDS)
             .withMaxRetries(5)
             .handleIf(throwable -> getCausalChain(throwable).stream()
@@ -65,7 +66,21 @@ public final class TestingSqlServer
 
     public TestingSqlServer(BiConsumer<SqlExecutor, String> databaseSetUp)
     {
-        container = new MSSQLServerContainer(DOCKER_IMAGE_NAME)
+        InitializedState initializedState = Failsafe.with(CONTAINER_RETRY_POLICY)
+                .get(() -> createContainer(databaseSetUp));
+
+        container = initializedState.container;
+        databaseName = initializedState.databaseName;
+        cleanup = initializedState.cleanup;
+
+        container.withUrlParam("database", databaseName);
+    }
+
+    private static InitializedState createContainer(BiConsumer<SqlExecutor, String> databaseSetUp)
+    {
+        String databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
+
+        MSSQLServerContainer<?> container = new MSSQLServerContainer(DOCKER_IMAGE_NAME)
         {
             @Override
             public String getUsername()
@@ -78,16 +93,17 @@ public final class TestingSqlServer
         container.addEnv("ACCEPT_EULA", "yes");
         // enable case sensitive (see the CS below) collation for SQL identifiers
         container.addEnv("MSSQL_COLLATION", "Latin1_General_CS_AS");
-        this.databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
 
-        cleanup = startOrReuse(container);
+        Closeable cleanup = startOrReuse(container);
         try {
-            setUpDatabase(databaseSetUp);
+            setUpDatabase(sqlExecutorForContainer(container), databaseName, databaseSetUp);
         }
         catch (Exception e) {
             closeAllSuppress(e, cleanup);
             throw e;
         }
+
+        return new InitializedState(container, databaseName, cleanup);
     }
 
     public String getDatabaseName()
@@ -97,13 +113,21 @@ public final class TestingSqlServer
 
     public void execute(String sql)
     {
-        try (Connection connection = container.createConnection("");
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Failed to execute statement: " + sql, e);
-        }
+        sqlExecutorForContainer(container).execute(sql);
+    }
+
+    private static SqlExecutor sqlExecutorForContainer(MSSQLServerContainer<?> container)
+    {
+        requireNonNull(container, "container is null");
+        return sql -> {
+            try (Connection connection = container.createConnection("");
+                    Statement statement = connection.createStatement()) {
+                statement.execute(sql);
+            }
+            catch (Exception e) {
+                throw new RuntimeException("Failed to execute statement: " + sql, e);
+            }
+        };
     }
 
     public Connection createConnection()
@@ -127,19 +151,15 @@ public final class TestingSqlServer
         return container.getJdbcUrl();
     }
 
-    private void setUpDatabase(BiConsumer<SqlExecutor, String> databaseSetUp)
+    private static void setUpDatabase(SqlExecutor executor, String databaseName, BiConsumer<SqlExecutor, String> databaseSetUp)
     {
-        execute("CREATE DATABASE " + databaseName);
+        executor.execute("CREATE DATABASE " + databaseName);
 
         // Enable snapshot isolation by default to reduce flakiness on CI
-        Failsafe.with(QUERY_RETRY_POLICY)
-                .run(() -> execute(format("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON", databaseName)));
-        Failsafe.with(QUERY_RETRY_POLICY)
-                .run(() -> execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName)));
+        executor.execute(format("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON", databaseName));
+        executor.execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName));
 
-        databaseSetUp.accept(this::execute, databaseName);
-
-        container.withUrlParam("database", this.databaseName);
+        databaseSetUp.accept(executor, databaseName);
     }
 
     @Override
@@ -150,6 +170,20 @@ public final class TestingSqlServer
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    private static class InitializedState
+    {
+        private final MSSQLServerContainer<?> container;
+        private final String databaseName;
+        private final Closeable cleanup;
+
+        public InitializedState(MSSQLServerContainer<?> container, String databaseName, Closeable cleanup)
+        {
+            this.container = container;
+            this.databaseName = databaseName;
+            this.cleanup = cleanup;
         }
     }
 }
