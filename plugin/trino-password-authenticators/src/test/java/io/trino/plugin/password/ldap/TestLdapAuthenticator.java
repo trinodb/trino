@@ -16,6 +16,7 @@ package io.trino.plugin.password.ldap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.password.Credential;
+import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import org.testng.annotations.Test;
 
@@ -73,6 +74,7 @@ public class TestLdapAuthenticator
         client.addCredentials("alice@alt.example.com", "alt-alice-pass");
         assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alt-alice-pass"), new BasicPrincipal("alice"));
         ldapAuthenticator.invalidateCache();
+
         assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
         ldapAuthenticator.invalidateCache();
 
@@ -199,7 +201,7 @@ public class TestLdapAuthenticator
                 throws NamingException
         {
             if (!credentials.contains(new Credential(userDistinguishedName, password))) {
-                throw new NamingException();
+                throw new AccessDeniedException("Invalid credentials");
             }
         }
 
