@@ -16,6 +16,7 @@ package io.trino.server.security.oauth2;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.github.scribejava.core.model.OAuthConstants;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
@@ -26,6 +27,8 @@ import io.airlift.node.NodeInfo;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.WebUiModule;
 import io.trino.util.AutoCloseableCloser;
+import okhttp3.Credentials;
+import okhttp3.FormBody;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -34,7 +37,6 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
@@ -53,7 +55,9 @@ import static io.trino.client.OkHttpUtil.setupInsecureSsl;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 import static java.util.Objects.requireNonNull;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
+import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 public class TestingHydraIdentityProvider
@@ -63,7 +67,9 @@ public class TestingHydraIdentityProvider
 
     private final Network network = Network.newNetwork();
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
+    private final ObjectMapper mapper = new ObjectMapper();
     private final Duration ttlAccessToken;
+    private final OkHttpClient httpClient;
     private GenericContainer<?> hydraContainer;
 
     public TestingHydraIdentityProvider()
@@ -74,6 +80,10 @@ public class TestingHydraIdentityProvider
     public TestingHydraIdentityProvider(Duration ttlAccessToken)
     {
         this.ttlAccessToken = requireNonNull(ttlAccessToken, "ttlAccessToken is null");
+        OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
+        setupInsecureSsl(httpClientBuilder);
+        httpClientBuilder.followRedirects(false);
+        httpClient = httpClientBuilder.build();
         closer.register(network);
     }
 
@@ -134,17 +144,25 @@ public class TestingHydraIdentityProvider
     }
 
     public String getToken(String clientId, String clientSecret, List<String> audiences)
+            throws IOException
     {
-        GenericContainer<?> container = createHydraContainer()
-                .withCommand("token", "client",
-                        "--endpoint", "https://hydra:4444",
-                        "--skip-tls-verify",
-                        "--client-id", clientId,
-                        "--client-secret", clientSecret,
-                        "--audience", String.join(",", audiences))
-                .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)));
-        container.start();
-        return container.getLogs(OutputFrame.OutputType.STDOUT).replaceAll("\\s+", "");
+        try (Response response = httpClient
+                .newCall(
+                        new Request.Builder()
+                                .url("https://localhost:" + getAuthPort() + "/oauth2/token")
+                                .addHeader(OAuthConstants.HEADER, Credentials.basic(clientId, clientSecret))
+                                .post(new FormBody.Builder()
+                                        .add(OAuthConstants.GRANT_TYPE, OAuthConstants.CLIENT_CREDENTIALS)
+                                        .add("audience", String.join(" ", audiences))
+                                        .build())
+                                .build())
+                .execute()) {
+            assertEquals(response.code(), SC_OK);
+            assertNotNull(response.body());
+            return mapper.readTree(response.body().byteStream())
+                    .get("access_token")
+                    .textValue();
+        }
     }
 
     public int getAuthPort()

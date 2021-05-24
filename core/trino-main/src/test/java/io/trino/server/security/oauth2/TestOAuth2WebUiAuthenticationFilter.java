@@ -60,7 +60,6 @@ import java.util.UUID;
 
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
-import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_POST;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.ws.rs.core.HttpHeaders.LOCATION;
@@ -142,13 +141,13 @@ public class TestOAuth2WebUiAuthenticationFilter
         hydraIdP.createClient(
                 TRUSTED_CLIENT_ID,
                 TRUSTED_CLIENT_SECRET,
-                CLIENT_SECRET_POST,
+                CLIENT_SECRET_BASIC,
                 ImmutableList.of(TRINO_AUDIENCE),
                 serverUri + "/oauth2/callback");
         hydraIdP.createClient(
                 UNTRUSTED_CLIENT_ID,
                 UNTRUSTED_CLIENT_SECRET,
-                CLIENT_SECRET_POST,
+                CLIENT_SECRET_BASIC,
                 ImmutableList.of(UNTRUSTED_CLIENT_AUDIENCE),
                 "https://untrusted.com/callback");
     }
