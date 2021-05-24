@@ -15,6 +15,7 @@ package io.trino.plugin.cassandra;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.connector.SchemaTableName;
@@ -59,7 +60,8 @@ public class TestJsonCassandraHandles
             .put("ordinalPosition", 42)
             .put("cassandraType", ImmutableMap.of(
                     "kind", "BIGINT",
-                    "trinoType", "bigint"))
+                    "trinoType", "bigint",
+                    "argumentTypes", ImmutableList.of()))
             .put("partitionKey", false)
             .put("clusteringKey", true)
             .put("indexed", false)
@@ -71,7 +73,8 @@ public class TestJsonCassandraHandles
             .put("ordinalPosition", 0)
             .put("cassandraType", ImmutableMap.of(
                     "kind", "SET",
-                    "trinoType", "varchar"))
+                    "trinoType", "varchar",
+                    "argumentTypes", ImmutableList.of()))
             .put("partitionKey", false)
             .put("clusteringKey", false)
             .put("indexed", false)
