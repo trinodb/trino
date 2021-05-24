@@ -83,3 +83,4 @@ This change applies to the Druid, MemSQL, MySQL, Oracle, Phoenix, PosgreSQL, Red
 
 * Make `ConnectorMaterializedViewDefinition` non-serializable. It is the responsibility of the connector to serialize 
   and store the materialized view definitions in an appropriate format. ({issue}`7762`)
+* Deprecate `TupleDomain.transform`. ({issue}`7980`)
