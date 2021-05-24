@@ -34,7 +34,6 @@ public abstract class BaseSqlServerTransactionIsolationTest
             throws Exception
     {
         TestingSqlServer sqlServer = closeAfterClass(new TestingSqlServer());
-        sqlServer.start();
         configureDatabase(sqlServer);
         return createSqlServerQueryRunner(
                 sqlServer,

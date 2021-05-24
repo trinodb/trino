@@ -88,7 +88,6 @@ public final class SqlServerQueryRunner
         Logging.initialize();
 
         TestingSqlServer testingSqlServer = new TestingSqlServer();
-        testingSqlServer.start();
 
         // SqlServer is using docker container so in case that shutdown hook is not called, developer can easily clean docker container on their own
         Runtime.getRuntime().addShutdownHook(new Thread(testingSqlServer::close));
