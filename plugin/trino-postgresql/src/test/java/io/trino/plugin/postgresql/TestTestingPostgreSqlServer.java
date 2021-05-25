@@ -56,7 +56,7 @@ public class TestTestingPostgreSqlServer
     {
         closeAll(
                 postgreSqlServer,
-                () -> threadPool.shutdownNow());
+                threadPool::shutdownNow);
     }
 
     @Test
@@ -79,7 +79,7 @@ public class TestTestingPostgreSqlServer
                 Future<Boolean> executeFuture = threadPool.submit(() -> statement.execute(sql));
                 Thread.sleep(5000);
                 statement.cancel();
-                assertThatThrownBy(() -> executeFuture.get())
+                assertThatThrownBy(executeFuture::get)
                         .hasRootCauseInstanceOf(SQLException.class)
                         .hasRootCauseMessage("ERROR: canceling statement due to user request");
             }
