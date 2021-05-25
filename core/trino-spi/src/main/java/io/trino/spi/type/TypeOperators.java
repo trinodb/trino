@@ -262,9 +262,8 @@ public class TypeOperators
                         return List.of(generateLessThanOperator(operatorConvention, true));
                     }
                     return lessThanOrEqualOperators;
-                default:
-                    throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.getOperatorType());
             }
+            throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.getOperatorType());
         }
 
         private OperatorMethodHandle generateDistinctFromOperator(OperatorConvention operatorConvention)
@@ -325,9 +324,8 @@ public class TypeOperators
                 case XX_HASH_64:
                 case INDETERMINATE:
                     return List.of(operatorConvention.getType());
-                default:
-                    throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.getOperatorType());
             }
+            throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.getOperatorType());
         }
     }
 

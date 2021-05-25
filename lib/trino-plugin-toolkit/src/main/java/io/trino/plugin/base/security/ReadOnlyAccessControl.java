@@ -36,7 +36,6 @@ import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
-import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 
 public class ReadOnlyAccessControl
         implements ConnectorAccessControl
@@ -149,12 +148,6 @@ public class ReadOnlyAccessControl
     public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyDeleteTable(tableName.toString());
-    }
-
-    @Override
-    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
-    {
-        denyUpdateTableColumns(tableName.toString(), updatedColumns);
     }
 
     @Override

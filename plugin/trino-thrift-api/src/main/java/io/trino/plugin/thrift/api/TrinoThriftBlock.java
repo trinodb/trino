@@ -51,7 +51,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.StandardTypes.HYPER_LOG_LOG;
 import static io.trino.spi.type.StandardTypes.JSON;
 
@@ -265,11 +264,6 @@ public final class TrinoThriftBlock
     public static TrinoThriftBlock bigintArrayData(TrinoThriftBigintArray bigintArrayData)
     {
         return new TrinoThriftBlock(null, null, null, null, null, null, null, null, null, bigintArrayData);
-    }
-
-    public static TrinoThriftBlock fromNativeValue(Object trinoNativeValue, Type type)
-    {
-        return fromBlock(nativeValueToBlock(type, trinoNativeValue), type);
     }
 
     public static TrinoThriftBlock fromBlock(Block block, Type type)

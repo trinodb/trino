@@ -28,6 +28,4 @@ public interface LongDecimalWithOverflowState
     long getOverflow();
 
     void setOverflow(long overflow);
-
-    void addOverflow(long overflow);
 }

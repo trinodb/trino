@@ -497,17 +497,7 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitWindowReference(WindowReference node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitWindowSpecification(WindowSpecification node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitWindowDefinition(WindowDefinition node, C context)
+    protected R visitWindow(Window node, C context)
     {
         return visitNode(node, context);
     }
@@ -655,16 +645,6 @@ public abstract class AstVisitor<R, C>
     protected R visitDelete(Delete node, C context)
     {
         return visitStatement(node, context);
-    }
-
-    protected R visitUpdate(Update node, C context)
-    {
-        return visitStatement(node, context);
-    }
-
-    protected R visitUpdateAssignment(UpdateAssignment node, C context)
-    {
-        return visitNode(node, context);
     }
 
     protected R visitStartTransaction(StartTransaction node, C context)

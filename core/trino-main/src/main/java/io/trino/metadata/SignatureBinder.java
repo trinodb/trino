@@ -67,7 +67,7 @@ import static java.util.stream.Collectors.toList;
  * This implementation has made assumptions. When any of the assumptions is not satisfied, it will fail loudly.
  * <p><ul>
  * <li>A type cannot have both type parameter and literal parameter.
- * <li>A literal parameter cannot be used across types. see {@link #checkNoLiteralVariableUsageAcrossTypes(TypeSignature, Map)}.
+ * <li>A literal parameter cannot be be used across types. see {@link #checkNoLiteralVariableUsageAcrossTypes(TypeSignature, Map)}.
  * </ul><p>
  * Here are some known implementation limitations:
  * <p><ul>
@@ -503,7 +503,7 @@ public class SignatureBinder
                 case VARIABLE:
                     break;
                 default:
-                    throw new UnsupportedOperationException("Unknown parameter kind: " + parameter.getKind());
+                    throw new UnsupportedOperationException();
             }
         }
 
@@ -527,7 +527,7 @@ public class SignatureBinder
                     variables.add(parameter.getVariable());
                     break;
                 default:
-                    throw new UnsupportedOperationException("Unknown parameter kind: " + parameter.getKind());
+                    throw new UnsupportedOperationException();
             }
         }
 
@@ -625,8 +625,9 @@ public class SignatureBinder
             case LONG: {
                 return parameter;
             }
+            default:
+                throw new IllegalStateException("Unknown parameter kind: " + parameter.getKind());
         }
-        throw new IllegalStateException("Unknown parameter kind: " + parameter.getKind());
     }
 
     private static List<TypeSignature> expandVarargFormalTypeSignature(List<TypeSignature> formalTypeSignatures, int actualArity)
@@ -660,8 +661,9 @@ public class SignatureBinder
                 return canCast(actualType, metadata.getType(constraintTypeSignature));
             case EXPLICIT_COERCION_FROM:
                 return canCast(metadata.getType(constraintTypeSignature), actualType);
+            default:
+                throw new IllegalArgumentException("Unsupported relationshipType " + relationshipType);
         }
-        throw new IllegalArgumentException("Unsupported relationshipType " + relationshipType);
     }
 
     private boolean canCast(Type fromType, Type toType)

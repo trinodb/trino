@@ -2,8 +2,8 @@
 Release 0.184
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix query execution failure for ``split_to_map(...)[...]``.
 * Fix issue that caused queries containing ``CROSS JOIN`` to continue using CPU resources
@@ -17,32 +17,32 @@ General
 * Require ``coalesce()`` to have at least two arguments, as mandated by the SQL standard.
 * Add :func:`hamming_distance` function.
 
-JDBC driver
------------
+JDBC driver changes
+-------------------
 
 * Always invoke the progress callback with the final stats at query completion.
 
-Web UI
-------
+Web UI changes
+--------------
 
 * Add worker status page with information about currently running threads
   and resource utilization (CPU, heap, memory pools). This page is accessible
   by clicking a hostname on a query task list.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix partition filtering for keys of ``CHAR``, ``DECIMAL``, or ``DATE`` type.
 * Reduce system memory usage when reading table columns containing string values
   from ORC or DWRF files. This can prevent high GC overhead or out-of-memory crashes.
 
-TPCDS
------
+TPCDS changes
+-------------
 
 * Fix display of table statistics when running ``SHOW STATS FOR ...``.
 
-SPI
----
+SPI changes
+-----------
 
 * Row columns or values represented with ``ArrayBlock`` and ``InterleavedBlock`` are
   no longer supported. They must be represented as ``RowBlock`` or ``SingleRowBlock``.

@@ -160,34 +160,6 @@ public class TestSortedRangeSet
     }
 
     @Test
-    public void testCreateWithRanges()
-    {
-        // two low-unbounded, first shorter
-        assertThat(SortedRangeSet.of(Range.lessThan(BIGINT, 5L), Range.lessThan(BIGINT, 10L)).getOrderedRanges())
-                .containsExactly(Range.lessThan(BIGINT, 10L));
-        assertThat(SortedRangeSet.of(Range.lessThan(BIGINT, 10L), Range.lessThanOrEqual(BIGINT, 10L)).getOrderedRanges())
-                .containsExactly(Range.lessThanOrEqual(BIGINT, 10L));
-
-        // two low-unbounded, second shorter
-        assertThat(SortedRangeSet.of(Range.lessThan(BIGINT, 10L), Range.lessThan(BIGINT, 5L)).getOrderedRanges())
-                .containsExactly(Range.lessThan(BIGINT, 10L));
-        assertThat(SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 10L), Range.lessThan(BIGINT, 10L)).getOrderedRanges())
-                .containsExactly(Range.lessThanOrEqual(BIGINT, 10L));
-
-        // two high-unbounded, first shorter
-        assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 10L), Range.greaterThan(BIGINT, 5L)).getOrderedRanges())
-                .containsExactly(Range.greaterThan(BIGINT, 5L));
-        assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 10L), Range.greaterThanOrEqual(BIGINT, 10L)).getOrderedRanges())
-                .containsExactly(Range.greaterThanOrEqual(BIGINT, 10L));
-
-        // two high-unbounded, second shorter
-        assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 5L), Range.greaterThan(BIGINT, 10L)).getOrderedRanges())
-                .containsExactly(Range.greaterThan(BIGINT, 5L));
-        assertThat(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 10L), Range.greaterThan(BIGINT, 10L)).getOrderedRanges())
-                .containsExactly(Range.greaterThanOrEqual(BIGINT, 10L));
-    }
-
-    @Test
     public void testGetSingleValue()
     {
         assertEquals(SortedRangeSet.of(BIGINT, 0L).getSingleValue(), 0L);
@@ -430,46 +402,6 @@ public class TestSortedRangeSet
                 SortedRangeSet.of(Range.range(BIGINT, 0L, true, 10L, false)),
                 SortedRangeSet.of(Range.equal(BIGINT, 9L)),
                 SortedRangeSet.of(Range.range(BIGINT, 0L, true, 10L, false)));
-
-        // two low-unbounded, first shorter
-        assertUnion(
-                SortedRangeSet.of(Range.lessThan(BIGINT, 5L)),
-                SortedRangeSet.of(Range.lessThan(BIGINT, 10L)),
-                SortedRangeSet.of(Range.lessThan(BIGINT, 10L)));
-        assertUnion(
-                SortedRangeSet.of(Range.lessThan(BIGINT, 10L)),
-                SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 10L)),
-                SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 10L)));
-
-        // two low-unbounded, second shorter
-        assertUnion(
-                SortedRangeSet.of(Range.lessThan(BIGINT, 10L)),
-                SortedRangeSet.of(Range.lessThan(BIGINT, 5L)),
-                SortedRangeSet.of(Range.lessThan(BIGINT, 10L)));
-        assertUnion(
-                SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 10L)),
-                SortedRangeSet.of(Range.lessThan(BIGINT, 10L)),
-                SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 10L)));
-
-        // two high-unbounded, first shorter
-        assertUnion(
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 10L)),
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 5L)),
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 5L)));
-        assertUnion(
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 10L)),
-                SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 10L)),
-                SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 10L)));
-
-        // two high-unbounded, second shorter
-        assertUnion(
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 5L)),
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 10L)),
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 5L)));
-        assertUnion(
-                SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 10L)),
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 10L)),
-                SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 10L)));
 
         assertUnion(
                 SortedRangeSet.of(Range.range(createVarcharType(25), utf8Slice("LARGE PLATED "), true, utf8Slice("LARGE PLATED!"), false)),

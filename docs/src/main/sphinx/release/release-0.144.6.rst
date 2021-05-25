@@ -2,8 +2,8 @@
 Release 0.144.6
 ===============
 
-General
--------
+General changes
+---------------
 
 This release fixes several problems with large and negative intervals.
 

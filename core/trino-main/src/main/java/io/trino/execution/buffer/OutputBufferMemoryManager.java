@@ -15,21 +15,21 @@ package io.trino.execution.buffer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -40,19 +40,16 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 class OutputBufferMemoryManager
 {
-    private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
-
     private final long maxBufferedBytes;
     private final AtomicLong bufferedBytes = new AtomicLong();
     private final AtomicLong peakMemoryUsage = new AtomicLong();
 
     @GuardedBy("this")
     private boolean closed;
-    @Nullable
     @GuardedBy("this")
-    private SettableFuture<?> bufferBlockedFuture; // null indicates "no listener registered"
+    private SettableFuture<?> bufferBlockedFuture;
     @GuardedBy("this")
-    private ListenableFuture<?> blockedOnMemory = NOT_BLOCKED;
+    private ListenableFuture<?> blockedOnMemory = Futures.immediateFuture(null);
 
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
@@ -66,83 +63,58 @@ class OutputBufferMemoryManager
         this.maxBufferedBytes = maxBufferedBytes;
         this.systemMemoryContextSupplier = Suppliers.memoize(systemMemoryContextSupplier::get);
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
+
+        bufferBlockedFuture = SettableFuture.create();
+        bufferBlockedFuture.set(null);
     }
 
-    public void updateMemoryUsage(long bytesAdded)
+    public synchronized void updateMemoryUsage(long bytesAdded)
     {
+        Optional<LocalMemoryContext> systemMemoryContext = getSystemMemoryContext();
+
+        // If closed is true, that means the task is completed. In that state,
+        // the output buffers already ignore the newly added pages, and therefore
+        // we can also safely ignore any calls after OutputBufferMemoryManager is closed.
         // If the systemMemoryContext doesn't exist, the task is probably already
-        // aborted, so we can just return (see the comment in getSystemMemoryContextOrNull()).
-        LocalMemoryContext systemMemoryContext = getSystemMemoryContextOrNull();
-        if (systemMemoryContext == null) {
+        // aborted, so we can just return (see the comment in getSystemMemoryContext()).
+        if (closed || systemMemoryContext.isEmpty()) {
             return;
         }
 
-        ListenableFuture<?> waitForMemory = null;
-        SettableFuture<?> notifyUnblocked = null;
-        long currentBufferedBytes;
-        synchronized (this) {
-            // If closed is true, that means the task is completed. In that state,
-            // the output buffers already ignore the newly added pages, and therefore
-            // we can also safely ignore any calls after OutputBufferMemoryManager is closed.
-            if (closed) {
-                return;
-            }
+        long currentBufferedBytes = bufferedBytes.updateAndGet(bytes -> {
+            long result = bytes + bytesAdded;
+            checkArgument(result >= 0, "bufferedBytes (%s) plus delta (%s) would be negative", bytes, bytesAdded);
+            return result;
+        });
 
-            currentBufferedBytes = bufferedBytes.updateAndGet(bytes -> {
-                long result = bytes + bytesAdded;
-                checkArgument(result >= 0, "bufferedBytes (%s) plus delta (%s) would be negative", bytes, bytesAdded);
-                return result;
-            });
-            ListenableFuture<?> blockedOnMemory = systemMemoryContext.setBytes(currentBufferedBytes);
-            if (!blockedOnMemory.isDone()) {
-                if (this.blockedOnMemory != blockedOnMemory) {
-                    this.blockedOnMemory = blockedOnMemory;
-                    waitForMemory = blockedOnMemory; // only register a callback when blocked and the future is different
-                }
-            }
-            else {
-                this.blockedOnMemory = NOT_BLOCKED;
-                if (currentBufferedBytes <= maxBufferedBytes || !blockOnFull.get()) {
-                    // Complete future in a new thread to avoid making a callback on the caller thread.
-                    // This make is easier for callers to use this class since they can update the memory
-                    // usage while holding locks.
-                    notifyUnblocked = this.bufferBlockedFuture;
-                    this.bufferBlockedFuture = null;
-                }
-            }
-        }
         peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
-        // Notify listeners outside of the critical section
-        notifyListener(notifyUnblocked);
-        if (waitForMemory != null) {
-            waitForMemory.addListener(this::onMemoryAvailable, notificationExecutor);
+        this.blockedOnMemory = systemMemoryContext.get().setBytes(currentBufferedBytes);
+        if (!isBufferFull() && !isBlockedOnMemory() && !bufferBlockedFuture.isDone()) {
+            // Complete future in a new thread to avoid making a callback on the caller thread.
+            // This make is easier for callers to use this class since they can update the memory
+            // usage while holding locks.
+            SettableFuture<?> future = this.bufferBlockedFuture;
+            notificationExecutor.execute(() -> future.set(null));
+            return;
         }
+        this.blockedOnMemory.addListener(this::onMemoryAvailable, notificationExecutor);
     }
 
     public synchronized ListenableFuture<?> getBufferBlockedFuture()
     {
-        if (bufferBlockedFuture == null) {
-            if (blockedOnMemory.isDone() && !isBufferFull()) {
-                return NOT_BLOCKED;
-            }
+        if ((isBufferFull() || isBlockedOnMemory()) && bufferBlockedFuture.isDone()) {
             bufferBlockedFuture = SettableFuture.create();
         }
         return bufferBlockedFuture;
     }
 
-    public void setNoBlockOnFull()
+    public synchronized void setNoBlockOnFull()
     {
-        SettableFuture<?> future = null;
-        synchronized (this) {
-            blockOnFull.set(false);
+        blockOnFull.set(false);
 
-            if (blockedOnMemory.isDone()) {
-                future = this.bufferBlockedFuture;
-                this.bufferBlockedFuture = null;
-            }
-        }
         // Complete future in a new thread to avoid making a callback on the caller thread.
-        notifyListener(future);
+        SettableFuture<?> future = this.bufferBlockedFuture;
+        notificationExecutor.execute(() -> future.set(null));
     }
 
     public long getBufferedBytes()
@@ -155,35 +127,32 @@ class OutputBufferMemoryManager
         return bufferedBytes.get() / (double) maxBufferedBytes;
     }
 
-    public boolean isOverutilized()
+    public synchronized boolean isOverutilized()
     {
         return isBufferFull();
     }
 
-    private boolean isBufferFull()
+    private synchronized boolean isBufferFull()
     {
         return bufferedBytes.get() > maxBufferedBytes && blockOnFull.get();
     }
 
-    @VisibleForTesting
-    void onMemoryAvailable()
+    private synchronized boolean isBlockedOnMemory()
     {
-        // Check if the buffer is full before synchronizing and skip notifying listeners
-        if (isBufferFull()) {
+        return !blockedOnMemory.isDone();
+    }
+
+    @VisibleForTesting
+    synchronized void onMemoryAvailable()
+    {
+        // Do not notify the listeners if the buffer is full
+        if (bufferedBytes.get() > maxBufferedBytes) {
             return;
         }
 
-        SettableFuture<?> future;
-        synchronized (this) {
-            // re-check after synchronizing and ensure the current memory future is completed
-            if (isBufferFull() || !blockedOnMemory.isDone()) {
-                return;
-            }
-            future = this.bufferBlockedFuture;
-            this.bufferBlockedFuture = null;
-        }
         // notify listeners if the buffer is not full
-        notifyListener(future);
+        SettableFuture<?> future = this.bufferBlockedFuture;
+        notificationExecutor.execute(() -> future.set(null));
     }
 
     public long getPeakMemoryUsage()
@@ -194,30 +163,19 @@ class OutputBufferMemoryManager
     public synchronized void close()
     {
         updateMemoryUsage(-bufferedBytes.get());
-        LocalMemoryContext memoryContext = getSystemMemoryContextOrNull();
-        if (memoryContext != null) {
-            memoryContext.close();
-        }
+        getSystemMemoryContext().ifPresent(LocalMemoryContext::close);
         closed = true;
     }
 
-    private void notifyListener(@Nullable SettableFuture<?> future)
-    {
-        if (future != null) {
-            notificationExecutor.execute(() -> future.set(null));
-        }
-    }
-
-    @Nullable
-    private LocalMemoryContext getSystemMemoryContextOrNull()
+    private Optional<LocalMemoryContext> getSystemMemoryContext()
     {
         try {
-            return systemMemoryContextSupplier.get();
+            return Optional.of(systemMemoryContextSupplier.get());
         }
         catch (RuntimeException ignored) {
             // This is possible with races, e.g., a task is created and then immediately aborted,
             // so that the task context hasn't been created yet (as a result there's no memory context available).
-            return null;
         }
+        return Optional.empty();
     }
 }

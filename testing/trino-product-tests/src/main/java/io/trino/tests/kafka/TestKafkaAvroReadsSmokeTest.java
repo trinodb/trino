@@ -13,13 +13,12 @@
  */
 package io.trino.tests.kafka;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
-import io.confluent.kafka.schemaregistry.ParsedSchema;
-import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
-import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.fulfillment.table.TableManager;
 import io.trino.tempto.fulfillment.table.kafka.KafkaMessage;
@@ -27,13 +26,12 @@ import io.trino.tempto.fulfillment.table.kafka.KafkaTableDefinition;
 import io.trino.tempto.fulfillment.table.kafka.KafkaTableManager;
 import io.trino.tempto.fulfillment.table.kafka.ListKafkaDataSource;
 import io.trino.tempto.query.QueryResult;
+import io.trino.tests.utils.Cli;
 import org.apache.avro.Schema;
-import org.apache.avro.Schema.Parser;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.EncoderFactory;
@@ -43,10 +41,10 @@ import org.testng.annotations.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.util.List;
+import java.io.UncheckedIOException;
 import java.util.Map;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
@@ -56,7 +54,6 @@ import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.KAFKA;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.utils.QueryAssertions.assertEventually;
-import static io.trino.tests.utils.SchemaRegistryClientUtils.getSchemaRegistryClient;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -75,12 +72,32 @@ public class TestKafkaAvroReadsSmokeTest
     private static final String STRUCTURAL_AVRO_TOPIC_NAME = "read_structural_datatype_avro";
     private static final String STRUCTURAL_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc";
 
-    private static final String AVRO_SCHEMA_WITH_REFERENCES_TOPIC_NAME = "schema_with_references_avro";
-    private static final String AVRO_SCHEMA_WITH_REFERENCES_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/schema_with_references.avsc";
+    private static void createAvroTable(String schemaPath, String tableName, String topicName, ImmutableMap<String, Object> record, MessageSerializer messageSerializer)
+    {
+        try {
+            Schema schema = new Schema.Parser().parse(new File(schemaPath));
+            byte[] avroData = messageSerializer.serialize(topicName, schema, record);
+
+            KafkaTableDefinition tableDefinition = new KafkaTableDefinition(
+                    KAFKA_SCHEMA + "." + tableName,
+                    topicName,
+                    new ListKafkaDataSource(ImmutableList.of(
+                            new KafkaMessage(
+                                    contentsBuilder()
+                                            .appendBytes(avroData)
+                                            .build()))),
+                    1,
+                    1);
+            KafkaTableManager kafkaTableManager = (KafkaTableManager) testContext().getDependency(TableManager.class, "kafka");
+            kafkaTableManager.createImmutable(tableDefinition, tableHandle(tableName).inSchema(KAFKA_SCHEMA));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
     public void testSelectPrimitiveDataType(KafkaCatalog kafkaCatalog, MessageSerializer messageSerializer)
-            throws Exception
     {
         ImmutableMap<String, Object> record = ImmutableMap.of(
                 "a_varchar", "foobar",
@@ -103,7 +120,6 @@ public class TestKafkaAvroReadsSmokeTest
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
     public void testNullType(KafkaCatalog kafkaCatalog, MessageSerializer messageSerializer)
-            throws Exception
     {
         String topicName = ALL_NULL_AVRO_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
         createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_NULL_AVRO_TOPIC_NAME, topicName, ImmutableMap.of(), messageSerializer);
@@ -121,7 +137,6 @@ public class TestKafkaAvroReadsSmokeTest
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
     public void testSelectStructuralDataType(KafkaCatalog kafkaCatalog, MessageSerializer messageSerializer)
-            throws Exception
     {
         ImmutableMap<String, Object> record = ImmutableMap.of(
                 "a_array", ImmutableList.of(100L, 102L),
@@ -189,73 +204,10 @@ public class TestKafkaAvroReadsSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
-    public void testAvroWithSchemaReferences()
-            throws Exception
-    {
-        TestingAvroSchema referredSchema = new TestingAvroSchema(Files.readString(new File(ALL_DATATYPE_SCHEMA_PATH).toPath()), ImmutableList.of(), ImmutableList.of());
-
-        getSchemaRegistryClient().register(
-                ALL_DATATYPES_AVRO_TOPIC_NAME + "-value",
-                referredSchema);
-
-        Map<String, Object> record = ImmutableMap.of(
-                "a_varchar", "foobar",
-                "a_bigint", 127L,
-                "a_double", 234.567,
-                "a_boolean", true);
-
-        GenericRecordBuilder recordBuilder = new GenericRecordBuilder((Schema) referredSchema.rawSchema());
-        record.forEach(recordBuilder::set);
-
-        TestingAvroSchema actualSchema = new TestingAvroSchema(
-                Files.readString(new File(AVRO_SCHEMA_WITH_REFERENCES_SCHEMA_PATH).toPath()),
-                ImmutableList.of(new SchemaReference(referredSchema.name(), ALL_DATATYPES_AVRO_TOPIC_NAME + "-value", 1)),
-                ImmutableList.of(referredSchema.canonicalString()));
-
-        // This is a bit hacky as KafkaTableManager relies on kafka catalog's tables for inserting data into a given topic
-        createAvroTable(actualSchema, ALL_DATATYPES_AVRO_TOPIC_NAME, AVRO_SCHEMA_WITH_REFERENCES_TOPIC_NAME, ImmutableMap.of("reference", recordBuilder.build()), new SchemaRegistryAvroMessageSerializer());
-
-        assertEventually(
-                new Duration(30, SECONDS),
-                () -> {
-                    QueryResult queryResult = query(format("select reference.a_varchar, reference.a_double from kafka_schema_registry.%s.%s", KAFKA_SCHEMA, AVRO_SCHEMA_WITH_REFERENCES_TOPIC_NAME));
-                    assertThat(queryResult).containsOnly(row(
-                            "foobar",
-                            234.567));
-                });
-    }
-
-    private static void createAvroTable(String schemaPath, String tableName, String topicName, Map<String, Object> record, MessageSerializer messageSerializer)
-            throws Exception
-    {
-        String schema = Files.readString(new File(schemaPath).toPath());
-        createAvroTable(new TestingAvroSchema(schema, ImmutableList.of(), ImmutableList.of()), tableName, topicName, record, messageSerializer);
-    }
-
-    private static void createAvroTable(TestingAvroSchema schema, String tableName, String topicName, Map<String, Object> record, MessageSerializer messageSerializer)
-            throws Exception
-    {
-        byte[] avroData = messageSerializer.serialize(topicName, schema, record);
-
-        KafkaTableDefinition tableDefinition = new KafkaTableDefinition(
-                KAFKA_SCHEMA + "." + tableName,
-                topicName,
-                new ListKafkaDataSource(ImmutableList.of(
-                        new KafkaMessage(
-                                contentsBuilder()
-                                        .appendBytes(avroData)
-                                        .build()))),
-                1,
-                1);
-        KafkaTableManager kafkaTableManager = (KafkaTableManager) testContext().getDependency(TableManager.class, "kafka");
-        kafkaTableManager.createImmutable(tableDefinition, tableHandle(tableName).inSchema(KAFKA_SCHEMA));
-    }
-
     @FunctionalInterface
     private interface MessageSerializer
     {
-        byte[] serialize(String topic, ParsedSchema parsedSchema, Map<String, Object> values)
+        byte[] serialize(String topic, Schema schema, Map<String, Object> values)
                 throws IOException;
     }
 
@@ -263,10 +215,9 @@ public class TestKafkaAvroReadsSmokeTest
             implements MessageSerializer
     {
         @Override
-        public byte[] serialize(String topic, ParsedSchema parsedSchema, Map<String, Object> values)
+        public byte[] serialize(String topic, Schema schema, Map<String, Object> values)
                 throws IOException
         {
-            Schema schema = (Schema) parsedSchema.rawSchema();
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             GenericData.Record record = new GenericData.Record(schema);
             values.forEach(record::put);
@@ -278,21 +229,21 @@ public class TestKafkaAvroReadsSmokeTest
         }
     }
 
+    /**
+     * Using CLI and custom serializer as Confluent dependencies conflicts with Hive dependencies
+     * See {@link io.confluent.kafka.serializers.KafkaAvroSerializer}
+     */
     private static final class SchemaRegistryAvroMessageSerializer
             implements MessageSerializer
     {
         @Override
-        public byte[] serialize(String topic, ParsedSchema parsedSchema, Map<String, Object> values)
+        public byte[] serialize(String topic, Schema schema, Map<String, Object> values)
                 throws IOException
         {
             try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-                Schema schema = (Schema) parsedSchema.rawSchema();
                 out.write((byte) 0);
-
-                int schemaId = getSchemaRegistryClient().register(
-                        topic + "-value",
-                        parsedSchema);
-                out.write(Ints.toByteArray(schemaId));
+                SchemaId schemaId = registerSchema(topic, schema);
+                out.write(Ints.toByteArray(schemaId.getId()));
 
                 BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(out, null);
                 DatumWriter<Object> writer = new GenericDatumWriter<>(schema);
@@ -302,69 +253,34 @@ public class TestKafkaAvroReadsSmokeTest
                 writer.write(record, encoder);
                 return out.toByteArray();
             }
-            catch (RestClientException clientException) {
-                throw new RuntimeException(clientException);
-            }
+        }
+
+        private static SchemaId registerSchema(String topicName, Schema schema)
+        {
+            String id = Cli.cli(
+                    "curl",
+                    "-X", "POST",
+                    "-H", "Content-Type: application/vnd.schemaregistry.v1+json",
+                    "--data", "{\"schema\": \"" + schema.toString().replace("\"", "\\\"") + "\"}",
+                    "http://schema-registry:8081/subjects/" + topicName + "-value/versions");
+            return jsonCodec(SchemaId.class).fromJson(id);
         }
     }
 
-    /**
-     * Using custom ParsedSchema as Confluent dependencies conflicts with Hive dependencies
-     * See {@link io.confluent.kafka.schemaregistry.avro.AvroSchema}.
-     * We can remove once we move to latest schema registry.
-     */
-    private static class TestingAvroSchema
-            implements ParsedSchema
+    public static final class SchemaId
     {
-        private final String avroSchemaString;
-        private final Schema avroSchema;
-        private final List<SchemaReference> schemaReferences;
+        private final int id;
 
-        public TestingAvroSchema(String avroSchemaString, List<SchemaReference> schemaReferences, List<String> resolvedReferences)
+        @JsonCreator
+        public SchemaId(@JsonProperty int id)
         {
-            this.avroSchemaString = requireNonNull(avroSchemaString, "avroSchemaString is null");
-            this.schemaReferences = ImmutableList.copyOf(requireNonNull(schemaReferences, "schemaReferences is null"));
-            requireNonNull(resolvedReferences, "resolvedReferences is null");
-
-            Parser parser = new Parser();
-            resolvedReferences.forEach(parser::parse);
-            this.avroSchema = parser.parse(avroSchemaString);
+            this.id = id;
         }
 
-        @Override
-        public String schemaType()
+        @JsonProperty
+        public int getId()
         {
-            return "AVRO";
-        }
-
-        @Override
-        public String name()
-        {
-            return avroSchema.getName();
-        }
-
-        @Override
-        public String canonicalString()
-        {
-            return avroSchemaString;
-        }
-
-        @Override
-        public List<SchemaReference> references()
-        {
-            return schemaReferences;
-        }
-
-        @Override
-        public boolean isBackwardCompatible(ParsedSchema parsedSchema)
-        {
-            return false;
-        }
-
-        @Override
-        public Object rawSchema()
-        {
-            return avroSchema;
+            return id;
         }
     }
 }

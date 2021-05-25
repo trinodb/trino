@@ -47,21 +47,17 @@ public class KinesisTableHandle
 
     private final String messageDataFormat;
 
-    private final KinesisCompressionCodec compressionCodec;
-
     @JsonCreator
     public KinesisTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("streamName") String streamName,
-            @JsonProperty("messageDataFormat") String messageDataFormat,
-            @JsonProperty("compressionCodec") KinesisCompressionCodec compressionCodec)
+            @JsonProperty("messageDataFormat") String messageDataFormat)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.streamName = requireNonNull(streamName, "topicName is null");
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
-        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
     }
 
     @JsonProperty
@@ -88,12 +84,6 @@ public class KinesisTableHandle
         return messageDataFormat;
     }
 
-    @JsonProperty
-    public KinesisCompressionCodec getCompressionCodec()
-    {
-        return compressionCodec;
-    }
-
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -102,7 +92,7 @@ public class KinesisTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, streamName, messageDataFormat, compressionCodec);
+        return Objects.hash(schemaName, tableName, streamName, messageDataFormat);
     }
 
     @Override
@@ -119,8 +109,7 @@ public class KinesisTableHandle
         return Objects.equals(this.schemaName, other.schemaName)
                 && Objects.equals(this.tableName, other.tableName)
                 && Objects.equals(this.streamName, other.streamName)
-                && Objects.equals(this.messageDataFormat, other.messageDataFormat)
-                && Objects.equals(this.compressionCodec, other.compressionCodec);
+                && Objects.equals(this.messageDataFormat, other.messageDataFormat);
     }
 
     @Override
@@ -131,7 +120,6 @@ public class KinesisTableHandle
                 .add("tableName", tableName)
                 .add("streamName", streamName)
                 .add("messageDataFormat", messageDataFormat)
-                .add("compressionCodec", compressionCodec)
                 .toString();
     }
 }

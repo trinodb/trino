@@ -2,8 +2,8 @@
 Release 0.192
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix performance regression in split scheduling introduced in 0.191. If a query
   scans a non-trivial number of splits (~1M splits in an hour), the coordinator
@@ -29,20 +29,20 @@ General
 * Remove ``dictionary-processing-joins-enabled`` configuration option and ``dictionary_processing_join``
   session property.
 
-Web UI
-------
+Web UI changes
+--------------
 
 * Fix incorrect reporting of input size and positions in live plan view.
 
-CLI
----
+CLI changes
+-----------
 
 * Fix update of prompt after ``USE`` statement.
 * Fix correctness issue when rendering arrays of Bing tiles that causes
   the first entry to be repeated multiple times.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix reading partitioned table statistics from newer Hive metastores.
 * Do not treat file system errors as corruptions for ORC.
@@ -57,33 +57,33 @@ Hive
 * Improve error reporting when the target table of an insert query is dropped.
 * Remove retry when creating Hive record reader. This can help queries fail faster.
 
-MySQL
------
+MySQL changes
+-------------
 
 * Remove support for ``TIME WITH TIME ZONE`` and ``TIMESTAMP WITH TIME ZONE``
   types due to MySQL types not being able to store timezone information.
 * Add support for ``REAL`` type, which maps to MySQL's ``FLOAT`` type.
 
-PostgreSQL
-----------
+PostgreSQL changes
+------------------
 
 * Add support for ``VARBINARY`` type, which maps to PostgreSQL's ``BYTEA`` type.
 
-MongoDB
--------
+MongoDB changes
+---------------
 
 * Fix support for pushing down inequality operators for string types.
 * Add support for reading documents as ``MAP`` values.
 * Add support for MongoDB's ``Decimal128`` type.
 * Treat document and array of documents as ``JSON`` instead of ``VARCHAR``.
 
-JMX
----
+JMX changes
+-----------
 
 * Allow nulls in history table values.
 
-SPI
----
+SPI changes
+-----------
 
 * Remove ``SliceArrayBlock`` class.
 * Add ``offset`` and ``length`` parameters to ``Block.getPositions()``.

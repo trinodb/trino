@@ -73,8 +73,7 @@ public class BlackHoleNodePartitioningProvider
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle,
-            List<Type> partitionChannelTypes,
-            int bucketCount)
+            List<Type> partitionChannelTypes, int bucketCount)
     {
         List<MethodHandle> hashCodeInvokers = partitionChannelTypes.stream()
                 .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)))

@@ -19,12 +19,11 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
-import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -38,13 +37,13 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -142,9 +141,9 @@ public class DruidJdbcClient
             case Types.VARCHAR:
                 int columnSize = typeHandle.getRequiredColumnSize();
                 if (columnSize == -1) {
-                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
+                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
                 }
-                return Optional.of(defaultVarcharColumnMapping(columnSize, true));
+                return Optional.of(defaultVarcharColumnMapping(columnSize));
         }
         // TODO implement proper type mapping
         return legacyToPrestoType(session, connection, typeHandle);
@@ -157,34 +156,24 @@ public class DruidJdbcClient
         return legacyToWriteMapping(session, type);
     }
 
+    // Druid doesn't like table names to be qualified with catalog names in the SQL query.
+    // Hence, overriding this method to pass catalog as null.
     @Override
-    protected PreparedQuery prepareQuery(ConnectorSession session, Connection connection, JdbcTableHandle table, Optional<List<List<JdbcColumnHandle>>> groupingSets, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions, Optional<JdbcSplit> split)
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+            throws SQLException
     {
-        return super.prepareQuery(session, connection, prepareTableHandleForQuery(table), groupingSets, columns, columnExpressions, split);
-    }
-
-    private JdbcTableHandle prepareTableHandleForQuery(JdbcTableHandle table)
-    {
-        if (table.isNamedRelation()) {
-            String schemaName = table.getSchemaName();
-            checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
-
-            table = new JdbcTableHandle(
-                    new JdbcNamedRelationHandle(
-                            table.getRequiredNamedRelation().getSchemaTableName(),
-                            // Druid doesn't like table names to be qualified with catalog names in the SQL query, hence we null out the catalog.
-                            new RemoteTableName(
-                                    Optional.empty(),
-                                    table.getRequiredNamedRelation().getRemoteTableName().getSchemaName(),
-                                    table.getRequiredNamedRelation().getRemoteTableName().getTableName())),
-                    table.getConstraint(),
-                    table.getSortOrder(),
-                    table.getLimit(),
-                    table.getColumns(),
-                    table.getNextSyntheticColumnId());
-        }
-
-        return table;
+        String schemaName = table.getSchemaName();
+        checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
+        return new QueryBuilder(this)
+                .buildSql(
+                        session,
+                        connection,
+                        new RemoteTableName(Optional.empty(), table.getRemoteTableName().getSchemaName(), table.getRemoteTableName().getTableName()),
+                        table.getGroupingSets(),
+                        columns,
+                        table.getConstraint(),
+                        split.getAdditionalPredicate(),
+                        tryApplyLimit(table.getLimit()));
     }
 
     /*

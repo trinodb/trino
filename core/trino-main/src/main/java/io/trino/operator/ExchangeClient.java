@@ -207,16 +207,10 @@ public class ExchangeClient
         });
     }
 
-    @SuppressWarnings("checkstyle:IllegalToken")
-    private void assertNotHoldsLock()
-    {
-        assert !Thread.holdsLock(this) : "Cannot get next page while holding a lock on this";
-    }
-
     @Nullable
     public SerializedPage pollPage()
     {
-        assertNotHoldsLock();
+        checkState(!Thread.holdsLock(this), "Cannot get next page while holding a lock on this");
 
         throwIfFailed();
 

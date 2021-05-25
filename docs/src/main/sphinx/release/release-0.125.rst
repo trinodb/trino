@@ -2,8 +2,8 @@
 Release 0.125
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix an issue where certain operations such as ``GROUP BY``, ``DISTINCT``, etc. on the
   output of a ``RIGHT`` or ``FULL OUTER JOIN`` can return incorrect results if they reference columns

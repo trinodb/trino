@@ -325,7 +325,8 @@ public final class MetadataReader
                 return PrimitiveTypeName.INT96;
             case FIXED_LEN_BYTE_ARRAY:
                 return PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
+            default:
+                throw new IllegalArgumentException("Unknown type " + type);
         }
-        throw new IllegalArgumentException("Unknown type " + type);
     }
 }

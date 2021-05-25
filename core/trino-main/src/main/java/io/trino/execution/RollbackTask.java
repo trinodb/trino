@@ -15,7 +15,6 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
@@ -39,14 +38,7 @@ public class RollbackTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
-            Rollback statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
-            QueryStateMachine stateMachine,
-            List<Expression> parameters,
-            WarningCollector warningCollector)
+    public ListenableFuture<?> execute(Rollback statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         if (session.getTransactionId().isEmpty()) {

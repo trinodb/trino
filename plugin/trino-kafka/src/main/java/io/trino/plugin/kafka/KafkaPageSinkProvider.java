@@ -102,7 +102,7 @@ public class KafkaPageSinkProvider
                 return Files.readString(Paths.get(location));
             }
             catch (IOException e) {
-                throw new TrinoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", location), e);
+                throw new TrinoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", dataSchemaLocation.get()), e);
             }
         });
     }

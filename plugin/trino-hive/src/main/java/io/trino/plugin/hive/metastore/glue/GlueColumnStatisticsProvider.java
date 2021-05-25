@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.amazonaws.services.glue.model.PartitionInput;
+import com.amazonaws.services.glue.model.TableInput;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
@@ -30,7 +32,7 @@ public interface GlueColumnStatisticsProvider
 
     Map<String, HiveColumnStatistics> getPartitionColumnStatistics(Partition partition);
 
-    void updateTableColumnStatistics(Table table, Map<String, HiveColumnStatistics> columnStatistics);
+    void updateTableColumnStatistics(TableInput table, Map<String, HiveColumnStatistics> columnStatistics);
 
-    void updatePartitionStatistics(Partition partition, Map<String, HiveColumnStatistics> columnStatistics);
+    void updatePartitionStatistics(PartitionInput partition, Map<String, HiveColumnStatistics> columnStatistics);
 }

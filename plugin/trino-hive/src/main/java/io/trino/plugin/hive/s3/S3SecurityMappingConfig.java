@@ -25,7 +25,6 @@ public class S3SecurityMappingConfig
 {
     private File configFile;
     private String roleCredentialName;
-    private String kmsKeyIdCredentialName;
     private Duration refreshPeriod;
     private String colonReplacement;
 
@@ -52,19 +51,6 @@ public class S3SecurityMappingConfig
     public S3SecurityMappingConfig setRoleCredentialName(String roleCredentialName)
     {
         this.roleCredentialName = roleCredentialName;
-        return this;
-    }
-
-    public Optional<String> getKmsKeyIdCredentialName()
-    {
-        return Optional.ofNullable(kmsKeyIdCredentialName);
-    }
-
-    @Config("hive.s3.security-mapping.kms-key-id-credential-name")
-    @ConfigDescription("Name of the extra credential used to provide KMS Key ID")
-    public S3SecurityMappingConfig setKmsKeyIdCredentialName(String kmsKeyIdCredentialName)
-    {
-        this.kmsKeyIdCredentialName = kmsKeyIdCredentialName;
         return this;
     }
 

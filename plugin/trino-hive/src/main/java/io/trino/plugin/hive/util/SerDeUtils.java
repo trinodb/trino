@@ -161,12 +161,6 @@ public final class SerDeUtils
                     type.writeSlice(builder, DecimalUtils.getLongDecimalValue(hiveDecimal, decimalType.getScale()));
                 }
                 return;
-            case VOID:
-            case TIMESTAMPLOCALTZ:
-            case INTERVAL_YEAR_MONTH:
-            case INTERVAL_DAY_TIME:
-            case UNKNOWN:
-                // unsupported
         }
         throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());
     }

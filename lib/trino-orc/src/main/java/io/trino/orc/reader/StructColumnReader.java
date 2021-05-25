@@ -21,8 +21,6 @@ import io.trino.orc.OrcBlockFactory;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcReader;
-import io.trino.orc.OrcReader.FieldMapper;
-import io.trino.orc.OrcReader.FieldMapperFactory;
 import io.trino.orc.metadata.ColumnEncoding;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.stream.BooleanInputStream;
@@ -49,6 +47,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ColumnReaders.createColumnReader;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
@@ -76,13 +75,7 @@ public class StructColumnReader
 
     private boolean rowGroupOpen;
 
-    StructColumnReader(
-            Type type,
-            OrcColumn column,
-            OrcReader.ProjectedLayout readLayout,
-            AggregatedMemoryContext systemMemoryContext,
-            OrcBlockFactory blockFactory,
-            FieldMapperFactory fieldMapperFactory)
+    StructColumnReader(Type type, OrcColumn column, OrcReader.ProjectedLayout readLayout, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -92,7 +85,9 @@ public class StructColumnReader
         this.column = requireNonNull(column, "column is null");
         this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
 
-        FieldMapper fieldMapper = fieldMapperFactory.create(column);
+        Map<String, OrcColumn> nestedColumns = column.getNestedColumns().stream()
+                .collect(toImmutableMap(stream -> stream.getColumnName().toLowerCase(Locale.ENGLISH), stream -> stream));
+
         ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
         ImmutableMap.Builder<String, ColumnReader> structFields = ImmutableMap.builder();
         for (Field field : this.type.getFields()) {
@@ -101,20 +96,12 @@ public class StructColumnReader
                     .toLowerCase(Locale.ENGLISH);
             fieldNames.add(fieldName);
 
-            OrcColumn fieldStream = fieldMapper.get(fieldName);
+            OrcColumn fieldStream = nestedColumns.get(fieldName);
 
             if (fieldStream != null) {
                 OrcReader.ProjectedLayout fieldLayout = readLayout.getFieldLayout(fieldName);
                 if (fieldLayout != null) {
-                    structFields.put(
-                            fieldName,
-                            createColumnReader(
-                                    field.getType(),
-                                    fieldStream,
-                                    fieldLayout,
-                                    systemMemoryContext,
-                                    blockFactory,
-                                    fieldMapperFactory));
+                    structFields.put(fieldName, createColumnReader(field.getType(), fieldStream, fieldLayout, systemMemoryContext, blockFactory));
                 }
             }
         }

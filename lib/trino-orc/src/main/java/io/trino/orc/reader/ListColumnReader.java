@@ -18,7 +18,6 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.OrcBlockFactory;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
-import io.trino.orc.OrcReader.FieldMapperFactory;
 import io.trino.orc.metadata.ColumnEncoding;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.stream.BooleanInputStream;
@@ -74,7 +73,7 @@ public class ListColumnReader
 
     private boolean rowGroupOpen;
 
-    public ListColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
+    public ListColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -83,13 +82,7 @@ public class ListColumnReader
 
         this.column = requireNonNull(column, "column is null");
         this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
-        this.elementColumnReader = createColumnReader(
-                elementType,
-                column.getNestedColumns().get(0),
-                fullyProjectedLayout(),
-                systemMemoryContext,
-                blockFactory,
-                fieldMapperFactory);
+        this.elementColumnReader = createColumnReader(elementType, column.getNestedColumns().get(0), fullyProjectedLayout(), systemMemoryContext, blockFactory);
     }
 
     @Override

@@ -88,7 +88,7 @@ public class TestHiveTransactionalTable
         doTestReadFullAcid(false, BucketingType.NONE);
     }
 
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testReadFullAcidBucketed()
     {
@@ -110,13 +110,13 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     public void testReadFullAcidBucketedV1()
     {
         doTestReadFullAcid(false, BucketingType.BUCKETED_V1);
     }
 
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testReadFullAcidBucketedV2()
     {
@@ -183,7 +183,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     public void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
@@ -232,7 +232,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     public void testReadFullAcidWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
@@ -276,7 +276,6 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testUpdateFullAcidWithOriginalFilesPrestoInserting(boolean isPartitioned, BucketingType bucketingType)
     {
         withTemporaryTable("trino_update_full_acid_acid_converted_table_read", true, isPartitioned, bucketingType, tableName -> {
@@ -322,7 +321,6 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testUpdateFullAcidWithOriginalFilesPrestoInsertingAndDeleting(boolean isPartitioned, BucketingType bucketingType)
     {
         withTemporaryTable("trino_update_full_acid_acid_converted_table_read", true, isPartitioned, bucketingType, tableName -> {
@@ -371,7 +369,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     public void testReadInsertOnlyWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
@@ -715,23 +713,6 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testDeleteAllRowsInPartition()
-    {
-        withTemporaryTable("bucketed_partitioned_delete", true, true, NONE, tableName -> {
-            onHive().executeQuery(format("CREATE TABLE %s (purchase STRING) PARTITIONED BY (customer STRING) STORED AS ORC TBLPROPERTIES ('transactional' = 'true')", tableName));
-
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards'), ('Fred', 'cereal'), ('Ann', 'lemons'), ('Ann', 'chips')", tableName));
-
-            log.info("About to delete");
-            onPresto().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName));
-
-            log.info("About to verify");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row("lemons", "Ann"), row("chips", "Ann"));
-        });
-    }
-
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testBucketedUnpartitionedDelete(HiveOrPresto inserter, HiveOrPresto deleter)
     {
@@ -798,471 +779,6 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
-    public void testColumnRenamesOrcPartitioned(boolean transactional)
-    {
-        ensureSchemaEvolutionSupported();
-        withTemporaryTable("test_column_renames_partitioned", transactional, false, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, old_state VARCHAR)" +
-                    " WITH (format = 'ORC', transactional = %s, partitioned_by = ARRAY['old_state'])", tableName, transactional));
-            testOrcColumnRenames(tableName);
-
-            log.info("About to rename partition column old_state to new_state");
-            assertThat(() -> onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN old_state TO new_state", tableName)))
-                    .failsWithMessage("Renaming partition columns is not supported");
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
-    public void testColumnRenamesOrcNotPartitioned(boolean transactional)
-    {
-        ensureSchemaEvolutionSupported();
-        withTemporaryTable("test_orc_column_renames_not_partitioned", transactional, false, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, old_state VARCHAR)" +
-                    " WITH (format = 'ORC', transactional = %s)", tableName, transactional));
-            testOrcColumnRenames(tableName);
-        });
-    }
-
-    private void testOrcColumnRenames(String tableName)
-    {
-        onPresto().executeQuery(format("INSERT INTO %s VALUES (111, 'Katy', 57, 'CA'), (222, 'Joe', 72, 'WA')", tableName));
-        verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
-
-        onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN old_name TO new_name", tableName));
-        log.info("This shows that Presto and Hive can still query old data after a single rename");
-        verifySelectForPrestoAndHive("SELECT age FROM " + tableName, "new_name = 'Katy'", row(57));
-
-        onPresto().executeQuery(format("INSERT INTO %s VALUES(333, 'Joan', 23, 'OR')", tableName));
-        verifySelectForPrestoAndHive("SELECT age FROM " + tableName, "new_name != 'Joe'", row(57), row(23));
-
-        onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN new_name TO newer_name", tableName));
-        log.info("This shows that Presto and Hive can still query old data after a double rename");
-        verifySelectForPrestoAndHive("SELECT age FROM " + tableName, "newer_name = 'Katy'", row(57));
-
-        onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN newer_name TO old_name", tableName));
-        log.info("This shows that Presto and Hive can still query old data after a rename back to the original name");
-        verifySelectForPrestoAndHive("SELECT age FROM " + tableName, "old_name = 'Katy'", row(57));
-        verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"), row(333, "Joan", 23, "OR"));
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
-    public void testOrcColumnSwap(boolean transactional)
-    {
-        ensureSchemaEvolutionSupported();
-        withTemporaryTable("test_orc_column_renames", transactional, false, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (name VARCHAR, state VARCHAR) WITH (format = 'ORC', transactional = %s)", tableName, transactional));
-            onPresto().executeQuery(format("INSERT INTO %s VALUES ('Katy', 'CA'), ('Joe', 'WA')", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row("Katy", "CA"), row("Joe", "WA"));
-
-            onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN name TO new_name", tableName));
-            onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN state TO name", tableName));
-            onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN new_name TO state", tableName));
-            log.info("This shows that Presto and Hive can still query old data, but because of the renames, columns are swapped!");
-            verifySelectForPrestoAndHive("SELECT state, name FROM " + tableName, "TRUE", row("Katy", "CA"), row("Joe", "WA"));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL)
-    public void testBehaviorOnParquetColumnRenames()
-    {
-        ensureSchemaEvolutionSupported();
-        withTemporaryTable("test_parquet_column_renames", false, false, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, old_state VARCHAR) WITH (format = 'PARQUET', transactional = false)", tableName));
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (111, 'Katy', 57, 'CA'), (222, 'Joe', 72, 'WA')", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
-
-            onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN old_name TO new_name", tableName));
-
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (333, 'Fineas', 31, 'OR')", tableName));
-
-            log.info("This shows that Hive and Trino do not see old data after a rename");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(111, null, 57, "CA"), row(222, null, 72, "WA"), row(333, "Fineas", 31, "OR"));
-
-            onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN new_name TO old_name", tableName));
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (444, 'Gladys', 47, 'WA')", tableName));
-            log.info("This shows that Presto and Hive both see data in old data files after renaming back to the original column name");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"), row(333, null, 31, "OR"), row(444, "Gladys", 47, "WA"));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
-    public void testOrcColumnDropAdd(boolean transactional)
-    {
-        ensureSchemaEvolutionSupported();
-        withTemporaryTable("test_orc_add_drop", transactional, false, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, old_state VARCHAR) WITH (transactional = %s)", tableName, transactional));
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (111, 'Katy', 57, 'CA'), (222, 'Joe', 72, 'WA')", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
-
-            onPresto().executeQuery(format("ALTER TABLE %s DROP COLUMN old_state", tableName));
-            log.info("This shows that neither Presto nor Hive see the old data after a column is dropped");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57), row(222, "Joe", 72));
-
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (333, 'Kelly', 45)", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57), row(222, "Joe", 72), row(333, "Kelly", 45));
-
-            onPresto().executeQuery(format("ALTER TABLE %s ADD COLUMN new_state VARCHAR", tableName));
-            log.info("This shows that for ORC, Presto and Hive both see data inserted into a dropped column when a column of the same type but different name is added");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"), row(333, "Kelly", 45, null));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
-    public void testOrcColumnTypeChange(boolean transactional)
-    {
-        ensureSchemaEvolutionSupported();
-        withTemporaryTable("test_orc_column_type_change", transactional, false, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (id INT, old_name VARCHAR, age TINYINT, old_state VARCHAR) WITH (transactional = %s)", tableName, transactional));
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (111, 'Katy', 57, 'CA'), (222, 'Joe', 72, 'WA')", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
-
-            onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN age age INT", tableName));
-            log.info("This shows that Hive see the old data after a column is widened");
-            assertThat(onHive().executeQuery("SELECT * FROM " + tableName))
-                    .containsOnly(row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
-            log.info("This shows that Trino gets an exception trying to widen the type");
-            assertThat(() -> onPresto().executeQuery("SELECT * FROM " + tableName))
-                    .failsWithMessageMatching(".*Malformed ORC file. Cannot read SQL type 'integer' from ORC stream '.*.age' of type BYTE with attributes.*");
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL)
-    public void testParquetColumnDropAdd()
-    {
-        ensureSchemaEvolutionSupported();
-        withTemporaryTable("test_parquet_add_drop", false, false, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, state VARCHAR) WITH (format = 'PARQUET')", tableName));
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (111, 'Katy', 57, 'CA'), (222, 'Joe', 72, 'WA')", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
-
-            onPresto().executeQuery(format("ALTER TABLE %s DROP COLUMN state", tableName));
-            log.info("This shows that neither Presto nor Hive see the old data after a column is dropped");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57), row(222, "Joe", 72));
-
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (333, 'Kelly', 45)", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57), row(222, "Joe", 72), row(333, "Kelly", 45));
-
-            onPresto().executeQuery(format("ALTER TABLE %s ADD COLUMN state VARCHAR", tableName));
-            log.info("This shows that for Parquet, Presto and Hive both see data inserted into a dropped column when a column of the same name and type is added");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"), row(333, "Kelly", 45, null));
-
-            onPresto().executeQuery(format("ALTER TABLE %s DROP COLUMN state", tableName));
-            onPresto().executeQuery(format("ALTER TABLE %s ADD COLUMN new_state VARCHAR", tableName));
-
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(111, "Katy", 57, null), row(222, "Joe", 72, null), row(333, "Kelly", 45, null));
-        });
-    }
-
-    @DataProvider
-    public Object[][] transactionModeProvider()
-    {
-        return new Object[][] {
-                {true},
-                {false},
-        };
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateFailNonTransactional()
-    {
-        withTemporaryTable("update_fail_nontransactional", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR)", tableName));
-
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
-
-            log.info("About to fail update");
-            assertThat(() -> onPresto().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Hive update is only supported for transactional tables");
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateFailUpdatePartitionKey()
-    {
-        withTemporaryTable("fail_update_partition_key", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 INT, col2 VARCHAR, col3 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['col3'])", tableName));
-
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3) VALUES (17, 'S1', 7)", tableName));
-
-            log.info("About to fail update");
-            assertThat(() -> onPresto().executeQuery(format("UPDATE %s SET col3 = 17 WHERE col3 = 7", tableName)))
-                    .failsWithMessage("Updating Hive table partition columns is not supported");
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateFailUpdateBucketColumn()
-    {
-        withTemporaryTable("fail_update_bucket_column", true, true, NONE, tableName -> {
-            onHive().executeQuery(format("CREATE TABLE %s (customer STRING, purchase STRING) CLUSTERED BY (purchase) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional' = 'true')", tableName));
-
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
-
-            log.info("About to fail update");
-            assertThat(() -> onPresto().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Updating Hive table bucket columns is not supported");
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateFailOnIllegalCast()
-    {
-        withTemporaryTable("fail_update_on_illegal_cast", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 INT, col2 VARCHAR, col3 BIGINT) WITH (transactional = true)", tableName));
-
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3) VALUES (17, 'S1', 7)", tableName));
-
-            log.info("About to fail update");
-            assertThat(() -> onPresto().executeQuery(format("UPDATE %s SET col1 = col2 WHERE col3 = 7", tableName)))
-                    .failsWithMessage("UPDATE table column types don't match SET expressions: Table: [integer], Expressions: [varchar]");
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateSimple()
-    {
-        withTemporaryTable("acid_update_simple", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 TINYINT, col2 VARCHAR, col3 BIGINT, col4 BOOLEAN, col5 INT) WITH (transactional = true)", tableName));
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (7, 'ONE', 1000, true, 101), (13, 'TWO', 2000, false, 202)", tableName));
-            log.info("About to update");
-            onPresto().executeQuery(format("UPDATE %s SET col2 = 'DEUX', col3 = col3 + 20 + col1 + col5 WHERE col1 = 13", tableName));
-            log.info("Finished update");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(7, "ONE", 1000, true, 101), row(13, "DEUX", 2235, false, 202));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateSelectedValues()
-    {
-        withTemporaryTable("acid_update_simple", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 TINYINT, col2 VARCHAR, col3 BIGINT, col4 BOOLEAN, col5 INT) WITH (transactional = true)", tableName));
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (7, 'ONE', 1000, true, 101), (13, 'TWO', 2000, false, 202)", tableName));
-            log.info("About to update %s", tableName);
-            onPresto().executeQuery(format("UPDATE %s SET col2 = 'DEUX', col3 = col3 + 20 + col1 + col5 WHERE col1 = 13", tableName));
-            log.info("Finished update");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(7, "ONE", 1000, true, 101), row(13, "DEUX", 2235, false, 202));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateCopyColumn()
-    {
-        withTemporaryTable("acid_update_copy_column", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 int, col2 int, col3 VARCHAR) WITH (transactional = true)", tableName));
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3) VALUES (7, 15, 'ONE'), (13, 17, 'DEUX')", tableName));
-            log.info("About to update");
-            onPresto().executeQuery(format("UPDATE %s SET col1 = col2 WHERE col1 = 13", tableName));
-            log.info("Finished update");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(7, 15, "ONE"), row(17, 17, "DEUX"));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateSomeLiteralNullColumnValues()
-    {
-        withTemporaryTable("update_some_literal_null_columns", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 TINYINT, col2 VARCHAR, col3 BIGINT, col4 BOOLEAN, col5 INT) WITH (transactional = true)", tableName));
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (1, 'ONE', 1000, true, 101), (2, 'TWO', 2000, false, 202)", tableName));
-            log.info("About to run first update");
-            onPresto().executeQuery(format("UPDATE %s SET col2 = NULL, col3 = NULL WHERE col1 = 2", tableName));
-            log.info("Finished first update");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, "ONE", 1000, true, 101), row(2, null, null, false, 202));
-            log.info("About to run second update");
-            onPresto().executeQuery(format("UPDATE %s SET col1 = NULL, col2 = NULL, col3 = NULL, col4 = NULL WHERE col1 = 1", tableName));
-            log.info("Finished first update");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(null, null, null, null, 101), row(2, null, null, false, 202));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateSomeComputedNullColumnValues()
-    {
-        withTemporaryTable("update_some_computed_null_columns", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 TINYINT, col2 VARCHAR, col3 BIGINT, col4 BOOLEAN, col5 INT) WITH (transactional = true)", tableName));
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (1, 'ONE', 1000, true, 101), (2, 'TWO', 2000, false, 202)", tableName));
-            log.info("About to run first update");
-            // Use IF(RAND()<0, NULL) as a way to compute null
-            onPresto().executeQuery(format("UPDATE %s SET col2 = IF(RAND()<0, NULL), col3 = IF(RAND()<0, NULL) WHERE col1 = 2", tableName));
-            log.info("Finished first update");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, "ONE", 1000, true, 101), row(2, null, null, false, 202));
-            log.info("About to run second update");
-            onPresto().executeQuery(format("UPDATE %s SET col1 = IF(RAND()<0, NULL), col2 = IF(RAND()<0, NULL), col3 = IF(RAND()<0, NULL), col4 = IF(RAND()<0, NULL) WHERE col1 = 1", tableName));
-            log.info("Finished first update");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(null, null, null, null, 101), row(2, null, null, false, 202));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateAllLiteralNullColumnValues()
-    {
-        withTemporaryTable("update_all_literal_null_columns", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 TINYINT, col2 VARCHAR, col3 BIGINT, col4 BOOLEAN, col5 INT) WITH (transactional = true)", tableName));
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (1, 'ONE', 1000, true, 101), (2, 'TWO', 2000, false, 202)", tableName));
-            log.info("About to update");
-            onPresto().executeQuery(format("UPDATE %s SET col1 = NULL, col2 = NULL, col3 = NULL, col4 = NULL, col5 = null WHERE col1 = 1", tableName));
-            log.info("Finished first update");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(null, null, null, null, null), row(2, "TWO", 2000, false, 202));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateAllComputedNullColumnValues()
-    {
-        withTemporaryTable("update_all_computed_null_columns", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 TINYINT, col2 VARCHAR, col3 BIGINT, col4 BOOLEAN, col5 INT) WITH (transactional = true)", tableName));
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (1, 'ONE', 1000, true, 101), (2, 'TWO', 2000, false, 202)", tableName));
-            log.info("About to update");
-            // Use IF(RAND()<0, NULL) as a way to compute null
-            onPresto().executeQuery(format("UPDATE %s SET col1 = IF(RAND()<0, NULL), col2 = IF(RAND()<0, NULL), col3 = IF(RAND()<0, NULL), col4 = IF(RAND()<0, NULL), col5 = IF(RAND()<0, NULL) WHERE col1 = 1", tableName));
-            log.info("Finished first update");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(null, null, null, null, null), row(2, "TWO", 2000, false, 202));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateReversed()
-    {
-        withTemporaryTable("update_reversed", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 TINYINT, col2 VARCHAR, col3 BIGINT, col4 BOOLEAN, col5 INT) WITH (transactional = true)", tableName));
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (1, 'ONE', 1000, true, 101), (2, 'TWO', 2000, false, 202)", tableName));
-            log.info("About to update");
-            onPresto().executeQuery(format("UPDATE %s SET col3 = col3 + 20 + col1 + col5, col1 = 3, col2 = 'DEUX' WHERE col1 = 2", tableName));
-            log.info("Finished update");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, "ONE", 1000, true, 101), row(3, "DEUX", 2224, false, 202));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdatePermuted()
-    {
-        withTemporaryTable("update_permuted", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 TINYINT, col2 VARCHAR, col3 BIGINT, col4 BOOLEAN, col5 INT) WITH (transactional = true)", tableName));
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (1, 'ONE', 1000, true, 101), (2, 'TWO', 2000, false, 202)", tableName));
-            log.info("About to update");
-            onPresto().executeQuery(format("UPDATE %s SET col5 = 303, col1 = 3, col3 = col3 + 20 + col1 + col5, col4 = true, col2 = 'DUO' WHERE col1 = 2", tableName));
-            log.info("Finished update");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, "ONE", 1000, true, 101), row(3, "DUO", 2224, true, 303));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateAllColumnsSetAndDependencies()
-    {
-        withTemporaryTable("update_all_columns_set", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 TINYINT, col2 INT, col3 BIGINT, col4 INT, col5 TINYINT) WITH (transactional = true)", tableName));
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (1, 2, 3, 4, 5), (21, 22, 23, 24, 25)", tableName));
-            log.info("About to update");
-            onPresto().executeQuery(format("UPDATE %s SET col5 = col4, col1 = col3, col3 = col2, col4 = col5, col2 = col1 WHERE col1 = 21", tableName));
-            log.info("Finished update");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, 2, 3, 4, 5), row(23, 21, 22, 25, 24));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdatePartitioned()
-    {
-        withTemporaryTable("update_partitioned", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 INT, col2 VARCHAR, col3 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['col3'])", tableName));
-
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3) VALUES (13, 'T1', 3), (23, 'T2', 3), (17, 'S1', 7)", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(13, "T1", 3), row(23, "T2", 3), row(17, "S1", 7));
-
-            log.info("About to update");
-            onPresto().executeQuery(format("UPDATE %s SET col1 = col1 + 1 WHERE col3 = 3 AND col1 > 15", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(13, "T1", 3), row(24, "T2", 3), row(18, "S1", 7));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateBucketed()
-    {
-        withTemporaryTable("update_bucketed", true, true, NONE, tableName -> {
-            onHive().executeQuery(format("CREATE TABLE %s (customer STRING, purchase STRING) CLUSTERED BY (customer) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional' = 'true')", tableName));
-
-            log.info("About to insert");
-            onPresto().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards'), ('Fred', 'limes'), ('Ann', 'lemons')", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row("Fred", "cards"), row("Fred", "limes"), row("Ann", "lemons"));
-
-            log.info("About to update");
-            onPresto().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Ann'", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row("Fred", "cards"), row("Fred", "limes"), row("Ann", "bread"));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateMajorCompaction()
-    {
-        withTemporaryTable("schema_evolution_column_addition", true, false, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (11, 100)", tableName));
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (22, 200)", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(11, 100L), row(22, 200L));
-            log.info("About to compact");
-            compactTableAndWait(MAJOR, tableName, "", Duration.valueOf("6m"));
-            log.info("About to update");
-            onPresto().executeQuery(format("UPDATE %s SET column1 = 33 WHERE column2 = 200", tableName));
-            log.info("About to select");
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(11, 100L), row(33, 200L));
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (44, 400), (55, 500)", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(11, 100L), row(33, 200L), row(44, 400L), row(55, 500L));
-            onPresto().executeQuery(format("DELETE FROM %s WHERE column2 IN (100, 500)", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(33, 200L), row(44, 400L));
-        });
-    }
-
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testInsertDeletUpdateWithPrestoAndHive()
-    {
-        withTemporaryTable("update_insert_delete_presto_hive", true, true, NONE, tableName -> {
-            onPresto().executeQuery(format("CREATE TABLE %s (col1 TINYINT, col2 INT, col3 BIGINT, col4 INT, col5 TINYINT) WITH (transactional = true)", tableName));
-
-            log.info("Performing first insert on Presto");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (1, 2, 3, 4, 5), (21, 22, 23, 24, 25)", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(1, 2, 3, 4, 5), row(21, 22, 23, 24, 25));
-
-            log.info("Performing first update on Presto");
-            onPresto().executeQuery(format("UPDATE %s SET col5 = col4, col1 = col3, col3 = col2, col4 = col5, col2 = col1 WHERE col1 = 21", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, 2, 3, 4, 5), row(23, 21, 22, 25, 24));
-
-            log.info("Performing second insert on Hive");
-            onHive().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (31, 32, 33, 34, 35)", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, 2, 3, 4, 5), row(23, 21, 22, 25, 24), row(31, 32, 33, 34, 35));
-
-            log.info("Performing first delete on Presto");
-            onPresto().executeQuery(format("DELETE FROM %s WHERE col1 = 23", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, 2, 3, 4, 5), row(31, 32, 33, 34, 35));
-
-            log.info("Performing second update on Hive");
-            onHive().executeQuery(format("UPDATE %s SET col5 = col4, col1 = col3, col3 = col2, col4 = col5, col2 = col1 WHERE col1 = 31", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, 2, 3, 4, 5), row(33, 31, 32, 35, 34));
-
-            log.info("Performing more inserts on Presto");
-            onPresto().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (41, 42, 43, 44, 45), (51, 52, 53, 54, 55)", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(1, 2, 3, 4, 5), row(33, 31, 32, 35, 34), row(41, 42, 43, 44, 45), row(51, 52, 53, 54, 55));
-
-            log.info("Performing second delete on Hive");
-            onHive().executeQuery(format("DELETE FROM %s WHERE col5 = 5", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(33, 31, 32, 35, 34), row(41, 42, 43, 44, 45), row(51, 52, 53, 54, 55));
-        });
-    }
-
     @DataProvider
     public Object[][] insertersProvider()
     {
@@ -1292,8 +808,9 @@ public class TestHiveTransactionalTable
                 return onHive();
             case PRESTO:
                 return onPresto();
+            default:
+                throw new IllegalStateException("Unknown enum value " + hiveOrPresto);
         }
-        throw new IllegalStateException("Unknown enum value " + hiveOrPresto);
     }
 
     @DataProvider
@@ -1570,13 +1087,6 @@ public class TestHiveTransactionalTable
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
-        }
-    }
-
-    private void ensureSchemaEvolutionSupported()
-    {
-        if (getHiveVersionMajor() < 3) {
-            throw new SkipException("Hive schema evolution requires Hive version 3 or above");
         }
     }
 

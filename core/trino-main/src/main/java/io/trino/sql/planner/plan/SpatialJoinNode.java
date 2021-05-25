@@ -57,12 +57,9 @@ public class SpatialJoinNode
                     return Type.INNER;
                 case LEFT:
                     return Type.LEFT;
-                case RIGHT:
-                case FULL:
-                    // unsupported
-                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported spatial join type: " + joinNodeType);
             }
-            throw new IllegalArgumentException("Unsupported spatial join type: " + joinNodeType);
         }
     }
 

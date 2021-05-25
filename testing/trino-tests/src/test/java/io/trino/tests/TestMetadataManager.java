@@ -196,12 +196,12 @@ public class TestMetadataManager
     private static ConnectorViewDefinition getConnectorViewDefinition()
     {
         return new ConnectorViewDefinition(
-                "test view SQL",
-                Optional.of("upper_case_schema_catalog"),
-                Optional.of("upper_case_schema"),
-                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col", BIGINT.getTypeId())),
-                Optional.of("comment"),
-                Optional.of("test_owner"),
-                false);
+            "test view SQL",
+            Optional.of("upper_case_schema_catalog"),
+            Optional.of("upper_case_schema"),
+            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col", BIGINT.getTypeId())),
+            Optional.of("comment"),
+            Optional.of("test_owner"),
+            false);
     }
 }

@@ -243,12 +243,6 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames)
-    {
-        delegate().checkCanUpdateTableColumns(context, tableName, updatedColumnNames);
-    }
-
-    @Override
     public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName)
     {
         delegate().checkCanCreateView(context, viewName);

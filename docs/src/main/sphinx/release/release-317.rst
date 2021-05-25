@@ -2,8 +2,8 @@
 Release 317 (1 Aug 2019)
 ========================
 
-General
--------
+General changes
+---------------
 
 * Fix :func:`url_extract_parameter` when the query string contains an encoded ``&`` or ``=`` character.
 * Export MBeans from the ``db`` resource group configuration manager. (:issue:`1151`)
@@ -14,14 +14,14 @@ General
 * Allow overriding session time zone for clients via the
   ``sql.forced-session-time-zone`` configuration property. (:issue:`1164`)
 
-Web UI
-------
+Web UI changes
+--------------
 
 * Fix tooltip visibility on stage performance details page. (:issue:`1113`)
 * Add planning time to query details page. (:issue:`1115`)
 
-Security
---------
+Security changes
+----------------
 
 * Allow schema owner to create, drop, and rename schema when using file-based
   connector access control. (:issue:`1139`)
@@ -32,18 +32,18 @@ Security
   configuration property, as the header should only be used when the Presto
   coordinator is behind a proxy. (:issue:`1033`)
 
-JDBC driver
------------
+JDBC driver changes
+-------------------
 
 * Fix ``DatabaseMetaData.getURL()`` to include the ``jdbc:`` prefix. (:issue:`1211`)
 
-Elasticsearch connector
------------------------
+Elasticsearch connector changes
+-------------------------------
 
 * Add support for nested fields. (:issue:`1001`)
 
-Hive connector
---------------
+Hive connector changes
+----------------------
 
 * Fix bucketing version safety check to correctly disallow writes
   to tables that use an unsupported bucketing version. (:issue:`1199`)
@@ -51,23 +51,23 @@ Hive connector
 * Improve performance of file listings in ``system.sync_partition_metadata`` procedure,
   especially for S3. (:issue:`1093`)
 
-Kudu connector
---------------
+Kudu connector changes
+----------------------
 
 * Update Kudu client library version to ``1.10.0``. (:issue:`1086`)
 
-MongoDB connector
------------------
+MongoDB connector changes
+-------------------------
 
 * Allow passwords to contain the ``:`` or ``@`` characters. (:issue:`1094`)
 
-PostgreSQL connector
---------------------
+PostgreSQL connector changes
+----------------------------
 
 * Add support for reading ``hstore`` data type. (:issue:`1101`)
 
-SPI
----
+SPI changes
+-----------
 
 * Allow delete to be implemented for non-legacy connectors. (:issue:`1015`)
 * Remove deprecated method from ``ConnectorPageSourceProvider``. (:issue:`1095`)

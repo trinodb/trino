@@ -66,7 +66,6 @@ import io.trino.sql.tree.ExplainType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.Format;
-import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.FunctionCall.NullTreatment;
 import io.trino.sql.tree.GenericLiteral;
@@ -157,14 +156,9 @@ import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
-import io.trino.sql.tree.Update;
-import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.WhenClause;
-import io.trino.sql.tree.WindowDefinition;
-import io.trino.sql.tree.WindowFrame;
-import io.trino.sql.tree.WindowReference;
-import io.trino.sql.tree.WindowSpecification;
+import io.trino.sql.tree.Window;
 import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
 import org.testng.annotations.Test;
@@ -201,11 +195,9 @@ import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.positive;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
-import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -544,7 +536,6 @@ public class TestSqlParser
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -2716,7 +2707,7 @@ public class TestSqlParser
                 new FunctionCall(
                         Optional.empty(),
                         QualifiedName.of("lead"),
-                        Optional.of(new WindowSpecification(Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty())),
+                        Optional.of(new Window(ImmutableList.of(), Optional.empty(), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -2726,117 +2717,12 @@ public class TestSqlParser
                 new FunctionCall(
                         Optional.empty(),
                         QualifiedName.of("lead"),
-                        Optional.of(new WindowSpecification(Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty())),
+                        Optional.of(new Window(ImmutableList.of(), Optional.empty(), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
                         false,
                         Optional.of(NullTreatment.RESPECT),
                         ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
-    }
-
-    @Test
-    public void testWindowSpecification()
-    {
-        assertExpression("rank() OVER someWindow",
-                new FunctionCall(
-                        Optional.empty(),
-                        QualifiedName.of("rank"),
-                        Optional.of(new WindowReference(new Identifier("someWindow"))),
-                        Optional.empty(),
-                        Optional.empty(),
-                        false,
-                        Optional.empty(),
-                        ImmutableList.of()));
-
-        assertExpression("rank() OVER (someWindow PARTITION BY x ORDER BY y ROWS CURRENT ROW)",
-                new FunctionCall(
-                        Optional.empty(),
-                        QualifiedName.of("rank"),
-                        Optional.of(new WindowSpecification(
-                                Optional.of(new Identifier("someWindow")),
-                                ImmutableList.of(new Identifier("x")),
-                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(ROWS, new FrameBound(CURRENT_ROW), Optional.empty())))),
-                        Optional.empty(),
-                        Optional.empty(),
-                        false,
-                        Optional.empty(),
-                        ImmutableList.of()));
-
-        assertExpression("rank() OVER (PARTITION BY x ORDER BY y ROWS CURRENT ROW)",
-                new FunctionCall(
-                        Optional.empty(),
-                        QualifiedName.of("rank"),
-                        Optional.of(new WindowSpecification(
-                                Optional.empty(),
-                                ImmutableList.of(new Identifier("x")),
-                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(ROWS, new FrameBound(CURRENT_ROW), Optional.empty())))),
-                        Optional.empty(),
-                        Optional.empty(),
-                        false,
-                        Optional.empty(),
-                        ImmutableList.of()));
-    }
-
-    @Test
-    public void testWindowClause()
-    {
-        assertStatement("SELECT * FROM T WINDOW someWindow AS (PARTITION BY a), otherWindow AS (someWindow ORDER BY b)",
-                simpleQuery(
-                        selectList(new AllColumns()),
-                        new Table(makeQualifiedName("T")),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        ImmutableList.of(
-                                new WindowDefinition(
-                                        new Identifier("someWindow"),
-                                        new WindowSpecification(
-                                                Optional.empty(),
-                                                ImmutableList.of(new Identifier("a")),
-                                                Optional.empty(),
-                                                Optional.empty())),
-                                new WindowDefinition(
-                                        new Identifier("otherWindow"),
-                                        new WindowSpecification(
-                                                Optional.of(new Identifier("someWindow")),
-                                                ImmutableList.of(),
-                                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("b"), ASCENDING, UNDEFINED)))),
-                                                Optional.empty()))),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty()));
-    }
-
-    public void testUpdate()
-    {
-        assertStatement("" +
-                        "UPDATE foo_table\n" +
-                        "    SET bar = 23, baz = 3.1415E0, bletch = 'barf'\n" +
-                        "WHERE (nothing = 'fun')",
-                new Update(
-                        new NodeLocation(1, 1),
-                        table(QualifiedName.of("foo_table")),
-                        ImmutableList.of(
-                                new UpdateAssignment(new Identifier("bar"), new LongLiteral("23")),
-                                new UpdateAssignment(new Identifier("baz"), new DoubleLiteral("3.1415")),
-                                new UpdateAssignment(new Identifier("bletch"), new StringLiteral("barf"))),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("nothing"), new StringLiteral("fun")))));
-    }
-
-    @Test
-    public void testWherelessUpdate()
-    {
-        assertStatement("" +
-                        "UPDATE foo_table\n" +
-                        "    SET bar = 23",
-                new Update(
-                        new NodeLocation(1, 1),
-                        table(QualifiedName.of("foo_table")),
-                        ImmutableList.of(
-                                new UpdateAssignment(new Identifier("bar"), new LongLiteral("23"))),
-                        Optional.empty()));
     }
 
     private static QualifiedName makeQualifiedName(String tableName)

@@ -2,8 +2,8 @@
 Release 335 (14 Jun 2020)
 =========================
 
-General
--------
+General changes
+---------------
 
 * Fix failure when :func:`reduce_agg` is used as a window function. (:issue:`3883`)
 * Fix incorrect cast from ``TIMESTAMP`` (without time zone) to ``TIME`` type. (:issue:`3848`)
@@ -17,23 +17,23 @@ General
 * Add  ``information_schema.role_authorization_descriptors`` table that returns information about the roles
   granted to principals. (:issue:`3535`)
 
-Security
---------
+Security changes
+----------------
 
 * Add schema access rules to :doc:`/security/file-system-access-control`. (:issue:`3766`)
 
-Web UI
-------
+Web UI changes
+--------------
 
 * Fix the value displayed in the worker memory pools bar. (:issue:`3920`)
 
-Accumulo connector
-------------------
+Accumulo connector changes
+--------------------------
 
 * The server-side iterators are now in a JAR file named ``presto-accumulo-iterators``. (:issue:`3673`)
 
-Hive connector
---------------
+Hive connector changes
+----------------------
 
 * Collect column statistics for inserts into empty tables. (:issue:`2469`)
 * Add support for ``information_schema.role_authorization_descriptors`` table when using the ``sql-standard``
@@ -51,14 +51,14 @@ Hive connector
 * Add support for dynamic partition pruning to improve performance of complex queries
   over partitioned data. (:issue:`1072`)
 
-Phoenix connector
------------------
+Phoenix connector changes
+-------------------------
 
 * Allow configuring whether ``DROP TABLE`` is allowed. This is controlled by the new ``allow-drop-table``
   catalog configuration property and defaults to ``true``, compatible with the previous behavior. (:issue:`3953`)
 
-SPI
----
+SPI changes
+-----------
 
 * Add support for aggregation pushdown into connectors via the
   ``ConnectorMetadata.applyAggregation()`` method. (:issue:`3697`)

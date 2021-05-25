@@ -54,8 +54,6 @@ public final class TestUtils
         MockKinesisClient mockClient = (MockKinesisClient) kinesisTestClientManager.getClient();
         mockClient.createStream("test123", 2);
         mockClient.createStream("sampleTable", 2);
-        mockClient.createStream("sampleGzipCompressTable", 2);
-        mockClient.createStream("sampleAutomaticCompressTable", 2);
         KinesisConnectorFactory kinesisConnectorFactory = new TestingKinesisConnectorFactory(kinesisTestClientManager);
 
         KinesisPlugin kinesisPlugin = new KinesisPlugin(kinesisConnectorFactory);

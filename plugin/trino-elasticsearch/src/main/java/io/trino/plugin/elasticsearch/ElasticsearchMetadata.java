@@ -383,12 +383,10 @@ public class ElasticsearchMetadata
             throw new IllegalArgumentException(format("Unexpected column for table '%s$query': %s", table.getIndex(), column.getName()));
         }
 
-        return BuiltinColumns.of(column.getName())
-                .map(BuiltinColumns::getMetadata)
-                .orElse(ColumnMetadata.builder()
-                        .setName(column.getName())
-                        .setType(column.getType())
-                        .build());
+        return ColumnMetadata.builder()
+                .setName(column.getName())
+                .setType(column.getType())
+                .build();
     }
 
     @Override

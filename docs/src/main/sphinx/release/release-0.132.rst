@@ -7,8 +7,8 @@ Release 0.132
    :func:`concat` on :ref:`array_type`, or enabling ``columnar_processing_dictionary``
    may cause queries to fail in this release. This is fixed in :doc:`/release/release-0.133`.
 
-General
--------
+General changes
+---------------
 
 * Fix a correctness issue that can occur when any join depends on the output
   of another outer join that has an inner side (or either side for the full outer
@@ -31,13 +31,13 @@ General
 * Various performance optimizations for functions operating on :ref:`array_type`.
 * Add server version to web UI.
 
-CLI
----
+CLI changes
+-----------
 
 * Fix sporadic *"Failed to disable interrupt character"* error after exiting pager.
 
-Hive
-----
+Hive changes
+------------
 
 * Report metastore and namenode latency in milliseconds rather than seconds in
   JMX stats.

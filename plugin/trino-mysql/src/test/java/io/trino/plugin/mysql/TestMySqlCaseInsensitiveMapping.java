@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.stream.Stream;
@@ -29,8 +30,6 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
-// With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
-// Some tests here create colliding names which can cause any other concurrent test to fail.
 @Test(singleThreaded = true)
 public class TestMySqlCaseInsensitiveMapping
         extends AbstractTestQueryFramework
@@ -41,8 +40,14 @@ public class TestMySqlCaseInsensitiveMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mySqlServer = closeAfterClass(new TestingMySqlServer());
+        mySqlServer = new TestingMySqlServer();
         return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+    {
+        mySqlServer.close();
     }
 
     @Test

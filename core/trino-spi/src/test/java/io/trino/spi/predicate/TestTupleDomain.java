@@ -40,7 +40,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -637,7 +636,7 @@ public class TestTupleDomain
         assertEquals(transformed.getDomains().get(), expected);
     }
 
-    @Test
+    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testTransformFailsWithNonUniqueMapping()
     {
         Map<Integer, Domain> domains = ImmutableMap.<Integer, Domain>builder()
@@ -648,16 +647,14 @@ public class TestTupleDomain
 
         TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
 
-        assertThatThrownBy(() -> domain.transform(input -> "x"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Every argument must have a unique mapping. 2 maps to [ SortedRangeSet[type=bigint, ranges=1, {[2,2]}] ] and [ SortedRangeSet[type=bigint, ranges=1, {[1,1]}] ]");
+        domain.transform(input -> "x");
     }
 
     private boolean overlaps(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2)
     {
         TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.withColumnDomains(domains1);
-        TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(domains2);
-        return tupleDomain1.overlaps(tupleDomain2);
+        TupleDomain<ColumnHandle> tupleDOmain2 = TupleDomain.withColumnDomains(domains2);
+        return tupleDomain1.overlaps(tupleDOmain2);
     }
 
     private boolean contains(Map<ColumnHandle, Domain> superSet, Map<ColumnHandle, Domain> subSet)

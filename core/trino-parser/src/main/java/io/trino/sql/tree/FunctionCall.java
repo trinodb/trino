@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionCall
@@ -56,7 +55,6 @@ public class FunctionCall
         super(location);
         requireNonNull(name, "name is null");
         requireNonNull(window, "window is null");
-        window.ifPresent(node -> checkArgument(node instanceof WindowReference || node instanceof WindowSpecification, "unexpected window: " + node.getClass().getSimpleName()));
         requireNonNull(filter, "filter is null");
         requireNonNull(orderBy, "orderBy is null");
         requireNonNull(nullTreatment, "nullTreatment is null");
@@ -116,9 +114,9 @@ public class FunctionCall
     public List<Node> getChildren()
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        window.ifPresent(window -> nodes.add((Node) window));
+        window.ifPresent(nodes::add);
         filter.ifPresent(nodes::add);
-        orderBy.map(OrderBy::getSortItems).ifPresent(nodes::addAll);
+        orderBy.map(OrderBy::getSortItems).map(nodes::addAll);
         nodes.addAll(arguments);
         return nodes.build();
     }

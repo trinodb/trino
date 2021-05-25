@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.trino.array.LongBigArray;
 import io.trino.util.HeapTraversal;
 import io.trino.util.LongBigArrayFIFOQueue;
+import it.unimi.dsi.fastutil.longs.LongComparator;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -48,6 +49,26 @@ import static java.util.Objects.requireNonNull;
  */
 public class GroupedTopNRowNumberAccumulator
 {
+    /**
+     * Reference to an input row.
+     * <p>
+     * Note: RowReference gives us the ability to defer row ID generation (which can be expensive in tight loops).
+     */
+    public interface RowReference
+    {
+        /**
+         * Compares the referenced row to the specified row ID using the provided row ID comparator.
+         */
+        int compareTo(LongComparator rowIdComparator, long rowId);
+
+        /**
+         * Extract a stable row ID that can be used to reference this row at a future point.
+         * <p>
+         * This accumulator will not retain any references to the RowReference object.
+         */
+        long extractRowId();
+    }
+
     private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedTopNRowNumberAccumulator.class).instanceSize();
     private static final long UNKNOWN_INDEX = -1;
 
@@ -55,13 +76,13 @@ public class GroupedTopNRowNumberAccumulator
     private final HeapNodeBuffer heapNodeBuffer = new HeapNodeBuffer();
     private final HeapTraversal heapTraversal = new HeapTraversal();
 
-    private final RowIdComparisonStrategy strategy;
+    private final LongComparator rowComparator;
     private final int topN;
     private final LongConsumer rowIdEvictionListener;
 
-    public GroupedTopNRowNumberAccumulator(RowIdComparisonStrategy strategy, int topN, LongConsumer rowIdEvictionListener)
+    public GroupedTopNRowNumberAccumulator(LongComparator rowIdComparator, int topN, LongConsumer rowIdEvictionListener)
     {
-        this.strategy = requireNonNull(strategy, "strategy is null");
+        this.rowComparator = requireNonNull(rowIdComparator, "addressComparator is null");
         checkArgument(topN > 0, "topN must be greater than zero");
         this.topN = topN;
         this.rowIdEvictionListener = requireNonNull(rowIdEvictionListener, "rowIdEvictionListener is null");
@@ -85,11 +106,11 @@ public class GroupedTopNRowNumberAccumulator
 
         long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         if (heapRootNodeIndex == UNKNOWN_INDEX || calculateRootRowNumber(groupId) < topN) {
-            heapInsert(groupId, rowReference.allocateRowId());
+            heapInsert(groupId, rowReference.extractRowId());
             return true;
         }
-        else if (rowReference.compareTo(strategy, heapNodeBuffer.getRowId(heapRootNodeIndex)) < 0) {
-            heapPopAndInsert(groupId, rowReference.allocateRowId(), rowIdEvictionListener);
+        else if (rowReference.compareTo(rowComparator, heapNodeBuffer.getRowId(heapRootNodeIndex)) < 0) {
+            heapPopAndInsert(groupId, rowReference.extractRowId(), rowIdEvictionListener);
             return true;
         }
         else {
@@ -239,7 +260,7 @@ public class GroupedTopNRowNumberAccumulator
         heapTraversal.resetWithPathTo(groupIdToHeapBuffer.getHeapSize(groupId) + 1);
         while (!heapTraversal.isTarget()) {
             long currentRowId = heapNodeBuffer.getRowId(currentHeapNodeIndex);
-            if (strategy.compare(newRowId, currentRowId) > 0) {
+            if (rowComparator.compare(newRowId, currentRowId) > 0) {
                 // Swap the row values
                 heapNodeBuffer.setRowId(currentHeapNodeIndex, newRowId);
 
@@ -291,13 +312,13 @@ public class GroupedTopNRowNumberAccumulator
             long rightChildNodeIndex = heapNodeBuffer.getRightChildHeapIndex(currentNodeIndex);
             if (rightChildNodeIndex != UNKNOWN_INDEX) {
                 long rightRowId = heapNodeBuffer.getRowId(rightChildNodeIndex);
-                if (strategy.compare(rightRowId, maxChildRowId) > 0) {
+                if (rowComparator.compare(rightRowId, maxChildRowId) > 0) {
                     maxChildNodeIndex = rightChildNodeIndex;
                     maxChildRowId = rightRowId;
                 }
             }
 
-            if (strategy.compare(newRowId, maxChildRowId) >= 0) {
+            if (rowComparator.compare(newRowId, maxChildRowId) >= 0) {
                 // New row is greater than or equal to both children, so the heap invariant is satisfied by inserting the
                 // new row at this position
                 break;
@@ -345,11 +366,11 @@ public class GroupedTopNRowNumberAccumulator
         long rightChildHeapIndex = heapNodeBuffer.getRightChildHeapIndex(heapNodeIndex);
 
         if (leftChildHeapIndex != UNKNOWN_INDEX) {
-            verify(strategy.compare(rowId, heapNodeBuffer.getRowId(leftChildHeapIndex)) >= 0, "Max heap invariant violated");
+            verify(rowComparator.compare(rowId, heapNodeBuffer.getRowId(leftChildHeapIndex)) >= 0, "Max heap invariant violated");
         }
         if (rightChildHeapIndex != UNKNOWN_INDEX) {
             verify(leftChildHeapIndex != UNKNOWN_INDEX, "Left should always be inserted before right");
-            verify(strategy.compare(rowId, heapNodeBuffer.getRowId(rightChildHeapIndex)) >= 0, "Max heap invariant violated");
+            verify(rowComparator.compare(rowId, heapNodeBuffer.getRowId(rightChildHeapIndex)) >= 0, "Max heap invariant violated");
         }
 
         IntegrityStats leftIntegrityStats = verifyHeapIntegrity(leftChildHeapIndex);

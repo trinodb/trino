@@ -102,25 +102,35 @@ public final class ElasticsearchQueryBuilder
             Set<Object> valuesToInclude = new HashSet<>();
             checkState(!range.isAll(), "Invalid range for column: %s", columnName);
             if (range.isSingleValue()) {
-                valuesToInclude.add(range.getSingleValue());
+                valuesToInclude.add(range.getLow().getValue());
             }
             else {
-                if (!range.isLowUnbounded()) {
-                    Object lowBound = getValue(type, range.getLowBoundedValue());
-                    if (range.isLowInclusive()) {
-                        rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(lowBound));
-                    }
-                    else {
-                        rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(lowBound));
+                if (!range.getLow().isLowerUnbounded()) {
+                    switch (range.getLow().getBound()) {
+                        case ABOVE:
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(getValue(type, range.getLow().getValue())));
+                            break;
+                        case EXACTLY:
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(getValue(type, range.getLow().getValue())));
+                            break;
+                        case BELOW:
+                            throw new IllegalArgumentException("Low marker should never use BELOW bound");
+                        default:
+                            throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
                     }
                 }
-                if (!range.isHighUnbounded()) {
-                    Object highBound = getValue(type, range.getHighBoundedValue());
-                    if (range.isHighInclusive()) {
-                        rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(highBound));
-                    }
-                    else {
-                        rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(highBound));
+                if (!range.getHigh().isUpperUnbounded()) {
+                    switch (range.getHigh().getBound()) {
+                        case EXACTLY:
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(getValue(type, range.getHigh().getValue())));
+                            break;
+                        case BELOW:
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(getValue(type, range.getHigh().getValue())));
+                            break;
+                        case ABOVE:
+                            throw new IllegalArgumentException("High marker should never use ABOVE bound");
+                        default:
+                            throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
                     }
                 }
             }

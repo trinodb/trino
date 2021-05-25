@@ -2,8 +2,8 @@
 Release 0.142
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix planning bug for ``JOIN`` criteria that optimizes to a ``FALSE`` expression.
 * Fix planning bug when the output of ``UNION`` doesn't match the table column order
@@ -20,8 +20,8 @@ General
 * Add support for non-correlated subqueries in aggregation queries.
 * Improve performance of :func:`json_extract`.
 
-Hive
-----
+Hive changes
+------------
 
 * Change ORC input format to report actual bytes read as opposed to estimated bytes.
 * Fix cache invalidation when renaming tables.

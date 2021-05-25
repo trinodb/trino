@@ -181,6 +181,7 @@ public class VerifyCommand
             System.exit((numFailedQueries > 0) ? 1 : 0);
         }
         catch (InterruptedException | MalformedURLException e) {
+            throwIfUnchecked(e);
             throw new RuntimeException(e);
         }
         finally {

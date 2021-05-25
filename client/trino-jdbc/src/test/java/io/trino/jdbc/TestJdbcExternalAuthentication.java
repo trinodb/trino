@@ -429,8 +429,7 @@ public class TestJdbcExternalAuthentication
     {
         @Override
         public void redirectTo(URI uri)
-                throws RedirectException
-        {}
+                throws RedirectException {}
     }
 
     public static class FailingRedirectHandler

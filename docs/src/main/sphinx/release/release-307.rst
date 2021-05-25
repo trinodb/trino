@@ -2,8 +2,8 @@
 Release 307 (3 Apr 2019)
 ========================
 
-General
--------
+General changes
+---------------
 
 * Fix cleanup of spill files for queries using window functions or ``ORDER BY``. (:issue:`543`)
 * Optimize queries containing ``ORDER BY`` together with ``LIMIT`` over an ``OUTER JOIN``
@@ -14,49 +14,67 @@ General
 * Add support for outer joins involving lateral derived tables (i.e., ``LATERAL``). (:issue:`390`)
 * Add support for setting table comments via the :doc:`/sql/comment` syntax. (:issue:`200`)
 
-Web UI
-------
+Web UI changes
+--------------
 
 * Allow UI to work when opened as ``/ui`` (no trailing slash). (:issue:`500`)
 
-Security
---------
+Security changes
+----------------
 
 * Make query result and cancellation URIs secure. Previously, an authenticated
   user could potentially steal the result data of any running query. (:issue:`561`)
 
-Server RPM
-----------
+Server RPM changes
+------------------
 
 * Prevent JVM from allocating large amounts of native memory. The new configuration is applied
   automatically when Presto is installed from RPM. When Presto is installed another way, or when
   you provide your own ``jvm.config``, we recommend adding ``-Djdk.nio.maxCachedBufferSize=2000000``
   to your ``jvm.config``. See :doc:`/installation/deployment` for details. (:issue:`542`)
 
-CLI
----
+CLI changes
+-----------
 
 * Always abort query in batch mode when CLI is killed. (:issue:`508`, :issue:`580`)
 
-JDBC driver
------------
+JDBC driver changes
+-------------------
 
 * Abort query synchronously when the ``ResultSet`` is closed or when the
   ``Statement`` is cancelled. Previously, the abort was sent in the background,
   allowing the JVM to exit before the abort was received by the server. (:issue:`580`)
 
-Hive connector
---------------
+Hive connector changes
+----------------------
 
 * Add safety checks for Hive bucketing version. Hive 3.0 introduced a new
   bucketing version that uses an incompatible hash function. The Hive connector
   will treat such tables as not bucketed when reading and disallows writing. (:issue:`512`)
 * Add support for setting table comments via the :doc:`/sql/comment` syntax. (:issue:`200`)
 
-Other connectors
-----------------
+MySQL connector changes
+-----------------------
 
-These changes apply to the MySQL, PostgreSQL, Redshift, and SQL Server connectors.
+See `Base-JDBC connector library changes <#base-jdbc-connector-library-changes>`__.
+
+PostgreSQL connector changes
+----------------------------
+
+See `Base-JDBC connector library changes <#base-jdbc-connector-library-changes>`__.
+
+Redshift connector changes
+--------------------------
+
+See `Base-JDBC connector library changes <#base-jdbc-connector-library-changes>`__.
+
+SQL Server connector changes
+----------------------------
+
+See `Base-JDBC connector library changes <#base-jdbc-connector-library-changes>`__.
+
+Base-JDBC connector library changes
+-----------------------------------
 
 * Fix reading and writing of ``timestamp`` values. Previously, an incorrect value
   could be read, depending on the Presto JVM time zone. (:issue:`495`)
@@ -64,8 +82,8 @@ These changes apply to the MySQL, PostgreSQL, Redshift, and SQL Server connector
   names can be configured using the ``user-credential-name`` and ``password-credential-name``
   configuration properties. (:issue:`482`)
 
-SPI
----
+SPI changes
+-----------
 
 * ``LongDecimalType`` and ``IpAddressType`` now use ``Int128ArrayBlock`` instead
   of ``FixedWithBlock``. Any code that creates blocks directly, rather than using

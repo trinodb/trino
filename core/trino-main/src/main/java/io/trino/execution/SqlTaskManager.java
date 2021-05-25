@@ -46,7 +46,6 @@ import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.version.EmbedVersion;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -68,7 +67,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
@@ -90,7 +88,6 @@ public class SqlTaskManager
 {
     private static final Logger log = Logger.get(SqlTaskManager.class);
 
-    private final EmbedVersion embedVersion;
     private final ExecutorService taskNotificationExecutor;
     private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
 
@@ -119,7 +116,6 @@ public class SqlTaskManager
 
     @Inject
     public SqlTaskManager(
-            EmbedVersion embedVersion,
             LocalExecutionPlanner planner,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
@@ -141,7 +137,6 @@ public class SqlTaskManager
         DataSize maxBufferSize = config.getSinkMaxBufferSize();
         DataSize maxBroadcastBufferSize = config.getSinkMaxBroadcastBufferSize();
 
-        this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
         taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
@@ -169,7 +164,10 @@ public class SqlTaskManager
                         queryContexts.getUnchecked(taskId.getQueryId()),
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,
-                        sqlTask -> finishedTaskStats.merge(sqlTask.getIoStats()),
+                        sqlTask -> {
+                            finishedTaskStats.merge(sqlTask.getIoStats());
+                            return null;
+                        },
                         maxBufferSize,
                         maxBroadcastBufferSize,
                         failedTasks)));
@@ -368,18 +366,6 @@ public class SqlTaskManager
 
     @Override
     public TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions)
-    {
-        try {
-            return embedVersion.embedVersion(() -> doUpdateTask(session, taskId, fragment, sources, outputBuffers, totalPartitions)).call();
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            // impossible, doUpdateTask does not throw checked exceptions
-            throw new RuntimeException(e);
-        }
-    }
-
-    private TaskInfo doUpdateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");

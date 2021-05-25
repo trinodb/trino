@@ -215,8 +215,9 @@ public enum CassandraType
                 return NullableValue.of(trinoType, utf8Slice(buildArrayValue(row, position)));
             case MAP:
                 return NullableValue.of(trinoType, utf8Slice(buildMapValue(row, position)));
+            default:
+                throw new IllegalStateException("Handling of type " + this + " is not implemented");
         }
-        throw new IllegalStateException("Handling of type " + this + " is not implemented");
     }
 
     private static String buildMapValue(Row row, int position)
@@ -309,14 +310,9 @@ public enum CassandraType
             case BLOB:
             case CUSTOM:
                 return Bytes.toHexString(row.getBytesUnsafe(position));
-
-            case LIST:
-            case SET:
-            case MAP:
-                // unsupported
-                break;
+            default:
+                throw new IllegalStateException("Handling of type " + this + " is not implemented");
         }
-        throw new IllegalStateException("Handling of type " + this + " is not implemented");
     }
 
     // TODO unify with getColumnValueForCql
@@ -383,8 +379,9 @@ public enum CassandraType
                 return buildArrayValue((Collection<?>) cassandraValue, getOnlyElement(dataType.getTypeArguments()));
             case MAP:
                 return buildMapValue((Map<?, ?>) cassandraValue, dataType.getTypeArguments().get(0), dataType.getTypeArguments().get(1));
+            default:
+                throw new IllegalStateException("Unsupported type: " + cassandraType);
         }
-        throw new IllegalStateException("Unsupported type: " + cassandraType);
     }
 
     public Object getJavaValue(Object trinoNativeValue)
@@ -428,8 +425,9 @@ public enum CassandraType
             case SET:
             case LIST:
             case MAP:
+            default:
+                throw new IllegalStateException("Back conversion not implemented for " + this);
         }
-        throw new IllegalStateException("Back conversion not implemented for " + this);
     }
 
     public boolean isSupportedPartitionKey()

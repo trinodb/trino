@@ -14,6 +14,7 @@
 package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -38,16 +39,13 @@ import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
-import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.UnionNode;
-import io.trino.sql.planner.plan.UpdateNode;
 
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.stream.Collectors.toSet;
@@ -102,7 +100,6 @@ public class BeginTableWrite
                     node.getColumnNames(),
                     node.getNotNullColumnSymbols(),
                     node.getPartitioningScheme(),
-                    node.getPreferredPartitioningScheme(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
         }
@@ -113,22 +110,9 @@ public class BeginTableWrite
             DeleteTarget deleteTarget = (DeleteTarget) context.get().getMaterializedHandle(node.getTarget()).get();
             return new DeleteNode(
                     node.getId(),
-                    rewriteModifyTableScan(node.getSource(), deleteTarget.getHandle()),
+                    rewriteDeleteTableScan(node.getSource(), deleteTarget.getHandle()),
                     deleteTarget,
                     node.getRowId(),
-                    node.getOutputSymbols());
-        }
-
-        @Override
-        public PlanNode visitUpdate(UpdateNode node, RewriteContext<Context> context)
-        {
-            UpdateTarget updateTarget = (UpdateTarget) context.get().getMaterializedHandle(node.getTarget()).get();
-            return new UpdateNode(
-                    node.getId(),
-                    rewriteModifyTableScan(node.getSource(), updateTarget.getHandle()),
-                    updateTarget,
-                    node.getRowId(),
-                    node.getColumnValueAndRowIdSymbols(),
                     node.getOutputSymbols());
         }
 
@@ -178,14 +162,11 @@ public class BeginTableWrite
             if (node instanceof DeleteNode) {
                 return ((DeleteNode) node).getTarget();
             }
-            if (node instanceof UpdateNode) {
-                return ((UpdateNode) node).getTarget();
-            }
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
                 Set<WriterTarget> writerTargets = node.getSources().stream()
                         .map(this::getTarget)
                         .collect(toSet());
-                return getOnlyElement(writerTargets);
+                return Iterables.getOnlyElement(writerTargets);
             }
             throw new IllegalArgumentException("Invalid child for TableCommitNode: " + node.getClass().getSimpleName());
         }
@@ -206,14 +187,6 @@ public class BeginTableWrite
                 DeleteTarget delete = (DeleteTarget) target;
                 return new DeleteTarget(metadata.beginDelete(session, delete.getHandle()), delete.getSchemaTableName());
             }
-            if (target instanceof UpdateTarget) {
-                UpdateTarget update = (UpdateTarget) target;
-                return new UpdateTarget(
-                        metadata.beginUpdate(session, update.getHandle(), ImmutableList.copyOf(update.getUpdatedColumnHandles())),
-                        update.getSchemaTableName(),
-                        update.getUpdatedColumns(),
-                        update.getUpdatedColumnHandles());
-            }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
                 TableWriterNode.RefreshMaterializedViewReference refreshMV = (TableWriterNode.RefreshMaterializedViewReference) target;
                 return new TableWriterNode.RefreshMaterializedViewTarget(
@@ -225,7 +198,7 @@ public class BeginTableWrite
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 
-        private PlanNode rewriteModifyTableScan(PlanNode node, TableHandle handle)
+        private PlanNode rewriteDeleteTableScan(PlanNode node, TableHandle handle)
         {
             if (node instanceof TableScanNode) {
                 TableScanNode scan = (TableScanNode) node;
@@ -239,25 +212,25 @@ public class BeginTableWrite
             }
 
             if (node instanceof FilterNode) {
-                PlanNode source = rewriteModifyTableScan(((FilterNode) node).getSource(), handle);
+                PlanNode source = rewriteDeleteTableScan(((FilterNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source));
             }
             if (node instanceof ProjectNode) {
-                PlanNode source = rewriteModifyTableScan(((ProjectNode) node).getSource(), handle);
+                PlanNode source = rewriteDeleteTableScan(((ProjectNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source));
             }
             if (node instanceof SemiJoinNode) {
-                PlanNode source = rewriteModifyTableScan(((SemiJoinNode) node).getSource(), handle);
+                PlanNode source = rewriteDeleteTableScan(((SemiJoinNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
             }
             if (node instanceof JoinNode) {
                 JoinNode joinNode = (JoinNode) node;
                 if (joinNode.getType() == JoinNode.Type.INNER && isAtMostScalar(joinNode.getRight())) {
-                    PlanNode source = rewriteModifyTableScan(joinNode.getLeft(), handle);
+                    PlanNode source = rewriteDeleteTableScan(joinNode.getLeft(), handle);
                     return replaceChildren(node, ImmutableList.of(source, joinNode.getRight()));
                 }
             }
-            throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
+            throw new IllegalArgumentException("Invalid descendant for DeleteNode: " + node.getClass().getName());
         }
     }
 

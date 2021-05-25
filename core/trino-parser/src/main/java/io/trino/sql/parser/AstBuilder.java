@@ -186,16 +186,11 @@ import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.TypeParameter;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
-import io.trino.sql.tree.Update;
-import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Use;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.Window;
-import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.WindowFrame;
-import io.trino.sql.tree.WindowReference;
-import io.trino.sql.tree.WindowSpecification;
 import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -437,22 +432,6 @@ class AstBuilder
                 getLocation(context),
                 new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
                 visitIfPresent(context.booleanExpression(), Expression.class));
-    }
-
-    @Override
-    public Node visitUpdate(SqlBaseParser.UpdateContext context)
-    {
-        return new Update(
-                getLocation(context),
-                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
-                visit(context.updateAssignment(), UpdateAssignment.class),
-                visitIfPresent(context.booleanExpression(), Expression.class));
-    }
-
-    @Override
-    public Node visitUpdateAssignment(SqlBaseParser.UpdateAssignmentContext context)
-    {
-        return new UpdateAssignment((Identifier) visit(context.identifier()), (Expression) visit(context.expression()));
     }
 
     @Override
@@ -802,7 +781,6 @@ class AstBuilder
                             query.getWhere(),
                             query.getGroupBy(),
                             query.getHaving(),
-                            query.getWindows(),
                             orderBy,
                             offset,
                             limit),
@@ -846,7 +824,6 @@ class AstBuilder
                 visitIfPresent(context.where, Expression.class),
                 visitIfPresent(context.groupBy(), GroupBy.class),
                 visitIfPresent(context.having, Expression.class),
-                visit(context.windowDefinition(), WindowDefinition.class),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -882,31 +859,6 @@ class AstBuilder
         return new GroupingSets(getLocation(context), context.groupingSet().stream()
                 .map(groupingSet -> visit(groupingSet.expression(), Expression.class))
                 .collect(toList()));
-    }
-
-    @Override
-    public Node visitWindowSpecification(SqlBaseParser.WindowSpecificationContext context)
-    {
-        Optional<OrderBy> orderBy = Optional.empty();
-        if (context.ORDER() != null) {
-            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
-        }
-
-        return new WindowSpecification(
-                getLocation(context),
-                visitIfPresent(context.existingWindowName, Identifier.class),
-                visit(context.partition, Expression.class),
-                orderBy,
-                visitIfPresent(context.windowFrame(), WindowFrame.class));
-    }
-
-    @Override
-    public Node visitWindowDefinition(SqlBaseParser.WindowDefinitionContext context)
-    {
-        return new WindowDefinition(
-                getLocation(context),
-                (Identifier) visit(context.name),
-                (WindowSpecification) visit(context.windowSpecification()));
     }
 
     @Override
@@ -1871,11 +1823,16 @@ class AstBuilder
     @Override
     public Node visitOver(SqlBaseParser.OverContext context)
     {
-        if (context.windowName != null) {
-            return new WindowReference(getLocation(context), (Identifier) visit(context.windowName));
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
         }
 
-        return visit(context.windowSpecification());
+        return new Window(
+                getLocation(context),
+                visit(context.partition, Expression.class),
+                orderBy,
+                visitIfPresent(context.windowFrame(), WindowFrame.class));
     }
 
     @Override

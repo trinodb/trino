@@ -2,8 +2,8 @@
 Release 0.106
 =============
 
-General
--------
+General changes
+---------------
 
 * Parallelize startup of table scan task splits.
 * Fixed index join driver resource leak.

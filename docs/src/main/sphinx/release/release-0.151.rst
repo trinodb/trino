@@ -2,8 +2,8 @@
 Release 0.151
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix issue where aggregations may produce the wrong result when ``task.concurrency`` is set to ``1``.
 * Fix query failure when ``array``, ``map``, or ``row`` type is used in non-equi ``JOIN``.
@@ -16,14 +16,14 @@ General
 * Add :func:`cosine_similarity` function.
 * Allow Tableau web connector to use catalogs other than ``hive``.
 
-Verifier
---------
+Verifier changes
+----------------
 
 * Add ``shadow-writes.enabled`` option which can be used to transform ``CREATE TABLE AS SELECT``
   queries to write to a temporary table (rather than the originally specified table).
 
-SPI
----
+SPI changes
+-----------
 
 * Remove ``getDataSourceName`` from ``ConnectorSplitSource``.
 * Remove ``dataSourceName`` constructor parameter from ``FixedSplitSource``.

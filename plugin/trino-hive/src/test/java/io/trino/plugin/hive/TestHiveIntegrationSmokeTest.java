@@ -73,7 +73,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -111,6 +110,8 @@ import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
+import static io.trino.spi.predicate.Marker.Bound.ABOVE;
+import static io.trino.spi.predicate.Marker.Bound.EXACTLY;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -126,8 +127,6 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.ABOVE;
-import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -163,7 +162,6 @@ import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertFile;
 
 public class TestHiveIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS");
@@ -2012,12 +2010,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery("SELECT * from " + tableName, "VALUES ('a', 'b', 'c'), ('aa', 'bb', 'cc'), ('aaa', 'bbb', 'ccc')");
 
-        assertUpdate(
-                parallelWriter,
-                "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')",
-                1,
-                // buckets should be repartitioned locally hence local repartitioned exchange should exist in plan
-                assertLocalRepartitionedExchangesCount(1));
+        assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
         assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
 
         assertQuery("SELECT * from " + tableName, "VALUES ('a', 'b', 'c'), ('aa', 'bb', 'cc'), ('aaa', 'bbb', 'ccc'), ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
@@ -2137,113 +2130,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testCreatePartitionedBucketedTableWithNullsAs()
-    {
-        testCreatePartitionedBucketedTableWithNullsAs(HiveStorageFormat.RCBINARY);
-    }
-
-    private void testCreatePartitionedBucketedTableWithNullsAs(HiveStorageFormat storageFormat)
-    {
-        String tableName = "test_create_partitioned_bucketed_table_with_nulls_as";
-
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE " + tableName + " " +
-                "WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'orderpriority_nulls', 'orderstatus' ], " +
-                "bucketed_by = ARRAY[ 'custkey', 'orderkey' ], " +
-                "bucket_count = 4 " +
-                ") " +
-                "AS " +
-                "SELECT custkey, orderkey, comment, nullif(orderpriority, '1-URGENT') orderpriority_nulls, orderstatus " +
-                "FROM tpch.tiny.orders";
-
-        assertUpdate(
-                getParallelWriteSession(),
-                createTable,
-                "SELECT count(*) FROM orders");
-
-        // verify that we create bucket_count files in each partition
-        assertEqualsIgnoreOrder(
-                computeActual(format("SELECT orderpriority_nulls, orderstatus, COUNT(DISTINCT \"$path\") FROM %s GROUP BY 1, 2", tableName)),
-                resultBuilder(getSession(), createVarcharType(1), BIGINT)
-                        .row(null, "F", 4L)
-                        .row(null, "O", 4L)
-                        .row(null, "P", 4L)
-                        .row("2-HIGH", "F", 4L)
-                        .row("2-HIGH", "O", 4L)
-                        .row("2-HIGH", "P", 4L)
-                        .row("3-MEDIUM", "F", 4L)
-                        .row("3-MEDIUM", "O", 4L)
-                        .row("3-MEDIUM", "P", 4L)
-                        .row("4-NOT SPECIFIED", "F", 4L)
-                        .row("4-NOT SPECIFIED", "O", 4L)
-                        .row("4-NOT SPECIFIED", "P", 4L)
-                        .row("5-LOW", "F", 4L)
-                        .row("5-LOW", "O", 4L)
-                        .row("5-LOW", "P", 4L)
-                        .build());
-
-        assertQuery("SELECT * FROM " + tableName, "SELECT custkey, orderkey, comment, nullif(orderpriority, '1-URGENT') orderpriority_nulls, orderstatus FROM orders");
-
-        assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-    }
-
-    @Test
-    public void testInsertIntoPartitionedBucketedTableFromBucketedTable()
-    {
-        testInsertIntoPartitionedBucketedTableFromBucketedTable(HiveStorageFormat.RCBINARY);
-    }
-
-    private void testInsertIntoPartitionedBucketedTableFromBucketedTable(HiveStorageFormat storageFormat)
-    {
-        String sourceTable = "test_insert_partitioned_bucketed_table_source";
-        String targetTable = "test_insert_partitioned_bucketed_table_target";
-        try {
-            @Language("SQL") String createSourceTable = "" +
-                    "CREATE TABLE " + sourceTable + " " +
-                    "WITH (" +
-                    "format = '" + storageFormat + "', " +
-                    "bucketed_by = ARRAY[ 'custkey' ], " +
-                    "bucket_count = 10 " +
-                    ") " +
-                    "AS " +
-                    "SELECT custkey, comment, orderstatus " +
-                    "FROM tpch.tiny.orders";
-            @Language("SQL") String createTargetTable = "" +
-                    "CREATE TABLE " + targetTable + " " +
-                    "WITH (" +
-                    "format = '" + storageFormat + "', " +
-                    "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                    "bucketed_by = ARRAY[ 'custkey' ], " +
-                    "bucket_count = 10 " +
-                    ") " +
-                    "AS " +
-                    "SELECT custkey, comment, orderstatus " +
-                    "FROM tpch.tiny.orders";
-
-            assertUpdate(getParallelWriteSession(), createSourceTable, "SELECT count(*) FROM orders");
-            assertUpdate(getParallelWriteSession(), createTargetTable, "SELECT count(*) FROM orders");
-
-            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl()).execute(
-                    getParallelWriteSession(),
-                    transactionalSession -> {
-                        assertUpdate(
-                                transactionalSession,
-                                "INSERT INTO " + targetTable + " SELECT * FROM " + sourceTable,
-                                15000,
-                                // there should be two remove exchanges, one below TableWriter and one below TableCommit
-                                assertRemoteExchangesCount(transactionalSession, 2));
-                    });
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + sourceTable);
-            assertUpdate("DROP TABLE IF EXISTS " + targetTable);
-        }
-    }
-
-    @Test
     public void testCreatePartitionedBucketedTableAsWithUnionAll()
     {
         testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat.RCBINARY);
@@ -2294,15 +2180,6 @@ public class TestHiveIntegrationSmokeTest
         List<?> partitions = getPartitions(tableName);
         assertEquals(partitions.size(), 3);
 
-        // verify that we create bucket_count files in each partition
-        assertEqualsIgnoreOrder(
-                computeActual(format("SELECT orderstatus, COUNT(DISTINCT \"$path\") FROM %s GROUP BY 1", tableName)),
-                resultBuilder(getSession(), createVarcharType(1), BIGINT)
-                        .row("F", 11L)
-                        .row("O", 11L)
-                        .row("P", 11L)
-                        .build());
-
         assertQuery("SELECT * FROM " + tableName, "SELECT custkey, custkey, comment, orderstatus FROM orders");
 
         for (int i = 1; i <= 30; i++) {
@@ -2323,83 +2200,30 @@ public class TestHiveIntegrationSmokeTest
         String tableName = "test_create_invalid_bucketed_table";
 
         assertThatThrownBy(() -> computeActual("" +
-                "CREATE TABLE " + tableName + " (" +
-                "  a BIGINT," +
-                "  b DOUBLE," +
-                "  p VARCHAR" +
-                ") WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'p' ], " +
-                "bucketed_by = ARRAY[ 'a', 'c' ], " +
-                "bucket_count = 11 " +
-                ")"))
+                    "CREATE TABLE " + tableName + " (" +
+                    "  a BIGINT," +
+                    "  b DOUBLE," +
+                    "  p VARCHAR" +
+                    ") WITH (" +
+                    "format = '" + storageFormat + "', " +
+                    "partitioned_by = ARRAY[ 'p' ], " +
+                    "bucketed_by = ARRAY[ 'a', 'c' ], " +
+                    "bucket_count = 11 " +
+                    ")"))
                 .hasMessage("Bucketing columns [c] not present in schema");
 
         assertThatThrownBy(() -> computeActual("" +
-                "CREATE TABLE " + tableName + " (" +
-                "  a BIGINT," +
-                "  b DOUBLE," +
-                "  p VARCHAR" +
-                ") WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'p' ], " +
-                "bucketed_by = ARRAY[ 'a' ], " +
-                "bucket_count = 11, " +
-                "sorted_by = ARRAY[ 'c' ] " +
-                ")"))
-                .hasMessage("Sorting columns [c] not present in schema");
-
-        assertThatThrownBy(() -> computeActual("" +
-                "CREATE TABLE " + tableName + " (" +
-                "  a BIGINT," +
-                "  p VARCHAR" +
-                ") WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'p' ], " +
-                "bucketed_by = ARRAY[ 'p' ], " +
-                "bucket_count = 11 " +
-                ")"))
-                .hasMessage("Bucketing columns [p] are also used as partitioning columns");
-
-        assertThatThrownBy(() -> computeActual("" +
-                "CREATE TABLE " + tableName + " (" +
-                "  a BIGINT," +
-                "  p VARCHAR" +
-                ") WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'p' ], " +
-                "bucketed_by = ARRAY[ 'a' ], " +
-                "bucket_count = 11, " +
-                "sorted_by = ARRAY[ 'p' ] " +
-                ")"))
-                .hasMessage("Sorting columns [p] are also used as partitioning columns");
-
-        assertThatThrownBy(() -> computeActual("" +
-                "CREATE TABLE " + tableName + " " +
-                "WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                "bucketed_by = ARRAY[ 'custkey', 'custkey3' ], " +
-                "bucket_count = 11 " +
-                ") " +
-                "AS " +
-                "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
-                "FROM tpch.tiny.orders"))
+                    "CREATE TABLE " + tableName + " " +
+                    "WITH (" +
+                    "format = '" + storageFormat + "', " +
+                    "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                    "bucketed_by = ARRAY[ 'custkey', 'custkey3' ], " +
+                    "bucket_count = 11 " +
+                    ") " +
+                    "AS " +
+                    "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
+                    "FROM tpch.tiny.orders"))
                 .hasMessage("Bucketing columns [custkey3] not present in schema");
-
-        assertThatThrownBy(() -> computeActual("" +
-                "CREATE TABLE " + tableName + " " +
-                "WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                "bucketed_by = ARRAY[ 'custkey' ], " +
-                "bucket_count = 11, " +
-                "sorted_by = ARRAY[ 'custkey3' ] " +
-                ") " +
-                "AS " +
-                "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
-                "FROM tpch.tiny.orders"))
-                .hasMessage("Sorting columns [custkey3] not present in schema");
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
@@ -5695,50 +5519,19 @@ public class TestHiveIntegrationSmokeTest
 
     private Consumer<Plan> assertRemoteExchangesCount(int expectedRemoteExchangesCount)
     {
-        return assertRemoteExchangesCount(getSession(), expectedRemoteExchangesCount);
-    }
-
-    private Consumer<Plan> assertRemoteExchangesCount(Session session, int expectedRemoteExchangesCount)
-    {
         return plan -> {
             int actualRemoteExchangesCount = searchFrom(plan.getRoot())
                     .where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == ExchangeNode.Scope.REMOTE)
                     .findAll()
                     .size();
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
+                Session session = getSession();
                 Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
                 String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
                         expectedRemoteExchangesCount,
                         actualRemoteExchangesCount,
-                        formattedPlan));
-            }
-        };
-    }
-
-    private Consumer<Plan> assertLocalRepartitionedExchangesCount(int expectedLocalExchangesCount)
-    {
-        return plan -> {
-            int actualLocalExchangesCount = searchFrom(plan.getRoot())
-                    .where(node -> {
-                        if (!(node instanceof ExchangeNode)) {
-                            return false;
-                        }
-
-                        ExchangeNode exchangeNode = (ExchangeNode) node;
-                        return exchangeNode.getScope() == ExchangeNode.Scope.LOCAL && exchangeNode.getType() == ExchangeNode.Type.REPARTITION;
-                    })
-                    .findAll()
-                    .size();
-            if (actualLocalExchangesCount != expectedLocalExchangesCount) {
-                Session session = getSession();
-                Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
-                throw new AssertionError(format(
-                        "Expected [\n%s\n] local repartitioned exchanges but found [\n%s\n] local repartitioned exchanges. Actual plan is [\n\n%s\n]",
-                        expectedLocalExchangesCount,
-                        actualLocalExchangesCount,
                         formattedPlan));
             }
         };
@@ -7821,97 +7614,6 @@ public class TestHiveIntegrationSmokeTest
         // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
-    }
-
-    @Test(dataProvider = "legalUseColumnNamesProvider")
-    public void testUseColumnNames(HiveStorageFormat format, boolean formatUseColumnNames)
-    {
-        String lowerCaseFormat = format.name().toLowerCase(Locale.ROOT);
-        Session.SessionBuilder builder = Session.builder(getQueryRunner().getDefaultSession());
-        if (format == HiveStorageFormat.ORC || format == HiveStorageFormat.PARQUET) {
-            builder.setCatalogSessionProperty(catalog, lowerCaseFormat + "_use_column_names", String.valueOf(formatUseColumnNames));
-        }
-        Session admin = builder.build();
-        String tableName = format("test_renames_%s_%s_%s", lowerCaseFormat, formatUseColumnNames, randomTableSuffix());
-        assertUpdate(admin, format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, state VARCHAR) WITH (format = '%s', partitioned_by = ARRAY['state'])", tableName, format));
-        assertUpdate(admin, format("INSERT INTO %s VALUES(111, 'Katy', 57, 'CA')", tableName), 1);
-        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA')");
-
-        assertUpdate(admin, format("ALTER TABLE %s RENAME COLUMN old_name TO new_name", tableName));
-
-        boolean canSeeOldData = !formatUseColumnNames && !NAMED_COLUMN_ONLY_FORMATS.contains(format);
-
-        String katyValue = canSeeOldData ? "'Katy'" : "null";
-        assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, %s, 57, 'CA')", katyValue));
-
-        assertUpdate(admin, format("INSERT INTO %s (id, new_name, age, state) VALUES(333, 'Cary', 35, 'WA')", tableName), 1);
-        assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, %s, 57, 'CA'), (333, 'Cary', 35, 'WA')", katyValue));
-
-        assertUpdate(admin, format("ALTER TABLE %s RENAME COLUMN new_name TO old_name", tableName));
-        String caryValue = canSeeOldData ? "'Cary'" : null;
-        assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', 57, 'CA'), (333, %s, 35, 'WA')", caryValue));
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test(dataProvider = "legalUseColumnNamesProvider")
-    public void testUseColumnAddDrop(HiveStorageFormat format, boolean formatUseColumnNames)
-    {
-        String lowerCaseFormat = format.name().toLowerCase(Locale.ROOT);
-        Session.SessionBuilder builder = Session.builder(getQueryRunner().getDefaultSession());
-        if (format == HiveStorageFormat.ORC || format == HiveStorageFormat.PARQUET) {
-            builder.setCatalogSessionProperty(catalog, lowerCaseFormat + "_use_column_names", String.valueOf(formatUseColumnNames));
-        }
-        Session admin = builder.build();
-        String tableName = format("test_add_drop_%s_%s_%s", lowerCaseFormat, formatUseColumnNames, randomTableSuffix());
-        assertUpdate(admin, format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, state VARCHAR) WITH (format = '%s')", tableName, format));
-        assertUpdate(admin, format("INSERT INTO %s VALUES(111, 'Katy', 57, 'CA')", tableName), 1);
-        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA')");
-
-        assertUpdate(admin, format("ALTER TABLE %s DROP COLUMN state", tableName));
-        assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', 57)"));
-
-        assertUpdate(admin, format("INSERT INTO %s VALUES(333, 'Cary', 35)", tableName), 1);
-        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57), (333, 'Cary', 35)");
-
-        assertUpdate(admin, format("ALTER TABLE %s ADD COLUMN state VARCHAR", tableName));
-        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA'), (333, 'Cary', 35, null)");
-
-        assertUpdate(admin, format("ALTER TABLE %s DROP COLUMN state", tableName));
-        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57), (333, 'Cary', 35)");
-
-        assertUpdate(admin, format("ALTER TABLE %s ADD COLUMN new_state VARCHAR", tableName));
-        boolean canSeeOldData = !formatUseColumnNames && !NAMED_COLUMN_ONLY_FORMATS.contains(format);
-        String katyState = canSeeOldData ? "'CA'" : "null";
-        assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', 57, %s), (333, 'Cary', 35, null)", katyState));
-
-        if (formatUseColumnNames) {
-            assertUpdate(admin, format("ALTER TABLE %s DROP COLUMN age", tableName));
-            assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', %s), (333, 'Cary', null)", katyState));
-            assertUpdate(admin, format("ALTER TABLE %s ADD COLUMN age INT", tableName));
-            assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', null, 57), (333, 'Cary', null, 35)");
-        }
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
-
-    @DataProvider
-    public Object[][] legalUseColumnNamesProvider()
-    {
-        return new Object[][] {
-                {HiveStorageFormat.ORC, true},
-                {HiveStorageFormat.ORC, false},
-                {HiveStorageFormat.PARQUET, true},
-                {HiveStorageFormat.PARQUET, false},
-                {HiveStorageFormat.AVRO, false},
-                {HiveStorageFormat.JSON, false},
-                {HiveStorageFormat.RCBINARY, false},
-                {HiveStorageFormat.RCTEXT, false},
-                {HiveStorageFormat.SEQUENCEFILE, false},
-                {HiveStorageFormat.TEXTFILE, false},
-        };
     }
 
     private Session getParallelWriteSession()

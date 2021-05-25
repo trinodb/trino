@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.HostAddress;
+import io.trino.spi.predicate.TupleDomain;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
@@ -40,7 +41,8 @@ public class TestPhoenixSplit
         PhoenixInputSplit phoenixInputSplit = new PhoenixInputSplit(scans);
         PhoenixSplit expected = new PhoenixSplit(
                 addresses,
-                new WrappedPhoenixInputSplit(phoenixInputSplit));
+                new WrappedPhoenixInputSplit(phoenixInputSplit),
+                TupleDomain.all());
 
         assertTrue(objectMapper.canSerialize(PhoenixSplit.class));
 
@@ -48,5 +50,6 @@ public class TestPhoenixSplit
         PhoenixSplit actual = objectMapper.readValue(json, PhoenixSplit.class);
         assertEquals(actual.getPhoenixInputSplit(), expected.getPhoenixInputSplit());
         assertEquals(actual.getAddresses(), expected.getAddresses());
+        assertEquals(actual.getConstraint(), expected.getConstraint());
     }
 }

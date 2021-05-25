@@ -38,7 +38,6 @@ import static io.trino.matching.example.rel.Patterns.source;
 import static io.trino.matching.example.rel.Patterns.tableName;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -195,8 +194,8 @@ public class TestMatcher
                         }).equalTo(true));
 
         AtomicBoolean wasContextUsed = new AtomicBoolean();
-        assertNotNull(pattern.match("object", wasContextUsed)
-                .collect(onlyElement()));
+        pattern.match("object", wasContextUsed)
+                .collect(onlyElement());
         assertEquals(wasContextUsed.get(), true);
     }
 
@@ -210,8 +209,8 @@ public class TestMatcher
                 });
 
         AtomicBoolean wasContextUsed = new AtomicBoolean();
-        assertNotNull(pattern.match("object", wasContextUsed)
-                .collect(onlyElement()));
+        pattern.match("object", wasContextUsed)
+                .collect(onlyElement());
         assertEquals(wasContextUsed.get(), true);
     }
 

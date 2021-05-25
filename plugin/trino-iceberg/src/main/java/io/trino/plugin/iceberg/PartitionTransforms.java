@@ -66,6 +66,8 @@ public final class PartitionTransforms
 
     private static final DateTimeField YEAR_FIELD = ISOChronology.getInstanceUTC().year();
     private static final DateTimeField MONTH_FIELD = ISOChronology.getInstanceUTC().monthOfYear();
+    private static final DateTimeField DAY_OF_YEAR_FIELD = ISOChronology.getInstanceUTC().dayOfYear();
+    private static final DateTimeField DAY_OF_MONTH_FIELD = ISOChronology.getInstanceUTC().dayOfMonth();
 
     private PartitionTransforms() {}
 
@@ -495,27 +497,48 @@ public final class PartitionTransforms
     @VisibleForTesting
     static long epochYear(long epochMilli)
     {
-        return YEAR_FIELD.get(epochMilli) - 1970;
+        int epochYear = YEAR_FIELD.get(epochMilli) - 1970;
+        // Iceberg incorrectly handles negative epoch values
+        if ((epochMilli < 0) && ((DAY_OF_YEAR_FIELD.get(epochMilli) > 1) || !isMidnight(epochMilli))) {
+            epochYear++;
+        }
+        return epochYear;
     }
 
     @VisibleForTesting
     static long epochMonth(long epochMilli)
     {
-        long year = epochYear(epochMilli);
+        long year = YEAR_FIELD.get(epochMilli) - 1970;
         int month = MONTH_FIELD.get(epochMilli) - 1;
-        return (year * 12) + month;
+        long epochMonth = (year * 12) + month;
+        // Iceberg incorrectly handles negative epoch values
+        if ((epochMilli < 0) && ((DAY_OF_MONTH_FIELD.get(epochMilli) > 1) || !isMidnight(epochMilli))) {
+            epochMonth++;
+        }
+        return epochMonth;
     }
 
     @VisibleForTesting
     static long epochDay(long epochMilli)
     {
-        return floorDiv(epochMilli, MILLISECONDS_PER_DAY);
+        long epochDay = floorDiv(epochMilli, MILLISECONDS_PER_DAY);
+        // Iceberg incorrectly handles negative epoch values
+        if ((epochMilli < 0) && !isMidnight(epochMilli)) {
+            epochDay++;
+        }
+        return epochDay;
     }
 
     @VisibleForTesting
     static long epochHour(long epochMilli)
     {
-        return floorDiv(epochMilli, MILLISECONDS_PER_HOUR);
+        // Iceberg incorrectly handles negative epoch values
+        return epochMilli / MILLISECONDS_PER_HOUR;
+    }
+
+    private static boolean isMidnight(long epochMilli)
+    {
+        return (epochMilli % MILLISECONDS_PER_DAY) == 0;
     }
 
     public static class ColumnTransform

@@ -100,26 +100,13 @@ public class GenericHiveRecordCursorProvider
                     schema,
                     readerColumns);
 
-            try {
-                return new GenericHiveRecordCursor<>(
-                        configuration,
-                        path,
-                        genericRecordReader(recordReader),
-                        length,
-                        schema,
-                        readerColumns);
-            }
-            catch (Exception e) {
-                try {
-                    recordReader.close();
-                }
-                catch (IOException closeException) {
-                    if (e != closeException) {
-                        e.addSuppressed(closeException);
-                    }
-                }
-                throw e;
-            }
+            return new GenericHiveRecordCursor<>(
+                    configuration,
+                    path,
+                    genericRecordReader(recordReader),
+                    length,
+                    schema,
+                    readerColumns);
         });
 
         return Optional.of(new ReaderRecordCursorWithProjections(cursor, projections));

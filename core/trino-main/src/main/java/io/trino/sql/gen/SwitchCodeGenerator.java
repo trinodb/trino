@@ -112,7 +112,7 @@ public class SwitchCodeGenerator
         BytecodeNode valueBytecode = generatorContext.generate(value);
 
         BytecodeNode elseValue;
-        if (this.elseValue.isEmpty()) {
+        if (!this.elseValue.isPresent()) {
             elseValue = new BytecodeBlock()
                     .append(generatorContext.wasNull().set(constantTrue()))
                     .pushJavaDefault(returnType.getJavaType());

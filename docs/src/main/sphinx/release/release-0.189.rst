@@ -2,8 +2,8 @@
 Release 0.189
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix query failure while logging the query plan.
 * Fix a bug that causes clients to hang when executing ``LIMIT`` queries when
@@ -20,8 +20,8 @@ General
   field in the ``ROW``.
 * Add support for dereferencing row fields in lambda expressions.
 
-Security
---------
+Security changes
+----------------
 
 * Support configuring multiple authentication types, which allows supporting
   clients that have different authentication requirements or gracefully
@@ -37,8 +37,8 @@ Security
   yet supported).
 * Skip sending final leg of SPNEGO authentication when using Kerberos.
 
-JDBC driver
------------
+JDBC driver changes
+-------------------
 
 * Per the JDBC specification, close the ``ResultSet`` when ``Statement`` is closed.
 * Add support for TLS client certificate authentication by configuring the
@@ -49,13 +49,13 @@ JDBC driver
   to use ``setCatalog()`` and ``setSchema()`` on ``Connection`` is recommended.
 * Allow executing ``SET SESSION`` and ``RESET SESSION``.
 
-Resource group
---------------
+Resource group changes
+----------------------
 
 * Add ``WEIGHTED_FAIR`` resource group scheduling policy.
 
-Hive
-----
+Hive changes
+------------
 
 * Do not require setting ``hive.metastore.uri`` when using the file metastore.
 * Reduce memory usage when reading string columns from ORC or DWRF files.
@@ -67,18 +67,18 @@ MySQL, PostgreSQL, Redshift, and SQL Server shanges
 * Change mapping for columns with ``DECIMAL(p,s)`` data type from Presto ``DOUBLE``
   type to the corresponding Presto ``DECIMAL`` type.
 
-Kafka
------
+Kafka changes
+-------------
 
 * Fix documentation for raw decoder.
 
-Thrift connector
-----------------
+Thrift connector changes
+------------------------
 
 * Add support for index joins.
 
-SPI
----
+SPI changes
+-----------
 
 * Deprecate ``SliceArrayBlock``.
 * Add ``SessionPropertyConfigurationManager`` plugin to enable overriding default

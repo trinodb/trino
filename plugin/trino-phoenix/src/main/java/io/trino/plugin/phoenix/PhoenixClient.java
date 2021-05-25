@@ -26,7 +26,6 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
-import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -201,10 +200,10 @@ public class PhoenixClient
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));
     }
 
-    public Connection getConnection(ConnectorSession session)
+    public PhoenixConnection getConnection(ConnectorSession session)
             throws SQLException
     {
-        return connectionFactory.openConnection(session);
+        return connectionFactory.openConnection(session).unwrap(PhoenixConnection.class);
     }
 
     public org.apache.hadoop.hbase.client.Connection getHConnection()
@@ -243,17 +242,18 @@ public class PhoenixClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
             throws SQLException
     {
-        PreparedQuery preparedQuery = prepareQuery(
+        PhoenixSplit phoenixSplit = (PhoenixSplit) split;
+        PreparedStatement query = new QueryBuilder(this).buildSql(
                 session,
                 connection,
-                table,
-                Optional.empty(),
+                table.getRemoteTableName(),
+                table.getGroupingSets(),
                 columnHandles,
-                ImmutableMap.of(),
-                Optional.of(split));
-        PreparedStatement query = new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
+                phoenixSplit.getConstraint(),
+                split.getAdditionalPredicate(),
+                tryApplyLimit(table.getLimit()));
         QueryPlan queryPlan = getQueryPlan((PhoenixPreparedStatement) query);
-        ResultSet resultSet = getResultSet(((PhoenixSplit) split).getPhoenixInputSplit(), queryPlan);
+        ResultSet resultSet = getResultSet(phoenixSplit.getPhoenixInputSplit(), queryPlan);
         return new DelegatePreparedStatement(query)
         {
             @Override
@@ -268,13 +268,6 @@ public class PhoenixClient
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
         return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
-    }
-
-    @Override
-    public boolean isLimitGuaranteed(ConnectorSession session)
-    {
-        // Note that limit exceeding Integer.MAX_VALUE gets completely ignored.
-        return false;
     }
 
     @Override
@@ -351,16 +344,16 @@ public class PhoenixClient
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
 
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case VARCHAR:
             case NVARCHAR:
             case LONGVARCHAR:
             case LONGNVARCHAR:
                 if (typeHandle.getColumnSize().isEmpty()) {
-                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
+                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
                 }
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.VARBINARY:
                 return Optional.of(varbinaryColumnMapping());
@@ -468,6 +461,12 @@ public class PhoenixClient
     }
 
     @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return false;
+    }
+
+    @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -561,8 +560,8 @@ public class PhoenixClient
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
 
-        try (Connection connection = connectionFactory.openConnection(session);
-                HBaseAdmin admin = connection.unwrap(PhoenixConnection.class).getQueryServices().getAdmin()) {
+        try (PhoenixConnection connection = (PhoenixConnection) connectionFactory.openConnection(session);
+                HBaseAdmin admin = connection.getQueryServices().getAdmin()) {
             String schemaName = toPhoenixSchemaName(Optional.ofNullable(handle.getSchemaName())).orElse(null);
             PTable table = getTable(connection, SchemaUtil.getTableName(schemaName, handle.getTableName()));
 

@@ -62,11 +62,9 @@ public final class ParquetCompressionUtils
                 return decompressLz4(input, uncompressedSize);
             case ZSTD:
                 return decompressZstd(input, uncompressedSize);
-            case BROTLI:
-                // unsupported
-                break;
+            default:
+                throw new ParquetCorruptionException("Codec not supported in Parquet: " + codec);
         }
-        throw new ParquetCorruptionException("Codec not supported in Parquet: " + codec);
     }
 
     private static Slice decompressSnappy(Slice input, int uncompressedSize)

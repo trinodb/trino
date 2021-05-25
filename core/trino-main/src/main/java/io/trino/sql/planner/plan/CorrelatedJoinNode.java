@@ -71,8 +71,9 @@ public class CorrelatedJoinNode
                     return Type.RIGHT;
                 case FULL:
                     return Type.FULL;
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + joinType);
             }
-            throw new UnsupportedOperationException("Unsupported join type: " + joinType);
         }
     }
 

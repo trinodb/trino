@@ -172,8 +172,9 @@ public class ExpressionOptimizer
                             .collect(toImmutableList());
                     return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments, specialForm.getFunctionDependencies());
                 }
+                default:
+                    throw new IllegalArgumentException("Unsupported special form " + specialForm.getForm());
             }
-            throw new IllegalArgumentException("Unsupported special form " + specialForm.getForm());
         }
 
         @Override

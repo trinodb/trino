@@ -12,7 +12,6 @@ from different data sources.
     BigQuery        <connector/bigquery>
     Black Hole      <connector/blackhole>
     Cassandra       <connector/cassandra>
-    ClickHouse      <connector/clickhouse>
     Druid           <connector/druid>
     Elasticsearch   <connector/elasticsearch>
     Google Sheets   <connector/googlesheets>
@@ -24,6 +23,7 @@ from different data sources.
     Kudu            <connector/kudu>
     Local File      <connector/localfile>
     Memory          <connector/memory>
+    MemSQL          <connector/memsql>
     MongoDB         <connector/mongodb>
     MySQL           <connector/mysql>
     Oracle          <connector/oracle>
@@ -33,7 +33,6 @@ from different data sources.
     Prometheus      <connector/prometheus>
     Redis           <connector/redis>
     Redshift        <connector/redshift>
-    SingleStore (MemSQL)          <connector/memsql>
     SQL Server      <connector/sqlserver>
     System          <connector/system>
     Thrift          <connector/thrift>

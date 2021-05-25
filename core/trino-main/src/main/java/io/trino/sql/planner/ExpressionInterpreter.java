@@ -605,8 +605,6 @@ public class ExpressionInterpreter
             boolean found = false;
             List<Object> values = new ArrayList<>(valueList.getValues().size());
             List<Type> types = new ArrayList<>(valueList.getValues().size());
-
-            ResolvedFunction equalsOperator = metadata.resolveOperator(OperatorType.EQUAL, types(node.getValue(), valueList));
             for (Expression expression : valueList.getValues()) {
                 Object inValue = process(expression, context);
                 if (value instanceof Expression || inValue instanceof Expression) {
@@ -620,7 +618,7 @@ public class ExpressionInterpreter
                     hasNullValue = true;
                 }
                 else {
-                    Boolean result = (Boolean) functionInvoker.invoke(equalsOperator, session, ImmutableList.of(value, inValue));
+                    Boolean result = (Boolean) invokeOperator(OperatorType.EQUAL, types(node.getValue(), expression), ImmutableList.of(value, inValue));
                     if (result == null) {
                         hasNullValue = true;
                     }
@@ -802,7 +800,6 @@ public class ExpressionInterpreter
             return invokeOperator(OperatorType.valueOf(operator.name()), types(leftExpression, rightExpression), ImmutableList.of(left, right));
         }
 
-        // TODO define method contract or split into separate methods, as flip(EQUAL) is a negation, while flip(LESS_THAN) is just flipping sides
         private ComparisonExpression flipComparison(ComparisonExpression comparisonExpression)
         {
             switch (comparisonExpression.getOperator()) {
@@ -818,10 +815,9 @@ public class ExpressionInterpreter
                     return new ComparisonExpression(Operator.LESS_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
                 case GREATER_THAN_OR_EQUAL:
                     return new ComparisonExpression(Operator.LESS_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                case IS_DISTINCT_FROM:
-                    // not expected here
+                default:
+                    throw new IllegalArgumentException("Unsupported comparison type: " + comparisonExpression.getOperator());
             }
-            throw new IllegalArgumentException("Unsupported comparison type: " + comparisonExpression.getOperator());
         }
 
         @Override
@@ -1340,7 +1336,7 @@ public class ExpressionInterpreter
 
         private boolean hasUnresolvedValue(List<Object> values)
         {
-            return values.stream().anyMatch(instanceOf(Expression.class));
+            return values.stream().anyMatch(instanceOf(Expression.class)::apply);
         }
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)

@@ -41,7 +41,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.scheduler.NodeScheduler.calculateLowWatermark;
 import static io.trino.execution.scheduler.NodeScheduler.getAllNodes;
@@ -66,7 +65,6 @@ public class UniformNodeSelector
     private final int minCandidates;
     private final int maxSplitsPerNode;
     private final int maxPendingSplitsPerTask;
-    private final int maxUnacknowledgedSplitsPerTask;
     private final boolean optimizedLocalScheduling;
 
     public UniformNodeSelector(
@@ -77,7 +75,6 @@ public class UniformNodeSelector
             int minCandidates,
             int maxSplitsPerNode,
             int maxPendingSplitsPerTask,
-            int maxUnacknowledgedSplitsPerTask,
             boolean optimizedLocalScheduling)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -87,8 +84,6 @@ public class UniformNodeSelector
         this.minCandidates = minCandidates;
         this.maxSplitsPerNode = maxSplitsPerNode;
         this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
-        this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
-        checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.optimizedLocalScheduling = optimizedLocalScheduling;
     }
 
@@ -138,7 +133,7 @@ public class UniformNodeSelector
                     List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
 
                     Optional<InternalNode> chosenNode = candidateNodes.stream()
-                            .filter(ownerNode -> assignmentStats.getTotalSplitCount(ownerNode) < maxSplitsPerNode && assignmentStats.getUnacknowledgedSplitCountForStage(ownerNode) < maxUnacknowledgedSplitsPerTask)
+                            .filter(ownerNode -> assignmentStats.getTotalSplitCount(ownerNode) < maxSplitsPerNode)
                             .min(comparingInt(assignmentStats::getTotalSplitCount));
 
                     if (chosenNode.isPresent()) {
@@ -175,7 +170,7 @@ public class UniformNodeSelector
 
             for (InternalNode node : candidateNodes) {
                 int totalSplitCount = assignmentStats.getTotalSplitCount(node);
-                if (totalSplitCount < min && totalSplitCount < maxSplitsPerNode && assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask) {
+                if (totalSplitCount < min && totalSplitCount < maxSplitsPerNode) {
                     chosenNode = node;
                     min = totalSplitCount;
                 }
@@ -184,7 +179,7 @@ public class UniformNodeSelector
                 // min is guaranteed to be MAX_VALUE at this line
                 for (InternalNode node : candidateNodes) {
                     int totalSplitCount = assignmentStats.getQueuedSplitCountForStage(node);
-                    if (totalSplitCount < min && totalSplitCount < maxPendingSplitsPerTask && assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask) {
+                    if (totalSplitCount < min && totalSplitCount < maxPendingSplitsPerTask) {
                         chosenNode = node;
                         min = totalSplitCount;
                     }
@@ -222,7 +217,7 @@ public class UniformNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
-        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap);
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, splits, existingTasks, bucketNodeMap);
     }
 
     /**

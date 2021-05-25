@@ -26,7 +26,6 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAccumuloIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     @Override

@@ -23,7 +23,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testng.services.Flaky;
-import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -58,14 +57,13 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 
 public class TestRaptorIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRaptorQueryRunner(ImmutableMap.of(), TpchTable.getTables(), false, ImmutableMap.of());
+        return createRaptorQueryRunner(ImmutableMap.of(), true, false);
     }
 
     @Test

@@ -102,12 +102,9 @@ public class ServerIT
                 "yum localinstall -q -y " + rpm + "\n" +
                 // create Hive catalog file
                 "mkdir /etc/trino/catalog\n" +
-                "echo CONFIG_ENV[HMS_PORT]=9083 >> /etc/trino/env.sh\n" +
-                "echo CONFIG_ENV[NODE_ID]=test-node-id-injected-via-env >> /etc/trino/env.sh\n" +
-                "sed -i \"s/^node.id=.*/node.id=\\${ENV:NODE_ID}/g\" /etc/trino/node.properties\n" +
                 "cat > /etc/trino/catalog/hive.properties <<\"EOT\"\n" +
                 "connector.name=hive-hadoop2\n" +
-                "hive.metastore.uri=thrift://localhost:${ENV:HMS_PORT}\n" +
+                "hive.metastore.uri=thrift://localhost:9083\n" +
                 "EOT\n" +
                 // create JMX catalog file
                 "cat > /etc/trino/catalog/jmx.properties <<\"EOT\"\n" +
@@ -127,7 +124,6 @@ public class ServerIT
                     .start();
             QueryRunner queryRunner = new QueryRunner(container.getContainerIpAddress(), container.getMappedPort(8080));
             assertEquals(queryRunner.execute("SHOW CATALOGS"), ImmutableSet.of(asList("system"), asList("hive"), asList("jmx")));
-            assertEquals(queryRunner.execute("SELECT node_id FROM system.runtime.nodes"), ImmutableSet.of(asList("test-node-id-injected-via-env")));
             // TODO remove usage of assertEventually once https://github.com/trinodb/trino/issues/2214 is fixed
             assertEventually(
                     new io.airlift.units.Duration(1, MINUTES),

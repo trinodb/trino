@@ -50,7 +50,7 @@ public class TestParquetSymlinkInputFormat
 
         onHive().executeQuery("" +
                 "CREATE TABLE " + table +
-                "(col int) " +
+                "(value int) " +
                 "ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe' " +
                 "STORED AS " +
                 "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat' " +

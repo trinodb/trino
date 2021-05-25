@@ -36,7 +36,7 @@ public class OAuth2WebUiLogoutResource
     public Response logout(@Context HttpHeaders httpHeaders, @Context UriInfo uriInfo, @Context SecurityContext securityContext)
     {
         return Response.seeOther(UI_LOCATION_URI)
-                .cookie(delete())
+                .cookie(delete(securityContext.isSecure()))
                 .build();
     }
 }

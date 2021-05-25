@@ -127,6 +127,6 @@ public class CurrentTime
 
         CurrentTime otherNode = (CurrentTime) other;
         return (function == otherNode.function) &&
-                Objects.equals(precision, otherNode.precision);
+            Objects.equals(precision, otherNode.precision);
     }
 }

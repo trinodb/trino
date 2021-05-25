@@ -34,7 +34,6 @@ public class TestS3SecurityMappingConfig
         assertRecordedDefaults(recordDefaults(S3SecurityMappingConfig.class)
                 .setConfigFile(null)
                 .setRoleCredentialName(null)
-                .setKmsKeyIdCredentialName(null)
                 .setRefreshPeriod(null)
                 .setColonReplacement(null));
     }
@@ -47,16 +46,14 @@ public class TestS3SecurityMappingConfig
 
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.s3.security-mapping.config-file", securityMappingConfigFile.toString())
-                .put("hive.s3.security-mapping.iam-role-credential-name", "iam-role-credential-name")
-                .put("hive.s3.security-mapping.kms-key-id-credential-name", "kms-key-id-credential-name")
+                .put("hive.s3.security-mapping.iam-role-credential-name", "credential-name")
                 .put("hive.s3.security-mapping.refresh-period", "1s")
                 .put("hive.s3.security-mapping.colon-replacement", "#")
                 .build();
 
         S3SecurityMappingConfig expected = new S3SecurityMappingConfig()
                 .setConfigFile(securityMappingConfigFile.toFile())
-                .setRoleCredentialName("iam-role-credential-name")
-                .setKmsKeyIdCredentialName("kms-key-id-credential-name")
+                .setRoleCredentialName("credential-name")
                 .setRefreshPeriod(Duration.valueOf("1s"))
                 .setColonReplacement("#");
 

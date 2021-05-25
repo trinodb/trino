@@ -65,30 +65,20 @@ public final class TestingMetastoreObjects
 
     public static Column getGlueTestColumn()
     {
-        return getGlueTestColumn("string");
-    }
-
-    public static Column getGlueTestColumn(String type)
-    {
         return new Column()
                 .withName("test-col" + generateRandom())
-                .withType(type)
+                .withType("string")
                 .withComment("column comment");
     }
 
     public static StorageDescriptor getGlueTestStorageDescriptor()
     {
-        return getGlueTestStorageDescriptor(ImmutableList.of(getGlueTestColumn()), "SerdeLib");
-    }
-
-    public static StorageDescriptor getGlueTestStorageDescriptor(List<Column> columns, String serDe)
-    {
         return new StorageDescriptor()
                 .withBucketColumns(ImmutableList.of("test-bucket-col"))
-                .withColumns(columns)
+                .withColumns(ImmutableList.of(getGlueTestColumn()))
                 .withParameters(ImmutableMap.of())
                 .withSerdeInfo(new SerDeInfo()
-                        .withSerializationLibrary(serDe)
+                        .withSerializationLibrary("SerdeLib")
                         .withParameters(ImmutableMap.of()))
                 .withInputFormat("InputFormat")
                 .withOutputFormat("OutputFormat")

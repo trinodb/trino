@@ -42,8 +42,6 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertTrue;
 
-// countDownLatch field is shared between tests
-@Test(singleThreaded = true)
 public class TestSemiTransactionalHiveMetastore
 {
     private static final Column TABLE_COLUMN = new Column(
@@ -56,8 +54,7 @@ public class TestSemiTransactionalHiveMetastore
             Optional.of(new HiveBucketProperty(ImmutableList.of("column"), BUCKETING_V1, 10, ImmutableList.of(new SortingColumn("column", SortingColumn.Order.ASCENDING)))),
             true,
             ImmutableMap.of("param", "value2"));
-
-    private CountDownLatch countDownLatch;
+    private static CountDownLatch countDownLatch;
 
     @Test
     public void testParallelPartitionDrops()
@@ -126,7 +123,7 @@ public class TestSemiTransactionalHiveMetastore
                 newScheduledThreadPool(1));
     }
 
-    private class TestingHiveMetastore
+    private static class TestingHiveMetastore
             extends UnimplementedHiveMetastore
     {
         @Override
@@ -167,7 +164,7 @@ public class TestSemiTransactionalHiveMetastore
             assertCountDownLatch();
         }
 
-        private void assertCountDownLatch()
+        private static void assertCountDownLatch()
         {
             try {
                 countDownLatch.countDown();

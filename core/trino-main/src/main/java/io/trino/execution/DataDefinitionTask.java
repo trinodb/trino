@@ -14,7 +14,6 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.sql.SqlFormatter;
@@ -28,14 +27,7 @@ public interface DataDefinitionTask<T extends Statement>
 {
     String getName();
 
-    ListenableFuture<?> execute(
-            T statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
-            QueryStateMachine stateMachine,
-            List<Expression> parameters,
-            WarningCollector warningCollector);
+    ListenableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters);
 
     default String explain(T statement, List<Expression> parameters)
     {

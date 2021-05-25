@@ -13,37 +13,33 @@
  */
 package io.trino.plugin.hive.acid;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.orc.OrcWriter.OrcOperation;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
-
-import java.util.Map;
-import java.util.Optional;
 
 public enum AcidOperation
 {
     // UPDATE and MERGE will be added when they are implemented
-    NONE,
-    CREATE_TABLE,
-    DELETE,
-    INSERT,
-    UPDATE;
+    NONE(DataOperationType.NO_TXN, OrcOperation.NONE),
+    CREATE_TABLE(DataOperationType.NO_TXN, OrcOperation.NONE),
+    DELETE(DataOperationType.DELETE, OrcOperation.DELETE),
+    INSERT(DataOperationType.INSERT, OrcOperation.INSERT);
 
-    private static final Map<AcidOperation, DataOperationType> DATA_OPERATION_TYPES = ImmutableMap.of(
-            DELETE, DataOperationType.DELETE,
-            INSERT, DataOperationType.INSERT);
+    private final DataOperationType metastoreOperationType;
+    private final OrcOperation orcOperation;
 
-    private static final Map<AcidOperation, OrcOperation> ORC_OPERATIONS = ImmutableMap.of(
-            DELETE, OrcOperation.DELETE,
-            INSERT, OrcOperation.INSERT);
-
-    public Optional<DataOperationType> getMetastoreOperationType()
+    AcidOperation(DataOperationType metastoreOperationType, OrcOperation orcOperation)
     {
-        return Optional.ofNullable(DATA_OPERATION_TYPES.get(this));
+        this.metastoreOperationType = metastoreOperationType;
+        this.orcOperation = orcOperation;
     }
 
-    public Optional<OrcOperation> getOrcOperation()
+    public DataOperationType getMetastoreOperationType()
     {
-        return Optional.ofNullable(ORC_OPERATIONS.get(this));
+        return metastoreOperationType;
+    }
+
+    public OrcOperation getOrcOperation()
+    {
+        return orcOperation;
     }
 }

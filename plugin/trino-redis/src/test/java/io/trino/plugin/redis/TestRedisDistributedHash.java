@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.redis.util.RedisServer;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -33,7 +34,7 @@ public class TestRedisDistributedHash
             throws Exception
     {
         redisServer = new RedisServer();
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), "hash", REQUIRED_TPCH_TABLES);
+        return createRedisQueryRunner(redisServer, ImmutableMap.of(), "hash", TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)

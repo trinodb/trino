@@ -81,7 +81,8 @@ public class PushSampleIntoTableScan
                 return SampleType.SYSTEM;
             case BERNOULLI:
                 return SampleType.BERNOULLI;
+            default:
+                throw new UnsupportedOperationException("Not yet implemented for " + sampleNodeType);
         }
-        throw new UnsupportedOperationException("Not yet implemented for " + sampleNodeType);
     }
 }

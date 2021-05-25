@@ -2,8 +2,8 @@
 Release 0.209
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix incorrect predicate pushdown when grouping sets contain the empty grouping set (:issue:`x11296`).
 * Fix ``X-Forwarded-Proto`` header handling for requests to the ``/`` path (:issue:`x11168`).
@@ -32,23 +32,23 @@ General
 * Raise required Java version to 8u151. This avoids correctness issues for
   map to map cast when running under some earlier JVM versions, including 8u92.
 
-Web UI
-------
+Web UI changes
+--------------
 
 * Fix the kill query button on the live plan and stage performance pages.
 
-CLI
----
-
-* Prevent spurious *"No route to host"* errors on macOS when using IPv6.
-
-JDBC driver
+CLI changes
 -----------
 
 * Prevent spurious *"No route to host"* errors on macOS when using IPv6.
 
-Hive connector
---------------
+JDBC driver changes
+-------------------
+
+* Prevent spurious *"No route to host"* errors on macOS when using IPv6.
+
+Hive connector changes
+----------------------
 
 * Fix data loss when writing bucketed sorted tables. Partitions would
   be missing arbitrary rows if any of the temporary files for a bucket
@@ -64,14 +64,14 @@ Hive connector
   This correctly handles missing or extra struct fields in the ORC file.
 * Add procedure ``system.create_empty_partition()`` for creating empty partitions.
 
-Kafka connector
----------------
+Kafka connector changes
+-----------------------
 
 * Support Avro formatted Kafka messages.
 * Support backward compatible Avro schema evolution.
 
-SPI
----
+SPI changes
+-----------
 
 * Allow using ``Object`` as a parameter type or return type for SQL
   functions when the corresponding SQL type is an unbounded generic.

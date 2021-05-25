@@ -287,8 +287,9 @@ public class EffectivePredicateExtractor
                 case RIGHT:
                 case FULL:
                     return TRUE_LITERAL;
+                default:
+                    throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
             }
-            throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
         }
 
         @Override
@@ -327,8 +328,9 @@ public class EffectivePredicateExtractor
                             .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
                             .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains, node.getRight().getOutputSymbols()::contains))
                             .build());
+                default:
+                    throw new UnsupportedOperationException("Unknown join type: " + node.getType());
             }
-            throw new UnsupportedOperationException("Unknown join type: " + node.getType());
         }
 
         @Override
@@ -483,8 +485,9 @@ public class EffectivePredicateExtractor
                             .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
                             .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
                             .build());
+                default:
+                    throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
             }
-            throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
         }
 
         private Expression deriveCommonPredicates(PlanNode node, Function<Integer, Collection<Map.Entry<Symbol, SymbolReference>>> mapping)

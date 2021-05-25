@@ -157,11 +157,6 @@ The security mapping must provide one or more configuration settings:
   to use many roles, but a specific user should only be allowed to use a subset
   of those roles.
 
-* ``kmsKeyId``: ID of KMS-managed key to be used for client-side encryption.
-
-* ``allowedKmsKeyIds``: KMS-managed key IDs that are allowed to be specified as an extra
-  credential. If list cotains "*", then any key can be specified via extra credential.
-
 The security mapping entries are processed in the order listed in the configuration
 file. More specific mappings should thus be specified before less specific mappings.
 For example, the mapping list might have URL prefix ``s3://abc/xyz/`` followed by
@@ -173,7 +168,7 @@ In addition to the rules above, the default mapping can contain the optional
 ``useClusterDefault`` boolean property with the following behavior:
 
 - ``false`` - (is set by default) property is ignored.
-- ``true`` - This causes the default cluster role to be used as a fallback option.
+- ``true`` - This causes the the default cluster role to be used as a fallback option.
   It can not be used with the following configuration properties:
 
   - ``accessKey``
@@ -208,10 +203,6 @@ Example JSON configuration file:
           "secretKey": "iXbXxxxsecret"
         },
         {
-          "prefix": "s3://encrypted-bucket/",
-          "kmsKeyId": "kmsKey_10",
-        },
-        {
           "user": "test.*",
           "iamRole": "arn:aws:iam::123456789101:role/test_users"
         },
@@ -231,9 +222,6 @@ Property Name                                           Description
 ``hive.s3.security-mapping.config-file``                The JSON configuration file containing security mappings.
 
 ``hive.s3.security-mapping.iam-role-credential-name``   The name of the *extra credential* used to provide the IAM role.
-
-``hive.s3.security-mapping.kms-key-id-credential-name`` The name of the *extra credential* used to provide the
-                                                        KMS-managed key ID.
 
 ``hive.s3.security-mapping.refresh-period``             How often to refresh the security mapping configuration.
 

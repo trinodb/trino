@@ -19,7 +19,6 @@ import io.airlift.units.Duration;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
-import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.spi.TrinoException;
@@ -69,7 +68,6 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
-    public static final String PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS = "preferred_write_partitioning_min_number_of_partitions";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
@@ -130,14 +128,12 @@ public final class SystemSessionProperties
     public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
     public static final String COST_ESTIMATION_WORKER_COUNT = "cost_estimation_worker_count";
     public static final String OMIT_DATETIME_TYPE_PRECISION = "omit_datetime_type_precision";
-    public static final String USE_LEGACY_WINDOW_FILTER_PUSHDOWN = "use_legacy_window_filter_pushdown";
-    public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
     public SystemSessionProperties()
     {
-        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig(), new DynamicFilterConfig(), new NodeSchedulerConfig());
+        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig(), new DynamicFilterConfig());
     }
 
     @Inject
@@ -147,8 +143,7 @@ public final class SystemSessionProperties
             MemoryManagerConfig memoryManagerConfig,
             FeaturesConfig featuresConfig,
             NodeMemoryConfig nodeMemoryConfig,
-            DynamicFilterConfig dynamicFilterConfig,
-            NodeSchedulerConfig nodeSchedulerConfig)
+            DynamicFilterConfig dynamicFilterConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -212,11 +207,6 @@ public final class SystemSessionProperties
                         USE_PREFERRED_WRITE_PARTITIONING,
                         "Use preferred write partitioning",
                         featuresConfig.isUsePreferredWritePartitioning(),
-                        false),
-                integerProperty(
-                        PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS,
-                        "Use preferred write partitioning when the number of written partitions exceeds the configured threshold",
-                        featuresConfig.getPreferredWritePartitioningMinNumberOfPartitions(),
                         false),
                 booleanProperty(
                         SCALE_WRITERS,
@@ -311,8 +301,8 @@ public final class SystemSessionProperties
                         false),
                 booleanProperty(
                         PLAN_WITH_TABLE_NODE_PARTITIONING,
-                        "Adapt plan to pre-partitioned tables",
-                        featuresConfig.isPlanWithTableNodePartitioning(),
+                        "Experimental: Adapt plan to pre-partitioned tables",
+                        true,
                         false),
                 enumProperty(
                         JOIN_REORDERING_STRATEGY,
@@ -583,21 +573,7 @@ public final class SystemSessionProperties
                         OMIT_DATETIME_TYPE_PRECISION,
                         "Omit precision when rendering datetime type names with default precision",
                         featuresConfig.isOmitDateTimeTypePrecision(),
-                        false),
-                booleanProperty(
-                        USE_LEGACY_WINDOW_FILTER_PUSHDOWN,
-                        "Use legacy window filter pushdown optimizer",
-                        featuresConfig.isUseLegacyWindowFilterPushdown(),
-                        false),
-                new PropertyMetadata<>(
-                        MAX_UNACKNOWLEDGED_SPLITS_PER_TASK,
-                        "Maximum number of leaf splits awaiting delivery to a given task",
-                        INTEGER,
-                        Integer.class,
-                        nodeSchedulerConfig.getMaxUnacknowledgedSplitsPerTask(),
-                        false,
-                        value -> validateIntegerValue(value, MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, 1, false),
-                        object -> object));
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -665,11 +641,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, Boolean.class);
     }
 
-    public static int getPreferredWritePartitioningMinNumberOfPartitions(Session session)
-    {
-        return session.getSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, Integer.class);
-    }
-
     public static boolean isScaleWriters(Session session)
     {
         return session.getSystemProperty(SCALE_WRITERS, Boolean.class);
@@ -735,7 +706,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_MAX_STAGE_COUNT, Integer.class);
     }
 
-    public static boolean isPlanWithTableNodePartitioning(Session session)
+    public static boolean planWithTableNodePartitioning(Session session)
     {
         return session.getSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
     }
@@ -1058,15 +1029,5 @@ public final class SystemSessionProperties
     public static boolean isOmitDateTimeTypePrecision(Session session)
     {
         return session.getSystemProperty(OMIT_DATETIME_TYPE_PRECISION, Boolean.class);
-    }
-
-    public static boolean useLegacyWindowFilterPushdown(Session session)
-    {
-        return session.getSystemProperty(USE_LEGACY_WINDOW_FILTER_PUSHDOWN, Boolean.class);
-    }
-
-    public static int getMaxUnacknowledgedSplitsPerTask(Session session)
-    {
-        return session.getSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.class);
     }
 }

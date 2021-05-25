@@ -79,7 +79,7 @@ public class TestJdbcClient
         assertEquals(table.get().getCatalogName(), catalogName.toUpperCase(ENGLISH));
         assertEquals(table.get().getSchemaName(), "EXAMPLE");
         assertEquals(table.get().getTableName(), "NUMBERS");
-        assertEquals(table.get().getRequiredNamedRelation().getSchemaTableName(), schemaTableName);
+        assertEquals(table.get().getSchemaTableName(), schemaTableName);
         assertEquals(jdbcClient.getColumns(session, table.orElse(null)), ImmutableList.of(
                 new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),

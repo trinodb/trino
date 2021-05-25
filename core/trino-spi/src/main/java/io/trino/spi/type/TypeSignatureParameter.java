@@ -163,8 +163,9 @@ public final class TypeSignatureParameter
                 return false;
             case VARIABLE:
                 return true;
+            default:
+                throw new IllegalArgumentException("Unexpected parameter kind: " + kind);
         }
-        throw new IllegalArgumentException("Unexpected parameter kind: " + kind);
     }
 
     @Override

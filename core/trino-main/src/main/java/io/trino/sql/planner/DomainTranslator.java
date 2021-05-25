@@ -27,6 +27,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Marker;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.Ranges;
@@ -158,21 +159,38 @@ public final class DomainTranslator
 
         if (isBetween(range)) {
             // specialize the range with BETWEEN expression if possible b/c it is currently more efficient
-            return new BetweenPredicate(reference, literalEncoder.toExpression(range.getLowBoundedValue(), type), literalEncoder.toExpression(range.getHighBoundedValue(), type));
+            return new BetweenPredicate(reference, literalEncoder.toExpression(range.getLow().getValue(), type), literalEncoder.toExpression(range.getHigh().getValue(), type));
         }
 
         List<Expression> rangeConjuncts = new ArrayList<>();
-        if (!range.isLowUnbounded()) {
-            rangeConjuncts.add(new ComparisonExpression(
-                    range.isLowInclusive() ? GREATER_THAN_OR_EQUAL : GREATER_THAN,
-                    reference,
-                    literalEncoder.toExpression(range.getLowBoundedValue(), type)));
+        if (!range.getLow().isLowerUnbounded()) {
+            switch (range.getLow().getBound()) {
+                case ABOVE:
+                    rangeConjuncts.add(new ComparisonExpression(GREATER_THAN, reference, literalEncoder.toExpression(range.getLow().getValue(), type)));
+                    break;
+                case EXACTLY:
+                    rangeConjuncts.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, reference, literalEncoder.toExpression(range.getLow().getValue(),
+                            type)));
+                    break;
+                case BELOW:
+                    throw new IllegalStateException("Low Marker should never use BELOW bound: " + range);
+                default:
+                    throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
+            }
         }
-        if (!range.isHighUnbounded()) {
-            rangeConjuncts.add(new ComparisonExpression(
-                    range.isHighInclusive() ? LESS_THAN_OR_EQUAL : LESS_THAN,
-                    reference,
-                    literalEncoder.toExpression(range.getHighBoundedValue(), type)));
+        if (!range.getHigh().isUpperUnbounded()) {
+            switch (range.getHigh().getBound()) {
+                case ABOVE:
+                    throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
+                case EXACTLY:
+                    rangeConjuncts.add(new ComparisonExpression(LESS_THAN_OR_EQUAL, reference, literalEncoder.toExpression(range.getHigh().getValue(), type)));
+                    break;
+                case BELOW:
+                    rangeConjuncts.add(new ComparisonExpression(LESS_THAN, reference, literalEncoder.toExpression(range.getHigh().getValue(), type)));
+                    break;
+                default:
+                    throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
+            }
         }
         // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
         checkState(!rangeConjuncts.isEmpty());
@@ -280,8 +298,8 @@ public final class DomainTranslator
 
     private static boolean isBetween(Range range)
     {
-        // inclusive implies bounded
-        return range.isLowInclusive() && range.isHighInclusive();
+        return !range.getLow().isLowerUnbounded() && range.getLow().getBound() == Marker.Bound.EXACTLY
+                && !range.getHigh().isUpperUnbounded() && range.getHigh().getBound() == Marker.Bound.EXACTLY;
     }
 
     /**
@@ -430,8 +448,10 @@ public final class DomainTranslator
                     }
 
                     return new ExtractionResult(columnUnionedTupleDomain, remainingExpression);
+
+                default:
+                    throw new AssertionError("Unknown operator: " + node.getOperator());
             }
-            throw new AssertionError("Unknown operator: " + node.getOperator());
         }
 
         @Override
@@ -564,8 +584,10 @@ public final class DomainTranslator
                         return Optional.of(new ExtractionResult(
                                 TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)),
                                 TRUE_LITERAL));
+
+                    default:
+                        throw new AssertionError("Unhandled operator: " + comparisonOperator);
                 }
-                throw new AssertionError("Unhandled operator: " + comparisonOperator);
             }
             if (type.isOrderable()) {
                 return extractOrderableDomain(comparisonOperator, type, value, complement)
@@ -602,8 +624,9 @@ public final class DomainTranslator
                     case IS_DISTINCT_FROM:
                         // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
                         return Optional.of(complementIfNecessary(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), true), complement));
+                    default:
+                        throw new AssertionError("Unhandled operator: " + comparisonOperator);
                 }
-                throw new AssertionError("Unhandled operator: " + comparisonOperator);
             }
 
             // Handle comparisons against NaN
@@ -622,8 +645,10 @@ public final class DomainTranslator
                     case IS_DISTINCT_FROM:
                         // The Domain should be "all but NaN". It is currently not supported.
                         return Optional.empty();
+
+                    default:
+                        throw new AssertionError("Unhandled operator: " + comparisonOperator);
                 }
-                throw new AssertionError("Unhandled operator: " + comparisonOperator);
             }
 
             // Handle comparisons against a non-NaN value when the compared value might be NaN
@@ -686,8 +711,9 @@ public final class DomainTranslator
                     else {
                         return Optional.empty();
                     }
+                default:
+                    throw new AssertionError("Unhandled operator: " + comparisonOperator);
             }
-            throw new AssertionError("Unhandled operator: " + comparisonOperator);
         }
 
         private static Domain extractEquatableDomain(ComparisonExpression.Operator comparisonOperator, Type type, Object value, boolean complement)
@@ -698,19 +724,12 @@ public final class DomainTranslator
                     return Domain.create(complementIfNecessary(ValueSet.of(type, value), complement), false);
                 case NOT_EQUAL:
                     return Domain.create(complementIfNecessary(ValueSet.of(type, value).complement(), complement), false);
-
                 case IS_DISTINCT_FROM:
                     // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
                     return complementIfNecessary(Domain.create(ValueSet.of(type, value).complement(), true), complement);
-
-                case LESS_THAN:
-                case LESS_THAN_OR_EQUAL:
-                case GREATER_THAN:
-                case GREATER_THAN_OR_EQUAL:
-                    // not applicable to equatable types
-                    break;
+                default:
+                    throw new AssertionError("Unhandled operator: " + comparisonOperator);
             }
-            throw new AssertionError("Unhandled operator: " + comparisonOperator);
         }
 
         private Optional<Expression> coerceComparisonWithRounding(
@@ -745,7 +764,7 @@ public final class DomainTranslator
 
             switch (comparisonOperator) {
                 case GREATER_THAN_OR_EQUAL:
-                case GREATER_THAN:
+                case GREATER_THAN: {
                     if (coercedValueIsGreaterThanOriginal) {
                         return new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbolExpression, coercedLiteral);
                     }
@@ -755,9 +774,9 @@ public final class DomainTranslator
                     if (coercedValueIsLessThanOriginal) {
                         return new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral);
                     }
-                    throw new AssertionError("Unreachable");
+                }
                 case LESS_THAN_OR_EQUAL:
-                case LESS_THAN:
+                case LESS_THAN: {
                     if (coercedValueIsLessThanOriginal) {
                         return new ComparisonExpression(LESS_THAN_OR_EQUAL, symbolExpression, coercedLiteral);
                     }
@@ -767,21 +786,23 @@ public final class DomainTranslator
                     if (coercedValueIsGreaterThanOriginal) {
                         return new ComparisonExpression(LESS_THAN, symbolExpression, coercedLiteral);
                     }
-                    throw new AssertionError("Unreachable");
-                case EQUAL:
+                }
+                case EQUAL: {
                     if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(EQUAL, symbolExpression, coercedLiteral);
                     }
                     // Return something that is false for all non-null values
                     return and(new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral),
                             new ComparisonExpression(LESS_THAN, symbolExpression, coercedLiteral));
-                case NOT_EQUAL:
+                }
+                case NOT_EQUAL: {
                     if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
                     }
                     // Return something that is true for all non-null values
                     return or(new ComparisonExpression(EQUAL, symbolExpression, coercedLiteral),
                             new ComparisonExpression(NOT_EQUAL, symbolExpression, coercedLiteral));
+                }
                 case IS_DISTINCT_FROM: {
                     if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
@@ -865,7 +886,10 @@ public final class DomainTranslator
         protected ExtractionResult visitLikePredicate(LikePredicate node, Boolean complement)
         {
             Optional<ExtractionResult> result = tryVisitLikePredicate(node, complement);
-            return result.orElseGet(() -> super.visitLikePredicate(node, complement));
+            if (result.isPresent()) {
+                return result.get();
+            }
+            return super.visitLikePredicate(node, complement);
         }
 
         private Optional<ExtractionResult> tryVisitLikePredicate(LikePredicate node, Boolean complement)

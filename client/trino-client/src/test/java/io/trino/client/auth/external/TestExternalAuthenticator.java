@@ -20,16 +20,12 @@ import okhttp3.Request;
 import okhttp3.Response;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.net.URISyntaxException;
-import java.time.Duration;
 import java.util.Optional;
 
-import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
 import static io.trino.client.auth.external.ExternalAuthenticator.TOKEN_URI_FIELD;
 import static io.trino.client.auth.external.ExternalAuthenticator.toAuthentication;
-import static io.trino.client.auth.external.TokenPollResult.successful;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static java.net.URI.create;
@@ -105,56 +101,16 @@ public class TestExternalAuthenticator
                 .hasRootCauseMessage("Malformed IPv6 address at index 8: http://[1.1.1.1]");
     }
 
-    @Test
-    public void testAuthentication()
-    {
-        MockTokenPoller tokenPoller = new MockTokenPoller()
-                .withResult(URI.create("http://token.uri"), successful(new Token("valid-token")));
-        ExternalAuthenticator authenticator = new ExternalAuthenticator(uri -> {}, tokenPoller, Duration.ofSeconds(1));
-
-        Request authenticated = authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\""));
-
-        assertThat(authenticated.headers())
-                .extracting(headers -> headers.get(AUTHORIZATION))
-                .isEqualTo("Bearer valid-token");
-    }
-
-    @Test
-    public void testReAuthenticationAfterRejectingToken()
-    {
-        MockTokenPoller tokenPoller = new MockTokenPoller()
-                .withResult(URI.create("http://token.uri"), successful(new Token("first-token")))
-                .withResult(URI.create("http://token.uri"), successful(new Token("second-token")));
-        ExternalAuthenticator authenticator = new ExternalAuthenticator(uri -> {}, tokenPoller, Duration.ofSeconds(1));
-
-        Request request = authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\""));
-        Request reAuthenticated = authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\"", request));
-
-        assertThat(reAuthenticated.headers(AUTHORIZATION))
-                .containsExactly("Bearer second-token");
-    }
-
     private static Optional<ExternalAuthentication> buildAuthentication(String challengeHeader)
     {
-        return toAuthentication(getUnauthorizedResponse(challengeHeader));
-    }
-
-    private static Response getUnauthorizedResponse(String challengeHeader)
-    {
-        return getUnauthorizedResponse(challengeHeader,
-                new Request.Builder()
+        return toAuthentication(new Response.Builder()
+                .request(new Request.Builder()
                         .url(HttpUrl.get("http://example.com"))
-                        .build());
-    }
-
-    private static Response getUnauthorizedResponse(String challengeHeader, Request request)
-    {
-        return new Response.Builder()
-                .request(request)
+                        .build())
                 .protocol(Protocol.HTTP_1_1)
                 .code(HTTP_UNAUTHORIZED)
                 .message("Unauthorized")
                 .header(WWW_AUTHENTICATE, challengeHeader)
-                .build();
+                .build());
     }
 }

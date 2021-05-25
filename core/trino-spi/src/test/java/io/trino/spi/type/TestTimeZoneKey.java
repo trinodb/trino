@@ -197,9 +197,6 @@ public class TestTimeZoneKey
         // previous spot for MST
         assertFalse(hasValue[2196]);
         hasValue[2196] = true;
-        // previous spot for US/Pacific-New
-        assertFalse(hasValue[2174]);
-        hasValue[2174] = true;
 
         for (int i = 0; i < hasValue.length; i++) {
             assertTrue(hasValue[i], "There is no time zone with key " + i);
@@ -218,7 +215,7 @@ public class TestTimeZoneKey
             hasher.putString(timeZoneKey.getId(), StandardCharsets.UTF_8);
         }
         // Zone file should not (normally) be changed, so let's make this more difficult
-        assertEquals(hasher.hash().asLong(), 6334606028834602490L, "zone-index.properties file contents changed!");
+        assertEquals(hasher.hash().asLong(), -3809591333307967388L, "zone-index.properties file contents changed!");
     }
 
     public void assertTimeZoneNotSupported(String zoneId)

@@ -19,7 +19,6 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -36,20 +35,10 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testng.services.Flaky;
 import io.trino.transaction.TransactionBuilder;
-import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileReader;
-import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericDatumReader;
-import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -64,8 +53,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.predicate.Domain.multipleValues;
@@ -86,12 +73,10 @@ import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIcebergSmoke
-        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
@@ -722,17 +707,15 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery("SELECT * FROM test_hour_transform", values);
 
         @Language("SQL") String expected = "VALUES " +
-                "(-2, 1, TIMESTAMP '1969-12-31 22:22:22.222222', TIMESTAMP '1969-12-31 22:22:22.222222', 8, 8), " +
-                "(-1, 2, TIMESTAMP '1969-12-31 23:33:11.456789', TIMESTAMP '1969-12-31 23:44:55.567890', 9, 10), " +
-                "(0, 1, TIMESTAMP '1970-01-01 00:55:44.765432', TIMESTAMP '1970-01-01 00:55:44.765432', 11, 11), " +
+                "(-1, 1, TIMESTAMP '1969-12-31 22:22:22.222222', TIMESTAMP '1969-12-31 22:22:22.222222', 8, 8), " +
+                "(0, 3, TIMESTAMP '1969-12-31 23:33:11.456789', TIMESTAMP '1970-01-01 00:55:44.765432', 9, 11), " +
                 "(394474, 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 10:55:00.456789', 1, 3), " +
                 "(397692, 2, TIMESTAMP '2015-05-15 12:05:01.234567', TIMESTAMP '2015-05-15 12:21:02.345678', 4, 5), " +
                 "(439525, 2, TIMESTAMP '2020-02-21 13:11:11.876543', TIMESTAMP '2020-02-21 13:12:12.654321', 6, 7)";
         if (format == ORC) {
             expected = "VALUES " +
-                    "(-2, 1, NULL, NULL, 8, 8), " +
-                    "(-1, 2, NULL, NULL, 9, 10), " +
-                    "(0, 1, NULL, NULL, 11, 11), " +
+                    "(-1, 1, NULL, NULL, 8, 8), " +
+                    "(0, 3, NULL, NULL, 9, 11), " +
                     "(394474, 3, NULL, NULL, 1, 3), " +
                     "(397692, 2, NULL, NULL, 4, 5), " +
                     "(439525, 2, NULL, NULL, 6, 7)";
@@ -806,19 +789,17 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery("SELECT * FROM test_day_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
-                "(DATE '1969-12-25', 1, TIMESTAMP '1969-12-25 15:13:12.876543', TIMESTAMP '1969-12-25 15:13:12.876543', 8, 8), " +
-                "(DATE '1969-12-30', 1, TIMESTAMP '1969-12-30 18:47:33.345678', TIMESTAMP '1969-12-30 18:47:33.345678', 9, 9), " +
-                "(DATE '1969-12-31', 2, TIMESTAMP '1969-12-31 00:00:00.000000', TIMESTAMP '1969-12-31 05:06:07.234567', 10, 11), " +
-                "(DATE '1970-01-01', 1, TIMESTAMP '1970-01-01 12:03:08.456789', TIMESTAMP '1970-01-01 12:03:08.456789', 12, 12), " +
+                "(DATE '1969-12-26', 1, TIMESTAMP '1969-12-25 15:13:12.876543', TIMESTAMP '1969-12-25 15:13:12.876543', 8, 8), " +
+                "(DATE '1969-12-31', 2, TIMESTAMP '1969-12-30 18:47:33.345678', TIMESTAMP '1969-12-31 00:00:00.000000', 9, 10), " +
+                "(DATE '1970-01-01', 2, TIMESTAMP '1969-12-31 05:06:07.234567', TIMESTAMP '1970-01-01 12:03:08.456789', 11, 12), " +
                 "(DATE '2015-01-01', 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 12:55:00.456789', 1, 3), " +
                 "(DATE '2015-05-15', 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
                 "(DATE '2020-02-21', 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
         if (format == ORC) {
             expected = "VALUES " +
-                    "(DATE '1969-12-25', 1, NULL, NULL, 8, 8), " +
-                    "(DATE '1969-12-30', 1, NULL, NULL, 9, 9), " +
-                    "(DATE '1969-12-31', 2, NULL, NULL, 10, 11), " +
-                    "(DATE '1970-01-01', 1, NULL, NULL, 12, 12), " +
+                    "(DATE '1969-12-26', 1, NULL, NULL, 8, 8), " +
+                    "(DATE '1969-12-31', 2, NULL, NULL, 9, 10), " +
+                    "(DATE '1970-01-01', 2, NULL, NULL, 11, 12), " +
                     "(DATE '2015-01-01', 3, NULL, NULL, 1, 3), " +
                     "(DATE '2015-05-15', 2, NULL, NULL, 4, 5), " +
                     "(DATE '2020-02-21', 2, NULL, NULL, 6, 7)";
@@ -857,9 +838,8 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery(
                 "SELECT d_month, row_count, d.min, d.max, b.min, b.max FROM \"test_month_transform_date$partitions\"",
                 "VALUES " +
-                        "(-2, 1, DATE '1969-11-13', DATE '1969-11-13', 1, 1), " +
-                        "(-1, 3, DATE '1969-12-01', DATE '1969-12-31', 2, 4), " +
-                        "(0, 1, DATE '1970-01-01', DATE '1970-01-01', 5, 5), " +
+                        "(-1, 2, DATE '1969-11-13', DATE '1969-12-01', 1, 2), " +
+                        "(0, 3, DATE '1969-12-02', DATE '1970-01-01', 3, 5), " +
                         "(4, 1, DATE '1970-05-13', DATE '1970-05-13', 6, 6), " +
                         "(11, 1, DATE '1970-12-31', DATE '1970-12-31', 7, 7), " +
                         "(600, 1, DATE '2020-01-01', DATE '2020-01-01', 8, 8), " +
@@ -894,17 +874,15 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery("SELECT * FROM test_month_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
-                "(-2, 2, TIMESTAMP '1969-11-15 15:13:12.876543', TIMESTAMP '1969-11-19 18:47:33.345678', 8, 9), " +
-                "(-1, 2, TIMESTAMP '1969-12-01 00:00:00.000000', TIMESTAMP '1969-12-01 05:06:07.234567', 10, 11), " +
-                "(0, 1, TIMESTAMP '1970-01-01 12:03:08.456789', TIMESTAMP '1970-01-01 12:03:08.456789', 12, 12), " +
+                "(-1, 3, TIMESTAMP '1969-11-15 15:13:12.876543', TIMESTAMP '1969-12-01 00:00:00.000000', 8, 10), " +
+                "(0, 2, TIMESTAMP '1969-12-01 05:06:07.234567', TIMESTAMP '1970-01-01 12:03:08.456789', 11, 12), " +
                 "(540, 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 12:55:00.456789', 1, 3), " +
                 "(544, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
                 "(601, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
         if (format == ORC) {
             expected = "VALUES " +
-                    "(-2, 2, NULL, NULL, 8, 9), " +
-                    "(-1, 2, NULL, NULL, 10, 11), " +
-                    "(0, 1, NULL, NULL, 12, 12), " +
+                    "(-1, 3, NULL, NULL, 8, 10), " +
+                    "(0, 2, NULL, NULL, 11, 12), " +
                     "(540, 3, NULL, NULL, 1, 3), " +
                     "(544, 2, NULL, NULL, 4, 5), " +
                     "(601, 2, NULL, NULL, 6, 7)";
@@ -941,9 +919,8 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery(
                 "SELECT d_year, row_count, d.min, d.max, b.min, b.max FROM \"test_year_transform_date$partitions\"",
                 "VALUES " +
-                        "(-2, 1, DATE '1968-10-13', DATE '1968-10-13', 1, 1), " +
-                        "(-1, 2, DATE '1969-01-01', DATE '1969-03-15', 2, 3), " +
-                        "(0, 2, DATE '1970-01-01', DATE '1970-03-05', 4, 5), " +
+                        "(-1, 2, DATE '1968-10-13', DATE '1969-01-01', 1, 2), " +
+                        "(0, 3, DATE '1969-03-15', DATE '1970-03-05', 3, 5), " +
                         "(45, 3, DATE '2015-01-01', DATE '2015-07-28', 6, 8), " +
                         "(46, 2, DATE '2016-05-15', DATE '2016-06-06', 9, 10), " +
                         "(50, 2, DATE '2020-02-21', DATE '2020-11-10', 11, 12)");
@@ -975,16 +952,14 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery("SELECT * FROM test_year_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
-                "(-2, 2, TIMESTAMP '1968-03-15 15:13:12.876543', TIMESTAMP '1968-11-19 18:47:33.345678', 1, 2), " +
-                "(-1, 2, TIMESTAMP '1969-01-01 00:00:00.000000', TIMESTAMP '1969-01-01 05:06:07.234567', 3, 4), " +
-                "(0, 4, TIMESTAMP '1970-01-18 12:03:08.456789', TIMESTAMP '1970-12-31 12:55:00.456789', 5, 8), " +
+                "(-1, 3, TIMESTAMP '1968-03-15 15:13:12.876543', TIMESTAMP '1969-01-01 00:00:00.000000', 1, 3), " +
+                "(0, 5, TIMESTAMP '1969-01-01 05:06:07.234567', TIMESTAMP '1970-12-31 12:55:00.456789', 4, 8), " +
                 "(45, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-09-15 14:21:02.345678', 9, 10), " +
                 "(50, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-08-21 16:12:12.654321', 11, 12)";
         if (format == ORC) {
             expected = "VALUES " +
-                    "(-2, 2, NULL, NULL, 1, 2), " +
-                    "(-1, 2, NULL, NULL, 3, 4), " +
-                    "(0, 4, NULL, NULL, 5, 8), " +
+                    "(-1, 3, NULL, NULL, 1, 3), " +
+                    "(0, 5, NULL, NULL, 4, 8), " +
                     "(45, 2, NULL, NULL, 9, 10), " +
                     "(50, 2, NULL, NULL, 11, 12)";
         }
@@ -1404,7 +1379,7 @@ public abstract class AbstractTestIcebergSmoke
 
             assertTrue(result.isEmpty() == (expectedUnenforcedPredicate == null && expectedEnforcedPredicate == null));
 
-            if (result.isPresent()) {
+            if (!result.isEmpty()) {
                 IcebergTableHandle newTable = (IcebergTableHandle) result.get().getHandle().getConnectorHandle();
 
                 assertEquals(newTable.getEnforcedPredicate(),
@@ -1640,61 +1615,5 @@ public abstract class AbstractTestIcebergSmoke
         // i.e. a query like 'DELETE FROM test_metadata_optimization WHERE b = 6 AND a = 5'
 
         dropTable("test_metadata_optimization");
-    }
-
-    @Test
-    public void testIncorrectIcebergFileSizes()
-            throws Exception
-    {
-        // Create a table with a single insert
-        assertUpdate("CREATE TABLE test_iceberg_file_size (x BIGINT) WITH (format='PARQUET')");
-        assertUpdate("INSERT INTO test_iceberg_file_size VALUES (123), (456), (758)", 3);
-
-        // Get manifest file
-        MaterializedResult result = computeActual("SELECT path FROM \"test_iceberg_file_size$manifests\"");
-        assertEquals(result.getRowCount(), 1);
-        String manifestFile = (String) result.getOnlyValue();
-
-        // Read manifest file
-        Schema schema;
-        GenericData.Record entry = null;
-        try (DataFileReader<GenericData.Record> dataFileReader = new DataFileReader<>(new File(manifestFile), new GenericDatumReader<>())) {
-            schema = dataFileReader.getSchema();
-            int recordCount = 0;
-            while (dataFileReader.hasNext()) {
-                entry = dataFileReader.next();
-                recordCount++;
-            }
-            assertEquals(recordCount, 1);
-        }
-
-        // Alter data file entry to store incorrect file size
-        GenericData.Record dataFile = (GenericData.Record) entry.get("data_file");
-        long alteredValue = 50L;
-        assertNotEquals((long) dataFile.get("file_size_in_bytes"), alteredValue);
-        dataFile.put("file_size_in_bytes", alteredValue);
-
-        // Replace the file through HDFS client. This is required for correct checksums.
-        HdfsEnvironment.HdfsContext context = new HdfsContext(getSession().toConnectorSession(), "iceberg");
-        Path manifestFilePath = new Path(manifestFile);
-        FileSystem fs = HDFS_ENVIRONMENT.getFileSystem(context, manifestFilePath);
-
-        // Write altered metadata
-        try (OutputStream out = fs.create(manifestFilePath);
-                DataFileWriter<GenericData.Record> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
-            dataFileWriter.create(schema, out);
-            dataFileWriter.append(entry);
-        }
-
-        // Ignoring Iceberg provided file size makes the query succeed
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("iceberg", "use_file_size_from_metadata", "false")
-                .build();
-        assertQuery(session, "SELECT * FROM test_iceberg_file_size", "VALUES (123), (456), (758)");
-
-        // Using Iceberg provided file size fails the query
-        assertQueryFails("SELECT * FROM test_iceberg_file_size", format("Error reading tail from .* with length %d", alteredValue));
-
-        dropTable("test_iceberg_file_size");
     }
 }

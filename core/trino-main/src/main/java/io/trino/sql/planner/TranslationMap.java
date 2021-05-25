@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Keeps mappings of fields and AST expressions to symbols in the current plan within query boundary.
- * <p>
+ *
  * AST and IR expressions use the same class hierarchy ({@link io.trino.sql.tree.Expression},
  * but differ in the following ways:
  * <li>AST expressions contain Identifiers, while IR expressions contain SymbolReferences</li>
@@ -100,8 +100,8 @@ class TranslationMap
                 fieldSymbols.length);
 
         astToSymbols.keySet().stream()
-                .map(ScopeAware::getNode)
-                .forEach(TranslationMap::verifyAstExpression);
+            .map(ScopeAware::getNode)
+            .forEach(TranslationMap::verifyAstExpression);
     }
 
     public TranslationMap withScope(Scope scope, List<Symbol> fields)
@@ -326,7 +326,7 @@ class TranslationMap
     {
         verify(AstUtils.preOrder(astExpression).noneMatch(expression ->
                 expression instanceof SymbolReference ||
-                        expression instanceof FunctionCall && ResolvedFunction.isResolved(((FunctionCall) expression).getName())));
+                expression instanceof FunctionCall && ResolvedFunction.isResolved(((FunctionCall) expression).getName())));
     }
 
     public Scope getScope()

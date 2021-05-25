@@ -45,7 +45,6 @@ import static org.testng.Assert.assertNotNull;
 
 @Test(singleThreaded = true)
 public class TestMongoIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     private MongoServer server;

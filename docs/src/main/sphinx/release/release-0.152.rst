@@ -2,8 +2,8 @@
 Release 0.152
 =============
 
-General
--------
+General changes
+---------------
 
 * Add :func:`array_union` function.
 * Add :func:`reverse` function for arrays.
@@ -19,14 +19,14 @@ General
 * Rename ``FLOAT`` type to ``REAL`` for better compatibility with the SQL standard.
 * Fix potential performance regression when transporting rows between nodes.
 
-JDBC driver
------------
+JDBC driver changes
+-------------------
 
 * Fix sizes returned from ``DatabaseMetaData.getColumns()`` for
   ``COLUMN_SIZE``, ``DECIMAL_DIGITS``, ``NUM_PREC_RADIX`` and ``CHAR_OCTET_LENGTH``.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix resource leak in Parquet reader.
 * Rename JMX stat ``AllViews`` to ``GetAllViews`` in ``ThriftHiveMetastore``.
@@ -36,22 +36,22 @@ Hive
 * Add support for custom S3 credentials providers using the
   ``presto.s3.credentials-provider`` Hadoop configuration property.
 
-MySQL
------
+MySQL changes
+-------------
 
 * Fix reading MySQL ``tinyint(1)`` columns. Previously, these columns were
   incorrectly returned as a boolean rather than an integer.
 * Add support for ``INSERT``.
 * Add support for reading data as ``tinyint`` and ``smallint`` types rather than ``integer``.
 
-PostgreSQL
-----------
+PostgreSQL changes
+------------------
 
 * Add support for ``INSERT``.
 * Add support for reading data as ``tinyint`` and ``smallint`` types rather than ``integer``.
 
-SPI
----
+SPI changes
+-----------
 
 * Remove ``owner`` from ``ConnectorTableMetadata``.
 * Replace the  generic ``getServices()`` method in ``Plugin`` with specific
@@ -72,12 +72,12 @@ SPI
     If you have written a plugin, you will need to update your code
     before deploying this release.
 
-Verifier
---------
+Verifier changes
+----------------
 
 * Fix handling of shadow write queries with a ``LIMIT``.
 
-Local file
-----------
+Local file changes
+------------------
 
 * Fix file descriptor leak.

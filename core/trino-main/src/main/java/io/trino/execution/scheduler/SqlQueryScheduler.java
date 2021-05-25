@@ -350,7 +350,7 @@ public class SqlQueryScheduler
             SplitSource splitSource = entry.getValue();
             Optional<CatalogName> catalogName = Optional.of(splitSource.getCatalogName())
                     .filter(catalog -> !isInternalSystemConnector(catalog));
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, catalogName);
+            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(catalogName);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
@@ -377,7 +377,7 @@ public class SqlQueryScheduler
                     stage,
                     sourceTasksProvider,
                     writerTasksProvider,
-                    nodeScheduler.createNodeSelector(session, Optional.empty()),
+                    nodeScheduler.createNodeSelector(Optional.empty()),
                     schedulerExecutor,
                     getWriterMinSize(session));
             whenAllStages(childStages, StageState::isDone)
@@ -412,7 +412,7 @@ public class SqlQueryScheduler
                     // verify execution is consistent with planner's decision on dynamic lifespan schedule
                     verify(bucketNodeMap.isDynamic() == dynamicLifespanSchedule);
 
-                    stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogName).allNodes());
+                    stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(catalogName).allNodes());
                     Collections.shuffle(stageNodeList);
                     bucketToPartition = Optional.empty();
                 }
@@ -439,7 +439,7 @@ public class SqlQueryScheduler
                         bucketNodeMap,
                         splitBatchSize,
                         getConcurrentLifespansPerNode(session),
-                        nodeScheduler.createNodeSelector(session, catalogName),
+                        nodeScheduler.createNodeSelector(catalogName),
                         connectorPartitionHandles,
                         dynamicFilterService));
             }

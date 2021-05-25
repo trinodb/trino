@@ -31,7 +31,6 @@ public class QuerySpecification
     private final Optional<Expression> where;
     private final Optional<GroupBy> groupBy;
     private final Optional<Expression> having;
-    private final List<WindowDefinition> windows;
     private final Optional<OrderBy> orderBy;
     private final Optional<Offset> offset;
     private final Optional<Node> limit;
@@ -42,12 +41,11 @@ public class QuerySpecification
             Optional<Expression> where,
             Optional<GroupBy> groupBy,
             Optional<Expression> having,
-            List<WindowDefinition> windows,
             Optional<OrderBy> orderBy,
             Optional<Offset> offset,
             Optional<Node> limit)
     {
-        this(Optional.empty(), select, from, where, groupBy, having, windows, orderBy, offset, limit);
+        this(Optional.empty(), select, from, where, groupBy, having, orderBy, offset, limit);
     }
 
     public QuerySpecification(
@@ -57,12 +55,11 @@ public class QuerySpecification
             Optional<Expression> where,
             Optional<GroupBy> groupBy,
             Optional<Expression> having,
-            List<WindowDefinition> windows,
             Optional<OrderBy> orderBy,
             Optional<Offset> offset,
             Optional<Node> limit)
     {
-        this(Optional.of(location), select, from, where, groupBy, having, windows, orderBy, offset, limit);
+        this(Optional.of(location), select, from, where, groupBy, having, orderBy, offset, limit);
     }
 
     private QuerySpecification(
@@ -72,7 +69,6 @@ public class QuerySpecification
             Optional<Expression> where,
             Optional<GroupBy> groupBy,
             Optional<Expression> having,
-            List<WindowDefinition> windows,
             Optional<OrderBy> orderBy,
             Optional<Offset> offset,
             Optional<Node> limit)
@@ -83,7 +79,6 @@ public class QuerySpecification
         requireNonNull(where, "where is null");
         requireNonNull(groupBy, "groupBy is null");
         requireNonNull(having, "having is null");
-        requireNonNull(windows, "windows is null");
         requireNonNull(orderBy, "orderBy is null");
         requireNonNull(offset, "offset is null");
         requireNonNull(limit, "limit is null");
@@ -98,7 +93,6 @@ public class QuerySpecification
         this.where = where;
         this.groupBy = groupBy;
         this.having = having;
-        this.windows = windows;
         this.orderBy = orderBy;
         this.offset = offset;
         this.limit = limit;
@@ -127,11 +121,6 @@ public class QuerySpecification
     public Optional<Expression> getHaving()
     {
         return having;
-    }
-
-    public List<WindowDefinition> getWindows()
-    {
-        return windows;
     }
 
     public Optional<OrderBy> getOrderBy()
@@ -164,7 +153,6 @@ public class QuerySpecification
         where.ifPresent(nodes::add);
         groupBy.ifPresent(nodes::add);
         having.ifPresent(nodes::add);
-        nodes.addAll(windows);
         orderBy.ifPresent(nodes::add);
         offset.ifPresent(nodes::add);
         limit.ifPresent(nodes::add);
@@ -180,7 +168,6 @@ public class QuerySpecification
                 .add("where", where.orElse(null))
                 .add("groupBy", groupBy)
                 .add("having", having.orElse(null))
-                .add("windows", windows.isEmpty() ? null : windows)
                 .add("orderBy", orderBy)
                 .add("offset", offset.orElse(null))
                 .add("limit", limit.orElse(null))
@@ -202,7 +189,6 @@ public class QuerySpecification
                 Objects.equals(where, o.where) &&
                 Objects.equals(groupBy, o.groupBy) &&
                 Objects.equals(having, o.having) &&
-                Objects.equals(windows, o.windows) &&
                 Objects.equals(orderBy, o.orderBy) &&
                 Objects.equals(offset, o.offset) &&
                 Objects.equals(limit, o.limit);
@@ -211,7 +197,7 @@ public class QuerySpecification
     @Override
     public int hashCode()
     {
-        return Objects.hash(select, from, where, groupBy, having, windows, orderBy, offset, limit);
+        return Objects.hash(select, from, where, groupBy, having, orderBy, offset, limit);
     }
 
     @Override

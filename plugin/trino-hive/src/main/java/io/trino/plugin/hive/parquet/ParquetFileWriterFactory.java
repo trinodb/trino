@@ -19,7 +19,6 @@ import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.HiveSessionProperties;
-import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.TrinoException;
@@ -74,8 +73,7 @@ public class ParquetFileWriterFactory
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,
-            boolean useAcidSchema,
-            WriterKind writerKind)
+            boolean useAcidSchema)
     {
         if (!HiveSessionProperties.isParquetOptimizedWriterEnabled(session)) {
             return Optional.empty();

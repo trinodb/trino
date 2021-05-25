@@ -130,9 +130,6 @@ public final class ColumnWriters
                 }
                 return new StructColumnWriter(columnId, compression, bufferSize, fieldWriters.build());
             }
-
-            case UNION:
-                // unsupported
         }
 
         throw new IllegalArgumentException("Unsupported type: " + type);

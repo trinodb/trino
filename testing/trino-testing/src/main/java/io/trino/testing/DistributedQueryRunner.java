@@ -61,7 +61,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
@@ -82,7 +81,6 @@ public class DistributedQueryRunner
 
     private final TestingDiscoveryServer discoveryServer;
     private final TestingTrinoServer coordinator;
-    private final Optional<TestingTrinoServer> backupCoordinator;
     private List<TestingTrinoServer> servers;
 
     private final Closer closer = Closer.create();
@@ -101,7 +99,6 @@ public class DistributedQueryRunner
             int nodeCount,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
-            Optional<Map<String, String>> backupCoordinatorProperties,
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
@@ -109,10 +106,6 @@ public class DistributedQueryRunner
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
-
-        if (backupCoordinatorProperties.isPresent()) {
-            checkArgument(nodeCount >= 2, "the nodeCount must be greater than or equal to two!");
-        }
 
         try {
             long start = System.nanoTime();
@@ -122,7 +115,7 @@ public class DistributedQueryRunner
 
             ImmutableList.Builder<TestingTrinoServer> servers = ImmutableList.builder();
 
-            for (int i = backupCoordinatorProperties.isEmpty() ? 1 : 2; i < nodeCount; i++) {
+            for (int i = 1; i < nodeCount; i++) {
                 TestingTrinoServer worker = closer.register(createTestingTrinoServer(
                         discoveryServer.getBaseUrl(),
                         false,
@@ -130,7 +123,7 @@ public class DistributedQueryRunner
                         environment,
                         additionalModule,
                         baseDataDir,
-                        ImmutableList.of()));
+                        systemAccessControls));
                 servers.add(worker);
             }
 
@@ -154,23 +147,6 @@ public class DistributedQueryRunner
                     baseDataDir,
                     systemAccessControls));
             servers.add(coordinator);
-            if (backupCoordinatorProperties.isPresent()) {
-                Map<String, String> extraBackupCoordinatorProperties = new HashMap<>();
-                extraBackupCoordinatorProperties.putAll(extraProperties);
-                extraBackupCoordinatorProperties.putAll(backupCoordinatorProperties.get());
-                backupCoordinator = Optional.of(closer.register(createTestingTrinoServer(
-                        discoveryServer.getBaseUrl(),
-                        true,
-                        extraBackupCoordinatorProperties,
-                        environment,
-                        additionalModule,
-                        baseDataDir,
-                        systemAccessControls)));
-                servers.add(backupCoordinator.get());
-            }
-            else {
-                backupCoordinator = Optional.empty();
-            }
 
             this.servers = servers.build();
         }
@@ -378,11 +354,6 @@ public class DistributedQueryRunner
         return coordinator;
     }
 
-    public Optional<TestingTrinoServer> getBackupCoordinator()
-    {
-        return backupCoordinator;
-    }
-
     public List<TestingTrinoServer> getServers()
     {
         return ImmutableList.copyOf(servers);
@@ -550,13 +521,7 @@ public class DistributedQueryRunner
         QueryManager queryManager = coordinator.getQueryManager();
         for (BasicQueryInfo queryInfo : queryManager.getQueries()) {
             if (!queryInfo.getState().isDone()) {
-                try {
-                    queryManager.cancelQuery(queryInfo.getQueryId());
-                }
-                catch (RuntimeException e) {
-                    // TODO (https://github.com/trinodb/trino/issues/6723) query cancellation can sometimes fail
-                    log.warn(e, "Failed to cancel query");
-                }
+                queryManager.cancelQuery(queryInfo.getQueryId());
             }
         }
     }
@@ -578,7 +543,6 @@ public class DistributedQueryRunner
         private int nodeCount = 3;
         private Map<String, String> extraProperties = new HashMap<>();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
-        private Optional<Map<String, String>> backupCoordinatorProperties = Optional.empty();
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
@@ -617,12 +581,6 @@ public class DistributedQueryRunner
         public Builder setCoordinatorProperties(Map<String, String> coordinatorProperties)
         {
             this.coordinatorProperties = coordinatorProperties;
-            return this;
-        }
-
-        public Builder setBackupCoordinatorProperties(Map<String, String> backupCoordinatorProperties)
-        {
-            this.backupCoordinatorProperties = Optional.of(backupCoordinatorProperties);
             return this;
         }
 
@@ -667,14 +625,6 @@ public class DistributedQueryRunner
             return this;
         }
 
-        public Builder enableBackupCoordinator()
-        {
-            if (backupCoordinatorProperties.isEmpty()) {
-                setBackupCoordinatorProperties(ImmutableMap.of());
-            }
-            return this;
-        }
-
         public DistributedQueryRunner build()
                 throws Exception
         {
@@ -683,7 +633,6 @@ public class DistributedQueryRunner
                     nodeCount,
                     extraProperties,
                     coordinatorProperties,
-                    backupCoordinatorProperties,
                     environment,
                     additionalModule,
                     baseDataDir,

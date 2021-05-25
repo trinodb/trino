@@ -366,7 +366,7 @@ public final class OrcWriter
     }
 
     /**
-     * Collect the data for the stripe.  This is not the actual data, but
+     * Collect the data for for the stripe.  This is not the actual data, but
      * instead are functions that know how to write the data.
      */
     private List<OrcDataOutput> bufferStripeData(long stripeStartOffset, FlushReason flushReason)
@@ -495,7 +495,7 @@ public final class OrcWriter
     }
 
     /**
-     * Collect the data for the file footer.  This is not the actual data, but
+     * Collect the data for for the file footer.  This is not the actual data, but
      * instead are functions that know how to write the data.
      */
     private List<OrcDataOutput> bufferFileFooter()

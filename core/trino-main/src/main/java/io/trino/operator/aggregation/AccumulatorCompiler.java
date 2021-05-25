@@ -403,9 +403,6 @@ public final class AccumulatorCompiler
                 case NULLABLE_BLOCK_INPUT_CHANNEL:
                     inputChannel++;
                     break;
-                case BLOCK_INDEX:
-                case STATE:
-                    // TODO
             }
         }
 

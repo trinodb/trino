@@ -315,8 +315,8 @@ public class SqlQueryManager
             Optional<DataSize> limitOpt = getQueryMaxScanPhysicalBytes(query.getSession());
             if (maxQueryScanPhysicalBytes.isPresent()) {
                 limitOpt = limitOpt
-                        .flatMap(sessionLimit -> maxQueryScanPhysicalBytes.map(serverLimit -> Ordering.natural().min(serverLimit, sessionLimit)))
-                        .or(() -> maxQueryScanPhysicalBytes);
+                    .flatMap(sessionLimit -> maxQueryScanPhysicalBytes.map(serverLimit -> Ordering.natural().min(serverLimit, sessionLimit)))
+                    .or(() -> maxQueryScanPhysicalBytes);
             }
 
             limitOpt.ifPresent(limit -> {

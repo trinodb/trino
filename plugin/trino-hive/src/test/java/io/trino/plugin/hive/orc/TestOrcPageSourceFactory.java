@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -37,12 +38,12 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongPredicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -73,7 +74,6 @@ public class TestOrcPageSourceFactory
 {
     // This file has the contains the TPC-H nation table which each row repeated 1000 times
     private static final File TEST_FILE = new File(TestOrcPageSourceFactory.class.getClassLoader().getResource("nationFile25kRowsSortedOnNationKey/bucket_00000").getPath());
-    private static final Map<NationColumn, Integer> ALL_COLUMNS = ImmutableMap.of(NATION_KEY, 0, NAME, 1, REGION_KEY, 2, COMMENT, 3);
     private static final HivePageSourceFactory PAGE_SOURCE_FACTORY = new OrcPageSourceFactory(
             new OrcReaderConfig(),
             HDFS_ENVIRONMENT,
@@ -83,13 +83,13 @@ public class TestOrcPageSourceFactory
     @Test
     public void testFullFileRead()
     {
-        assertRead(ALL_COLUMNS, OptionalLong.empty(), Optional.empty(), nationKey -> false);
+        assertRead(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.empty(), Optional.empty(), nationKey -> false);
     }
 
     @Test
     public void testSingleColumnRead()
     {
-        assertRead(ImmutableMap.of(REGION_KEY, ALL_COLUMNS.get(REGION_KEY)), OptionalLong.empty(), Optional.empty(), nationKey -> false);
+        assertRead(ImmutableSet.of(REGION_KEY), OptionalLong.empty(), Optional.empty(), nationKey -> false);
     }
 
     /**
@@ -98,7 +98,7 @@ public class TestOrcPageSourceFactory
     @Test
     public void testFullFileSkipped()
     {
-        assertRead(ALL_COLUMNS, OptionalLong.of(100L), Optional.empty(), nationKey -> false);
+        assertRead(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.of(100L), Optional.empty(), nationKey -> false);
     }
 
     /**
@@ -107,7 +107,7 @@ public class TestOrcPageSourceFactory
     @Test
     public void testSomeStripesAndRowGroupRead()
     {
-        assertRead(ALL_COLUMNS, OptionalLong.of(5L), Optional.empty(), nationKey -> false);
+        assertRead(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.of(5L), Optional.empty(), nationKey -> false);
     }
 
     @Test
@@ -119,7 +119,7 @@ public class TestOrcPageSourceFactory
                 .addDeleteDelta(new Path(partitionLocation, deleteDeltaSubdir(4L, 4L, 0)))
                 .build();
 
-        assertRead(ALL_COLUMNS, OptionalLong.empty(), acidInfo, nationKey -> nationKey == 5 || nationKey == 19);
+        assertRead(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.empty(), acidInfo, nationKey -> nationKey == 5 || nationKey == 19);
     }
 
     @Test
@@ -134,7 +134,7 @@ public class TestOrcPageSourceFactory
                 .buildWithRequiredOriginalFiles(0);
 
         List<Nation> expected = expectedResult(OptionalLong.empty(), nationKey -> nationKey == 24, 1);
-        List<Nation> result = readFile(ALL_COLUMNS, OptionalLong.empty(), Optional.of(acidInfo), tablePath + "/000000_0", 1780);
+        List<Nation> result = readFile(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.empty(), Optional.of(acidInfo), tablePath + "/000000_0", 1780);
 
         assertEquals(result.size(), expected.size());
         int deletedRowKey = 24;
@@ -143,13 +143,13 @@ public class TestOrcPageSourceFactory
                 "Deleted row shouldn't be present in the result");
     }
 
-    private static void assertRead(Map<NationColumn, Integer> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, LongPredicate deletedRows)
+    private static void assertRead(Set<NationColumn> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, LongPredicate deletedRows)
     {
         List<Nation> actual = readFile(columns, nationKeyPredicate, acidInfo);
 
         List<Nation> expected = expectedResult(nationKeyPredicate, deletedRows, 1000);
 
-        assertEqualsByColumns(columns.keySet(), actual, expected);
+        assertEqualsByColumns(columns, actual, expected);
     }
 
     private static List<Nation> expectedResult(OptionalLong nationKeyPredicate, LongPredicate deletedRows, int replicationFactor)
@@ -167,20 +167,21 @@ public class TestOrcPageSourceFactory
         return expected;
     }
 
-    private static List<Nation> readFile(Map<NationColumn, Integer> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo)
+    private static List<Nation> readFile(Set<NationColumn> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo)
     {
         return readFile(columns, nationKeyPredicate, acidInfo, TEST_FILE.toURI().getPath(), TEST_FILE.length());
     }
 
-    private static List<Nation> readFile(Map<NationColumn, Integer> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, String filePath, long fileSize)
+    private static List<Nation> readFile(Set<NationColumn> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, String filePath, long fileSize)
     {
         TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.all();
         if (nationKeyPredicate.isPresent()) {
             tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(toHiveColumnHandle(NATION_KEY, 0), Domain.singleValue(INTEGER, nationKeyPredicate.getAsLong())));
         }
 
-        List<HiveColumnHandle> columnHandles = columns.entrySet().stream()
-                .map(entry -> toHiveColumnHandle(entry.getKey(), entry.getValue()))
+        AtomicInteger atomicInteger = new AtomicInteger(0);
+        List<HiveColumnHandle> columnHandles = columns.stream()
+                .map(nationColumn -> toHiveColumnHandle(nationColumn, atomicInteger.getAndIncrement()))
                 .collect(toImmutableList());
 
         List<String> columnNames = columnHandles.stream()

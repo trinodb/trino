@@ -29,7 +29,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseDruidIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     protected static final String SELECT_FROM_ORDERS = "SELECT " +

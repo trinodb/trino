@@ -35,6 +35,5 @@ public interface HiveFileWriterFactory
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,
-            boolean useAcidSchema,
-            WriterKind writerKind);
+            boolean useAcidSchema);
 }

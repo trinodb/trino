@@ -39,7 +39,13 @@ public final class SymbolAliases
 
     private SymbolAliases(Map<String, SymbolReference> aliases)
     {
-        this.map = ImmutableMap.copyOf(requireNonNull(aliases, "aliases is null"));
+        this.map = ImmutableMap.copyOf(aliases);
+    }
+
+    public SymbolAliases(SymbolAliases symbolAliases)
+    {
+        requireNonNull(symbolAliases, "symbolAliases are null");
+        this.map = ImmutableMap.copyOf(symbolAliases.map);
     }
 
     public static Builder builder()

@@ -163,7 +163,7 @@ User mapping
 ------------
 
 After authenticating with Kerberos, the Trino server receives the user's principal which is typically similar to
-an email address.  For example, when ``alice`` logs in Trino might receive ``alice@example.com``.  By default,
+an email address.  For example, when ``alice`` logs in in Trino might receive ``alice@example.com``.  By default,
 Trino will use the full Kerberos principal name, but this can be mapped to a shorter name using a user-mapping
 pattern.  For simple mapping rules, the  ``http-server.authentication.krb5.user-mapping.pattern`` configuration
 property can be set to a Java regular expression, and Trino will use the value of the first matcher group.  If the

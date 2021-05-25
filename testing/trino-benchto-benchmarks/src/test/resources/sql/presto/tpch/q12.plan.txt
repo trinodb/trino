@@ -9,5 +9,5 @@ remote exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["orderkey"])
                                     scan orders
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["orderkey_1"])
+                                    remote exchange (REPARTITION, HASH, ["orderkey_0"])
                                         scan lineitem

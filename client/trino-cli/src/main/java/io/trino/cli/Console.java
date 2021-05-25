@@ -161,24 +161,24 @@ public class Console
         try (QueryRunner queryRunner = new QueryRunner(
                 session,
                 clientOptions.debug,
-                clientOptions.socksProxy,
-                clientOptions.httpProxy,
-                clientOptions.keystorePath,
-                clientOptions.keystorePassword,
-                clientOptions.keystoreType,
-                clientOptions.truststorePath,
-                clientOptions.truststorePassword,
-                clientOptions.truststoreType,
+                Optional.ofNullable(clientOptions.socksProxy),
+                Optional.ofNullable(clientOptions.httpProxy),
+                Optional.ofNullable(clientOptions.keystorePath),
+                Optional.ofNullable(clientOptions.keystorePassword),
+                Optional.ofNullable(clientOptions.keystoreType),
+                Optional.ofNullable(clientOptions.truststorePath),
+                Optional.ofNullable(clientOptions.truststorePassword),
+                Optional.ofNullable(clientOptions.truststoreType),
                 clientOptions.insecure,
-                clientOptions.accessToken,
-                clientOptions.user,
+                Optional.ofNullable(clientOptions.accessToken),
+                Optional.ofNullable(clientOptions.user),
                 clientOptions.password ? Optional.of(getPassword()) : Optional.empty(),
-                clientOptions.krb5Principal,
-                clientOptions.krb5ServicePrincipalPattern,
-                clientOptions.krb5RemoteServiceName,
-                clientOptions.krb5ConfigPath,
-                clientOptions.krb5KeytabPath,
-                clientOptions.krb5CredentialCachePath,
+                Optional.ofNullable(clientOptions.krb5Principal),
+                Optional.ofNullable(clientOptions.krb5ServicePrincipalPattern),
+                Optional.ofNullable(clientOptions.krb5RemoteServiceName),
+                Optional.ofNullable(clientOptions.krb5ConfigPath),
+                Optional.ofNullable(clientOptions.krb5KeytabPath),
+                Optional.ofNullable(clientOptions.krb5CredentialCachePath),
                 !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization)) {
             if (hasQuery) {
                 return executeCommand(
@@ -201,7 +201,7 @@ public class Console
 
     private String getPassword()
     {
-        checkState(clientOptions.user.isPresent(), "Username must be specified along with password");
+        checkState(clientOptions.user != null, "Username must be specified along with password");
         String defaultPassword = System.getenv("TRINO_PASSWORD");
         if (defaultPassword != null) {
             return defaultPassword;

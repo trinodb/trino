@@ -51,52 +51,52 @@ public class ClientOptions
     public String server;
 
     @Option(names = "--krb5-service-principal-pattern", paramLabel = "<pattern>", defaultValue = "$${SERVICE}@$${HOST}", description = "Remote kerberos service principal pattern " + DEFAULT_VALUE)
-    public Optional<String> krb5ServicePrincipalPattern;
+    public String krb5ServicePrincipalPattern;
 
     @Option(names = "--krb5-remote-service-name", paramLabel = "<name>", description = "Remote peer's kerberos service name")
-    public Optional<String> krb5RemoteServiceName;
+    public String krb5RemoteServiceName;
 
     @Option(names = "--krb5-config-path", paramLabel = "<path>", defaultValue = "/etc/krb5.conf", description = "Kerberos config file path " + DEFAULT_VALUE)
-    public Optional<String> krb5ConfigPath;
+    public String krb5ConfigPath;
 
     @Option(names = "--krb5-keytab-path", paramLabel = "<path>", defaultValue = "/etc/krb5.keytab", description = "Kerberos key table path " + DEFAULT_VALUE)
-    public Optional<String> krb5KeytabPath;
+    public String krb5KeytabPath;
 
     @Option(names = "--krb5-credential-cache-path", paramLabel = "<path>", description = "Kerberos credential cache path")
-    public Optional<String> krb5CredentialCachePath = defaultCredentialCachePath();
+    public String krb5CredentialCachePath = defaultCredentialCachePath().orElse(null);
 
     @Option(names = "--krb5-principal", paramLabel = "<principal>", description = "Kerberos principal to be used")
-    public Optional<String> krb5Principal;
+    public String krb5Principal;
 
     @Option(names = "--krb5-disable-remote-service-hostname-canonicalization", description = "Disable service hostname canonicalization using the DNS reverse lookup")
     public boolean krb5DisableRemoteServiceHostnameCanonicalization;
 
     @Option(names = "--keystore-path", paramLabel = "<path>", description = "Keystore path")
-    public Optional<String> keystorePath;
+    public String keystorePath;
 
     @Option(names = "--keystore-password", paramLabel = "<password>", description = "Keystore password")
-    public Optional<String> keystorePassword;
+    public String keystorePassword;
 
     @Option(names = "--keystore-type", paramLabel = "<type>", description = "Keystore type")
-    public Optional<String> keystoreType;
+    public String keystoreType;
 
     @Option(names = "--truststore-path", paramLabel = "<path>", description = "Truststore path")
-    public Optional<String> truststorePath;
+    public String truststorePath;
 
     @Option(names = "--truststore-password", paramLabel = "<password>", description = "Truststore password")
-    public Optional<String> truststorePassword;
+    public String truststorePassword;
 
     @Option(names = "--truststore-type", paramLabel = "<type>", description = "Truststore type")
-    public Optional<String> truststoreType;
+    public String truststoreType;
 
     @Option(names = "--insecure", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
     public boolean insecure;
 
     @Option(names = "--access-token", paramLabel = "<token>", description = "Access token")
-    public Optional<String> accessToken;
+    public String accessToken;
 
-    @Option(names = "--user", paramLabel = "<user>", defaultValue = "${sys:user.name}", description = "Username " + DEFAULT_VALUE)
-    public Optional<String> user;
+    @Option(names = "--user", paramLabel = "<user>", description = "Username " + DEFAULT_VALUE)
+    public String user = System.getProperty("user.name");
 
     @Option(names = "--password", paramLabel = "<password>", description = "Prompt for password")
     public boolean password;
@@ -143,17 +143,14 @@ public class ClientOptions
     @Option(names = "--session", paramLabel = "<session>", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
-    @Option(names = "--session-user", paramLabel = "<user>", description = "Username to impersonate")
-    public Optional<String> sessionUser;
-
     @Option(names = "--extra-credential", paramLabel = "<credential>", description = "Extra credentials (property can be used multiple times; format is key=value)")
     public final List<ClientExtraCredential> extraCredentials = new ArrayList<>();
 
     @Option(names = "--socks-proxy", paramLabel = "<proxy>", description = "SOCKS proxy to use for server connections")
-    public Optional<HostAndPort> socksProxy;
+    public HostAndPort socksProxy;
 
     @Option(names = "--http-proxy", paramLabel = "<proxy>", description = "HTTP proxy to use for server connections")
-    public Optional<HostAndPort> httpProxy;
+    public HostAndPort httpProxy;
 
     @Option(names = "--client-request-timeout", paramLabel = "<timeout>", defaultValue = "2m", description = "Client request timeout " + DEFAULT_VALUE)
     public Duration clientRequestTimeout;
@@ -185,8 +182,8 @@ public class ClientOptions
     {
         return new ClientSession(
                 parseServer(server),
-                user.orElse(null),
-                sessionUser,
+                user,
+                Optional.empty(), // TODO: https://github.com/trinodb/trino/issues/6567 Add option to specify session user separately from authentication user
                 source,
                 Optional.ofNullable(traceToken),
                 parseClientTags(nullToEmpty(clientTags)),

@@ -26,7 +26,6 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
@@ -46,12 +45,10 @@ public class TestPage
         assertEquals(new Page(10).getRegion(5, 0).getPositionCount(), 0);
     }
 
-    @Test
+    @Test(expectedExceptions = IndexOutOfBoundsException.class, expectedExceptionsMessageRegExp = "Invalid position 1 and length 1 in page with 0 positions")
     public void testGetRegionExceptions()
     {
-        assertThatThrownBy(() -> new Page(0).getRegion(1, 1))
-                .isInstanceOf(IndexOutOfBoundsException.class)
-                .hasMessage("Invalid position 1 and length 1 in page with 0 positions");
+        new Page(0).getRegion(1, 1);
     }
 
     @Test

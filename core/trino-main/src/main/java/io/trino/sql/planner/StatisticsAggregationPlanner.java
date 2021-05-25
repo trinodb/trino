@@ -121,8 +121,9 @@ public class StatisticsAggregationPlanner
                 return createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
             case MAX_VALUE_SIZE_IN_BYTES:
                 return createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
+            default:
+                throw new IllegalArgumentException("Unsupported statistic type: " + statisticType);
         }
-        throw new IllegalArgumentException("Unsupported statistic type: " + statisticType);
     }
 
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)

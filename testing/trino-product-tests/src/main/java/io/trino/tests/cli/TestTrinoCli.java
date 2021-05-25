@@ -13,9 +13,7 @@
  */
 package io.trino.tests.cli;
 
-import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import com.google.inject.Inject;
@@ -34,17 +32,13 @@ import java.io.UncheckedIOException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.process.CliProcess.trimLines;
 import static io.trino.tests.TestGroups.AUTHORIZATION;
 import static io.trino.tests.TestGroups.CLI;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -189,49 +183,12 @@ public class TestTrinoCli
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
-    public void shouldPassSessionUser()
-            throws Exception
-    {
-        launchTrinoCliWithServerArgument("--session-user", "other-user", "--execute", "SELECT current_user;");
-        assertThat(trimLines(trino.readRemainingOutputLines())).contains("\"other-user\"");
-        trino.waitForWithTimeoutAndKill();
-    }
-
-    @Test(groups = CLI, timeOut = TIMEOUT)
     public void shouldUseCatalogAndSchemaOptions()
             throws Exception
     {
         launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
         assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
         trino.waitForWithTimeoutAndKill();
-    }
-
-    @Test(groups = CLI, timeOut = TIMEOUT)
-    public void shouldUseCatalogAndSchemaOptionsFromConfigFile()
-            throws Exception
-    {
-        launchTrinoCliWithConfigurationFile(ImmutableList.of("catalog", "hive", "schema", "default"), "--execute", "SELECT * FROM nation;");
-        assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
-        trino.waitForWithTimeoutAndKill();
-    }
-
-    @Test(groups = CLI, timeOut = TIMEOUT)
-    public void shouldPreferCommandLineArgumentOverConfigDefault()
-            throws Exception
-    {
-        launchTrinoCliWithConfigurationFile(ImmutableList.of("catalog", "some-other-catalog", "schema", "default"), "--catalog", "hive", "--execute", "SELECT * FROM nation;");
-        assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
-        trino.waitForWithTimeoutAndKill();
-    }
-
-    @Test(groups = CLI, timeOut = TIMEOUT)
-    public void shouldExitWithErrorOnUnknownPropertiesInConfigFile()
-            throws Exception
-    {
-        String configPath = launchTrinoCliWithConfigurationFile(ImmutableList.of("unknown", "property", "catalog", "hive"));
-        assertThat(trimLines(trino.readRemainingErrorLines())).containsExactly(format("Configuration file %s contains unknown properties [unknown]", configPath));
-
-        assertThatThrownBy(() -> trino.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
@@ -278,7 +235,7 @@ public class TestTrinoCli
             throws IOException
     {
         String sql = "select * from hive.default.nations; select * from hive.default.nation;";
-        launchTrinoCliWithServerArgument("--execute", sql, "--ignore-errors", "true");
+        launchTrinoCliWithServerArgument("--execute", sql, "--ignore-errors");
         assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
 
         assertThatThrownBy(() -> trino.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
@@ -291,7 +248,7 @@ public class TestTrinoCli
         try (TempFile file = new TempFile()) {
             Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);
 
-            launchTrinoCliWithServerArgument("--file", file.file().getAbsolutePath(), "--ignore-errors", "true");
+            launchTrinoCliWithServerArgument("--file", file.file().getAbsolutePath(), "--ignore-errors");
             assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
 
             assertThatThrownBy(() -> trino.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
@@ -409,27 +366,6 @@ public class TestTrinoCli
         launchTrinoCli(getTrinoCliArguments(arguments));
     }
 
-    private String launchTrinoCliWithConfigurationFile(List<String> configuration, String... arguments)
-            throws IOException
-    {
-        CharMatcher matcher = CharMatcher.is('-');
-        ProcessBuilder processBuilder = getProcessBuilder(ImmutableList.copyOf(arguments));
-
-        String fileContent = getTrinoCliArguments(configuration.toArray(new String[0]))
-                .stream()
-                .map(matcher::trimLeadingFrom)
-                .collect(joining("\n"));
-
-        File tempFile = File.createTempFile(".trino_config", "");
-        tempFile.deleteOnExit();
-        Files.write(fileContent.getBytes(UTF_8), tempFile);
-
-        processBuilder.environment().put("TRINO_CONFIG", tempFile.getAbsolutePath());
-        trino = new TrinoCliProcess(processBuilder.start());
-
-        return tempFile.getPath();
-    }
-
     private void launchTrinoCliWithRedirectedStdin(File inputFile)
             throws IOException
     {
@@ -440,8 +376,6 @@ public class TestTrinoCli
 
     private List<String> getTrinoCliArguments(String... arguments)
     {
-        verify(arguments.length % 2 == 0, "arguments.length should be divisible by 2");
-
         ImmutableList.Builder<String> trinoClientOptions = ImmutableList.builder();
         trinoClientOptions.add("--server", serverAddress);
         trinoClientOptions.add("--user", jdbcUser);
@@ -466,16 +400,12 @@ public class TestTrinoCli
             trinoClientOptions.add("--krb5-config-path", kerberosConfigPath);
 
             if (!kerberosUseCanonicalHostname) {
-                trinoClientOptions.add("--krb5-disable-remote-service-hostname-canonicalization", "true");
+                trinoClientOptions.add("--krb5-disable-remote-service-hostname-canonicalization");
             }
         }
 
         trinoClientOptions.add(arguments);
-
-        return Lists.partition(trinoClientOptions.build(), 2)
-                .stream()
-                .map(argument -> format("%s=%s", argument.get(0), argument.get(1)))
-                .collect(toImmutableList());
+        return trinoClientOptions.build();
     }
 
     private static String removePrefix(String line)

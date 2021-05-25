@@ -39,6 +39,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Marker.Bound;
 import io.trino.spi.type.TimestampType;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
@@ -924,23 +925,25 @@ public class AccumuloClient
             accumuloRange = new Range(split);
         }
         else {
-            if (trinoRange.isLowUnbounded()) {
+            if (trinoRange.getLow().isLowerUnbounded()) {
                 // If low is unbounded, then create a range from (-inf, value), checking inclusivity
-                Text split = new Text(serializer.encode(trinoRange.getType(), trinoRange.getHighBoundedValue()));
-                accumuloRange = new Range(null, false, split, trinoRange.isLowInclusive());
+                boolean inclusive = trinoRange.getHigh().getBound() == Bound.EXACTLY;
+                Text split = new Text(serializer.encode(trinoRange.getType(), trinoRange.getHigh().getValue()));
+                accumuloRange = new Range(null, false, split, inclusive);
             }
-            else if (trinoRange.isHighUnbounded()) {
+            else if (trinoRange.getHigh().isUpperUnbounded()) {
                 // If high is unbounded, then create a range from (value, +inf), checking inclusivity
-                Text split = new Text(serializer.encode(trinoRange.getType(), trinoRange.getLowBoundedValue()));
-                accumuloRange = new Range(split, trinoRange.isHighInclusive(), null, false);
+                boolean inclusive = trinoRange.getLow().getBound() == Bound.EXACTLY;
+                Text split = new Text(serializer.encode(trinoRange.getType(), trinoRange.getLow().getValue()));
+                accumuloRange = new Range(split, inclusive, null, false);
             }
             else {
                 // If high is unbounded, then create a range from low to high, checking inclusivity
-                boolean startKeyInclusive = trinoRange.isLowInclusive();
-                Text startSplit = new Text(serializer.encode(trinoRange.getType(), trinoRange.getLowBoundedValue()));
+                boolean startKeyInclusive = trinoRange.getLow().getBound() == Bound.EXACTLY;
+                Text startSplit = new Text(serializer.encode(trinoRange.getType(), trinoRange.getLow().getValue()));
 
-                boolean endKeyInclusive = trinoRange.isHighInclusive();
-                Text endSplit = new Text(serializer.encode(trinoRange.getType(), trinoRange.getHighBoundedValue()));
+                boolean endKeyInclusive = trinoRange.getHigh().getBound() == Bound.EXACTLY;
+                Text endSplit = new Text(serializer.encode(trinoRange.getType(), trinoRange.getHigh().getValue()));
                 accumuloRange = new Range(startSplit, startKeyInclusive, endSplit, endKeyInclusive);
             }
         }

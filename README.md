@@ -79,12 +79,12 @@ use when working on a specific connector.
 Trino comes with sample configuration that should work out-of-the-box for
 development. Use the following options to create a run configuration:
 
-* Main Class: `io.trino.server.DevelopmentServer`
+* Main Class: `io.trino.server.TrinoServer`
 * VM Options: `-ea -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true`
 * Working directory: `$MODULE_DIR$`
-* Use classpath of module: `trino-server-dev`
+* Use classpath of module: `trino-server-main`
 
-The working directory should be the `trino-server-dev` subdirectory. In
+The working directory should be the `trino-server-main` subdirectory. In
 IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 
 ### Running the CLI

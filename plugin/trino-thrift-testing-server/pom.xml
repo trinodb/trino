@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>354-SNAPSHOT</version>
+        <version>352-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -116,7 +116,7 @@
             <artifactId>assertj-core</artifactId>
         </dependency>
 
-        <!-- testng comes as a transitive compile-time dependency from trino-testing even though we  only need tpch index part -->
+        <!-- testng comes as a transitive compile-time dependency from trino-testing even though we only only need tpch index part -->
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>

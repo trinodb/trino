@@ -73,7 +73,6 @@ import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.CoalesceExpression;
@@ -94,7 +93,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.SystemSessionProperties.isPlanWithTableNodePartitioning;
+import static io.trino.SystemSessionProperties.planWithTableNodePartitioning;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
@@ -420,12 +419,6 @@ public final class PropertyDerivations
         }
 
         @Override
-        public ActualProperties visitUpdate(UpdateNode node, List<ActualProperties> inputProperties)
-        {
-            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
-        }
-
-        @Override
         public ActualProperties visitJoin(JoinNode node, List<ActualProperties> inputProperties)
         {
             ActualProperties probeProperties = inputProperties.get(0);
@@ -473,8 +466,9 @@ public final class PropertyDerivations
                     return ActualProperties.builder()
                             .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
                             .build();
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
-            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
         }
 
         @Override
@@ -504,8 +498,9 @@ public final class PropertyDerivations
                 case LEFT:
                     return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
                             .build();
+                default:
+                    throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
             }
-            throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
         }
 
         @Override
@@ -527,8 +522,9 @@ public final class PropertyDerivations
                     return ActualProperties.builderFrom(probeProperties)
                             .constants(probeProperties.getConstants())
                             .build();
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
-            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
         }
 
         @Override
@@ -726,8 +722,9 @@ public final class PropertyDerivations
                     return ActualProperties.builderFrom(translatedProperties)
                             .local(ImmutableList.of())
                             .build();
+                default:
+                    throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
             }
-            throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
         }
 
         @Override
@@ -778,7 +775,7 @@ public final class PropertyDerivations
             Optional<List<Symbol>> streamPartitioning = layout.getStreamPartitioningColumns()
                     .flatMap(columns -> translateToNonConstantSymbols(columns, assignments, constants));
 
-            if (isPlanWithTableNodePartitioning(session) && layout.getTablePartitioning().isPresent()) {
+            if (planWithTableNodePartitioning(session) && layout.getTablePartitioning().isPresent()) {
                 TablePartitioning tablePartitioning = layout.getTablePartitioning().get();
                 if (assignments.keySet().containsAll(tablePartitioning.getPartitioningColumns())) {
                     List<Symbol> arguments = tablePartitioning.getPartitioningColumns().stream()
@@ -844,8 +841,9 @@ public final class PropertyDerivations
             case FULL:
                 // Currently there is no spill support for outer on the build side.
                 return false;
+            default:
+                throw new IllegalStateException("Unknown join type: " + joinType);
         }
-        throw new IllegalStateException("Unknown join type: " + joinType);
     }
 
     public static Optional<Symbol> filterIfMissing(Collection<Symbol> columns, Symbol column)

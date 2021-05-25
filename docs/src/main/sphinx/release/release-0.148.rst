@@ -2,8 +2,8 @@
 Release 0.148
 =============
 
-General
--------
+General changes
+---------------
 * Fix issue where auto-commit transaction can be rolled back for a successfully
   completed query.
 * Fix detection of colocated joins.
@@ -71,15 +71,15 @@ Functions and language features
 * Add support for ``SMALLINT`` and ``TINYINT`` types.
 * Add support for non-equi outer joins.
 
-Verifier
---------
+Verifier changes
+----------------
 
 * Add ``skip-cpu-check-regex`` config property which can be used to skip the CPU
   time comparison for queries that match the given regex.
 * Add ``check-cpu`` config property which can be used to disable CPU time comparison.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix ``NoClassDefFoundError`` for ``KMSClientProvider`` in HDFS client.
 * Fix creating tables on S3 in an empty database.
@@ -90,29 +90,29 @@ Hive
 * Push down filters for columns of type ``DECIMAL``.
 * Improve CPU efficiency when reading ORC files.
 
-Cassandra
----------
+Cassandra changes
+-----------------
 
 * Allow configuring load balancing policy and no host available retry.
 * Add support for ``varchar(n)``.
 
-Kafka
------
+Kafka changes
+-------------
 
 * Update to Kafka client 0.8.2.2. This enables support for LZ4 data.
 
-JMX
----
+JMX changes
+-----------
 
 * Add ``jmx.history`` schema with in-memory periodic samples of values from JMX MBeans.
 
-MySQL and PostgreSQL
---------------------
+MySQL and PostgreSQL changes
+----------------------------
 
 * Push down predicates for ``VARCHAR``, ``DATE``, ``TIME`` and ``TIMESTAMP`` types.
 
-Other connectors
-----------------
+Other connector changes
+-----------------------
 
 * Add support for ``varchar(n)`` to the Redis, TPCH, MongoDB, Local File
   and Example HTTP connectors.

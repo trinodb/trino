@@ -19,7 +19,6 @@ import static io.trino.client.IntervalDayTime.formatMillis;
 import static io.trino.client.IntervalDayTime.parseMillis;
 import static io.trino.client.IntervalDayTime.toMillis;
 import static java.util.concurrent.TimeUnit.DAYS;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestIntervalDayTime
@@ -52,12 +51,10 @@ public class TestIntervalDayTime
         assertEquals(toMillis(days, 0, 0, 0, 0), DAYS.toMillis(days));
     }
 
-    @Test
+    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testOverflow()
     {
         long days = (Long.MAX_VALUE / DAYS.toMillis(1)) + 1;
-        assertThatThrownBy(() -> toMillis(days, 0, 0, 0, 0))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("java.lang.ArithmeticException: long overflow");
+        toMillis(days, 0, 0, 0, 0);
     }
 }

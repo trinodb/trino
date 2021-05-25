@@ -198,8 +198,9 @@ public class UnwrapCastInComparison
                         return new Cast(new NullLiteral(), toSqlType(BOOLEAN));
                     case IS_DISTINCT_FROM:
                         return new IsNotNullPredicate(cast);
+                    default:
+                        throw new UnsupportedOperationException("Not yet implemented");
                 }
-                throw new UnsupportedOperationException("Not yet implemented");
             }
 
             if (right instanceof Expression) {
@@ -266,8 +267,9 @@ public class UnwrapCastInComparison
                             return trueIfNotNull(cast.getExpression());
                         case IS_DISTINCT_FROM:
                             return TRUE_LITERAL;
+                        default:
+                            throw new UnsupportedOperationException("Not yet implemented: " + operator);
                     }
-                    throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
 
                 if (upperBoundComparison == 0) {
@@ -285,8 +287,9 @@ public class UnwrapCastInComparison
                         case NOT_EQUAL:
                         case IS_DISTINCT_FROM:
                             return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(max, sourceType));
+                        default:
+                            throw new UnsupportedOperationException("Not yet implemented: " + operator);
                     }
-                    throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
 
                 Object min = sourceRange.get().getMin();
@@ -306,8 +309,9 @@ public class UnwrapCastInComparison
                             return falseIfNotNull(cast.getExpression());
                         case IS_DISTINCT_FROM:
                             return TRUE_LITERAL;
+                        default:
+                            throw new UnsupportedOperationException("Not yet implemented: " + operator);
                     }
-                    throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
 
                 if (lowerBoundComparison == 0) {
@@ -325,8 +329,9 @@ public class UnwrapCastInComparison
                         case NOT_EQUAL:
                         case IS_DISTINCT_FROM:
                             return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(min, sourceType));
+                        default:
+                            throw new UnsupportedOperationException("Not yet implemented: " + operator);
                     }
-                    throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
             }
 
@@ -377,8 +382,9 @@ public class UnwrapCastInComparison
                         // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                         // larger than the next value in the source type
                         return new ComparisonExpression(GREATER_THAN, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                    default:
+                        throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
-                throw new UnsupportedOperationException("Not yet implemented: " + operator);
             }
 
             if (literalVsRoundtripped < 0) {
@@ -401,8 +407,9 @@ public class UnwrapCastInComparison
                             return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
                         }
                         return new ComparisonExpression(GREATER_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                    default:
+                        throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
-                throw new UnsupportedOperationException("Not yet implemented: " + operator);
             }
 
             return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));

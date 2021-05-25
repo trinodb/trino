@@ -36,7 +36,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static io.trino.execution.scheduler.NodeScheduler.calculateLowWatermark;
 import static io.trino.execution.scheduler.NodeScheduler.getAllNodes;
@@ -60,7 +59,6 @@ public class TopologyAwareNodeSelector
     private final int minCandidates;
     private final int maxSplitsPerNode;
     private final int maxPendingSplitsPerTask;
-    private final int maxUnacknowledgedSplitsPerTask;
     private final List<CounterStat> topologicalSplitCounters;
     private final NetworkTopology networkTopology;
 
@@ -72,7 +70,6 @@ public class TopologyAwareNodeSelector
             int minCandidates,
             int maxSplitsPerNode,
             int maxPendingSplitsPerTask,
-            int maxUnacknowledgedSplitsPerTask,
             List<CounterStat> topologicalSplitCounters,
             NetworkTopology networkTopology)
     {
@@ -83,8 +80,6 @@ public class TopologyAwareNodeSelector
         this.minCandidates = minCandidates;
         this.maxSplitsPerNode = maxSplitsPerNode;
         this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
-        this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
-        checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
         this.networkTopology = requireNonNull(networkTopology, "networkTopology is null");
     }
@@ -222,7 +217,7 @@ public class TopologyAwareNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
-        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap);
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, splits, existingTasks, bucketNodeMap);
     }
 
     @Nullable
@@ -234,13 +229,12 @@ public class TopologyAwareNodeSelector
 
         while (candidates.hasNext() && (fullCandidatesConsidered < minCandidatesWhenFull || bestQueueNotFull == null)) {
             InternalNode node = candidates.next();
-            boolean hasUnacknowledgedSplitSpace = assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask;
-            if (hasUnacknowledgedSplitSpace && assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode) {
+            if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode) {
                 return node;
             }
             fullCandidatesConsidered++;
             int totalSplitCount = assignmentStats.getQueuedSplitCountForStage(node);
-            if (hasUnacknowledgedSplitSpace && totalSplitCount < min && totalSplitCount < maxPendingSplitsPerTask) {
+            if (totalSplitCount < min && totalSplitCount < maxPendingSplitsPerTask) {
                 min = totalSplitCount;
                 bestQueueNotFull = node;
             }

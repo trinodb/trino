@@ -31,9 +31,7 @@ import static java.lang.String.format;
 public class JdbcMetadataSessionProperties
         implements SessionPropertiesProvider
 {
-    public static final String JOIN_PUSHDOWN_ENABLED = "join_pushdown_enabled";
     public static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
-    public static final String TOPN_PUSHDOWN_ENABLED = "topn_pushdown_enabled";
     public static final String DOMAIN_COMPACTION_THRESHOLD = "domain_compaction_threshold";
 
     private final List<PropertyMetadata<?>> properties;
@@ -43,11 +41,6 @@ public class JdbcMetadataSessionProperties
     {
         validateDomainCompactionThreshold(jdbcMetadataConfig.getDomainCompactionThreshold(), maxDomainCompactionThreshold);
         properties = ImmutableList.<PropertyMetadata<?>>builder()
-                .add(booleanProperty(
-                        JOIN_PUSHDOWN_ENABLED,
-                        "Enable join pushdown",
-                        jdbcMetadataConfig.isJoinPushdownEnabled(),
-                        false))
                 .add(booleanProperty(
                         AGGREGATION_PUSHDOWN_ENABLED,
                         "Enable aggregation pushdown",
@@ -59,11 +52,6 @@ public class JdbcMetadataSessionProperties
                         jdbcMetadataConfig.getDomainCompactionThreshold(),
                         value -> validateDomainCompactionThreshold(value, maxDomainCompactionThreshold),
                         false))
-                .add(booleanProperty(
-                        TOPN_PUSHDOWN_ENABLED,
-                        "Enable TopN pushdown",
-                        jdbcMetadataConfig.isTopNPushdownEnabled(),
-                        false))
                 .build();
     }
 
@@ -73,19 +61,9 @@ public class JdbcMetadataSessionProperties
         return properties;
     }
 
-    public static boolean isJoinPushdownEnabled(ConnectorSession session)
-    {
-        return session.getProperty(JOIN_PUSHDOWN_ENABLED, Boolean.class);
-    }
-
     public static boolean isAggregationPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(AGGREGATION_PUSHDOWN_ENABLED, Boolean.class);
-    }
-
-    public static boolean isTopNPushdownEnabled(ConnectorSession session)
-    {
-        return session.getProperty(TOPN_PUSHDOWN_ENABLED, Boolean.class);
     }
 
     public static int getDomainCompactionThreshold(ConnectorSession session)

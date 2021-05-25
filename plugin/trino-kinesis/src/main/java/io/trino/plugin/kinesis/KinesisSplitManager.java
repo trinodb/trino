@@ -111,7 +111,6 @@ public class KinesisSplitManager
             KinesisSplit split = new KinesisSplit(
                     kinesisTableHandle.getStreamName(),
                     kinesisTableHandle.getMessageDataFormat(),
-                    kinesisTableHandle.getCompressionCodec(),
                     shard.getShardId(),
                     shard.getSequenceNumberRange().getStartingSequenceNumber(),
                     shard.getSequenceNumberRange().getEndingSequenceNumber());

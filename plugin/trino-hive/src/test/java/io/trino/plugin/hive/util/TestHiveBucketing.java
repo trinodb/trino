@@ -361,8 +361,9 @@ public class TestHiveBucketing
                 return hashCodeOld;
             case BUCKETING_V2:
                 return ObjectInspectorUtils.getBucketHashCode(objects, objectInspectors);
+            default:
+                throw new IllegalArgumentException("Unsupported bucketing version: " + bucketingVersion);
         }
-        throw new IllegalArgumentException("Unsupported bucketing version: " + bucketingVersion);
     }
 
     private static Object toNativeContainerValue(Type type, Object hiveValue)

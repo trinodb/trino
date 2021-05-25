@@ -140,7 +140,9 @@ public class EliminateCrossJoins
                 Optional<PlanNode> firstNotVisitedNode = graph.getNodes().stream()
                         .filter(graphNode -> !visited.contains(graphNode))
                         .findFirst();
-                firstNotVisitedNode.ifPresent(nodesToVisit::add);
+                if (firstNotVisitedNode.isPresent()) {
+                    nodesToVisit.add(firstNotVisitedNode.get());
+                }
             }
         }
 

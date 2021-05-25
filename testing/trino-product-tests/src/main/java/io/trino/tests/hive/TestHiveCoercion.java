@@ -851,7 +851,8 @@ public class TestHiveCoercion
                 return onHive();
             case PRESTO:
                 return onPresto();
+            default:
+                throw new IllegalStateException("Unknown enum value " + engine);
         }
-        throw new IllegalStateException("Unknown enum value " + engine);
     }
 }

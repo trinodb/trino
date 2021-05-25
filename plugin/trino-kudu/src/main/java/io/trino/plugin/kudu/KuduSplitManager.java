@@ -77,8 +77,9 @@ public class KuduSplitManager
                 return new FixedSplitSource(splits);
             case GROUPED_SCHEDULING:
                 return new KuduBucketedSplitSource(splits);
+            default:
+                throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingStrategy);
         }
-        throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingStrategy);
     }
 
     private static CompletableFuture<?> whenCompleted(DynamicFilter dynamicFilter)

@@ -56,11 +56,6 @@ public class TableScanNode
         return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), forDelete);
     }
 
-    /*
-     * This constructor is for JSON deserialization only. Do not use.
-     * It's marked as @Deprecated to help avoid usage, and not because we plan to remove it.
-     */
-    @Deprecated
     @JsonCreator
     public TableScanNode(
             @JsonProperty("id") PlanNodeId id,
@@ -69,6 +64,7 @@ public class TableScanNode
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
             @JsonProperty("forDelete") boolean forDelete)
     {
+        // This constructor is for JSON deserialization only. Do not use.
         super(id);
         this.table = requireNonNull(table, "table is null");
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));

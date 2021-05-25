@@ -115,7 +115,7 @@ public class CursorProcessorCompiler
                 .comment("boolean finished = false;")
                 .putVariable(finishedVariable, false);
 
-        // while loop's body
+        // while loop loop body
         LabelNode done = new LabelNode("done");
         WhileLoop whileLoop = new WhileLoop()
                 .condition(constantTrue())

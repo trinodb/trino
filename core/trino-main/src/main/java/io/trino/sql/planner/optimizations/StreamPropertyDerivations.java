@@ -62,7 +62,6 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
@@ -223,8 +222,9 @@ public final class StreamPropertyDerivations
                     // partitioning, and nulls from the right are produced from a extra new stream
                     // so we will always have multiple streams.
                     return new StreamProperties(MULTIPLE, Optional.empty(), false);
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
-            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
         }
 
         private static boolean spillPossible(Session session, JoinNode node)
@@ -241,8 +241,9 @@ public final class StreamPropertyDerivations
                 case INNER:
                 case LEFT:
                     return leftProperties.translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
+                default:
+                    throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
             }
-            throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
         }
 
         @Override
@@ -257,8 +258,9 @@ public final class StreamPropertyDerivations
                     // the probe can contain nulls in any stream so we can't say anything about the
                     // partitioning but the other properties of the probe will be maintained.
                     return probeProperties.withUnspecifiedPartitioning();
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
-            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
         }
 
         //
@@ -436,13 +438,6 @@ public final class StreamPropertyDerivations
         }
 
         @Override
-        public StreamProperties visitUpdate(UpdateNode node, List<StreamProperties> inputProperties)
-        {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
-            return properties.withUnspecifiedPartitioning();
-        }
-
-        @Override
         public StreamProperties visitTableWriter(TableWriterNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
@@ -471,8 +466,9 @@ public final class StreamPropertyDerivations
                 case RIGHT:
                 case FULL:
                     return translatedProperties.unordered(true);
+                default:
+                    throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
             }
-            throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
         }
 
         @Override

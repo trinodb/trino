@@ -72,8 +72,9 @@ public enum ParquetEncoding
                     return new FixedLenByteArrayPlainValuesReader(INT96_TYPE_LENGTH);
                 case FIXED_LEN_BYTE_ARRAY:
                     return new FixedLenByteArrayPlainValuesReader(descriptor.getPrimitiveType().getTypeLength());
+                default:
+                    throw new ParquetDecodingException("Plain values reader does not support: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
             }
-            throw new ParquetDecodingException("Plain values reader does not support: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
         }
 
         @Override
@@ -81,9 +82,6 @@ public enum ParquetEncoding
                 throws IOException
         {
             switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
-                case BOOLEAN:
-                    // No dictionary encoding for boolean
-                    break;
                 case BINARY:
                     return new BinaryDictionary(dictionaryPage);
                 case FIXED_LEN_BYTE_ARRAY:
@@ -98,8 +96,9 @@ public enum ParquetEncoding
                     return new IntegerDictionary(dictionaryPage);
                 case FLOAT:
                     return new FloatDictionary(dictionaryPage);
+                default:
+                    throw new ParquetDecodingException("Dictionary encoding does not support: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
             }
-            throw new ParquetDecodingException("Dictionary encoding does not support: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
         }
     },
 
@@ -207,8 +206,10 @@ public enum ParquetEncoding
                 if (descriptor.getPrimitiveType().getPrimitiveTypeName() == BOOLEAN) {
                     return 1;
                 }
+                // fall-through
+            default:
+                throw new ParquetDecodingException("Unsupported values type: " + valuesType);
         }
-        throw new ParquetDecodingException("Unsupported values type: " + valuesType);
     }
 
     public boolean usesDictionary()
