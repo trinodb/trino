@@ -195,7 +195,7 @@ public class HiveMetadataFactory
                 trinoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
                 hiveRedirectionsProvider,
-                hiveMaterializedViewMetadataFactory.create(),
+                hiveMaterializedViewMetadataFactory.create(metastore),
                 accessControlMetadataFactory.create(metastore));
     }
 }

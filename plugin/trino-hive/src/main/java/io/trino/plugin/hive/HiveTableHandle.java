@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
+import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -35,6 +36,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class HiveTableHandle
         implements ConnectorTableHandle
@@ -432,8 +434,15 @@ public class HiveTableHandle
     {
         StringBuilder builder = new StringBuilder();
         builder.append(schemaName).append(":").append(tableName);
-        bucketHandle.ifPresent(bucket ->
-                builder.append(" bucket=").append(bucket.getReadBucketCount()));
+        bucketHandle.ifPresent(bucket -> {
+            builder.append(" buckets=").append(bucket.getReadBucketCount());
+            if (!bucket.getSortedBy().isEmpty()) {
+                builder.append(" sorted_by=")
+                        .append(bucket.getSortedBy().stream()
+                                .map(HiveUtil::sortingColumnToString)
+                                .collect(joining(", ", "[", "]")));
+            }
+        });
         return builder.toString();
     }
 }

@@ -96,6 +96,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSingleStreamPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
@@ -103,6 +104,7 @@ import static io.trino.sql.planner.optimizations.ActualProperties.Global.singleS
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
@@ -620,6 +622,15 @@ public final class PropertyDerivations
             // are computed for local exchanges.
             // TODO: implement full properties for local exchanges
             if (node.getScope() == LOCAL) {
+                if (inputProperties.size() == 1) {
+                    ActualProperties inputProperty = inputProperties.get(0);
+                    if (inputProperty.isEffectivelySingleStream() && node.getOrderingScheme().isEmpty()) {
+                        // Single stream input's local sorting and grouping properties are preserved
+                        // In case of merging exchange, it's orderingScheme takes precedence
+                        localProperties.addAll(inputProperty.getLocalProperties());
+                    }
+                }
+
                 ActualProperties.Builder builder = ActualProperties.builder();
                 builder.local(localProperties.build());
                 builder.constants(constants);
@@ -629,6 +640,13 @@ public final class PropertyDerivations
                 }
                 else if (inputProperties.stream().anyMatch(ActualProperties::isSingleNode)) {
                     builder.global(coordinatorSingleStreamPartition());
+                }
+                else if (node.getOrderingScheme().isPresent() && node.getType() == GATHER) {
+                    // Local merging exchange uses passthrough distribution
+                    builder.global(partitionedOn(
+                            FIXED_PASSTHROUGH_DISTRIBUTION,
+                            ImmutableList.of(),
+                            Optional.of(ImmutableList.of())));
                 }
 
                 return builder.build();

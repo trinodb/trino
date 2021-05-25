@@ -27,7 +27,6 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.trino.operator.aggregation.MapUnionAggregation.NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -45,7 +44,7 @@ public class TestMapUnionAggregation
     public void testSimpleWithDuplicates()
     {
         MapType mapType = mapType(DOUBLE, VARCHAR);
-        InternalAggregationFunction aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(mapType)));
+        InternalAggregationFunction aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(MapUnionAggregation.NAME), fromTypes(mapType)));
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(23.0, "aaa", 33.0, "bbb", 43.0, "ccc", 53.0, "ddd", 13.0, "eee"),
@@ -55,7 +54,7 @@ public class TestMapUnionAggregation
                         mapBlockOf(DOUBLE, VARCHAR, ImmutableMap.of(43.0, "ccc", 53.0, "ddd", 13.0, "eee"))));
 
         mapType = mapType(DOUBLE, BIGINT);
-        aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(mapType)));
+        aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(MapUnionAggregation.NAME), fromTypes(mapType)));
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(1.0, 99L, 2.0, 99L, 3.0, 99L, 4.0, 44L),
@@ -65,7 +64,7 @@ public class TestMapUnionAggregation
                         mapBlockOf(DOUBLE, BIGINT, ImmutableMap.of(1.0, 44L, 2.0, 44L, 4.0, 44L))));
 
         mapType = mapType(BOOLEAN, BIGINT);
-        aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(mapType)));
+        aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(MapUnionAggregation.NAME), fromTypes(mapType)));
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(false, 12L, true, 13L),
@@ -79,7 +78,7 @@ public class TestMapUnionAggregation
     public void testSimpleWithNulls()
     {
         MapType mapType = mapType(DOUBLE, VARCHAR);
-        InternalAggregationFunction aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(mapType)));
+        InternalAggregationFunction aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(MapUnionAggregation.NAME), fromTypes(mapType)));
 
         Map<Object, Object> expected = mapOf(23.0, "aaa", 33.0, null, 43.0, "ccc", 53.0, "ddd");
 
@@ -97,7 +96,7 @@ public class TestMapUnionAggregation
     public void testStructural()
     {
         MapType mapType = mapType(DOUBLE, new ArrayType(VARCHAR));
-        InternalAggregationFunction aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(mapType)));
+        InternalAggregationFunction aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(MapUnionAggregation.NAME), fromTypes(mapType)));
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(
@@ -129,7 +128,7 @@ public class TestMapUnionAggregation
                                         ImmutableList.of("w", "z")))));
 
         mapType = mapType(DOUBLE, mapType(VARCHAR, VARCHAR));
-        aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(mapType)));
+        aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(MapUnionAggregation.NAME), fromTypes(mapType)));
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(
@@ -154,7 +153,7 @@ public class TestMapUnionAggregation
                                         ImmutableMap.of("e", "f")))));
 
         mapType = mapType(new ArrayType(VARCHAR), DOUBLE);
-        aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(mapType)));
+        aggFunc = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(MapUnionAggregation.NAME), fromTypes(mapType)));
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(

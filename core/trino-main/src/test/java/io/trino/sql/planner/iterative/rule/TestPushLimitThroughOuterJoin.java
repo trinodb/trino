@@ -128,4 +128,88 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .doesNotFire();
     }
+
+    @Test
+    public void testLimitWithPreSortedInputsLeftJoin()
+    {
+        tester().assertThat(new PushLimitThroughOuterJoin())
+                .on(p -> {
+                    Symbol leftKey = p.symbol("leftKey");
+                    Symbol rightKey = p.symbol("rightKey");
+                    return p.limit(
+                            1,
+                            false,
+                            ImmutableList.of(rightKey),
+                            p.join(
+                                    LEFT,
+                                    p.values(5, leftKey),
+                                    p.values(5, rightKey),
+                                    new EquiJoinClause(leftKey, rightKey)));
+                })
+                .doesNotFire();
+
+        tester().assertThat(new PushLimitThroughOuterJoin())
+                .on(p -> {
+                    Symbol leftKey = p.symbol("leftKey");
+                    Symbol rightKey = p.symbol("rightKey");
+                    return p.limit(
+                            1,
+                            false,
+                            ImmutableList.of(leftKey),
+                            p.join(
+                                    LEFT,
+                                    p.values(5, leftKey),
+                                    p.values(5, rightKey),
+                                    new EquiJoinClause(leftKey, rightKey)));
+                })
+                .matches(
+                        limit(1, ImmutableList.of(), false, ImmutableList.of("leftKey"),
+                                join(
+                                        LEFT,
+                                        ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
+                                        limit(1, ImmutableList.of(), true, ImmutableList.of("leftKey"), values("leftKey")),
+                                        values("rightKey"))));
+    }
+
+    @Test
+    public void testLimitWithPreSortedInputsRightJoin()
+    {
+        tester().assertThat(new PushLimitThroughOuterJoin())
+                .on(p -> {
+                    Symbol leftKey = p.symbol("leftKey");
+                    Symbol rightKey = p.symbol("rightKey");
+                    return p.limit(
+                            1,
+                            false,
+                            ImmutableList.of(leftKey),
+                            p.join(
+                                    RIGHT,
+                                    p.values(5, leftKey),
+                                    p.values(5, rightKey),
+                                    new EquiJoinClause(leftKey, rightKey)));
+                })
+                .doesNotFire();
+
+        tester().assertThat(new PushLimitThroughOuterJoin())
+                .on(p -> {
+                    Symbol leftKey = p.symbol("leftKey");
+                    Symbol rightKey = p.symbol("rightKey");
+                    return p.limit(
+                            1,
+                            false,
+                            ImmutableList.of(rightKey),
+                            p.join(
+                                    RIGHT,
+                                    p.values(5, leftKey),
+                                    p.values(5, rightKey),
+                                    new EquiJoinClause(leftKey, rightKey)));
+                })
+                .matches(
+                        limit(1, ImmutableList.of(), false, ImmutableList.of("rightKey"),
+                                join(
+                                        RIGHT,
+                                        ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
+                                        values("leftKey"),
+                                        limit(1, ImmutableList.of(), true, ImmutableList.of("rightKey"), values("rightKey")))));
+    }
 }

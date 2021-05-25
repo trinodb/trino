@@ -11,15 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.spi.testing;
 
-import static org.apache.iceberg.FileFormat.ORC;
-
-public class TestIcebergOrcSmoke
-        extends AbstractTestIcebergSmoke
+// Must be defined in separate compilation unit from the test to effectively test private methods access
+public interface InterfaceWithPrivateMethod
 {
-    public TestIcebergOrcSmoke()
+    void foo();
+
+    default void bar()
     {
-        super(ORC);
+        defaultBar();
+    }
+
+    private static void defaultBar()
+    {
+        throw new UnsupportedOperationException("bar not implemented");
     }
 }

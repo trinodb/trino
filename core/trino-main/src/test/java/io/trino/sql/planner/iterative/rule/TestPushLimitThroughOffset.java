@@ -69,4 +69,19 @@ public class TestPushLimitThroughOffset
                 })
                 .doesNotFire();
     }
+
+    @Test
+    public void testPushdownWithPreSortedSymbolsThroughOffset()
+    {
+        tester().assertThat(new PushLimitThroughOffset())
+                .on(p -> p.limit(
+                        2,
+                        false,
+                        ImmutableList.of(p.symbol("a")),
+                        p.offset(5, p.values())))
+                .matches(
+                        offset(
+                                5,
+                                limit(7, ImmutableList.of(), false, ImmutableList.of("a"), values())));
+    }
 }

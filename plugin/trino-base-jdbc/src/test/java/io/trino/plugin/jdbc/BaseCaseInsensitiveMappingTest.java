@@ -15,10 +15,13 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logging;
+import io.trino.plugin.jdbc.mapping.IdentifierMappingModule;
 import io.trino.plugin.jdbc.mapping.SchemaMappingRule;
 import io.trino.plugin.jdbc.mapping.TableMappingRule;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.sql.SqlExecutor;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
@@ -27,6 +30,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.airlift.log.Level.WARN;
 import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.updateRuleBasedIdentifierMappingFile;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -41,6 +45,13 @@ public abstract class BaseCaseInsensitiveMappingTest
     protected abstract Path getMappingFile();
 
     protected abstract SqlExecutor onRemoteDatabase();
+
+    @BeforeClass
+    public void disableMappingRefreshVerboseLogging()
+    {
+        Logging logging = Logging.initialize();
+        logging.setLevel(IdentifierMappingModule.class.getName(), WARN);
+    }
 
     @Test
     public void testNonLowerCaseSchemaName()

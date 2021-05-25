@@ -256,6 +256,7 @@ public class QueryAssertions
         private final String query;
         private boolean ordered;
         private boolean skipTypesCheck;
+        private boolean skipResultsCorrectnessCheckForPushdown;
 
         static AssertProvider<QueryAssert> newQueryAssert(String query, QueryRunner runner, Session session)
         {
@@ -305,6 +306,12 @@ public class QueryAssertions
         public QueryAssert skippingTypesCheck()
         {
             skipTypesCheck = true;
+            return this;
+        }
+
+        public QueryAssert skipResultsCorrectnessCheckForPushdown()
+        {
+            skipResultsCorrectnessCheckForPushdown = true;
             return this;
         }
 
@@ -389,10 +396,7 @@ public class QueryAssertions
          */
         public QueryAssert isFullyPushedDown()
         {
-            checkState(!(runner instanceof LocalQueryRunner), "testIsFullyPushedDown() currently does not work with LocalQueryRunner");
-
-            // Compare the results with pushdown disabled, so that explicit matches() call is not needed
-            verifyResultsWithPushdownDisabled();
+            checkState(!(runner instanceof LocalQueryRunner), "isFullyPushedDown() currently does not work with LocalQueryRunner");
 
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
@@ -407,6 +411,10 @@ public class QueryAssertions
                                                 PlanMatchPattern.node(TableScanNode.class))));
                     });
 
+            if (!skipResultsCorrectnessCheckForPushdown) {
+                // Compare the results with pushdown disabled, so that explicit matches() call is not needed
+                verifyResultsWithPushdownDisabled();
+            }
             return this;
         }
 
@@ -437,9 +445,6 @@ public class QueryAssertions
         {
             PlanMatchPattern expectedPlan = PlanMatchPattern.anyTree(retainedSubplan);
 
-            // Compare the results with pushdown disabled, so that explicit matches() call is not needed
-            verifyResultsWithPushdownDisabled();
-
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
@@ -451,6 +456,10 @@ public class QueryAssertions
                                 expectedPlan);
                     });
 
+            if (!skipResultsCorrectnessCheckForPushdown) {
+                // Compare the results with pushdown disabled, so that explicit matches() call is not needed
+                verifyResultsWithPushdownDisabled();
+            }
             return this;
         }
 

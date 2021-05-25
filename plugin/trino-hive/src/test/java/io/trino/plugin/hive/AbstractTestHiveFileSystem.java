@@ -215,7 +215,7 @@ public abstract class AbstractTestHiveFileSystem
                 SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
-                transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
+                transactionHandle -> transactionManager.get(transactionHandle).getMetastore(),
                 hivePartitionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,

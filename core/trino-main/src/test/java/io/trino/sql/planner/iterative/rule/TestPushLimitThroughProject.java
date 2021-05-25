@@ -159,6 +159,51 @@ public class TestPushLimitThroughProject
     }
 
     @Test
+    public void testLimitWithPreSortedInputs()
+    {
+        // Do not push down order sensitive Limit if input ordering depends on symbol produced by Project
+        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
+                .on(p -> {
+                    Symbol projectedA = p.symbol("projectedA");
+                    Symbol a = p.symbol("a");
+                    Symbol projectedC = p.symbol("projectedC");
+                    Symbol b = p.symbol("b");
+                    return p.limit(
+                            1,
+                            false,
+                            ImmutableList.of(projectedC),
+                            p.project(
+                                    Assignments.of(
+                                            projectedA, new SymbolReference("a"),
+                                            projectedC, new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("b"))),
+                                    p.values(a, b)));
+                })
+                .doesNotFire();
+
+        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
+                .on(p -> {
+                    Symbol projectedA = p.symbol("projectedA");
+                    Symbol a = p.symbol("a");
+                    Symbol projectedC = p.symbol("projectedC");
+                    Symbol b = p.symbol("b");
+                    return p.limit(
+                            1,
+                            ImmutableList.of(),
+                            true,
+                            ImmutableList.of(projectedA),
+                            p.project(
+                                    Assignments.of(
+                                            projectedA, new SymbolReference("a"),
+                                            projectedC, new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("b"))),
+                                    p.values(a, b)));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("projectedA", new ExpressionMatcher("a"), "projectedC", new ExpressionMatcher("a + b")),
+                                limit(1, ImmutableList.of(), true, ImmutableList.of("a"), values("a", "b"))));
+    }
+
+    @Test
     public void testPushDownLimitThroughOverlappingDereferences()
     {
         RowType rowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));

@@ -22,6 +22,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -78,6 +79,31 @@ public class TestPruneLimitColumns
                                 limit(
                                         1,
                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),
+                                        strictProject(
+                                                ImmutableMap.of("a", expression("a")),
+                                                values("a", "b")))));
+    }
+
+    @Test
+    public void testDoNotPrunePreSortedInputSymbols()
+    {
+        tester().assertThat(new PruneLimitColumns())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    List<Symbol> orderBy = ImmutableList.of(a);
+                    return p.project(
+                            Assignments.of(),
+                            p.limit(1, false, orderBy, p.values(a, b)));
+                })
+                .matches(
+                        strictProject(
+                                ImmutableMap.of(),
+                                limit(
+                                        1,
+                                        ImmutableList.of(),
+                                        false,
+                                        ImmutableList.of("a"),
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a")),
                                                 values("a", "b")))));

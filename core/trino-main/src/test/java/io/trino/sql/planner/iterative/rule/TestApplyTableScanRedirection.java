@@ -261,8 +261,8 @@ public class TestApplyTableScanRedirection
                         new CatalogSchemaTableName(MOCK_CATALOG, DESTINATION_TABLE),
                         redirectionMapping,
                         ((MockConnectorTableHandle) handle).getConstraint()
-                                .transform(MockConnectorColumnHandle.class::cast)
-                                .transform(redirectionMapping::get)));
+                                .transformKeys(MockConnectorColumnHandle.class::cast)
+                                .transformKeys(redirectionMapping::get)));
     }
 
     private MockConnectorFactory createMockFactory(Optional<MockConnectorFactory.ApplyTableScanRedirect> applyTableScanRedirect)

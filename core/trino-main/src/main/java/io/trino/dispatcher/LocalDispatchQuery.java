@@ -320,5 +320,9 @@ public class LocalDispatchQuery
         catch (Exception ignored) {
             return Optional.empty();
         }
+        catch (Error e) {
+            log.error(e, "Unhandled Error stored in queryExecutionFuture");
+            return Optional.empty();
+        }
     }
 }

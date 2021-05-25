@@ -283,10 +283,13 @@ public class AddLocalExchanges
             }
 
             if (node.isPartial()) {
-                return planAndEnforceChildren(
-                        node,
-                        parentPreferences.withoutPreference().withDefaultParallelism(session),
-                        parentPreferences.withDefaultParallelism(session));
+                StreamPreferredProperties requiredProperties = parentPreferences.withoutPreference().withDefaultParallelism(session);
+                StreamPreferredProperties preferredProperties = parentPreferences.withDefaultParallelism(session);
+                if (node.requiresPreSortedInputs()) {
+                    requiredProperties = requiredProperties.withOrderSensitivity();
+                    preferredProperties = preferredProperties.withOrderSensitivity();
+                }
+                return planAndEnforceChildren(node, requiredProperties, preferredProperties);
             }
 
             // final limit requires that all data be in one stream

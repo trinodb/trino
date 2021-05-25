@@ -20,6 +20,9 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
+import static io.trino.SystemSessionProperties.USE_PARTIAL_DISTINCT_LIMIT;
+import static io.trino.SystemSessionProperties.USE_PARTIAL_TOPN;
 import static io.trino.tpch.TpchTable.NATION;
 
 public class TestShowStats
@@ -335,6 +338,24 @@ public class TestShowStats
     }
 
     @Test
+    public void testShowStatsWithAggregation()
+    {
+        // TODO - row count should be 1 - https://github.com/trinodb/trino/issues/6323
+        assertQuery(
+                "SHOW STATS FOR (SELECT count(*) AS x FROM orders)",
+                "VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
+
+        assertQuery(
+                sessionWith(getSession(), PREFER_PARTIAL_AGGREGATION, "false"),
+                "SHOW STATS FOR (SELECT count(*) AS x FROM orders)",
+                "VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, 1, null, null)");
+    }
+
+    @Test
     public void testShowStatsWithGroupBy()
     {
         // TODO calculate row count - https://github.com/trinodb/trino/issues/6323
@@ -343,6 +364,13 @@ public class TestShowStats
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
                         "   (null, null, null, null, null, null, null)");
+
+        assertQuery(
+                sessionWith(getSession(), PREFER_PARTIAL_AGGREGATION, "false"),
+                "SHOW STATS FOR (SELECT avg(totalprice) AS x FROM orders GROUP BY orderkey)",
+                "VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, 15000, null, null)");
     }
 
     @Test
@@ -353,6 +381,13 @@ public class TestShowStats
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
                         "   (null, null, null, null, null, null, null)");
+
+        assertQuery(
+                sessionWith(getSession(), PREFER_PARTIAL_AGGREGATION, "false"),
+                "SHOW STATS FOR (SELECT count(nationkey) AS x FROM nation_partitioned GROUP BY regionkey HAVING regionkey > 0)",
+                "VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, 4, null, null)");
     }
 
     @Test
@@ -372,12 +407,92 @@ public class TestShowStats
                         "   ('shippriority', null, null, null, null, null, null), " +
                         "   ('comment', null, null, null, null, null, null), " +
                         "   (null, null, null, null, null, null, null)");
+
+        assertQuery(
+                sessionWith(getSession(), PREFER_PARTIAL_AGGREGATION, "false"),
+                "SHOW STATS FOR (SELECT DISTINCT orderkey, custkey, orderstatus, totalprice, clerk, shippriority, comment FROM orders)",
+                "VALUES " +
+                        "   ('orderkey', null, 15000, 0, null, 1, 60000), " +
+                        "   ('custkey', null, 990, 0, null, 1, 1499), " +
+                        "   ('orderstatus', 15000, 3, 0, null, null, null), " +
+                        "   ('totalprice', null, 15000, 0, null, 874.89, 466001.28), " +
+                        "   ('clerk', 225000, 995, 0, null, null, null), " +
+                        "   ('shippriority', null, 1, 0, null, 0, 0), " +
+                        "   ('comment', 727364, 15000, 0, null, null, null), " +
+                        "   (null, null, null, null, 15000, null, null)");
+
         // TODO calculate row count - https://github.com/trinodb/trino/issues/6323
         assertQuery(
                 "SHOW STATS FOR (SELECT DISTINCT regionkey FROM region)",
                 "VALUES " +
                         "   ('regionkey', null, null, null, null, null, null), " +
                         "   (null, null, null, null, null, null, null)");
+
+        assertQuery(
+                sessionWith(getSession(), PREFER_PARTIAL_AGGREGATION, "false"),
+                "SHOW STATS FOR (SELECT DISTINCT regionkey FROM region)",
+                "VALUES " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 5, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithDistinctLimit()
+    {
+        // TODO calculate row count - https://github.com/trinodb/trino/issues/6323
+        assertQuery(
+                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
+                "SHOW STATS FOR (SELECT * FROM (SELECT DISTINCT regionkey FROM nation LIMIT 3))",
+                "VALUES " +
+                        "   ('regionkey', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
+
+        assertQuery(
+                sessionWith(getSession(), USE_PARTIAL_DISTINCT_LIMIT, "false"),
+                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
+                "SHOW STATS FOR (SELECT * FROM (SELECT DISTINCT regionkey FROM nation LIMIT 3))",
+                "VALUES " +
+                        "   ('regionkey', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithLimit()
+    {
+        assertQuery(
+                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
+                "SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation LIMIT 7))",
+                "VALUES " +
+                        "   ('nationkey', null, 7, 0, null, 0, 24), " +
+                        "   ('name', 49.56, 7, 0, null, null, null), " +
+                        "   ('comment', 519.96, 7, 0, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 7, null, null)");
+    }
+
+    @Test
+    public void testShowStatsWithTopN()
+    {
+        assertQuery(
+                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
+                "SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 7))",
+                "VALUES " +
+                        "   ('nationkey', null, null, null, null, null, null), " +
+                        "   ('name', null, null, null, null, null, null), " +
+                        "   ('comment', null, null, null, null, null, null), " +
+                        "   ('regionkey', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
+
+        assertQuery(
+                sessionWith(getSession(), USE_PARTIAL_TOPN, "false"),
+                // TODO (https://github.com/trinodb/trino/pull/8026) don't use subquery
+                "SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 7))",
+                "VALUES " +
+                        "   ('nationkey', null, 7, 0, null, 0, 24), " +
+                        "   ('name', 49.56, 7, 0, null, null, null), " +
+                        "   ('comment', 519.96, 7, 0, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 7, null, null)");
     }
 
     @Test
@@ -388,12 +503,6 @@ public class TestShowStats
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
                         "   (null, null, null, null, 15000, null, null)");
-        // TODO - row count should be 1 - https://github.com/trinodb/trino/issues/6323
-        assertQuery(
-                "SHOW STATS FOR (SELECT count(*) AS x FROM orders)",
-                "VALUES " +
-                        "   ('x', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
     }
 
     @Test
@@ -454,5 +563,12 @@ public class TestShowStats
                         "   ('regionkey', null, 1, 0, null, 0, 0), " +
                         "   (null, null, null, null, 1, null, null)");
         assertUpdate("DROP VIEW nation_view");
+    }
+
+    private static Session sessionWith(Session base, String property, String value)
+    {
+        return Session.builder(base)
+                .setSystemProperty(property, value)
+                .build();
     }
 }

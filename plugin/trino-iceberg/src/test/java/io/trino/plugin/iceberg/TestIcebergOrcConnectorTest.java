@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.iceberg;
 
-import static org.apache.iceberg.FileFormat.PARQUET;
+import static org.apache.iceberg.FileFormat.ORC;
 
-public class TestIcebergParquetSmoke
-        extends AbstractTestIcebergSmoke
+public class TestIcebergOrcConnectorTest
+        extends AbstractTestIcebergConnectorTest
 {
-    public TestIcebergParquetSmoke()
+    public TestIcebergOrcConnectorTest()
     {
-        super(PARQUET);
+        super(ORC);
     }
 }

@@ -371,7 +371,7 @@ public class IcebergMetadata
                 // still keeps predicate and discretePredicates evaluation the same on every row of the table. This
                 // can be further optimized by intersecting with partition values at the cost of iterating
                 // over all tableScan.planFiles() and caching partition values in table handle.
-                enforcedPredicate.transform(ColumnHandle.class::cast),
+                enforcedPredicate.transformKeys(ColumnHandle.class::cast),
                 // TODO: implement table partitioning
                 Optional.empty(),
                 Optional.empty(),
@@ -800,12 +800,12 @@ public class IcebergMetadata
         // TODO: Avoid enforcing the constraint when partition filters have large IN expressions, since iceberg cannot
         // support it. Such large expressions cannot be simplified since simplification changes the filtered set.
         TupleDomain<IcebergColumnHandle> newEnforcedConstraint = constraint.getSummary()
-                .transform(IcebergColumnHandle.class::cast)
+                .transformKeys(IcebergColumnHandle.class::cast)
                 .filter(isIdentityPartition)
                 .intersect(table.getEnforcedPredicate());
 
         TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = constraint.getSummary()
-                .transform(IcebergColumnHandle.class::cast)
+                .transformKeys(IcebergColumnHandle.class::cast)
                 .filter(isIdentityPartition.negate())
                 .intersect(table.getUnenforcedPredicate());
 
@@ -821,7 +821,7 @@ public class IcebergMetadata
                         table.getSnapshotId(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint),
-                newUnenforcedConstraint.transform(ColumnHandle.class::cast)));
+                newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast)));
     }
 
     private static Set<Integer> identityPartitionColumnsInAllSpecs(org.apache.iceberg.Table table)

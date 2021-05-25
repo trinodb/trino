@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.jdbc;
 
-import io.trino.jdbc.TrinoDriver;
+package io.trino.plugin.hive;
 
-/**
- * @deprecated Use {@link TrinoDriver} instead.
- */
-@Deprecated
-public class PrestoDriver
-        extends TrinoDriver {}
+import io.trino.spi.session.PropertyMetadata;
+
+import java.util.List;
+
+public interface HiveMaterializedViewPropertiesProvider
+{
+    List<PropertyMetadata<?>> getMaterializedViewProperties();
+}

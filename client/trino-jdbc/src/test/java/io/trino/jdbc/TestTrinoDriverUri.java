@@ -167,6 +167,9 @@ public class TestTrinoDriverUri
 
         // empty extra credentials
         assertInvalid("jdbc:trino://localhost:8080?extraCredentials=", "Connection property 'extraCredentials' value is empty");
+
+        // legacy url
+        assertInvalid("jdbc:presto://localhost:8080", "Invalid JDBC URL: jdbc:presto://localhost:8080");
     }
 
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' is required")
@@ -369,14 +372,6 @@ public class TestTrinoDriverUri
         TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/catalog");
         assertThat(parameters.getCatalog()).isPresent();
         assertThat(parameters.getSchema()).isEmpty();
-    }
-
-    @Test
-    public void testLegacyUrl()
-            throws SQLException
-    {
-        TrinoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080");
-        assertUriPortScheme(parameters, 8080, "http");
     }
 
     private static void assertUriPortScheme(TrinoDriverUri parameters, int port, String scheme)
