@@ -36,7 +36,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +49,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Arrays.asList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -77,7 +77,7 @@ public class TestShardCleaner
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 
-        temporary = Files.createTempDirectory("tmp").toFile();
+        temporary = createTempDirectory("tmp").toFile();
         File directory = new File(temporary, "data");
         storageService = new FileStorageService(directory);
         storageService.start();

@@ -28,7 +28,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -38,6 +37,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 
 public class TestMetadataQueryOptimization
         extends BasePushdownPlanTest
@@ -47,18 +47,13 @@ public class TestMetadataQueryOptimization
     private File baseDir;
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
-    {
+    protected LocalQueryRunner createLocalQueryRunner() throws IOException {
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema(SCHEMA_NAME)
                 .build();
 
-        try {
-            baseDir = Files.createTempDirectory("tmp").toFile();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        baseDir = createTempDirectory("tmp").toFile();
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
 

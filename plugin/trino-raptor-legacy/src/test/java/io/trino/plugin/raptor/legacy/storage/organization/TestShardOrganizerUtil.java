@@ -38,7 +38,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,6 +60,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.nio.file.Files.createTempDirectory;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -86,7 +86,7 @@ public class TestShardOrganizerUtil
         dbi.registerMapper(new TableColumn.Mapper(new InternalTypeManager(createTestMetadataManager(), new TypeOperators())));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
-        dataDir = Files.createTempDirectory("tmp").toFile();
+        dataDir = createTempDirectory("tmp").toFile();
 
         metadata = new RaptorMetadata(dbi, createShardManager(dbi));
 

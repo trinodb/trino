@@ -34,6 +34,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -62,8 +63,7 @@ public class BasePlanTest
     }
 
     // Subclasses should implement this method to inject their own query runners
-    protected LocalQueryRunner createLocalQueryRunner()
-    {
+    protected LocalQueryRunner createLocalQueryRunner() throws IOException {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
@@ -81,6 +81,7 @@ public class BasePlanTest
 
     @BeforeClass
     public final void initPlanTest()
+            throws IOException
     {
         this.queryRunner = createLocalQueryRunner();
     }

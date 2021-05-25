@@ -25,29 +25,38 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.io.Resources.toByteArray;
 import static io.trino.plugin.atop.AtopErrorCode.ATOP_READ_TIMEOUT;
 import static io.trino.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.nio.file.Files.createTempDirectory;
 
 public class TestAtopHang
 {
+    private File tempPath;
     private QueryRunner queryRunner;
 
     @BeforeClass
     public void setUp()
             throws Exception
     {
-        File tempPath = Files.createTempDirectory("tmp").toFile();
+        tempPath = createTempDirectory("tmp").toFile();
         copyExecutable("hanging_atop.sh", tempPath);
         queryRunner = createQueryRunner(ImmutableMap.of("atop.executable-path", tempPath + "/hanging_atop.sh", "atop.executable-read-timeout", "1s"), AtopProcessFactory.class);
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
+            throws IOException
     {
         queryRunner.close();
         queryRunner = null;
+
+        if(tempPath != null) {
+            deleteRecursively(tempPath.toPath(), ALLOW_INSECURE);
+        }
     }
 
     @Test(timeOut = 60_000)

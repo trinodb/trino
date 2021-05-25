@@ -19,12 +19,12 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.UUID;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static org.testng.Assert.assertEquals;
 
 public class TestFileBackupStore
@@ -34,7 +34,7 @@ public class TestFileBackupStore
     public void setup()
             throws IOException
     {
-        temporary = Files.createTempDirectory("tmp").toFile();
+        temporary = createTempDirectory("tmp").toFile();
         store = new FileBackupStore(new File(temporary, "backup"));
         store.start();
     }

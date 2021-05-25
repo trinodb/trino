@@ -54,7 +54,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Collection;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -72,6 +71,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.DateTimeUtils.parseDate;
+import static java.nio.file.Files.createTempDirectory;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -94,7 +94,7 @@ public class TestRaptorConnector
         dummyHandle = dbi.open();
         metadataDao = dbi.onDemand(MetadataDao.class);
         createTablesWithRetry(dbi);
-        dataDir = Files.createTempDirectory("tmp").toFile();
+        dataDir = createTempDirectory("tmp").toFile();
 
         RaptorConnectorId connectorId = new RaptorConnectorId("test");
         NodeManager nodeManager = new TestingNodeManager();

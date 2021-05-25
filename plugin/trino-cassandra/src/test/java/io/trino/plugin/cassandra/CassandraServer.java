@@ -37,6 +37,7 @@ import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -102,7 +103,7 @@ public class CassandraServer
     {
         String original = Resources.toString(getResource("cu-cassandra.yaml"), UTF_8);
 
-        File tempDirFile = Files.createTempDirectory("tmp").toFile();
+        File tempDirFile = createTempDirectory("tmp").toFile();
         tempDirFile.deleteOnExit();
         Path tmpDirPath = tempDirFile.toPath();
         Path dataDir = tmpDirPath.resolve("data");

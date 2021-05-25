@@ -25,7 +25,6 @@ import io.trino.testing.LocalQueryRunner;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Map;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -33,6 +32,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveBenchmarkQueryRunner
@@ -43,7 +43,7 @@ public final class HiveBenchmarkQueryRunner
             throws IOException
     {
         String outputDirectory = requireNonNull(System.getProperty("outputDirectory"), "Must specify -DoutputDirectory=...");
-        File tempDir = Files.createTempDirectory("tmp").toFile();
+        File tempDir = createTempDirectory("tmp").toFile();
         try (LocalQueryRunner localQueryRunner = createLocalQueryRunner(tempDir)) {
             new BenchmarkSuite(localQueryRunner, outputDirectory).runAllBenchmarks();
         }

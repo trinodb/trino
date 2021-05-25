@@ -32,10 +32,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import javax.inject.Singleton;
-
 import java.io.IOException;
 import java.net.URI;
-import java.nio.file.Files;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -43,6 +41,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.override;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static java.nio.file.Files.createTempDirectory;
 
 @Test(singleThreaded = true)
 public class TestHttpBackupStore
@@ -54,7 +53,7 @@ public class TestHttpBackupStore
     public void setup()
             throws IOException
     {
-        temporary = Files.createTempDirectory("tmp").toFile();
+        temporary = createTempDirectory("tmp").toFile();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("backup.http.uri", "http://localhost:8080")

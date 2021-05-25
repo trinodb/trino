@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +37,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -61,7 +61,7 @@ public class TestBackupManager
     public void setup()
             throws IOException
     {
-        temporary = Files.createTempDirectory("tmp").toFile();
+        temporary = createTempDirectory("tmp").toFile();
 
         FileBackupStore fileStore = new FileBackupStore(new File(temporary, "backup"));
         fileStore.start();

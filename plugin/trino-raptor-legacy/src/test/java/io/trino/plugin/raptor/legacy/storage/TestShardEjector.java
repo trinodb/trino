@@ -38,7 +38,6 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -52,6 +51,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.stream.Collectors.toSet;
@@ -77,7 +77,7 @@ public class TestShardEjector
         createTablesWithRetry(dbi);
         shardManager = createShardManager(dbi);
 
-        dataDir = Files.createTempDirectory("tmp").toFile();
+        dataDir = createTempDirectory("tmp").toFile();
         storageService = new FileStorageService(dataDir);
         storageService.start();
     }

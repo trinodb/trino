@@ -34,7 +34,6 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
 import java.util.BitSet;
 import java.util.List;
 
@@ -55,6 +54,7 @@ import static io.trino.testing.StructuralTestUtil.arrayBlockOf;
 import static io.trino.testing.StructuralTestUtil.arrayBlocksEqual;
 import static io.trino.testing.StructuralTestUtil.mapBlockOf;
 import static io.trino.testing.StructuralTestUtil.mapBlocksEqual;
+import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
@@ -73,7 +73,7 @@ public class TestOrcFileRewriter
     public void setup()
             throws IOException
     {
-        temporary = Files.createTempDirectory("tmp").toFile();
+        temporary = createTempDirectory("tmp").toFile();
     }
 
     @AfterClass(alwaysRun = true)

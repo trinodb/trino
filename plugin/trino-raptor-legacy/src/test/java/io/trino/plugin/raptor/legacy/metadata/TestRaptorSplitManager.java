@@ -48,7 +48,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -69,6 +68,7 @@ import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITION
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -98,7 +98,7 @@ public class TestRaptorSplitManager
         dbi.registerMapper(new TableColumn.Mapper(new InternalTypeManager(createTestMetadataManager(), new TypeOperators())));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
-        temporary = Files.createTempDirectory("tmp").toFile();
+        temporary = createTempDirectory("tmp").toFile();
         AssignmentLimiter assignmentLimiter = new AssignmentLimiter(ImmutableSet::of, systemTicker(), new MetadataConfig());
         shardManager = new DatabaseShardManager(dbi, new DaoSupplier<>(dbi, ShardDao.class), ImmutableSet::of, assignmentLimiter, systemTicker(), new Duration(0, MINUTES));
         TestingNodeManager nodeManager = new TestingNodeManager();

@@ -58,7 +58,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
@@ -99,6 +98,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -141,7 +141,7 @@ public class TestRaptorStorageManager
     public void setup()
             throws IOException
     {
-        temporary = Files.createTempDirectory("tmp").toFile();
+        temporary = createTempDirectory("tmp").toFile();
         File directory = new File(temporary, "data");
         storageService = new FileStorageService(directory);
         storageService.start();

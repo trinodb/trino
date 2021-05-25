@@ -81,6 +81,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Arrays.asList;
 
 public class TestConnectorPushdownRulesWithHive
@@ -101,12 +102,9 @@ public class TestConnectorPushdownRulesWithHive
 
     @Override
     protected Optional<LocalQueryRunner> createLocalQueryRunner()
+            throws IOException
     {
-        try {
-            baseDir = Files.createTempDirectory("tmp").toFile();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        baseDir = createTempDirectory("tmp").toFile();
         HdfsConfig config = new HdfsConfig();
         HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());

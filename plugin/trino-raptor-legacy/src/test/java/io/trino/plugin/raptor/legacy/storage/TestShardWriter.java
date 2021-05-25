@@ -33,7 +33,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.List;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -54,6 +53,7 @@ import static io.trino.testing.StructuralTestUtil.arrayBlockOf;
 import static io.trino.testing.StructuralTestUtil.arrayBlocksEqual;
 import static io.trino.testing.StructuralTestUtil.mapBlockOf;
 import static io.trino.testing.StructuralTestUtil.mapBlocksEqual;
+import static java.nio.file.Files.createTempDirectory;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -69,7 +69,7 @@ public class TestShardWriter
     public void setup()
             throws IOException
     {
-        directory = Files.createTempDirectory("tmp").toFile();
+        directory = createTempDirectory("tmp").toFile();
     }
 
     @AfterClass(alwaysRun = true)

@@ -27,7 +27,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,6 +35,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SuppressWarnings("UnstableApiUsage")
@@ -62,7 +62,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
                 .setNodeCount(1)
                 .build();
         queryRunner.installPlugin(new HiveHadoop2Plugin());
-        temporaryDirectory = Files.createTempDirectory("tmp").toFile();
+        temporaryDirectory = createTempDirectory("tmp").toFile();
         queryRunner.createCatalog(CATALOG, "hive-hadoop2", ImmutableMap.of(
                 "hive.metastore", "file",
                 "hive.metastore.catalog.dir", temporaryDirectory.toURI().toString(),
@@ -78,7 +78,10 @@ public class TestCachingHiveMetastoreWithQueryRunner
             throws IOException
     {
         queryRunner.close();
-        deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
+
+        if(temporaryDirectory != null) {
+            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
+        }
     }
 
     private static Session getTestSession(Identity identity)

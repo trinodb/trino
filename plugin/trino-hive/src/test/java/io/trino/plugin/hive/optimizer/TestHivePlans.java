@@ -41,7 +41,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 
@@ -62,6 +61,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.nio.file.Files.createTempDirectory;
 
 public class TestHivePlans
         extends BasePlanTest
@@ -78,12 +78,9 @@ public class TestHivePlans
 
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
+            throws IOException
     {
-        try {
-            baseDir = Files.createTempDirectory("tmp").toFile();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        baseDir = createTempDirectory("tmp").toFile();
         HdfsConfig config = new HdfsConfig();
         HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
