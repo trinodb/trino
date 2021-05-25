@@ -30,7 +30,7 @@ databases:
     host: localhost
     port: 8080
     server_address: http://${databases.presto.host}:${databases.presto.port}
-    jdbc_driver_class: io.prestosql.jdbc.PrestoDriver
+    jdbc_driver_class: io.trino.jdbc.TrinoDriver
     jdbc_url: jdbc:trino://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}
     jdbc_user: hive
     jdbc_password: "***empty***"
