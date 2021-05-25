@@ -51,8 +51,8 @@ public class TestSqlServerCatalogOverride
         sqlServer = new TestingSqlServer();
         return createStarburstSqlServerQueryRunner(
                 sqlServer,
-                true,
                 identity(),
+                true,
                 ImmutableMap.of("sqlserver.override-catalog.enabled", "true"),
                 ImmutableList.of());
     }

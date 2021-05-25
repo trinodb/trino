@@ -37,8 +37,8 @@ public class TestSqlServerImpersonationWithAuthToLocal
         sqlServer = new TestingSqlServer();
         return createStarburstSqlServerQueryRunner(
                 sqlServer,
-                true,
                 session -> createSession(ALICE_USER + "/admin@company.com"),
+                true,
                 ImmutableMap.of(
                         "sqlserver.impersonation.enabled", "true",
                         "auth-to-local.config-file", getResource("auth-to-local.json").getPath()),

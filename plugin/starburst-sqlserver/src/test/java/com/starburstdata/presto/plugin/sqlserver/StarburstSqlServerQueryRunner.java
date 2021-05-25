@@ -62,16 +62,16 @@ public final class StarburstSqlServerQueryRunner
     {
         return createStarburstSqlServerQueryRunner(
                 testingSqlServer,
-                unlockEnterpriseFeatures,
                 Function.identity(),
+                unlockEnterpriseFeatures,
                 connectorProperties,
                 tables);
     }
 
     public static DistributedQueryRunner createStarburstSqlServerQueryRunner(
             TestingSqlServer sqlServer,
-            boolean unlockEnterpriseFeatures,
             Function<Session, Session> sessionModifier,
+            boolean unlockEnterpriseFeatures,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
