@@ -23,9 +23,13 @@ import javax.inject.Inject;
 import javax.naming.AuthenticationException;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
+import javax.naming.directory.Attribute;
+import javax.naming.directory.Attributes;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
+import javax.naming.ldap.LdapName;
+import javax.naming.ldap.Rdn;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
@@ -36,6 +40,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -49,16 +54,16 @@ import static javax.naming.Context.SECURITY_AUTHENTICATION;
 import static javax.naming.Context.SECURITY_CREDENTIALS;
 import static javax.naming.Context.SECURITY_PRINCIPAL;
 
-public class JdkLdapAuthenticatorClient
-        implements LdapAuthenticatorClient
+public class JdkLdapClient
+        implements LdapClient
 {
-    private static final Logger log = Logger.get(JdkLdapAuthenticatorClient.class);
+    private static final Logger log = Logger.get(JdkLdapClient.class);
 
     private final Map<String, String> basicEnvironment;
     private final Optional<SSLContext> sslContext;
 
     @Inject
-    public JdkLdapAuthenticatorClient(LdapConfig ldapConfig)
+    public JdkLdapClient(LdapConfig ldapConfig)
     {
         String ldapUrl = requireNonNull(ldapConfig.getLdapUrl(), "ldapUrl is null");
         if (ldapUrl.startsWith("ldap://")) {
@@ -72,7 +77,7 @@ public class JdkLdapAuthenticatorClient
                 .build();
 
         this.sslContext = Optional.ofNullable(ldapConfig.getTrustCertificate())
-                .map(JdkLdapAuthenticatorClient::createSslContext);
+                .map(JdkLdapClient::createSslContext);
     }
 
     @Override
@@ -106,11 +111,44 @@ public class JdkLdapAuthenticatorClient
         }
     }
 
+    @Override
+    public Set<String> lookupUserGroups(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword)
+            throws NamingException
+    {
+        try (CloseableContext context = createUserDirContext(contextUserDistinguishedName, contextPassword); CloseableSearchResults search = searchContext(searchBase, searchFilter, context)) {
+            ImmutableSet.Builder<String> groupNames = ImmutableSet.builder();
+            if (search.hasMore()) {
+                Attributes attributes = search.next().getAttributes();
+                Attribute memberOfAttribute = attributes.get("memberof");
+                if (memberOfAttribute == null) {
+                    log.error("No memberOf attribute found... The ldap group provider requires the memberOf overlay to be enabled.");
+                }
+                else {
+                    for (Enumeration groupDns = memberOfAttribute.getAll(); groupDns.hasMoreElements(); ) {
+                        String dn = groupDns.nextElement().toString();
+                        LdapName ln = new LdapName(dn);
+                        for (Rdn rdn : ln.getRdns()) {
+                            if (rdn.getType().equalsIgnoreCase("cn")) {
+                                groupNames.add(rdn.getValue().toString());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            return groupNames.build();
+        }
+    }
+
     private static CloseableSearchResults searchContext(String searchBase, String searchFilter, CloseableContext context)
             throws NamingException
     {
         SearchControls searchControls = new SearchControls();
         searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+        searchControls.setReturningAttributes(new String[]
+        {
+                "memberOf"
+        });
         return new CloseableSearchResults(context.search(searchBase, searchFilter, searchControls));
     }
 
