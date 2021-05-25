@@ -99,7 +99,6 @@ public final class TrinoDriverUri
 {
     private static final String JDBC_URL_PREFIX = "jdbc:";
     private static final String JDBC_URL_START = JDBC_URL_PREFIX + "trino:";
-    private static final String LEGACY_JDBC_URL_START = JDBC_URL_PREFIX + "presto:";
 
     private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();
     private static final Splitter ARG_SPLITTER = Splitter.on('=').limit(2);
@@ -144,7 +143,7 @@ public final class TrinoDriverUri
 
     public static boolean acceptsURL(String url)
     {
-        return url.startsWith(JDBC_URL_START) || url.startsWith(LEGACY_JDBC_URL_START);
+        return url.startsWith(JDBC_URL_START);
     }
 
     public URI getJdbcUri()
@@ -358,11 +357,11 @@ public final class TrinoDriverUri
     private static URI parseDriverUrl(String url)
             throws SQLException
     {
-        if (!url.startsWith(JDBC_URL_START) && !url.startsWith(LEGACY_JDBC_URL_START)) {
+        if (!url.startsWith(JDBC_URL_START)) {
             throw new SQLException("Invalid JDBC URL: " + url);
         }
 
-        if (url.equals(JDBC_URL_START) || url.equals(LEGACY_JDBC_URL_START)) {
+        if (url.equals(JDBC_URL_START)) {
             throw new SQLException("Empty JDBC URL: " + url);
         }
 
