@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.util.ConfigurationLoader.loadPropertiesFrom;
 import static java.util.Objects.requireNonNull;
 
 public class PasswordAuthenticatorManager
