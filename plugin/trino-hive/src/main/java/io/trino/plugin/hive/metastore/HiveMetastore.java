@@ -35,9 +35,9 @@ import java.util.function.Function;
 
 public interface HiveMetastore
 {
-    Optional<Database> getDatabase(String databaseName);
+    Optional<Database> getDatabase(HiveIdentity identity, String databaseName);
 
-    List<String> getAllDatabases();
+    List<String> getAllDatabases(HiveIdentity identity);
 
     Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName);
 
@@ -51,11 +51,11 @@ public interface HiveMetastore
 
     void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
-    List<String> getAllTables(String databaseName);
+    List<String> getAllTables(HiveIdentity identity, String databaseName);
 
-    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
+    List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue);
 
-    List<String> getAllViews(String databaseName);
+    List<String> getAllViews(HiveIdentity identity, String databaseName);
 
     void createDatabase(HiveIdentity identity, Database database);
 

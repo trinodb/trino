@@ -228,7 +228,7 @@ public class TestHiveGlueMetastore
         GlueMetastoreStats stats = metastore.getStats();
         double initialCallCount = stats.getGetAllDatabases().getTime().getAllTime().getCount();
         long initialFailureCount = stats.getGetAllDatabases().getTotalFailures().getTotalCount();
-        getMetastoreClient().getAllDatabases();
+        getMetastoreClient().getAllDatabases(HIVE_CONTEXT);
         assertEquals(stats.getGetAllDatabases().getTime().getAllTime().getCount(), initialCallCount + 1.0);
         assertTrue(stats.getGetAllDatabases().getTime().getAllTime().getAvg() > 0.0);
         assertEquals(stats.getGetAllDatabases().getTotalFailures().getTotalCount(), initialFailureCount);
@@ -240,7 +240,7 @@ public class TestHiveGlueMetastore
         GlueHiveMetastore metastore = (GlueHiveMetastore) getMetastoreClient();
         GlueMetastoreStats stats = metastore.getStats();
         long initialFailureCount = stats.getGetDatabase().getTotalFailures().getTotalCount();
-        assertThatThrownBy(() -> getMetastoreClient().getDatabase(null))
+        assertThatThrownBy(() -> getMetastoreClient().getDatabase(HIVE_CONTEXT, null))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageStartingWith("Database name cannot be equal to null or empty");
         assertEquals(stats.getGetDatabase().getTotalFailures().getTotalCount(), initialFailureCount + 1);

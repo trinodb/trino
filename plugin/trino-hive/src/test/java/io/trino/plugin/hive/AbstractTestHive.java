@@ -2744,7 +2744,7 @@ public abstract class AbstractTestHive
         table.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(PARQUET))
                 .setLocation(getTableDefaultLocation(
-                        metastoreClient.getDatabase(tableName.getSchemaName()).orElseThrow(),
+                        metastoreClient.getDatabase(identity, tableName.getSchemaName()).orElseThrow(),
                         new HdfsContext(session.getIdentity()),
                         hdfsEnvironment,
                         tableName.getSchemaName(),

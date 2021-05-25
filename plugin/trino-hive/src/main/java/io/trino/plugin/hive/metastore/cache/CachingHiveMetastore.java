@@ -102,14 +102,14 @@ public class CachingHiveMetastore
     }
 
     protected final HiveMetastore delegate;
-    private final LoadingCache<String, Optional<Database>> databaseCache;
-    private final LoadingCache<String, List<String>> databaseNamesCache;
+    private final LoadingCache<WithIdentity<String>, Optional<Database>> databaseCache;
+    private final LoadingCache<WithIdentity<String>, List<String>> databaseNamesCache;
     private final LoadingCache<WithIdentity<HiveTableName>, Optional<Table>> tableCache;
-    private final LoadingCache<String, List<String>> tableNamesCache;
-    private final LoadingCache<TablesWithParameterCacheKey, List<String>> tablesWithParameterCache;
+    private final LoadingCache<WithIdentity<String>, List<String>> tableNamesCache;
+    private final LoadingCache<WithIdentity<TablesWithParameterCacheKey>, List<String>> tablesWithParameterCache;
     private final LoadingCache<WithIdentity<HiveTableName>, PartitionStatistics> tableStatisticsCache;
     private final LoadingCache<WithIdentity<HivePartitionName>, PartitionStatistics> partitionStatisticsCache;
-    private final LoadingCache<String, List<String>> viewNamesCache;
+    private final LoadingCache<WithIdentity<String>, List<String>> viewNamesCache;
     private final LoadingCache<WithIdentity<HivePartitionName>, Optional<Partition>> partitionCache;
     private final LoadingCache<WithIdentity<PartitionFilter>, Optional<List<String>>> partitionFilterCache;
     private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
@@ -277,25 +277,27 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Optional<Database> getDatabase(String databaseName)
+    public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
-        return get(databaseCache, databaseName);
+        identity = updateIdentity(identity);
+        return get(databaseCache, new WithIdentity<>(identity, databaseName));
     }
 
-    private Optional<Database> loadDatabase(String databaseName)
+    private Optional<Database> loadDatabase(WithIdentity<String> databaseName)
     {
-        return delegate.getDatabase(databaseName);
+        return delegate.getDatabase(databaseName.getIdentity(), databaseName.getKey());
     }
 
     @Override
-    public List<String> getAllDatabases()
+    public List<String> getAllDatabases(HiveIdentity identity)
     {
-        return get(databaseNamesCache, "");
+        identity = updateIdentity(identity);
+        return get(databaseNamesCache, new WithIdentity<>(identity, ""));
     }
 
-    private List<String> loadAllDatabases()
+    private List<String> loadAllDatabases(WithIdentity<String> identity)
     {
-        return delegate.getAllDatabases();
+        return delegate.getAllDatabases(identity.getIdentity());
     }
 
     private Table getExistingTable(HiveIdentity identity, String databaseName, String tableName)
@@ -412,37 +414,41 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
-        return get(tableNamesCache, databaseName);
+        identity = updateIdentity(identity);
+        return get(tableNamesCache, new WithIdentity<>(identity, databaseName));
     }
 
-    private List<String> loadAllTables(String databaseName)
+    private List<String> loadAllTables(WithIdentity<String> databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getAllTables(databaseName.getIdentity(), databaseName.getKey());
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
+        identity = updateIdentity(identity);
         TablesWithParameterCacheKey key = new TablesWithParameterCacheKey(databaseName, parameterKey, parameterValue);
-        return get(tablesWithParameterCache, key);
+        return get(tablesWithParameterCache, new WithIdentity<>(identity, key));
     }
 
-    private List<String> loadTablesMatchingParameter(TablesWithParameterCacheKey key)
+    private List<String> loadTablesMatchingParameter(WithIdentity<TablesWithParameterCacheKey> cacheKey)
     {
-        return delegate.getTablesWithParameter(key.getDatabaseName(), key.getParameterKey(), key.getParameterValue());
+        TablesWithParameterCacheKey key = cacheKey.getKey();
+        return delegate.getTablesWithParameter(cacheKey.getIdentity(), key.getDatabaseName(), key.getParameterKey(), key.getParameterValue());
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
-        return get(viewNamesCache, databaseName);
+        identity = updateIdentity(identity);
+        return get(viewNamesCache, new WithIdentity<>(identity, databaseName));
     }
 
-    private List<String> loadAllViews(String databaseName)
+    private List<String> loadAllViews(WithIdentity<String> databaseName)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getAllViews(databaseName.getIdentity(), databaseName.getKey());
     }
 
     @Override

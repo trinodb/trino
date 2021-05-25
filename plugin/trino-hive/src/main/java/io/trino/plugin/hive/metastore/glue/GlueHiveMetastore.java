@@ -263,7 +263,7 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public Optional<Database> getDatabase(String databaseName)
+    public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
         try {
             GetDatabaseResult result = stats.getGetDatabase().call(() ->
@@ -279,7 +279,7 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public List<String> getAllDatabases()
+    public List<String> getAllDatabases(HiveIdentity identity)
     {
         try {
             return stats.getGetAllDatabases().call(() -> {
@@ -410,7 +410,7 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
         try {
             return stats.getGetAllTables().call(() -> {
@@ -443,14 +443,14 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public synchronized List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
         // TODO
         throw new UnsupportedOperationException("getTablesWithParameter for GlueHiveMetastore is not implemented");
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
         try {
             return stats.getGetAllViews().call(() -> {
@@ -527,7 +527,7 @@ public class GlueHiveMetastore
     public void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName)
     {
         try {
-            Database database = getDatabase(databaseName).orElseThrow(() -> new SchemaNotFoundException(databaseName));
+            Database database = getDatabase(identity, databaseName).orElseThrow(() -> new SchemaNotFoundException(databaseName));
             DatabaseInput renamedDatabase = GlueInputConverter.convertDatabase(database).withName(newDatabaseName);
             stats.getRenameDatabase().call(() ->
                     glueClient.updateDatabase(new UpdateDatabaseRequest()

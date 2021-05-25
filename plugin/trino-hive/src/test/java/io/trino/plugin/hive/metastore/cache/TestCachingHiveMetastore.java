@@ -128,16 +128,16 @@ public class TestCachingHiveMetastore
     public void testGetAllDatabases()
     {
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
+        assertEquals(metastore.getAllDatabases(IDENTITY), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
+        assertEquals(metastore.getAllDatabases(IDENTITY), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 1);
         assertEquals(metastore.getDatabaseNamesStats().getRequestCount(), 2);
         assertEquals(metastore.getDatabaseNamesStats().getHitRate(), 0.5);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
+        assertEquals(metastore.getAllDatabases(IDENTITY), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 2);
         assertEquals(metastore.getDatabaseNamesStats().getRequestCount(), 3);
         assertEquals(metastore.getDatabaseNamesStats().getHitRate(), 1.0 / 3);
@@ -147,16 +147,16 @@ public class TestCachingHiveMetastore
     public void testGetAllTable()
     {
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
+        assertEquals(metastore.getAllTables(IDENTITY, TEST_DATABASE), ImmutableList.of(TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
+        assertEquals(metastore.getAllTables(IDENTITY, TEST_DATABASE), ImmutableList.of(TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 1);
         assertEquals(metastore.getTableNamesStats().getRequestCount(), 2);
         assertEquals(metastore.getTableNamesStats().getHitRate(), 0.5);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
+        assertEquals(metastore.getAllTables(IDENTITY, TEST_DATABASE), ImmutableList.of(TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 2);
         assertEquals(metastore.getTableNamesStats().getRequestCount(), 3);
         assertEquals(metastore.getTableNamesStats().getHitRate(), 1.0 / 3);
@@ -165,7 +165,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testInvalidDbGetAllTAbles()
     {
-        assertTrue(metastore.getAllTables(BAD_DATABASE).isEmpty());
+        assertTrue(metastore.getAllTables(IDENTITY, BAD_DATABASE).isEmpty());
     }
 
     @Test
@@ -192,14 +192,14 @@ public class TestCachingHiveMetastore
     {
         assertEquals(mockClient.getAccessCount(), 0);
         assertNotNull(metastore.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE));
-        assertNotNull(metastore.getDatabase(TEST_DATABASE));
+        assertNotNull(metastore.getDatabase(IDENTITY, TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 2);
         metastore.setTableOwner(IDENTITY, TEST_DATABASE, TEST_TABLE, new HivePrincipal(USER, "ignore"));
         assertEquals(mockClient.getAccessCount(), 3);
         assertNotNull(metastore.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 4);
         // Assert that database cache has not been invalidated
-        assertNotNull(metastore.getDatabase(TEST_DATABASE));
+        assertNotNull(metastore.getDatabase(IDENTITY, TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 4);
     }
 
@@ -426,7 +426,7 @@ public class TestCachingHiveMetastore
         // Throw exceptions on usage
         mockClient.setThrowException(true);
         try {
-            metastore.getAllDatabases();
+            metastore.getAllDatabases(IDENTITY);
         }
         catch (RuntimeException ignored) {
         }
@@ -434,7 +434,7 @@ public class TestCachingHiveMetastore
 
         // Second try should hit the client again
         try {
-            metastore.getAllDatabases();
+            metastore.getAllDatabases(IDENTITY);
         }
         catch (RuntimeException ignored) {
         }
@@ -461,9 +461,9 @@ public class TestCachingHiveMetastore
                 1000);
 
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
+        assertEquals(metastore.getAllDatabases(IDENTITY), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
+        assertEquals(metastore.getAllDatabases(IDENTITY), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 1);
         assertEquals(metastore.getDatabaseNamesStats().getRequestCount(), 0);
     }

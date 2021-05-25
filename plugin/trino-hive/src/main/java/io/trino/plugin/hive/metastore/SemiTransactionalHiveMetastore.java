@@ -177,25 +177,25 @@ public class SemiTransactionalHiveMetastore
         this.configuredTransactionHeartbeatInterval = requireNonNull(hiveTransactionHeartbeatInterval, "hiveTransactionHeartbeatInterval is null");
     }
 
-    public synchronized List<String> getAllDatabases()
+    public synchronized List<String> getAllDatabases(HiveIdentity identity)
     {
         checkReadable();
-        return delegate.getAllDatabases();
+        return delegate.getAllDatabases(identity);
     }
 
-    public synchronized Optional<Database> getDatabase(String databaseName)
+    public synchronized Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
         checkReadable();
-        return delegate.getDatabase(databaseName);
+        return delegate.getDatabase(identity, databaseName);
     }
 
-    public synchronized List<String> getAllTables(String databaseName)
+    public synchronized List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
         checkReadable();
         if (!tableActions.isEmpty()) {
             throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
         }
-        return delegate.getAllTables(databaseName);
+        return delegate.getAllTables(identity, databaseName);
     }
 
     public synchronized Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName)
@@ -345,13 +345,13 @@ public class SemiTransactionalHiveMetastore
                 modifiedPartitionMap);
     }
 
-    public synchronized List<String> getAllViews(String databaseName)
+    public synchronized List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
         checkReadable();
         if (!tableActions.isEmpty()) {
             throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
         }
-        return delegate.getAllViews(databaseName);
+        return delegate.getAllViews(identity, databaseName);
     }
 
     public synchronized void createDatabase(HiveIdentity identity, Database database)

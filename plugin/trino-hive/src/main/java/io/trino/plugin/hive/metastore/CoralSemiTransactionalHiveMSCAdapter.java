@@ -43,20 +43,20 @@ public class CoralSemiTransactionalHiveMSCAdapter
     @Override
     public List<String> getAllDatabases()
     {
-        return delegate.getAllDatabases();
+        return delegate.getAllDatabases(identity);
     }
 
     // returning null for missing entry is as per Coral's requirements
     @Override
     public Database getDatabase(String dbName)
     {
-        return delegate.getDatabase(dbName).map(ThriftMetastoreUtil::toMetastoreApiDatabase).orElse(null);
+        return delegate.getDatabase(identity, dbName).map(ThriftMetastoreUtil::toMetastoreApiDatabase).orElse(null);
     }
 
     @Override
     public List<String> getAllTables(String dbName)
     {
-        return delegate.getAllTables(dbName);
+        return delegate.getAllTables(identity, dbName);
     }
 
     @Override
