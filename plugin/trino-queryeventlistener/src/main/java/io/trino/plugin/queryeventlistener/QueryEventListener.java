@@ -13,8 +13,14 @@
  */
 package io.trino.plugin.queryeventlistener;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.base.Strings;
 import io.airlift.log.Logger;
+import io.trino.plugin.queryeventlistener.model.CompletedEvent;
+import io.trino.plugin.queryeventlistener.model.CreatedEvent;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
@@ -26,6 +32,7 @@ public class QueryEventListener
         implements EventListener
 {
     private static final Logger logger = Logger.get(QueryEventListener.class);
+    static final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule()).disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     public QueryEventListener(Map<String, String> config)
     {
@@ -34,40 +41,49 @@ public class QueryEventListener
     @Override
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
-        logger.info("EventType:'QueryCreate', QueryId:'%s', CreateTime:'%s', User:'%s', Schema:'%s', Catalog:'%s', SQLQuery:'%s'",
-                queryCreatedEvent.getMetadata().getQueryId(),
-                queryCreatedEvent.getCreateTime().toString(),
-                queryCreatedEvent.getContext().getUser(),
-                queryCreatedEvent.getContext().getSchema().orElse(""),
-                queryCreatedEvent.getContext().getCatalog().orElse(""),
-                queryCreatedEvent.getMetadata().getQuery());
+        logger.info("event=%s", handleQueryCreatedEvent(queryCreatedEvent));
+
         if (Strings.isNullOrEmpty(queryCreatedEvent.getContext().getUser())) {
-            logger.error("QueryId:'%s', Error:'Username is NULL'", queryCreatedEvent.getMetadata().getQueryId());
+            logger.error("QueryId:'%s', Username is NULL", queryCreatedEvent.getMetadata().getQueryId());
         }
     }
 
     @Override
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
-        logger.info("EventType:'QueryComplete', QueryId:'%s', CreateTime:'%s', QueuedTime:'%s', WallTime:'%s', CpuTime:'%s', User:'%s', Schema:'%s', Catalog:'%s', Records:'%s', Completed:'%s', SQLQuery:'%s'",
-                queryCompletedEvent.getMetadata().getQueryId(),
-                queryCompletedEvent.getCreateTime().toString(),
-                queryCompletedEvent.getStatistics().getQueuedTime(),
-                queryCompletedEvent.getStatistics().getWallTime(),
-                queryCompletedEvent.getStatistics().getCpuTime(),
-                queryCompletedEvent.getContext().getUser(),
-                queryCompletedEvent.getContext().getSchema().orElse(""),
-                queryCompletedEvent.getContext().getCatalog().orElse(""),
-                queryCompletedEvent.getStatistics().getTotalRows(),
-                queryCompletedEvent.getStatistics().isComplete(),
-                queryCompletedEvent.getMetadata().getQuery());
+        logger.info("event=%s", handleQueryCompletedEvent(queryCompletedEvent));
+
         if (Strings.isNullOrEmpty(queryCompletedEvent.getContext().getUser())) {
-            logger.error("QueryId:'%s', Error:'Username is NULL'", queryCompletedEvent.getMetadata().getQueryId());
+            logger.error("QueryId:'%s', Username is NULL", queryCompletedEvent.getMetadata().getQueryId());
         }
     }
 
     @Override
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
+    }
+
+    String handleQueryCreatedEvent(QueryCreatedEvent event)
+    {
+        CreatedEvent createdEvent = new CreatedEvent(event);
+        try {
+            return objectMapper.writeValueAsString(createdEvent);
+        }
+        catch (JsonProcessingException e) {
+            logger.error(e, "Failed to serialize QueryCreatedEvent for queryId:'%s'", event.getMetadata().getQueryId());
+            return createdEvent.toString();
+        }
+    }
+
+    String handleQueryCompletedEvent(QueryCompletedEvent event)
+    {
+        CompletedEvent completedEvent = new CompletedEvent(event);
+        try {
+            return objectMapper.writeValueAsString(completedEvent);
+        }
+        catch (JsonProcessingException e) {
+            logger.error(e, "Failed to serialize QueryCompletedEvent for queryId:'%s'", event.getMetadata().getQueryId());
+            return completedEvent.toString();
+        }
     }
 }
