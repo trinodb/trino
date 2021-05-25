@@ -15,6 +15,7 @@ package io.trino.plugin.elasticsearch;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
@@ -28,15 +29,18 @@ public final class ElasticsearchColumnHandle
     private final String name;
     private final Type type;
     private final boolean supportsPredicates;
+    private final IndexMetadata.Type rawType;
 
     @JsonCreator
     public ElasticsearchColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
+            @JsonProperty("rawType") IndexMetadata.Type rawType,
             @JsonProperty("supportsPredicates") boolean supportsPredicates)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
+        this.rawType = rawType;
         this.supportsPredicates = supportsPredicates;
     }
 
@@ -50,6 +54,12 @@ public final class ElasticsearchColumnHandle
     public Type getType()
     {
         return type;
+    }
+
+    @JsonProperty
+    public IndexMetadata.Type getRawType()
+    {
+        return rawType;
     }
 
     @JsonProperty
