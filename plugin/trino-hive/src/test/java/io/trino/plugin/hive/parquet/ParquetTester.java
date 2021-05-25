@@ -140,7 +140,6 @@ public class ParquetTester
 {
     private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
 
-    private static final boolean OPTIMIZED = true;
     private static final ConnectorSession SESSION = getHiveSession(createHiveConfig(false));
     private static final ConnectorSession SESSION_USE_NAME = getHiveSession(createHiveConfig(true));
     private static final List<String> TEST_COLUMN = singletonList("test");
@@ -567,7 +566,7 @@ public class ParquetTester
 
     private static FileFormat getFileFormat()
     {
-        return OPTIMIZED ? StandardFileFormats.TRINO_PARQUET : StandardFileFormats.HIVE_PARQUET;
+        return StandardFileFormats.TRINO_PARQUET;
     }
 
     public static void writeParquetColumn(
