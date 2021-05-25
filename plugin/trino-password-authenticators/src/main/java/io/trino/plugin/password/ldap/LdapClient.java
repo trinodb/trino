@@ -17,7 +17,7 @@ import javax.naming.NamingException;
 
 import java.util.Set;
 
-public interface LdapAuthenticatorClient
+public interface LdapClient
 {
     void validatePassword(String userDistinguishedName, String password)
             throws NamingException;
@@ -26,5 +26,8 @@ public interface LdapAuthenticatorClient
             throws NamingException;
 
     Set<String> lookupUserDistinguishedNames(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword)
+            throws NamingException;
+
+    Set<String> lookupUserGroups(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword)
             throws NamingException;
 }

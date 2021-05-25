@@ -14,7 +14,6 @@
 package io.trino.plugin.password.ldap;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.CharMatcher;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -45,10 +44,8 @@ public class LdapAuthenticator
         implements PasswordAuthenticator
 {
     private static final Logger log = Logger.get(LdapAuthenticator.class);
-    private static final CharMatcher SPECIAL_CHARACTERS = CharMatcher.anyOf(",=+<>#;*()\"\\\u0000");
-    private static final CharMatcher WHITESPACE = CharMatcher.anyOf(" \r");
 
-    private final LdapAuthenticatorClient client;
+    private final LdapClient client;
 
     private final List<String> userBindSearchPatterns;
     private final Optional<String> groupAuthorizationSearchPattern;
@@ -59,7 +56,7 @@ public class LdapAuthenticator
     private final LoadingCache<Credential, Principal> authenticationCache;
 
     @Inject
-    public LdapAuthenticator(LdapAuthenticatorClient client, LdapConfig ldapConfig)
+    public LdapAuthenticator(LdapClient client, LdapConfig ldapConfig)
     {
         this.client = requireNonNull(client, "client is null");
 
@@ -110,17 +107,17 @@ public class LdapAuthenticator
     private Principal authenticateWithUserBind(Credential credential)
     {
         String user = credential.getUser();
-        if (containsSpecialCharacters(user)) {
+        if (LdapUtil.containsSpecialCharacters(user)) {
             throw new AccessDeniedException("Username contains a special LDAP character");
         }
         Exception lastException = new RuntimeException();
         for (String userBindSearchPattern : userBindSearchPatterns) {
             try {
-                String userDistinguishedName = replaceUser(userBindSearchPattern, user);
+                String userDistinguishedName = LdapUtil.replaceUser(userBindSearchPattern, user);
                 if (groupAuthorizationSearchPattern.isPresent()) {
                     // user password is also validated as user DN and password is used for querying LDAP
                     String searchBase = userBaseDistinguishedName.orElseThrow();
-                    String groupSearch = replaceUser(groupAuthorizationSearchPattern.get(), user);
+                    String groupSearch = LdapUtil.replaceUser(groupAuthorizationSearchPattern.get(), user);
                     if (!client.isGroupMember(searchBase, groupSearch, userDistinguishedName, credential.getPassword())) {
                         String message = format("User [%s] not a member of an authorized group", user);
                         log.debug(message);
@@ -144,7 +141,7 @@ public class LdapAuthenticator
     private Principal authenticateWithBindDistinguishedName(Credential credential)
     {
         String user = credential.getUser();
-        if (containsSpecialCharacters(user)) {
+        if (LdapUtil.containsSpecialCharacters(user)) {
             throw new AccessDeniedException("Username contains a special LDAP character");
         }
         try {
@@ -159,27 +156,11 @@ public class LdapAuthenticator
         return new BasicPrincipal(credential.getUser());
     }
 
-    /**
-     * Returns {@code true} when parameter contains a character that has a special meaning in
-     * LDAP search or bind name (DN).
-     * <p>
-     * Based on <a href="https://www.owasp.org/index.php/Preventing_LDAP_Injection_in_Java">Preventing_LDAP_Injection_in_Java</a> and
-     * {@link javax.naming.ldap.Rdn#escapeValue(Object) escapeValue} method.
-     */
-    @VisibleForTesting
-    static boolean containsSpecialCharacters(String user)
-    {
-        if (WHITESPACE.indexIn(user) == 0 || WHITESPACE.lastIndexIn(user) == user.length() - 1) {
-            return true;
-        }
-        return SPECIAL_CHARACTERS.matchesAnyOf(user);
-    }
-
     private String lookupUserDistinguishedName(String user)
             throws NamingException
     {
         String searchBase = userBaseDistinguishedName.orElseThrow();
-        String searchFilter = replaceUser(groupAuthorizationSearchPattern.orElseThrow(), user);
+        String searchFilter = LdapUtil.replaceUser(groupAuthorizationSearchPattern.orElseThrow(), user);
         Set<String> userDistinguishedNames = client.lookupUserDistinguishedNames(searchBase, searchFilter, bindDistinguishedName.orElseThrow(), bindPassword.orElseThrow());
         if (userDistinguishedNames.isEmpty()) {
             String message = format("User [%s] not a member of an authorized group", user);
@@ -192,10 +173,5 @@ public class LdapAuthenticator
             throw new AccessDeniedException(message);
         }
         return getOnlyElement(userDistinguishedNames);
-    }
-
-    private static String replaceUser(String pattern, String user)
-    {
-        return pattern.replace("${USER}", user);
     }
 }
