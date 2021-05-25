@@ -15,7 +15,6 @@ package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
@@ -28,7 +27,7 @@ public class TestRaptorIntegrationSmokeTestBucketed
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRaptorQueryRunner(ImmutableMap.of(), TpchTable.getTables(), true, ImmutableMap.of());
+        return createRaptorQueryRunner(ImmutableMap.of(), true, true);
     }
 
     @Test

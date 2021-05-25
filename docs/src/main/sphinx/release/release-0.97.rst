@@ -2,8 +2,8 @@
 Release 0.97
 ============
 
-General
--------
+General changes
+---------------
 
 * The queueing policy in Presto may now be injected.
 * Speed up detection of ASCII strings in implementation of ``LIKE`` operator.
@@ -13,8 +13,8 @@ General
 * Fix a planning issue in queries that use ``SELECT *``, window functions and implicit coercions.
 * Fix scheduler deadlock for queries with a ``UNION`` between ``VALUES`` and ``SELECT``.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix decoding of ``STRUCT`` type from Parquet files.
 * Speed up decoding of ORC files with very small stripes.

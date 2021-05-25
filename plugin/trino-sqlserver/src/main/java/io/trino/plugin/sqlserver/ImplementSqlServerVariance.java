@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.sqlserver;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -23,6 +24,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.DoubleType;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
@@ -38,13 +40,14 @@ import static java.lang.String.format;
 public class ImplementSqlServerVariance
         implements AggregateFunctionRule
 {
+    private static final List<String> VARIANCE_FUNCTION_NAMES = ImmutableList.of("variance", "var_samp");
     private static final Capture<Variable> INPUT = newCapture();
 
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().equalTo("variance"))
+                .with(functionName().matching(name -> VARIANCE_FUNCTION_NAMES.stream().anyMatch(name::equalsIgnoreCase)))
                 .with(singleInput().matching(
                         variable()
                                 .with(expressionType().matching(DoubleType.class::isInstance))
@@ -60,7 +63,7 @@ public class ImplementSqlServerVariance
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 
         return Optional.of(new JdbcExpression(
-                format("VAR(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
+                format("VAR(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

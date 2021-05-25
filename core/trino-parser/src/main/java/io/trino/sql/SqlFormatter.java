@@ -112,10 +112,7 @@ import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.TransactionMode;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
-import io.trino.sql.tree.Update;
-import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Values;
-import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
 
@@ -131,7 +128,6 @@ import static io.trino.sql.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ExpressionFormatter.formatGroupBy;
 import static io.trino.sql.ExpressionFormatter.formatOrderBy;
 import static io.trino.sql.ExpressionFormatter.formatStringLiteral;
-import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -318,25 +314,6 @@ public final class SqlFormatter
                         .append('\n');
             }
 
-            if (!node.getWindows().isEmpty()) {
-                append(indent, "WINDOW");
-                if (node.getWindows().size() == 1) {
-                    builder.append(" ")
-                            .append(formatWindowDefinition(node.getWindows().get(0)))
-                            .append("\n");
-                }
-                else {
-                    int size = node.getWindows().size();
-                    builder.append("\n");
-                    for (int i = 0; i < size - 1; i++) {
-                        append(indent + 1, formatWindowDefinition(node.getWindows().get(i)))
-                                .append(",\n");
-                    }
-                    append(indent + 1, formatWindowDefinition(node.getWindows().get(size - 1)))
-                            .append("\n");
-                }
-            }
-
             if (node.getOrderBy().isPresent()) {
                 process(node.getOrderBy().get(), indent);
             }
@@ -349,11 +326,6 @@ public final class SqlFormatter
                 process(node.getLimit().get(), indent);
             }
             return null;
-        }
-
-        private String formatWindowDefinition(WindowDefinition definition)
-        {
-            return formatExpression(definition.getName()) + " AS " + formatWindowSpecification(definition.getWindow());
         }
 
         @Override
@@ -1099,8 +1071,9 @@ public final class SqlFormatter
                     return type.name();
                 case PRINCIPAL:
                     return formatPrincipal(grantor.getPrincipal().get());
+                default:
+                    throw new IllegalArgumentException("Unsupported principal type: " + type);
             }
-            throw new IllegalArgumentException("Unsupported principal type: " + type);
         }
 
         private static String formatPrincipal(PrincipalSpecification principal)
@@ -1112,8 +1085,9 @@ public final class SqlFormatter
                 case USER:
                 case ROLE:
                     return format("%s %s", type.name(), principal.getName().toString());
+                default:
+                    throw new IllegalArgumentException("Unsupported principal type: " + type);
             }
-            throw new IllegalArgumentException("Unsupported principal type: " + type);
         }
 
         @Override
@@ -1254,32 +1228,6 @@ public final class SqlFormatter
 
             process(node.getQuery(), indent);
 
-            return null;
-        }
-
-        @Override
-        protected Void visitUpdate(Update node, Integer indent)
-        {
-            builder.append("UPDATE ")
-                    .append(node.getTable().getName())
-                    .append(" SET");
-            int setCounter = node.getAssignments().size() - 1;
-            for (UpdateAssignment assignment : node.getAssignments()) {
-                builder.append("\n")
-                        .append(indentString(indent + 1))
-                        .append(assignment.getName().getValue())
-                        .append(" = ")
-                        .append(formatExpression(assignment.getValue()));
-                if (setCounter > 0) {
-                    builder.append(",");
-                }
-                setCounter--;
-            }
-            if (node.getWhere().isPresent()) {
-                builder.append("\n")
-                        .append(indentString(indent))
-                        .append("WHERE ").append(formatExpression(node.getWhere().get()));
-            }
             return null;
         }
 
@@ -1461,12 +1409,14 @@ public final class SqlFormatter
                 case ALL:
                 case NONE:
                     builder.append(type.toString());
-                    return null;
+                    break;
                 case ROLE:
                     builder.append(node.getRole().get());
-                    return null;
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + type);
             }
-            throw new IllegalArgumentException("Unsupported type: " + type);
+            return null;
         }
 
         @Override

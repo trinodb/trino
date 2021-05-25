@@ -81,9 +81,7 @@ public abstract class KafkaQueryRunnerBuilder
         }
     }
 
-    protected void preInit(DistributedQueryRunner queryRunner)
-            throws Exception
-    {}
+    protected void preInit(DistributedQueryRunner queryRunner) throws Exception {}
 
     protected void postInit(DistributedQueryRunner queryRunner) {}
 }

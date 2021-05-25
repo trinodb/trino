@@ -17,7 +17,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsCalculator;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
@@ -82,8 +81,7 @@ public class CreateMaterializedViewTask
             Metadata metadata,
             AccessControl accessControl,
             QueryStateMachine stateMachine,
-            List<Expression> parameters,
-            WarningCollector warningCollector)
+            List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());

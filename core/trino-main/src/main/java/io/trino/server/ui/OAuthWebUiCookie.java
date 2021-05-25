@@ -13,6 +13,7 @@
  */
 package io.trino.server.ui;
 
+import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.NewCookie;
 
@@ -22,50 +23,47 @@ import java.util.Optional;
 
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static java.util.function.Predicate.not;
-import static javax.ws.rs.core.Cookie.DEFAULT_VERSION;
-import static javax.ws.rs.core.NewCookie.DEFAULT_MAX_AGE;
 
 public final class OAuthWebUiCookie
 {
-    // prefix according to: https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-05#section-4.1.3.1
-    public static final String OAUTH2_COOKIE = "__Secure-Trino-OAuth2-Token";
+    public static final String OAUTH2_COOKIE = "Trino-OAuth2-Token";
 
     private OAuthWebUiCookie() {}
 
-    public static NewCookie create(String accessToken, Instant tokenExpiration)
+    public static NewCookie create(String accessToken, Instant tokenExpiration, boolean secure)
     {
         return new NewCookie(
                 OAUTH2_COOKIE,
                 accessToken,
                 UI_LOCATION,
                 null,
-                DEFAULT_VERSION,
+                Cookie.DEFAULT_VERSION,
                 null,
-                DEFAULT_MAX_AGE,
+                NewCookie.DEFAULT_MAX_AGE,
                 Date.from(tokenExpiration),
-                true,
+                secure,
                 true);
     }
 
-    public static Optional<String> read(Cookie cookie)
+    public static Optional<String> read(ContainerRequestContext request)
     {
-        return Optional.ofNullable(cookie)
+        return Optional.ofNullable(request.getCookies().get(OAUTH2_COOKIE))
                 .map(Cookie::getValue)
                 .filter(not(String::isBlank));
     }
 
-    public static NewCookie delete()
+    public static NewCookie delete(boolean secure)
     {
         return new NewCookie(
                 OAUTH2_COOKIE,
                 "delete",
                 UI_LOCATION,
                 null,
-                DEFAULT_VERSION,
+                Cookie.DEFAULT_VERSION,
                 null,
                 0,
                 null,
-                true,
+                secure,
                 true);
     }
 }

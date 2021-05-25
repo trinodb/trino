@@ -19,6 +19,7 @@ import io.trino.plugin.hive.HiveViewNotSupportedException;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -37,6 +38,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static io.trino.plugin.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.security.PrincipalType.ROLE;
@@ -51,9 +53,9 @@ public class SqlStandardAccessControlMetadata
     private static final Set<String> RESERVED_ROLES = ImmutableSet.of("all", "default", "none");
     private static final String PUBLIC_ROLE_NAME = "public";
 
-    private final SqlStandardAccessControlMetadataMetastore metastore;
+    private final SemiTransactionalHiveMetastore metastore;
 
-    public SqlStandardAccessControlMetadata(SqlStandardAccessControlMetadataMetastore metastore)
+    public SqlStandardAccessControlMetadata(SemiTransactionalHiveMetastore metastore)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
     }
@@ -198,7 +200,7 @@ public class SqlStandardAccessControlMetadata
     @Override
     public List<GrantInfo> listTablePrivileges(ConnectorSession session, List<SchemaTableName> tableNames)
     {
-        Set<HivePrincipal> principals = ThriftMetastoreUtil.listEnabledPrincipals(session.getIdentity(), metastore::listRoleGrants)
+        Set<HivePrincipal> principals = listEnabledPrincipals(metastore, session.getIdentity())
                 .collect(toImmutableSet());
         boolean isAdminRoleSet = hasAdminRole(principals);
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();

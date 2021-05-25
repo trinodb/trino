@@ -13,7 +13,7 @@ env:
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
-  MAVEN_TEST: "-B -Dair.check.skip-all --fail-at-end"
+  MAVEN_TEST: "-B -Dair.check.skip-all -DLogTestDurationListener.enabled=true --fail-at-end"
   RETRY: .github/bin/retry
 
 jobs:
@@ -64,10 +64,7 @@ jobs:
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
-          $RETRY ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler -pl ':trino-spi'
-          # The main Error Prone run
-          ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler \
+          ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler-trino \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   web-ui-checks:
@@ -219,8 +216,7 @@ jobs:
             !:trino-sqlserver,!:trino-postgresql,!:trino-mysql,!:trino-memsql,
             !:trino-oracle,
             !:trino-kudu,
-            !:trino-iceberg,!:trino-druid,
-            !:trino-phoenix,!:trino-phoenix5,
+            !:trino-phoenix,!:trino-iceberg,!:trino-druid,
             !:trino-docs,!:trino-server,!:trino-server-rpm,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-bigquery'
@@ -244,8 +240,7 @@ jobs:
           - ":trino-sqlserver,:trino-postgresql,:trino-mysql"
           - ":trino-oracle"
           - ":trino-kudu"
-          - ":trino-iceberg,:trino-druid"
-          - ":trino-phoenix,:trino-phoenix5"
+          - ":trino-phoenix,:trino-iceberg,:trino-druid"
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
@@ -267,9 +262,6 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 11
-      - name: Cleanup node
-        # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
-        run: .github/bin/cleanup-node.sh
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -303,13 +295,6 @@ jobs:
           if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
             ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
           fi
-      - name: Cloud BigQuery Case Insensitive Mapping Tests
-        env:
-          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
-        run: |
-          if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
-            ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
-          fi
 
   pt:
     runs-on: ubuntu-latest
@@ -330,22 +315,7 @@ jobs:
           - suite-7-non-generic
           - suite-8-non-generic
           - suite-tpcds
-          - suite-oauth2
         exclude:
-          - config: config-cdh5
-            ignore exclusion if: >-
-              ${{ github.event_name != 'pull_request'
-               || contains(github.event.pull_request.labels.*.name, 'tests:all')
-               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
-               }}
-
-          - config: config-default
-            ignore exclusion if: >-
-              ${{ github.event_name != 'pull_request'
-               || contains(github.event.pull_request.labels.*.name, 'tests:all')
-               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
-               }}
-
           - config: config-hdp3
             suite: suite-6-non-generic
           - config: config-hdp3
@@ -354,9 +324,6 @@ jobs:
             suite: suite-8-non-generic
           - config: config-hdp3
             suite: suite-tpcds
-          - config: config-hdp3
-            suite: suite-oauth2
-
           - config: config-cdh5
             suite: suite-6-non-generic
           - config: config-cdh5
@@ -365,19 +332,6 @@ jobs:
             suite: suite-8-non-generic
           - config: config-cdh5
             suite: suite-tpcds
-          - config: config-cdh5
-            suite: suite-oauth2
-        ignore exclusion if:
-          # Do not use this property outside of the matrix configuration.
-          #
-          # This is added to all matrix entries so they may be conditionally
-          # excluded by adding them to the excludes list with a GHA expression
-          # for this property.
-          # - If the expression evaluates to true, it will never match the a
-          #   actual value of the property, and will therefore not be excluded.
-          # - If the expression evaluates to false, it will match the actual
-          #   value of the property, and the exclusion will apply normally.
-          - false
     # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
     timeout-minutes: 140
     steps:

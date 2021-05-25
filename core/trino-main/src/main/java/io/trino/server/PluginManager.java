@@ -14,7 +14,11 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
+import io.airlift.resolver.ArtifactResolver;
+import io.airlift.resolver.DefaultArtifact;
 import io.trino.connector.ConnectorManager;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
@@ -36,18 +40,26 @@ import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
+import org.sonatype.aether.artifact.Artifact;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metadata.FunctionExtractor.extractFunctions;
+import static io.trino.server.PluginDiscovery.discoverPlugins;
+import static io.trino.server.PluginDiscovery.writePluginServices;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -62,7 +74,6 @@ public class PluginManager
 
     private static final Logger log = Logger.get(PluginManager.class);
 
-    private final PluginsProvider pluginsProvider;
     private final ConnectorManager connectorManager;
     private final MetadataManager metadataManager;
     private final ResourceGroupManager<?> resourceGroupManager;
@@ -72,12 +83,16 @@ public class PluginManager
     private final EventListenerManager eventListenerManager;
     private final GroupProviderManager groupProviderManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
+    private final ArtifactResolver resolver;
+    private final File installedPluginsDir;
+    private final List<String> plugins;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
     @Inject
     public PluginManager(
-            PluginsProvider pluginsProvider,
+            NodeInfo nodeInfo,
+            PluginManagerConfig config,
             ConnectorManager connectorManager,
             MetadataManager metadataManager,
             ResourceGroupManager<?> resourceGroupManager,
@@ -88,7 +103,18 @@ public class PluginManager
             GroupProviderManager groupProviderManager,
             SessionPropertyDefaults sessionPropertyDefaults)
     {
-        this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
+        requireNonNull(nodeInfo, "nodeInfo is null");
+        requireNonNull(config, "config is null");
+
+        installedPluginsDir = config.getInstalledPluginsDir();
+        if (config.getPlugins() == null) {
+            this.plugins = ImmutableList.of();
+        }
+        else {
+            this.plugins = ImmutableList.copyOf(config.getPlugins());
+        }
+        this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
+
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
         this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
@@ -101,33 +127,35 @@ public class PluginManager
     }
 
     public void loadPlugins()
+            throws Exception
     {
         if (!pluginsLoading.compareAndSet(false, true)) {
             return;
         }
 
-        pluginsProvider.loadPlugins(this::loadPlugin, this::createClassLoader);
+        for (File file : listFiles(installedPluginsDir)) {
+            if (file.isDirectory()) {
+                loadPlugin(file.getAbsolutePath());
+            }
+        }
+
+        for (String plugin : plugins) {
+            loadPlugin(plugin);
+        }
 
         metadataManager.verifyTypes();
 
         pluginsLoaded.set(true);
     }
 
-    private void loadPlugin(String plugin, Supplier<PluginClassLoader> createClassLoader)
+    private void loadPlugin(String plugin)
+            throws Exception
     {
         log.info("-- Loading plugin %s --", plugin);
-
-        PluginClassLoader pluginClassLoader = createClassLoader.get();
-
-        log.debug("Classpath for plugin:");
-        for (URL url : pluginClassLoader.getURLs()) {
-            log.debug("    %s", url.getPath());
-        }
-
+        PluginClassLoader pluginClassLoader = buildClassLoader(plugin);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
             loadPlugin(pluginClassLoader);
         }
-
         log.info("-- Finished loading plugin %s --", plugin);
     }
 
@@ -136,7 +164,6 @@ public class PluginManager
         ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
         checkState(!plugins.isEmpty(), "No service providers of type %s", Plugin.class.getName());
-
         for (Plugin plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
             installPlugin(plugin, pluginClassLoader::duplicate);
@@ -212,24 +239,95 @@ public class PluginManager
         }
     }
 
+    private PluginClassLoader buildClassLoader(String plugin)
+            throws Exception
+    {
+        File file = new File(plugin);
+        if (file.isFile() && (file.getName().equals("pom.xml") || file.getName().endsWith(".pom"))) {
+            return buildClassLoaderFromPom(file);
+        }
+        if (file.isDirectory()) {
+            return buildClassLoaderFromDirectory(file);
+        }
+        return buildClassLoaderFromCoordinates(plugin);
+    }
+
+    private PluginClassLoader buildClassLoaderFromPom(File pomFile)
+            throws Exception
+    {
+        List<Artifact> artifacts = resolver.resolvePom(pomFile);
+        PluginClassLoader classLoader = createClassLoader(artifacts, pomFile.getPath());
+
+        Artifact artifact = artifacts.get(0);
+        Set<String> plugins = discoverPlugins(artifact, classLoader);
+        if (!plugins.isEmpty()) {
+            File root = new File(artifact.getFile().getParentFile().getCanonicalFile(), "plugin-discovery");
+            writePluginServices(plugins, root);
+            log.debug("    %s", root);
+            classLoader = classLoader.withUrl(root.toURI().toURL());
+        }
+
+        return classLoader;
+    }
+
+    private PluginClassLoader buildClassLoaderFromDirectory(File dir)
+            throws Exception
+    {
+        log.debug("Classpath for %s:", dir.getName());
+        List<URL> urls = new ArrayList<>();
+        for (File file : listFiles(dir)) {
+            log.debug("    %s", file);
+            urls.add(file.toURI().toURL());
+        }
+        return createClassLoader(urls);
+    }
+
+    private PluginClassLoader buildClassLoaderFromCoordinates(String coordinates)
+            throws Exception
+    {
+        Artifact rootArtifact = new DefaultArtifact(coordinates);
+        List<Artifact> artifacts = resolver.resolveArtifacts(rootArtifact);
+        return createClassLoader(artifacts, rootArtifact.toString());
+    }
+
+    private PluginClassLoader createClassLoader(List<Artifact> artifacts, String name)
+            throws IOException
+    {
+        log.debug("Classpath for %s:", name);
+        List<URL> urls = new ArrayList<>();
+        for (Artifact artifact : sortedArtifacts(artifacts)) {
+            if (artifact.getFile() == null) {
+                throw new RuntimeException("Could not resolve artifact: " + artifact);
+            }
+            File file = artifact.getFile().getCanonicalFile();
+            log.debug("    %s", file);
+            urls.add(file.toURI().toURL());
+        }
+        return createClassLoader(urls);
+    }
+
     private PluginClassLoader createClassLoader(List<URL> urls)
     {
         ClassLoader parent = getClass().getClassLoader();
         return new PluginClassLoader(urls, parent, SPI_PACKAGES);
     }
 
-    public interface PluginsProvider
+    private static List<File> listFiles(File installedPluginsDir)
     {
-        void loadPlugins(Loader loader, ClassLoaderFactory createClassLoader);
-
-        interface Loader
-        {
-            void load(String description, Supplier<PluginClassLoader> getClassLoader);
+        if (installedPluginsDir != null && installedPluginsDir.isDirectory()) {
+            File[] files = installedPluginsDir.listFiles();
+            if (files != null) {
+                Arrays.sort(files);
+                return ImmutableList.copyOf(files);
+            }
         }
+        return ImmutableList.of();
+    }
 
-        interface ClassLoaderFactory
-        {
-            PluginClassLoader create(List<URL> urls);
-        }
+    private static List<Artifact> sortedArtifacts(List<Artifact> artifacts)
+    {
+        List<Artifact> list = new ArrayList<>(artifacts);
+        list.sort(Ordering.natural().nullsLast().onResultOf(Artifact::getFile));
+        return list;
     }
 }

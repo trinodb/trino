@@ -199,7 +199,7 @@ public abstract class DefaultTraversalVisitor<C>
         }
 
         if (node.getWindow().isPresent()) {
-            process((Node) node.getWindow().get(), context);
+            process(node.getWindow().get(), context);
         }
 
         if (node.getFilter().isPresent()) {
@@ -227,20 +227,8 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitWindowReference(WindowReference node, C context)
+    public Void visitWindow(Window node, C context)
     {
-        process(node.getName(), context);
-
-        return null;
-    }
-
-    @Override
-    public Void visitWindowSpecification(WindowSpecification node, C context)
-    {
-        if (node.getExistingWindowName().isPresent()) {
-            process(node.getExistingWindowName().get(), context);
-        }
-
         for (Expression expression : node.getPartitionBy()) {
             process(expression, context);
         }
@@ -252,14 +240,6 @@ public abstract class DefaultTraversalVisitor<C>
         if (node.getFrame().isPresent()) {
             process(node.getFrame().get(), context);
         }
-
-        return null;
-    }
-
-    @Override
-    protected Void visitWindowDefinition(WindowDefinition node, C context)
-    {
-        process(node.getWindow());
 
         return null;
     }
@@ -470,9 +450,6 @@ public abstract class DefaultTraversalVisitor<C>
         if (node.getHaving().isPresent()) {
             process(node.getHaving().get(), context);
         }
-        for (WindowDefinition windowDefinition : node.getWindows()) {
-            process(windowDefinition, context);
-        }
         if (node.getOrderBy().isPresent()) {
             process(node.getOrderBy().get(), context);
         }
@@ -542,7 +519,7 @@ public abstract class DefaultTraversalVisitor<C>
 
         node.getCriteria()
                 .filter(criteria -> criteria instanceof JoinOn)
-                .ifPresent(criteria -> process(((JoinOn) criteria).getExpression(), context));
+                .map(criteria -> process(((JoinOn) criteria).getExpression(), context));
 
         return null;
     }
@@ -615,24 +592,6 @@ public abstract class DefaultTraversalVisitor<C>
         process(node.getTable(), context);
         node.getWhere().ifPresent(where -> process(where, context));
 
-        return null;
-    }
-
-    @Override
-    protected Void visitUpdate(Update node, C context)
-    {
-        process(node.getTable(), context);
-        node.getAssignments().forEach(value -> process(value, context));
-        node.getWhere().ifPresent(where -> process(where, context));
-
-        return null;
-    }
-
-    @Override
-    protected Void visitUpdateAssignment(UpdateAssignment node, C context)
-    {
-        process(node.getName(), context);
-        process(node.getValue(), context);
         return null;
     }
 

@@ -145,15 +145,37 @@ public class IonSqlQueryBuilder
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             checkState(!range.isAll());
             if (range.isSingleValue()) {
-                singleValues.add(range.getSingleValue());
+                singleValues.add(range.getLow().getValue());
                 continue;
             }
             List<String> rangeConjuncts = new ArrayList<>();
-            if (!range.isLowUnbounded()) {
-                rangeConjuncts.add(toPredicate(range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), type, position));
+            if (!range.getLow().isLowerUnbounded()) {
+                switch (range.getLow().getBound()) {
+                    case ABOVE:
+                        rangeConjuncts.add(toPredicate(">", range.getLow().getValue(), type, position));
+                        break;
+                    case EXACTLY:
+                        rangeConjuncts.add(toPredicate(">=", range.getLow().getValue(), type, position));
+                        break;
+                    case BELOW:
+                        throw new IllegalArgumentException("Low marker should never use BELOW bound");
+                    default:
+                        throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
+                }
             }
-            if (!range.isHighUnbounded()) {
-                rangeConjuncts.add(toPredicate(range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), type, position));
+            if (!range.getHigh().isUpperUnbounded()) {
+                switch (range.getHigh().getBound()) {
+                    case ABOVE:
+                        throw new IllegalArgumentException("High marker should never use ABOVE bound");
+                    case EXACTLY:
+                        rangeConjuncts.add(toPredicate("<=", range.getHigh().getValue(), type, position));
+                        break;
+                    case BELOW:
+                        rangeConjuncts.add(toPredicate("<", range.getHigh().getValue(), type, position));
+                        break;
+                    default:
+                        throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
+                }
             }
             // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
             checkState(!rangeConjuncts.isEmpty());

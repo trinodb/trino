@@ -28,6 +28,7 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.glue.GlueColumnStatisticsProvider;
 
 import java.util.List;
 import java.util.Optional;
@@ -63,10 +64,11 @@ public final class GlueInputConverter
         return input;
     }
 
-    public static PartitionInput convertPartition(PartitionWithStatistics partitionWithStatistics)
+    public static PartitionInput convertPartition(PartitionWithStatistics partitionWithStatistics, GlueColumnStatisticsProvider columnStatisticsProvider)
     {
         PartitionInput input = convertPartition(partitionWithStatistics.getPartition());
         PartitionStatistics statistics = partitionWithStatistics.getStatistics();
+        columnStatisticsProvider.updatePartitionStatistics(input, statistics.getColumnStatistics());
         input.setParameters(updateStatisticsParameters(input.getParameters(), statistics.getBasicStatistics()));
         return input;
     }

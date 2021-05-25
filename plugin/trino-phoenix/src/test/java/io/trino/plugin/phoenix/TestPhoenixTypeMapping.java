@@ -27,7 +27,6 @@ import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -74,7 +73,7 @@ public class TestPhoenixTypeMapping
             throws Exception
     {
         phoenixServer = TestingPhoenixServer.getInstance();
-        return createPhoenixQueryRunner(phoenixServer, ImmutableMap.of(), TpchTable.getTables());
+        return createPhoenixQueryRunner(phoenixServer, ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)

@@ -76,8 +76,7 @@ public class KinesisMetadata
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 table.getStreamName(),
-                getDataFormat(table.getMessage()),
-                table.getMessage().getCompressionCodec());
+                getDataFormat(table.getMessage()));
     }
 
     @Override

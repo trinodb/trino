@@ -30,13 +30,11 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
-// With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
-// Some tests here create colliding names which can cause any other concurrent test to fail.
 @Test(singleThreaded = true)
 public class TestMemSqlCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
-    protected TestingMemSqlServer memSqlServer;
+    private TestingMemSqlServer memSqlServer;
 
     @Override
     protected QueryRunner createQueryRunner()

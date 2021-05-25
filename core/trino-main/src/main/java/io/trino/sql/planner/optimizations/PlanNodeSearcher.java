@@ -105,9 +105,6 @@ public class PlanNodeSearcher
         }
     }
 
-    /**
-     * Return a list of matching nodes ordered as in pre-order traversal of the plan tree.
-     */
     public <T extends PlanNode> List<T> findAll()
     {
         ImmutableList.Builder<T> nodes = ImmutableList.builder();

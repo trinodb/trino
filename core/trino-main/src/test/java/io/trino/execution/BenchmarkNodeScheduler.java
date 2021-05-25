@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
-import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
 import io.trino.execution.scheduler.FlatNetworkTopology;
@@ -37,7 +36,6 @@ import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.testing.TestingSession;
 import io.trino.util.FinalizerService;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -71,7 +69,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.SystemSessionProperties.MAX_UNACKNOWLEDGED_SPLITS_PER_TASK;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
@@ -172,10 +169,7 @@ public class BenchmarkNodeScheduler
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             nodeManager.addNode(CONNECTOR_ID, nodes);
             NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(nodeManager, nodeTaskMap));
-            Session session = TestingSession.testSessionBuilder()
-                    .setSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.toString(Integer.MAX_VALUE))
-                    .build();
-            nodeSelector = nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID));
+            nodeSelector = nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID));
         }
 
         @TearDown

@@ -84,29 +84,30 @@ public final class GeometrySerde
         switch (type) {
             case POINT:
                 writePoint(output, geometry);
-                return;
+                break;
             case MULTI_POINT:
                 writeSimpleGeometry(output, GeometrySerializationType.MULTI_POINT, geometry);
-                return;
+                break;
             case LINE_STRING:
                 writeSimpleGeometry(output, GeometrySerializationType.LINE_STRING, geometry);
-                return;
+                break;
             case MULTI_LINE_STRING:
                 writeSimpleGeometry(output, GeometrySerializationType.MULTI_LINE_STRING, geometry);
-                return;
+                break;
             case POLYGON:
                 writeSimpleGeometry(output, GeometrySerializationType.POLYGON, geometry);
-                return;
+                break;
             case MULTI_POLYGON:
                 writeSimpleGeometry(output, GeometrySerializationType.MULTI_POLYGON, geometry);
-                return;
+                break;
             case GEOMETRY_COLLECTION: {
                 verify(geometry instanceof OGCConcreteGeometryCollection);
                 writeGeometryCollection(output, (OGCConcreteGeometryCollection) geometry);
-                return;
+                break;
             }
+            default:
+                throw new IllegalArgumentException("Unexpected type: " + type);
         }
-        throw new IllegalArgumentException("Unexpected type: " + type);
     }
 
     private static void writeGeometryCollection(DynamicSliceOutput output, OGCGeometryCollection collection)
@@ -188,8 +189,9 @@ public final class GeometrySerde
                 return readGeometryCollection(input, inputSlice);
             case ENVELOPE:
                 return createFromEsriGeometry(readEnvelope(input), false);
+            default:
+                throw new IllegalArgumentException("Unexpected type: " + type);
         }
-        throw new IllegalArgumentException("Unexpected type: " + type);
     }
 
     private static OGCConcreteGeometryCollection readGeometryCollection(BasicSliceInput input, Slice inputSlice)
@@ -249,13 +251,9 @@ public final class GeometrySerde
                 polygon.addEnvelope((Envelope) geometry, false);
                 return new OGCPolygon(polygon, null);
             }
-            case Line:
-                // TODO unsupported
-                break;
-            case Unknown:
-                break;
+            default:
+                throw new IllegalArgumentException("Unexpected geometry type: " + type);
         }
-        throw new IllegalArgumentException("Unexpected geometry type: " + type);
     }
 
     private static OGCPoint readPoint(BasicSliceInput input)
@@ -299,8 +297,9 @@ public final class GeometrySerde
                 return getGeometryCollectionOverallEnvelope(input);
             case ENVELOPE:
                 return readEnvelope(input);
+            default:
+                throw new IllegalArgumentException("Unexpected type: " + type);
         }
-        throw new IllegalArgumentException("Unexpected type: " + type);
     }
 
     private static Envelope getGeometryCollectionOverallEnvelope(BasicSliceInput input)

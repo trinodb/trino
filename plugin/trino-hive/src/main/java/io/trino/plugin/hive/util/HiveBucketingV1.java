@@ -40,10 +40,9 @@ final class HiveBucketingV1
 
     static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
     {
-        checkArgument(types.size() <= page.getChannelCount());
-
+        checkArgument(types.size() == page.getChannelCount());
         int result = 0;
-        for (int i = 0; i < types.size(); i++) {
+        for (int i = 0; i < page.getChannelCount(); i++) {
             int fieldHash = hash(types.get(i), page.getBlock(i), position);
             result = result * 31 + fieldHash;
         }
@@ -101,31 +100,17 @@ final class HiveBucketingV1
                     case DATE:
                         // day offset from 1970-01-01
                         return toIntExact(trinoType.getLong(block, position));
-                    case TIMESTAMP:
-                        // We do not support bucketing on timestamp
-                        break;
-                    case DECIMAL:
-                    case CHAR:
-                    case BINARY:
-                    case TIMESTAMPLOCALTZ:
-                    case INTERVAL_YEAR_MONTH:
-                    case INTERVAL_DAY_TIME:
-                        // TODO
-                        break;
-                    case VOID:
-                    case UNKNOWN:
-                        break;
+                    default:
+                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
                 }
-                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
             case LIST:
                 return hashOfList((ListTypeInfo) type, block.getObject(position, Block.class));
             case MAP:
                 return hashOfMap((MapTypeInfo) type, block.getObject(position, Block.class));
-            case STRUCT:
-            case UNION:
+            default:
                 // TODO: support more types, e.g. ROW
+                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
         }
-        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
     }
 
     private static int hash(TypeInfo type, Object value)
@@ -163,31 +148,17 @@ final class HiveBucketingV1
                     case DATE:
                         // day offset from 1970-01-01
                         return toIntExact((long) value);
-                    case TIMESTAMP:
-                        // We do not support bucketing on timestamp
-                        break;
-                    case DECIMAL:
-                    case CHAR:
-                    case BINARY:
-                    case TIMESTAMPLOCALTZ:
-                    case INTERVAL_YEAR_MONTH:
-                    case INTERVAL_DAY_TIME:
-                        // TODO
-                        break;
-                    case VOID:
-                    case UNKNOWN:
-                        break;
+                    default:
+                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
                 }
-                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
             case LIST:
                 return hashOfList((ListTypeInfo) type, (Block) value);
             case MAP:
                 return hashOfMap((MapTypeInfo) type, (Block) value);
-            case STRUCT:
-            case UNION:
+            default:
                 // TODO: support more types, e.g. ROW
+                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
         }
-        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
     }
 
     private static int hashOfMap(MapTypeInfo type, Block singleMapBlock)

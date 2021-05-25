@@ -69,10 +69,6 @@ public final class OperatorValidator
             case SATURATED_FLOOR_CAST:
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
                 break;
-            case IS_DISTINCT_FROM:
-            case XX_HASH_64:
-            case INDETERMINATE:
-                // TODO
         }
     }
 

@@ -2,8 +2,8 @@
 Release 318 (26 Aug 2019)
 =========================
 
-General
--------
+General changes
+---------------
 
 * Fix query failure when using ``DISTINCT FROM`` with the ``UUID`` or
   ``IPADDRESS`` types. (:issue:`1180`)
@@ -29,16 +29,16 @@ General
 * Add queries that are in the queue or in the semantic analysis stage to the
   ``system.runtime.queries`` table. (:issue:`1079`)
 
-Web UI
-------
+Web UI changes
+--------------
 
 * Display information about queries that are in the queue or in the semantic analysis
   stage. (:issue:`1079`)
 * Add support for cancelling queries that are in the queue or in the semantic analysis
   stage. (:issue:`1079`)
 
-Hive connector
---------------
+Hive connector changes
+----------------------
 
 * Fix query failure due to missing credentials while writing empty bucket files. (:issue:`1298`)
 * Fix bucketing of ``NaN`` values of ``real`` type. Previously ``NaN`` values
@@ -53,8 +53,8 @@ Hive connector
 * Allow inserting into bucketed, unpartitioned tables. (:issue:`1127`)
 * Allow inserting into existing partitions of bucketed, partitioned tables. (:issue:`1347`)
 
-PostgreSQL connector
---------------------
+PostgreSQL connector changes
+----------------------------
 
 * Add support for providing JDBC credential in a separate file. This can be enabled by
   setting the ``credential-provider.type=FILE`` and ``connection-credential-file``
@@ -65,8 +65,8 @@ PostgreSQL connector
   by setting ``jdbc-types-mapped-to-varchar`` to comma-separated list of type names. (:issue:`186`)
 * Add support for PostgreSQL ``timestamp[]`` type. (:issue:`1023`, :issue:`1262`, :issue:`1328`)
 
-MySQL connector
----------------
+MySQL connector changes
+-----------------------
 
 * Add support for providing JDBC credential in a separate file. This can be enabled by
   setting the ``credential-provider.type=FILE`` and ``connection-credential-file``
@@ -76,8 +76,8 @@ MySQL connector
 * Add possibility to force mapping of certain types to ``varchar``. This can be enabled
   by setting ``jdbc-types-mapped-to-varchar`` to comma-separated list of type names. (:issue:`186`)
 
-Redshift connector
-------------------
+Redshift connector changes
+--------------------------
 
 * Add support for providing JDBC credential in a separate file. This can be enabled by
   setting the ``credential-provider.type=FILE`` and ``connection-credential-file``
@@ -87,8 +87,8 @@ Redshift connector
 * Add possibility to force mapping of certain types to ``varchar``. This can be enabled
   by setting ``jdbc-types-mapped-to-varchar`` to comma-separated list of type names. (:issue:`186`)
 
-SQL Server connector
---------------------
+SQL Server connector changes
+----------------------------
 
 * Add support for providing JDBC credential in a separate file. This can be enabled by
   setting the ``credential-provider.type=FILE`` and ``connection-credential-file``
@@ -98,8 +98,8 @@ SQL Server connector
 * Add possibility to force mapping of certain types to ``varchar``. This can be enabled
   by setting ``jdbc-types-mapped-to-varchar`` to comma-separated list of type names. (:issue:`186`)
 
-SPI
----
+SPI changes
+-----------
 
 * Add ``Block.isLoaded()`` method. (:issue:`1216`)
 * Update security APIs to accept the new ``ConnectorSecurityContext``

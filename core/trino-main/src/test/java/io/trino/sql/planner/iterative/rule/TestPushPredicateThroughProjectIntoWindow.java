@@ -23,6 +23,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
+import io.trino.sql.planner.plan.WindowNode.Frame;
 import io.trino.sql.planner.plan.WindowNode.Function;
 import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.tree.QualifiedName;
@@ -39,7 +40,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
-import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
+import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 
 public class TestPushPredicateThroughProjectIntoWindow
         extends BaseRuleTest
@@ -282,7 +285,7 @@ public class TestPushPredicateThroughProjectIntoWindow
         return new Function(
                 tester().getMetadata().resolveFunction(QualifiedName.of("row_number"), fromTypes()),
                 ImmutableList.of(),
-                DEFAULT_FRAME,
+                new Frame(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), CURRENT_ROW, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
                 false);
     }
 
@@ -291,7 +294,7 @@ public class TestPushPredicateThroughProjectIntoWindow
         return new Function(
                 tester().getMetadata().resolveFunction(QualifiedName.of("rank"), fromTypes()),
                 ImmutableList.of(),
-                DEFAULT_FRAME,
+                new Frame(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), CURRENT_ROW, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
                 false);
     }
 }

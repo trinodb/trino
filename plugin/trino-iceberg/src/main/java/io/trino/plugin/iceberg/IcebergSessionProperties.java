@@ -43,7 +43,6 @@ public final class IcebergSessionProperties
 {
     private static final String CATALOG_TYPE = "catalog_type";
     private static final String COMPRESSION_CODEC = "compression_codec";
-    private static final String USE_FILE_SIZE_FROM_METADATA = "use_file_size_from_metadata";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
@@ -75,7 +74,7 @@ public final class IcebergSessionProperties
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(enumProperty(
                         CATALOG_TYPE,
-                        "The iceberg catalog type to use (either hive or hadoop)",
+                        "The iceber catalog type to use (either hive or hadoop)",
                         IcebergCatalogType.class,
                         icebergConfig.getCatalogType(),
                         false))
@@ -84,11 +83,6 @@ public final class IcebergSessionProperties
                         "Compression codec to use when writing files",
                         HiveCompressionCodec.class,
                         icebergConfig.getCompressionCodec(),
-                        false))
-                .add(booleanProperty(
-                        USE_FILE_SIZE_FROM_METADATA,
-                        "Use file size stored in Iceberg metadata",
-                        icebergConfig.isUseFileSizeFromMetadata(),
                         false))
                 .add(booleanProperty(
                         ORC_BLOOM_FILTERS_ENABLED,
@@ -287,11 +281,6 @@ public final class IcebergSessionProperties
     public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
     {
         return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
-    }
-
-    public static boolean isUseFileSizeFromMetadata(ConnectorSession session)
-    {
-        return session.getProperty(USE_FILE_SIZE_FROM_METADATA, Boolean.class);
     }
 
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)

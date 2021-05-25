@@ -1574,9 +1574,6 @@ public class TestExpressionCompiler
                 return ExtractMinute.extract(value);
             case SECOND:
                 return ExtractSecond.extract(value);
-            case TIMEZONE_MINUTE:
-            case TIMEZONE_HOUR:
-                // TODO test these
         }
         throw new AssertionError("Unhandled field: " + field);
     }

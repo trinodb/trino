@@ -44,6 +44,7 @@ import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITION
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -184,12 +185,12 @@ public class TestJdbcRecordSetProvider
     private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
     {
         jdbcTableHandle = new JdbcTableHandle(
-                jdbcTableHandle.getRelationHandle(),
+                jdbcTableHandle.getSchemaTableName(),
+                jdbcTableHandle.getRemoteTableName(),
                 domain,
                 Optional.empty(),
                 OptionalLong.empty(),
-                Optional.empty(),
-                jdbcTableHandle.getNextSyntheticColumnId());
+                Optional.empty());
 
         ConnectorSplitSource splits = jdbcClient.getSplits(SESSION, jdbcTableHandle);
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());

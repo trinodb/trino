@@ -35,7 +35,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractKuduIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     private TestingKuduServer kuduServer;

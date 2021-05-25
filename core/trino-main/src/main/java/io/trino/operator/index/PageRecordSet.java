@@ -87,7 +87,10 @@ public class PageRecordSet
         public boolean advanceNextPosition()
         {
             position++;
-            return position < page.getPositionCount();
+            if (position >= page.getPositionCount()) {
+                return false;
+            }
+            return true;
         }
 
         @Override

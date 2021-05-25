@@ -30,7 +30,7 @@ public class TestIcebergDistributed
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createIcebergQueryRunner(ImmutableMap.of());
     }
 
     @Override
@@ -87,16 +87,6 @@ public class TestIcebergDistributed
             return Optional.of(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999999 +12:00'"));
         }
 
-        return Optional.of(dataMappingTestSetup);
-    }
-
-    @Override
-    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
-    {
-        String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("char(1)")) {
-            return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
         return Optional.of(dataMappingTestSetup);
     }
 }

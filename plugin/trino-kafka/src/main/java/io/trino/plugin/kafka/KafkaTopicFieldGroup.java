@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -69,29 +68,6 @@ public class KafkaTopicFieldGroup
     public Optional<String> getSubject()
     {
         return subject;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(dataFormat, dataSchema, subject, fields);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-
-        KafkaTopicFieldGroup other = (KafkaTopicFieldGroup) obj;
-        return Objects.equals(this.dataFormat, other.dataFormat) &&
-                Objects.equals(this.dataSchema, other.dataSchema) &&
-                Objects.equals(this.subject, other.subject) &&
-                Objects.equals(this.fields, other.fields);
     }
 
     @Override

@@ -2,8 +2,8 @@
 Release 0.188
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix handling of negative start indexes in array :func:`slice` function.
 * Fix inverted sign for time zones ``Etc/GMT-12``, ``Etc/GMT-11``, ..., ``Etc/GMT-1``,
@@ -20,27 +20,27 @@ General
 * Mitigate performance issue caused by JVM when generated code is used
   for multiple hours or days.
 
-CLI
----
+CLI changes
+-----------
 
 * Fix transaction support. Previously, after the first statement in the
   transaction, the transaction would be abandoned and the session would
   silently revert to auto-commit mode.
 
-JDBC driver
------------
+JDBC driver changes
+-------------------
 
 * Support using ``Statement.cancel()`` for all types of statements.
 
-Resource group
---------------
+Resource group changes
+----------------------
 
 * Add environment support to the ``db`` resource groups manager.
   Previously, configurations for different clusters had to be stored in separate databases.
   With this change, different cluster configurations can be stored in the same table and
   Presto will use the new ``environment`` column to differentiate them.
 
-SPI
----
+SPI changes
+-----------
 
 * Add query plan to the query completed event.

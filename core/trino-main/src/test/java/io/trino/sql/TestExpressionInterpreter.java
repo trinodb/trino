@@ -1476,11 +1476,8 @@ public class TestExpressionInterpreter
     {
         assertRoundTrip(expression);
 
-        return optimize(planExpression(expression));
-    }
+        Expression parsedExpression = planExpression(expression);
 
-    static Object optimize(Expression parsedExpression)
-    {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, METADATA, SYMBOL_TYPES, parsedExpression);
         ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
         return interpreter.optimize(symbol -> {
@@ -1516,7 +1513,7 @@ public class TestExpressionInterpreter
     }
 
     // TODO replace that method with io.trino.sql.ExpressionTestUtils.planExpression
-    static Expression planExpression(@Language("SQL") String expression)
+    private static Expression planExpression(@Language("SQL") String expression)
     {
         return TransactionBuilder.transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()

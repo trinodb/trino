@@ -117,8 +117,9 @@ public final class ExpressionUtils
                     return TRUE_LITERAL;
                 case OR:
                     return FALSE_LITERAL;
+                default:
+                    throw new IllegalArgumentException("Unsupported LogicalBinaryExpression operator");
             }
-            throw new IllegalArgumentException("Unsupported LogicalBinaryExpression operator");
         }
 
         // Build balanced tree for efficient recursive processing that

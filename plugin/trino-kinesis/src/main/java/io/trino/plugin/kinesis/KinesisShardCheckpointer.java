@@ -22,6 +22,8 @@ import com.amazonaws.services.kinesis.leases.impl.KinesisClientLease;
 import com.amazonaws.services.kinesis.leases.impl.KinesisClientLeaseManager;
 import io.airlift.log.Logger;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 public class KinesisShardCheckpointer
 {
     private static final Logger log = Logger.get(KinesisShardCheckpointer.class);
@@ -80,6 +82,7 @@ public class KinesisShardCheckpointer
             }
         }
         catch (ProvisionedThroughputException | InvalidStateException | DependencyException e) {
+            throwIfUnchecked(e);
             throw new RuntimeException(e);
         }
         resetNextCheckpointTime();
@@ -115,6 +118,7 @@ public class KinesisShardCheckpointer
             }
         }
         catch (DependencyException | InvalidStateException | ProvisionedThroughputException e) {
+            throwIfUnchecked(e);
             throw new RuntimeException(e);
         }
         resetNextCheckpointTime();
@@ -130,6 +134,7 @@ public class KinesisShardCheckpointer
                 oldLease = leaseManager.getLease(createCheckpointKey(currentIterationNumber - 1));
             }
             catch (DependencyException | InvalidStateException | ProvisionedThroughputException e) {
+                throwIfUnchecked(e);
                 throw new RuntimeException(e);
             }
             if (oldLease != null) {

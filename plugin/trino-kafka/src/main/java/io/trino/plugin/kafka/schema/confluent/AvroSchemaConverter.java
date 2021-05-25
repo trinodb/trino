@@ -139,11 +139,9 @@ public class AvroSchemaConverter
                 return convertMap(schema);
             case RECORD:
                 return convertRecord(schema);
-            case NULL:
-                // unsupported
-                break;
+            default:
+                throw new UnsupportedOperationException(format("Type %s not supported", schema.getType()));
         }
-        throw new UnsupportedOperationException(format("Type %s not supported", schema.getType()));
     }
 
     private Optional<Type> convertUnion(Schema schema)
@@ -211,8 +209,9 @@ public class AvroSchemaConverter
                     return Optional.of(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BooleanType.BOOLEAN))));
                 case FAIL:
                     throw new IllegalStateException(format("Struct type has no valid fields for schema: '%s'", schema));
+                default:
+                    throw new IllegalStateException(format("Unknown emptyFieldStrategy '%s'", emptyFieldStrategy));
             }
-            throw new IllegalStateException(format("Unknown emptyFieldStrategy '%s'", emptyFieldStrategy));
         }
         return Optional.of(RowType.from(fields));
     }

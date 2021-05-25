@@ -32,10 +32,7 @@ public final class KdbTreeType
 
     private KdbTreeType()
     {
-        // The KDB tree type should be KdbTree but can not be since KdbTree is in
-        // both the plugin class loader and the system class loader.  This was done
-        // so the plan optimizer can process geo spatial joins.
-        super(new TypeSignature(NAME), Object.class);
+        super(new TypeSignature(NAME), KdbTree.class);
     }
 
     @Override

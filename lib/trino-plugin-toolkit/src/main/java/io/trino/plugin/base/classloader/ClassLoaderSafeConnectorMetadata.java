@@ -38,10 +38,6 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
-import io.trino.spi.connector.JoinApplicationResult;
-import io.trino.spi.connector.JoinCondition;
-import io.trino.spi.connector.JoinStatistics;
-import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
@@ -473,14 +469,6 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getDeleteRowIdColumnHandle(session, tableHandle);
-        }
-    }
-
-    @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -553,10 +541,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getUpdateRowIdColumnHandle(session, tableHandle, updatedColumns);
+            return delegate.getUpdateRowIdColumnHandle(session, tableHandle);
         }
     }
 
@@ -790,22 +778,6 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
-            ConnectorSession session,
-            JoinType joinType,
-            ConnectorTableHandle left,
-            ConnectorTableHandle right,
-            List<JoinCondition> joinConditions,
-            Map<String, ColumnHandle> leftAssignments,
-            Map<String, ColumnHandle> rightAssignments,
-            JoinStatistics statistics)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.applyJoin(session, joinType, left, right, joinConditions, leftAssignments, rightAssignments, statistics);
-        }
-    }
-
-    @Override
     public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
             ConnectorSession session,
             ConnectorTableHandle table,
@@ -863,22 +835,6 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.applyTableScanRedirect(session, tableHandle);
-        }
-    }
-
-    @Override
-    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.beginUpdate(session, tableHandle, updatedColumns);
-        }
-    }
-
-    @Override
-    public void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.finishUpdate(session, tableHandle, fragments);
         }
     }
 }

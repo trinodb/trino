@@ -32,9 +32,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 /**
- * @deprecated Use {@link BaseConnectorTest} instead.
+ * Generic test for connectors exercising connector's read capabilities.
+ * This is also the base class for connector-specific tests (not generic),
+ * regardless whether they exercise read-only or read-write capabilities.
+ *
+ * @see AbstractTestDistributedQueries
  */
-@Deprecated
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {

@@ -323,19 +323,41 @@ public class MongoSession
             }
             else {
                 Document rangeConjuncts = new Document();
-                if (!range.isLowUnbounded()) {
-                    Optional<Object> translated = translateValue(range.getLowBoundedValue(), type);
+                if (!range.getLow().isLowerUnbounded()) {
+                    Optional<Object> translated = translateValue(range.getLow().getValue(), type);
                     if (translated.isEmpty()) {
                         return Optional.empty();
                     }
-                    rangeConjuncts.put(range.isLowInclusive() ? GTE_OP : GT_OP, translated.get());
+                    switch (range.getLow().getBound()) {
+                        case ABOVE:
+                            rangeConjuncts.put(GT_OP, translated.get());
+                            break;
+                        case EXACTLY:
+                            rangeConjuncts.put(GTE_OP, translated.get());
+                            break;
+                        case BELOW:
+                            throw new IllegalArgumentException("Low Marker should never use BELOW bound: " + range);
+                        default:
+                            throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
+                    }
                 }
-                if (!range.isHighUnbounded()) {
-                    Optional<Object> translated = translateValue(range.getHighBoundedValue(), type);
+                if (!range.getHigh().isUpperUnbounded()) {
+                    Optional<Object> translated = translateValue(range.getHigh().getValue(), type);
                     if (translated.isEmpty()) {
                         return Optional.empty();
                     }
-                    rangeConjuncts.put(range.isHighInclusive() ? LTE_OP : LT_OP, translated.get());
+                    switch (range.getHigh().getBound()) {
+                        case ABOVE:
+                            throw new IllegalArgumentException("High Marker should never use ABOVE bound: " + range);
+                        case EXACTLY:
+                            rangeConjuncts.put(LTE_OP, translated.get());
+                            break;
+                        case BELOW:
+                            rangeConjuncts.put(LT_OP, translated.get());
+                            break;
+                        default:
+                            throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
+                    }
                 }
                 // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                 verify(!rangeConjuncts.isEmpty());

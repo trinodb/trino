@@ -106,30 +106,6 @@ public class TestApplyTableScanRedirection
     }
 
     @Test
-    public void testDoesNotFireForDeleteTableScan()
-    {
-        try (RuleTester ruleTester = defaultRuleTester()) {
-            // make the mock connector return a table scan on different table
-            ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
-                    ImmutableMap.of(sourceColumnHandleA, destinationColumnNameA));
-            MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
-
-            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
-
-            ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getMetadata()))
-                    .on(p -> {
-                        Symbol column = p.symbol(sourceColumnNameA, VARCHAR);
-                        return p.tableScan(TEST_TABLE_HANDLE,
-                                ImmutableList.of(column),
-                                ImmutableMap.of(column, sourceColumnHandleA),
-                                true);
-                    })
-                    .withSession(MOCK_SESSION)
-                    .doesNotFire();
-        }
-    }
-
-    @Test
     public void doesNotFireIfNoTableScan()
     {
         try (RuleTester ruleTester = defaultRuleTester()) {

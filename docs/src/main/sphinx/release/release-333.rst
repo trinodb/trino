@@ -2,8 +2,8 @@
 Release 333 (04 May 2020)
 =========================
 
-General
--------
+General changes
+---------------
 
 * Fix planning failure when lambda expressions are repeated in a query. (:issue:`3218`)
 * Fix failure when input to ``TRY`` is a constant ``NULL``. (:issue:`3408`)
@@ -23,45 +23,45 @@ General
 * Add :doc:`/sql/show-create-schema`. (:issue:`3099`)
 * Add :func:`starts_with` function. (:issue:`3392`)
 
-Server
-------
+Server changes
+--------------
 
 * Require running on :ref:`Java 11 or above <requirements-java>`. (:issue:`2799`)
 
-Server RPM
-----------
+Server RPM changes
+------------------
 
 * Reduce size of RPM and disk usage after installation. (:issue:`3595`)
 
-Security
---------
+Security changes
+----------------
 
 * Allow configuring trust certificate for LDAP password authenticator. (:issue:`3523`)
 
-JDBC driver
------------
+JDBC driver changes
+-------------------
 
 * Fix hangs on JDK 8u252 when using secure connections. (:issue:`3444`)
 
-BigQuery connector
-------------------
+BigQuery connector changes
+--------------------------
 
 * Improve performance for queries that contain filters on table columns. (:issue:`3376`)
 * Add support for partitioned tables. (:issue:`3376`)
 
-Cassandra connector
--------------------
+Cassandra connector changes
+---------------------------
 
 * Allow :doc:`/sql/insert` statement for table having hidden ``id`` column. (:issue:`3499`)
 * Add support for :doc:`/sql/create-table` statement. (:issue:`3478`)
 
-Elasticsearch connector
------------------------
+Elasticsearch connector changes
+-------------------------------
 
 * Fix failure when querying Elasticsearch 7.x clusters. (:issue:`3447`)
 
-Hive connector
---------------
+Hive connector changes
+----------------------
 
 * Fix incorrect query results when reading Parquet data with a ``varchar`` column predicate
   which is a comparison with a value containing non-ASCII characters. (:issue:`3517`)
@@ -82,14 +82,14 @@ Hive connector
   ``projection_pushdown_enabled`` session property. (:issue:`3490`)
 * Add support for connecting to the Thrift metastore using TLS. (:issue:`3440`)
 
-MongoDB connector
------------------
+MongoDB connector changes
+-------------------------
 
 * Skip unknown types in nested BSON object. (:issue:`2935`)
 * Fix query failure when the user does not have access privileges for ``system.views``. (:issue:`3355`)
 
-Other connectors
-----------------
+Other connector changes
+-----------------------
 
 These changes apply to the MemSQL, MySQL, PostgreSQL, Redshift, and SQL Server connectors.
 

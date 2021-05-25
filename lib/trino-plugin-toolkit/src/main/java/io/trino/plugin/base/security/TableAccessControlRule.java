@@ -146,6 +146,6 @@ public class TableAccessControlRule
 
     public enum TablePrivilege
     {
-        SELECT, INSERT, DELETE, UPDATE, OWNERSHIP, GRANT_SELECT
+        SELECT, INSERT, DELETE, OWNERSHIP, GRANT_SELECT
     }
 }

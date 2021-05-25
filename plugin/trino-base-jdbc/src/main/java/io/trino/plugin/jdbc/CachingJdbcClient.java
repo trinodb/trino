@@ -27,10 +27,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.JoinStatistics;
-import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
@@ -75,7 +72,6 @@ public class CachingJdbcClient
     private final Cache<TableHandleCacheKey, Optional<JdbcTableHandle>> tableHandleCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
     private final List<PropertyMetadata<?>> sessionProperties;
-    private final Cache<TableStatisticsCacheKey, TableStatistics> statisticsCache;
 
     @Inject
     public CachingJdbcClient(@StatsCollecting JdbcClient delegate, Set<SessionPropertiesProvider> sessionPropertiesProviders, BaseJdbcConfig config)
@@ -105,7 +101,6 @@ public class CachingJdbcClient
         tableNamesCache = cacheBuilder.build();
         tableHandleCache = cacheBuilder.build();
         columnsCache = cacheBuilder.build();
-        statisticsCache = cacheBuilder.build();
     }
 
     @Override
@@ -135,7 +130,7 @@ public class CachingJdbcClient
         if (tableHandle.getColumns().isPresent()) {
             return tableHandle.getColumns().get();
         }
-        ColumnsCacheKey key = new ColumnsCacheKey(JdbcIdentity.from(session), getSessionProperties(session), tableHandle.getRequiredNamedRelation().getSchemaTableName());
+        ColumnsCacheKey key = new ColumnsCacheKey(JdbcIdentity.from(session), getSessionProperties(session), tableHandle.getSchemaTableName());
         return get(columnsCache, key, () -> delegate.getColumns(session, tableHandle));
     }
 
@@ -155,6 +150,12 @@ public class CachingJdbcClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return delegate.toWriteMapping(session, type);
+    }
+
+    @Override
+    public boolean supportsGroupingSets()
+    {
+        return delegate.supportsGroupingSets();
     }
 
     @Override
@@ -190,47 +191,10 @@ public class CachingJdbcClient
     }
 
     @Override
-    public PreparedQuery prepareQuery(
-            ConnectorSession session,
-            JdbcTableHandle table,
-            Optional<List<List<JdbcColumnHandle>>> groupingSets,
-            List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions)
-    {
-        return delegate.prepareQuery(session, table, groupingSets, columns, columnExpressions);
-    }
-
-    @Override
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
     {
         return delegate.buildSql(session, connection, split, table, columns);
-    }
-
-    @Override
-    public Optional<PreparedQuery> implementJoin(
-            ConnectorSession session,
-            JoinType joinType,
-            PreparedQuery leftSource,
-            PreparedQuery rightSource,
-            List<JdbcJoinCondition> joinConditions,
-            Map<JdbcColumnHandle, String> rightAssignments,
-            Map<JdbcColumnHandle, String> leftAssignments,
-            JoinStatistics statistics)
-    {
-        return delegate.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics);
-    }
-
-    @Override
-    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
-    {
-        return delegate.supportsTopN(session, handle, sortOrder);
-    }
-
-    @Override
-    public boolean isTopNLimitGuaranteed(ConnectorSession session)
-    {
-        return delegate.isTopNLimitGuaranteed(session);
     }
 
     @Override
@@ -285,7 +249,7 @@ public class CachingJdbcClient
     public void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle)
     {
         delegate.dropTable(session, jdbcTableHandle);
-        invalidateTableCaches(jdbcTableHandle.asPlainTable().getSchemaTableName());
+        invalidateTableCaches(jdbcTableHandle.getSchemaTableName());
     }
 
     @Override
@@ -317,24 +281,7 @@ public class CachingJdbcClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        if (!handle.isNamedRelation()) {
-            // only cache named relation as we need to be able to invalidate the cache by table name
-            // TODO https://github.com/trinodb/trino/issues/6832 - to support other JdbcTableHandle types
-            return delegate.getTableStatistics(session, handle, tupleDomain);
-        }
-
-        TableStatisticsCacheKey key = new TableStatisticsCacheKey(handle, tupleDomain);
-
-        TableStatistics cachedStatistics = statisticsCache.getIfPresent(key);
-        if (cachedStatistics != null) {
-            return cachedStatistics;
-        }
-
-        TableStatistics statistics = delegate.getTableStatistics(session, handle, tupleDomain);
-        if (!statistics.equals(TableStatistics.empty()) || cacheMissing) {
-            statisticsCache.put(key, statistics);
-        }
-        return statistics;
+        return delegate.getTableStatistics(session, handle, tupleDomain);
     }
 
     @Override
@@ -355,35 +302,35 @@ public class CachingJdbcClient
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         delegate.setColumnComment(session, handle, column, comment);
-        invalidateColumnsCache(handle.asPlainTable().getSchemaTableName());
+        invalidateColumnsCache(handle.getSchemaTableName());
     }
 
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         delegate.addColumn(session, handle, column);
-        invalidateColumnsCache(handle.asPlainTable().getSchemaTableName());
+        invalidateColumnsCache(handle.getSchemaTableName());
     }
 
     @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         delegate.dropColumn(session, handle, column);
-        invalidateColumnsCache(handle.asPlainTable().getSchemaTableName());
+        invalidateColumnsCache(handle.getSchemaTableName());
     }
 
     @Override
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         delegate.renameColumn(session, handle, jdbcColumn, newColumnName);
-        invalidateColumnsCache(handle.asPlainTable().getSchemaTableName());
+        invalidateColumnsCache(handle.getSchemaTableName());
     }
 
     @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         delegate.renameTable(session, handle, newTableName);
-        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
+        invalidateTableCaches(handle.getSchemaTableName());
         invalidateTableCaches(newTableName);
     }
 
@@ -452,7 +399,6 @@ public class CachingJdbcClient
         invalidateColumnsCache(schemaTableName);
         invalidateCache(tableHandleCache, key -> key.tableName.equals(schemaTableName));
         invalidateCache(tableNamesCache, key -> key.schemaName.equals(Optional.of(schemaTableName.getSchemaName())));
-        invalidateCache(statisticsCache, key -> key.tableHandle.getRequiredNamedRelation().getSchemaTableName().equals(schemaTableName));
     }
 
     private void invalidateColumnsCache(SchemaTableName table)
@@ -464,12 +410,6 @@ public class CachingJdbcClient
     CacheStats getColumnsCacheStats()
     {
         return columnsCache.stats();
-    }
-
-    @VisibleForTesting
-    CacheStats getStatisticsCacheStats()
-    {
-        return statisticsCache.stats();
     }
 
     private static <T, V> void invalidateCache(Cache<T, V> cache, Predicate<T> filterFunction)
@@ -607,39 +547,6 @@ public class CachingJdbcClient
         catch (ExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new UncheckedExecutionException(e);
-        }
-    }
-
-    private static final class TableStatisticsCacheKey
-    {
-        // TODO depend on Identity when needed
-        private final JdbcTableHandle tableHandle;
-        private final TupleDomain<ColumnHandle> tupleDomain;
-
-        private TableStatisticsCacheKey(JdbcTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
-        {
-            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-            this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TableStatisticsCacheKey that = (TableStatisticsCacheKey) o;
-            return tableHandle.equals(that.tableHandle)
-                    && tupleDomain.equals(that.tupleDomain);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(tableHandle, tupleDomain);
         }
     }
 }

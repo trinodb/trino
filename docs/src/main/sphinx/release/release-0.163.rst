@@ -2,8 +2,8 @@
 Release 0.163
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix data corruption when transporting dictionary-encoded data.
 * Fix potential deadlock when resource groups are configured with memory limits.
@@ -20,23 +20,23 @@ General
 * Improve tolerance to communication errors for long running queries. This can be adjusted
   with the ``query.remote-task.max-error-duration`` config option.
 
-Accumulo
---------
+Accumulo changes
+----------------
 
 * Fix issue that could cause incorrect results for large rows.
 
-MongoDB
--------
+MongoDB changes
+---------------
 
 * Fix NullPointerException when a field contains a null.
 
-Cassandra
----------
+Cassandra changes
+-----------------
 
 * Add support for ``VARBINARY``, ``TIMESTAMP`` and ``REAL`` data types.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix issue that would prevent predicates from being pushed into Parquet reader.
 * Fix Hive metastore user permissions caching when tables are dropped or renamed.

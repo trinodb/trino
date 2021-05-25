@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.testcontainers.containers.MySQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -79,7 +78,7 @@ public class TestRaptorIntegrationSmokeTestMySql
 
         queryRunner.createCatalog("raptor", "raptor-legacy", raptorProperties);
 
-        copyTables(queryRunner, "tpch", createSession(), false, TpchTable.getTables());
+        copyTables(queryRunner, "tpch", createSession(), false);
 
         return queryRunner;
     }

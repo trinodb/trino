@@ -160,7 +160,7 @@ public class TestPushTopNIntoTableScan
                     .withSession(MOCK_SESSION)
                     .matches(
                             topN(1, ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
-                                    TopNNode.Step.SINGLE,
+                                    TopNNode.Step.FINAL,
                                     tableScan(
                                             equalTo(connectorHandle),
                                             TupleDomain.all(),

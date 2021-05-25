@@ -25,7 +25,6 @@ import org.apache.iceberg.FileFormat;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.iceberg.IcebergCatalogType.HIVE;
@@ -42,27 +41,20 @@ public final class IcebergQueryRunner
 
     private IcebergQueryRunner() {}
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, List<TpchTable<?>> tpchTables)
-            throws Exception
-    {
-        FileFormat defaultFormat = new IcebergConfig().getFileFormat();
-        return createIcebergQueryRunner(extraProperties, defaultFormat, tpchTables);
-    }
-
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
         FileFormat defaultFormat = new IcebergConfig().getFileFormat();
-        return createIcebergQueryRunner(extraProperties, defaultFormat, TpchTable.getTables());
+        return createIcebergQueryRunner(extraProperties, defaultFormat, true);
     }
 
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, FileFormat format)
             throws Exception
     {
-        return createIcebergQueryRunner(extraProperties, format, TpchTable.getTables());
+        return createIcebergQueryRunner(extraProperties, format, true);
     }
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, FileFormat format, List<TpchTable<?>> tables)
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, FileFormat format, boolean createTpchTables)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -111,7 +103,9 @@ public final class IcebergQueryRunner
 
         queryRunner.execute("CREATE SCHEMA tpch");
 
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, tables);
+        if (createTpchTables) {
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
+        }
 
         return queryRunner;
     }

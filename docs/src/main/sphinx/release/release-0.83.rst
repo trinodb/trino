@@ -2,13 +2,13 @@
 Release 0.83
 ============
 
-Raptor
-------
+Raptor changes
+--------------
 * Raptor now enables specifying the backup storage location. This feature is highly experimental.
 * Fix the handling of shards not assigned to any node.
 
-General
--------
+General changes
+---------------
 
 * Fix resource leak in query queues.
 * Fix NPE when writing null ``ARRAY/MAP`` to Hive.

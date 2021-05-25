@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.hive.security;
 
+import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+
 public interface AccessControlMetadataFactory
 {
-    AccessControlMetadata create(SqlStandardAccessControlMetadataMetastore metastore);
+    AccessControlMetadata create(SemiTransactionalHiveMetastore metastore);
 }

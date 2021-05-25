@@ -221,11 +221,6 @@ public class TpchMetadata
     private static ConnectorTableMetadata getTableMetadata(String schemaName, TpchTable<?> tpchTable, ColumnNaming columnNaming)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        columns.add(ColumnMetadata.builder()
-                .setName(ROW_NUMBER_COLUMN_NAME)
-                .setType(BIGINT)
-                .setHidden(true)
-                .build());
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
             columns.add(ColumnMetadata.builder()
                     .setName(columnNaming.getName(column))
@@ -233,6 +228,11 @@ public class TpchMetadata
                     .setNullable(false)
                     .build());
         }
+        columns.add(ColumnMetadata.builder()
+                .setName(ROW_NUMBER_COLUMN_NAME)
+                .setType(BIGINT)
+                .setHidden(true)
+                .build());
 
         SchemaTableName tableName = new SchemaTableName(schemaName, tpchTable.getTableName());
         return new ConnectorTableMetadata(tableName, columns.build());
@@ -266,25 +266,24 @@ public class TpchMetadata
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
-        TupleDomain<ColumnHandle> filter = constraint.getSummary().intersect(((TpchTableHandle) tableHandle).getConstraint());
-
         TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
         String tableName = tpchTableHandle.getTableName();
         TpchTable<?> tpchTable = TpchTable.getTable(tableName);
         Map<TpchColumn<?>, List<Object>> columnValuesRestrictions = ImmutableMap.of();
         if (predicatePushdownEnabled) {
-            columnValuesRestrictions = getColumnValuesRestrictions(tpchTable, filter);
+            columnValuesRestrictions = getColumnValuesRestrictions(tpchTable, constraint);
         }
         Optional<TableStatisticsData> optionalTableStatisticsData = statisticsEstimator.estimateStats(tpchTable, columnValuesRestrictions, tpchTableHandle.getScaleFactor());
 
         Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tpchTableHandle);
         return optionalTableStatisticsData
-                .map(tableStatisticsData -> toTableStatistics(tableStatisticsData, tpchTableHandle, columnHandles))
+                .map(tableStatisticsData -> toTableStatistics(optionalTableStatisticsData.get(), tpchTableHandle, columnHandles))
                 .orElse(TableStatistics.empty());
     }
 
-    private Map<TpchColumn<?>, List<Object>> getColumnValuesRestrictions(TpchTable<?> tpchTable, TupleDomain<ColumnHandle> constraintSummary)
+    private Map<TpchColumn<?>, List<Object>> getColumnValuesRestrictions(TpchTable<?> tpchTable, Constraint constraint)
     {
+        TupleDomain<ColumnHandle> constraintSummary = constraint.getSummary();
         if (constraintSummary.isAll()) {
             return emptyMap();
         }

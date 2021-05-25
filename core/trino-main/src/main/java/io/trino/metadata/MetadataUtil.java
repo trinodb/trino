@@ -167,8 +167,9 @@ public final class MetadataUtil
             case CURRENT_ROLE:
                 // TODO: will be implemented once the "SET ROLE" statement is introduced
                 throw new UnsupportedOperationException("CURRENT_ROLE is not yet supported");
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
         }
-        throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
     public static TrinoPrincipal createPrincipal(PrincipalSpecification specification)
@@ -180,8 +181,9 @@ public final class MetadataUtil
                 return new TrinoPrincipal(USER, specification.getName().getValue());
             case ROLE:
                 return new TrinoPrincipal(ROLE, specification.getName().getValue());
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
         }
-        throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
     public static PrincipalSpecification createPrincipal(TrinoPrincipal principal)
@@ -192,8 +194,9 @@ public final class MetadataUtil
                 return new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(principal.getName()));
             case ROLE:
                 return new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(principal.getName()));
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
         }
-        throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
     public static boolean tableExists(Metadata metadata, Session session, String table)

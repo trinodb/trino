@@ -28,7 +28,6 @@ import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tests.utils.QueryExecutors.onSpark;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
 
 public class TestSparkCompatibility
         extends ProductTest
@@ -360,46 +359,6 @@ public class TestSparkCompatibility
         assertThat(sparkResult).containsOnly(row);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testIdBasedFieldMapping()
-    {
-        String baseTableName = "test_schema_evolution_for_nested_fields";
-        String prestoTableName = prestoTableName(baseTableName);
-        String sparkTableName = sparkTableName(baseTableName);
-
-        onSpark().executeQuery(format(
-                "CREATE TABLE %s (_struct STRUCT<rename:BIGINT, keep:BIGINT, drop_and_add:BIGINT, CaseSensitive:BIGINT>, _partition BIGINT)"
-                        + " USING ICEBERG"
-                        + " partitioned by (_partition)"
-                        + " TBLPROPERTIES ('write.format.default' = 'orc')",
-                sparkTableName));
-
-        onSpark().executeQuery(format(
-                "INSERT INTO TABLE %s SELECT "
-                        + "named_struct('rename', 1, 'keep', 2, 'drop_and_add', 3, 'CaseSensitive', 4), "
-                        + "1001",
-                sparkTableName));
-
-        // Alter nested fields using Spark. Presto does not support this yet.
-        onSpark().executeQuery(format("ALTER TABLE %s RENAME COLUMN _struct.rename TO renamed", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s DROP COLUMN _struct.drop_and_add", sparkTableName));
-        onSpark().executeQuery(format("ALTER TABLE %s ADD COLUMN _struct.drop_and_add BIGINT", sparkTableName));
-
-        Row expected = row(
-                rowBuilder()
-                        // Rename does not change id
-                        .addField("renamed", 1L)
-                        .addField("keep", 2L)
-                        .addField("CaseSensitive", 4L)
-                        // Dropping and re-adding changes id
-                        .addField("drop_and_add", null)
-                        .build(),
-                1001);
-
-        QueryResult result = onPresto().executeQuery(format("SELECT * FROM %s", prestoTableName));
-        assertEquals(result.column(1).get(0), expected.getValues().get(0));
-    }
-
     private static String sparkTableName(String tableName)
     {
         return format("%s.default.%s", SPARK_CATALOG, tableName);
@@ -408,10 +367,5 @@ public class TestSparkCompatibility
     private static String prestoTableName(String tableName)
     {
         return format("%s.default.%s", PRESTO_CATALOG, tableName);
-    }
-
-    private io.trino.jdbc.Row.Builder rowBuilder()
-    {
-        return io.trino.jdbc.Row.builder();
     }
 }

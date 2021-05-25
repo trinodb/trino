@@ -35,24 +35,17 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
-import io.trino.spi.connector.JoinApplicationResult;
-import io.trino.spi.connector.JoinCondition;
-import io.trino.spi.connector.JoinStatistics;
-import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
-import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
@@ -63,26 +56,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Functions.identity;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
-import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
-import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
-import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcMetadata
         implements ConnectorMetadata
 {
-    private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
+    private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_presto_generated_";
 
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
@@ -124,8 +113,20 @@ public class JdbcMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
-        if (handle.getSortOrder().isPresent() && handle.getLimit().isPresent()) {
-            handle = flushAttributesAsQuery(session, handle);
+
+        if (handle.getGroupingSets().isPresent()) {
+            if (constraint.getSummary().isNone()) {
+                return Optional.empty();
+            }
+
+            Set<ColumnHandle> constraintColumns = constraint.getSummary().getDomains().orElseThrow().keySet();
+            List<List<JdbcColumnHandle>> groupingSets = handle.getGroupingSets().get();
+            boolean canPushDown = groupingSets.stream()
+                    .allMatch(groupingSet -> ImmutableSet.copyOf(groupingSet).containsAll(constraintColumns));
+
+            if (!canPushDown) {
+                return Optional.empty();
+            }
         }
 
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
@@ -165,27 +166,14 @@ public class JdbcMetadata
         }
 
         handle = new JdbcTableHandle(
-                handle.getRelationHandle(),
+                handle.getSchemaTableName(),
+                handle.getRemoteTableName(),
                 newDomain,
-                handle.getSortOrder(),
+                handle.getGroupingSets(),
                 handle.getLimit(),
-                handle.getColumns(),
-                handle.getNextSyntheticColumnId());
+                handle.getColumns());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter));
-    }
-
-    private JdbcTableHandle flushAttributesAsQuery(ConnectorSession session, JdbcTableHandle handle)
-    {
-        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, handle);
-        PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, handle, Optional.empty(), columns, ImmutableMap.of());
-        return new JdbcTableHandle(
-                new JdbcQueryRelationHandle(preparedQuery),
-                TupleDomain.all(),
-                Optional.empty(),
-                OptionalLong.empty(),
-                Optional.of(columns),
-                handle.getNextSyntheticColumnId());
     }
 
     @Override
@@ -207,12 +195,12 @@ public class JdbcMetadata
 
         return Optional.of(new ProjectionApplicationResult<>(
                 new JdbcTableHandle(
-                        handle.getRelationHandle(),
+                        handle.getSchemaTableName(),
+                        handle.getRemoteTableName(),
                         handle.getConstraint(),
-                        handle.getSortOrder(),
+                        handle.getGroupingSets(),
                         handle.getLimit(),
-                        Optional.of(newColumns),
-                        handle.getNextSyntheticColumnId()),
+                        Optional.of(newColumns)),
                 projections,
                 assignments.entrySet().stream()
                         .map(assignment -> new Assignment(
@@ -236,189 +224,80 @@ public class JdbcMetadata
 
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
-        // Global aggregation is represented by [[]]
-        verify(!groupingSets.isEmpty(), "No grouping sets provided");
+        if (handle.getLimit().isPresent()) {
+            // handle's limit is applied after aggregations, so we cannot apply aggregations if limit is already set
+            return Optional.empty();
+        }
+
+        if (handle.getGroupingSets().isPresent()) {
+            // table handle cannot express aggregation on top of aggregation
+            return Optional.empty();
+        }
 
         if (!jdbcClient.supportsAggregationPushdown(session, handle, groupingSets)) {
             // JDBC client implementation prevents pushdown for the given table
             return Optional.empty();
         }
 
-        if (handle.getLimit().isPresent()) {
-            handle = flushAttributesAsQuery(session, handle);
+        // Global aggregation is represented by [[]]
+        verify(!groupingSets.isEmpty(), "No grouping sets provided");
+
+        if (groupingSets.size() > 1 && !jdbcClient.supportsGroupingSets()) {
+            return Optional.empty();
         }
 
-        int nextSyntheticColumnId = handle.getNextSyntheticColumnId();
+        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, handle);
+        Map<String, JdbcColumnHandle> columnByName = columns.stream()
+                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
+
+        int syntheticNextIdentifier = 1;
 
         ImmutableList.Builder<JdbcColumnHandle> newColumns = ImmutableList.builder();
         ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
         ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
-        ImmutableMap.Builder<String, String> expressions = ImmutableMap.builder();
         for (AggregateFunction aggregate : aggregates) {
             Optional<JdbcExpression> expression = jdbcClient.implementAggregation(session, aggregate, assignments);
             if (expression.isEmpty()) {
                 return Optional.empty();
             }
 
-            String columnName = SYNTHETIC_COLUMN_NAME_PREFIX + nextSyntheticColumnId;
-            nextSyntheticColumnId++;
+            while (columnByName.containsKey(SYNTHETIC_COLUMN_NAME_PREFIX + syntheticNextIdentifier)) {
+                syntheticNextIdentifier++;
+            }
+
             JdbcColumnHandle newColumn = JdbcColumnHandle.builder()
-                    .setColumnName(columnName)
+                    .setExpression(Optional.of(expression.get().getExpression()))
+                    .setColumnName(SYNTHETIC_COLUMN_NAME_PREFIX + syntheticNextIdentifier)
                     .setJdbcTypeHandle(expression.get().getJdbcTypeHandle())
                     .setColumnType(aggregate.getOutputType())
                     .setComment(Optional.of("synthetic"))
                     .build();
+            syntheticNextIdentifier++;
 
             newColumns.add(newColumn);
             projections.add(new Variable(newColumn.getColumnName(), aggregate.getOutputType()));
             resultAssignments.add(new Assignment(newColumn.getColumnName(), newColumn, aggregate.getOutputType()));
-            expressions.put(columnName, expression.get().getExpression());
         }
 
-        List<List<JdbcColumnHandle>> groupingSetsAsJdbcColumnHandles = groupingSets.stream()
-                .map(groupingSet -> groupingSet.stream()
-                        .map(JdbcColumnHandle.class::cast)
-                        .collect(toImmutableList()))
-                .collect(toImmutableList());
-
-        List<JdbcColumnHandle> newColumnsList = newColumns.build();
-
-        PreparedQuery preparedQuery = jdbcClient.prepareQuery(
-                session,
-                handle,
-                Optional.of(groupingSetsAsJdbcColumnHandles),
-                ImmutableList.<JdbcColumnHandle>builder()
-                        .addAll(groupingSetsAsJdbcColumnHandles.stream()
-                                .flatMap(List::stream)
-                                .distinct()
-                                .iterator())
-                        .addAll(newColumnsList)
-                        .build(),
-                expressions.build());
         handle = new JdbcTableHandle(
-                new JdbcQueryRelationHandle(preparedQuery),
-                TupleDomain.all(),
-                Optional.empty(),
-                OptionalLong.empty(),
-                Optional.of(newColumnsList),
-                nextSyntheticColumnId);
+                handle.getSchemaTableName(),
+                handle.getRemoteTableName(),
+                handle.getConstraint(),
+                Optional.of(groupingSets.stream()
+                        .map(groupingSet -> groupingSet.stream()
+                                .map(JdbcColumnHandle.class::cast)
+                                .collect(toImmutableList()))
+                        .collect(toImmutableList())),
+                OptionalLong.empty(), // limit
+                Optional.of(newColumns.build()));
 
         return Optional.of(new AggregationApplicationResult<>(handle, projections.build(), resultAssignments.build(), ImmutableMap.of()));
-    }
-
-    @Override
-    public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
-            ConnectorSession session,
-            JoinType joinType,
-            ConnectorTableHandle left,
-            ConnectorTableHandle right,
-            List<JoinCondition> joinConditions,
-            Map<String, ColumnHandle> leftAssignments,
-            Map<String, ColumnHandle> rightAssignments,
-            JoinStatistics statistics)
-    {
-        if (!isJoinPushdownEnabled(session)) {
-            return Optional.empty();
-        }
-
-        JdbcTableHandle leftHandle = flushAttributesAsQuery(session, (JdbcTableHandle) left);
-        JdbcTableHandle rightHandle = flushAttributesAsQuery(session, (JdbcTableHandle) right);
-        int nextSyntheticColumnId = max(leftHandle.getNextSyntheticColumnId(), rightHandle.getNextSyntheticColumnId());
-
-        ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newLeftColumnsBuilder = ImmutableMap.builder();
-        for (JdbcColumnHandle column : jdbcClient.getColumns(session, leftHandle)) {
-            newLeftColumnsBuilder.put(column, JdbcColumnHandle.builderFrom(column)
-                    .setColumnName(column.getColumnName() + "_" + nextSyntheticColumnId)
-                    .build());
-            nextSyntheticColumnId++;
-        }
-        Map<JdbcColumnHandle, JdbcColumnHandle> newLeftColumns = newLeftColumnsBuilder.build();
-
-        ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newRightColumnsBuilder = ImmutableMap.builder();
-        for (JdbcColumnHandle column : jdbcClient.getColumns(session, rightHandle)) {
-            newRightColumnsBuilder.put(column, JdbcColumnHandle.builderFrom(column)
-                    .setColumnName(column.getColumnName() + "_" + nextSyntheticColumnId)
-                    .build());
-            nextSyntheticColumnId++;
-        }
-        Map<JdbcColumnHandle, JdbcColumnHandle> newRightColumns = newRightColumnsBuilder.build();
-
-        ImmutableList.Builder<JdbcJoinCondition> jdbcJoinConditions = ImmutableList.builder();
-        for (JoinCondition joinCondition : joinConditions) {
-            Optional<JdbcColumnHandle> leftColumn = getVariableColumnHandle(leftAssignments, joinCondition.getLeftExpression());
-            Optional<JdbcColumnHandle> rightColumn = getVariableColumnHandle(rightAssignments, joinCondition.getRightExpression());
-            if (leftColumn.isEmpty() || rightColumn.isEmpty()) {
-                return Optional.empty();
-            }
-            jdbcJoinConditions.add(new JdbcJoinCondition(leftColumn.get(), joinCondition.getOperator(), rightColumn.get()));
-        }
-
-        Optional<PreparedQuery> joinQuery = jdbcClient.implementJoin(
-                session,
-                joinType,
-                asPreparedQuery(leftHandle),
-                asPreparedQuery(rightHandle),
-                jdbcJoinConditions.build(),
-                newRightColumns.entrySet().stream()
-                        .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getColumnName())),
-                newLeftColumns.entrySet().stream()
-                        .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getColumnName())),
-                statistics);
-
-        if (joinQuery.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(new JoinApplicationResult<>(
-                new JdbcTableHandle(
-                        new JdbcQueryRelationHandle(joinQuery.get()),
-                        TupleDomain.all(),
-                        Optional.empty(),
-                        OptionalLong.empty(),
-                        Optional.of(
-                                ImmutableList.<JdbcColumnHandle>builder()
-                                        .addAll(newLeftColumns.values())
-                                        .addAll(newRightColumns.values())
-                                        .build()),
-                        nextSyntheticColumnId),
-                ImmutableMap.copyOf(newLeftColumns),
-                ImmutableMap.copyOf(newRightColumns)));
-    }
-
-    private static Optional<JdbcColumnHandle> getVariableColumnHandle(Map<String, ColumnHandle> assignments, ConnectorExpression expression)
-    {
-        requireNonNull(assignments, "assignments is null");
-        requireNonNull(expression, "expression is null");
-        if (!(expression instanceof Variable)) {
-            return Optional.empty();
-        }
-
-        String name = ((Variable) expression).getName();
-        ColumnHandle columnHandle = assignments.get(name);
-        verifyNotNull(columnHandle, "No assignment for %s", name);
-        return Optional.of(((JdbcColumnHandle) columnHandle));
-    }
-
-    private static PreparedQuery asPreparedQuery(JdbcTableHandle tableHandle)
-    {
-        checkArgument(
-                tableHandle.getConstraint().equals(TupleDomain.all()) &&
-                        tableHandle.getLimit().isEmpty() &&
-                        tableHandle.getRelationHandle() instanceof JdbcQueryRelationHandle,
-                "Handle is not a plain query: %s",
-                tableHandle);
-        return ((JdbcQueryRelationHandle) tableHandle.getRelationHandle()).getPreparedQuery();
     }
 
     @Override
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
-
-        if (limit > Integer.MAX_VALUE) {
-            // Some databases, e.g. Phoenix, Redshift, do not support limit exceeding 2147483647.
-            return Optional.empty();
-        }
 
         if (!jdbcClient.supportsLimit()) {
             return Optional.empty();
@@ -429,61 +308,14 @@ public class JdbcMetadata
         }
 
         handle = new JdbcTableHandle(
-                handle.getRelationHandle(),
+                handle.getSchemaTableName(),
+                handle.getRemoteTableName(),
                 handle.getConstraint(),
-                handle.getSortOrder(),
+                handle.getGroupingSets(),
                 OptionalLong.of(limit),
-                handle.getColumns(),
-                handle.getNextSyntheticColumnId());
+                handle.getColumns());
 
         return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session)));
-    }
-
-    @Override
-    public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            long topNCount,
-            List<SortItem> sortItems,
-            Map<String, ColumnHandle> assignments)
-    {
-        if (!isTopNPushdownEnabled(session)) {
-            return Optional.empty();
-        }
-
-        verify(!sortItems.isEmpty(), "sortItems are empty");
-        JdbcTableHandle handle = (JdbcTableHandle) table;
-
-        List<SortItem> resultSortOrder = sortItems.stream()
-                .map(sortItem -> {
-                    verify(assignments.containsKey(sortItem.getName()), "assignments does not contain sortItem: %s", sortItem.getName());
-                    return new SortItem(((JdbcColumnHandle) assignments.get(sortItem.getName())).getColumnName(), sortItem.getSortOrder());
-                })
-                .collect(toImmutableList());
-
-        if (!jdbcClient.supportsTopN(session, handle, resultSortOrder)) {
-            // JDBC client implementation prevents TopN pushdown for the given table and sort items
-            // e.g. when order by on a given type does not match Trino semantics
-            return Optional.empty();
-        }
-
-        if (handle.getSortOrder().isPresent() || handle.getLimit().isPresent()) {
-            if (handle.getLimit().equals(OptionalLong.of(topNCount)) && handle.getSortOrder().equals(Optional.of(resultSortOrder))) {
-                return Optional.empty();
-            }
-
-            handle = flushAttributesAsQuery(session, handle);
-        }
-
-        JdbcTableHandle sortedTableHandle = new JdbcTableHandle(
-                handle.getRelationHandle(),
-                handle.getConstraint(),
-                Optional.of(resultSortOrder),
-                OptionalLong.of(topNCount),
-                handle.getColumns(),
-                handle.getNextSyntheticColumnId());
-
-        return Optional.of(new TopNApplicationResult<>(sortedTableHandle, jdbcClient.isTopNLimitGuaranteed(session)));
     }
 
     @Override
@@ -514,11 +346,7 @@ public class JdbcMetadata
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, handle)) {
             columnMetadata.add(column.getColumnMetadata());
         }
-        SchemaTableName schemaTableName = handle.isNamedRelation()
-                ? handle.getRequiredNamedRelation().getSchemaTableName()
-                // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
-                : new SchemaTableName("_prepared", "query");
-        return new ConnectorTableMetadata(schemaTableName, columnMetadata.build(), jdbcClient.getTableProperties(session, handle));
+        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build(), jdbcClient.getTableProperties(session, handle));
     }
 
     @Override
@@ -546,9 +374,8 @@ public class JdbcMetadata
                 jdbcClient.getTableHandle(session, tableName)
                         .ifPresent(tableHandle -> columns.put(tableName, getTableMetadata(session, tableHandle).getColumns()));
             }
-            catch (TableNotFoundException | AccessDeniedException e) {
-                // table disappeared during listing operation or user is not allowed to access it
-                // these exceptions are ignored because listTableColumns is used for metadata queries (SELECT FROM information_schema)
+            catch (TableNotFoundException e) {
+                // table disappeared during listing operation
             }
         }
         return columns.build();
@@ -609,6 +436,7 @@ public class JdbcMetadata
         verify(!((JdbcTableHandle) tableHandle).isSynthetic(), "Not a table reference: %s", tableHandle);
         List<JdbcColumnHandle> columnHandles = columns.stream()
                 .map(JdbcColumnHandle.class::cast)
+                .peek(columnHandle -> verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle))
                 .collect(toImmutableList());
         JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columnHandles);
         setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
@@ -635,6 +463,7 @@ public class JdbcMetadata
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
+        verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle);
         jdbcClient.setColumnComment(session, tableHandle, columnHandle, comment);
     }
 
@@ -652,6 +481,7 @@ public class JdbcMetadata
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
+        verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle);
         jdbcClient.dropColumn(session, tableHandle, columnHandle);
     }
 
@@ -661,6 +491,7 @@ public class JdbcMetadata
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
+        verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle);
         jdbcClient.renameColumn(session, tableHandle, columnHandle, target);
     }
 

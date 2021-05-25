@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -35,7 +36,7 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.exceptions.CommitFailedException;
-import org.apache.iceberg.hive.HiveSchemaUtil;
+import org.apache.iceberg.hive.HiveTypeConverter;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
@@ -53,7 +54,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
@@ -350,7 +350,7 @@ public class HiveTableOperations
         return columns.stream()
                 .map(column -> new Column(
                         column.name(),
-                        toHiveType(HiveSchemaUtil.convert(column.type())),
+                        HiveType.valueOf(HiveTypeConverter.convert(column.type())),
                         Optional.empty()))
                 .collect(toImmutableList());
     }

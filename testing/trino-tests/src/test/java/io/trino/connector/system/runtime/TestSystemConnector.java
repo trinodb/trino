@@ -75,10 +75,7 @@ public class TestSystemConnector
                 .setSchema("default")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
-                .builder(defaultSession)
-                .enableBackupCoordinator()
-                .build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession).build();
         queryRunner.installPlugin(new Plugin()
         {
             @Override

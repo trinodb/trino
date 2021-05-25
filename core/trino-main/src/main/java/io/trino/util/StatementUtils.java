@@ -70,7 +70,6 @@ import io.trino.sql.tree.ShowStats;
 import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
-import io.trino.sql.tree.Update;
 import io.trino.sql.tree.Use;
 
 import java.util.Map;
@@ -93,8 +92,6 @@ public final class StatementUtils
         builder.put(Insert.class, QueryType.INSERT);
 
         builder.put(Delete.class, QueryType.DELETE);
-
-        builder.put(Update.class, QueryType.UPDATE);
 
         builder.put(ShowCatalogs.class, QueryType.DESCRIBE);
         builder.put(ShowCreate.class, QueryType.DESCRIBE);

@@ -2,8 +2,8 @@
 Release 0.169
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix regression that could cause queries involving ``JOIN`` and certain language features
   such as ``current_date``, ``current_time`` or ``extract`` to fail during planning.
@@ -11,17 +11,17 @@ General
 * Improve performance of :func:`map_agg` and :func:`multimap_agg`.
 * Improve memory accounting when grouping on a single ``BIGINT`` column.
 
-JDBC driver
------------
+JDBC driver changes
+-------------------
 
 * Return correct class name for ``ARRAY`` type from ``ResultSetMetaData.getColumnClassName()``.
 
-CLI
----
+CLI changes
+-----------
 
 * Fix support for non-standard offset time zones (e.g., ``GMT+01:00``).
 
-Cassandra
----------
+Cassandra changes
+-----------------
 
 * Add custom error codes.

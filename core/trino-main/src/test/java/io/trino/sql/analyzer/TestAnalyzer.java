@@ -24,7 +24,6 @@ import io.trino.connector.system.SystemConnector;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
-import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
@@ -78,7 +77,6 @@ import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_NAMED_QUERY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PROPERTY;
-import static io.trino.spi.StandardErrorCode.DUPLICATE_WINDOW_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
@@ -91,11 +89,9 @@ import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
-import static io.trino.spi.StandardErrorCode.INVALID_PARTITION_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_RECURSIVE_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
-import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_REFERENCE;
 import static io.trino.spi.StandardErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_ALIASES;
@@ -286,9 +282,9 @@ public class TestAnalyzer
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessageMatching("line 1:81: Invalid reference to output projection attribute from ORDER BY aggregation");
 
-        assertFails("SELECT 1 AS x FROM (values (1,2)) t(x, y) GROUP BY y ORDER BY sum(y) FILTER (WHERE x > 0)")
-                .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessageMatching("line 1:84: Invalid reference to output projection attribute from ORDER BY aggregation");
+        assertFails("SELECT row_number() over() as a from (values (41, 42), (-41, -42)) t(a,b) group by a+b order by a+b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageMatching("\\Qline 1:98: '(a + b)' must be an aggregate expression or appear in GROUP BY clause\\E");
     }
 
     @Test
@@ -655,11 +651,8 @@ public class TestAnalyzer
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
         assertFails("SELECT count(*) over (ORDER BY count(*) ROWS BETWEEN b PRECEDING AND a PRECEDING) FROM t1 GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
-        assertFails("SELECT count(*) over (ORDER BY count(*) ROWS BETWEEN a PRECEDING AND UNBOUNDED FOLLOWING) FROM t1 GROUP BY b")
+        assertFails("SELECT count(*) over (ORDER BY count(*) ROWS BETWEEN a PRECEDING AND UNBOUNDED PRECEDING) FROM t1 GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
-        assertFails("SELECT row_number() over() as a from (values (41, 42), (-41, -42)) t(a,b) group by a+b order by a+b")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
-                .hasMessageMatching("\\Qline 1:98: '(a + b)' must be an aggregate expression or appear in GROUP BY clause\\E");
     }
 
     @Test
@@ -793,8 +786,7 @@ public class TestAnalyzer
                 new MemoryManagerConfig(),
                 new FeaturesConfig().setMaxGroupingSets(2048),
                 new NodeMemoryConfig(),
-                new DynamicFilterConfig(),
-                new NodeSchedulerConfig()))).build();
+                new DynamicFilterConfig()))).build();
         analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
                 "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
                 "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +
@@ -885,250 +877,6 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testWindowClause()
-    {
-        assertFails("SELECT * FROM t1 WINDOW w AS (PARTITION BY a), w AS (PARTITION BY a)")
-                .hasErrorCode(DUPLICATE_WINDOW_NAME);
-
-        assertFails("SELECT * FROM t1 WINDOW w AS (PARTITION BY a), w AS (ORDER BY b)")
-                .hasErrorCode(DUPLICATE_WINDOW_NAME);
-
-        assertFails("SELECT * FROM t1 WINDOW w AS (), w1 as (), w AS (w)")
-                .hasErrorCode(DUPLICATE_WINDOW_NAME);
-    }
-
-    @Test
-    public void testWindowNames()
-    {
-        // window names are compared using SQL identifier semantics
-        assertFails("SELECT * FROM t1 WINDOW w AS (), W AS ()")
-                .hasErrorCode(DUPLICATE_WINDOW_NAME);
-
-        analyze("SELECT * FROM t1 WINDOW w AS (), \"w\" AS ()");
-
-        analyze("SELECT * FROM t1 WINDOW W AS (), \"w\" AS ()");
-
-        assertFails("SELECT * FROM t1 WINDOW w AS (), \"W\" AS ()")
-                .hasErrorCode(DUPLICATE_WINDOW_NAME);
-
-        analyze("SELECT * FROM t1 WINDOW \"W\" AS (), \"w\" AS ()");
-
-        assertFails("SELECT * FROM t1 WINDOW \"w\" AS (), \"w\" AS ()")
-                .hasErrorCode(DUPLICATE_WINDOW_NAME);
-
-        analyze("SELECT avg(b) OVER w FROM t1 WINDOW \"W\" AS (PARTITION BY a)");
-
-        analyze("SELECT avg(b) OVER \"W\" FROM t1 WINDOW w AS (PARTITION BY a)");
-
-        assertFails("SELECT avg(b) OVER w FROM t1 WINDOW \"w\" AS (PARTITION BY a)")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE);
-
-        analyze("SELECT avg(b) OVER (W ROWS CURRENT ROW) FROM t1 WINDOW \"W\" AS (PARTITION BY a)");
-
-        assertFails("SELECT avg(b) OVER (W ROWS CURRENT ROW) FROM t1 WINDOW \"w\" AS (PARTITION BY a)")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE);
-    }
-
-    @Test
-    public void testNamedWindowScope()
-    {
-        // window definitions with the same names are allowed in different query specifications (in this case, outer and inner query)
-        analyze("SELECT * FROM (SELECT * FROM t1 WINDOW w AS (PARTITION BY a)) " +
-                "WINDOW w AS (PARTITION BY a)");
-
-        // window definition of inner query is not visible in outer query
-        assertFails("SELECT avg(b) OVER w FROM (SELECT * FROM t1 WINDOW w AS (PARTITION BY a)) ")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE)
-                .hasMessage("line 1:20: Cannot resolve WINDOW name w");
-
-        // window definition of outer query is not visible in inner query
-        assertFails("SELECT * FROM (SELECT avg(b) OVER w FROM t1) WINDOW w AS (PARTITION BY a) ")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE)
-                .hasMessage("line 1:35: Cannot resolve WINDOW name w");
-
-        // window definitions are visible in following window definitions of WINDOW clause
-        analyze("SELECT * FROM t1 WINDOW w AS (PARTITION BY a), w1 AS (w ORDER BY b)");
-
-        assertFails("SELECT * FROM t1 WINDOW w1 AS (w ORDER BY b), w AS (PARTITION BY a)")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE)
-                .hasMessage("line 1:32: Cannot resolve WINDOW name w");
-
-        // window definitions are visible in SELECT clause
-        analyze("SELECT count(*) OVER w FROM t1 WINDOW w AS (PARTITION BY a)");
-
-        // window definitions are visible in ORDER BY clause
-        analyze("SELECT * FROM t1 WINDOW w AS (PARTITION BY a) ORDER BY (count(*) OVER w)");
-    }
-
-    @Test
-    public void testWindowDefinition()
-    {
-        analyze("SELECT * FROM t1 " +
-                "WINDOW " +
-                "w1 AS (PARTITION BY a), " +
-                "w2 AS (w1 ORDER BY b), " +
-                "w3 AS (w2 RANGE c PRECEDING)," +
-                "w4 AS (w1 ROWS c PRECEDING)");
-
-        assertFails("SELECT * FROM t1 WINDOW w AS (w1 ORDER BY a)")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE)
-                .hasMessage("line 1:31: Cannot resolve WINDOW name w1");
-
-        assertFails("SELECT * FROM t1 WINDOW w2 AS (w1 ORDER BY a), w1 AS (PARTITION BY b)")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE)
-                .hasMessage("line 1:32: Cannot resolve WINDOW name w1");
-
-        assertFails("SELECT * FROM t1 WINDOW w1 AS (ORDER BY a), w2 AS (w1 PARTITION BY b)")
-                .hasErrorCode(INVALID_PARTITION_BY)
-                .hasMessage("line 1:68: WINDOW specification with named WINDOW reference cannot specify PARTITION BY");
-
-        assertFails("SELECT * FROM t1 WINDOW w1 AS (ORDER BY a), w2 AS (w1 ORDER BY b)")
-                .hasErrorCode(INVALID_ORDER_BY)
-                .hasMessage("line 1:55: Cannot specify ORDER BY if referenced named WINDOW specifies ORDER BY");
-
-        assertFails("SELECT * FROM t1 WINDOW w1 AS (RANGE CURRENT ROW), w2 AS (w1 ORDER BY b)")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE)
-                .hasMessage("line 1:59: Cannot reference named WINDOW containing frame specification");
-    }
-
-    @Test
-    public void testWindowSpecification()
-    {
-        // analyze PARTITION BY
-        assertFails("SELECT * FROM (VALUES approx_set(1)) t(a) WINDOW w AS (PARTITION BY a)")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:69: HyperLogLog is not comparable, and therefore cannot be used in window function PARTITION BY");
-
-        // analyze ORDER BY
-        assertFails("SELECT * FROM (VALUES approx_set(1)) t(a) WINDOW w AS (ORDER BY a)")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:65: HyperLogLog is not orderable, and therefore cannot be used in window function ORDER BY");
-
-        // analyze window frame
-        assertFails("SELECT * FROM (VALUES 1) t(a) WINDOW w AS (RANGE UNBOUNDED FOLLOWING)")
-                .hasErrorCode(INVALID_WINDOW_FRAME)
-                .hasMessage("line 1:44: Window frame start cannot be UNBOUNDED FOLLOWING");
-
-        assertFails("SELECT * FROM (VALUES 'x') t(a) WINDOW w AS (ROWS a PRECEDING)")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:51: Window frame ROWS start value type must be exact numeric type with scale 0 (actual varchar(1))");
-
-        assertFails("SELECT * FROM (VALUES 'x') t(a) WINDOW w AS (RANGE a PRECEDING)")
-                .hasErrorCode(MISSING_ORDER_BY)
-                .hasMessage("line 1:46: Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY");
-
-        assertFails("SELECT * FROM (VALUES (1, 2, 3)) t(a, b, c) WINDOW w AS (ORDER BY a, b RANGE c PRECEDING)")
-                .hasErrorCode(INVALID_ORDER_BY)
-                .hasMessage("line 1:58: Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY (actual: 2)");
-
-        assertFails("SELECT * FROM (VALUES 'x') t(a) WINDOW w AS (GROUPS a PRECEDING)")
-                .hasErrorCode(MISSING_ORDER_BY)
-                .hasMessage("line 1:46: Window frame of type GROUPS PRECEDING or FOLLOWING requires ORDER BY");
-
-        assertFails("SELECT * FROM (VALUES 'x') t(a) WINDOW w AS (ROWS a PRECEDING)")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:51: Window frame ROWS start value type must be exact numeric type with scale 0 (actual varchar(1))");
-
-        // nested window
-        assertFails("SELECT * FROM (VALUES 1) t(a) WINDOW w AS (PARTITION BY count(a) OVER ())")
-                .hasErrorCode(NESTED_WINDOW)
-                .hasMessage("line 1:57: Cannot nest window functions inside window specification");
-
-        assertFails("SELECT * FROM (VALUES 1) t(a) WINDOW w AS (ORDER BY count(a) OVER ())")
-                .hasErrorCode(NESTED_WINDOW)
-                .hasMessage("line 1:53: Cannot nest window functions inside window specification");
-
-        assertFails("SELECT * FROM (VALUES 1) t(a) WINDOW w AS (ROWS count(a) OVER () PRECEDING)")
-                .hasErrorCode(NESTED_WINDOW)
-                .hasMessage("line 1:49: Cannot nest window functions inside window specification");
-    }
-
-    @Test
-    public void testWindowInFunctionCall()
-    {
-        // in SELECT expression
-        analyze("SELECT max(b) OVER w FROM t1 WINDOW w AS (PARTITION BY a)");
-        analyze("SELECT max(b) OVER w3 FROM t1 WINDOW w1 AS (PARTITION BY a), w2 AS (w1 ORDER BY b), w3 AS (w2 RANGE c PRECEDING)");
-
-        assertFails("SELECT max(b) OVER w FROM t1 WINDOW w1 AS (PARTITION BY a)")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE)
-                .hasMessage("line 1:20: Cannot resolve WINDOW name w");
-
-        assertFails("SELECT max(c) OVER (w PARTITION BY a) FROM t1 WINDOW w AS (ORDER BY b)")
-                .hasErrorCode(INVALID_PARTITION_BY)
-                .hasMessage("line 1:36: WINDOW specification with named WINDOW reference cannot specify PARTITION BY");
-
-        assertFails("SELECT max(c) OVER (w ORDER BY a) FROM t1 WINDOW w AS (ORDER BY b)")
-                .hasErrorCode(INVALID_ORDER_BY)
-                .hasMessage("line 1:23: Cannot specify ORDER BY if referenced named WINDOW specifies ORDER BY");
-
-        assertFails("SELECT max(c) OVER (w ORDER BY a) FROM t1 WINDOW w AS (ROWS b PRECEDING)")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE)
-                .hasMessage("line 1:21: Cannot reference named WINDOW containing frame specification");
-
-        analyze("SELECT max(c) OVER w FROM t1 WINDOW w AS (ROWS b PRECEDING)");
-
-        // in ORDER BY
-        analyze("SELECT * FROM t1 WINDOW w AS (PARTITION BY a) ORDER BY max(b) OVER w");
-        analyze("SELECT * FROM t1 WINDOW w1 AS (PARTITION BY a), w2 AS (w1 ORDER BY b), w3 AS (w2 RANGE c PRECEDING) ORDER BY max(b) OVER w3");
-
-        assertFails("SELECT * FROM t1 WINDOW w1 AS (PARTITION BY a) ORDER BY max(b) OVER w")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE)
-                .hasMessage("line 1:69: Cannot resolve WINDOW name w");
-
-        assertFails("SELECT * FROM t1 WINDOW w AS (ORDER BY b) ORDER BY max(c) OVER (w PARTITION BY a)")
-                .hasErrorCode(INVALID_PARTITION_BY)
-                .hasMessage("line 1:80: WINDOW specification with named WINDOW reference cannot specify PARTITION BY");
-
-        assertFails("SELECT * FROM t1 WINDOW w AS (ORDER BY b) ORDER BY max(c) OVER (w ORDER BY a)")
-                .hasErrorCode(INVALID_ORDER_BY)
-                .hasMessage("line 1:67: Cannot specify ORDER BY if referenced named WINDOW specifies ORDER BY");
-
-        assertFails("SELECT * FROM t1 WINDOW w AS (ROWS b PRECEDING) ORDER BY max(c) OVER (w ORDER BY a)")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE)
-                .hasMessage("line 1:71: Cannot reference named WINDOW containing frame specification");
-
-        analyze("SELECT * FROM t1 WINDOW w AS (ROWS b PRECEDING) ORDER BY max(c) OVER w");
-
-        // named window reference in subquery
-        assertFails("SELECT (SELECT count(*) OVER w FROM (VALUES 2)) FROM (VALUES 1) t(x) WINDOW w AS (PARTITION BY x)")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE)
-                .hasMessage("line 1:30: Cannot resolve WINDOW name w");
-
-        assertFails("SELECT * FROM (VALUES 1) t(x) WINDOW w AS (PARTITION BY x) ORDER BY (SELECT count(*) OVER w FROM (VALUES 2))")
-                .hasErrorCode(INVALID_WINDOW_REFERENCE)
-                .hasMessage("line 1:91: Cannot resolve WINDOW name w");
-    }
-
-    @Test
-    public void testWindowSpecificationWithMixedScopes()
-    {
-        // window ORDER BY item refers to output column (integer)
-        analyze("SELECT a old_a, b a FROM (SELECT 'a', 1) t(a, b) WINDOW w AS (PARTITION BY a) ORDER BY max(b) OVER (w ORDER BY a RANGE 1 PRECEDING)");
-
-        // window ORDER BY item refers to source column (varchar(1))
-        assertFails("SELECT a old_a, b a FROM (SELECT 'a', 1) t(a, b) WINDOW w AS (PARTITION BY a ORDER BY a) ORDER BY max(b) OVER (w RANGE 1 PRECEDING)")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:87: Window frame of type RANGE PRECEDING or FOLLOWING requires that sort item type be numeric, datetime or interval (actual: varchar(1))");
-    }
-
-    @Test
-    public void testWindowWithGroupBy()
-    {
-        assertFails("SELECT max(a) FROM (values (1,2)) t(a,b) GROUP BY b WINDOW w AS (ORDER BY a)")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
-                .hasMessageMatching("line 1:75: 'a' must be an aggregate expression or appear in GROUP BY clause");
-
-        assertFails("SELECT max(a) FROM (values (1,2)) t(a,b) GROUP BY b WINDOW w AS (PARTITION BY a)")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
-                .hasMessageMatching("line 1:79: 'a' must be an aggregate expression or appear in GROUP BY clause");
-
-        assertFails("SELECT max(a) FROM (values (1,2)) t(a,b) GROUP BY b WINDOW w AS (ROWS a PRECEDING)")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
-                .hasMessageMatching("line 1:71: 'a' must be an aggregate expression or appear in GROUP BY clause");
-    }
-
-    @Test
     public void testNestedWindowFunctions()
     {
         assertFails("SELECT avg(sum(a) OVER ()) FROM t1")
@@ -1160,7 +908,7 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testWindowFrameTypeRows()
+    public void testInvalidWindowFrameTypeRows()
     {
         assertFails("SELECT rank() OVER (ROWS UNBOUNDED FOLLOWING)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
@@ -1185,131 +933,117 @@ public class TestAnalyzer
                 .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT rank() OVER (ROWS BETWEEN CURRENT ROW AND 'foo' FOLLOWING)")
                 .hasErrorCode(TYPE_MISMATCH);
-
-        analyze("SELECT rank() OVER (ROWS BETWEEN SMALLINT '1' PRECEDING AND SMALLINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ROWS BETWEEN TINYINT '1' PRECEDING AND TINYINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ROWS BETWEEN INTEGER '1' PRECEDING AND INTEGER '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ROWS BETWEEN BIGINT '1' PRECEDING AND BIGINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ROWS BETWEEN DECIMAL '1' PRECEDING AND DECIMAL '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ROWS BETWEEN CAST(1 AS decimal(38, 0)) PRECEDING AND CAST(2 AS decimal(38, 0)) FOLLOWING) FROM (VALUES 1) t(x)");
     }
 
     @Test
     public void testWindowFrameTypeRange()
     {
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE UNBOUNDED FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED FOLLOWING AND 2 FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED FOLLOWING AND 2 FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED FOLLOWING AND CURRENT ROW) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED FOLLOWING AND CURRENT ROW) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED FOLLOWING AND 5 PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED FOLLOWING AND 5 PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED FOLLOWING AND UNBOUNDED PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED FOLLOWING AND UNBOUNDED PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED FOLLOWING AND UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED FOLLOWING AND UNBOUNDED FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE 2 FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE 2 FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 2 FOLLOWING AND CURRENT ROW) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 2 FOLLOWING AND CURRENT ROW) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 2 FOLLOWING AND 5 PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 2 FOLLOWING AND 5 PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 2 FOLLOWING AND UNBOUNDED PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 2 FOLLOWING AND UNBOUNDED PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN CURRENT ROW AND 5 PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN CURRENT ROW AND 5 PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN CURRENT ROW AND UNBOUNDED PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN CURRENT ROW AND UNBOUNDED PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND UNBOUNDED PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND UNBOUNDED PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
 
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE UNBOUNDED PRECEDING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED PRECEDING AND 5 PRECEDING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED PRECEDING AND 2 FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE 5 PRECEDING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND 10 PRECEDING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND 3 PRECEDING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND CURRENT ROW) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND 2 FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE CURRENT ROW) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN CURRENT ROW AND CURRENT ROW) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN CURRENT ROW AND 2 FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 2 FOLLOWING AND 1 FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 2 FOLLOWING AND 10 FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE UNBOUNDED PRECEDING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED PRECEDING AND 5 PRECEDING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED PRECEDING AND 2 FOLLOWING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE 5 PRECEDING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND 10 PRECEDING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND 3 PRECEDING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND CURRENT ROW) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND 2 FOLLOWING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 5 PRECEDING AND UNBOUNDED FOLLOWING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE CURRENT ROW) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN CURRENT ROW AND CURRENT ROW) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN CURRENT ROW AND 2 FOLLOWING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 2 FOLLOWING AND 1 FOLLOWING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 2 FOLLOWING AND 10 FOLLOWING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING) FROM (VALUES 1) T(x)");
 
         // this should pass the analysis but fail during execution
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN -x PRECEDING AND 0 * x FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN CAST(null AS BIGINT) PRECEDING AND CAST(null AS BIGINT) FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN -x PRECEDING AND 0 * x FOLLOWING) FROM (VALUES 1) T(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN CAST(null AS BIGINT) PRECEDING AND CAST(null AS BIGINT) FOLLOWING) FROM (VALUES 1) T(x)");
 
-        assertFails("SELECT array_agg(x) OVER (RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(MISSING_ORDER_BY)
-                .hasMessage("line 1:27: Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY");
+                .hasMessage("line 1:21: Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY");
 
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x DESC, x ASC RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x DESC, x ASC RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_ORDER_BY)
                 .hasMessage("line 1:27: Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY (actual: 2)");
 
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 'a') t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 'a') T(x)")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:36: Window frame of type RANGE PRECEDING or FOLLOWING requires that sort item type be numeric, datetime or interval (actual: varchar(1))");
 
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 'a' PRECEDING AND 'z' FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE BETWEEN 'a' PRECEDING AND 'z' FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:52: Window frame RANGE value type (varchar(1)) not compatible with sort item type (integer)");
 
-        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE INTERVAL '1' day PRECEDING) FROM (VALUES INTERVAL '1' year) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x RANGE INTERVAL '1' day PRECEDING) FROM (VALUES INTERVAL '1' year) T(x)")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:44: Window frame RANGE value type (interval day to second) not compatible with sort item type (interval year to month)");
 
         // window frame other than <expression> PRECEDING or <expression> FOLLOWING has no requirements regarding window ORDER BY clause
         // ORDER BY is not required
-        analyze("SELECT array_agg(x) OVER (RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) FROM (VALUES 1) T(x)");
         // multiple sort keys and sort keys of types other than numeric or datetime are allowed
-        analyze("SELECT array_agg(x) OVER (ORDER BY y, z RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) FROM (VALUES (1, 'text', true)) t(x, y, z)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY y, z RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) FROM (VALUES (1, 'text', true)) T(x, y, z)");
     }
 
     @Test
-    public void testWindowFrameTypeGroups()
+    public void testInvalidWindowFrameTypeGroups()
     {
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS UNBOUNDED FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS 2 FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS 2 FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN UNBOUNDED FOLLOWING AND CURRENT ROW) FROM (VALUES 1) t(x)")
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN UNBOUNDED FOLLOWING AND CURRENT ROW) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND UNBOUNDED PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND UNBOUNDED PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 5 PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 5 PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN 2 FOLLOWING AND 5 PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN 2 FOLLOWING AND 5 PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN 2 FOLLOWING AND CURRENT ROW) FROM (VALUES 1) t(x)")
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN 2 FOLLOWING AND CURRENT ROW) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
 
-        assertFails("SELECT rank() OVER (GROUPS 2 PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT rank() OVER (GROUPS 2 PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(MISSING_ORDER_BY);
 
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS 5e-1 PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS 5e-1 PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS 'foo' PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS 'foo' PRECEDING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 5e-1 FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 5e-1 FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 'foo' FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 'foo' FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(TYPE_MISMATCH);
-
-        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN SMALLINT '1' PRECEDING AND SMALLINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN TINYINT '1' PRECEDING AND TINYINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN INTEGER '1' PRECEDING AND INTEGER '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN BIGINT '1' PRECEDING AND BIGINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN DECIMAL '1' PRECEDING AND DECIMAL '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CAST(1 AS decimal(38, 0)) PRECEDING AND CAST(2 AS decimal(38, 0)) FOLLOWING) FROM (VALUES 1) t(x)");
     }
 
     @Test
@@ -1623,7 +1357,7 @@ public class TestAnalyzer
 
         // base relation aliased same as WITH query resulting table
         analyze("WITH RECURSIVE t(n, m) AS (" +
-                "          SELECT * FROM (VALUES(1, 2), (4, 100)) AS t(n, m)" +
+                "          SELECT * FROM (VALUES(1, 2), (4, 100)) AS T(n, m)" +
                 "          UNION ALL" +
                 "          SELECT n + 1, m - 1 FROM t WHERE n < 5" +
                 "          )" +
@@ -1631,7 +1365,7 @@ public class TestAnalyzer
 
         // base relation aliased different than WITH query resulting table
         analyze("WITH RECURSIVE t(n, m) AS (" +
-                "          SELECT * FROM (VALUES(1, 2), (4, 100)) AS t1(x1, y1)" +
+                "          SELECT * FROM (VALUES(1, 2), (4, 100)) AS T1(x1, y1)" +
                 "          UNION ALL" +
                 "          SELECT n + 1, m - 1 FROM t WHERE n < 5" +
                 "          )" +
@@ -1639,7 +1373,7 @@ public class TestAnalyzer
 
         // same aliases for base relation and WITH query resulting table, different order
         analyze("WITH RECURSIVE t(n, m) AS (" +
-                "          SELECT * FROM (VALUES(1, 2), (4, 100)) AS t(m, n)" +
+                "          SELECT * FROM (VALUES(1, 2), (4, 100)) AS T(m, n)" +
                 "          UNION ALL" +
                 "          SELECT n + 1, m - 1 FROM t WHERE n < 5" +
                 "          )" +
@@ -1991,7 +1725,7 @@ public class TestAnalyzer
                 .hasMessage("line 1:82: recursion step relation output type (decimal(2,1)) is not coercible to recursion base relation output type (decimal(1,0)) at column 1");
 
         assertFails("WITH RECURSIVE t(n) AS (" +
-                "          SELECT * FROM (VALUES('a'), ('b')) AS t(n)" +
+                "          SELECT * FROM (VALUES('a'), ('b')) AS T(n)" +
                 "          UNION ALL" +
                 "          SELECT n || 'x' FROM t WHERE n < 'axxxx'" +
                 "          )" +
@@ -2088,7 +1822,7 @@ public class TestAnalyzer
                 .hasErrorCode(TYPE_MISMATCH);
 
         // extract
-        assertFails("SELECT EXTRACt(DAY FROM 'a') FROM t1")
+        assertFails("SELECT EXTRACT(DAY FROM 'a') FROM t1")
                 .hasErrorCode(TYPE_MISMATCH);
 
         // between

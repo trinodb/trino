@@ -77,10 +77,6 @@ public final class ValueStreams
                     return new DecimalInputStream(chunkLoader);
                 case UNION:
                     return new ByteInputStream(new OrcInputStream(chunkLoader));
-                case LIST:
-                case MAP:
-                case STRUCT:
-                    // not a DATA
             }
         }
 
@@ -94,8 +90,6 @@ public final class ValueStreams
                 case MAP:
                 case LIST:
                     return createLongStream(new OrcInputStream(chunkLoader), encoding, false);
-                default:
-                    break;
             }
         }
 
@@ -119,8 +113,6 @@ public final class ValueStreams
                 case CHAR:
                 case BINARY:
                     return new ByteArrayInputStream(new OrcInputStream(chunkLoader));
-                default:
-                    break;
             }
         }
 

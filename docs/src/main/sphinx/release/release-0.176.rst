@@ -2,8 +2,8 @@
 Release 0.176
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix an issue where a query (and some of its tasks) continues to
   consume CPU/memory on the coordinator and workers after the query fails.
@@ -13,17 +13,17 @@ General
 * Add support for casting from ``JSON`` to ``REAL`` type.
 * Add :func:`parse_duration` function.
 
-MySQL
------
+MySQL changes
+-------------
 
 * Disallow having a database in the ``connection-url`` config property.
 
-Accumulo
---------
+Accumulo changes
+----------------
 
 * Decrease planning time by fetching index metrics in parallel.
 
-MongoDB
--------
+MongoDB changes
+---------------
 
 * Allow predicate pushdown for ObjectID.

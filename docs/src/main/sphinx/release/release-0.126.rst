@@ -2,8 +2,8 @@
 Release 0.126
 =============
 
-General
--------
+General changes
+---------------
 
 * Add error location information (line and column number) for semantic errors.
 * Fix a CLI crash during tab-completion when no schema is currently selected.
@@ -35,8 +35,8 @@ General
 * Fix memory leak in coordinator.
 * Add validation for names of table properties.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix reading structural types containing nulls in Parquet.
 * Fix writing DATE type when timezone offset is negative. Previous versions

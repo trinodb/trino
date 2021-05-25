@@ -68,9 +68,7 @@ import static io.trino.plugin.hive.HivePartition.UNPARTITIONED_ID;
 import static io.trino.plugin.hive.HiveSessionProperties.getDynamicFilteringProbeBlockingTimeout;
 import static io.trino.plugin.hive.HiveSessionProperties.isIgnoreAbsentPartitions;
 import static io.trino.plugin.hive.HiveSessionProperties.isOptimizeSymlinkListing;
-import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
-import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
-import static io.trino.plugin.hive.HiveStorageFormat.getHiveStorageFormat;
+import static io.trino.plugin.hive.HiveSessionProperties.isPartitionUseColumnNames;
 import static io.trino.plugin.hive.TableToPartitionMapping.mapColumnsByIndex;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
@@ -299,8 +297,6 @@ public class HiveSplitManager
             }
         }
 
-        Optional<HiveStorageFormat> storageFormat = getHiveStorageFormat(table.getStorage().getStorageFormat());
-
         Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
         Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
             Map<String, Optional<Partition>> batch = metastore.getPartitionsByNames(
@@ -347,7 +343,7 @@ public class HiveSplitManager
                 if ((tableColumns == null) || (partitionColumns == null)) {
                     throw new TrinoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
                 }
-                TableToPartitionMapping tableToPartitionMapping = getTableToPartitionMapping(session, storageFormat, tableName, partName, tableColumns, partitionColumns);
+                TableToPartitionMapping tableToPartitionMapping = getTableToPartitionMapping(session, tableName, partName, tableColumns, partitionColumns);
 
                 if (bucketProperty.isPresent()) {
                     Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
@@ -381,9 +377,9 @@ public class HiveSplitManager
         return concat(partitionBatches);
     }
 
-    private TableToPartitionMapping getTableToPartitionMapping(ConnectorSession session, Optional<HiveStorageFormat> storageFormat, SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns)
+    private TableToPartitionMapping getTableToPartitionMapping(ConnectorSession session, SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns)
     {
-        if (storageFormat.isPresent() && isPartitionUsesColumnNames(session, storageFormat.get())) {
+        if (isPartitionUseColumnNames(session)) {
             return getTableToPartitionMappingByColumnNames(tableName, partName, tableColumns, partitionColumns);
         }
         ImmutableMap.Builder<Integer, HiveTypeName> columnCoercions = ImmutableMap.builder();
@@ -398,22 +394,6 @@ public class HiveSplitManager
             }
         }
         return mapColumnsByIndex(columnCoercions.build());
-    }
-
-    private static boolean isPartitionUsesColumnNames(ConnectorSession session, HiveStorageFormat storageFormat)
-    {
-        switch (storageFormat) {
-            case AVRO:
-                return true;
-            case JSON:
-                return true;
-            case ORC:
-                return isUseOrcColumnNames(session);
-            case PARQUET:
-                return isUseParquetColumnNames(session);
-            default:
-                return false;
-        }
     }
 
     private TableToPartitionMapping getTableToPartitionMappingByColumnNames(SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns)

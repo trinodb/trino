@@ -2,8 +2,8 @@
 Release 0.181
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix query failure and memory usage tracking when query contains
   :func:`transform_keys` or :func:`transform_values`.
@@ -36,31 +36,31 @@ General
   has an effect when ``task.level-absolute-priority=true`` and
   ``task.legacy-scheduling-behavior=false``.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix potential native memory leak when writing tables using RCFile.
 * Correctly categorize certain errors when writing tables using RCFile.
 * Decrease the number of file system metadata calls when reading tables.
 * Add support for dropping columns.
 
-JDBC driver
------------
+JDBC driver changes
+-------------------
 
 * Add support for query cancellation using ``Statement.cancel()``.
 
-PostgreSQL
-----------
+PostgreSQL changes
+------------------
 
 * Add support for operations on external tables.
 
-Accumulo
---------
+Accumulo changes
+----------------
 
 * Improve query performance by scanning index ranges in parallel.
 
-SPI
----
+SPI changes
+-----------
 
 * Fix regression that broke serialization for ``SchemaTableName``.
 * Add access control check for ``DROP COLUMN``.

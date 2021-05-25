@@ -20,6 +20,7 @@ import io.trino.operator.RowReferencePageManager.LoadCursor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
+import it.unimi.dsi.fastutil.longs.LongComparator;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Iterator;
@@ -98,15 +99,34 @@ public class GroupedTopNRowNumberBuilder
     private void processPage(Page newPage, GroupByIdBlock groupIds)
     {
         try (LoadCursor loadCursor = pageManager.add(newPage)) {
+            GroupedTopNRowNumberAccumulator.RowReference rowReferenceView = asRowReferenceView(loadCursor);
             for (int position = 0; position < newPage.getPositionCount(); position++) {
                 long groupId = groupIds.getGroupId(position);
                 loadCursor.advance();
-                groupedTopNRowNumberAccumulator.add(groupId, loadCursor);
+                groupedTopNRowNumberAccumulator.add(groupId, rowReferenceView);
             }
             verify(!loadCursor.advance());
         }
 
         pageManager.compactIfNeeded();
+    }
+
+    private static GroupedTopNRowNumberAccumulator.RowReference asRowReferenceView(LoadCursor cursor)
+    {
+        return new GroupedTopNRowNumberAccumulator.RowReference()
+        {
+            @Override
+            public int compareTo(LongComparator rowIdComparator, long rowId)
+            {
+                return cursor.compareTo(rowIdComparator, rowId);
+            }
+
+            @Override
+            public long extractRowId()
+            {
+                return cursor.allocateRowId();
+            }
+        };
     }
 
     private class ResultIterator

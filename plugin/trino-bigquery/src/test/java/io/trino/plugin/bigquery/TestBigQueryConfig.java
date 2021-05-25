@@ -15,7 +15,6 @@ package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -25,8 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestBigQueryConfig
@@ -42,9 +39,7 @@ public class TestBigQueryConfig
                 .setParallelism(20)
                 .setViewMaterializationProject("vmproject")
                 .setViewMaterializationDataset("vmdataset")
-                .setMaxReadRowsRetries(10)
-                .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES));
+                .setMaxReadRowsRetries(10);
 
         assertEquals(config.getCredentialsKey(), Optional.of("key"));
         assertEquals(config.getCredentialsFile(), Optional.of("cfile"));
@@ -54,8 +49,6 @@ public class TestBigQueryConfig
         assertEquals(config.getViewMaterializationProject(), Optional.of("vmproject"));
         assertEquals(config.getViewMaterializationDataset(), Optional.of("vmdataset"));
         assertEquals(config.getMaxReadRowsRetries(), 10);
-        assertEquals(config.isCaseInsensitiveNameMatching(), false);
-        assertEquals(config.getCaseInsensitiveNameMatchingCacheTtl(), new Duration(1, MINUTES));
     }
 
     @Test
@@ -66,12 +59,9 @@ public class TestBigQueryConfig
                 .put("bigquery.project-id", "pid")
                 .put("bigquery.parent-project-id", "ppid")
                 .put("bigquery.parallelism", "20")
-                .put("bigquery.views-enabled", "true")
                 .put("bigquery.view-materialization-project", "vmproject")
                 .put("bigquery.view-materialization-dataset", "vmdataset")
                 .put("bigquery.max-read-rows-retries", "10")
-                .put("bigquery.case-insensitive-name-matching", "true")
-                .put("bigquery.case-insensitive-name-matching.cache-ttl", "1s")
                 .build();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
@@ -81,12 +71,9 @@ public class TestBigQueryConfig
         assertEquals(config.getProjectId(), Optional.of("pid"));
         assertEquals(config.getParentProjectId(), Optional.of("ppid"));
         assertEquals(config.getParallelism(), OptionalInt.of(20));
-        assertEquals(config.isViewsEnabled(), true);
         assertEquals(config.getViewMaterializationProject(), Optional.of("vmproject"));
         assertEquals(config.getViewMaterializationDataset(), Optional.of("vmdataset"));
         assertEquals(config.getMaxReadRowsRetries(), 10);
-        assertEquals(config.isCaseInsensitiveNameMatching(), true);
-        assertEquals(config.getCaseInsensitiveNameMatchingCacheTtl(), new Duration(1, SECONDS));
     }
 
     @Test

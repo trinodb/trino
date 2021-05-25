@@ -769,21 +769,20 @@ public class OrcWriteValidation
             this.validationMode = validationMode;
 
             requireNonNull(columnStatistics, "columnStatistics is null");
-            switch (validationMode) {
-                case HASHED:
-                    this.columnStatistics = ImmutableSortedMap.of();
-                    hash = hashColumnStatistics(ImmutableSortedMap.copyOf(columnStatistics));
-                    break;
-                case DETAILED:
-                    this.columnStatistics = ImmutableSortedMap.copyOf(columnStatistics);
-                    hash = 0;
-                    break;
-                case BOTH:
-                    this.columnStatistics = ImmutableSortedMap.copyOf(columnStatistics);
-                    hash = hashColumnStatistics(this.columnStatistics);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported validation mode");
+            if (validationMode == HASHED) {
+                this.columnStatistics = ImmutableSortedMap.of();
+                hash = hashColumnStatistics(ImmutableSortedMap.copyOf(columnStatistics));
+            }
+            else if (validationMode == DETAILED) {
+                this.columnStatistics = ImmutableSortedMap.copyOf(columnStatistics);
+                hash = 0;
+            }
+            else if (validationMode == BOTH) {
+                this.columnStatistics = ImmutableSortedMap.copyOf(columnStatistics);
+                hash = hashColumnStatistics(this.columnStatistics);
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported validation mode");
             }
         }
 

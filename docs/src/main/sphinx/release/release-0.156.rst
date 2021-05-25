@@ -8,8 +8,8 @@ Release 0.156
     if the ``optimize_mixed_distinct_aggregations`` session property or
     the ``optimizer.optimize-mixed-distinct-aggregations`` config option is enabled.
 
-General
--------
+General changes
+---------------
 
 * Fix potential correctness issue in queries that contain correlated scalar aggregation subqueries.
 * Fix query failure when using ``AT TIME ZONE`` in ``VALUES`` list.
@@ -24,18 +24,18 @@ General
   via the ``optimize_mixed_distinct_aggregations`` session property.
 * Change default task concurrency to 16.
 
-Hive
-----
+Hive changes
+------------
 
 * Add support for legacy RCFile header version in new RCFile reader.
 
-Redis
------
+Redis changes
+-------------
 
 * Support ``iso8601`` data format for the ``hash`` row decoder.
 
-SPI
----
+SPI changes
+-----------
 
 * Make ``ConnectorPageSink#finish()`` asynchronous.
 

@@ -19,7 +19,6 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.OrcBlockFactory;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
-import io.trino.orc.OrcReader.FieldMapperFactory;
 import io.trino.orc.metadata.ColumnEncoding;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.stream.BooleanInputStream;
@@ -82,7 +81,7 @@ public class UnionColumnReader
 
     private boolean rowGroupOpen;
 
-    UnionColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
+    UnionColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -95,13 +94,7 @@ public class UnionColumnReader
         ImmutableList.Builder<ColumnReader> fieldReadersBuilder = ImmutableList.builder();
         List<OrcColumn> fields = column.getNestedColumns();
         for (int i = 0; i < fields.size(); i++) {
-            fieldReadersBuilder.add(createColumnReader(
-                    type.getTypeParameters().get(i + 1),
-                    fields.get(i),
-                    fullyProjectedLayout(),
-                    systemMemoryContext,
-                    blockFactory,
-                    fieldMapperFactory));
+            fieldReadersBuilder.add(createColumnReader(type.getTypeParameters().get(i + 1), fields.get(i), fullyProjectedLayout(), systemMemoryContext, blockFactory));
         }
         fieldReaders = fieldReadersBuilder.build();
     }

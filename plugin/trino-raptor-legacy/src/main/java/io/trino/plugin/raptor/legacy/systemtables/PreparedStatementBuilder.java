@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy.systemtables;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.predicate.Domain;
@@ -132,19 +133,43 @@ public final class PreparedStatementBuilder
                     for (Range range : ranges.getOrderedRanges()) {
                         checkState(!range.isAll()); // Already checked
                         if (range.isSingleValue()) {
-                            singleValues.add(range.getSingleValue());
+                            singleValues.add(range.getLow().getValue());
                         }
                         else {
                             List<String> rangeConjuncts = new ArrayList<>();
-                            if (!range.isLowUnbounded()) {
-                                Object bindValue = getBindValue(columnIndex, uuidColumnIndexes, range.getLowBoundedValue());
-                                rangeConjuncts.add(toBindPredicate(columnName, range.isLowInclusive() ? ">=" : ">"));
-                                bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
+                            if (!range.getLow().isLowerUnbounded()) {
+                                Object bindValue = getBindValue(columnIndex, uuidColumnIndexes, range.getLow().getValue());
+                                switch (range.getLow().getBound()) {
+                                    case ABOVE:
+                                        rangeConjuncts.add(toBindPredicate(columnName, ">"));
+                                        bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
+                                        break;
+                                    case EXACTLY:
+                                        rangeConjuncts.add(toBindPredicate(columnName, ">="));
+                                        bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
+                                        break;
+                                    case BELOW:
+                                        throw new VerifyException("Low Marker should never use BELOW bound");
+                                    default:
+                                        throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
+                                }
                             }
-                            if (!range.isHighUnbounded()) {
-                                Object bindValue = getBindValue(columnIndex, uuidColumnIndexes, range.getHighBoundedValue());
-                                rangeConjuncts.add(toBindPredicate(columnName, range.isHighInclusive() ? "<=" : "<"));
-                                bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
+                            if (!range.getHigh().isUpperUnbounded()) {
+                                Object bindValue = getBindValue(columnIndex, uuidColumnIndexes, range.getHigh().getValue());
+                                switch (range.getHigh().getBound()) {
+                                    case ABOVE:
+                                        throw new VerifyException("High Marker should never use ABOVE bound");
+                                    case EXACTLY:
+                                        rangeConjuncts.add(toBindPredicate(columnName, "<="));
+                                        bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
+                                        break;
+                                    case BELOW:
+                                        rangeConjuncts.add(toBindPredicate(columnName, "<"));
+                                        bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
+                                        break;
+                                    default:
+                                        throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
+                                }
                             }
                             // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                             checkState(!rangeConjuncts.isEmpty());

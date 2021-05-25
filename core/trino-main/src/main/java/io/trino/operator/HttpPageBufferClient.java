@@ -333,7 +333,7 @@ public final class HttpPageBufferClient
             @Override
             public void onSuccess(PagesResponse result)
             {
-                assertNotHoldsLock(this);
+                checkNotHoldsLock(this);
 
                 backoff.success();
 
@@ -425,7 +425,7 @@ public final class HttpPageBufferClient
             public void onFailure(Throwable t)
             {
                 log.debug("Request to %s failed %s", uri, t);
-                assertNotHoldsLock(this);
+                checkNotHoldsLock(this);
 
                 if (t instanceof ChecksumVerificationException) {
                     switch (dataIntegrityVerification) {
@@ -467,7 +467,7 @@ public final class HttpPageBufferClient
             @Override
             public void onSuccess(@Nullable StatusResponse result)
             {
-                assertNotHoldsLock(this);
+                checkNotHoldsLock(this);
                 backoff.success();
                 synchronized (HttpPageBufferClient.this) {
                     closed = true;
@@ -483,7 +483,7 @@ public final class HttpPageBufferClient
             @Override
             public void onFailure(Throwable t)
             {
-                assertNotHoldsLock(this);
+                checkNotHoldsLock(this);
 
                 log.error("Request to delete %s failed %s", location, t);
                 if (!(t instanceof TrinoException) && backoff.failure()) {
@@ -499,16 +499,15 @@ public final class HttpPageBufferClient
         }, pageBufferClientCallbackExecutor);
     }
 
-    @SuppressWarnings("checkstyle:IllegalToken")
-    private static void assertNotHoldsLock(Object lock)
+    private static void checkNotHoldsLock(Object lock)
     {
-        assert !Thread.holdsLock(lock) : "Cannot execute this method while holding a lock";
+        checkState(!Thread.holdsLock(lock), "Cannot execute this method while holding a lock");
     }
 
     private void handleFailure(Throwable t, HttpResponseFuture<?> expectedFuture)
     {
         // Cannot delegate to other callback while holding a lock on this
-        assertNotHoldsLock(this);
+        checkNotHoldsLock(this);
 
         requestsFailed.incrementAndGet();
         requestsCompleted.incrementAndGet();

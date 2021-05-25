@@ -208,7 +208,9 @@ public class ActualProperties
         Map<Symbol, NullableValue> translatedConstants = new HashMap<>();
         for (Map.Entry<Symbol, NullableValue> entry : constants.entrySet()) {
             Optional<Symbol> translatedKey = translator.apply(entry.getKey());
-            translatedKey.ifPresent(symbol -> translatedConstants.put(symbol, entry.getValue()));
+            if (translatedKey.isPresent()) {
+                translatedConstants.put(translatedKey.get(), entry.getValue());
+            }
         }
         return translatedConstants;
     }

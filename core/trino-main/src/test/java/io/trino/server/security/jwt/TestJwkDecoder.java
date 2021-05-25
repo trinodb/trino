@@ -199,8 +199,7 @@ public class TestJwkDecoder
                 .compact();
 
         Jws<Claims> claimsJws = Jwts.parser()
-                .setSigningKeyResolver(new SigningKeyResolver()
-                {
+                .setSigningKeyResolver(new SigningKeyResolver() {
                     @Override
                     public Key resolveSigningKey(JwsHeader header, Claims claims)
                     {
@@ -335,8 +334,7 @@ public class TestJwkDecoder
                 .compact();
 
         Jws<Claims> claimsJws = Jwts.parser()
-                .setSigningKeyResolver(new SigningKeyResolver()
-                {
+                .setSigningKeyResolver(new SigningKeyResolver() {
                     @Override
                     public Key resolveSigningKey(JwsHeader header, Claims claims)
                     {

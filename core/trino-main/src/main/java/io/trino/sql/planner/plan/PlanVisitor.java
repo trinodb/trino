@@ -129,11 +129,6 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitUpdate(UpdateNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitTableDelete(TableDeleteNode node, C context)
     {
         return visitPlan(node, context);

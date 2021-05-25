@@ -42,7 +42,6 @@ import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.WhenClause;
-import io.trino.sql.tree.WindowDefinition;
 
 import java.util.List;
 import java.util.Optional;
@@ -173,7 +172,6 @@ public final class QueryUtil
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty()));
@@ -214,27 +212,12 @@ public final class QueryUtil
             Optional<Offset> offset,
             Optional<Node> limit)
     {
-        return simpleQuery(select, from, where, groupBy, having, ImmutableList.of(), orderBy, offset, limit);
-    }
-
-    public static Query simpleQuery(
-            Select select,
-            Relation from,
-            Optional<Expression> where,
-            Optional<GroupBy> groupBy,
-            Optional<Expression> having,
-            List<WindowDefinition> windows,
-            Optional<OrderBy> orderBy,
-            Optional<Offset> offset,
-            Optional<Node> limit)
-    {
         return query(new QuerySpecification(
                 select,
                 Optional.of(from),
                 where,
                 groupBy,
                 having,
-                windows,
                 orderBy,
                 offset,
                 limit));

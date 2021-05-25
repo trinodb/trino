@@ -91,6 +91,7 @@ public class KinesisTableDescriptionSupplier
             return tableDefinitions;
         }
         catch (IOException e) {
+            throwIfUnchecked(e);
             throw new RuntimeException(e);
         }
     }

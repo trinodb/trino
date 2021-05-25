@@ -13,13 +13,13 @@ instead of ``JSON``.
     so if you have written a connector or function, you will need to update
     your code before deploying this release.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix handling of ORC files with corrupt checkpoints.
 
-SPI
----
+SPI changes
+-----------
 
 * Rename ``Index`` to ``ConnectorIndex``.
 
@@ -27,8 +27,8 @@ SPI
     This is a backwards incompatible change, so if you have written a connector
     that uses ``Index``, you will need to update your code before deploying this release.
 
-General
--------
+General changes
+---------------
 
 * Fix bug in ``UNNEST`` when output is unreferenced or partially referenced.
 * Make :func:`max` and :func:`min` functions work on all orderable types.

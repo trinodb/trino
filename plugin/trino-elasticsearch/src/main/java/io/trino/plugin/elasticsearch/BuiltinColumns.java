@@ -17,14 +17,12 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
-import java.util.Map;
-import java.util.Optional;
+import java.util.Arrays;
+import java.util.Set;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.util.Arrays.stream;
-import static java.util.function.Function.identity;
 
 enum BuiltinColumns
 {
@@ -32,8 +30,9 @@ enum BuiltinColumns
     SOURCE("_source", VARCHAR, false),
     SCORE("_score", REAL, false);
 
-    private static final Map<String, BuiltinColumns> COLUMNS_BY_NAME = stream(values())
-            .collect(toImmutableMap(BuiltinColumns::getName, identity()));
+    public static final Set<String> NAMES = Arrays.stream(values())
+            .map(BuiltinColumns::getName)
+            .collect(toImmutableSet());
 
     private final String name;
     private final Type type;
@@ -44,16 +43,6 @@ enum BuiltinColumns
         this.name = name;
         this.type = type;
         this.supportsPredicates = supportsPredicates;
-    }
-
-    public static Optional<BuiltinColumns> of(String name)
-    {
-        return Optional.ofNullable(COLUMNS_BY_NAME.get(name));
-    }
-
-    public static boolean isBuiltinColumn(String name)
-    {
-        return COLUMNS_BY_NAME.containsKey(name);
     }
 
     public String getName()

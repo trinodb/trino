@@ -25,7 +25,6 @@ import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcType;
 import io.trino.plugin.hive.FileWriter;
-import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -67,7 +66,6 @@ public class OrcFileWriter
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     protected final OrcWriter orcWriter;
-    private final WriterKind writerKind;
     private final AcidTransaction transaction;
     private final boolean useAcidSchema;
     private final OptionalInt bucketNumber;
@@ -81,7 +79,6 @@ public class OrcFileWriter
 
     public OrcFileWriter(
             OrcDataSink orcDataSink,
-            WriterKind writerKind,
             AcidTransaction transaction,
             boolean useAcidSchema,
             OptionalInt bucketNumber,
@@ -99,7 +96,6 @@ public class OrcFileWriter
             OrcWriterStats stats)
     {
         requireNonNull(orcDataSink, "orcDataSink is null");
-        this.writerKind = requireNonNull(writerKind, "writerKind is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.useAcidSchema = useAcidSchema;
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
@@ -214,7 +210,8 @@ public class OrcFileWriter
         if (transaction.isAcidTransactionRunning()) {
             int stripeRowCount = orcWriter.getStripeRowCount();
             Map<String, String> userMetadata = new HashMap<>();
-            switch (writerKind) {
+            OrcWriter.OrcOperation operation = transaction.getOrcOperation();
+            switch (operation) {
                 case INSERT:
                     userMetadata.put("hive.acid.stats", format("%s,0,0", stripeRowCount));
                     break;
@@ -222,7 +219,7 @@ public class OrcFileWriter
                     userMetadata.put("hive.acid.stats", format("0,0,%s", stripeRowCount));
                     break;
                 default:
-                    throw new IllegalStateException("In updateUserMetadata, unknown writerKind " + writerKind);
+                    throw new IllegalStateException("In updateUserMetadata, unknown OrcOperation " + operation);
             }
             userMetadata.put("hive.acid.key.index", format("%s,%s,%s;", writeId, bucketValue, stripeRowCount - 1));
             userMetadata.put("hive.acid.version", "2");

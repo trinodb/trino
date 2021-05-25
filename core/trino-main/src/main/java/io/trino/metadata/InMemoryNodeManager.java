@@ -84,8 +84,9 @@ public class InMemoryNodeManager
                 return getAllNodes().getInactiveNodes();
             case SHUTTING_DOWN:
                 return getAllNodes().getShuttingDownNodes();
+            default:
+                throw new IllegalArgumentException("Unknown node state " + state);
         }
-        throw new IllegalArgumentException("Unknown node state " + state);
     }
 
     @Override

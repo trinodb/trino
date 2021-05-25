@@ -138,8 +138,9 @@ public class ComparisonExpression
                     return LESS_THAN_OR_EQUAL;
                 case IS_DISTINCT_FROM:
                     return IS_DISTINCT_FROM;
+                default:
+                    throw new IllegalArgumentException("Unsupported comparison: " + this);
             }
-            throw new IllegalArgumentException("Unsupported comparison: " + this);
         }
 
         public Operator negate()
@@ -157,11 +158,9 @@ public class ComparisonExpression
                     return LESS_THAN_OR_EQUAL;
                 case GREATER_THAN_OR_EQUAL:
                     return LESS_THAN;
-                case IS_DISTINCT_FROM:
-                    // Cannot negate
-                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported comparison: " + this);
             }
-            throw new IllegalArgumentException("Unsupported comparison: " + this);
         }
     }
 

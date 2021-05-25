@@ -22,6 +22,4 @@ public interface LongDecimalWithOverflowAndLongState
     long getLong();
 
     void setLong(long value);
-
-    void addLong(long value);
 }

@@ -141,9 +141,6 @@ statement
     | DESCRIBE INPUT identifier                                        #describeInput
     | DESCRIBE OUTPUT identifier                                       #describeOutput
     | SET PATH pathSpecification                                       #setPath
-    | UPDATE qualifiedName
-        SET updateAssignment (',' updateAssignment)*
-        (WHERE where=booleanExpression)?                               #update
     ;
 
 query
@@ -215,7 +212,6 @@ querySpecification
       (WHERE where=booleanExpression)?
       (GROUP BY groupBy)?
       (HAVING having=booleanExpression)?
-      (WINDOW windowDefinition (',' windowDefinition)*)?
     ;
 
 groupBy
@@ -232,17 +228,6 @@ groupingElement
 groupingSet
     : '(' (expression (',' expression)*)? ')'
     | expression
-    ;
-
-windowDefinition
-    : name=identifier AS '(' windowSpecification ')'
-    ;
-
-windowSpecification
-    : (existingWindowName=identifier)?
-      (PARTITION BY partition+=expression (',' partition+=expression)*)?
-      (ORDER BY sortItem (',' sortItem)*)?
-      windowFrame?
     ;
 
 namedQuery
@@ -453,7 +438,11 @@ filter
     ;
 
 over
-    : OVER (windowName=identifier | '(' windowSpecification ')')
+    : OVER '('
+        (PARTITION BY partition+=expression (',' partition+=expression)*)?
+        (ORDER BY sortItem (',' sortItem)*)?
+        windowFrame?
+      ')'
     ;
 
 windowFrame
@@ -472,9 +461,6 @@ frameBound
     | expression boundType=(PRECEDING | FOLLOWING)  #boundedFrame
     ;
 
-updateAssignment
-    : identifier '=' expression
-    ;
 
 explainOption
     : FORMAT value=(TEXT | GRAPHVIZ | JSON)                 #explainFormat
@@ -566,9 +552,9 @@ nonReserved
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TIES | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
-    | UNBOUNDED | UNCOMMITTED | UPDATE | USE | USER
+    | UNBOUNDED | UNCOMMITTED | USE | USER
     | VALIDATE | VERBOSE | VIEW
-    | WINDOW | WITHOUT | WORK | WRITE
+    | WITHOUT | WORK | WRITE
     | YEAR
     | ZONE
     ;
@@ -761,7 +747,6 @@ UNBOUNDED: 'UNBOUNDED';
 UNCOMMITTED: 'UNCOMMITTED';
 UNION: 'UNION';
 UNNEST: 'UNNEST';
-UPDATE: 'UPDATE';
 USE: 'USE';
 USER: 'USER';
 USING: 'USING';
@@ -771,7 +756,6 @@ VERBOSE: 'VERBOSE';
 VIEW: 'VIEW';
 WHEN: 'WHEN';
 WHERE: 'WHERE';
-WINDOW: 'WINDOW';
 WITH: 'WITH';
 WITHOUT: 'WITHOUT';
 WORK: 'WORK';

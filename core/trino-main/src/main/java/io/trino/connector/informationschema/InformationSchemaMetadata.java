@@ -70,6 +70,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 public class InformationSchemaMetadata
         implements ConnectorMetadata
@@ -145,7 +146,7 @@ public class InformationSchemaMetadata
 
         return tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getName)
-                .collect(toImmutableMap(identity(), InformationSchemaColumnHandle::new));
+                .collect(toMap(identity(), InformationSchemaColumnHandle::new));
     }
 
     @Override

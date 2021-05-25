@@ -373,7 +373,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return new CassandraColumnHandle("$update_row_id", 0, CassandraType.TEXT, false, false, false, true);
     }
@@ -381,7 +381,7 @@ public class CassandraMetadata
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new TrinoException(NOT_SUPPORTED, "Delete without primary key or partition key is not supported");
+        throw new TrinoException(NOT_SUPPORTED, "This connector only supports delete with primary key or partition key");
     }
 
     @Override
@@ -396,7 +396,7 @@ public class CassandraMetadata
         CassandraTableHandle handle = (CassandraTableHandle) deleteHandle;
         Optional<List<CassandraPartition>> partitions = handle.getPartitions();
         if (partitions.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Deleting without partition key is not supported");
+            throw new TrinoException(NOT_SUPPORTED, "Deleting without partition key is unsupported");
         }
         if (partitions.get().isEmpty()) {
             // there are no records of a given partition key

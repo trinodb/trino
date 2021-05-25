@@ -7,8 +7,8 @@ Release 0.186
     This release has a stability issue that may cause query failures in large deployments
     due to HTTP requests timing out.
 
-General
--------
+General changes
+---------------
 
 * Fix excessive GC overhead caused by map to map cast.
 * Fix implicit coercions for ``ROW`` types, allowing operations between
@@ -31,8 +31,8 @@ General
 * Add :doc:`/admin/spill` for joins.
 * Add :doc:`/connector/redshift`.
 
-Resource groups
----------------
+Resource groups changes
+-----------------------
 
 * Query Queues are deprecated in favor of :doc:`/admin/resource-groups`
   and will be removed in a future release.
@@ -40,21 +40,21 @@ Resource groups
   property name is deprecated and will be removed in a future release.
 * Fail on unknown property names when loading the JSON config file.
 
-JDBC driver
------------
+JDBC driver changes
+-------------------
 
 * Allow specifying an empty password.
 * Add ``getQueuedTimeMillis()`` and ``getElapsedTimeMillis()`` to ``QueryStats``.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix ``FileSystem closed`` errors when using Kerberos authentication.
 * Add support for path style access to the S3 file system. This can be enabled
   by setting the ``hive.s3.path-style-access=true`` config property.
 
-SPI
----
+SPI changes
+-----------
 
 * Add an ``ignoreExisting`` flag to ``ConnectorMetadata::createTable()``.
 * Remove the ``getTotalBytes()`` method from ``RecordCursor`` and ``ConnectorPageSource``.

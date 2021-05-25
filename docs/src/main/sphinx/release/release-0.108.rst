@@ -2,8 +2,8 @@
 Release 0.108
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix incorrect query results when a window function follows a :func:`row_number`
   function and both are partitioned on the same column(s).
@@ -31,8 +31,8 @@ General
 * Fix printing of table layouts in :doc:`/sql/explain`.
 * Add :doc:`/connector/blackhole`.
 
-Cassandra
----------
+Cassandra changes
+-----------------
 
 * Randomly select Cassandra node for split generation.
 * Fix handling of ``UUID`` partition keys.

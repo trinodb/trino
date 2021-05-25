@@ -30,10 +30,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.FixedSplitSource;
-import io.trino.spi.connector.JoinStatistics;
-import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
@@ -56,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
@@ -78,7 +76,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.legacyDefaultColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.jdbcTypeToPrestoType;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
@@ -204,7 +202,10 @@ public abstract class BaseJdbcClient
 
     protected boolean filterSchema(String schemaName)
     {
-        return !schemaName.equalsIgnoreCase("information_schema");
+        if (schemaName.equalsIgnoreCase("information_schema")) {
+            return false;
+        }
+        return true;
     }
 
     @Override
@@ -266,9 +267,6 @@ public abstract class BaseJdbcClient
         if (tableHandle.getColumns().isPresent()) {
             return tableHandle.getColumns().get();
         }
-        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
-        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
-        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
 
         try (Connection connection = connectionFactory.openConnection(session);
                 ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
@@ -276,7 +274,7 @@ public abstract class BaseJdbcClient
             List<JdbcColumnHandle> columns = new ArrayList<>();
             while (resultSet.next()) {
                 // skip if table doesn't match expected
-                if (!(Objects.equals(remoteTableName, getRemoteTable(resultSet)))) {
+                if (!(Objects.equals(tableHandle.getRemoteTableName(), getRemoteTable(resultSet)))) {
                     continue;
                 }
                 allColumns++;
@@ -289,7 +287,7 @@ public abstract class BaseJdbcClient
                         Optional.empty(),
                         Optional.empty());
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
-                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
+                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
                 // skip unsupported column types
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                 // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
@@ -315,8 +313,8 @@ public abstract class BaseJdbcClient
             if (columns.isEmpty()) {
                 // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.
                 throw new TableNotFoundException(
-                        schemaTableName,
-                        format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
+                        tableHandle.getSchemaTableName(),
+                        format("Table '%s' has no supported columns (all %s columns are not supported)", tableHandle.getSchemaTableName(), allColumns));
             }
             return ImmutableList.copyOf(columns);
         }
@@ -338,11 +336,10 @@ public abstract class BaseJdbcClient
     protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
-        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         return metadata.getColumns(
-                remoteTableName.getCatalogName().orElse(null),
-                escapeNamePattern(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(Optional.of(remoteTableName.getTableName()), metadata.getSearchStringEscape()).orElse(null),
+                tableHandle.getRemoteTableName().getCatalogName().orElse(null),
+                escapeNamePattern(tableHandle.getRemoteTableName().getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
+                escapeNamePattern(Optional.of(tableHandle.getRemoteTableName().getTableName()), metadata.getSearchStringEscape()).orElse(null),
                 null);
     }
 
@@ -356,7 +353,7 @@ public abstract class BaseJdbcClient
         if (mapping.isPresent()) {
             return mapping;
         }
-        Optional<ColumnMapping> connectorMapping = legacyDefaultColumnMapping(typeHandle);
+        Optional<ColumnMapping> connectorMapping = jdbcTypeToPrestoType(typeHandle);
         if (connectorMapping.isPresent()) {
             return connectorMapping;
         }
@@ -424,96 +421,18 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public PreparedQuery prepareQuery(
-            ConnectorSession session,
-            JdbcTableHandle table,
-            Optional<List<List<JdbcColumnHandle>>> groupingSets,
-            List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions)
-    {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            return prepareQuery(session, connection, table, groupingSets, columns, columnExpressions, Optional.empty());
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
-    }
-
-    @Override
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
     {
-        PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, ImmutableMap.of(), Optional.of(split));
-        return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
-    }
-
-    protected PreparedQuery prepareQuery(
-            ConnectorSession session,
-            Connection connection,
-            JdbcTableHandle table,
-            Optional<List<List<JdbcColumnHandle>>> groupingSets,
-            List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions,
-            Optional<JdbcSplit> split)
-    {
-        return applyQueryTransformations(table, new QueryBuilder(this).prepareQuery(
+        return new QueryBuilder(this).buildSql(
                 session,
                 connection,
-                table.getRelationHandle(),
-                groupingSets,
+                table.getRemoteTableName(),
+                table.getGroupingSets(),
                 columns,
-                columnExpressions,
                 table.getConstraint(),
-                split.flatMap(JdbcSplit::getAdditionalPredicate)));
-    }
-
-    @Override
-    public Optional<PreparedQuery> implementJoin(
-            ConnectorSession session,
-            JoinType joinType,
-            PreparedQuery leftSource,
-            PreparedQuery rightSource,
-            List<JdbcJoinCondition> joinConditions,
-            Map<JdbcColumnHandle, String> rightAssignments,
-            Map<JdbcColumnHandle, String> leftAssignments,
-            JoinStatistics statistics)
-    {
-        for (JdbcJoinCondition joinCondition : joinConditions) {
-            if (!isSupportedJoinCondition(joinCondition)) {
-                return Optional.empty();
-            }
-        }
-
-        QueryBuilder queryBuilder = new QueryBuilder(this);
-        return Optional.of(queryBuilder.prepareJoinQuery(
-                session,
-                joinType,
-                leftSource,
-                rightSource,
-                joinConditions,
-                leftAssignments,
-                rightAssignments));
-    }
-
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
-    {
-        return false;
-    }
-
-    protected PreparedQuery applyQueryTransformations(JdbcTableHandle tableHandle, PreparedQuery query)
-    {
-        PreparedQuery preparedQuery = query;
-
-        if (tableHandle.getLimit().isPresent()) {
-            if (tableHandle.getSortOrder().isPresent()) {
-                preparedQuery = preparedQuery.transformQuery(applyTopN(tableHandle.getSortOrder().get(), tableHandle.getLimit().getAsLong()));
-            }
-            else {
-                preparedQuery = preparedQuery.transformQuery(applyLimit(tableHandle.getLimit().getAsLong()));
-            }
-        }
-
-        return preparedQuery;
+                split.getAdditionalPredicate(),
+                tryApplyLimit(table.getLimit()));
     }
 
     @Override
@@ -606,7 +525,7 @@ public abstract class BaseJdbcClient
     @Override
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
+        SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
         JdbcIdentity identity = JdbcIdentity.from(session);
 
         try (Connection connection = connectionFactory.openConnection(session)) {
@@ -734,7 +653,7 @@ public abstract class BaseJdbcClient
             }
             String sql = format(
                     "ALTER TABLE %s ADD %s",
-                    quoted(handle.asPlainTable().getRemoteTableName()),
+                    quoted(handle.getRemoteTableName()),
                     getColumnDefinitionSql(session, column, columnName));
             execute(connection, sql);
         }
@@ -752,7 +671,7 @@ public abstract class BaseJdbcClient
             }
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                    quoted(handle.asPlainTable().getRemoteTableName()),
+                    quoted(handle.getRemoteTableName()),
                     jdbcColumn.getColumnName(),
                     newColumnName);
             execute(connection, sql);
@@ -767,7 +686,7 @@ public abstract class BaseJdbcClient
     {
         String sql = format(
                 "ALTER TABLE %s DROP COLUMN %s",
-                quoted(handle.asPlainTable().getRemoteTableName()),
+                quoted(handle.getRemoteTableName()),
                 column.getColumnName());
         execute(session, sql);
     }
@@ -775,7 +694,7 @@ public abstract class BaseJdbcClient
     @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
-        String sql = "DROP TABLE " + quoted(handle.asPlainTable().getRemoteTableName());
+        String sql = "DROP TABLE " + quoted(handle.getRemoteTableName());
         execute(session, sql);
     }
 
@@ -826,12 +745,7 @@ public abstract class BaseJdbcClient
                 connection.getCatalog(),
                 escapeNamePattern(schemaName, metadata.getSearchStringEscape()).orElse(null),
                 escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
-                getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
-    }
-
-    protected Optional<List<String>> getTableTypes()
-    {
-        return Optional.of(ImmutableList.of("TABLE", "VIEW"));
+                new String[] {"TABLE", "VIEW"});
     }
 
     protected String getTableSchemaName(ResultSet resultSet)
@@ -881,7 +795,6 @@ public abstract class BaseJdbcClient
     protected Map<String, String> listSchemasByLowerCase(Connection connection)
     {
         return listSchemas(connection).stream()
-                // will throw on collisions to avoid ambiguity
                 .collect(toImmutableMap(schemaName -> schemaName.toLowerCase(ENGLISH), schemaName -> schemaName));
     }
 
@@ -933,7 +846,6 @@ public abstract class BaseJdbcClient
                 String tableName = resultSet.getString("TABLE_NAME");
                 map.put(tableName.toLowerCase(ENGLISH), tableName);
             }
-            // will throw on collisions to avoid ambiguity
             return map.build();
         }
         catch (SQLException e) {
@@ -1018,28 +930,14 @@ public abstract class BaseJdbcClient
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
-    @Override
-    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    protected Function<String, String> tryApplyLimit(OptionalLong limit)
     {
-        return topNFunction().isPresent();
-    }
-
-    protected Optional<TopNFunction> topNFunction()
-    {
-        return Optional.empty();
-    }
-
-    private Function<String, String> applyTopN(List<SortItem> sortOrder, long limit)
-    {
-        return query -> topNFunction()
-                .orElseThrow()
-                .apply(query, sortOrder, limit);
-    }
-
-    @Override
-    public boolean isTopNLimitGuaranteed(ConnectorSession session)
-    {
-        throw new UnsupportedOperationException("topNFunction() implemented without implementing isTopNLimitGuaranteed()");
+        if (limit.isEmpty()) {
+            return Function.identity();
+        }
+        return limitFunction()
+                .map(limitFunction -> (Function<String, String>) sql -> limitFunction.apply(sql, limit.getAsLong()))
+                .orElseGet(Function::identity);
     }
 
     @Override
@@ -1051,13 +949,6 @@ public abstract class BaseJdbcClient
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
         return Optional.empty();
-    }
-
-    private Function<String, String> applyLimit(long limit)
-    {
-        return query -> limitFunction()
-                .orElseThrow()
-                .apply(query, limit);
     }
 
     @Override
@@ -1126,11 +1017,5 @@ public abstract class BaseJdbcClient
                 Optional.ofNullable(resultSet.getString("TABLE_CAT")),
                 Optional.ofNullable(resultSet.getString("TABLE_SCHEM")),
                 resultSet.getString("TABLE_NAME"));
-    }
-
-    @FunctionalInterface
-    public interface TopNFunction
-    {
-        String apply(String query, List<SortItem> sortItems, long limit);
     }
 }

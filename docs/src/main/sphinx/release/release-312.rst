@@ -2,8 +2,8 @@
 Release 312 (29 May 2019)
 =========================
 
-General
--------
+General changes
+---------------
 
 * Fix incorrect results for queries using ``IS [NOT] DISTINCT FROM``. (:issue:`795`)
 * Fix ``array_distinct``, ``array_intersect`` semantics with respect to indeterminate
@@ -28,8 +28,8 @@ General
 * Report operator statistics when ``experimental.work-processor-pipelines``
   is enabled. (:issue:`788`)
 
-Server
-------
+Server changes
+--------------
 
 * Raise required Java version to 8u161. This version allows unlimited strength crypto. (:issue:`779`)
 * Show JVM configuration hint when JMX agent fails to start on Java 9+. (:issue:`838`)
@@ -41,8 +41,8 @@ Server
   ``query-manager.required-workers`` and ``query-manager.required-workers-max-wait`` configuration
   properties instead. (:issue:`95`)
 
-Hive connector
---------------
+Hive connector changes
+----------------------
 
 * Fix ``SHOW GRANTS`` failure when metastore contains few tables. (:issue:`791`)
 * Fix failure reading from ``information_schema.table_privileges`` table when metastore
@@ -56,18 +56,18 @@ Hive connector
   but can be disabled using the ``hive.create-empty-bucket-files`` configuration property
   or the ``create_empty_bucket_files`` session property. (:issue:`822`)
 
-MySQL connector
----------------
+MySQL connector changes
+-----------------------
 
 * Map MySQL ``json`` type to Presto ``json`` type. (:issue:`824`)
 
-PostgreSQL connector
---------------------
+PostgreSQL connector changes
+----------------------------
 
 * Add support for PostgreSQL's ``TIMESTAMP WITH TIME ZONE`` data type. (:issue:`640`)
 
-SPI
----
+SPI changes
+-----------
 
 * Add support for pushing ``TABLESAMPLE`` into connectors via the
   ``ConnectorMetadata.applySample()`` method. (:issue:`753`)

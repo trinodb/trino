@@ -23,14 +23,9 @@ import io.airlift.units.DataSize;
 import io.trino.ExceededMemoryLimitException;
 import io.trino.RowPagesBuilder;
 import io.trino.execution.Lifespan;
-import io.trino.execution.NodeTaskMap;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStateMachine;
-import io.trino.execution.scheduler.NodeScheduler;
-import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.metadata.InMemoryNodeManager;
 import io.trino.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
@@ -49,12 +44,10 @@ import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.spiller.SingleStreamSpiller;
 import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
 import io.trino.type.BlockTypeOperators;
-import io.trino.util.FinalizerService;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -126,7 +119,6 @@ public class TestHashJoinOperator
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private NodePartitioningManager nodePartitioningManager;
 
     @BeforeMethod
     public void setUp()
@@ -146,12 +138,6 @@ public class TestHashJoinOperator
                 daemonThreadsNamed("test-executor-%s"),
                 new ThreadPoolExecutor.DiscardPolicy());
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(
-                new InMemoryNodeManager(),
-                new NodeSchedulerConfig().setIncludeCoordinator(true),
-                new NodeTaskMap(new FinalizerService())));
-        nodePartitioningManager = new NodePartitioningManager(nodeScheduler, new BlockTypeOperators(new TypeOperators()));
     }
 
     @AfterMethod(alwaysRun = true)
@@ -212,53 +198,6 @@ public class TestHashJoinOperator
                 .build();
 
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
-    }
-
-    @Test
-    public void testUnwrapsLazyBlocks()
-    {
-        TaskContext taskContext = createTaskContext();
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
-                (leftPosition, leftPage, rightPosition, rightPage) -> {
-                    // force loading of probe block
-                    rightPage.getBlock(1).getLoadedBlock();
-                    return true;
-                }));
-
-        RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT)).addSequencePage(1, 0);
-        BuildSideSetup buildSideSetup = setupBuildSide(true, taskContext, Ints.asList(0), buildPages, Optional.of(filterFunction), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
-
-        RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT, BIGINT));
-        List<Page> probeInput = probePages.addSequencePage(1, 0, 0).build();
-        probeInput = probeInput.stream()
-                .map(page -> new Page(page.getBlock(0), new LazyBlock(1, () -> page.getBlock(1))))
-                .collect(toImmutableList());
-
-        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                probePages.getTypes(),
-                false,
-                Ints.asList(0),
-                getHashChannelAsInt(probePages),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY,
-                TYPE_OPERATOR_FACTORY);
-
-        instantiateBuildDrivers(buildSideSetup, taskContext);
-        buildLookupSource(buildSideSetup);
-        Operator operator = joinOperatorFactory.createOperator(driverContext);
-        assertTrue(operator.needsInput());
-        operator.addInput(probeInput.get(0));
-        operator.finish();
-
-        Page output = operator.getOutput();
-        assertFalse(output.getBlock(1) instanceof LazyBlock);
     }
 
     @Test
@@ -1569,8 +1508,6 @@ public class TestHashJoinOperator
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
-                nodePartitioningManager,
-                taskContext.getSession(),
                 FIXED_HASH_DISTRIBUTION,
                 partitionCount,
                 buildPages.getTypes(),

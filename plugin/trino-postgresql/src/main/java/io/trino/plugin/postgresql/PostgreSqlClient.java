@@ -27,14 +27,12 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DoubleReadFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
-import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
-import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.ReadFunction;
 import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
@@ -44,19 +42,10 @@ import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
-import io.trino.plugin.jdbc.expression.ImplementCorr;
 import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
-import io.trino.plugin.jdbc.expression.ImplementCovariancePop;
-import io.trino.plugin.jdbc.expression.ImplementCovarianceSamp;
 import io.trino.plugin.jdbc.expression.ImplementMinMax;
-import io.trino.plugin.jdbc.expression.ImplementRegrIntercept;
-import io.trino.plugin.jdbc.expression.ImplementRegrSlope;
-import io.trino.plugin.jdbc.expression.ImplementStddevPop;
-import io.trino.plugin.jdbc.expression.ImplementStddevSamp;
 import io.trino.plugin.jdbc.expression.ImplementSum;
-import io.trino.plugin.jdbc.expression.ImplementVariancePop;
-import io.trino.plugin.jdbc.expression.ImplementVarianceSamp;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -66,9 +55,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -93,6 +80,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.sql.Array;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -111,11 +99,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedLongArray;
@@ -127,19 +113,19 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRou
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
-import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
+import static io.trino.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
@@ -152,7 +138,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
@@ -170,7 +155,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
@@ -195,16 +179,13 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
+import static java.util.Collections.addAll;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.joining;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -223,24 +204,8 @@ public class PostgreSqlClient
     private final Type jsonType;
     private final Type uuidType;
     private final MapType varcharMapType;
-    private final List<String> tableTypes;
+    private final String[] tableTypes;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
-
-    private static final PredicatePushdownController POSTGRESQL_CHARACTER_PUSHDOWN = (session, domain) -> {
-        checkArgument(
-                domain.getType() instanceof VarcharType || domain.getType() instanceof CharType,
-                "This PredicatePushdownController can be used only for chars and varchars");
-
-        if (domain.isOnlyNull() ||
-                // PostgreSQL is case sensitive by default
-                domain.getValues().isDiscreteSet()) {
-            return FULL_PUSHDOWN.apply(session, domain);
-        }
-
-        // PostgreSQL by default orders lowercase letters before uppercase, which is different from Trino
-        // TODO We could still push the predicates down if we could inject a PostgreSQL-specific syntax for selecting a collation for given comparison.
-        return DISABLE_PUSHDOWN.apply(session, domain);
-    };
 
     @Inject
     public PostgreSqlClient(
@@ -254,12 +219,12 @@ public class PostgreSqlClient
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
-        ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
-        tableTypes.add("TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
+        List<String> tableTypes = new ArrayList<>();
+        addAll(tableTypes, "TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
         if (postgreSqlConfig.isIncludeSystemTables()) {
-            tableTypes.add("SYSTEM TABLE", "SYSTEM VIEW");
+            addAll(tableTypes, "SYSTEM TABLE", "SYSTEM VIEW");
         }
-        this.tableTypes = tableTypes.build();
+        this.tableTypes = tableTypes.toArray(new String[0]);
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
@@ -272,15 +237,6 @@ public class PostgreSqlClient
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
                         .add(new ImplementAvgBigint())
-                        .add(new ImplementStddevSamp())
-                        .add(new ImplementStddevPop())
-                        .add(new ImplementVarianceSamp())
-                        .add(new ImplementVariancePop())
-                        .add(new ImplementCovarianceSamp())
-                        .add(new ImplementCovariancePop())
-                        .add(new ImplementCorr())
-                        .add(new ImplementRegrIntercept())
-                        .add(new ImplementRegrSlope())
                         .build());
     }
 
@@ -321,9 +277,15 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected Optional<List<String>> getTableTypes()
+    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
+            throws SQLException
     {
-        return Optional.of(tableTypes);
+        DatabaseMetaData metadata = connection.getMetaData();
+        return metadata.getTables(
+                connection.getCatalog(),
+                escapeNamePattern(schemaName, metadata.getSearchStringEscape()).orElse(null),
+                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
+                tableTypes.clone());
     }
 
     @Override
@@ -332,8 +294,6 @@ public class PostgreSqlClient
         if (tableHandle.getColumns().isPresent()) {
             return tableHandle.getColumns().get();
         }
-        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
-        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             Map<String, Integer> arrayColumnDimensions = ImmutableMap.of();
@@ -352,7 +312,7 @@ public class PostgreSqlClient
                             Optional.ofNullable(arrayColumnDimensions.get(columnName)),
                             Optional.empty());
                     Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
-                    log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
+                    log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
@@ -376,7 +336,7 @@ public class PostgreSqlClient
                 }
                 if (columns.isEmpty()) {
                     // In rare cases a table might have no columns.
-                    throw new TableNotFoundException(schemaTableName);
+                    throw new TableNotFoundException(tableHandle.getSchemaTableName());
                 }
                 return ImmutableList.copyOf(columns);
             }
@@ -481,14 +441,14 @@ public class PostgreSqlClient
             }
 
             case Types.CHAR:
-                return Optional.of(charColumnMapping(typeHandle.getRequiredColumnSize()));
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.VARCHAR:
                 if (!jdbcTypeName.equals("varchar")) {
                     // This can be e.g. an ENUM
                     return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
                 }
-                return Optional.of(varcharColumnMapping(typeHandle.getRequiredColumnSize()));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.BINARY:
                 return Optional.of(varbinaryColumnMapping());
@@ -680,49 +640,6 @@ public class PostgreSqlClient
     }
 
     @Override
-    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
-    {
-        Map<String, JdbcColumnHandle> columns = getColumns(session, handle).stream()
-                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
-
-        // PostgreSQL by default orders lowercase letters before uppercase, which is different from Trino
-        // TODO We could still push the sort down if we could inject a PostgreSQL-specific syntax for selecting a collation for given comparison.
-        boolean caseSensitiveSortKey = sortOrder.stream()
-                .anyMatch(sortItem -> {
-                    verify(columns.containsKey(sortItem.getName()));
-                    Type sortItemType = columns.get(sortItem.getName()).getColumnType();
-                    // NOTE: VarcharType also includes PostgreSQL enums
-                    return sortItemType instanceof CharType || sortItemType instanceof VarcharType;
-                });
-
-        return !caseSensitiveSortKey;
-    }
-
-    @Override
-    protected Optional<TopNFunction> topNFunction()
-    {
-        return Optional.of((query, sortItems, limit) -> {
-            String orderBy = sortItems.stream()
-                    .map(this::getSortOrderSql)
-                    .collect(joining(", "));
-
-            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
-        });
-    }
-
-    private String getSortOrderSql(SortItem sortItem)
-    {
-        String orderBy = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-        return format("%s %s %s", quoted(sortItem.getName()), orderBy, sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST");
-    }
-
-    @Override
-    public boolean isTopNLimitGuaranteed(ConnectorSession session)
-    {
-        return true;
-    }
-
-    @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
         return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
@@ -732,57 +649,6 @@ public class PostgreSqlClient
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
-    }
-
-    @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
-    {
-        boolean isVarchar = Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
-                .map(JdbcColumnHandle::getColumnType)
-                .anyMatch(type -> type instanceof CharType || type instanceof VarcharType);
-        if (isVarchar) {
-            // PostgreSQL is case sensitive by default, but orders varchars differently
-            JoinCondition.Operator operator = joinCondition.getOperator();
-            switch (operator) {
-                case LESS_THAN:
-                case LESS_THAN_OR_EQUAL:
-                case GREATER_THAN:
-                case GREATER_THAN_OR_EQUAL:
-                    break;
-                case EQUAL:
-                case NOT_EQUAL:
-                case IS_DISTINCT_FROM:
-                    return true;
-            }
-            return false;
-        }
-
-        return true;
-    }
-
-    private static ColumnMapping charColumnMapping(int charLength)
-    {
-        if (charLength > CharType.MAX_LENGTH) {
-            return varcharColumnMapping(charLength);
-        }
-        CharType charType = createCharType(charLength);
-        return ColumnMapping.sliceMapping(
-                charType,
-                charReadFunction(charType),
-                charWriteFunction(),
-                POSTGRESQL_CHARACTER_PUSHDOWN);
-    }
-
-    private static ColumnMapping varcharColumnMapping(int varcharLength)
-    {
-        VarcharType varcharType = varcharLength <= VarcharType.MAX_LENGTH
-                ? createVarcharType(varcharLength)
-                : createUnboundedVarcharType();
-        return ColumnMapping.sliceMapping(
-                varcharType,
-                varcharReadFunction(varcharType),
-                varcharWriteFunction(),
-                POSTGRESQL_CHARACTER_PUSHDOWN);
     }
 
     private static ColumnMapping timeColumnMapping(int precision)
@@ -839,7 +705,7 @@ public class PostgreSqlClient
     private static void shortTimestampWriteFunction(PreparedStatement statement, int index, long epochMicros)
             throws SQLException
     {
-        LocalDateTime localDateTime = fromTrinoTimestamp(epochMicros);
+        LocalDateTime localDateTime = fromPrestoTimestamp(epochMicros);
         statement.setObject(index, toPgTimestamp(localDateTime));
     }
 
@@ -863,7 +729,7 @@ public class PostgreSqlClient
     {
         String sql = format(
                 "COMMENT ON COLUMN %s.%s IS %s",
-                quoted(handle.asPlainTable().getRemoteTableName()),
+                quoted(handle.getRemoteTableName()),
                 quoted(column.getColumnName()),
                 comment.isPresent() ? format("'%s'", comment.get()) : "NULL");
         execute(session, sql);
@@ -872,7 +738,7 @@ public class PostgreSqlClient
     private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)
     {
         // PostgreSQL supports timestamptz precision up to microseconds
-        checkArgument(precision <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION, "unsupported precision value %s", precision);
+        checkArgument(precision <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION, "unsupported precision value %d", precision);
         TimestampWithTimeZoneType prestoType = createTimestampWithTimeZoneType(precision);
         if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
             return ColumnMapping.longMapping(

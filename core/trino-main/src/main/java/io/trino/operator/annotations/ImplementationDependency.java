@@ -139,7 +139,7 @@ public interface ImplementationDependency
                         type);
             }
 
-            throw new IllegalArgumentException("Unsupported annotation " + annotation);
+            throw new IllegalArgumentException("Unsupported annotation " + annotation.getClass().getSimpleName());
         }
 
         private static InvocationConvention toInvocationConvention(Convention convention)

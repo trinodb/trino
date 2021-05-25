@@ -175,7 +175,7 @@ public class TestPushProjectionIntoTableScan
                                     TupleDomain.all(),
                                     newNames.entrySet().stream()
                                             .collect(toImmutableMap(
-                                                    Map.Entry::getValue,
+                                            Map.Entry::getValue,
                                                     e -> equalTo(column(e.getValue(), types.get(e.getKey()))))))));
         }
     }

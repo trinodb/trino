@@ -23,22 +23,7 @@
     {
       "prefix": "s3://foo",
       "accessKey": "AKIAxxxaccess",
-      "secretKey": "iXbXxxxsecret",
-      "kmsKeyId": "kmsKey_10",
-      "allowedKmsKeyIds": ["kmsKey_11"]
-    },
-    {
-      "prefix": "s3://foo_all_keys_allowed",
-      "accessKey": "AKIAxxxaccess",
-      "secretKey": "iXbXxxxsecret",
-      "kmsKeyId": "kmsKey_10",
-      "allowedKmsKeyIds": ["*"]
-    },
-    {
-      "prefix": "s3://foo_no_default_key",
-      "accessKey": "AKIAxxxaccess",
-      "secretKey": "iXbXxxxsecret",
-      "allowedKmsKeyIds": ["kmsKey_11", "kmsKey_12"]
+      "secretKey": "iXbXxxxsecret"
     },
     {
       "user": "alice",

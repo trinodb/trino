@@ -2,16 +2,16 @@
 Release 0.146
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix error in :func:`map_concat` when the second map is empty.
 * Require at least 4096 file descriptors to run Presto.
 * Support casting between map types.
 * Add :doc:`/connector/mongodb`.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix incorrect skipping of data in Parquet during predicate push-down.
 * Fix reading of Parquet maps and lists containing nulls.
@@ -22,12 +22,12 @@ Hive
   security system. Specifically, the ``sql-standard`` authorization system
   does not enforce these settings.
 
-Black Hole
-----------
+Black Hole changes
+------------------
 
 * Add support for ``varchar(n)``.
 
-Cassandra
----------
+Cassandra changes
+-----------------
 
 * Add support for Cassandra 3.0.

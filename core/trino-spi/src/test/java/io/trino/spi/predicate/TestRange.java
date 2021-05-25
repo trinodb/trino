@@ -20,7 +20,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -29,34 +28,30 @@ import static org.testng.Assert.fail;
 
 public class TestRange
 {
-    @Test
-    public void testInvertedBounds()
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testMismatchedTypes()
     {
-        assertThatThrownBy(() -> Range.range(BIGINT, 1L, true, 0L, true))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("low must be less than or equal to high");
+        // NEVER DO THIS
+        new Range(Marker.exactly(BIGINT, 1L), Marker.exactly(VARCHAR, utf8Slice("a")));
     }
 
-    /**
-     * Test Range construction when low and high bounds are equal, but one of them is not inclusive.
-     */
-    @Test
-    public void testSingleValueExclusive()
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testInvertedBounds()
     {
-        // (10, 10]
-        assertThatThrownBy(() -> Range.range(BIGINT, 10L, false, 10L, true))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("invalid bounds for single value range");
+        new Range(Marker.exactly(BIGINT, 1L), Marker.exactly(BIGINT, 0L));
+    }
 
-        // [10, 10)
-        assertThatThrownBy(() -> Range.range(BIGINT, 10L, true, 10L, false))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("invalid bounds for single value range");
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testLowerUnboundedOnly()
+    {
+        new Range(Marker.lowerUnbounded(BIGINT), Marker.lowerUnbounded(BIGINT));
+    }
 
-        // (10, 10)
-        assertThatThrownBy(() -> Range.range(BIGINT, 10L, false, 10L, false))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("invalid bounds for single value range");
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testUpperUnboundedOnly()
+    {
+        new Range(Marker.upperUnbounded(BIGINT), Marker.upperUnbounded(BIGINT));
     }
 
     @Test
@@ -74,137 +69,111 @@ public class TestRange
     public void testAllRange()
     {
         Range range = Range.all(BIGINT);
-
-        assertTrue(range.isLowUnbounded());
-        assertFalse(range.isLowInclusive());
-        assertThatThrownBy(range::getLowBoundedValue)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The range is low-unbounded");
-
-        assertTrue(range.isHighUnbounded());
-        assertFalse(range.isHighInclusive());
-        assertThatThrownBy(range::getHighBoundedValue)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The range is high-unbounded");
-
+        assertEquals(range.getLow(), Marker.lowerUnbounded(BIGINT));
+        assertEquals(range.getHigh(), Marker.upperUnbounded(BIGINT));
         assertFalse(range.isSingleValue());
         assertTrue(range.isAll());
         assertEquals(range.getType(), BIGINT);
+        assertTrue(range.includes(Marker.lowerUnbounded(BIGINT)));
+        assertTrue(range.includes(Marker.below(BIGINT, 1L)));
+        assertTrue(range.includes(Marker.exactly(BIGINT, 1L)));
+        assertTrue(range.includes(Marker.above(BIGINT, 1L)));
+        assertTrue(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
     public void testGreaterThanRange()
     {
         Range range = Range.greaterThan(BIGINT, 1L);
-
-        assertFalse(range.isLowUnbounded());
-        assertFalse(range.isLowInclusive());
-        assertEquals(range.getLowBoundedValue(), 1L);
-
-        assertTrue(range.isHighUnbounded());
-        assertFalse(range.isHighInclusive());
-        assertThatThrownBy(range::getHighBoundedValue)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The range is high-unbounded");
-
+        assertEquals(range.getLow(), Marker.above(BIGINT, 1L));
+        assertEquals(range.getHigh(), Marker.upperUnbounded(BIGINT));
         assertFalse(range.isSingleValue());
         assertFalse(range.isAll());
         assertEquals(range.getType(), BIGINT);
+        assertFalse(range.includes(Marker.lowerUnbounded(BIGINT)));
+        assertFalse(range.includes(Marker.exactly(BIGINT, 1L)));
+        assertTrue(range.includes(Marker.exactly(BIGINT, 2L)));
+        assertTrue(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
     public void testGreaterThanOrEqualRange()
     {
         Range range = Range.greaterThanOrEqual(BIGINT, 1L);
-
-        assertFalse(range.isLowUnbounded());
-        assertTrue(range.isLowInclusive());
-        assertEquals(range.getLowBoundedValue(), 1L);
-
-        assertTrue(range.isHighUnbounded());
-        assertFalse(range.isHighInclusive());
-        assertThatThrownBy(range::getHighBoundedValue)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The range is high-unbounded");
-
+        assertEquals(range.getLow(), Marker.exactly(BIGINT, 1L));
+        assertEquals(range.getHigh(), Marker.upperUnbounded(BIGINT));
         assertFalse(range.isSingleValue());
         assertFalse(range.isAll());
         assertEquals(range.getType(), BIGINT);
+        assertFalse(range.includes(Marker.lowerUnbounded(BIGINT)));
+        assertFalse(range.includes(Marker.exactly(BIGINT, 0L)));
+        assertTrue(range.includes(Marker.exactly(BIGINT, 1L)));
+        assertTrue(range.includes(Marker.exactly(BIGINT, 2L)));
+        assertTrue(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
     public void testLessThanRange()
     {
         Range range = Range.lessThan(BIGINT, 1L);
-
-        assertTrue(range.isLowUnbounded());
-        assertFalse(range.isLowInclusive());
-        assertThatThrownBy(range::getLowBoundedValue)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The range is low-unbounded");
-
-        assertFalse(range.isHighUnbounded());
-        assertFalse(range.isHighInclusive());
-        assertEquals(range.getHighBoundedValue(), 1L);
-
+        assertEquals(range.getLow(), Marker.lowerUnbounded(BIGINT));
+        assertEquals(range.getHigh(), Marker.below(BIGINT, 1L));
         assertFalse(range.isSingleValue());
         assertFalse(range.isAll());
         assertEquals(range.getType(), BIGINT);
+        assertTrue(range.includes(Marker.lowerUnbounded(BIGINT)));
+        assertFalse(range.includes(Marker.exactly(BIGINT, 1L)));
+        assertTrue(range.includes(Marker.exactly(BIGINT, 0L)));
+        assertFalse(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
     public void testLessThanOrEqualRange()
     {
         Range range = Range.lessThanOrEqual(BIGINT, 1L);
-
-        assertTrue(range.isLowUnbounded());
-        assertFalse(range.isLowInclusive());
-        assertThatThrownBy(range::getLowBoundedValue)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The range is low-unbounded");
-
-        assertFalse(range.isHighUnbounded());
-        assertTrue(range.isHighInclusive());
-        assertEquals(range.getHighBoundedValue(), 1L);
-
+        assertEquals(range.getLow(), Marker.lowerUnbounded(BIGINT));
+        assertEquals(range.getHigh(), Marker.exactly(BIGINT, 1L));
         assertFalse(range.isSingleValue());
         assertFalse(range.isAll());
         assertEquals(range.getType(), BIGINT);
+        assertTrue(range.includes(Marker.lowerUnbounded(BIGINT)));
+        assertFalse(range.includes(Marker.exactly(BIGINT, 2L)));
+        assertTrue(range.includes(Marker.exactly(BIGINT, 1L)));
+        assertTrue(range.includes(Marker.exactly(BIGINT, 0L)));
+        assertFalse(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
     public void testEqualRange()
     {
         Range range = Range.equal(BIGINT, 1L);
-
-        assertFalse(range.isLowUnbounded());
-        assertTrue(range.isLowInclusive());
-        assertEquals(range.getLowBoundedValue(), 1L);
-
-        assertFalse(range.isHighUnbounded());
-        assertTrue(range.isHighInclusive());
-        assertEquals(range.getHighBoundedValue(), 1L);
-
+        assertEquals(range.getLow(), Marker.exactly(BIGINT, 1L));
+        assertEquals(range.getHigh(), Marker.exactly(BIGINT, 1L));
         assertTrue(range.isSingleValue());
         assertFalse(range.isAll());
         assertEquals(range.getType(), BIGINT);
+        assertFalse(range.includes(Marker.lowerUnbounded(BIGINT)));
+        assertFalse(range.includes(Marker.exactly(BIGINT, 0L)));
+        assertTrue(range.includes(Marker.exactly(BIGINT, 1L)));
+        assertFalse(range.includes(Marker.exactly(BIGINT, 2L)));
+        assertFalse(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
     public void testRange()
     {
         Range range = Range.range(BIGINT, 0L, false, 2L, true);
-        assertFalse(range.isLowUnbounded());
-        assertFalse(range.isLowInclusive());
-        assertEquals(range.getLowBoundedValue(), 0L);
-
-        assertFalse(range.isHighUnbounded());
-        assertTrue(range.isHighInclusive());
-        assertEquals(range.getHighBoundedValue(), 2L);
-
+        assertEquals(range.getLow(), Marker.above(BIGINT, 0L));
+        assertEquals(range.getHigh(), Marker.exactly(BIGINT, 2L));
         assertFalse(range.isSingleValue());
         assertFalse(range.isAll());
         assertEquals(range.getType(), BIGINT);
+        assertFalse(range.includes(Marker.lowerUnbounded(BIGINT)));
+        assertFalse(range.includes(Marker.exactly(BIGINT, 0L)));
+        assertTrue(range.includes(Marker.exactly(BIGINT, 1L)));
+        assertTrue(range.includes(Marker.exactly(BIGINT, 2L)));
+        assertFalse(range.includes(Marker.exactly(BIGINT, 3L)));
+        assertFalse(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
@@ -264,16 +233,11 @@ public class TestRange
     @Test
     public void testIntersect()
     {
-        assertThat(Range.greaterThan(BIGINT, 1L).intersect(Range.lessThanOrEqual(BIGINT, 2L)))
-                .contains(Range.range(BIGINT, 1L, false, 2L, true));
-        assertThat(Range.range(BIGINT, 1L, true, 3L, false).intersect(Range.equal(BIGINT, 2L)))
-                .contains(Range.equal(BIGINT, 2L));
-        assertThat(Range.range(BIGINT, 1L, true, 3L, false).intersect(Range.range(BIGINT, 2L, false, 10L, false)))
-                .contains(Range.range(BIGINT, 2L, false, 3L, false));
-        assertThat(Range.range(BIGINT, 1L, true, 3L, true).intersect(Range.range(BIGINT, 3L, true, 10L, false)))
-                .contains(Range.equal(BIGINT, 3L));
-        assertThat(Range.all(BIGINT).intersect(Range.equal(BIGINT, Long.MAX_VALUE)))
-                .contains(Range.equal(BIGINT, Long.MAX_VALUE));
+        assertEquals(Range.greaterThan(BIGINT, 1L).intersect(Range.lessThanOrEqual(BIGINT, 2L)), Range.range(BIGINT, 1L, false, 2L, true));
+        assertEquals(Range.range(BIGINT, 1L, true, 3L, false).intersect(Range.equal(BIGINT, 2L)), Range.equal(BIGINT, 2L));
+        assertEquals(Range.range(BIGINT, 1L, true, 3L, false).intersect(Range.range(BIGINT, 2L, false, 10L, false)), Range.range(BIGINT, 2L, false, 3L, false));
+        assertEquals(Range.range(BIGINT, 1L, true, 3L, true).intersect(Range.range(BIGINT, 3L, true, 10L, false)), Range.equal(BIGINT, 3L));
+        assertEquals(Range.all(BIGINT).intersect(Range.equal(BIGINT, Long.MAX_VALUE)), Range.equal(BIGINT, Long.MAX_VALUE));
     }
 
     @Test
@@ -281,12 +245,14 @@ public class TestRange
     {
         Range greaterThan2 = Range.greaterThan(BIGINT, 2L);
         Range lessThan2 = Range.lessThan(BIGINT, 2L);
-        assertThat(greaterThan2.intersect(lessThan2))
-                .isEmpty();
+        assertThatThrownBy(() -> greaterThan2.intersect(lessThan2))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Cannot intersect non-overlapping ranges");
 
         Range range1To3Exclusive = Range.range(BIGINT, 1L, true, 3L, false);
         Range range3To10 = Range.range(BIGINT, 3L, true, 10L, false);
-        assertThat(range1To3Exclusive.intersect(range3To10))
-                .isEmpty();
+        assertThatThrownBy(() -> range1To3Exclusive.intersect(range3To10))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Cannot intersect non-overlapping ranges");
     }
 }

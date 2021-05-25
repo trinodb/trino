@@ -2,8 +2,8 @@
 Release 0.124
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix race in memory tracking of ``JOIN`` which could cause the cluster to become over
   committed and possibly crash.
@@ -29,8 +29,8 @@ General
   ``optimizer.use-intermediate-aggregations`` config property or
   ``task_intermediate_aggregation`` session property.
 
-Hive
-----
+Hive changes
+------------
 
 * Do not count expected exceptions as errors in the Hive metastore client stats.
 * Improve performance when reading ORC files with many tiny stripes.

@@ -2,8 +2,8 @@
 Release 0.134
 =============
 
-General
--------
+General changes
+---------------
 
 * Add cumulative memory statistics tracking and expose the stat in the web interface.
 * Remove nullability and partition key flags from :doc:`/sql/show-columns`.
@@ -11,13 +11,13 @@ General
 * Fix performance regression in creation of ``DictionaryBlock``.
 * Fix rare memory accounting leak in queries with ``JOIN``.
 
-Hive
-----
+Hive changes
+------------
 
 * The comment for partition keys is now prefixed with *"Partition Key"*.
 
-SPI
----
+SPI changes
+-----------
 
 * Remove legacy partition API methods and classes.
 

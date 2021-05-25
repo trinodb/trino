@@ -84,7 +84,7 @@ public class ValuesOperator
     @Override
     public void finish()
     {
-        int ignored = Iterators.size(pages);
+        Iterators.size(pages);
     }
 
     @Override

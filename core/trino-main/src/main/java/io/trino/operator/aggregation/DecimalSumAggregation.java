@@ -140,39 +140,39 @@ public class DecimalSumAggregation
 
     public static void inputShortDecimal(Type type, LongDecimalWithOverflowState state, Block block, int position)
     {
-        Slice sum = state.getLongDecimal();
-        if (sum == null) {
-            sum = UnscaledDecimal128Arithmetic.unscaledDecimal();
-            state.setLongDecimal(sum);
-        }
-        long overflow = UnscaledDecimal128Arithmetic.addWithOverflow(sum, unscaledDecimal(type.getLong(block, position)), sum);
-        state.addOverflow(overflow);
+        accumulateValueInState(unscaledDecimal(type.getLong(block, position)), state);
     }
 
     public static void inputLongDecimal(Type type, LongDecimalWithOverflowState state, Block block, int position)
     {
+        accumulateValueInState(type.getSlice(block, position), state);
+    }
+
+    private static void accumulateValueInState(Slice unscaledDecimal, LongDecimalWithOverflowState state)
+    {
+        initializeIfNeeded(state);
         Slice sum = state.getLongDecimal();
-        if (sum == null) {
-            sum = UnscaledDecimal128Arithmetic.unscaledDecimal();
-            state.setLongDecimal(sum);
+        long overflow = UnscaledDecimal128Arithmetic.addWithOverflow(sum, unscaledDecimal, sum);
+        state.setOverflow(state.getOverflow() + overflow);
+    }
+
+    private static void initializeIfNeeded(LongDecimalWithOverflowState state)
+    {
+        if (state.getLongDecimal() == null) {
+            state.setLongDecimal(UnscaledDecimal128Arithmetic.unscaledDecimal());
         }
-        long overflow = UnscaledDecimal128Arithmetic.addWithOverflow(sum, type.getSlice(block, position), sum);
-        state.addOverflow(overflow);
     }
 
     public static void combine(LongDecimalWithOverflowState state, LongDecimalWithOverflowState otherState)
     {
-        Slice sum = state.getLongDecimal();
-        long overflow = otherState.getOverflow();
+        state.setOverflow(state.getOverflow() + otherState.getOverflow());
 
-        if (sum == null) {
+        if (state.getLongDecimal() == null) {
             state.setLongDecimal(otherState.getLongDecimal());
         }
         else {
-            overflow += UnscaledDecimal128Arithmetic.addWithOverflow(sum, otherState.getLongDecimal(), sum);
+            accumulateValueInState(otherState.getLongDecimal(), state);
         }
-
-        state.addOverflow(overflow);
     }
 
     public static void outputLongDecimal(DecimalType type, LongDecimalWithOverflowState state, BlockBuilder out)

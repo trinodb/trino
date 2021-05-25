@@ -2,13 +2,13 @@
 Release 0.159
 =============
 
-General
--------
+General changes
+---------------
 
 * Improve predicate performance for ``JOIN`` queries.
 
-Hive
-----
+Hive changes
+------------
 
 * Optimize filtering of partition names to reduce object creation.
 * Add limit on the number of partitions that can potentially be read per table scan.

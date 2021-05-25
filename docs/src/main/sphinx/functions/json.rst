@@ -176,8 +176,6 @@ JSON functions
     (a string containing JSON) and returns the result as a JSON string::
 
         SELECT json_extract(json, '$.store.book');
-        SELECT json_extract(json, '$.store[book]');
-        SELECT json_extract(json, '$.store["book name"]');
 
     .. _JSONPath: http://goessner.net/articles/JsonPath/
 

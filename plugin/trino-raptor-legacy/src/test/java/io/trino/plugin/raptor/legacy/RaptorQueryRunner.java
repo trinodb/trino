@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.raptor.legacy;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -29,7 +28,6 @@ import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
 import java.io.File;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -45,9 +43,15 @@ public final class RaptorQueryRunner
 
     private RaptorQueryRunner() {}
 
+    public static DistributedQueryRunner createRaptorQueryRunner(Map<String, String> extraProperties, boolean loadTpch, boolean bucketed)
+            throws Exception
+    {
+        return createRaptorQueryRunner(extraProperties, loadTpch, bucketed, ImmutableMap.of());
+    }
+
     public static DistributedQueryRunner createRaptorQueryRunner(
             Map<String, String> extraProperties,
-            List<TpchTable<?>> tablesToLoad,
+            boolean loadTpch,
             boolean bucketed,
             Map<String, String> extraRaptorProperties)
             throws Exception
@@ -74,54 +78,35 @@ public final class RaptorQueryRunner
 
         queryRunner.createCatalog("raptor", "raptor-legacy", raptorProperties);
 
-        copyTables(queryRunner, "tpch", createSession(), bucketed, tablesToLoad);
+        if (loadTpch) {
+            copyTables(queryRunner, "tpch", createSession(), bucketed);
+        }
 
         return queryRunner;
     }
 
-    public static void copyTables(QueryRunner queryRunner, String catalog, Session session, boolean bucketed, List<TpchTable<?>> tables)
+    public static void copyTables(QueryRunner queryRunner, String catalog, Session session, boolean bucketed)
     {
         String schema = TINY_SCHEMA_NAME;
         if (!bucketed) {
-            copyTpchTables(queryRunner, catalog, schema, session, tables);
+            copyTpchTables(queryRunner, catalog, schema, session, TpchTable.getTables());
             return;
         }
 
-        ImmutableMap.Builder<TpchTable<?>, String> tablesMapBuilder = ImmutableMap.builder();
-        for (TpchTable<?> table : tables) {
-            if (table.equals(TpchTable.ORDERS)) {
-                tablesMapBuilder.put(TpchTable.ORDERS, "bucket_count = 25, bucketed_on = ARRAY['orderkey'], distribution_name = 'order'");
-            }
-            else if (table.equals(TpchTable.LINE_ITEM)) {
-                tablesMapBuilder.put(TpchTable.LINE_ITEM, "bucket_count = 25, bucketed_on = ARRAY['orderkey'], distribution_name = 'order'");
-            }
-            else if (table.equals(TpchTable.PART)) {
-                tablesMapBuilder.put(TpchTable.PART, "bucket_count = 20, bucketed_on = ARRAY['partkey'], distribution_name = 'part'");
-            }
-            else if (table.equals(TpchTable.PART_SUPPLIER)) {
-                tablesMapBuilder.put(TpchTable.PART_SUPPLIER, "bucket_count = 20, bucketed_on = ARRAY['partkey'], distribution_name = 'part'");
-            }
-            else if (table.equals(TpchTable.SUPPLIER)) {
-                tablesMapBuilder.put(TpchTable.SUPPLIER, "bucket_count = 10, bucketed_on = ARRAY['suppkey']");
-            }
-            else if (table.equals(TpchTable.CUSTOMER)) {
-                tablesMapBuilder.put(TpchTable.CUSTOMER, "bucket_count = 10, bucketed_on = ARRAY['custkey']");
-            }
-            else if (table.equals(TpchTable.NATION)) {
-                tablesMapBuilder.put(TpchTable.NATION, "");
-            }
-            else if (table.equals(TpchTable.REGION)) {
-                tablesMapBuilder.put(TpchTable.REGION, "");
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported table: " + table);
-            }
-        }
-        Map<TpchTable<?>, String> tablesMap = tablesMapBuilder.build();
+        Map<TpchTable<?>, String> tables = ImmutableMap.<TpchTable<?>, String>builder()
+                .put(TpchTable.ORDERS, "bucket_count = 25, bucketed_on = ARRAY['orderkey'], distribution_name = 'order'")
+                .put(TpchTable.LINE_ITEM, "bucket_count = 25, bucketed_on = ARRAY['orderkey'], distribution_name = 'order'")
+                .put(TpchTable.PART, "bucket_count = 20, bucketed_on = ARRAY['partkey'], distribution_name = 'part'")
+                .put(TpchTable.PART_SUPPLIER, "bucket_count = 20, bucketed_on = ARRAY['partkey'], distribution_name = 'part'")
+                .put(TpchTable.SUPPLIER, "bucket_count = 10, bucketed_on = ARRAY['suppkey']")
+                .put(TpchTable.CUSTOMER, "bucket_count = 10, bucketed_on = ARRAY['custkey']")
+                .put(TpchTable.NATION, "")
+                .put(TpchTable.REGION, "")
+                .build();
 
         log.info("Loading data from %s.%s...", catalog, schema);
         long startTime = System.nanoTime();
-        for (Entry<TpchTable<?>, String> entry : tablesMap.entrySet()) {
+        for (Entry<TpchTable<?>, String> entry : tables.entrySet()) {
             copyTable(queryRunner, catalog, session, schema, entry.getKey(), entry.getValue());
         }
         log.info("Loading from %s.%s complete in %s", catalog, schema, nanosSince(startTime));
@@ -162,7 +147,7 @@ public final class RaptorQueryRunner
     {
         Logging.initialize();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        DistributedQueryRunner queryRunner = createRaptorQueryRunner(properties, ImmutableList.of(), false, ImmutableMap.of());
+        DistributedQueryRunner queryRunner = createRaptorQueryRunner(properties, false, false);
         Thread.sleep(10);
         Logger log = Logger.get(RaptorQueryRunner.class);
         log.info("======== SERVER STARTED ========");

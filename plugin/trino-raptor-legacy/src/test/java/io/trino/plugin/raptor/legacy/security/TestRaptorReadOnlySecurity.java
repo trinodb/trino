@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.raptor.legacy.security;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
@@ -30,7 +29,7 @@ public class TestRaptorReadOnlySecurity
     public void setUp()
             throws Exception
     {
-        queryRunner = createRaptorQueryRunner(ImmutableMap.of(), ImmutableList.of(), false, ImmutableMap.of("raptor.security", "read-only"));
+        queryRunner = createRaptorQueryRunner(ImmutableMap.of(), false, false, ImmutableMap.of("raptor.security", "read-only"));
     }
 
     @AfterClass(alwaysRun = true)

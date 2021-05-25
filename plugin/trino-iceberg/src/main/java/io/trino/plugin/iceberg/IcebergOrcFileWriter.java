@@ -31,7 +31,6 @@ import io.trino.orc.metadata.statistics.DecimalStatistics;
 import io.trino.orc.metadata.statistics.DoubleStatistics;
 import io.trino.orc.metadata.statistics.IntegerStatistics;
 import io.trino.orc.metadata.statistics.StringStatistics;
-import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.orc.OrcFileWriter;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Metrics;
@@ -79,7 +78,7 @@ public class IcebergOrcFileWriter
             OrcWriteValidation.OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
     {
-        super(orcDataSink, WriterKind.INSERT, NO_ACID_TRANSACTION, false, OptionalInt.empty(), rollbackAction, columnNames, fileColumnTypes, fileColumnOrcTypes, compression, options, writeLegacyVersion, fileInputColumnIndexes, metadata, validationInputFactory, validationMode, stats);
+        super(orcDataSink, NO_ACID_TRANSACTION, false, OptionalInt.empty(), rollbackAction, columnNames, fileColumnTypes, fileColumnOrcTypes, compression, options, writeLegacyVersion, fileInputColumnIndexes, metadata, validationInputFactory, validationMode, stats);
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
         orcColumns = fileColumnOrcTypes;
     }
@@ -164,8 +163,6 @@ public class IcebergOrcFileWriter
                     populateExcludedColumns(orcColumns, child, exclude, excludedColumns);
                 }
                 return;
-            default:
-                // unexpected, TODO throw
         }
     }
 

@@ -2,8 +2,8 @@
 Release 0.149
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix runtime failure for queries that use grouping sets over unions.
 * Do not ignore null values in :func:`array_agg`.
@@ -32,8 +32,8 @@ General
 * Improve performance of subscript operator for the ``MAP`` type.
 * Improve performance of ``JOIN`` and ``GROUP BY`` queries.
 
-Hive
-----
+Hive changes
+------------
 
 * Clean up empty staging directories after inserts.
 * Add ``hive.dfs.ipc-ping-interval`` config for HDFS.

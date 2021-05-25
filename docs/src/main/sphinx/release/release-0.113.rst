@@ -36,8 +36,8 @@ can be validated and converted to any Java type using
     implementation and callers of ``ConnectorSession.getProperty()`` will now
     need the expected Java type of the property.
 
-General
--------
+General changes
+---------------
 
 * Allow using any type with value window functions :func:`first_value`,
   :func:`last_value`, :func:`nth_value`, :func:`lead` and :func:`lag`.
@@ -48,8 +48,8 @@ General
 * Fix handling of literal ``NULL`` in ``IS DISTINCT FROM``.
 * Fix an issue that caused some specific queries to fail in planning.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix the Hive metadata cache to properly handle negative responses.
   This makes the background refresh work properly by clearing the cached
@@ -58,8 +58,8 @@ Hive
   Hive but Presto thinks it still exists.
 * Fix metastore socket leak when SOCKS connect fails.
 
-SPI
----
+SPI changes
+-----------
 
 * Changed the internal representation of structural types.
 

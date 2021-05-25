@@ -21,8 +21,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
 
-import javax.annotation.Nullable;
-
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -52,8 +50,7 @@ public class JdbcRecordCursor
     private final JdbcClient jdbcClient;
     private final Connection connection;
     private final PreparedStatement statement;
-    @Nullable
-    private ResultSet resultSet;
+    private final ResultSet resultSet;
     private boolean closed;
 
     public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
@@ -102,6 +99,8 @@ public class JdbcRecordCursor
             }
 
             statement = jdbcClient.buildSql(session, connection, split, table, columnHandles);
+            log.debug("Executing: %s", statement.toString());
+            resultSet = statement.executeQuery();
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -134,10 +133,6 @@ public class JdbcRecordCursor
         }
 
         try {
-            if (resultSet == null) {
-                log.debug("Executing: %s", statement.toString());
-                resultSet = statement.executeQuery();
-            }
             return resultSet.next();
         }
         catch (SQLException | RuntimeException e) {
@@ -149,7 +144,6 @@ public class JdbcRecordCursor
     public boolean getBoolean(int field)
     {
         checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
         try {
             return booleanReadFunctions[field].readBoolean(resultSet, field + 1);
         }
@@ -162,7 +156,6 @@ public class JdbcRecordCursor
     public long getLong(int field)
     {
         checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
         try {
             return longReadFunctions[field].readLong(resultSet, field + 1);
         }
@@ -175,7 +168,6 @@ public class JdbcRecordCursor
     public double getDouble(int field)
     {
         checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
         try {
             return doubleReadFunctions[field].readDouble(resultSet, field + 1);
         }
@@ -188,7 +180,6 @@ public class JdbcRecordCursor
     public Slice getSlice(int field)
     {
         checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
         try {
             return sliceReadFunctions[field].readSlice(resultSet, field + 1);
         }
@@ -201,7 +192,6 @@ public class JdbcRecordCursor
     public Object getObject(int field)
     {
         checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
         try {
             return objectReadFunctions[field].readObject(resultSet, field + 1);
         }
@@ -215,7 +205,6 @@ public class JdbcRecordCursor
     {
         checkState(!closed, "cursor is closed");
         checkArgument(field < columnHandles.length, "Invalid field index");
-        requireNonNull(resultSet, "resultSet is null");
 
         try {
             return readFunctions[field].isNull(resultSet, field + 1);
@@ -238,15 +227,6 @@ public class JdbcRecordCursor
         try (Connection connection = this.connection;
                 Statement statement = this.statement;
                 ResultSet resultSet = this.resultSet) {
-            if (statement != null) {
-                try {
-                    // Trying to cancel running statement as close() may not do it
-                    statement.cancel();
-                }
-                catch (SQLException ignored) {
-                    // statement already closed or cancel is not supported
-                }
-            }
             if (connection != null) {
                 jdbcClient.abortReadConnection(connection);
             }

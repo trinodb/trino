@@ -2,8 +2,8 @@
 Release 0.79
 ============
 
-Hive
-----
+Hive changes
+------------
 
 * Add configuration option ``hive.force-local-scheduling`` and session property
   ``force_local_scheduling`` to force local scheduling of splits.
@@ -11,8 +11,8 @@ Hive
   setting the configuration option ``hive.optimized-reader.enabled`` or session
   property ``optimized_reader_enabled``.
 
-General
--------
+General changes
+---------------
 
 * Add support for :ref:`unnest`, which can be used as a replacement for the ``explode()`` function in Hive.
 * Fix a bug in the scan operator that can cause data to be missed. It currently only affects queries

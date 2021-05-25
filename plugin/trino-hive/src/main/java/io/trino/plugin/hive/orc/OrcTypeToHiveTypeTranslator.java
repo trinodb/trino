@@ -104,12 +104,9 @@ public final class OrcTypeToHiveTypeTranslator
                 return toHiveType(getStructTypeInfo(orcType.getFieldNames(), fieldTypeInfo.build()));
             }
 
-            case TIMESTAMP_INSTANT:
-            case UNION:
-                // unsupported
-                break;
+            default:
+                throw new VerifyException("Unhandled ORC type: " + orcType.getOrcTypeKind());
         }
-        throw new VerifyException("Unhandled ORC type: " + orcType.getOrcTypeKind());
     }
 
     private static HiveType getHiveType(OrcType orcType, int index, ColumnMetadata<OrcType> columnMetadata)

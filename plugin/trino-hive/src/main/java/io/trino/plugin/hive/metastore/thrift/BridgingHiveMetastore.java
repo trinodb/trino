@@ -241,7 +241,7 @@ public class BridgingHiveMetastore
         Map<String, String> parameters = table.getParameters().entrySet().stream()
                 .filter(entry -> !entry.getKey().equals(TABLE_COMMENT))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        comment.ifPresent(value -> parameters.put(TABLE_COMMENT, value));
+        comment.ifPresent(value -> parameters.put(TABLE_COMMENT, comment.get()));
 
         table.setParameters(parameters);
         alterTable(identity, databaseName, tableName, table);

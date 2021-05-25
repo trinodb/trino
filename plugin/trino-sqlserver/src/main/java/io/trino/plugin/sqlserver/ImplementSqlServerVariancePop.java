@@ -60,7 +60,7 @@ public class ImplementSqlServerVariancePop
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 
         return Optional.of(new JdbcExpression(
-                format("VARP(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
+                format("VARP(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

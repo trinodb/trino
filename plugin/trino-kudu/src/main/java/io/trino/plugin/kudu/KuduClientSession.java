@@ -33,6 +33,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.EquatableValueSet;
+import io.trino.spi.predicate.Marker;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.SortedRangeSet;
@@ -67,6 +68,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
+import static io.trino.spi.predicate.Marker.Bound.ABOVE;
+import static io.trino.spi.predicate.Marker.Bound.BELOW;
 import static java.util.stream.Collectors.toList;
 import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER;
 import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER_EQUAL;
@@ -523,14 +526,16 @@ public class KuduClientSession
                     }
                     else {
                         Range span = ranges.getSpan();
-                        if (!span.isLowUnbounded()) {
-                            KuduPredicate.ComparisonOp op = span.isLowInclusive() ? GREATER_EQUAL : GREATER;
-                            KuduPredicate predicate = createComparisonPredicate(columnSchema, op, span.getLowBoundedValue());
+                        Marker low = span.getLow();
+                        if (!low.isLowerUnbounded()) {
+                            KuduPredicate.ComparisonOp op = (low.getBound() == ABOVE) ? GREATER : GREATER_EQUAL;
+                            KuduPredicate predicate = createComparisonPredicate(columnSchema, op, low.getValue());
                             builder.addPredicate(predicate);
                         }
-                        if (!span.isHighUnbounded()) {
-                            KuduPredicate.ComparisonOp op = span.isHighInclusive() ? LESS_EQUAL : LESS;
-                            KuduPredicate predicate = createComparisonPredicate(columnSchema, op, span.getHighBoundedValue());
+                        Marker high = span.getHigh();
+                        if (!high.isUpperUnbounded()) {
+                            KuduPredicate.ComparisonOp op = (high.getBound() == BELOW) ? LESS : LESS_EQUAL;
+                            KuduPredicate predicate = createComparisonPredicate(columnSchema, op, high.getValue());
                             builder.addPredicate(predicate);
                         }
                     }

@@ -2,8 +2,8 @@
 Release 0.111
 =============
 
-General
--------
+General changes
+---------------
 
 * Add :func:`histogram` function.
 * Optimize ``CASE`` expressions on a constant.

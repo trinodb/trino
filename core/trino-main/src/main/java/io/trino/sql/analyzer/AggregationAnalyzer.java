@@ -62,7 +62,6 @@ import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowFrame;
-import io.trino.sql.tree.WindowSpecification;
 
 import javax.annotation.Nullable;
 
@@ -373,7 +372,7 @@ class AggregationAnalyzer
                                 }
                             }
                         }
-                        // in case of aggregate function in ORDER BY, ensure that no output fields are referenced from aggregation's ordering expressions
+                        // ensure that no output fields are referenced from ORDER BY clause
                         if (orderByScope.isPresent()) {
                             for (Expression sortKey : sortKeys) {
                                 verifyNoOrderByReferencesToOutputColumns(
@@ -384,17 +383,13 @@ class AggregationAnalyzer
                         }
                     }
 
-                    // in case of aggregate function in ORDER BY, ensure that no output fields are referenced from aggregation's arguments or filter
+                    // ensure that no output fields are referenced from ORDER BY clause
                     if (orderByScope.isPresent()) {
                         node.getArguments().stream()
                                 .forEach(argument -> verifyNoOrderByReferencesToOutputColumns(
                                         argument,
                                         COLUMN_NOT_FOUND,
                                         "Invalid reference to output projection attribute from ORDER BY aggregation"));
-                        node.getFilter().ifPresent(expression -> verifyNoOrderByReferencesToOutputColumns(
-                                expression,
-                                COLUMN_NOT_FOUND,
-                                "Invalid reference to output projection attribute from ORDER BY aggregation"));
                     }
 
                     return true;
@@ -412,11 +407,8 @@ class AggregationAnalyzer
                 }
             }
 
-            if (node.getWindow().isPresent()) {
-                Window window = node.getWindow().get();
-                if (window instanceof WindowSpecification && !process((WindowSpecification) window, context)) {
-                    return false;
-                }
+            if (node.getWindow().isPresent() && !process(node.getWindow().get(), context)) {
+                return false;
             }
 
             return node.getArguments().stream().allMatch(expression -> process(expression, context));
@@ -440,7 +432,7 @@ class AggregationAnalyzer
         }
 
         @Override
-        protected Boolean visitWindowSpecification(WindowSpecification node, Void context)
+        protected Boolean visitWindow(Window node, Void context)
         {
             for (Expression expression : node.getPartitionBy()) {
                 if (!process(expression, context)) {

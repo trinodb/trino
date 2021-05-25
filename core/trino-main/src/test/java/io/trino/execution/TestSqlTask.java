@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -366,7 +367,7 @@ public class TestSqlTask
                 queryContext,
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
-                sqlTask -> {},
+                Functions.identity(),
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
                 new CounterStat());

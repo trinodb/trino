@@ -95,7 +95,7 @@ public class PhoenixMetadata
                 .filter(column -> rowkeyRequired || !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .map(JdbcColumnHandle::getColumnMetadata)
                 .collect(toImmutableList());
-        return new ConnectorTableMetadata(handle.getRequiredNamedRelation().getSchemaTableName(), columnMetadata, phoenixClient.getTableProperties(session, handle));
+        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata, phoenixClient.getTableProperties(session, handle));
     }
 
     @Override

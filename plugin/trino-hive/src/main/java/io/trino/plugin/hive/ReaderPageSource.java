@@ -21,10 +21,9 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * A wrapper class for
- * <ul>
- * <li> delegate reader page source and
- * <li> columns to be read by the delegate (present only if different from the columns desired by the connector pagesource)
- * </ul>
+ * - delegate reader page source and
+ * - columns to be read by the delegate (present only if different from the columns desired by the connector pagesource)
+ * <p>
  */
 public class ReaderPageSource
 {

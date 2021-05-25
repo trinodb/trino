@@ -1,6 +1,6 @@
 # Release 350 (28 Dec 2020)
 
-## General
+## General changes
 
 * Add HTTP client JMX metrics. ({issue}`6453`)
 * Improve query performance by reducing worker to worker communication overhead. ({issue}`6283`, {issue}`6349`)
@@ -14,40 +14,40 @@
 
 * Fix truncation of query text in cluster overview page. ({issue}`6216`)
 
-## JDBC driver
+## JDBC driver changes
 
 * Accept `java.time.OffsetTime` in `PreparedStatement.setObject(int, Object)`. ({issue}`6352`)
 * Extend `PreparedStatement.setObject(int, Object, int)` to allow setting `time with time zone` and `timestamp with time zone`
   values with precision higher than nanoseconds. This can be done via providing a `String` value representing a valid SQL literal. ({issue}`6352`)
 
-## BigQuery connector
+## BigQuery connector changes
 
 * Fix incorrect results for `count(*)` queries with views. ({issue}`5635`)
 
-## Cassandra connector
+## Cassandra connector changes
 
 * Support `DELETE` statement with primary key or partition key. ({issue}`4059`)
 
-## Elasticsearch connector
+## Elasticsearch connector changes
 
 * Improve query analysis performance when Elasticsearch contains many index mappings. ({issue}`6368`)
 
-## Kafka connector
+## Kafka connector changes
 
 * Support Kafka Schema Registry for Avro topics. ({issue}`6137`)
 
-## SQL Server connector
+## SQL Server connector changes
 
 * Add `data_compression` table property to control the target compression in SQL Server.
   The allowed values are `NONE`, `ROW` or `PAGE`. ({issue}`4693`)
 
-## Other connectors
+## Other connector changes
 
 This change applies to the MySQL, Oracle, PostgreSQL, Redshift, and SQL Server connectors.
 
 * Send shorter and potentially more performant queries to remote database when a Presto query has a `NOT IN`
   predicate eligible for pushdown into the connector. ({issue}`6075`)
 
-## SPI
+## SPI changes
 
 * Rename `LongTimeWithTimeZone.getPicoSeconds()` to `LongTimeWithTimeZone.getPicoseconds()`. ({issue}`6354`)

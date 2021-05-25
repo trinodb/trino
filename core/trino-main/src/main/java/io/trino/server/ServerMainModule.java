@@ -91,7 +91,6 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
 import io.trino.server.ExpressionSerialization.ExpressionSerializer;
-import io.trino.server.PluginManager.PluginsProvider;
 import io.trino.server.SliceSerialization.SliceDeserializer;
 import io.trino.server.SliceSerialization.SliceSerializer;
 import io.trino.server.remotetask.HttpLocationFactory;
@@ -410,9 +409,7 @@ public class ServerMainModule
 
         // plugin manager
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, PluginsProvider.class).setDefault()
-                .to(ServerPluginsProvider.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(ServerPluginsProviderConfig.class);
+        configBinder(binder).bindConfig(PluginManagerConfig.class);
 
         binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
 

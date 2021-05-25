@@ -189,7 +189,6 @@ public interface AccessControl
 
     /**
      * Check if identity is allowed to comment the specified column.
-     *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName);
@@ -267,13 +266,6 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName);
-
-    /**
-     * Check if identity is allowed to update the specified table.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames);
 
     /**
      * Check if identity is allowed to create the specified view.

@@ -589,8 +589,7 @@ public abstract class AbstractTestHiveFileFormats
                 session,
                 OptionalInt.empty(),
                 NO_ACID_TRANSACTION,
-                false,
-                WriterKind.INSERT);
+                false);
 
         FileWriter hiveFileWriter = fileWriter.orElseThrow(() -> new IllegalArgumentException("fileWriterFactory"));
         hiveFileWriter.appendRows(page);

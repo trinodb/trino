@@ -25,7 +25,6 @@ import io.trino.spi.type.VarcharType;
 
 import java.sql.Connection;
 import java.sql.Types;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -73,10 +72,9 @@ class TestingH2JdbcClient
     }
 
     @Override
-    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+    public boolean supportsGroupingSets()
     {
-        // GROUP BY with GROUPING SETS is not supported
-        return groupingSets.size() == 1;
+        return false;
     }
 
     @Override
@@ -117,10 +115,10 @@ class TestingH2JdbcClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.VARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.DATE:
                 return Optional.of(dateColumnMapping());

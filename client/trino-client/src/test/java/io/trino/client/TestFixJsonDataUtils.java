@@ -124,8 +124,7 @@ public class TestFixJsonDataUtils
                         toClientTypeSignature(parameter.getNamedTypeSignature().getTypeSignature())));
             case LONG:
                 return ClientTypeSignatureParameter.ofLong(parameter.getLongLiteral());
-            default:
-                throw new IllegalArgumentException("Unsupported kind: " + parameter.getKind());
         }
+        throw new IllegalArgumentException("Unsupported kind: " + parameter.getKind());
     }
 }

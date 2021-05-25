@@ -548,9 +548,8 @@ public class OrcStorageManager
                             getType(types, type.getFieldTypeIndex(i)).getTypeSignature())));
                 }
                 return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build());
-            default:
-                throw new TrinoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
         }
+        throw new TrinoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
     }
 
     static Type toOrcFileType(Type raptorType, TypeManager typeManager)

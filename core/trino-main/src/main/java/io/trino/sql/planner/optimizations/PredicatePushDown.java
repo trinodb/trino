@@ -659,7 +659,7 @@ public class PredicatePushDown
                     .map(Symbol::from)
                     .collect(toImmutableSet());
 
-            // Allocate new dynamic filter IDs for each build symbol:
+            // Allocate new dynamic filter IDs for for each build symbol:
             BiMap<Symbol, DynamicFilterId> buildSymbolToDynamicFilter = HashBiMap.create(node.getDynamicFilters()).inverse();
             for (Symbol buildSymbol : buildSymbols) {
                 buildSymbolToDynamicFilter.computeIfAbsent(

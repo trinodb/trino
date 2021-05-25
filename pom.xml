@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>106</version>
+        <version>105</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>354-SNAPSHOT</version>
+    <version>352-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -47,22 +47,23 @@
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.9</dep.antlr.version>
-        <dep.airlift.version>203</dep.airlift.version>
+        <dep.airlift.version>202</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.aws-sdk.version>1.11.946</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.11.921</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
         <dep.jdbi3.version>3.17.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.scribejava.version>6.9.0</dep.scribejava.version>
         <dep.selenium.version>3.141.59</dep.selenium.version>
         <dep.tempto.version>183</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
-        <dep.errorprone.version>2.5.1</dep.errorprone.version>
+        <dep.errorprone.version>2.4.0</dep.errorprone.version>
         <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
         <dep.docker-java.version>3.2.7</dep.docker-java.version>
-        <dep.coral.version>1.0.25</dep.coral.version>
+        <dep.joda.version>2.10.6</dep.joda.version>
+        <dep.coral.version>1.0.12</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
+        <dep.jackson.version>2.11.1</dep.jackson.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -107,7 +108,6 @@
         <module>plugin/trino-bigquery</module>
         <module>plugin/trino-blackhole</module>
         <module>plugin/trino-cassandra</module>
-        <module>plugin/trino-clickhouse</module>
         <module>plugin/trino-druid</module>
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
@@ -129,7 +129,6 @@
         <module>plugin/trino-oracle</module>
         <module>plugin/trino-password-authenticators</module>
         <module>plugin/trino-phoenix</module>
-        <module>plugin/trino-phoenix5</module>
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
@@ -152,7 +151,6 @@
         <module>testing/trino-benchto-benchmarks</module>
         <module>testing/trino-product-tests</module>
         <module>testing/trino-product-tests-launcher</module>
-        <module>testing/trino-server-dev</module>
         <module>testing/trino-test-jdbc-compatibility-old-driver</module>
         <module>testing/trino-test-jdbc-compatibility-old-server</module>
         <module>testing/trino-testing</module>
@@ -276,12 +274,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-jdbc</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-jmx</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -543,7 +535,7 @@
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-12</version>
+                <version>3.1.2-7</version>
             </dependency>
 
             <dependency>
@@ -977,14 +969,8 @@
 
             <dependency>
                 <groupId>com.github.scribejava</groupId>
-                <artifactId>scribejava-apis</artifactId>
-                <version>${dep.scribejava.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.github.scribejava</groupId>
                 <artifactId>scribejava-core</artifactId>
-                <version>${dep.scribejava.version}</version>
+                <version>6.9.0</version>
             </dependency>
 
             <dependency>
@@ -1072,7 +1058,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>8.4.1.jre8</version>
+                <version>7.0.0.jre8</version>
             </dependency>
 
             <dependency>
@@ -1402,18 +1388,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.locationtech.jts.io</groupId>
-                <artifactId>jts-io-common</artifactId>
-                <version>1.16.1</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>junit</groupId>
-                        <artifactId>junit</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
                 <groupId>org.openjdk.jol</groupId>
                 <artifactId>jol-core</artifactId>
                 <version>0.2</version>
@@ -1447,6 +1421,25 @@
                 <groupId>org.seleniumhq.selenium</groupId>
                 <artifactId>selenium-chrome-driver</artifactId>
                 <version>${dep.selenium.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <!-- TODO: Remove com.squareup.* exclusions after upgrading to a version >= 1.13.0 -->
+                    <exclusion>
+                        <groupId>com.squareup.okhttp3</groupId>
+                        <artifactId>okhttp</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.squareup.okhttp3</groupId>
+                        <artifactId>okhttp-urlconnection</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.squareup.okio</groupId>
+                        <artifactId>okio</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1457,6 +1450,15 @@
                     <exclusion>
                         <groupId>commons-logging</groupId>
                         <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <!-- TODO: Remove com.squareup.* exclusions after upgrading to a version >= 1.13.0 -->
+                    <exclusion>
+                        <groupId>com.squareup.okhttp3</groupId>
+                        <artifactId>okhttp</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.squareup.okio</groupId>
+                        <artifactId>okio</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1470,6 +1472,15 @@
                         <groupId>commons-logging</groupId>
                         <artifactId>commons-logging</artifactId>
                     </exclusion>
+                    <!-- TODO: Remove com.squareup.* exclusions after upgrading to a version >= 1.13.0 -->
+                    <exclusion>
+                        <groupId>com.squareup.okhttp3</groupId>
+                        <artifactId>okhttp</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.squareup.okio</groupId>
+                        <artifactId>okio</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -1481,6 +1492,15 @@
                     <exclusion>
                         <groupId>commons-logging</groupId>
                         <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <!-- TODO: Remove com.squareup.* exclusions after upgrading to a version >= 1.13.0 -->
+                    <exclusion>
+                        <groupId>com.squareup.okhttp3</groupId>
+                        <artifactId>okhttp</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.squareup.okio</groupId>
+                        <artifactId>okio</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1681,7 +1701,49 @@
 
     <profiles>
         <profile>
-            <id>errorprone-compiler</id>
+            <id>tests-with-dependencies</id>
+            <!--
+                Assembles an uber (fat) jar that includes the entire "test" scope classpath for a module.
+
+                For example after running:
+
+                ./mvnw clean install -P tests-with-dependencies -pl plugin/trino-geospatial
+
+                The uber jar that contains the entire "test" scope class path of the "trino-geospatial"
+                is created and placed to that modules target directory:
+
+                ./plugin/trino-geospatial/target/trino-geospatial-351-SNAPSHOT-tests-with-dependencies.jar
+
+                Now using this jar we can easily run any benchmark from that module via command line:
+
+                java \
+                  -cp ./plugin/trino-geospatial/target/trino-geospatial-*-tests-with-dependencies.jar \
+                  io.trino.plugin.geospatial.BenchmarkSTIntersects
+            -->
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <configuration>
+                            <descriptor>${air.main.basedir}/.mvn/assembly/tests-with-dependencies.xml</descriptor>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>make-assembly</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <!-- airbase defines "errorprone-compiler" profile but set up this ourselves -->
+            <id>errorprone-compiler-trino</id>
             <build>
                 <plugins>
                     <plugin>
@@ -1699,39 +1761,23 @@
                                     -Xep:ArrayEquals:ERROR
                                     -Xep:ArrayHashCode:ERROR
                                     -Xep:ArrayToString:ERROR
+                                    -Xep:ArrayToString:ERROR
                                     -Xep:ArraysAsListPrimitiveArray:ERROR
                                     -Xep:BadInstanceof:ERROR
-                                    -Xep:BadShiftAmount:ERROR
                                     -Xep:BoxedPrimitiveConstructor:ERROR
                                     -Xep:ClassCanBeStatic:ERROR
                                     -Xep:CompareToZero:ERROR
                                     -Xep:ComparingThisWithNull:ERROR
                                     -Xep:EqualsIncompatibleType:ERROR
-                                    -Xep:FallThrough:ERROR
                                     -Xep:FormatString:ERROR
-                                    -Xep:GetClassOnAnnotation:ERROR
                                     -Xep:GetClassOnClass:ERROR
-                                    -Xep:IdentityBinaryExpression:ERROR
-                                    -Xep:ImmutableSetForContains:ERROR
                                     -Xep:InconsistentHashCode:ERROR
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR
-                                    -Xep:MissingCasesInEnumSwitch:ERROR
                                     -Xep:MissingOverride:ERROR
-                                    -Xep:MisusedWeekYear:ERROR
                                     -Xep:NullOptional:ERROR
                                     -Xep:ObjectToString:ERROR
-                                    -Xep:OptionalEquality:ERROR
-                                    -Xep:OptionalMapUnusedValue:ERROR
-                                    -Xep:PreconditionsInvalidPlaceholder:ERROR
-                                    -Xep:ReturnValueIgnored:ERROR
                                     -Xep:StaticQualifiedUsingExpression:ERROR
-                                    -Xep:ThrowIfUncheckedKnownChecked:ERROR
-                                    -Xep:UnnecessaryCheckNotNull:ERROR
-                                    -Xep:UnnecessaryMethodReference:ERROR
-                                    -Xep:UnnecessaryOptionalGet:ERROR
                                     -Xep:UnusedVariable:ERROR
-                                    -Xep:UseEnumSwitch:ERROR
-                                    -Xep:ZoneIdOfZ:ERROR
                                 </arg>
                             </compilerArgs>
                             <annotationProcessorPaths>

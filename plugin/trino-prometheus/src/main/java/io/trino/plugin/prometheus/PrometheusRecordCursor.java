@@ -173,7 +173,10 @@ public class PrometheusRecordCursor
     public boolean isNull(int field)
     {
         checkArgument(field < columnHandles.size(), "Invalid field index");
-        return getFieldValue(field) == null;
+        if (getFieldValue(field) == null) {
+            return true;
+        }
+        return false;
     }
 
     private void checkFieldType(int field, Type expected)

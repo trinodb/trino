@@ -2,8 +2,8 @@
 Release 0.178
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix various memory accounting bugs, which reduces the likelihood of full GCs/OOMs.
 * Fix a regression that causes queries that use the keyword "stats" to fail to parse.
@@ -13,19 +13,19 @@ General
 * Add support for correlated subqueries in ``IN`` predicates.
 * Add :func:`to_ieee754_32` and :func:`to_ieee754_64` functions.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix high CPU usage due to schema caching when reading Avro files.
 * Preserve decompression error causes when decoding ORC files.
 
-Memory connector
-----------------
+Memory connector changes
+------------------------
 
 * Fix a bug that prevented creating empty tables.
 
-SPI
----
+SPI changes
+-----------
 
 * Make environment available to resource group configuration managers.
 * Add additional performance statistics to query completion event.

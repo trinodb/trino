@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 @Fork(1)
@@ -170,36 +169,6 @@ public class BenchmarkSortedRangeSet
         return result;
     }
 
-    @Benchmark
-    public List<Integer> getOrderedRangesSmall(Data data)
-    {
-        return benchmarkGetOrderedRanges(data.smallRanges);
-    }
-
-    @Benchmark
-    public List<Integer> getOrderedRangesLarge(Data data)
-    {
-        return benchmarkGetOrderedRanges(data.largeRanges);
-    }
-
-    private List<Integer> benchmarkGetOrderedRanges(List<SortedRangeSet> dataRanges)
-    {
-        List<Integer> result = new ArrayList<>(dataRanges.size());
-        for (int index = 0; index < dataRanges.size(); index++) {
-            int hash = 0;
-            for (Range orderedRange : dataRanges.get(index).getRanges().getOrderedRanges()) {
-                if (!orderedRange.isLowUnbounded()) {
-                    hash = hash * 31 + orderedRange.getLowBoundedValue().hashCode();
-                }
-                if (!orderedRange.isHighUnbounded()) {
-                    hash = hash * 31 + orderedRange.getHighBoundedValue().hashCode();
-                }
-            }
-            result.add(hash);
-        }
-        return result;
-    }
-
     @State(Scope.Thread)
     public static class Data
     {
@@ -218,7 +187,7 @@ public class BenchmarkSortedRangeSet
                 long to = ThreadLocalRandom.current().nextLong(100) + (factor + 1) * 100;
                 factor++;
 
-                ranges.add(range(BIGINT, from, false, to, false));
+                ranges.add(new Range(Marker.above(BIGINT, from), Marker.below(BIGINT, to)));
             }
 
             smallRanges = generateRangeSets(500_000, 2);

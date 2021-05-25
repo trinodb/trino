@@ -411,12 +411,14 @@ public class AddExchanges
                                 gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                                 child.getProperties());
                     }
-                    return rebaseAndDeriveProperties(node, child);
+                    break;
                 case PARTIAL:
                     child = planChild(node, PreferredProperties.any());
-                    return rebaseAndDeriveProperties(node, child);
+                    break;
+                default:
+                    throw new UnsupportedOperationException(format("Unsupported step for TopN [%s]", node.getStep()));
             }
-            throw new UnsupportedOperationException(format("Unsupported step for TopN [%s]", node.getStep()));
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override

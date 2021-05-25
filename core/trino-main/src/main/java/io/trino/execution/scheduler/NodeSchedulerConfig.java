@@ -14,7 +14,6 @@
 package io.trino.execution.scheduler;
 
 import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 
@@ -37,7 +36,6 @@ public class NodeSchedulerConfig
     private int maxPendingSplitsPerTask = 10;
     private NodeSchedulerPolicy nodeSchedulerPolicy = NodeSchedulerPolicy.UNIFORM;
     private boolean optimizedLocalScheduling = true;
-    private int maxUnacknowledgedSplitsPerTask = 500;
 
     @NotNull
     public NodeSchedulerPolicy getNodeSchedulerPolicy()
@@ -115,20 +113,6 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setMaxSplitsPerNode(int maxSplitsPerNode)
     {
         this.maxSplitsPerNode = maxSplitsPerNode;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxUnacknowledgedSplitsPerTask()
-    {
-        return maxUnacknowledgedSplitsPerTask;
-    }
-
-    @Config("node-scheduler.max-unacknowledged-splits-per-task")
-    @ConfigDescription("Maximum number of leaf splits not yet delivered to a given task")
-    public NodeSchedulerConfig setMaxUnacknowledgedSplitsPerTask(int maxUnacknowledgedSplitsPerTask)
-    {
-        this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
         return this;
     }
 

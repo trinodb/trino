@@ -21,7 +21,7 @@ import java.util.Objects;
 import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
 import static java.util.Locale.ENGLISH;
 
-public final class SchemaTableName
+public class SchemaTableName
 {
     private final String schemaName;
     private final String tableName;

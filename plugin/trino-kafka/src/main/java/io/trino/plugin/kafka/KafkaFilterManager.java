@@ -19,12 +19,11 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Marker;
 import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.Type;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.DescribeConfigsResult;
@@ -51,7 +50,6 @@ import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.OFFSET_TIMESTAMP_FIELD;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_OFFSET_FIELD;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
@@ -178,7 +176,7 @@ public class KafkaFilterManager
     }
 
     private static Map<TopicPartition, Long> overridePartitionBeginOffsets(Map<TopicPartition, Long> partitionBeginOffsets,
-            Function<TopicPartition, Optional<Long>> overrideFunction)
+                                                                           Function<TopicPartition, Optional<Long>> overrideFunction)
     {
         ImmutableMap.Builder<TopicPartition, Long> partitionFilteredBeginOffsetsBuilder = ImmutableMap.builder();
         partitionBeginOffsets.forEach((partition, partitionIndex) -> {
@@ -189,7 +187,7 @@ public class KafkaFilterManager
     }
 
     private static Map<TopicPartition, Long> overridePartitionEndOffsets(Map<TopicPartition, Long> partitionEndOffsets,
-            Function<TopicPartition, Optional<Long>> overrideFunction)
+                                                                         Function<TopicPartition, Optional<Long>> overrideFunction)
     {
         ImmutableMap.Builder<TopicPartition, Long> partitionFilteredEndOffsetsBuilder = ImmutableMap.builder();
         partitionEndOffsets.forEach((partition, partitionIndex) -> {
@@ -223,9 +221,10 @@ public class KafkaFilterManager
                     high = Collections.max(values);
                 }
                 else {
-                    io.trino.spi.predicate.Range span = ranges.getSpan();
-                    low = getLowIncludedValue(span).orElse(low);
-                    high = getHighIncludedValue(span).orElse(high);
+                    Marker lowMark = ranges.getSpan().getLow();
+                    low = getLowByLowMark(lowMark).orElse(low);
+                    Marker highMark = ranges.getSpan().getHigh();
+                    high = getHighByHighMark(highMark).orElse(high);
                 }
             }
         }
@@ -256,11 +255,17 @@ public class KafkaFilterManager
                 }
                 else {
                     // still return values for range case like (_partition_id > 1)
-                    io.trino.spi.predicate.Range span = ranges.getSpan();
-                    long low = getLowIncludedValue(span).orElse(0L);
-                    long high = getHighIncludedValue(span).orElse(Long.MAX_VALUE);
+                    long low = 0;
+                    long high = Long.MAX_VALUE;
+
+                    Marker lowMark = ranges.getSpan().getLow();
+                    low = maxLow(low, lowMark);
+                    Marker highMark = ranges.getSpan().getHigh();
+                    high = minHigh(high, highMark);
+                    final long finalLow = low;
+                    final long finalHigh = high;
                     return sourceValues.stream()
-                            .filter(item -> item >= low && item <= high)
+                            .filter(item -> item >= finalLow && item <= finalHigh)
                             .collect(toImmutableSet());
                 }
             }
@@ -268,31 +273,57 @@ public class KafkaFilterManager
         return sourceValues;
     }
 
-    private static Optional<Long> getLowIncludedValue(io.trino.spi.predicate.Range range)
+    private static long minHigh(long high, Marker highMark)
     {
-        long step = nativeRepresentationGranularity(range.getType());
-        return range.getLowValue()
-                .map(Long.class::cast)
-                .map(value -> range.isLowInclusive() ? value : value + step);
+        Optional<Long> highByHighMark = getHighByHighMark(highMark);
+        if (highByHighMark.isPresent()) {
+            high = Long.min(highByHighMark.get(), high);
+        }
+        return high;
     }
 
-    private static Optional<Long> getHighIncludedValue(io.trino.spi.predicate.Range range)
+    private static long maxLow(long low, Marker lowMark)
     {
-        long step = nativeRepresentationGranularity(range.getType());
-        return range.getHighValue()
-                .map(Long.class::cast)
-                .map(value -> range.isHighInclusive() ? value : value - step);
+        Optional<Long> lowByLowMark = getLowByLowMark(lowMark);
+        if (lowByLowMark.isPresent()) {
+            low = Long.max(lowByLowMark.get(), low);
+        }
+        return low;
     }
 
-    private static long nativeRepresentationGranularity(Type type)
+    private static Optional<Long> getHighByHighMark(Marker highMark)
     {
-        if (type == BIGINT) {
-            return 1;
+        if (!highMark.isUpperUnbounded()) {
+            long high = (Long) highMark.getValue();
+            switch (highMark.getBound()) {
+                case EXACTLY:
+                    break;
+                case BELOW:
+                    high--;
+                    break;
+                default:
+                    throw new AssertionError("Unhandled bound: " + highMark.getBound());
+            }
+            return Optional.of(high);
         }
-        if (type instanceof TimestampType && ((TimestampType) type).getPrecision() == 3) {
-            // native representation is in microseconds
-            return 1000;
+        return Optional.empty();
+    }
+
+    private static Optional<Long> getLowByLowMark(Marker lowMark)
+    {
+        if (!lowMark.isLowerUnbounded()) {
+            long low = (Long) lowMark.getValue();
+            switch (lowMark.getBound()) {
+                case EXACTLY:
+                    break;
+                case ABOVE:
+                    low++;
+                    break;
+                default:
+                    throw new AssertionError("Unhandled bound: " + lowMark.getBound());
+            }
+            return Optional.of(low);
         }
-        throw new IllegalArgumentException("Unsupported type: " + type);
+        return Optional.empty();
     }
 }

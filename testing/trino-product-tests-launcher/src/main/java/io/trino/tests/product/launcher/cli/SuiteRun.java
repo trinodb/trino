@@ -350,7 +350,7 @@ public class SuiteRun
     static class TestRunResult
     {
         public static final Object[] HEADER = {
-                "id", "suite", "environment", "config", "status", "elapsed", "error"
+            "id", "suite", "environment", "config", "status", "elapsed", "error"
         };
 
         private final String runId;
@@ -391,13 +391,13 @@ public class SuiteRun
         public Object[] toRow()
         {
             return new Object[] {
-                    runId,
-                    suiteName,
-                    suiteRun.getEnvironmentName(),
-                    environmentConfig.getConfigName(),
-                    hasFailed() ? "FAILED" : "SUCCESS",
-                    duration,
-                    throwable.map(Throwable::getMessage).orElse("-")};
+                runId,
+                suiteName,
+                suiteRun.getEnvironmentName(),
+                environmentConfig.getConfigName(),
+                hasFailed() ? "FAILED" : "SUCCESS",
+                duration,
+                throwable.map(Throwable::getMessage).orElse("-")};
         }
     }
 }

@@ -664,12 +664,13 @@ public class SqlTaskExecution
         switch (executionStrategy) {
             case GROUPED_EXECUTION:
                 checkArgument(!lifespan.isTaskWide(), "Expect driver-group life cycle for grouped ExecutionStrategy. Got task-wide life cycle.");
-                return;
+                break;
             case UNGROUPED_EXECUTION:
                 checkArgument(lifespan.isTaskWide(), "Expect task-wide life cycle for ungrouped ExecutionStrategy. Got driver-group life cycle.");
-                return;
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown executionStrategy: " + executionStrategy);
         }
-        throw new IllegalArgumentException("Unknown executionStrategy: " + executionStrategy);
     }
 
     private void checkHoldsLock()
@@ -1263,7 +1264,7 @@ public class SqlTaskExecution
                     break;
                 case GROUPED_EXECUTION:
                     if (!noMoreLifespans) {
-                        // There may still be new driver groups, which means potentially new splits.
+                        // There may still still be new driver groups, which means potentially new splits.
                         return false;
                     }
 

@@ -19,7 +19,6 @@ import io.trino.spi.block.Block;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -31,12 +30,6 @@ public class EmptyPageSource
     public void deleteRows(Block rowIds)
     {
         throw new UnsupportedOperationException("deleteRows called on EmptyPageSource");
-    }
-
-    @Override
-    public void updateRows(Page page, List<Integer> columnValueAndRowIdChannels)
-    {
-        throw new UnsupportedOperationException("updateRows called on EmptyPageSource");
     }
 
     @Override

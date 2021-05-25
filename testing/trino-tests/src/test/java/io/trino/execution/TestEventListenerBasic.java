@@ -15,7 +15,6 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.EventsCollector.EventFilters;
@@ -46,7 +45,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
@@ -137,7 +135,7 @@ public class TestEventListenerBasic
     public void testParseError()
             throws Exception
     {
-        assertFailedQuery("You shall not parse!", "line 1:1: mismatched input 'You'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', 'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'UPDATE', 'USE', <query>");
+        assertFailedQuery("You shall not parse!", "line 1:1: mismatched input 'You'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', 'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'USE', <query>");
     }
 
     @Test
@@ -259,44 +257,6 @@ public class TestEventListenerBasic
         RoutineInfo routine = routines.get(0);
         assertEquals(routine.getRoutine(), "sum");
         assertEquals(routine.getAuthorization(), "user");
-    }
-
-    @Test
-    public void testReferencedColumns()
-            throws Exception
-    {
-        // assert that ColumnInfos for referenced columns are present when the table was not aliased
-        runQueryAndWaitForEvents("SELECT name, nationkey FROM nation", 2);
-        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        TableInfo table = getOnlyElement(event.getMetadata().getTables());
-
-        assertEquals(
-                table.getColumns().stream()
-                        .map(ColumnInfo::getColumn)
-                        .collect(toImmutableSet()),
-                ImmutableSet.of("name", "nationkey"));
-
-        // assert that ColumnInfos for referenced columns are present when the table was aliased
-        runQueryAndWaitForEvents("SELECT name, nationkey FROM nation n", 2);
-        event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        table = getOnlyElement(event.getMetadata().getTables());
-
-        assertEquals(
-                table.getColumns().stream()
-                        .map(ColumnInfo::getColumn)
-                        .collect(toImmutableSet()),
-                ImmutableSet.of("name", "nationkey"));
-
-        // assert that ColumnInfos for referenced columns are present when the table was aliased and its columns were aliased
-        runQueryAndWaitForEvents("SELECT a, b FROM nation n(a, b, c, d)", 2);
-        event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        table = getOnlyElement(event.getMetadata().getTables());
-
-        assertEquals(
-                table.getColumns().stream()
-                        .map(ColumnInfo::getColumn)
-                        .collect(toImmutableSet()),
-                ImmutableSet.of("name", "nationkey"));
     }
 
     @Test

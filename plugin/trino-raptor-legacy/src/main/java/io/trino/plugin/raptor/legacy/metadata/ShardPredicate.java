@@ -117,6 +117,21 @@ class ShardPredicate
             }
 
             for (Range range : ranges.getOrderedRanges()) {
+                Object minValue = null;
+                Object maxValue = null;
+                if (range.isSingleValue()) {
+                    minValue = range.getSingleValue();
+                    maxValue = range.getSingleValue();
+                }
+                else {
+                    if (!range.getLow().isLowerUnbounded()) {
+                        minValue = range.getLow().getValue();
+                    }
+                    if (!range.getHigh().isUpperUnbounded()) {
+                        maxValue = range.getHigh().getValue();
+                    }
+                }
+
                 String min;
                 String max;
                 if (handle.isBucketNumber()) {
@@ -129,15 +144,15 @@ class ShardPredicate
                 }
 
                 StringJoiner rangePredicate = new StringJoiner(" AND ", "(", ")").setEmptyValue("true");
-                if (!range.isLowUnbounded()) {
+                if (minValue != null) {
                     rangePredicate.add(format("(%s >= ? OR %s IS NULL)", max, max));
                     types.add(jdbcType);
-                    values.add(range.getLowBoundedValue());
+                    values.add(minValue);
                 }
-                if (!range.isHighUnbounded()) {
+                if (maxValue != null) {
                     rangePredicate.add(format("(%s <= ? OR %s IS NULL)", min, min));
                     types.add(jdbcType);
-                    values.add(range.getHighBoundedValue());
+                    values.add(maxValue);
                 }
                 columnPredicate.add(rangePredicate.toString());
             }
@@ -213,8 +228,7 @@ class ShardPredicate
             case VARBINARY:
                 statement.setBytes(index, truncateIndexValue((Slice) value).getBytes());
                 return;
-            default:
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type: " + type);
         }
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type: " + type);
     }
 }

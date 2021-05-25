@@ -106,6 +106,7 @@ import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
+import io.trino.server.PluginManagerConfig;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
@@ -318,7 +319,7 @@ public class LocalQueryRunner
 
         this.metadata = new MetadataManager(
                 featuresConfig,
-                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), taskManagerConfig, new MemoryManagerConfig(), featuresConfig, new NodeMemoryConfig(), new DynamicFilterConfig(), new NodeSchedulerConfig())),
+                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), taskManagerConfig, new MemoryManagerConfig(), featuresConfig, new NodeMemoryConfig(), new DynamicFilterConfig())),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
@@ -362,8 +363,7 @@ public class LocalQueryRunner
                 pageIndexerFactory,
                 transactionManager,
                 eventListenerManager,
-                typeOperators,
-                nodeSchedulerConfig);
+                typeOperators);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
@@ -377,7 +377,8 @@ public class LocalQueryRunner
                 ImmutableSet.of());
 
         this.pluginManager = new PluginManager(
-                (loader, createClassLoader) -> {},
+                nodeInfo,
+                new PluginManagerConfig(),
                 connectorManager,
                 metadata,
                 new NoOpResourceGroupManager(),

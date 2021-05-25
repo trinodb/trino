@@ -48,6 +48,7 @@ import java.util.OptionalInt;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
+import static io.trino.spi.predicate.Marker.Bound.BELOW;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.DomainTranslator.ExtractionResult;
@@ -260,13 +261,13 @@ public class WindowFilterPushDown
 
             Range span = values.getRanges().getSpan();
 
-            if (span.isHighUnbounded()) {
+            if (span.getHigh().isUpperUnbounded()) {
                 return OptionalInt.empty();
             }
 
             verify(domain.getType().equals(BIGINT));
-            long upperBound = (Long) span.getHighBoundedValue();
-            if (!span.isHighInclusive()) {
+            long upperBound = (Long) span.getHigh().getValue();
+            if (span.getHigh().getBound() == BELOW) {
                 upperBound--;
             }
 

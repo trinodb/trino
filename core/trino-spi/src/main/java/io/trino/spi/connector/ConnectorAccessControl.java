@@ -62,7 +62,6 @@ import static io.trino.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
-import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static java.util.Collections.emptySet;
 
 public interface ConnectorAccessControl
@@ -311,16 +310,6 @@ public interface ConnectorAccessControl
     default void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyDeleteTable(tableName.toString());
-    }
-
-    /**
-     * Check if identity is allowed to update the supplied columns in the specified table in this catalog.
-     *
-     * @throws io.trino.spi.security.AccessDeniedException if not allowed
-     */
-    default void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
-    {
-        denyUpdateTableColumns(tableName.toString(), updatedColumns);
     }
 
     /**

@@ -71,11 +71,11 @@ public abstract class AbstractQueryAssertionsTest
             throw new RuntimeException(e);
         }
 
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), List.of(NATION));
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), List.of(NATION));
 
         Map<String, String> jdbcWithAggregationPushdownDisabledConfigurationProperties = ImmutableMap.<String, String>builder()
                 .putAll(jdbcConfigurationProperties)
-                .put("aggregation-pushdown.enabled", "false")
+                .put("allow-aggregation-pushdown", "false")
                 .build();
         queryRunner.createCatalog("jdbc_with_aggregation_pushdown_disabled", "base-jdbc", jdbcWithAggregationPushdownDisabledConfigurationProperties);
     }
@@ -92,7 +92,11 @@ public abstract class AbstractQueryAssertionsTest
     {
         QueryAssert queryAssert = assertThat(query("SELECT X'001234'"));
         assertThatThrownBy(() -> queryAssert.matches("VALUES '001234'"))
-                .hasMessageContaining("[Output types] expected:<[var[char(6)]]> but was:<[var[binary]]>");
+                .hasMessageContaining("[Output types] \n" +
+                        "Expecting:\n" +
+                        " <[varbinary]>\n" +
+                        "to be equal to:\n" +
+                        " <[varchar(6)]>");
     }
 
     @Test

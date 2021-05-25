@@ -75,8 +75,9 @@ public final class JtsGeometrySerde
                 return readGeometryCollection(input);
             case ENVELOPE:
                 return readEnvelope(input);
+            default:
+                throw new UnsupportedOperationException("Unexpected type: " + type);
         }
-        throw new UnsupportedOperationException("Unexpected type: " + type);
     }
 
     private static Point readPoint(SliceInput input)
@@ -270,27 +271,28 @@ public final class JtsGeometrySerde
         switch (geometry.getGeometryType()) {
             case "Point":
                 writePoint((Point) geometry, output);
-                return;
+                break;
             case "MultiPoint":
                 writeMultiPoint((MultiPoint) geometry, output);
-                return;
+                break;
             case "LineString":
                 writePolyline(geometry, output, false);
-                return;
+                break;
             case "MultiLineString":
                 writePolyline(geometry, output, true);
-                return;
+                break;
             case "Polygon":
                 writePolygon(geometry, output, false);
-                return;
+                break;
             case "MultiPolygon":
                 writePolygon(geometry, output, true);
-                return;
+                break;
             case "GeometryCollection":
                 writeGeometryCollection(geometry, output);
-                return;
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported geometry type : " + geometry.getGeometryType());
         }
-        throw new IllegalArgumentException("Unsupported geometry type : " + geometry.getGeometryType());
     }
 
     private static void writePoint(Point point, SliceOutput output)

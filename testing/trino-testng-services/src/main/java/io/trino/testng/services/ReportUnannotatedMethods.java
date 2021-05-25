@@ -101,7 +101,10 @@ public class ReportUnannotatedMethods
         }
 
         if (method.getDeclaringClass().isInterface()) {
-            return isTemptoClass(method.getDeclaringClass());
+            if (isTemptoClass(method.getDeclaringClass())) {
+                return true;
+            }
+            return false;
         }
 
         for (Class<?> interfaceClass : method.getDeclaringClass().getInterfaces()) {

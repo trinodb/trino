@@ -37,7 +37,6 @@ import static io.trino.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_IAM_ROLE;
-import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_KMS_KEY_ID;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SECRET_KEY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -49,17 +48,15 @@ public class S3SecurityMappingConfigurationProvider
     private static final Logger log = Logger.get(S3SecurityMappingConfigurationProvider.class);
 
     private static final Set<String> SCHEMES = ImmutableSet.of("s3", "s3a", "s3n");
-    private static final String ANY_KMS_KEY_ID = "*";
 
     private final Supplier<S3SecurityMappings> mappings;
     private final Optional<String> roleCredentialName;
-    private final Optional<String> kmsKeyIdCredentialName;
     private final Optional<String> colonReplacement;
 
     @Inject
     public S3SecurityMappingConfigurationProvider(S3SecurityMappingConfig config)
     {
-        this(getMappings(config), config.getRoleCredentialName(), config.getKmsKeyIdCredentialName(), config.getColonReplacement());
+        this(getMappings(config), config.getRoleCredentialName(), config.getColonReplacement());
     }
 
     private static Supplier<S3SecurityMappings> getMappings(S3SecurityMappingConfig config)
@@ -78,11 +75,10 @@ public class S3SecurityMappingConfigurationProvider
                 MILLISECONDS);
     }
 
-    public S3SecurityMappingConfigurationProvider(Supplier<S3SecurityMappings> mappings, Optional<String> roleCredentialName, Optional<String> kmsKeyIdCredentialName, Optional<String> colonReplacement)
+    public S3SecurityMappingConfigurationProvider(Supplier<S3SecurityMappings> mappings, Optional<String> roleCredentialName, Optional<String> colonReplacement)
     {
         this.mappings = requireNonNull(mappings, "mappings is null");
         this.roleCredentialName = requireNonNull(roleCredentialName, "roleCredentialName is null");
-        this.kmsKeyIdCredentialName = requireNonNull(kmsKeyIdCredentialName, "kmsKeyIdCredentialName is null");
         this.colonReplacement = requireNonNull(colonReplacement, "colonReplacement is null");
     }
 
@@ -111,11 +107,6 @@ public class S3SecurityMappingConfigurationProvider
         selectRole(mapping, context).ifPresent(role -> {
             configuration.set(S3_IAM_ROLE, role);
             hasher.putString(role, UTF_8);
-        });
-
-        selectKmsKeyId(mapping, context).ifPresent(key -> {
-            configuration.set(S3_KMS_KEY_ID, key);
-            hasher.putString(S3_KMS_KEY_ID + ":" + key, UTF_8);
         });
 
         mapping.getEndpoint().ifPresent(endpoint -> {
@@ -157,30 +148,5 @@ public class S3SecurityMappingConfigurationProvider
             return extraCredentialRole.map(role -> role.replace(colonReplacement.get(), ":"));
         }
         return extraCredentialRole;
-    }
-
-    private Optional<String> selectKmsKeyId(S3SecurityMapping mapping, HdfsContext context)
-    {
-        Optional<String> userSelected = getKmsKeyIdFromExtraCredential(context);
-
-        if (userSelected.isEmpty()) {
-            return mapping.getKmsKeyId();
-        }
-
-        String selected = userSelected.get();
-
-        // selected key id must match default or be allowed
-        if (!selected.equals(mapping.getKmsKeyId().orElse(null)) &&
-                !mapping.getAllowedKmsKeyIds().contains(selected) &&
-                !mapping.getAllowedKmsKeyIds().contains(ANY_KMS_KEY_ID)) {
-            throw new AccessDeniedException("Selected KMS Key ID is not allowed");
-        }
-
-        return userSelected;
-    }
-
-    private Optional<String> getKmsKeyIdFromExtraCredential(HdfsContext context)
-    {
-        return kmsKeyIdCredentialName.map(name -> context.getIdentity().getExtraCredentials().get(name));
     }
 }

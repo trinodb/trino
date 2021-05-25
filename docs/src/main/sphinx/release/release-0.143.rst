@@ -2,8 +2,8 @@
 Release 0.143
 =============
 
-General
--------
+General changes
+---------------
 
 * Fix race condition in output buffer that can cause a page to be lost.
 * Fix case-sensitivity issue when de-referencing row fields.
@@ -19,8 +19,8 @@ General
 * Improve query startup time in large clusters.
 * Improve error messages for ``CAST`` and :func:`slice`.
 
-Hive
-----
+Hive changes
+------------
 
 * Fix native memory leak when reading or writing gzip compressed data.
 * Fix performance regression due to complex expressions not being applied

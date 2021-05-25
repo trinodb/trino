@@ -20,18 +20,16 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
-import io.trino.server.security.oauth2.NonceCookie;
 import io.trino.server.security.oauth2.OAuth2Config;
 import io.trino.server.security.oauth2.OAuth2Service;
-import io.trino.server.security.oauth2.OAuth2Service.OAuthChallenge;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,7 +42,6 @@ import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_EN
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
-import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
@@ -109,7 +106,7 @@ public class OAuth2WebUiAuthenticationFilter
 
     private Optional<Jws<Claims>> getAccessToken(ContainerRequestContext request)
     {
-        return OAuthWebUiCookie.read(request.getCookies().get(OAUTH2_COOKIE))
+        return OAuthWebUiCookie.read(request)
                 .flatMap(token -> {
                     try {
                         return Optional.ofNullable(service.parseClaimsJws(token));
@@ -123,15 +120,8 @@ public class OAuth2WebUiAuthenticationFilter
 
     private void needAuthentication(ContainerRequestContext request)
     {
-        // send 401 to REST api calls and redirect to others
-        if (request.getUriInfo().getRequestUri().getPath().startsWith("/ui/api/")) {
-            sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
-            return;
-        }
-        OAuthChallenge challenge = service.startWebUiChallenge(request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT));
-        ResponseBuilder response = Response.seeOther(challenge.getRedirectUrl());
-        challenge.getNonce().ifPresent(nonce -> response.cookie(NonceCookie.create(nonce, challenge.getChallengeExpiration())));
-        request.abortWith(response.build());
+        URI redirectLocation = service.startChallenge(request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT));
+        request.abortWith(Response.seeOther(redirectLocation).build());
     }
 
     private boolean hasValidAudience(Object audience)

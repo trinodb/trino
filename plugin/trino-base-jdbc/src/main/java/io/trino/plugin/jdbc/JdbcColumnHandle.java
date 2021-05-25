@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import io.trino.spi.connector.ColumnHandle;
@@ -22,12 +23,14 @@ import io.trino.spi.type.Type;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcColumnHandle
         implements ColumnHandle
 {
+    private final Optional<String> expression;
     private final String columnName;
     private final JdbcTypeHandle jdbcTypeHandle;
     private final Type columnType;
@@ -37,7 +40,7 @@ public final class JdbcColumnHandle
     // All and only required fields
     public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType)
     {
-        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty());
+        this(Optional.empty(), columnName, jdbcTypeHandle, columnType, true, Optional.empty());
     }
 
     /**
@@ -46,7 +49,7 @@ public final class JdbcColumnHandle
     @Deprecated
     public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType, boolean nullable)
     {
-        this(columnName, jdbcTypeHandle, columnType, nullable, Optional.empty());
+        this(Optional.empty(), columnName, jdbcTypeHandle, columnType, nullable, Optional.empty());
     }
 
     /**
@@ -55,17 +58,25 @@ public final class JdbcColumnHandle
     @Deprecated
     @JsonCreator
     public JdbcColumnHandle(
+            @JsonProperty("expression") Optional<String> expression,
             @JsonProperty("columnName") String columnName,
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
             @JsonProperty("nullable") boolean nullable,
             @JsonProperty("comment") Optional<String> comment)
     {
+        this.expression = requireNonNull(expression, "expression is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
         this.comment = requireNonNull(comment, "comment is null");
+    }
+
+    @JsonProperty
+    public Optional<String> getExpression()
+    {
+        return expression;
     }
 
     @JsonProperty
@@ -96,6 +107,12 @@ public final class JdbcColumnHandle
     public Optional<String> getComment()
     {
         return comment;
+    }
+
+    @JsonIgnore
+    public boolean isSynthetic()
+    {
+        return expression.isPresent();
     }
 
     public ColumnMetadata getColumnMetadata()
@@ -131,9 +148,17 @@ public final class JdbcColumnHandle
     public String toString()
     {
         return Joiner.on(":").skipNulls().join(
+                expression.orElse(null),
                 columnName,
                 columnType.getDisplayName(),
                 jdbcTypeHandle.getJdbcTypeName().orElse(null));
+    }
+
+    public String toSqlExpression(Function<String, String> identifierQuote)
+    {
+        requireNonNull(identifierQuote, "identifierQuote is null");
+        return expression
+                .orElseGet(() -> identifierQuote.apply(columnName));
     }
 
     public static Builder builder()
@@ -148,6 +173,7 @@ public final class JdbcColumnHandle
 
     public static final class Builder
     {
+        private Optional<String> expression = Optional.empty();
         private String columnName;
         private JdbcTypeHandle jdbcTypeHandle;
         private Type columnType;
@@ -158,11 +184,18 @@ public final class JdbcColumnHandle
 
         private Builder(JdbcColumnHandle handle)
         {
+            this.expression = handle.getExpression();
             this.columnName = handle.getColumnName();
             this.jdbcTypeHandle = handle.getJdbcTypeHandle();
             this.columnType = handle.getColumnType();
             this.nullable = handle.isNullable();
             this.comment = handle.getComment();
+        }
+
+        public Builder setExpression(Optional<String> expression)
+        {
+            this.expression = expression;
+            return this;
         }
 
         public Builder setColumnName(String columnName)
@@ -198,6 +231,7 @@ public final class JdbcColumnHandle
         public JdbcColumnHandle build()
         {
             return new JdbcColumnHandle(
+                    expression,
                     columnName,
                     jdbcTypeHandle,
                     columnType,

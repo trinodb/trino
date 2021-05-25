@@ -35,6 +35,8 @@ interface ParquetCompressor
 
     static ParquetCompressor getCompressor(CompressionCodecName codec)
     {
+        // TODO Support LZO and LZ4 compression
+        // When using airlift LZO or LZ4 compressor, decompressing page in reader throws exception.
         switch (codec.getParquetCompressionCodec()) {
             case GZIP:
                 return new GzipCompressor();
@@ -44,14 +46,6 @@ interface ParquetCompressor
                 return new AirLiftCompressor(new ZstdCompressor());
             case UNCOMPRESSED:
                 return null;
-            case LZO:
-            case LZ4:
-                // TODO Support LZO and LZ4 compression
-                // When using airlift LZO or LZ4 compressor, decompressing page in reader throws exception.
-                break;
-            case BROTLI:
-                // unsupported
-                break;
         }
         throw new RuntimeException("Unsupported codec: " + codec);
     }
