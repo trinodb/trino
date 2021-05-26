@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.base.Suppliers;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.Session;
@@ -102,7 +103,7 @@ public class WorkProcessorSourceOperatorAdapter
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(split.getCatalogName(), splitInfo));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogName(), splitInfo)));
         }
 
         splitBuffer.add(split);
