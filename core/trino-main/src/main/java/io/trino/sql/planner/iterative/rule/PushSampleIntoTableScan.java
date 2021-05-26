@@ -68,7 +68,7 @@ public class PushSampleIntoTableScan
         return metadata.applySample(context.getSession(), tableScan.getTable(), getSamplingType(sample.getSampleType()), sample.getSampleRatio())
                 .map(result -> Result.ofPlanNode(new TableScanNode(
                         tableScan.getId(),
-                        result,
+                        result.getHandle(),
                         tableScan.getOutputSymbols(),
                         tableScan.getAssignments(),
                         tableScan.getEnforcedConstraint(),

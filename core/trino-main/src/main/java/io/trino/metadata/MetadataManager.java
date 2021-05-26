@@ -85,6 +85,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
@@ -1320,7 +1321,7 @@ public final class MetadataManager
     }
 
     @Override
-    public Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio)
+    public Optional<SampleApplicationResult<TableHandle>> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio)
     {
         CatalogName catalogName = table.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
@@ -1331,11 +1332,11 @@ public final class MetadataManager
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applySample(connectorSession, table.getConnectorHandle(), sampleType, sampleRatio)
-                .map(result -> new TableHandle(
+                .map(result -> new SampleApplicationResult<>(new TableHandle(
                         catalogName,
-                        result,
+                        result.getHandle(),
                         table.getTransaction(),
-                        Optional.empty()));
+                        Optional.empty())));
     }
 
     @Override
