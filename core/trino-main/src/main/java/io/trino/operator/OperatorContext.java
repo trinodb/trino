@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -357,6 +358,17 @@ public class OperatorContext
         // reset memory revocation listener so that OperatorContext doesn't hold any references to Driver instance
         synchronized (this) {
             memoryRevocationRequestListener = null;
+        }
+        // memoize the result of and then clear any reference to the original suppliers (which might otherwise retain operators or other large objects)
+        Supplier<OperatorInfo> infoSupplier = this.infoSupplier.get();
+        if (infoSupplier != null) {
+            OperatorInfo info = infoSupplier.get();
+            this.infoSupplier.set(info == null ? null : Suppliers.ofInstance(info));
+        }
+        Supplier<List<OperatorStats>> nestedOperatorStatsSupplier = this.nestedOperatorStatsSupplier.get();
+        if (nestedOperatorStatsSupplier != null) {
+            List<OperatorStats> nestedStats = nestedOperatorStatsSupplier.get();
+            this.nestedOperatorStatsSupplier.set(nestedStats == null ? null : Suppliers.ofInstance(ImmutableList.copyOf(nestedStats)));
         }
 
         operatorMemoryContext.close();
