@@ -47,7 +47,6 @@ public final class ConfigurationLoader
         return ImmutableSortedMap.copyOf(result);
     }
 
-    // FIXME : To support multilingual encodingsupport multilingual encoding  in property files
     public static Map<String, String> loadPropertiesFrom(String path)
             throws IOException
     {
