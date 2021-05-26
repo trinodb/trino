@@ -32,6 +32,7 @@ import java.util.List;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -58,9 +59,13 @@ public class SinglenodeOauth2
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainer(COORDINATOR, dockerContainer -> {
-            dockerContainer.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-oauth2/config.properties")),
-                    CONTAINER_PRESTO_CONFIG_PROPERTIES);
+            dockerContainer
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-oauth2/config.properties")),
+                            CONTAINER_PRESTO_CONFIG_PROPERTIES)
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("common/hydra-identity-provider/cert")),
+                            CONTAINER_PRESTO_ETC + "/hydra/cert");
 
             binder.exposePort(dockerContainer, 7778);
         });
