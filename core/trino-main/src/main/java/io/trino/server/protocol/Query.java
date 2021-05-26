@@ -98,6 +98,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.execution.QueryState.FAILED;
+import static io.trino.server.protocol.QueryInfoUrlFactory.getQueryInfoUri;
 import static io.trino.server.protocol.QueryResultRows.queryResultRowsBuilder;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -409,11 +410,6 @@ class Query
 
         verify(nextToken.isPresent(), "Cannot generate next result when next token is not present");
         verify(token == nextToken.getAsLong(), "Expected token to equal next token");
-        URI queryHtmlUri = queryInfoUrl.orElseGet(() ->
-                uriInfo.getRequestUriBuilder()
-                        .replacePath("ui/query.html")
-                        .replaceQuery(queryId.toString())
-                        .build());
 
         // get the query info before returning
         // force update if query manager is closed
@@ -476,7 +472,7 @@ class Query
         // first time through, self is null
         QueryResults queryResults = new QueryResults(
                 queryId.toString(),
-                queryHtmlUri,
+                getQueryInfoUri(queryInfoUrl, queryId, uriInfo),
                 partialCancelUri,
                 nextResultsUri,
                 resultRows.getColumns().orElse(null),
