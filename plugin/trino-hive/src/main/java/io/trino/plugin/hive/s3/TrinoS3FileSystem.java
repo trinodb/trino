@@ -88,6 +88,7 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Progressable;
 
 import java.io.BufferedOutputStream;
@@ -195,6 +196,7 @@ public class TrinoS3FileSystem
     public static final String S3_STREAMING_UPLOAD_ENABLED = "trino.s3.streaming.enabled";
     public static final String S3_STREAMING_UPLOAD_PART_SIZE = "trino.s3.streaming.part-size";
     public static final String S3_STORAGE_CLASS = "trino.s3.storage-class";
+    public static final String S3_SESSION_IDENTIFIER = "trino.s3.session-identifier";
 
     private static final Logger log = Logger.get(TrinoS3FileSystem.class);
     private static final TrinoS3FileSystemStats STATS = new TrinoS3FileSystemStats();
@@ -232,6 +234,7 @@ public class TrinoS3FileSystem
     private boolean streamingUploadEnabled;
     private int streamingUploadPartSize;
     private TrinoS3StorageClass s3StorageClass;
+    private String s3SessionIdentifier;
 
     private final ExecutorService uploadExecutor = newCachedThreadPool(threadsNamed("s3-upload-%s"));
 
@@ -280,6 +283,7 @@ public class TrinoS3FileSystem
         this.streamingUploadEnabled = conf.getBoolean(S3_STREAMING_UPLOAD_ENABLED, defaults.isS3StreamingUploadEnabled());
         this.streamingUploadPartSize = toIntExact(conf.getLong(S3_STREAMING_UPLOAD_PART_SIZE, defaults.getS3StreamingPartSize().toBytes()));
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
+        this.s3SessionIdentifier = conf.get(S3_SESSION_IDENTIFIER, defaults.getS3SessionIdentifier());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -919,6 +923,7 @@ public class TrinoS3FileSystem
     }
 
     private AWSCredentialsProvider createAwsCredentialsProvider(URI uri, Configuration conf)
+            throws IOException
     {
         // credentials embedded in the URI take precedence and are used alone
         Optional<AWSCredentials> credentials = getEmbeddedAwsCredentials(uri);
@@ -932,13 +937,15 @@ public class TrinoS3FileSystem
             return getCustomAWSCredentialsProvider(uri, conf, providerClass);
         }
 
+        String sessionIdentifier = s3SessionIdentifier.replace("${USER}", UserGroupInformation.getCurrentUser().getUserName());
+
         // use configured credentials or default chain with optional role
         AWSCredentialsProvider provider = getAwsCredentials(conf)
                 .map(value -> (AWSCredentialsProvider) new AWSStaticCredentialsProvider(value))
                 .orElseGet(DefaultAWSCredentialsProviderChain::getInstance);
 
         if (iamRole != null) {
-            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, "trino-session")
+            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, sessionIdentifier)
                     .withExternalId(externalId)
                     .withLongLivedCredentialsProvider(provider)
                     .build();

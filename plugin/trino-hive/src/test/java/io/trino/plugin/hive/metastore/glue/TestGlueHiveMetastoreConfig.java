@@ -44,7 +44,8 @@ public class TestGlueHiveMetastoreConfig
                 .setGetPartitionThreads(20)
                 .setAssumeCanonicalPartitionKeys(false)
                 .setReadStatisticsThreads(1)
-                .setWriteStatisticsThreads(1));
+                .setWriteStatisticsThreads(1)
+                .setS3SessionIdentifier("trino-session"));
     }
 
     @Test
@@ -68,6 +69,7 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.assume-canonical-partition-keys", "true")
                 .put("hive.metastore.glue.read-statistics-threads", "42")
                 .put("hive.metastore.glue.write-statistics-threads", "43")
+                .put("hive.s3.session-identifier", "trino-user")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -87,7 +89,8 @@ public class TestGlueHiveMetastoreConfig
                 .setGetPartitionThreads(42)
                 .setAssumeCanonicalPartitionKeys(true)
                 .setReadStatisticsThreads(42)
-                .setWriteStatisticsThreads(43);
+                .setWriteStatisticsThreads(43)
+                .setS3SessionIdentifier("trino-user");
 
         assertFullMapping(properties, expected);
     }

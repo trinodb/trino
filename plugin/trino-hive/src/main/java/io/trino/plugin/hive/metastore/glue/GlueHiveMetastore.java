@@ -99,12 +99,15 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -225,13 +228,20 @@ public class GlueHiveMetastore
 
     private static AWSCredentialsProvider getAwsCredentialsProvider(GlueHiveMetastoreConfig config)
     {
+        String sessionIdentifier;
+        try {
+            sessionIdentifier = config.getS3SessionIdentifier().replace("${USER}", UserGroupInformation.getCurrentUser().getUserName());
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to get current user", e);
+        }
         if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
             return new AWSStaticCredentialsProvider(
                     new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
         }
         if (config.getIamRole().isPresent()) {
             return new STSAssumeRoleSessionCredentialsProvider
-                    .Builder(config.getIamRole().get(), "trino-session")
+                    .Builder(config.getIamRole().get(), sessionIdentifier)
                     .withExternalId(config.getExternalId().orElse(null))
                     .build();
         }
