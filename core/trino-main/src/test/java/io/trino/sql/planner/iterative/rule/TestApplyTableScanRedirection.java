@@ -221,7 +221,8 @@ public class TestApplyTableScanRedirection
                     .execute(MOCK_SESSION, session -> {
                         assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP))
                                 .isInstanceOf(TrinoException.class)
-                                .hasMessageMatching("Cast not possible from redirected column mock_catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*MockConnectorTableHandle.*source_col_a.* with type: varchar");
+                                .hasMessageMatching("Cast not possible from redirected column mock_catalog.target_schema.target_table.destination_col_d with type Bogus to " +
+                                        "source column .*MockConnectorColumnHandle.*source_col_a.* with type: varchar");
                     });
         }
     }
