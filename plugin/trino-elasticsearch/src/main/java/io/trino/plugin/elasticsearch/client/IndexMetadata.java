@@ -65,27 +65,30 @@ public class IndexMetadata
             return type;
         }
     }
+
     @JsonTypeInfo(
-        use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.PROPERTY,
-        property = "type")
+            use = JsonTypeInfo.Id.NAME,
+            include = JsonTypeInfo.As.PROPERTY,
+            property = "type")
     @JsonSubTypes(
-        {
+            {
             @JsonSubTypes.Type(value = PrimitiveType.class, name = "primitiveType"),
             @JsonSubTypes.Type(value = DateTimeType.class, name = "dateTimeType"),
             @JsonSubTypes.Type(value = ObjectType.class, name = "objectType")
-        })
+            })
     public interface Type {}
 
     public static class PrimitiveType
             implements Type
     {
         private final String name;
+
         @JsonCreator
         public PrimitiveType(@JsonProperty("name") String name)
         {
             this.name = requireNonNull(name, "name is null");
         }
+
         @JsonProperty
         public String getName()
         {
@@ -97,6 +100,7 @@ public class IndexMetadata
             implements Type
     {
         private final List<String> formats;
+
         @JsonCreator
         public DateTimeType(@JsonProperty("formats") List<String> formats)
         {
@@ -104,6 +108,7 @@ public class IndexMetadata
 
             this.formats = ImmutableList.copyOf(formats);
         }
+
         @JsonProperty
         public List<String> getFormats()
         {
@@ -115,6 +120,7 @@ public class IndexMetadata
             implements Type
     {
         private final List<Field> fields;
+
         @JsonCreator
         public ObjectType(@JsonProperty("fields") List<Field> fields)
         {
@@ -122,6 +128,7 @@ public class IndexMetadata
 
             this.fields = ImmutableList.copyOf(fields);
         }
+
         @JsonProperty
         public List<Field> getFields()
         {

@@ -30,7 +30,11 @@ import org.elasticsearch.index.query.TermQueryBuilder;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -51,7 +55,9 @@ import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 
 public final class ElasticsearchQueryBuilder
 {
-    private ElasticsearchQueryBuilder() {}
+    private ElasticsearchQueryBuilder()
+    {
+    }
 
     public static QueryBuilder buildSearchQuery(TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query)
     {
@@ -149,20 +155,21 @@ public final class ElasticsearchQueryBuilder
             return ((Slice) value).toStringUtf8();
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
-            if(rawType  instanceof IndexMetadata.DateTimeType ){
+            if (rawType instanceof IndexMetadata.DateTimeType) {
                 IndexMetadata.DateTimeType dateTimeType = (IndexMetadata.DateTimeType) rawType;
                 List<String> formats = dateTimeType.getFormats();
-                if(formats == null || formats.size() == 0){
+                if (formats == null || formats.size() == 0) {
                     return Instant.ofEpochMilli(floorDiv((Long) value, MICROSECONDS_PER_MILLISECOND))
-                        .atZone(ZoneOffset.UTC)
-                        .toLocalDateTime()
-                        .format(ISO_DATE_TIME);
-                }else{
+                            .atZone(ZoneOffset.UTC)
+                            .toLocalDateTime()
+                            .format(ISO_DATE_TIME);
+                }
+                else {
                     String format = formats.get(0);
                     return Instant.ofEpochMilli(floorDiv((Long) value, MICROSECONDS_PER_MILLISECOND))
-                        .atZone(ZoneOffset.UTC)
-                        .toLocalDateTime()
-                        .format(DateTimeFormatter.ofPattern(format));
+                            .atZone(ZoneOffset.UTC)
+                            .toLocalDateTime()
+                            .format(DateTimeFormatter.ofPattern(format));
                 }
             }
         }

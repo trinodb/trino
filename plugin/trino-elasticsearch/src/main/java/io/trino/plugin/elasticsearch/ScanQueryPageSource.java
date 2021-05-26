@@ -268,7 +268,7 @@ public class ScanQueryPageSource
                         return new SourceColumnDecoder();
                     }
 
-                    return createDecoder(column.getName(), column.getType(),column.getRawType());
+                    return createDecoder(column.getName(), column.getType(), column.getRawType());
                 })
                 .collect(toImmutableList());
     }

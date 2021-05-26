@@ -76,7 +76,7 @@ public class TimestampDecoder
                 }
                 else {
                     DateTimeFormatterBuilder formatterBuilder = new DateTimeFormatterBuilder().appendOptional(ISO_DATE_TIME);
-                    for(String format : formats){
+                    for (String format : formats) {
                         formatterBuilder.appendOptional(DateTimeFormatter.ofPattern(format));
                     }
                     timestamp = LocalDateTime.parse(valueString, formatterBuilder.toFormatter());
