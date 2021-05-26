@@ -3494,7 +3494,7 @@ public abstract class AbstractTestHive
             assertThat(metadata.applyTableScanRedirect(session, getTableHandle(metadata, tableName))).isEmpty();
             Optional<TableScanRedirectApplicationResult> result = metadata.applyTableScanRedirect(session, getTableHandle(metadata, sourceTableName));
             assertThat(result).isPresent();
-            assertThat(getOnlyElement(result.get().getRedirections()).getDestinationTable())
+            assertThat(result.get().getDestinationTable())
                     .isEqualTo(new CatalogSchemaTableName("hive", database, "mock_redirection_target"));
         }
         finally {
