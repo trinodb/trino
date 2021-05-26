@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
@@ -61,7 +62,7 @@ public class SystemPageSourceProvider
             ConnectorSplit split,
             ConnectorTableHandle table,
             List<ColumnHandle> columns,
-            TupleDomain<ColumnHandle> dynamicFilter)
+            DynamicFilter dynamicFilter)
     {
         requireNonNull(columns, "columns is null");
         SystemTransactionHandle systemTransaction = (SystemTransactionHandle) transaction;

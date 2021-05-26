@@ -21,7 +21,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.connector.DynamicFilter;
 
 import javax.inject.Inject;
 
@@ -53,7 +53,7 @@ public class BigQueryPageSourceProvider
             ConnectorSplit split,
             ConnectorTableHandle table,
             List<ColumnHandle> columns,
-            TupleDomain<ColumnHandle> dynamicFilter)
+            DynamicFilter dynamicFilter)
     {
         log.debug("createPageSource(transaction=%s, session=%s, split=%s, table=%s, columns=%s)", transaction, session, split, table, columns);
         BigQuerySplit bigQuerySplit = (BigQuerySplit) split;

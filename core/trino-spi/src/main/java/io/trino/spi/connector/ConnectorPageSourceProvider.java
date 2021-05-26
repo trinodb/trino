@@ -13,45 +13,10 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.predicate.TupleDomain;
-
 import java.util.List;
 
 public interface ConnectorPageSourceProvider
 {
-    /**
-     * @param columns columns that should show up in the output page, in this order
-     * @deprecated Use {@link #createPageSource(ConnectorTransactionHandle, ConnectorSession, ConnectorSplit, ConnectorTableHandle, List, DynamicFilter)}
-     */
-    @Deprecated
-    default ConnectorPageSource createPageSource(
-            ConnectorTransactionHandle transaction,
-            ConnectorSession session,
-            ConnectorSplit split,
-            ConnectorTableHandle table,
-            List<ColumnHandle> columns)
-    {
-        throw new UnsupportedOperationException("createPageSource() must be implemented");
-    }
-
-    /**
-     * @param columns columns that should show up in the output page, in this order
-     * @param dynamicFilter optionally remove rows that don't satisfy this predicate
-     * @deprecated Use {@link #createPageSource(ConnectorTransactionHandle, ConnectorSession, ConnectorSplit, ConnectorTableHandle, List, DynamicFilter)}
-     */
-    @Deprecated
-    default ConnectorPageSource createPageSource(
-            ConnectorTransactionHandle transaction,
-            ConnectorSession session,
-            ConnectorSplit split,
-            ConnectorTableHandle table,
-            List<ColumnHandle> columns,
-            TupleDomain<ColumnHandle> dynamicFilter)
-    {
-        // By default, ignore dynamic filter (as it is an optimization and doesn't affect correctness).
-        return createPageSource(transaction, session, split, table, columns);
-    }
-
     /**
      * @param columns columns that should show up in the output page, in this order
      * @param dynamicFilter optionally remove rows that don't satisfy this predicate
@@ -64,7 +29,6 @@ public interface ConnectorPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
-        // By default, poll dynamic filtering without blocking for collection to complete.
-        return createPageSource(transaction, session, split, table, columns, dynamicFilter.getCurrentPredicate());
+        throw new UnsupportedOperationException("createPageSource() must be implemented");
     }
 }
