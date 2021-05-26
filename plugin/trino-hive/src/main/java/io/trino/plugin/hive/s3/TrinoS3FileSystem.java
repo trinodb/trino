@@ -195,6 +195,7 @@ public class TrinoS3FileSystem
     public static final String S3_STREAMING_UPLOAD_ENABLED = "trino.s3.streaming.enabled";
     public static final String S3_STREAMING_UPLOAD_PART_SIZE = "trino.s3.streaming.part-size";
     public static final String S3_STORAGE_CLASS = "trino.s3.storage-class";
+    public static final String S3_ROLE_SESSION_NAME = "trino.s3.role-session-name";
 
     private static final Logger log = Logger.get(TrinoS3FileSystem.class);
     private static final TrinoS3FileSystemStats STATS = new TrinoS3FileSystemStats();
@@ -208,6 +209,7 @@ public class TrinoS3FileSystem
     private static final String S3_CUSTOM_SIGNER = "TrinoS3CustomSigner";
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
     private static final MediaType DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
+    private static final String S3_DEFAULT_ROLE_SESSION_NAME = "trino-session";
 
     private URI uri;
     private Path workingDirectory;
@@ -232,6 +234,7 @@ public class TrinoS3FileSystem
     private boolean streamingUploadEnabled;
     private int streamingUploadPartSize;
     private TrinoS3StorageClass s3StorageClass;
+    private String s3RoleSessionName;
 
     private final ExecutorService uploadExecutor = newCachedThreadPool(threadsNamed("s3-upload-%s"));
 
@@ -280,6 +283,7 @@ public class TrinoS3FileSystem
         this.streamingUploadEnabled = conf.getBoolean(S3_STREAMING_UPLOAD_ENABLED, defaults.isS3StreamingUploadEnabled());
         this.streamingUploadPartSize = toIntExact(conf.getLong(S3_STREAMING_UPLOAD_PART_SIZE, defaults.getS3StreamingPartSize().toBytes()));
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
+        this.s3RoleSessionName = conf.get(S3_ROLE_SESSION_NAME, S3_DEFAULT_ROLE_SESSION_NAME);
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -937,7 +941,7 @@ public class TrinoS3FileSystem
                 .orElseGet(DefaultAWSCredentialsProviderChain::getInstance);
 
         if (iamRole != null) {
-            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, "trino-session")
+            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, s3RoleSessionName)
                     .withExternalId(externalId)
                     .withLongLivedCredentialsProvider(provider)
                     .build();
