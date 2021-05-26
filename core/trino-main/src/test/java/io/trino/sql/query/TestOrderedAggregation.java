@@ -157,4 +157,11 @@ public class TestOrderedAggregation
                         "   (2, ARRAY[3, 4], BIGINT '2'), " +
                         "   (NULL, ARRAY[1, 3, 4], BIGINT '5')");
     }
+
+    @Test
+    public void testRepeatedSortItems()
+    {
+        assertThat(assertions.query("SELECT count(x ORDER BY y, y) FROM (VALUES ('a', 2)) t(x, y)"))
+                .matches("VALUES BIGINT '1'");
+    }
 }
