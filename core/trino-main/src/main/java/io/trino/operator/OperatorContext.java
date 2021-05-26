@@ -94,7 +94,7 @@ public class OperatorContext
     private final OperationTiming finishTiming = new OperationTiming();
 
     private final OperatorSpillContext spillContext;
-    private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
+    private final AtomicReference<Supplier<? extends OperatorInfo>> infoSupplier = new AtomicReference<>();
     private final AtomicReference<Supplier<List<OperatorStats>>> nestedOperatorStatsSupplier = new AtomicReference<>();
 
     private final AtomicLong peakUserMemoryReservation = new AtomicLong();
@@ -360,7 +360,7 @@ public class OperatorContext
             memoryRevocationRequestListener = null;
         }
         // memoize the result of and then clear any reference to the original suppliers (which might otherwise retain operators or other large objects)
-        Supplier<OperatorInfo> infoSupplier = this.infoSupplier.get();
+        Supplier<? extends OperatorInfo> infoSupplier = this.infoSupplier.get();
         if (infoSupplier != null) {
             OperatorInfo info = infoSupplier.get();
             this.infoSupplier.set(info == null ? null : Suppliers.ofInstance(info));
@@ -453,7 +453,7 @@ public class OperatorContext
         }
     }
 
-    public void setInfoSupplier(Supplier<OperatorInfo> infoSupplier)
+    public void setInfoSupplier(Supplier<? extends OperatorInfo> infoSupplier)
     {
         requireNonNull(infoSupplier, "infoSupplier is null");
         this.infoSupplier.set(infoSupplier);
@@ -498,7 +498,7 @@ public class OperatorContext
 
     public OperatorStats getOperatorStats()
     {
-        Supplier<OperatorInfo> infoSupplier = this.infoSupplier.get();
+        Supplier<? extends OperatorInfo> infoSupplier = this.infoSupplier.get();
         OperatorInfo info = Optional.ofNullable(infoSupplier).map(Supplier::get).orElse(null);
 
         long inputPositionsCount = inputPositions.getTotalCount();
