@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -43,6 +44,8 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -390,6 +393,18 @@ public class MemoryMetadata
     public List<MemoryDataFragment> getDataFragments(long tableId)
     {
         return ImmutableList.copyOf(tables.get(tableId).getDataFragments().values());
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    {
+        List<MemoryDataFragment> dataFragments = getDataFragments(((MemoryTableHandle) tableHandle).getId());
+        long rows = dataFragments.stream()
+                .mapToLong(MemoryDataFragment::getRows)
+                .sum();
+        return TableStatistics.builder()
+                .setRowCount(Estimate.of(rows))
+                .build();
     }
 
     @Override
