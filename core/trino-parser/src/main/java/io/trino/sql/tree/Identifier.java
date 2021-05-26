@@ -42,6 +42,11 @@ public class Identifier
         this(Optional.empty(), value, delimited);
     }
 
+    public Identifier(Optional<NodeLocation> location, String value)
+    {
+        this(location, value, !NAME_PATTERN.matcher(value).matches());
+    }
+
     public Identifier(String value)
     {
         this(Optional.empty(), value, !NAME_PATTERN.matcher(value).matches());
