@@ -78,22 +78,26 @@ public class QueryIdGenerator
      * Generate next queryId using the following format:
      * {@code YYYYMMDD_hhmmss_index_coordId}
      * <p/>
-     * Index rolls at the start of every day or when it reaches 99,999, and the
-     * coordId is a randomly generated when this instance is created.
+     * {@code index} rolls at the start of every day or when it is close to reaching {@code 99,999}.
+     * {@code coordId} is a randomly generated when this instance is created.
      */
     public synchronized QueryId createNextQueryId()
     {
-        // only generate 100,000 ids per day
+        long now = nowInMillis();
+
+        // restart counter if it is at the limit
         if (counter > 99_999) {
-            // wait for the second to rollover
-            while (MILLISECONDS.toSeconds(nowInMillis()) == lastTimeInSeconds) {
-                sleepUninterruptibly(1, SECONDS);
+            // Wait for the timestamp to change to reset the counter to avoid duplicates
+            // in the very unlikely case we generated all 100,000 in the previous second
+            while (MILLISECONDS.toSeconds(now) == lastTimeInSeconds) {
+                long delta = SECONDS.toMillis(lastTimeInSeconds + 1) - now;
+                sleepUninterruptibly(delta, MILLISECONDS);
+                now = nowInMillis();
             }
             counter = 0;
         }
 
-        // if it has been a second since the last id was generated, generate a new timestamp
-        long now = nowInMillis();
+        // if the second changed since the last ID was generated, generate a new timestamp
         if (MILLISECONDS.toSeconds(now) != lastTimeInSeconds) {
             // generate new timestamp
             lastTimeInSeconds = MILLISECONDS.toSeconds(now);
@@ -102,6 +106,11 @@ public class QueryIdGenerator
             // if the day has rolled over, restart the counter
             if (MILLISECONDS.toDays(now) != lastTimeInDays) {
                 lastTimeInDays = MILLISECONDS.toDays(now);
+                counter = 0;
+            }
+
+            // restart the counter if it is close to the limit, to avoid sleep on rollover
+            if (counter >= 90_000) {
                 counter = 0;
             }
         }
