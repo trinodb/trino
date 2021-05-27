@@ -41,7 +41,7 @@
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
 
         <project.build.targetJdk>11</project.build.targetJdk>
-        <air.java.version>11.0.7</air.java.version>
+        <air.java.version>11.0.11</air.java.version>
         <air.modernizer.java-version>8</air.modernizer.java-version>
 
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
