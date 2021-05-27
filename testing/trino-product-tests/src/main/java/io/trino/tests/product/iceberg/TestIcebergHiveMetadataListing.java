@@ -74,6 +74,8 @@ public class TestIcebergHiveMetadataListing
                 .containsOnly(
                         row("iceberg_table1", "_string"),
                         row("iceberg_table1", "_integer"),
+                        row("iceberg_materialized_view", "_string"),
+                        row("iceberg_materialized_view", "_integer"),
                         row(storageTable, "_string"),
                         row(storageTable, "_integer"));
     }

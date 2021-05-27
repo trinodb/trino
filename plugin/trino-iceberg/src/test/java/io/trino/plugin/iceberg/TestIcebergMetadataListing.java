@@ -137,13 +137,14 @@ public class TestIcebergMetadataListing
     public void testTableColumnListing()
     {
         // Verify information_schema.columns does not include columns from non-Iceberg tables
-        // TODO this should include columns from the materialized view as well
         assertQuery(
                 "SELECT table_name, column_name FROM iceberg.information_schema.columns WHERE table_schema = 'test_schema'",
                 "VALUES " +
                         "('iceberg_table1', '_string'), " +
                         "('iceberg_table1', '_integer'), " +
                         "('iceberg_table2', '_double'), " +
+                        "('iceberg_materialized_view', '_string'), " +
+                        "('iceberg_materialized_view', '_integer'), " +
                         "('" + storageTable.getTableName() + "', '_string'), " +
                         "('" + storageTable.getTableName() + "', '_integer')");
     }
