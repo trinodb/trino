@@ -853,6 +853,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();
