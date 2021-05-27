@@ -682,16 +682,15 @@ public abstract class BaseJdbcClient
     @Override
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        RemoteTableName temporaryRemoteTableName = new RemoteTableName(
+        RemoteTableName temporaryTable = new RemoteTableName(
                 Optional.ofNullable(handle.getCatalogName()),
                 Optional.ofNullable(handle.getSchemaName()),
                 handle.getTemporaryTableName());
-        String temporaryTable = quoted(temporaryRemoteTableName);
-        String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
-        String columnNames = handle.getColumnNames().stream()
-                .map(this::quoted)
-                .collect(joining(", "));
-        String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s", targetTable, columnNames, columnNames, temporaryTable);
+        RemoteTableName targetTable = new RemoteTableName(
+                Optional.ofNullable(handle.getCatalogName()),
+                Optional.ofNullable(handle.getSchemaName()),
+                handle.getTableName());
+        String insertSql = buildInsertSql(session, targetTable, temporaryTable, handle.getColumnNames());
 
         try (Connection connection = getConnection(session, handle)) {
             execute(connection, insertSql);
@@ -700,8 +699,16 @@ public abstract class BaseJdbcClient
             throw new TrinoException(JDBC_ERROR, e);
         }
         finally {
-            dropTable(session, temporaryRemoteTableName);
+            dropTable(session, temporaryTable);
         }
+    }
+
+    protected String buildInsertSql(ConnectorSession session, RemoteTableName targetTable, RemoteTableName sourceTable, List<String> columnNames)
+    {
+        String columns = columnNames.stream()
+                .map(this::quoted)
+                .collect(joining(", "));
+        return format("INSERT INTO %s (%s) SELECT %s FROM %s", quoted(targetTable), columns, columns, quoted(sourceTable));
     }
 
     @Override
