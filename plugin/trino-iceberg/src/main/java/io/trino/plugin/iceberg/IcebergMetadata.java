@@ -407,11 +407,7 @@ public class IcebergMetadata
                         .distinct())  // distinct() to avoid duplicates for case-insensitive HMS backends
                 .forEach(tablesListBuilder::add);
 
-        schemaName.map(Collections::singletonList)
-                .orElseGet(metastore::getAllDatabases).stream()
-                .flatMap(schema -> metastore.getTablesWithParameter(schema, TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT).stream()
-                        .map(table -> new SchemaTableName(schema, table)))
-                .forEach(tablesListBuilder::add);
+        tablesListBuilder.addAll(listMaterializedViews(session, schemaName));
         return tablesListBuilder.build();
     }
 
@@ -1031,6 +1027,18 @@ public class IcebergMetadata
         return table.getTableType().equals(VIRTUAL_VIEW.name())
                 && "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG))
                 && table.getParameters().containsKey(STORAGE_TABLE);
+    }
+
+    @Override
+    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        // Iceberg does not support VIEWs
+        // Filter on ICEBERG_MATERIALIZED_VIEW_COMMENT is used to avoid listing hive views in case of a shared HMS
+        return schemaName.map(Collections::singletonList)
+                .orElseGet(metastore::getAllDatabases).stream()
+                .flatMap(schema -> metastore.getTablesWithParameter(schema, TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT).stream()
+                        .map(table -> new SchemaTableName(schema, table)))
+                .collect(toImmutableList());
     }
 
     @Override
