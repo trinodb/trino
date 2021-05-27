@@ -40,7 +40,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.google.common.base.Predicates.equalTo;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -323,11 +322,11 @@ public class TestPushDownDereferencesRules
                                                 "a", PlanMatchPattern.expression("a"),
                                                 "b", PlanMatchPattern.expression("b")),
                                         tableScan(
-                                                equalTo(testTable.getConnectorHandle()),
+                                                testTable.getConnectorHandle()::equals,
                                                 TupleDomain.all(),
                                                 ImmutableMap.of(
-                                                        "a", equalTo(new TpchColumnHandle("a", nestedRowType)),
-                                                        "b", equalTo(new TpchColumnHandle("b", ROW_TYPE))))))));
+                                                        "a", new TpchColumnHandle("a", nestedRowType)::equals,
+                                                        "b", new TpchColumnHandle("b", ROW_TYPE)::equals))))));
     }
 
     @Test
