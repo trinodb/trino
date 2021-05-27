@@ -49,7 +49,6 @@ public class TestSqlServerCatalogOverride
             throws Exception
     {
         sqlServer = new TestingSqlServer();
-        sqlServer.start();
         return createStarburstSqlServerQueryRunner(
                 sqlServer,
                 true,

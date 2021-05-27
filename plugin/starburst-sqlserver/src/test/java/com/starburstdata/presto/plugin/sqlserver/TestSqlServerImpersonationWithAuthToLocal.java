@@ -35,7 +35,6 @@ public class TestSqlServerImpersonationWithAuthToLocal
             throws Exception
     {
         sqlServer = new TestingSqlServer();
-        sqlServer.start();
         return createStarburstSqlServerQueryRunner(
                 sqlServer,
                 true,

@@ -26,7 +26,6 @@ public class TestSqlServerDynamicFilteringLicenseProtection
             throws Exception
     {
         TestingSqlServer server = closeAfterClass(new TestingSqlServer());
-        server.start();
         return createStarburstSqlServerQueryRunner(server, false, Map.of(), List.of());
     }
 }

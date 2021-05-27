@@ -34,7 +34,6 @@ public class TestSqlServerImpersonation
             throws Exception
     {
         sqlServer = new TestingSqlServer();
-        sqlServer.start();
         return createStarburstSqlServerQueryRunner(
                 sqlServer,
                 true,

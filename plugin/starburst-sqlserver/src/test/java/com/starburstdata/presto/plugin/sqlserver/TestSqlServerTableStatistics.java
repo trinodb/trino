@@ -44,7 +44,6 @@ public class TestSqlServerTableStatistics
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        sqlServer.start();
         try {
             return createStarburstSqlServerQueryRunner(
                     sqlServer,

@@ -30,7 +30,6 @@ public class TestSqlServerDynamicFiltering
             throws Exception
     {
         sqlServer = new TestingSqlServer();
-        sqlServer.start();
         return createStarburstSqlServerQueryRunner(sqlServer, true, Map.of(), List.of(ORDERS));
     }
 
