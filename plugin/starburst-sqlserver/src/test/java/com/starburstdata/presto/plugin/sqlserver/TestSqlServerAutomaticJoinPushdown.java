@@ -29,7 +29,7 @@ public class TestSqlServerAutomaticJoinPushdown
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        sqlServer = new TestingSqlServer();
+        sqlServer = closeAfterClass(new TestingSqlServer());
         sqlServer.start();
         return createStarburstSqlServerQueryRunner(sqlServer, false, Map.of(), List.of());
     }
