@@ -449,7 +449,7 @@ public abstract class BaseConnectorTest
                 "VALUES ('" + schemaName + "', '" + viewName + "', 'TABLE')");
 
         // column listing
-        checkShowColumnsForMaterializedView(schemaName, viewName);
+        checkShowColumnsForMaterializedView(viewName);
 
         // information_schema.columns without table_name filter
         checkInformationSchemaColumnsForMaterializedView(schemaName, viewName);
@@ -459,6 +459,31 @@ public abstract class BaseConnectorTest
 
         // view-specific listings
         checkInformationSchemaViewsForMaterializedView(schemaName, viewName);
+
+        // system.jdbc.columns without filter
+        @Language("SQL") String expectedValues = "VALUES ('" + schemaName + "', '" + viewName + "', 'nationkey'), " +
+                "('" + schemaName + "', '" + viewName + "', 'name'), " +
+                "('" + schemaName + "', '" + viewName + "', 'regionkey'), " +
+                "('" + schemaName + "', '" + viewName + "', 'comment')";
+        assertThat(query(
+                "SELECT table_schem, table_name, column_name FROM system.jdbc.columns"))
+                .skippingTypesCheck()
+                .containsAll(expectedValues);
+
+        // system.jdbc.columns with schema filter
+        assertThat(query(
+                "SELECT table_schem, table_name, column_name " +
+                        "FROM system.jdbc.columns " +
+                        "WHERE table_schem LIKE '%" + schemaName + "%'"))
+                .skippingTypesCheck()
+                .containsAll(expectedValues);
+
+        // system.jdbc.columns with table filter
+        assertQuery(
+                "SELECT table_schem, table_name, column_name " +
+                        "FROM system.jdbc.columns " +
+                        "WHERE table_name LIKE '%" + viewName + "%'",
+                expectedValues);
 
         // details
         assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName)))
@@ -481,14 +506,15 @@ public abstract class BaseConnectorTest
     }
 
     // TODO inline when all implementations fixed
-    protected void checkShowColumnsForMaterializedView(String schemaName, String viewName)
+    protected void checkShowColumnsForMaterializedView(String viewName)
     {
         assertThat(query("SHOW COLUMNS FROM " + viewName))
+                .projected(0)
                 .skippingTypesCheck()
                 .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
 
         assertThat(query("DESCRIBE " + viewName))
-                .projected(1)
+                .projected(0)
                 .skippingTypesCheck()
                 .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
     }
