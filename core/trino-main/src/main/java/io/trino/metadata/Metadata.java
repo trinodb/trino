@@ -627,6 +627,11 @@ public interface Metadata
     void dropMaterializedView(Session session, QualifiedObjectName viewName);
 
     /**
+     * Get the names that match the specified table prefix (never null).
+     */
+    List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix);
+
+    /**
      * Returns the materialized view definition for the specified view name.
      */
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);

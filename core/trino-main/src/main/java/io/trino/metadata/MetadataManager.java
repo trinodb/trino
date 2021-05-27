@@ -1256,6 +1256,36 @@ public final class MetadataManager
     }
 
     @Override
+    public List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+
+        Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
+        if (objectName.isPresent()) {
+            return getMaterializedView(session, objectName.get())
+                    .map(handle -> ImmutableList.of(objectName.get()))
+                    .orElseGet(ImmutableList::of);
+        }
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
+
+        Set<QualifiedObjectName> materializedViews = new LinkedHashSet<>();
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+
+            for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+                metadata.listMaterializedViews(connectorSession, prefix.getSchemaName()).stream()
+                        .map(convertFromSchemaTableName(prefix.getCatalogName()))
+                        .filter(prefix::matches)
+                        .forEach(materializedViews::add);
+            }
+        }
+        return ImmutableList.copyOf(materializedViews);
+    }
+
+    @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
     {
         if (viewName.getCatalogName().isEmpty() || viewName.getSchemaName().isEmpty() || viewName.getObjectName().isEmpty()) {

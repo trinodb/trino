@@ -1149,6 +1149,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Get the names that match the specified table prefix (never null).
+     */
+    default List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return List.of();
+    }
+
+    /**
      * Gets the materialized view data for the specified materialized view name. Returns {@link Optional#empty()}
      * if {@code viewName} relation does not or is not a materialized view (e.g. is a table, or a view).
      *
