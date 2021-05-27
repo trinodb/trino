@@ -1,21 +1,14 @@
-name: Cancel Previous PR run
+name: cleanup
+
 on:
-  # Triggering event defined following https://github.com/styfle/cancel-workflow-action#advanced-pull-requests-from-forks instructions.
-  workflow_run:
-    workflows: [ "ci" ]
-    types:
-      - requested
+  schedule:
+    - cron: '*/5 * * * *'
+
 jobs:
   cancel:
     runs-on: ubuntu-latest
     steps:
-      - uses: styfle/cancel-workflow-action@0.9.0
+      - uses: n1hility/cancel-previous-runs@2e3c1893986568a2197c41957b9c809cbcf1a61e
         with:
-          # Cancel workflow when PR closed. https://github.com/styfle/cancel-workflow-action#advanced-ignore-sha
-          ignore_sha: true
-          # Cancel workflow runs scheduled after the current one. May help when queue is saturated.
-          # https://github.com/styfle/cancel-workflow-action#advanced-all-but-latest
-          all_but_latest: true
-          # Note: workflow_id can be a Workflow ID (number) or Workflow File Name (string). Here we have ID thanks to how this is triggered.
-          workflow_id: ${{ github.event.workflow.id }}
-          access_token: ${{ github.token }}
+          token: ${{ github.token }}
+          workflow: ci.yml
