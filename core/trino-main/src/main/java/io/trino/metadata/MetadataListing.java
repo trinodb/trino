@@ -120,6 +120,14 @@ public final class MetadataListing
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
+    public static Set<SchemaTableName> listMaterializedViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
+        Set<SchemaTableName> tableNames = metadata.listMaterializedViews(session, prefix).stream()
+                .map(QualifiedObjectName::asSchemaTableName)
+                .collect(toImmutableSet());
+        return accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), tableNames);
+    }
+
     public static Set<GrantInfo> listTablePrivileges(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
         List<GrantInfo> grants = metadata.listTablePrivileges(session, prefix);
