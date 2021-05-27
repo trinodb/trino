@@ -1376,6 +1376,23 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testDeleteWithSubquery()
+    {
+        withTemporaryTable("delete_with_subquery", true, true, NONE, targetTable -> {
+            onTrino().executeQuery(format("create table %s (a varchar, b int, c varchar) WITH ( format = 'ORC', partitioned_by = ARRAY['c'], bucketed_by = ARRAY['a'], bucket_count = 10, transactional=true)", targetTable));
+            onTrino().executeQuery(format("insert into %s values ('a',1,'a'), ('b',2,'b')", targetTable));
+            withTemporaryTable("delete_with_subquery_source", true, true, NONE, sourceTable -> {
+                onTrino().executeQuery(format("create table %s (c varchar)", sourceTable));
+                onTrino().executeQuery(format("insert into %s values ('a'), ('a'), ('c')", sourceTable));
+
+                onTrino().executeQuery(format("delete from %s where c in (select distinct c from %s)", targetTable, sourceTable));
+
+                verifySelectForPrestoAndHive("select * from " + targetTable, "true", row("b", 2, "b"));
+            });
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testUpdateOriginalFilesPartitioned()
     {
         withTemporaryTable("update_original_files", true, true, NONE, tableName -> {

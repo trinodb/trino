@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -23,11 +22,7 @@ import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExchangeNode;
-import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SimplePlanRewriter.RewriteContext;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -44,12 +39,14 @@ import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UpdateNode;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
 /*
@@ -238,30 +235,27 @@ public class BeginTableWrite
 
         private TableHandle findTableScanHandle(PlanNode node)
         {
-            if (node instanceof TableScanNode) {
+            TableHandle handle = findTableScanHandleOrNull(node);
+            return requireNonNull(handle, "Didn't find updateTarget tableHandle for DeleteNode or UpdateNode");
+        }
+
+        private TableHandle findTableScanHandleOrNull(PlanNode node)
+        {
+            if (node instanceof TableScanNode && ((TableScanNode) node).isUpdateTarget()) {
                 return ((TableScanNode) node).getTable();
             }
-            if (node instanceof FilterNode) {
-                return findTableScanHandle(((FilterNode) node).getSource());
-            }
-            if (node instanceof ProjectNode) {
-                return findTableScanHandle(((ProjectNode) node).getSource());
-            }
-            if (node instanceof SemiJoinNode) {
-                return findTableScanHandle(((SemiJoinNode) node).getSource());
-            }
-            if (node instanceof JoinNode) {
-                JoinNode joinNode = (JoinNode) node;
-                if (joinNode.getType() == JoinNode.Type.INNER && isAtMostScalar(joinNode.getRight())) {
-                    return findTableScanHandle(joinNode.getLeft());
+            for (PlanNode source : node.getSources()) {
+                TableHandle tableHandle = findTableScanHandle(source);
+                if (tableHandle != null) {
+                    return tableHandle;
                 }
             }
-            throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
+            return null;
         }
 
         private PlanNode rewriteModifyTableScan(PlanNode node, TableHandle handle)
         {
-            if (node instanceof TableScanNode) {
+            if (node instanceof TableScanNode && ((TableScanNode) node).isUpdateTarget()) {
                 TableScanNode scan = (TableScanNode) node;
                 return new TableScanNode(
                         scan.getId(),
@@ -274,26 +268,11 @@ public class BeginTableWrite
                         scan.getUseConnectorNodePartitioning());
             }
 
-            if (node instanceof FilterNode) {
-                PlanNode source = rewriteModifyTableScan(((FilterNode) node).getSource(), handle);
-                return replaceChildren(node, ImmutableList.of(source));
-            }
-            if (node instanceof ProjectNode) {
-                PlanNode source = rewriteModifyTableScan(((ProjectNode) node).getSource(), handle);
-                return replaceChildren(node, ImmutableList.of(source));
-            }
-            if (node instanceof SemiJoinNode) {
-                PlanNode source = rewriteModifyTableScan(((SemiJoinNode) node).getSource(), handle);
-                return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
-            }
-            if (node instanceof JoinNode) {
-                JoinNode joinNode = (JoinNode) node;
-                if (joinNode.getType() == JoinNode.Type.INNER && isAtMostScalar(joinNode.getRight())) {
-                    PlanNode source = rewriteModifyTableScan(joinNode.getLeft(), handle);
-                    return replaceChildren(node, ImmutableList.of(source, joinNode.getRight()));
-                }
-            }
-            throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
+            List<PlanNode> rewrittenSources = node.getSources().stream()
+                    .map(source -> rewriteModifyTableScan(source, handle))
+                    .collect(toImmutableList());
+
+            return replaceChildren(node, rewrittenSources);
         }
     }
 
