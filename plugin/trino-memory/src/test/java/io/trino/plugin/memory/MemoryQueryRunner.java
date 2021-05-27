@@ -34,13 +34,13 @@ public final class MemoryQueryRunner
 
     private MemoryQueryRunner() {}
 
-    public static DistributedQueryRunner createQueryRunner()
+    public static DistributedQueryRunner createMemoryQueryRunner()
             throws Exception
     {
-        return createQueryRunner(ImmutableMap.of());
+        return createMemoryQueryRunner(ImmutableMap.of());
     }
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
+    public static DistributedQueryRunner createMemoryQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -73,7 +73,7 @@ public final class MemoryQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        DistributedQueryRunner queryRunner = createMemoryQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
         Thread.sleep(10);
         Logger log = Logger.get(MemoryQueryRunner.class);
         log.info("======== SERVER STARTED ========");

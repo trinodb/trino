@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -32,7 +33,7 @@ public class TestMemoryWorkerCrash
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return MemoryQueryRunner.createQueryRunner();
+        return createMemoryQueryRunner();
     }
 
     @Test
