@@ -22,6 +22,7 @@ import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.testing.LocalQueryRunner;
 
+import java.io.IOException;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -82,6 +83,7 @@ public class TestTpchCostBasedPlan
         private UpdateTestFiles() {}
 
         public static void main(String[] args)
+                throws IOException
         {
             new TestTpchCostBasedPlan().generate();
         }

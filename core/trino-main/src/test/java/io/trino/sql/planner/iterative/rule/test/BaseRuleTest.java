@@ -52,7 +52,9 @@ public abstract class BaseRuleTest
         }
     }
 
-    protected Optional<LocalQueryRunner> createLocalQueryRunner() throws IOException {
+    protected Optional<LocalQueryRunner> createLocalQueryRunner()
+            throws IOException
+    {
         return Optional.empty();
     }
 

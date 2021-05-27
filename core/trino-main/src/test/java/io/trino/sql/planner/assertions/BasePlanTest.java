@@ -63,7 +63,9 @@ public class BasePlanTest
     }
 
     // Subclasses should implement this method to inject their own query runners
-    protected LocalQueryRunner createLocalQueryRunner() throws IOException {
+    protected LocalQueryRunner createLocalQueryRunner()
+            throws IOException
+    {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")

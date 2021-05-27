@@ -79,7 +79,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
     {
         queryRunner.close();
 
-        if(temporaryDirectory != null) {
+        if (temporaryDirectory != null) {
             deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
         }
     }
