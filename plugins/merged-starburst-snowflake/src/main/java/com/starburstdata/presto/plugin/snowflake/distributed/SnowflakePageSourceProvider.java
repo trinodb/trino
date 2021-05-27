@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import org.apache.hadoop.conf.Configuration;
@@ -76,7 +77,7 @@ class SnowflakePageSourceProvider
             ConnectorSplit split,
             ConnectorTableHandle table,
             List<ColumnHandle> columns,
-            TupleDomain<ColumnHandle> dynamicFilter)
+            DynamicFilter dynamicFilter)
     {
         SnowflakeSplit snowflakeSplit = (SnowflakeSplit) split;
         validateStageType(snowflakeSplit.getStageAccessInfo().getStageType());
@@ -114,7 +115,8 @@ class SnowflakePageSourceProvider
         Map<ColumnHandle, Integer> columnIndex = IntStream.range(0, columns.size()).boxed()
                 .collect(toImmutableMap(columns::get, identity()));
         TupleDomain<HiveColumnHandle> filePredicate = TupleDomain.withColumnDomains(
-                dynamicFilter.getDomains().orElseThrow(() -> new IllegalArgumentException("NONE dynamic filter should be handled by engine"))
+                dynamicFilter.getCurrentPredicate().getDomains()
+                        .orElseThrow(() -> new IllegalArgumentException("NONE dynamic filter should be handled by engine"))
                         .entrySet().stream()
                         // TODO use https://github.com/trinodb/trino/pull/3538 APIs
                         .filter(entry -> {
