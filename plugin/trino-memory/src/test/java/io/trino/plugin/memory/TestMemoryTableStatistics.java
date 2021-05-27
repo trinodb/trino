@@ -13,11 +13,14 @@
  */
 package io.trino.plugin.memory;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
+import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMemoryTableStatistics
@@ -27,7 +30,9 @@ public class TestMemoryTableStatistics
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createMemoryQueryRunner();
+        return createMemoryQueryRunner(
+                ImmutableMap.of(),
+                ImmutableList.of(NATION));
     }
 
     @Test
