@@ -34,7 +34,6 @@ public class TestSnowflakeTableStatistics
     public void testBasic()
     {
         String tableName = "test_stats_orders_" + randomTableSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT name, nationkey, comment FROM tpch.tiny.nation", tableName));
         try {
             assertQuery(

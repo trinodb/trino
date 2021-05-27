@@ -59,7 +59,6 @@ public class TestSynapseTableStatistics
     public void testNotAnalyzed()
     {
         String tableName = "test_stats_not_analyzed_" + randomTableSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation", tableName));
         try {
             assertQuery(
@@ -81,7 +80,6 @@ public class TestSynapseTableStatistics
     public void testBasic()
     {
         String tableName = "test_stats_" + randomTableSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation", tableName));
         try {
             gatherStats(tableName);
@@ -118,7 +116,6 @@ public class TestSynapseTableStatistics
     public void testAllNulls()
     {
         String tableName = "test_stats_table_all_nulls_" + randomTableSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation WHERE false", tableName));
         try {
             computeActual(format("INSERT INTO %s (nationkey) VALUES NULL, NULL, NULL", tableName));
@@ -142,7 +139,6 @@ public class TestSynapseTableStatistics
     public void testNullsFraction()
     {
         String tableName = "test_stats_table_with_nulls_" + randomTableSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " AS " +
                         "SELECT " +
@@ -169,7 +165,6 @@ public class TestSynapseTableStatistics
     public void testAverageColumnLength()
     {
         String tableName = "test_stats_table_avg_col_len_" + randomTableSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual("" +
                 "CREATE TABLE " + tableName + " AS SELECT " +
                 "  nationkey, " +
@@ -204,7 +199,6 @@ public class TestSynapseTableStatistics
     public void testPartitionedTable()
     {
         String tableName = "test_stats_partitioned_table_" + randomTableSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
         synapseServer.execute(format("CREATE TABLE %s WITH " +
                 "(DISTRIBUTION = ROUND_ROBIN, " +
                 "PARTITION (nationkey RANGE LEFT FOR VALUES (12))) " +
