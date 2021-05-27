@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -128,7 +127,7 @@ public class TestPushTopNIntoTableScan
                     .withSession(MOCK_SESSION)
                     .matches(
                             tableScan(
-                                    equalTo(connectorHandle),
+                                    connectorHandle::equals,
                                     TupleDomain.all(),
                                     new HashMap<>()));
         }
@@ -162,11 +161,11 @@ public class TestPushTopNIntoTableScan
                             topN(1, ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
                                     TopNNode.Step.SINGLE,
                                     tableScan(
-                                            equalTo(connectorHandle),
+                                            connectorHandle::equals,
                                             TupleDomain.all(),
                                             ImmutableMap.of(
-                                                    dimensionName, equalTo(dimensionColumn),
-                                                    metricName, equalTo(metricColumn)))));
+                                                    dimensionName, dimensionColumn::equals,
+                                                    metricName, metricColumn::equals))));
         }
     }
 
@@ -196,7 +195,7 @@ public class TestPushTopNIntoTableScan
                     .withSession(MOCK_SESSION)
                     .matches(
                             tableScan(
-                                    equalTo(connectorHandle),
+                                    connectorHandle::equals,
                                     TupleDomain.all(),
                                     new HashMap<>()));
         }
@@ -230,11 +229,11 @@ public class TestPushTopNIntoTableScan
                             topN(1, ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
                                     TopNNode.Step.PARTIAL,
                                     tableScan(
-                                            equalTo(connectorHandle),
+                                            connectorHandle::equals,
                                             TupleDomain.all(),
                                             ImmutableMap.of(
-                                                    dimensionName, equalTo(dimensionColumn),
-                                                    metricName, equalTo(metricColumn)))));
+                                                    dimensionName, dimensionColumn::equals,
+                                                    metricName, metricColumn::equals))));
         }
     }
 
