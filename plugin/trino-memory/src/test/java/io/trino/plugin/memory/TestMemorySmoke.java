@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.memory;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.trino.Session;
@@ -42,6 +43,11 @@ import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAS
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.PART;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -64,7 +70,8 @@ public class TestMemorySmoke
                         "dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "100",
                         "dynamic-filtering.small-broadcast.range-row-limit-per-driver", "100",
                         "dynamic-filtering.large-broadcast.max-distinct-values-per-driver", "100",
-                        "dynamic-filtering.large-broadcast.range-row-limit-per-driver", "100000"));
+                        "dynamic-filtering.large-broadcast.range-row-limit-per-driver", "100000"),
+                ImmutableList.of(NATION, CUSTOMER, ORDERS, LINE_ITEM, PART));
     }
 
     @Test

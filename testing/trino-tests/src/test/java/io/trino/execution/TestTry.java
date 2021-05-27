@@ -13,6 +13,8 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
@@ -27,7 +29,7 @@ public class TestTry
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createMemoryQueryRunner();
+        return createMemoryQueryRunner(ImmutableMap.of(), ImmutableList.of());
     }
 
     @Test

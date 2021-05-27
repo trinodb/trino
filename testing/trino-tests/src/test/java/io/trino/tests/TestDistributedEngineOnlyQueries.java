@@ -13,12 +13,14 @@
  */
 package io.trino.tests;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -42,7 +44,7 @@ public class TestDistributedEngineOnlyQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createMemoryQueryRunner();
+        DistributedQueryRunner queryRunner = createMemoryQueryRunner(ImmutableMap.of(), TpchTable.getTables());
         addTestingCatalog(queryRunner);
         return queryRunner;
     }
