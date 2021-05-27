@@ -632,6 +632,11 @@ public interface Metadata
     List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix);
 
     /**
+     * Get the materialized view definitions that match the specified table prefix (never null).
+     */
+    Map<QualifiedObjectName, ConnectorMaterializedViewDefinition> getMaterializedViews(Session session, QualifiedTablePrefix prefix);
+
+    /**
      * Returns the materialized view definition for the specified view name.
      */
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);

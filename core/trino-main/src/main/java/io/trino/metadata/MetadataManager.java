@@ -680,6 +680,20 @@ public final class MetadataManager
                     }
                     tableColumns.put(entry.getKey().asSchemaTableName(), Optional.of(columns.build()));
                 }
+
+                // if view and materialized view names overlap, the materialized view wins
+                for (Entry<QualifiedObjectName, ConnectorMaterializedViewDefinition> entry : getMaterializedViews(session, prefix).entrySet()) {
+                    ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+                    for (ConnectorMaterializedViewDefinition.Column column : entry.getValue().getColumns()) {
+                        try {
+                            columns.add(new ColumnMetadata(column.getName(), getType(column.getType())));
+                        }
+                        catch (TypeNotFoundException e) {
+                            throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.getType(), column.getName(), entry.getKey()));
+                        }
+                    }
+                    tableColumns.put(entry.getKey().asSchemaTableName(), Optional.of(columns.build()));
+                }
             }
         }
         return ImmutableMap.of(
@@ -1283,6 +1297,44 @@ public final class MetadataManager
             }
         }
         return ImmutableList.copyOf(materializedViews);
+    }
+
+    @Override
+    public Map<QualifiedObjectName, ConnectorMaterializedViewDefinition> getMaterializedViews(Session session, QualifiedTablePrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
+
+        Map<QualifiedObjectName, ConnectorMaterializedViewDefinition> views = new LinkedHashMap<>();
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+
+            SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
+            for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+
+                Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViewMap;
+                if (tablePrefix.getTable().isPresent()) {
+                    materializedViewMap = metadata.getMaterializedView(connectorSession, tablePrefix.toSchemaTableName())
+                            .map(view -> ImmutableMap.of(tablePrefix.toSchemaTableName(), view))
+                            .orElse(ImmutableMap.of());
+                }
+                else {
+                    materializedViewMap = metadata.getMaterializedViews(connectorSession, tablePrefix.getSchema());
+                }
+
+                for (Entry<SchemaTableName, ConnectorMaterializedViewDefinition> entry : materializedViewMap.entrySet()) {
+                    QualifiedObjectName viewName = new QualifiedObjectName(
+                            prefix.getCatalogName(),
+                            entry.getKey().getSchemaName(),
+                            entry.getKey().getTableName());
+                    views.put(viewName, entry.getValue());
+                }
+            }
+        }
+        return ImmutableMap.copyOf(views);
     }
 
     @Override

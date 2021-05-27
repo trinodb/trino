@@ -217,14 +217,6 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Override
-    protected void checkInformationSchemaColumnsForMaterializedView(String schemaName, String viewName)
-    {
-        // TODO The query should not fail, obviously. It should return columns for all tables, views, and materialized views
-        assertThatThrownBy(() -> super.checkInformationSchemaColumnsForMaterializedView(schemaName, viewName))
-                .hasMessageFindingMatch("(?s)Expecting.*to contain:.*, nationkey\\).*, name\\).*, regionkey\\).*, comment\\)");
-    }
-
-    @Override
     protected void checkInformationSchemaColumnsForPointedQueryForMaterializedView(String schemaName, String viewName)
     {
         // TODO The query should not fail, obviously. It should return columns for the materialized view

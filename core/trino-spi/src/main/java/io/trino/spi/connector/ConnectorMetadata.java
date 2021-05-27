@@ -1158,6 +1158,20 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Gets the definitions of materialized views, possibly filtered by schema.
+     * This optional method may be implemented by connectors that can support fetching
+     * view data in bulk. It is used to populate {@code information_schema.columns}.
+     */
+    default Map<SchemaTableName, ConnectorMaterializedViewDefinition> getMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = new HashMap<>();
+        for (SchemaTableName name : listMaterializedViews(session, schemaName)) {
+            getMaterializedView(session, name).ifPresent(view -> materializedViews.put(name, view));
+        }
+        return materializedViews;
+    }
+
+    /**
      * Gets the materialized view data for the specified materialized view name. Returns {@link Optional#empty()}
      * if {@code viewName} relation does not or is not a materialized view (e.g. is a table, or a view).
      *
