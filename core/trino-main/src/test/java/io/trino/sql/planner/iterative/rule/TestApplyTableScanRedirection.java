@@ -40,7 +40,6 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Predicates.equalTo;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import static io.trino.spi.predicate.Domain.singleValue;
@@ -171,9 +170,9 @@ public class TestApplyTableScanRedirection
                     .matches(
                             project(ImmutableMap.of("COL", expression("CAST(DEST_COL AS VARCHAR)")),
                                     tableScan(
-                                            equalTo(new MockConnectorTableHandle(DESTINATION_TABLE)),
+                                            new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
-                                            ImmutableMap.of("DEST_COL", equalTo(DESTINATION_COLUMN_HANDLE_C)))));
+                                            ImmutableMap.of("DEST_COL", DESTINATION_COLUMN_HANDLE_C::equals))));
         }
     }
 
@@ -219,9 +218,9 @@ public class TestApplyTableScanRedirection
                     .withSession(MOCK_SESSION)
                     .matches(
                             tableScan(
-                                    equalTo(new MockConnectorTableHandle(DESTINATION_TABLE)),
+                                    new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                     TupleDomain.all(),
-                                    ImmutableMap.of("DEST_COL", equalTo(DESTINATION_COLUMN_HANDLE_A))));
+                                    ImmutableMap.of("DEST_COL", DESTINATION_COLUMN_HANDLE_A::equals)));
         }
     }
 
@@ -256,9 +255,9 @@ public class TestApplyTableScanRedirection
                             filter(
                                     "DEST_COL = CAST('foo' AS varchar)",
                                     tableScan(
-                                            equalTo(new MockConnectorTableHandle(DESTINATION_TABLE)),
+                                            new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
-                                            ImmutableMap.of("DEST_COL", equalTo(DESTINATION_COLUMN_HANDLE_A)))));
+                                            ImmutableMap.of("DEST_COL", DESTINATION_COLUMN_HANDLE_A::equals))));
 
             ruleTester.assertThat(applyTableScanRedirection)
                     .on(p -> {
@@ -276,11 +275,11 @@ public class TestApplyTableScanRedirection
                                     filter(
                                             "DEST_COL_A = CAST('foo' AS varchar)",
                                             tableScan(
-                                                    equalTo(new MockConnectorTableHandle(DESTINATION_TABLE)),
+                                                    new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                                     TupleDomain.all(),
                                                     ImmutableMap.of(
-                                                            "DEST_COL_A", equalTo(DESTINATION_COLUMN_HANDLE_A),
-                                                            "DEST_COL_B", equalTo(DESTINATION_COLUMN_HANDLE_B))))));
+                                                            "DEST_COL_A", DESTINATION_COLUMN_HANDLE_A::equals,
+                                                            "DEST_COL_B", DESTINATION_COLUMN_HANDLE_B::equals)))));
         }
     }
 
