@@ -33,6 +33,7 @@ Authentication
   security/oauth2
   security/kerberos
   security/cli
+  security/cert-auth
 
 User name management
 ====================
