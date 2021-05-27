@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.hash.Hashing;
 import io.airlift.slice.Murmur3Hash32;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -28,6 +29,7 @@ import org.joda.time.chrono.ISOChronology;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 import java.util.function.LongUnaryOperator;
@@ -345,7 +347,13 @@ public final class PartitionTransforms
 
     private static Block bucketVarchar(Block block, int count)
     {
-        return bucketBlock(block, count, position -> bucketHash(VARCHAR.getSlice(block, position)));
+        return bucketBlock(block, count, position -> {
+            // This is equivalent to `bucketHash(VARCHAR.getSlice(block, position))` except for certain strings.
+            // TODO simplify and thus make it faster once https://github.com/google/guava/issues/5648 is fixed.
+            return Hashing.murmur3_32()
+                    .hashString(VARCHAR.getSlice(block, position).toStringUtf8(), StandardCharsets.UTF_8)
+                    .asInt();
+        });
     }
 
     private static Block bucketVarbinary(Block block, int count)

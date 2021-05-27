@@ -94,6 +94,7 @@ public class TestIcebergBucketing
         assertBucketAndHashEquals("string", "test string", 671244848);
         assertBucketAndHashEquals("string", "Trino rocks", 2131833594);
         assertBucketAndHashEquals("string", "\u5f3a\u5927\u7684Trino\u5f15\u64ce", 822296301); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
+        assertBucketAndHashEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", 775615312); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
 
         assertBucketAndHashEquals("binary", null, null);
         assertBucketAndHashEquals("binary", ByteBuffer.wrap(new byte[] {}), 0);
