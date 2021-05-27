@@ -292,7 +292,7 @@ public class PartitionTable
             return ((ByteBuffer) value).array();
         }
         if (type instanceof Types.TimestampType) {
-            long epochMicros = (long) value;
+            long epochMicros = Long.parseLong(value.toString());
             if (((Types.TimestampType) type).shouldAdjustToUTC()) {
                 return timestampTzFromMicros(epochMicros, TimeZoneKey.UTC_KEY);
             }
