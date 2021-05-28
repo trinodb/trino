@@ -145,6 +145,7 @@ statement
     | DESCRIBE INPUT identifier                                        #describeInput
     | DESCRIBE OUTPUT identifier                                       #describeOutput
     | SET PATH pathSpecification                                       #setPath
+    | SET TIME ZONE (LOCAL | expression)                               #setTimeZone
     | UPDATE qualifiedName
         SET updateAssignment (',' updateAssignment)*
         (WHERE where=booleanExpression)?                               #update
@@ -651,7 +652,7 @@ nonReserved
     | HOUR
     | IF | IGNORE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
-    | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
+    | LAST | LATERAL | LEVEL | LIMIT | LOCAL | LOGICAL
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
@@ -772,6 +773,7 @@ LEFT: 'LEFT';
 LEVEL: 'LEVEL';
 LIKE: 'LIKE';
 LIMIT: 'LIMIT';
+LOCAL: 'LOCAL';
 LOCALTIME: 'LOCALTIME';
 LOCALTIMESTAMP: 'LOCALTIMESTAMP';
 LOGICAL: 'LOGICAL';

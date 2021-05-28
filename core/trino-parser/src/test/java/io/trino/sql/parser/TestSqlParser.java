@@ -144,6 +144,7 @@ import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetTableAuthorization;
+import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
@@ -2014,6 +2015,60 @@ public class TestSqlParser
         assertThatThrownBy(() -> SQL_PARSER.createStatement("SET PATH ", new ParsingOptions()))
                 .isInstanceOf(ParsingException.class)
                 .hasMessage("line 1:10: mismatched input '<EOF>'. Expecting: <identifier>");
+    }
+
+    @Test
+    public void testSetTimeZone()
+    {
+        assertThat(statement("SET TIME ZONE LOCAL"))
+                .isEqualTo(
+                        new SetTimeZone(
+                                location(1, 1),
+                                Optional.empty()));
+        assertThat(statement("SET TIME ZONE 'America/Los_Angeles'"))
+                .isEqualTo(
+                        new SetTimeZone(
+                                location(1, 1),
+                                Optional.of(new StringLiteral(
+                                        location(1, 15),
+                                        "America/Los_Angeles"))));
+        assertThat(statement("SET TIME ZONE concat_ws('/', 'America', 'Los_Angeles')"))
+                .isEqualTo(
+                        new SetTimeZone(
+                                location(1, 1),
+                                Optional.of(new FunctionCall(
+                                        location(1, 15),
+                                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 15), "concat_ws", false))),
+                                        ImmutableList.of(
+                                                new StringLiteral(
+                                                        location(1, 25),
+                                                        "/"),
+                                                new StringLiteral(
+                                                        location(1, 30),
+                                                        "America"),
+                                                new StringLiteral(
+                                                        location(1, 41),
+                                                        "Los_Angeles"))))));
+        assertThat(statement("SET TIME ZONE '-08:00'"))
+                .isEqualTo(
+                        new SetTimeZone(
+                                location(1, 1),
+                                Optional.of(new StringLiteral(
+                                        location(1, 15),
+                                        "-08:00"))));
+        assertThat(statement("SET TIME ZONE INTERVAL '10' HOUR"))
+                .isEqualTo(
+                        new SetTimeZone(
+                                location(1, 1),
+                                Optional.of(new IntervalLiteral(
+                                        location(1, 15),
+                                        "10", Sign.POSITIVE, IntervalField.HOUR, Optional.empty()))));
+        assertThat(statement("SET TIME ZONE INTERVAL -'08:00' HOUR TO MINUTE"))
+                .isEqualTo(
+                        new SetTimeZone(
+                                location(1, 1),
+                                Optional.of(new IntervalLiteral(
+                                        location(1, 15), "08:00", Sign.NEGATIVE, IntervalField.HOUR, Optional.of(IntervalField.MINUTE)))));
     }
 
     @Test
