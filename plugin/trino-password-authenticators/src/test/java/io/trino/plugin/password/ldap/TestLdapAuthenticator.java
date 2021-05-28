@@ -74,12 +74,8 @@ public class TestLdapAuthenticator
         client.addCredentials("alice@alt.example.com", "alt-alice-pass");
         assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alt-alice-pass"), new BasicPrincipal("alice"));
         ldapAuthenticator.invalidateCache();
-
         assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
         ldapAuthenticator.invalidateCache();
-
-        assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("john", "john-pass"))
-                .isInstanceOf(RuntimeException.class);
     }
 
     @Test
@@ -100,7 +96,7 @@ public class TestLdapAuthenticator
         assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown", "alice-pass"))
                 .isInstanceOf(RuntimeException.class);
         assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(AccessDeniedException.class);
         client.addGroupMember("alice");
         assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
     }
@@ -139,7 +135,7 @@ public class TestLdapAuthenticator
 
         client.addDistinguishedNameForUser("alice", "another-mapping");
         assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
@@ -201,7 +197,7 @@ public class TestLdapAuthenticator
                 throws NamingException
         {
             if (!credentials.contains(new Credential(userDistinguishedName, password))) {
-                throw new AccessDeniedException("Invalid credentials");
+                throw new NamingException();
             }
         }
 
