@@ -47,7 +47,7 @@ public class Suite6NonGeneric
                 testOnEnvironment(SinglenodeLdapAndFile.class).withGroups("ldap", "ldap_and_file", "ldap_cli", "ldap_and_file_cli").build(),
                 testOnEnvironment(SinglenodeLdapInsecure.class).withGroups("ldap").build(),
                 testOnEnvironment(SinglenodeLdapReferrals.class).withGroups("ldap").build(),
-                testOnEnvironment(SinglenodeLdapBindDn.class).withGroups("ldap").build(),
+                testOnEnvironment(SinglenodeLdapBindDn.class).withGroups("ldap").withExcludedGroups("ldap_multiple_binds").build(),
                 testOnEnvironment(SinglenodeKerberosKmsHdfsNoImpersonation.class).withGroups("storage_formats").build(),
                 testOnEnvironment(SinglenodeKerberosKmsHdfsImpersonation.class).withGroups("storage_formats").build(),
                 testOnEnvironment(SinglenodeCassandra.class).withGroups("cassandra").build(),
