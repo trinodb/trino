@@ -180,9 +180,9 @@ final class IcebergUtil
     {
         if (useMetastore(session)) {
             HiveTableOperations operations = (HiveTableOperations) tableOperationsProvider.createTableOperations(
-                new HdfsContext(session),
+                    new HdfsContext(session),
                     session.getQueryId(),
-                new HiveIdentity(session),
+                    new HiveIdentity(session),
                     table.getSchemaName(),
                     table.getTableName(),
                     Optional.empty(),
@@ -329,8 +329,8 @@ final class IcebergUtil
             throw new TrinoException(ICEBERG_INVALID_PARTITION_VALUE, format(
                     "Invalid partition value '%s' for %s partition key: %s",
                     valueString,
-                    type.getDisplayName(),:quotedName()
-                    name));
+                    type.getDisplayName(),
+            name));
         }
         // Iceberg tables don't partition by non-primitive-type columns.
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
