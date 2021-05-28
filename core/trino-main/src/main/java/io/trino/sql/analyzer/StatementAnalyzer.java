@@ -161,6 +161,7 @@ import io.trino.sql.tree.SetOperation;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetTableAuthorization;
+import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.SimpleGroupBy;
 import io.trino.sql.tree.SingleColumn;
@@ -1085,6 +1086,12 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitDropMaterializedView(DropMaterializedView node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitSetTimeZone(SetTimeZone node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }

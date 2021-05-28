@@ -178,6 +178,7 @@ import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetTableAuthorization;
+import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
@@ -1368,6 +1369,16 @@ class AstBuilder
     public Node visitSetPath(SqlBaseParser.SetPathContext context)
     {
         return new SetPath(getLocation(context), (PathSpecification) visit(context.pathSpecification()));
+    }
+
+    @Override
+    public Node visitSetTimeZone(SqlBaseParser.SetTimeZoneContext context)
+    {
+        Optional<Expression> timeZone = Optional.empty();
+        if (context.expression() != null) {
+            timeZone = Optional.of((Expression) visit(context.expression()));
+        }
+        return new SetTimeZone(getLocation(context), timeZone);
     }
 
     // ***************** boolean expressions ******************

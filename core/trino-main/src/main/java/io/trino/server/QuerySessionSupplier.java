@@ -32,6 +32,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.Session.SessionBuilder;
+import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
@@ -113,8 +114,14 @@ public class QuerySessionSupplier
         if (forcedSessionTimeZone.isPresent()) {
             sessionBuilder.setTimeZoneKey(forcedSessionTimeZone.get());
         }
-        else if (context.getTimeZoneId() != null) {
-            sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId()));
+        else {
+            String sessionTimeZoneId = context.getSystemProperties().get(TIME_ZONE_ID);
+            if (sessionTimeZoneId != null) {
+                sessionBuilder.setTimeZoneKey(getTimeZoneKey(sessionTimeZoneId));
+            }
+            else if (context.getTimeZoneId() != null) {
+                sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId()));
+            }
         }
 
         if (context.getLanguage() != null) {

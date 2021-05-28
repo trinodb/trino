@@ -44,6 +44,7 @@ import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 
@@ -139,6 +140,7 @@ public final class SystemSessionProperties
     public static final String USE_LEGACY_WINDOW_FILTER_PUSHDOWN = "use_legacy_window_filter_pushdown";
     public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
     public static final String MERGE_PROJECT_WITH_VALUES = "merge_project_with_values";
+    public static final String TIME_ZONE_ID = "time_zone_id";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -641,7 +643,17 @@ public final class SystemSessionProperties
                         MERGE_PROJECT_WITH_VALUES,
                         "Inline project expressions into values",
                         featuresConfig.isMergeProjectWithValues(),
-                        false));
+                        false),
+                stringProperty(
+                        TIME_ZONE_ID,
+                        "Time Zone Id for the current session",
+                        null,
+                        value -> {
+                            if (value != null) {
+                                getTimeZoneKey(value);
+                            }
+                        },
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1142,5 +1154,10 @@ public final class SystemSessionProperties
     public static boolean isMergeProjectWithValues(Session session)
     {
         return session.getSystemProperty(MERGE_PROJECT_WITH_VALUES, Boolean.class);
+    }
+
+    public static Optional<String> getTimeZoneId(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(TIME_ZONE_ID, String.class));
     }
 }
