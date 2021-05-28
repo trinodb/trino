@@ -20,7 +20,6 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.ConnectorIdentity;
@@ -53,7 +52,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -139,10 +137,13 @@ public class HiveTableOperations
 
         String metadataLocation = table.getParameters().get(METADATA_LOCATION);
         if (metadataLocation == null) {
-            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table is missing [%s] property: %s", METADATA_LOCATION, getSchemaTableName()));
+            // if create iceberg table by hadoop catalog of spark operation,but the table have no metadata location property
+            // log warn
+            log.warn(format("Table is missing [%s] property: %s", METADATA_LOCATION, getSchemaTableName()));
         }
-
-        refreshFromMetadataLocation(metadataLocation);
+        else {
+            refreshFromMetadataLocation(metadataLocation);
+        }
 
         return currentMetadata;
     }
