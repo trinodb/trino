@@ -153,7 +153,19 @@ Date and time functions
 .. function:: from_unixtime_nanos(unixtime) -> timestamp(9) with time zone
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone. ``unixtime`` is the
-    number of nanoseconds since ``1970-01-01 00:00:00.000000000 UTC``.
+    number of nanoseconds since ``1970-01-01 00:00:00.000000000 UTC``::
+
+        SELECT from_unixtime_nanos(100);
+        -- 1970-01-01 00:00:00.000000100
+
+        SELECT from_unixtime_nanos(DECIMAL '1234');
+        -- 1970-01-01 00:00:00.000001234
+
+        SELECT from_unixtime_nanos(DECIMAL '1234.499');
+        -- 1970-01-01 00:00:00.000001234
+
+        SELECT from_unixtime_nanos(DECIMAL '-1234');
+        -- 1969-12-31 23:59:59.999998766
 
 .. data:: localtime
 
