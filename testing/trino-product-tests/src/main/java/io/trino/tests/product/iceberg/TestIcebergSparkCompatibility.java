@@ -643,6 +643,32 @@ public class TestIcebergSparkCompatibility
         assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.drop_and_add IS NULL", trinoTableName))).containsOnly(row(3L));
         assertThat(onTrino().executeQuery(format("SELECT keep_col FROM %s WHERE a_struct.added IS NULL", trinoTableName))).containsOnly(row(3L));
 
+        onSpark().executeQuery(format(
+                "INSERT INTO TABLE %s SELECT " +
+                        "12, " + // quite_renamed_col
+                        "13, " + // keep_col
+                        "15, " + // CaseSensitiveCol,
+                        "named_struct('renamed', 111, 'keep', 112, 'CaseSensitive', 113, 'drop_and_add', 114, 'added', 115), " + // a_struct
+                        "1001, " + // a_partition,
+                        "14, " + // drop_and_add_col
+                        "15", // add_col
+                sparkTableName));
+
+        assertThat(onTrino().executeQuery("SELECT DISTINCT a_struct.renamed, a_struct.added, a_struct.keep FROM " + trinoTableName)).containsOnly(
+                row(11L, null, 12L),
+                row(111L, 115L, 112L));
+        assertThat(onTrino().executeQuery("SELECT DISTINCT a_struct.renamed, a_struct.keep FROM " + trinoTableName + " WHERE a_struct.added IS NULL")).containsOnly(
+                row(11L, 12L));
+
+        assertThat(onTrino().executeQuery("SELECT a_struct FROM " + trinoTableName + " WHERE a_struct.added IS NOT NULL")).containsOnly(
+                row(rowBuilder()
+                        .addField("renamed", 111L)
+                        .addField("keep", 112L)
+                        .addField("CaseSensitive", 113L)
+                        .addField("drop_and_add", 114L)
+                        .addField("added", 115L)
+                        .build()));
+
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
