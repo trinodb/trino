@@ -326,11 +326,6 @@ jobs:
           - suite-3
           # suite-4 does not exist
           - suite-5
-          - suite-6-non-generic
-          - suite-7-non-generic
-          - suite-8-non-generic
-          - suite-tpcds
-          - suite-oauth2
         exclude:
           - config: cdh5
             ignore exclusion if: >-
@@ -346,27 +341,6 @@ jobs:
                || contains(github.event.pull_request.labels.*.name, 'tests:hive')
                }}
 
-          - config: hdp3
-            suite: suite-6-non-generic
-          - config: hdp3
-            suite: suite-7-non-generic
-          - config: hdp3
-            suite: suite-8-non-generic
-          - config: hdp3
-            suite: suite-tpcds
-          - config: hdp3
-            suite: suite-oauth2
-
-          - config: cdh5
-            suite: suite-6-non-generic
-          - config: cdh5
-            suite: suite-7-non-generic
-          - config: cdh5
-            suite: suite-8-non-generic
-          - config: cdh5
-            suite: suite-tpcds
-          - config: cdh5
-            suite: suite-oauth2
         ignore exclusion if:
           # Do not use this property outside of the matrix configuration.
           #
@@ -378,6 +352,22 @@ jobs:
           # - If the expression evaluates to false, it will match the actual
           #   value of the property, and the exclusion will apply normally.
           - false
+        include:
+          # this suite ignores is not meant to be run with different configs
+          - config: default
+            suite: suite-6-non-generic
+          # this suite ignores is not meant to be run with different configs
+          - config: default
+            suite: suite-7-non-generic
+          # this suite ignores is not meant to be run with different configs
+          - config: default
+            suite: suite-8-non-generic
+          # this suite ignores is not meant to be run with different configs
+          - config: default
+            suite: suite-tpcds
+          # this suite ignores is not meant to be run with different configs
+          - config: default
+            suite: suite-oauth2
     # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
     timeout-minutes: 140
     steps:
