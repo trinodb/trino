@@ -68,6 +68,7 @@ public final class IcebergSessionProperties
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
+    private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -204,6 +205,11 @@ public final class IcebergSessionProperties
                         "Expose table statistics",
                         icebergConfig.isTableStatisticsEnabled(),
                         false))
+                .add(booleanProperty(
+                        PROJECTION_PUSHDOWN_ENABLED,
+                        "Read only required fields from a struct",
+                        icebergConfig.isProjectionPushdownEnabled(),
+                        false))
                 .build();
     }
 
@@ -333,5 +339,10 @@ public final class IcebergSessionProperties
     public static boolean isStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(STATISTICS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isProjectionPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
     }
 }
