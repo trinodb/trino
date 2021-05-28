@@ -20,7 +20,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Type;
-import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -28,8 +27,6 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.rescale;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -153,10 +150,7 @@ public class PartitionData
                     throw new UncheckedIOException("Failed during JSON conversion of " + partitionValue, e);
                 }
             case DECIMAL:
-                Types.DecimalType decimalType = (Types.DecimalType) type;
-                return rescale(
-                        partitionValue.decimalValue(),
-                        createDecimalType(decimalType.precision(), decimalType.scale()));
+                return partitionValue.decimalValue();
             case UUID:
             case LIST:
             case MAP:
