@@ -99,6 +99,7 @@ import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetTableAuthorization;
+import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
@@ -1748,6 +1749,14 @@ public final class SqlFormatter
         {
             builder.append("SET PATH ");
             builder.append(Joiner.on(", ").join(node.getPathSpecification().getPath()));
+            return null;
+        }
+
+        @Override
+        public Void visitSetTimeZone(SetTimeZone node, Integer indent)
+        {
+            builder.append("SET TIME ZONE ");
+            builder.append(node.getTimeZone().map(ExpressionFormatter::formatExpression).orElse("LOCAL"));
             return null;
         }
 
