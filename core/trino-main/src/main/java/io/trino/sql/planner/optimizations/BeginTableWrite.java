@@ -15,6 +15,7 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
@@ -50,6 +51,7 @@ import java.util.Set;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static java.util.stream.Collectors.toSet;
 
 /*
@@ -72,7 +74,18 @@ public class BeginTableWrite
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan, Optional.empty());
+        try {
+            return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan, Optional.empty());
+        }
+        catch (RuntimeException e) {
+            try {
+                int nestLevel = 4; // so that it renders reasonably within exception stacktrace
+                String explain = textLogicalPlan(plan, types, metadata, StatsAndCosts.empty(), session, nestLevel, false);
+                e.addSuppressed(new Exception("Current plan:\n" + explain));
+            }
+            catch (RuntimeException ignore) {}
+            throw e;
+        }
     }
 
     private class Rewriter
