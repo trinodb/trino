@@ -22,6 +22,8 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
 import org.apache.iceberg.FileFormat;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +31,7 @@ import java.util.Map;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class IcebergQueryRunner
 {
@@ -75,11 +78,28 @@ public final class IcebergQueryRunner
 
         Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
 
+        File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
+        baseDir.mkdirs();
+
+        String hivesiteLocation = queryRunner.getCoordinator().getBaseDataDir() + "/hive-site.xml";
+        String hivesite = "<configuration>\n" +
+                "<property>\n" +
+                "  <name>hive.metastore.warehouse.dir</name>\n" +
+                "  <value>" + baseDir + "</value>\n" +
+                "  <description></description>\n" +
+                "</property>\n" +
+                "</configuration>\n";
+        FileOutputStream out = new FileOutputStream(hivesiteLocation);
+        out.write(hivesite.getBytes(UTF_8));
+        out.close();
+
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", dataDir.toString())
                 .put("iceberg.file-format", format.name())
+                .put("hive.config.resources", hivesiteLocation)
+                .put("iceberg.hadoopmode", "true")
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
