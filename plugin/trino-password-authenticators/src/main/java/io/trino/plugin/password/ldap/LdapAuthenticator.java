@@ -133,7 +133,7 @@ public class LdapAuthenticator
                 log.debug("Authentication successful for user [%s]", user);
                 return new BasicPrincipal(user);
             }
-            catch (NamingException e) {
+            catch (NamingException | AccessDeniedException e) {
                 lastException = e;
             }
         }
@@ -152,7 +152,7 @@ public class LdapAuthenticator
             client.validatePassword(userDistinguishedName, credential.getPassword());
             log.debug("Authentication successful for user [%s]", user);
         }
-        catch (NamingException e) {
+        catch (NamingException | AccessDeniedException e) {
             log.debug(e, "Authentication failed for user [%s], %s", user, e.getMessage());
             throw new RuntimeException("Authentication error");
         }

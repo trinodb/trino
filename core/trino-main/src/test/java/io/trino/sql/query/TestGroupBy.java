@@ -155,4 +155,12 @@ public class TestGroupBy
                         "GROUP BY t.A + 1"))
                 .matches("VALUES 2");
     }
+
+    @Test
+    public void testGroupByRepeatedOrdinals()
+    {
+        assertThat(assertions.query(
+                "SELECT null GROUP BY 1, 1"))
+                .matches("VALUES null");
+    }
 }

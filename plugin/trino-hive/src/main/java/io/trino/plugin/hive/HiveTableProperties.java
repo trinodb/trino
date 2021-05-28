@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
@@ -29,8 +30,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
-import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -120,11 +119,11 @@ public class HiveTableProperties
                         false,
                         value -> ((List<?>) value).stream()
                                 .map(String.class::cast)
-                                .map(HiveTableProperties::sortingColumnFromString)
+                                .map(HiveUtil::sortingColumnFromString)
                                 .collect(toImmutableList()),
                         value -> ((List<?>) value).stream()
                                 .map(SortingColumn.class::cast)
-                                .map(HiveTableProperties::sortingColumnToString)
+                                .map(HiveUtil::sortingColumnToString)
                                 .collect(toImmutableList())),
                 new PropertyMetadata<>(
                         ORC_BLOOM_FILTER_COLUMNS,
@@ -272,25 +271,6 @@ public class HiveTableProperties
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s must be a single character string, but was: '%s'", key, stringValue));
         }
         return Optional.of(stringValue.charAt(0));
-    }
-
-    private static SortingColumn sortingColumnFromString(String name)
-    {
-        SortingColumn.Order order = ASCENDING;
-        String lower = name.toUpperCase(ENGLISH);
-        if (lower.endsWith(" ASC")) {
-            name = name.substring(0, name.length() - 4).trim();
-        }
-        else if (lower.endsWith(" DESC")) {
-            name = name.substring(0, name.length() - 5).trim();
-            order = DESCENDING;
-        }
-        return new SortingColumn(name, order);
-    }
-
-    private static String sortingColumnToString(SortingColumn column)
-    {
-        return column.getColumnName() + ((column.getOrder() == DESCENDING) ? " DESC" : "");
     }
 
     public static Optional<Boolean> isTransactional(Map<String, Object> tableProperties)

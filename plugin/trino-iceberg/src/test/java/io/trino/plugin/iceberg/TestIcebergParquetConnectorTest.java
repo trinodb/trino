@@ -11,13 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.jdbc;
+package io.trino.plugin.iceberg;
 
-import io.trino.jdbc.TrinoDriver;
+import static org.apache.iceberg.FileFormat.PARQUET;
 
-/**
- * @deprecated Use {@link TrinoDriver} instead.
- */
-@Deprecated
-public class PrestoDriver
-        extends TrinoDriver {}
+public class TestIcebergParquetConnectorTest
+        extends AbstractTestIcebergConnectorTest
+{
+    public TestIcebergParquetConnectorTest()
+    {
+        super(PARQUET);
+    }
+}

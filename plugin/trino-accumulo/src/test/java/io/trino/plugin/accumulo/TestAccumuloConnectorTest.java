@@ -71,6 +71,9 @@ public class TestAccumuloConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_CREATE_VIEW:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

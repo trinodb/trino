@@ -23,6 +23,7 @@ import io.trino.operator.aggregation.groupby.AggregationTestInput;
 import io.trino.operator.aggregation.groupby.AggregationTestInputBuilder;
 import io.trino.operator.aggregation.groupby.AggregationTestOutput;
 import io.trino.operator.aggregation.groupby.GroupByAggregationTestUtils;
+import io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -42,7 +43,6 @@ import java.util.Random;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction.NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -182,7 +182,7 @@ public class TestMultimapAggAggregation
 
     private static InternalAggregationFunction getInternalAggregationFunction(Type keyType, Type valueType)
     {
-        return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(keyType, valueType)));
+        return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(MultimapAggregationFunction.NAME), fromTypes(keyType, valueType)));
     }
 
     private static <K, V> void testMultimapAgg(InternalAggregationFunction aggFunc, Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)

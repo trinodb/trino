@@ -147,6 +147,15 @@ public class TestIcebergMaterializedViews
     }
 
     @Test
+    public void testDropIfExists()
+    {
+        assertQueryFails(
+                "DROP MATERIALIZED VIEW non_existing_materialized_view",
+                "line 1:1: Materialized view 'iceberg.tpch.non_existing_materialized_view' does not exist");
+        assertUpdate("DROP MATERIALIZED VIEW IF EXISTS non_existing_materialized_view");
+    }
+
+    @Test
     public void testDropDenyPermission()
     {
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_drop_deny AS SELECT * FROM base_table1");

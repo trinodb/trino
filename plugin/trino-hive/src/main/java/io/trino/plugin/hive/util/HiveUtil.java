@@ -32,6 +32,7 @@ import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.avro.TrinoAvroSerDe;
 import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
@@ -126,6 +127,8 @@ import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITI
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.HiveType.toHiveTypes;
+import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
+import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.util.ConfigurationUtils.copy;
 import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.util.HiveBucketing.bucketedOnTimestamp;
@@ -152,6 +155,7 @@ import static java.lang.Long.parseLong;
 import static java.lang.Short.parseShort;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
@@ -1025,5 +1029,24 @@ public final class HiveUtil
             }
         }
         return orcWriterOptions;
+    }
+
+    public static SortingColumn sortingColumnFromString(String name)
+    {
+        SortingColumn.Order order = ASCENDING;
+        String lower = name.toUpperCase(ENGLISH);
+        if (lower.endsWith(" ASC")) {
+            name = name.substring(0, name.length() - 4).trim();
+        }
+        else if (lower.endsWith(" DESC")) {
+            name = name.substring(0, name.length() - 5).trim();
+            order = DESCENDING;
+        }
+        return new SortingColumn(name, order);
+    }
+
+    public static String sortingColumnToString(SortingColumn column)
+    {
+        return column.getColumnName() + ((column.getOrder() == DESCENDING) ? " DESC" : "");
     }
 }

@@ -29,7 +29,6 @@ public class TestSqlServerConnectorTest
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        sqlServer.start();
         return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 

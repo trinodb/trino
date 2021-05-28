@@ -57,7 +57,7 @@ public class DropMaterializedViewTask
         Optional<ConnectorMaterializedViewDefinition> view = metadata.getMaterializedView(session, name);
         if (view.isEmpty()) {
             if (!statement.isExists()) {
-                throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", name);
+                throw semanticException(TABLE_NOT_FOUND, statement, "Materialized view '%s' does not exist", name);
             }
             return immediateFuture(null);
         }

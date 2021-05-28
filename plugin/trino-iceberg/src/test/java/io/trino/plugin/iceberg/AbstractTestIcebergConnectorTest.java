@@ -30,10 +30,12 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.TableStatistics;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import io.trino.transaction.TransactionBuilder;
 import org.apache.avro.Schema;
@@ -46,6 +48,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -91,15 +94,14 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public abstract class AbstractTestIcebergSmoke
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+public abstract class AbstractTestIcebergConnectorTest
+        extends BaseConnectorTest
 {
     private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
     private final FileFormat format;
 
-    protected AbstractTestIcebergSmoke(FileFormat format)
+    protected AbstractTestIcebergConnectorTest(FileFormat format)
     {
         this.format = requireNonNull(format, "format is null");
     }
@@ -108,7 +110,45 @@ public abstract class AbstractTestIcebergSmoke
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), format);
+        return createIcebergQueryRunner(ImmutableMap.of(), format, REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_RENAME_TABLE:
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
+                return true;
+
+            case SUPPORTS_DELETE:
+                return true;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Test
+    @Override
+    public void testDelete()
+    {
+        // Deletes are covered with testMetadata*Delete test methods
+        assertThatThrownBy(super::testDelete)
+                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+    }
+
+    @Test
+    @Override
+    public void testRenameTable()
+    {
+        // Iceberg table rename is not supported in FileHiveMetastore
+        // TODO add a test with a different metastore, or block rename in IcebergMetadata
+        assertThatThrownBy(super::testRenameTable)
+                .hasStackTraceContaining("Rename not supported for Iceberg tables");
     }
 
     @Test
@@ -166,6 +206,46 @@ public abstract class AbstractTestIcebergSmoke
                         "WITH (\n" +
                         "   format = '" + format.name() + "'\n" +
                         ")");
+    }
+
+    @Override
+    protected void checkInformationSchemaTablesForPointedQueryForMaterializedView(String schemaName, String viewName)
+    {
+        // TODO The query should not fail, obviously. It should return the viewName, as information_schema.tables returns it when invoked without filters
+        assertThatThrownBy(() -> super.checkInformationSchemaTablesForPointedQueryForMaterializedView(schemaName, viewName))
+                .hasMessageContaining("Not an Iceberg table");
+    }
+
+    @Override
+    protected void checkShowColumnsForMaterializedView(String viewName)
+    {
+        // TODO The query should not fail, obviously. It should return all the columns in the view
+        assertThatThrownBy(() -> super.checkShowColumnsForMaterializedView(viewName))
+                .hasMessageContaining("Not an Iceberg table");
+    }
+
+    @Override
+    protected void checkInformationSchemaColumnsForMaterializedView(String schemaName, String viewName)
+    {
+        // TODO The query should not fail, obviously. It should return columns for all tables, views, and materialized views
+        assertThatThrownBy(() -> super.checkInformationSchemaColumnsForMaterializedView(schemaName, viewName))
+                .hasMessageFindingMatch("(?s)Expecting.*to contain:.*, nationkey\\).*, name\\).*, regionkey\\).*, comment\\)");
+    }
+
+    @Override
+    protected void checkInformationSchemaColumnsForPointedQueryForMaterializedView(String schemaName, String viewName)
+    {
+        // TODO The query should not fail, obviously. It should return columns for the materialized view
+        assertThatThrownBy(() -> super.checkInformationSchemaColumnsForPointedQueryForMaterializedView(schemaName, viewName))
+                .hasMessageContaining("Not an Iceberg table");
+    }
+
+    @Override
+    protected void checkInformationSchemaViewsForMaterializedView(String schemaName, String viewName)
+    {
+        // TODO should probably return materialized view, as it's also a view -- to be double checked
+        assertThatThrownBy(() -> super.checkInformationSchemaViewsForMaterializedView(schemaName, viewName))
+                .hasMessageFindingMatch("(?s)Expecting.*to contain:.*\\Q[(" + viewName + ")]");
     }
 
     @Test
@@ -1785,5 +1865,48 @@ public abstract class AbstractTestIcebergSmoke
         assertQueryFails("SELECT * FROM test_iceberg_file_size", format("Error reading tail from .* with length %d", alteredValue));
 
         dropTable("test_iceberg_file_size");
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Iceberg connector does not support column default values");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("tinyint")
+                || typeName.equals("smallint")
+                || typeName.startsWith("char(")) {
+            // These types are not supported by Iceberg
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        // According to Iceberg specification all time and timestamp values are stored with microsecond precision.
+        if (typeName.equals("time")) {
+            return Optional.of(new DataMappingTestSetup("time(6)", "TIME '15:03:00'", "TIME '23:59:59.999999'"));
+        }
+
+        if (typeName.equals("timestamp")) {
+            return Optional.of(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999999'"));
+        }
+
+        if (typeName.equals("timestamp(3) with time zone")) {
+            return Optional.of(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999999 +12:00'"));
+        }
+
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("char(1)")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+        return Optional.of(dataMappingTestSetup);
     }
 }

@@ -386,6 +386,13 @@ public final class ValidateDependenciesChecker
                         node.getTiesResolvingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
             }
 
+            checkDependencies(
+                    source.getOutputSymbols(),
+                    node.getPreSortedInputs(),
+                    "Invalid node. Pre-sorted input column dependencies (%s) not in source plan output (%s)",
+                    node.getPreSortedInputs(),
+                    source.getOutputSymbols());
+
             return null;
         }
 

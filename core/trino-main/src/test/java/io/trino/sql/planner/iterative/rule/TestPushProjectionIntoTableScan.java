@@ -55,7 +55,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -181,13 +180,13 @@ public class TestPushProjectionIntoTableScan
                                             e -> e.getKey().getName(),
                                             e -> expression(symbolReference(e.getValue())))),
                             tableScan(
-                                    equalTo(new MockConnectorTableHandle(
+                                    new MockConnectorTableHandle(
                                             new SchemaTableName(TEST_SCHEMA, "projected_" + TEST_TABLE),
                                             TupleDomain.all(),
-                                            Optional.of(ImmutableList.copyOf(expectedColumns.values())))),
+                                            Optional.of(ImmutableList.copyOf(expectedColumns.values())))::equals,
                                     TupleDomain.all(),
                                     expectedColumns.entrySet().stream()
-                                            .collect(toImmutableMap(Map.Entry::getKey, e -> equalTo(e.getValue()))))));
+                                            .collect(toImmutableMap(Map.Entry::getKey, e -> e.getValue()::equals)))));
         }
     }
 

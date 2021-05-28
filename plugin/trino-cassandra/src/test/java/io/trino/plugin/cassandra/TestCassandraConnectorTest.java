@@ -161,14 +161,6 @@ public class TestCassandraConnectorTest
 
     @Test
     @Override
-    public void testRenameTable()
-    {
-        assertThatThrownBy(super::testRenameTable).hasMessage("This connector does not support renaming tables");
-        throw new SkipException("This connector does not support renaming tables");
-    }
-
-    @Test
-    @Override
     public void testAddColumn()
     {
         assertThatThrownBy(super::testAddColumn).hasMessage("This connector does not support adding columns");

@@ -122,6 +122,7 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:+ExplicitGCInvokesConcurrent
     -XX:+ExitOnOutOfMemoryError
     -XX:+HeapDumpOnOutOfMemoryError
+    -XX:-OmitStackTraceInFastThrow
     -XX:ReservedCodeCacheSize=512M
     -XX:PerMethodRecompilationCutoff=10000
     -XX:PerBytecodeRecompilationCutoff=10000

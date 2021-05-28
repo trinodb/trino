@@ -34,7 +34,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LookupSymbolResolver;
-import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -115,7 +114,6 @@ public class PushPredicateIntoTableScan
                 false,
                 context.getSession(),
                 context.getSymbolAllocator().getTypes(),
-                context.getIdAllocator(),
                 metadata,
                 typeOperators,
                 typeAnalyzer,
@@ -155,7 +153,6 @@ public class PushPredicateIntoTableScan
             boolean pruneWithPredicateExpression,
             Session session,
             TypeProvider types,
-            PlanNodeIdAllocator idAllocator,
             Metadata metadata,
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
@@ -179,7 +176,7 @@ public class PushPredicateIntoTableScan
                 types);
 
         TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
-                .transform(node.getAssignments()::get)
+                .transformKeys(node.getAssignments()::get)
                 .intersect(node.getEnforcedConstraint());
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
@@ -198,7 +195,7 @@ public class PushPredicateIntoTableScan
                             deterministicPredicate,
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
-                            domainTranslator.toPredicate(newDomain.simplify().transform(assignments::get))));
+                            domainTranslator.toPredicate(newDomain.simplify().transformKeys(assignments::get))));
             constraint = new Constraint(newDomain, evaluator::isCandidate, evaluator.getArguments());
         }
         else {
@@ -280,7 +277,7 @@ public class PushPredicateIntoTableScan
 
         Expression resultingPredicate = createResultingPredicate(
                 metadata,
-                domainTranslator.toPredicate(remainingFilter.transform(assignments::get)),
+                domainTranslator.toPredicate(remainingFilter.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());
 

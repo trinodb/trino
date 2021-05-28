@@ -36,7 +36,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.google.common.base.Predicates.equalTo;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.BUCKET_COUNT;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.COLUMN_A;
@@ -167,11 +166,11 @@ public class TestDetermineTableScanNodePartitioning
                 .withSession(session)
                 .matches(
                         tableScan(
-                                equalTo(connectorTableHandle),
+                                connectorTableHandle::equals,
                                 TupleDomain.all(),
                                 ImmutableMap.of(
-                                        "A", equalTo(COLUMN_HANDLE_A),
-                                        "B", equalTo(COLUMN_HANDLE_B)))
+                                        "A", COLUMN_HANDLE_A::equals,
+                                        "B", COLUMN_HANDLE_B::equals))
                                 .with(planWithTableNodePartitioning(expectedEnabled)));
     }
 
