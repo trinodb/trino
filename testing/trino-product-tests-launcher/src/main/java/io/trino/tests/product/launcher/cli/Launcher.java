@@ -105,6 +105,7 @@ public class Launcher
             subcommands = {
                     HelpCommand.class,
                     EnvironmentUp.class,
+                    EnvironmentDescribe.class,
                     EnvironmentDown.class,
                     EnvironmentList.class,
             })
