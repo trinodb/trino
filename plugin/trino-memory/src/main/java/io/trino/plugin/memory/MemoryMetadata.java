@@ -157,18 +157,10 @@ public class MemoryMetadata
     @Override
     public synchronized List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-
-        views.keySet().stream()
-                .filter(table -> schemaName.map(table.getSchemaName()::contentEquals).orElse(true))
-                .forEach(builder::add);
-
-        tables.values().stream()
+        return tables.values().stream()
                 .filter(table -> schemaName.map(table.getSchemaName()::contentEquals).orElse(true))
                 .map(TableInfo::getSchemaTableName)
-                .forEach(builder::add);
-
-        return builder.build();
+                .collect(toImmutableList());
     }
 
     @Override

@@ -192,7 +192,7 @@ public class TestMemoryMetadata
     }
 
     @Test
-    public void testCreatedViewShouldBeListedAsTable()
+    public void testCreatedViewShouldBeListedAsView()
     {
         String schemaName = "test";
         SchemaTableName viewName = new SchemaTableName(schemaName, "test_view");
@@ -200,8 +200,9 @@ public class TestMemoryMetadata
         metadata.createSchema(SESSION, schemaName, ImmutableMap.of(), new TrinoPrincipal(USER, SESSION.getUser()));
         metadata.createView(SESSION, viewName, testingViewDefinition("aaa"), true);
 
-        assertThat(metadata.listTables(SESSION, Optional.of(schemaName)))
-                .contains(viewName);
+        assertThat(metadata.listTables(SESSION, Optional.of(schemaName))).isEmpty();
+        assertThat(metadata.listViews(SESSION, Optional.of(schemaName)))
+                .containsExactly(viewName);
     }
 
     @Test
