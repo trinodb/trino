@@ -18,6 +18,8 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public interface HiveMaterializedViewMetadata
@@ -25,6 +27,10 @@ public interface HiveMaterializedViewMetadata
     void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
 
     void dropMaterializedView(ConnectorSession session, SchemaTableName viewName);
+
+    List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName);
+
+    Map<SchemaTableName, ConnectorMaterializedViewDefinition> getMaterializedViews(ConnectorSession session, Optional<String> schemaName);
 
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
