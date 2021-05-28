@@ -731,7 +731,10 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testView()
     {
-        skipTestUnless(supportsViews());
+        if (!supportsViews()) {
+            assertQueryFails("CREATE VIEW nation_v AS SELECT * FROM nation", "This connector does not support creating views");
+            return;
+        }
 
         @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
 

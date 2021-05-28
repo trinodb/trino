@@ -121,6 +121,10 @@ public abstract class AbstractTestIcebergConnectorTest
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
+                return true;
+
             case SUPPORTS_DELETE:
                 return true;
             default:
@@ -142,6 +146,7 @@ public abstract class AbstractTestIcebergConnectorTest
     public void testRenameTable()
     {
         // Iceberg table rename is not supported in FileHiveMetastore
+        // TODO add a test with a different metastore, or block rename in IcebergMetadata
         assertThatThrownBy(super::testRenameTable)
                 .hasStackTraceContaining("Rename not supported for Iceberg tables");
     }
@@ -201,6 +206,46 @@ public abstract class AbstractTestIcebergConnectorTest
                         "WITH (\n" +
                         "   format = '" + format.name() + "'\n" +
                         ")");
+    }
+
+    @Override
+    protected void checkInformationSchemaTablesForPointedQueryForMaterializedView(String schemaName, String viewName)
+    {
+        // TODO The query should not fail, obviously. It should return the viewName, as information_schema.tables returns it when invoked without filters
+        assertThatThrownBy(() -> super.checkInformationSchemaTablesForPointedQueryForMaterializedView(schemaName, viewName))
+                .hasMessageContaining("Not an Iceberg table");
+    }
+
+    @Override
+    protected void checkShowColumnsForMaterializedView(String viewName)
+    {
+        // TODO The query should not fail, obviously. It should return all the columns in the view
+        assertThatThrownBy(() -> super.checkShowColumnsForMaterializedView(viewName))
+                .hasMessageContaining("Not an Iceberg table");
+    }
+
+    @Override
+    protected void checkInformationSchemaColumnsForMaterializedView(String schemaName, String viewName)
+    {
+        // TODO The query should not fail, obviously. It should return columns for all tables, views, and materialized views
+        assertThatThrownBy(() -> super.checkInformationSchemaColumnsForMaterializedView(schemaName, viewName))
+                .hasMessageFindingMatch("(?s)Expecting.*to contain:.*, nationkey\\).*, name\\).*, regionkey\\).*, comment\\)");
+    }
+
+    @Override
+    protected void checkInformationSchemaColumnsForPointedQueryForMaterializedView(String schemaName, String viewName)
+    {
+        // TODO The query should not fail, obviously. It should return columns for the materialized view
+        assertThatThrownBy(() -> super.checkInformationSchemaColumnsForPointedQueryForMaterializedView(schemaName, viewName))
+                .hasMessageContaining("Not an Iceberg table");
+    }
+
+    @Override
+    protected void checkInformationSchemaViewsForMaterializedView(String schemaName, String viewName)
+    {
+        // TODO should probably return materialized view, as it's also a view -- to be double checked
+        assertThatThrownBy(() -> super.checkInformationSchemaViewsForMaterializedView(schemaName, viewName))
+                .hasMessageFindingMatch("(?s)Expecting.*to contain:.*\\Q[(" + viewName + ")]");
     }
 
     @Test

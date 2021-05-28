@@ -203,6 +203,13 @@ public class TestHiveConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_CREATE_VIEW:
+                return true;
+
+            case SUPPORTS_DELETE:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -211,7 +218,8 @@ public class TestHiveConnectorTest
     @Override
     public void testDelete()
     {
-        throw new SkipException("Hive connector supports row-by-row delete only for ACID tables but these currently cannot be used with file metastore.");
+        assertThatThrownBy(super::testDelete)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
     }
 
     @Test
