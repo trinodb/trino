@@ -346,15 +346,19 @@ jobs:
                || contains(github.event.pull_request.labels.*.name, 'tests:hive')
                }}
 
-          - config: hdp3
+          # Exclude *-non-generic for `default`, leave them included for `hdp3`. This is because `default` gets excluded from PR builds by default.
+          # as hdp3 is faster and provides better test coverage (e.g. Hive transactional tables).
+          # TODO remap: make `default` use hdp3 and let's introduce `hdp2` for what is currently default. Then we can exclude `hdp2` here and keep `default`, which
+          # feels more correct.
+          - config: default
             suite: suite-6-non-generic
-          - config: hdp3
+          - config: default
             suite: suite-7-non-generic
-          - config: hdp3
+          - config: default
             suite: suite-8-non-generic
-          - config: hdp3
+          - config: default
             suite: suite-tpcds
-          - config: hdp3
+          - config: default
             suite: suite-oauth2
 
           - config: cdh5

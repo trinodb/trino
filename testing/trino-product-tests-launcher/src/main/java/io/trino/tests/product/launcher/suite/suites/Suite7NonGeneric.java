@@ -15,7 +15,6 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationCrossRealm;
 import io.trino.tests.product.launcher.env.environment.SinglenodeLdapBindDn;
 import io.trino.tests.product.launcher.env.environment.SinglenodeMysql;
@@ -30,7 +29,6 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class Suite7NonGeneric
@@ -39,7 +37,8 @@ public class Suite7NonGeneric
     @Override
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
-        verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
+        // TODO uncomment when the *-non-generic suites are run with `default` configuraton in ci.yml
+        //verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         return ImmutableList.of(
                 testOnEnvironment(SinglenodeMysql.class).withGroups("mysql").build(),
