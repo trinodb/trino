@@ -171,7 +171,7 @@ Values of this type are rendered using the time zone from the value.
 Time zones are expressed as the numeric UTC offset value:
 
     SELECT TIME '01:02:03.456 -08:00';
-    == 1:02:03.456-08:00
+    -- 1:02:03.456-08:00
 
 .. _timestamp-data-type:
 
@@ -232,7 +232,7 @@ type are rendered using the time zone from the value.
 Time zones are expressed as the numeric UTC offset value:
 
     TIMESTAMP '2001-08-22 03:04:05.321 -08:00';
-    == 2001-08-22 03:04:05.321-08:00
+    -- 2001-08-22 03:04:05.321-08:00
 
 
 ``INTERVAL YEAR TO MONTH``
