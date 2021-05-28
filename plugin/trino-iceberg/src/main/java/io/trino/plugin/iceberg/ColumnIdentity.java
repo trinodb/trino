@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,6 +41,7 @@ public class ColumnIdentity
     private final TypeCategory typeCategory;
     // Underlying ImmutableMap is used to maintain the column ordering
     private final Map<Integer, ColumnIdentity> children;
+    private final Map<Integer, Integer> childFieldIdToIndex;
 
     @JsonCreator
     public ColumnIdentity(
@@ -56,10 +58,14 @@ public class ColumnIdentity
                 children.isEmpty() == (typeCategory == PRIMITIVE),
                 "Children should be empty if and only if column type is primitive");
         ImmutableMap.Builder<Integer, ColumnIdentity> childrenBuilder = ImmutableMap.builder();
-        for (ColumnIdentity child : children) {
+        ImmutableMap.Builder<Integer, Integer> childFieldIdToIndex = ImmutableMap.builder();
+        for (int i = 0; i < children.size(); i++) {
+            ColumnIdentity child = children.get(i);
             childrenBuilder.put(child.getId(), child);
+            childFieldIdToIndex.put(child.getId(), i);
         }
         this.children = childrenBuilder.build();
+        this.childFieldIdToIndex = childFieldIdToIndex.build();
     }
 
     @JsonProperty
@@ -84,6 +90,20 @@ public class ColumnIdentity
     public List<ColumnIdentity> getChildren()
     {
         return ImmutableList.copyOf(children.values());
+    }
+
+    @JsonIgnore
+    public ColumnIdentity getChildByFieldId(int fieldId)
+    {
+        checkArgument(children.containsKey(fieldId), "ColumnIdentity %s does not contain child with field id %s", this, fieldId);
+        return children.get(fieldId);
+    }
+
+    @JsonIgnore
+    public int getChildIndexByFieldId(int fieldId)
+    {
+        checkArgument(childFieldIdToIndex.containsKey(fieldId), "ColumnIdentity %s does not contain child with field id %s", this, fieldId);
+        return childFieldIdToIndex.get(fieldId);
     }
 
     @Override
