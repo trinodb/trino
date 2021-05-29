@@ -22,6 +22,7 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.SortNode;
 
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.plan.Patterns.Limit.requiresPreSortedInputs;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.sort;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -53,6 +54,7 @@ public class RemoveRedundantSortBelowLimitWithTies
 
     private static final Pattern<LimitNode> PATTERN = limit()
             .matching(LimitNode::isWithTies)
+            .with(requiresPreSortedInputs().equalTo(false))
             .with(source().matching(sort().capturedAs(SORT)));
 
     @Override

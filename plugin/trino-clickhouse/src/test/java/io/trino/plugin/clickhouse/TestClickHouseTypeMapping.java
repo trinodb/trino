@@ -25,6 +25,7 @@ import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import io.trino.type.UuidType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -320,11 +321,15 @@ public class TestClickHouseTypeMapping
     public void testUuid()
     {
         SqlDataTypeTest.create()
-                // TODO map to Trino UUID
-                .addRoundTrip("UUID", "'417ddc5d-e556-4d27-95dd-a34d84e46a50'", createUnboundedVarcharType(), "CAST('417ddc5d-e556-4d27-95dd-a34d84e46a50' AS varchar)")
-                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_uuid"));
+                .addRoundTrip("Nullable(UUID)", "NULL", UuidType.UUID, "CAST(NULL AS UUID)")
+                .addRoundTrip("Nullable(UUID)", "'114514ea-0601-1981-1142-e9b55b0abd6d'", UuidType.UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS UUID)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("default.ck_test_uuid"));
 
-        // TODO add test with UUID written from Trino
+        SqlDataTypeTest.create()
+                .addRoundTrip("CAST(NULL AS UUID)", "cast(NULL as UUID)")
+                .addRoundTrip("UUID '114514ea-0601-1981-1142-e9b55b0abd6d'", "CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS UUID)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("default.ck_test_uuid"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("default.ck_test_uuid"));
     }
 
     @Test
@@ -348,6 +353,16 @@ public class TestClickHouseTypeMapping
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup clickhouseCreateAndInsert(String tableNamePrefix)

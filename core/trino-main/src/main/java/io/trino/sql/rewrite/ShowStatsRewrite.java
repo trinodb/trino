@@ -46,7 +46,6 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Query;
-import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.ShowStats;
@@ -68,7 +67,6 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
-import static io.trino.sql.QueryUtil.query;
 import static io.trino.sql.QueryUtil.selectAll;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
@@ -124,8 +122,7 @@ public class ShowStatsRewrite
             checkState(queryExplainer.isPresent(), "Query explainer must be provided for SHOW STATS SELECT");
 
             Query query = getRelation(node);
-            QuerySpecification specification = (QuerySpecification) query.getQueryBody();
-            Plan plan = queryExplainer.get().getLogicalPlan(session, query(specification), parameters, warningCollector);
+            Plan plan = queryExplainer.get().getLogicalPlan(session, query, parameters, warningCollector);
             CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, plan.getTypes());
             PlanNodeStatsEstimate stats = cachingStatsProvider.getStats(plan.getRoot());
             return rewriteShowStats(plan, stats);

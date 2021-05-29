@@ -11,7 +11,7 @@ read the data from the tables.
 Beta disclaimer
 ---------------
 
-The BigQuery Storage API and this connector are in Beta and are subject to change.
+This connector is in Beta and is subject to change.
 
 Changes may include, but are not limited to:
 

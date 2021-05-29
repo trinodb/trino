@@ -40,7 +40,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.google.common.base.Predicates.equalTo;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -323,11 +322,11 @@ public class TestPushDownDereferencesRules
                                                 "a", PlanMatchPattern.expression("a"),
                                                 "b", PlanMatchPattern.expression("b")),
                                         tableScan(
-                                                equalTo(testTable.getConnectorHandle()),
+                                                testTable.getConnectorHandle()::equals,
                                                 TupleDomain.all(),
                                                 ImmutableMap.of(
-                                                        "a", equalTo(new TpchColumnHandle("a", nestedRowType)),
-                                                        "b", equalTo(new TpchColumnHandle("b", ROW_TYPE))))))));
+                                                        "a", new TpchColumnHandle("a", nestedRowType)::equals,
+                                                        "b", new TpchColumnHandle("b", ROW_TYPE)::equals))))));
     }
 
     @Test
@@ -381,6 +380,43 @@ public class TestPushDownDereferencesRules
                                 limit(
                                         10,
                                         ImmutableList.of(sort("msg2", ASCENDING, FIRST)),
+                                        strictProject(
+                                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                                        .put("x", PlanMatchPattern.expression("msg1[1]"))
+                                                        .put("z", PlanMatchPattern.expression("z"))
+                                                        .put("msg1", PlanMatchPattern.expression("msg1"))
+                                                        .put("msg2", PlanMatchPattern.expression("msg2"))
+                                                        .build(),
+                                                values("msg1", "msg2", "z")))));
+    }
+
+    @Test
+    public void testPushDownDereferenceThroughLimitWithPreSortedInputs()
+    {
+        tester().assertThat(new PushDownDereferencesThroughLimit(tester().getTypeAnalyzer()))
+                .on(p -> p.project(
+                        Assignments.builder()
+                                .put(p.symbol("msg1_x"), expression("msg1[1]"))
+                                .put(p.symbol("msg2_y"), expression("msg2[2]"))
+                                .put(p.symbol("z"), expression("z"))
+                                .build(),
+                        p.limit(
+                                10,
+                                false,
+                                ImmutableList.of(p.symbol("msg2", ROW_TYPE)),
+                                p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE), p.symbol("z")))))
+                .matches(
+                        strictProject(
+                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                        .put("msg1_x", PlanMatchPattern.expression("x"))
+                                        .put("msg2_y", PlanMatchPattern.expression("msg2[2]"))
+                                        .put("z", PlanMatchPattern.expression("z"))
+                                        .build(),
+                                limit(
+                                        10,
+                                        ImmutableList.of(),
+                                        false,
+                                        ImmutableList.of("msg2"),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("x", PlanMatchPattern.expression("msg1[1]"))

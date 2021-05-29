@@ -90,6 +90,7 @@ import static io.trino.SystemSessionProperties.ignoreDownStreamPreferences;
 import static io.trino.SystemSessionProperties.isColocatedJoinEnabled;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
 import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
+import static io.trino.SystemSessionProperties.isUsePartialDistinctLimit;
 import static io.trino.sql.planner.FragmentTableScanCounter.countSources;
 import static io.trino.sql.planner.FragmentTableScanCounter.hasMultipleSources;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -442,6 +443,23 @@ public class AddExchanges
                     return rebaseAndDeriveProperties(node, child);
                 case PARTIAL:
                     child = planChild(node, PreferredProperties.any());
+                    // If source is pre-sorted, partial topN can be replaced with partial limit N.
+                    // We record the pre-sorted symbols in LimitNode to avoid pushdown of such replaced LimitNode
+                    // through the source which was producing ordered input.
+                    List<LocalProperty<Symbol>> desiredProperties = node.getOrderingScheme().toLocalProperties();
+                    boolean sortingSatisfied = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
+                            .allMatch(Optional::isEmpty);
+                    if (sortingSatisfied) {
+                        return withDerivedProperties(
+                                new LimitNode(
+                                        node.getId(),
+                                        child.getNode(),
+                                        node.getCount(),
+                                        Optional.empty(),
+                                        true,
+                                        node.getOrderingScheme().getOrderBy()),
+                                child.getProperties());
+                    }
                     return rebaseAndDeriveProperties(node, child);
             }
             throw new UnsupportedOperationException(format("Unsupported step for TopN [%s]", node.getStep()));
@@ -517,7 +535,7 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
-            if (!child.getProperties().isSingleNode()) {
+            if (!child.getProperties().isSingleNode() && isUsePartialDistinctLimit(session)) {
                 child = withDerivedProperties(
                         gatheringExchange(
                                 idAllocator.getNextId(),
@@ -539,7 +557,6 @@ public class AddExchanges
                         true,
                         session,
                         types,
-                        idAllocator,
                         metadata,
                         typeOperators,
                         typeAnalyzer,

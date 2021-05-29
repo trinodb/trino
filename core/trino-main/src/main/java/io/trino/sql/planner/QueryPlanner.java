@@ -827,17 +827,24 @@ class QueryPlanner
 
     private OrderingScheme translateOrderingScheme(List<SortItem> items, Function<Expression, Symbol> coercions)
     {
-        List<Symbol> symbols = items.stream()
+        List<Symbol> coerced = items.stream()
                 .map(SortItem::getSortKey)
                 .map(coercions)
                 .collect(toImmutableList());
 
-        ImmutableMap.Builder<Symbol, SortOrder> orders = ImmutableMap.builder();
-        for (int i = 0; i < symbols.size(); i++) {
-            orders.put(symbols.get(i), OrderingScheme.sortItemToSortOrder(items.get(i)));
+        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+        Map<Symbol, SortOrder> orders = new HashMap<>();
+        for (int i = 0; i < coerced.size(); i++) {
+            Symbol symbol = coerced.get(i);
+            // for multiple sort items based on the same expression, retain the first one:
+            // ORDER BY x DESC, x ASC, y --> ORDER BY x DESC, y
+            if (!orders.containsKey(symbol)) {
+                symbols.add(symbol);
+                orders.put(symbol, OrderingScheme.sortItemToSortOrder(items.get(i)));
+            }
         }
 
-        return new OrderingScheme(symbols, orders.build());
+        return new OrderingScheme(symbols.build(), orders);
     }
 
     private List<Set<FieldId>> enumerateGroupingSets(GroupingSetAnalysis groupingSetAnalysis)
@@ -1310,24 +1317,27 @@ class QueryPlanner
         Assignments.Builder assignments = Assignments.builder();
         assignments.putIdentities(subPlan.getRoot().getOutputSymbols());
 
-        ImmutableMap.Builder<NodeRef<Expression>, Symbol> mappings = ImmutableMap.builder();
+        Map<NodeRef<Expression>, Symbol> mappings = new HashMap<>();
         for (Expression expression : expressions) {
             Type coercion = analysis.getCoercion(expression);
 
-            if (coercion != null) {
-                Type type = analysis.getType(expression);
-                Symbol symbol = symbolAllocator.newSymbol(expression, coercion);
+            // expressions may be repeated, for example, when resolving ordinal references in a GROUP BY clause
+            if (!mappings.containsKey(NodeRef.of(expression))) {
+                if (coercion != null) {
+                    Type type = analysis.getType(expression);
+                    Symbol symbol = symbolAllocator.newSymbol(expression, coercion);
 
-                assignments.put(symbol, new Cast(
-                        subPlan.rewrite(expression),
-                        toSqlType(coercion),
-                        false,
-                        typeCoercion.isTypeOnlyCoercion(type, coercion)));
+                    assignments.put(symbol, new Cast(
+                            subPlan.rewrite(expression),
+                            toSqlType(coercion),
+                            false,
+                            typeCoercion.isTypeOnlyCoercion(type, coercion)));
 
-                mappings.put(NodeRef.of(expression), symbol);
-            }
-            else {
-                mappings.put(NodeRef.of(expression), subPlan.translate(expression));
+                    mappings.put(NodeRef.of(expression), symbol);
+                }
+                else {
+                    mappings.put(NodeRef.of(expression), subPlan.translate(expression));
+                }
             }
         }
 
@@ -1337,7 +1347,7 @@ class QueryPlanner
                         subPlan.getRoot(),
                         assignments.build()));
 
-        return new PlanAndMappings(subPlan, mappings.build());
+        return new PlanAndMappings(subPlan, mappings);
     }
 
     public static Expression coerceIfNecessary(Analysis analysis, Expression original, Expression rewritten)
@@ -1481,7 +1491,8 @@ class QueryPlanner
                             subPlan.getRoot(),
                             analysis.getLimit(limit.get()).getAsLong(),
                             tiesResolvingScheme,
-                            false));
+                            false,
+                            ImmutableList.of()));
         }
         return subPlan;
     }
@@ -1530,7 +1541,7 @@ class QueryPlanner
         public PlanAndMappings(PlanBuilder subPlan, Map<NodeRef<Expression>, Symbol> mappings)
         {
             this.subPlan = subPlan;
-            this.mappings = mappings;
+            this.mappings = ImmutableMap.copyOf(mappings);
         }
 
         public PlanBuilder getSubPlan()

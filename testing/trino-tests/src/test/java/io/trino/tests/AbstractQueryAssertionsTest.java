@@ -228,12 +228,6 @@ public abstract class AbstractQueryAssertionsTest
                                 "\n" +
                                 "] but found [\n" +
                                 "\n" +
-                                "Output[name]\n")
-                .hasMessageContaining(
-                        "\n" +
-                                "\n" +
-                                "] which resolves to [\n" +
-                                "\n" +
                                 "Output[name]\n");
     }
 
@@ -263,12 +257,6 @@ public abstract class AbstractQueryAssertionsTest
                                 "\n" +
                                 "] but found [\n" +
                                 "\n" +
-                                "Output[_col0]\n")
-                .hasMessageContaining(
-                        "\n" +
-                                "\n" +
-                                "] which resolves to [\n" +
-                                "\n" +
                                 "Output[_col0]\n");
     }
 
@@ -288,12 +276,6 @@ public abstract class AbstractQueryAssertionsTest
                         "\n" +
                                 "\n" +
                                 "] but found [\n" +
-                                "\n" +
-                                "Output[name]\n")
-                .hasMessageContaining(
-                        "\n" +
-                                "\n" +
-                                "] which resolves to [\n" +
                                 "\n" +
                                 "Output[name]\n");
     }

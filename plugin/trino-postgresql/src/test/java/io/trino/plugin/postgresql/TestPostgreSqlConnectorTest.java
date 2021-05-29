@@ -154,7 +154,7 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
-    public void testMaterializedView()
+    public void testPostgreSqlMaterializedView()
             throws Exception
     {
         execute("CREATE MATERIALIZED VIEW test_mv as SELECT * FROM orders");

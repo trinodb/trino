@@ -21,9 +21,11 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
@@ -303,11 +305,11 @@ public abstract class BaseConnectorSmokeTest
                 .matches("VALUES 'regionkey', 'name', 'comment'");
     }
 
+    // SHOW CREATE TABLE exercises table properties and comments, which may be skipped during regular SELECT execution
     @Test
     public void testShowCreateTable()
     {
-        // SHOW CREATE TABLE exercises table properties and comments, which may be skipped during regular SELECT execution
-        assertThat((String) computeActual("SHOW CREATE TABLE region").getOnlyValue())
+        assertThat((String) computeScalar("SHOW CREATE TABLE region"))
                 .matches(format(
                         "CREATE TABLE %s.%s.region \\(\n" +
                                 "   regionkey (bigint|decimal\\(19, 0\\)),\n" +
@@ -316,5 +318,63 @@ public abstract class BaseConnectorSmokeTest
                                 "\\)",
                         Pattern.quote(getSession().getCatalog().orElseThrow()),
                         Pattern.quote(getSession().getSchema().orElseThrow())));
+    }
+
+    @Test
+    public void testView()
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_VIEW)) {
+            assertQueryFails("CREATE VIEW nation_v AS SELECT * FROM nation", "This connector does not support creating views");
+            return;
+        }
+
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
+        String viewName = "test_view_" + randomTableSuffix();
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM nation");
+
+        assertThat(query("SELECT * FROM " + viewName))
+                .skippingTypesCheck()
+                .matches("SELECT * FROM nation");
+
+        assertThat(((String) computeScalar("SHOW CREATE VIEW " + viewName)))
+                .matches("(?s)" +
+                        "CREATE VIEW \\Q" + catalogName + "." + schemaName + "." + viewName + "\\E" +
+                        ".* AS\n" +
+                        "SELECT \\*\n" +
+                        "FROM\n" +
+                        "  nation");
+
+        assertUpdate("DROP  VIEW " + viewName);
+    }
+
+    @Test
+    public void testMaterializedView()
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
+            assertQueryFails("CREATE MATERIALIZED VIEW nation_mv AS SELECT * FROM nation", "This connector does not support creating materialized views");
+            return;
+        }
+
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
+        String viewName = "test_materialized_view_" + randomTableSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+
+        // reading
+        assertThat(query("SELECT * FROM " + viewName))
+                .skippingTypesCheck()
+                .matches("SELECT * FROM nation");
+
+        // details
+        assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName)))
+                .matches("(?s)" +
+                        "CREATE MATERIALIZED VIEW \\Q" + catalogName + "." + schemaName + "." + viewName + "\\E" +
+                        ".* AS\n" +
+                        "SELECT \\*\n" +
+                        "FROM\n" +
+                        "  nation");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + viewName);
     }
 }

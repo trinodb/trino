@@ -45,10 +45,11 @@ including Cloudera CDH 5 and Hortonworks Data Platform (HDP).
 Many distributed storage systems including HDFS,
 :doc:`Amazon S3 <hive-s3>` or S3-compatible systems,
 `Google Cloud Storage <#google-cloud-storage-configuration>`__,
-and :doc:`Azure Storage <hive-azure>`.
+and :doc:`Azure Storage <hive-azure>` can be queried with the Hive connector.
 
 The coordinator and all workers must have network access to the Hive metastore
-and the storage system.
+and the storage system. Hive metastore access with the Thrift protocol defaults
+to using port 9083.
 
 Supported file types
 --------------------

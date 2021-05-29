@@ -352,7 +352,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testShowCreateTable()
     {
-        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+        assertThat((String) computeScalar("SHOW CREATE TABLE orders"))
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
                 .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
                         "   orderkey bigint,\n" +

@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.memory;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -21,6 +23,8 @@ import org.testng.annotations.Test;
 
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
+import static io.trino.tpch.TpchTable.NATION;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -32,7 +36,9 @@ public class TestMemoryWorkerCrash
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return MemoryQueryRunner.createQueryRunner();
+        return createMemoryQueryRunner(
+                ImmutableMap.of(),
+                ImmutableList.of(NATION));
     }
 
     @Test

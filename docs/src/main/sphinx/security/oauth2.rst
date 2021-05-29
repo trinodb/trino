@@ -98,6 +98,9 @@ The following configuration properties are available:
    * - ``http-server.authentication.oauth2.user-mapping.file``
      - File containing rules for mapping user. See :doc:`/security/user-mapping`
        for more information.
+   * - ``http-server.authentication.oauth2.principal-field``
+     - The field of the access token used for the Trino user principal. Defaults to ``sub``. Other commonly used fields include ``sAMAccountName``, ``name``, ``upn``, and ``email``.
+
 
 Troubleshooting
 ---------------

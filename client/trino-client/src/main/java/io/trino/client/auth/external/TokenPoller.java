@@ -19,4 +19,6 @@ import java.time.Duration;
 public interface TokenPoller
 {
     TokenPollResult pollForToken(URI tokenUri, Duration timeout);
+
+    void tokenReceived(URI tokenUri);
 }

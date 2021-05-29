@@ -21,7 +21,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.connector.DynamicFilter;
 
 import javax.inject.Inject;
 
@@ -47,7 +47,7 @@ public class MongoPageSourceProvider
             ConnectorSplit split,
             ConnectorTableHandle table,
             List<ColumnHandle> columns,
-            TupleDomain<ColumnHandle> dynamicFilter)
+            DynamicFilter dynamicFilter)
     {
         MongoTableHandle tableHandle = (MongoTableHandle) table;
 

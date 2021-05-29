@@ -14,7 +14,6 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.Symbol;
@@ -272,13 +271,7 @@ public final class ExpressionUtils
         return combineConjuncts(metadata, conjuncts);
     }
 
-    public static boolean referencesAny(Expression expression, Collection<Symbol> variables)
-    {
-        Set<Symbol> references = SymbolsExtractor.extractUnique(expression);
-
-        return variables.stream().anyMatch(references::contains);
-    }
-
+    @SafeVarargs
     public static Function<Expression, Expression> expressionOrNullSymbols(Predicate<Symbol>... nullSymbolScopes)
     {
         return expression -> {
@@ -290,7 +283,7 @@ public final class ExpressionUtils
                         .filter(nullSymbolScope)
                         .collect(toImmutableList());
 
-                if (Iterables.isEmpty(symbols)) {
+                if (symbols.isEmpty()) {
                     continue;
                 }
 

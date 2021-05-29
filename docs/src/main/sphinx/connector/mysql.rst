@@ -6,6 +6,16 @@ The MySQL connector allows querying and creating tables in an external
 `MySQL <https://www.mysql.com/>`_ instance. This can be used to join data between different
 systems like MySQL and Hive, or between two different MySQL instances.
 
+Requirements
+------------
+
+Requirements for using the connector in a catalog to connect to a MySQL data
+source are:
+
+* MySQL 5.6, 5.7, 8.0 and higher
+* Network access, by default on port 3306, from the Trino coordinator and
+  workers to MySQL.
+
 Configuration
 -------------
 

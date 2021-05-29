@@ -12,6 +12,8 @@ package io.trino.plugin.jdbc.mapping;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -41,5 +43,24 @@ public class SchemaMappingRule
     public String getMapping()
     {
         return mapping;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SchemaMappingRule that = (SchemaMappingRule) o;
+        return remoteSchema.equals(that.remoteSchema) && mapping.equals(that.mapping);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(remoteSchema, mapping);
     }
 }

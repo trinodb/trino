@@ -6066,6 +6066,21 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery(session, "SELECT * FROM (SELECT * FROM nation WHERE nationkey < -1) a RIGHT JOIN nation b ON a.nationkey = b.nationkey");
     }
 
+    /**
+     * Regression test for https://github.com/trinodb/trino/pull/7723.
+     */
+    @Test
+    public void testJoinWithNonOrderableType()
+    {
+        assertThat(query("SELECT b.mapped FROM (SELECT 'trino' AS name) a " +
+                "LEFT JOIN ( " +
+                "  SELECT " +
+                "    split(CAST(JSON '{\"key\": {\"name\": \"trino\"}}' AS map(varchar, map(varchar, varchar)))['key']['name'], ',') AS names, " +
+                "    CAST(JSON '{\"key\": {\"name\": \"trino\"}}' AS map(varchar, map(varchar, varchar)))['key'] mapped " +
+                ") b ON contains(b.names, a.name)"))
+                .matches("SELECT CAST(map(ARRAY['name'], ARRAY['trino']) AS map(varchar, varchar))");
+    }
+
     private static ZonedDateTime zonedDateTime(String value)
     {
         return ZONED_DATE_TIME_FORMAT.parse(value, ZonedDateTime::from);

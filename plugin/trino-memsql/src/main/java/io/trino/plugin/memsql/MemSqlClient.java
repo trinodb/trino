@@ -166,7 +166,7 @@ public class MemSqlClient
         }
 
         // TODO add explicit mappings
-        return legacyToPrestoType(session, connection, typeHandle);
+        return legacyColumnMapping(session, connection, typeHandle);
     }
 
     @Override

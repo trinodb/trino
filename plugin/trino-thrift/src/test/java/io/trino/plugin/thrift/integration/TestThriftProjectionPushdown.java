@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.driftServerPort;
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.startThriftServers;
@@ -196,9 +195,9 @@ public class TestThriftProjectionPushdown
                 .matches(project(
                         ImmutableMap.of("expr_2", expression(new SymbolReference(columnName))),
                         tableScan(
-                                equalTo(projectedThriftHandle),
+                                projectedThriftHandle::equals,
                                 TupleDomain.all(),
-                                ImmutableMap.of(columnName, equalTo(columnHandle)))));
+                                ImmutableMap.of(columnName, columnHandle::equals))));
     }
 
     @Test
@@ -229,12 +228,12 @@ public class TestThriftProjectionPushdown
                 .matches(project(
                         ImmutableMap.of("expr", expression(new SymbolReference(nationKeyColumn.getColumnName()))),
                         tableScan(
-                                equalTo(new ThriftTableHandle(
+                                new ThriftTableHandle(
                                         TINY_SCHEMA,
                                         "nation",
                                         TupleDomain.all(),
-                                        Optional.of(ImmutableSet.of(nationKeyColumn)))),
+                                        Optional.of(ImmutableSet.of(nationKeyColumn)))::equals,
                                 TupleDomain.all(),
-                                ImmutableMap.of(nationKeyColumn.getColumnName(), equalTo(nationKeyColumn)))));
+                                ImmutableMap.of(nationKeyColumn.getColumnName(), nationKeyColumn::equals))));
     }
 }

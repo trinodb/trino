@@ -21,8 +21,8 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordPageSource;
-import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 
@@ -45,7 +45,7 @@ public class RecordPageSourceProvider
             ConnectorSplit split,
             ConnectorTableHandle table,
             List<ColumnHandle> columns,
-            TupleDomain<ColumnHandle> dynamicFilter)
+            DynamicFilter dynamicFilter)
     {
         return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, table, columns));
     }

@@ -34,6 +34,7 @@ import static org.testng.Assert.assertEquals;
 // Some tests here create colliding names which can cause any other concurrent test to fail.
 @Test(singleThreaded = true)
 public class TestOracleCaseInsensitiveMapping
+        // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
         extends AbstractTestQueryFramework
 {
     private TestingOracleServer oracleServer;

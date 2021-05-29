@@ -13,69 +13,39 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.List;
 import java.util.Map;
 
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanRedirectApplicationResult
 {
-    private final List<Redirection> redirections;
+    private final CatalogSchemaTableName destinationTable;
+    // mapping of source table handles to destination table columns
+    private final Map<ColumnHandle, String> destinationColumns;
+    // filter that needs to be applied on top of table scan
+    private final TupleDomain<String> filter;
 
     public TableScanRedirectApplicationResult(CatalogSchemaTableName destinationTable, Map<ColumnHandle, String> destinationColumns, TupleDomain<String> filter)
     {
-        this.redirections = singletonList(new Redirection(destinationTable, destinationColumns, filter));
+        this.destinationTable = requireNonNull(destinationTable, "destinationTable is null");
+        this.destinationColumns = Map.copyOf(requireNonNull(destinationColumns, "destinationColumns is null"));
+        this.filter = requireNonNull(filter, "filter is null");
     }
 
-    /**
-     * Creates a UNION ALL redirection that is composed on individual table scans with given predicates
-     */
-    public TableScanRedirectApplicationResult(List<Redirection> redirections)
+    public CatalogSchemaTableName getDestinationTable()
     {
-        if (redirections.isEmpty()) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Empty redirections list");
-        }
-        this.redirections = List.copyOf(requireNonNull(redirections, "redirections is null"));
+        return destinationTable;
     }
 
-    public List<Redirection> getRedirections()
+    public Map<ColumnHandle, String> getDestinationColumns()
     {
-        return redirections;
+        return destinationColumns;
     }
 
-    public static class Redirection
+    public TupleDomain<String> getFilter()
     {
-        private final CatalogSchemaTableName destinationTable;
-        // mapping of source table handles to destination table columns
-        private final Map<ColumnHandle, String> destinationColumns;
-        // filter that needs to be applied on top of table scan
-        private final TupleDomain<String> filter;
-
-        public Redirection(CatalogSchemaTableName destinationTable, Map<ColumnHandle, String> destinationColumns, TupleDomain<String> filter)
-        {
-            this.destinationTable = requireNonNull(destinationTable, "destinationTable is null");
-            this.destinationColumns = Map.copyOf(requireNonNull(destinationColumns, "destinationColumns is null"));
-            this.filter = requireNonNull(filter, "filter is null");
-        }
-
-        public CatalogSchemaTableName getDestinationTable()
-        {
-            return destinationTable;
-        }
-
-        public Map<ColumnHandle, String> getDestinationColumns()
-        {
-            return destinationColumns;
-        }
-
-        public TupleDomain<String> getFilter()
-        {
-            return filter;
-        }
+        return filter;
     }
 }
