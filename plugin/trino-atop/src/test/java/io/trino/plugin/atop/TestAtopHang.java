@@ -54,7 +54,7 @@ public class TestAtopHang
         queryRunner.close();
         queryRunner = null;
 
-        if(tempPath != null) {
+        if (tempPath != null) {
             deleteRecursively(tempPath.toPath(), ALLOW_INSECURE);
         }
     }
