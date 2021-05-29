@@ -47,7 +47,9 @@ public class TestMetadataQueryOptimization
     private File baseDir;
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner() throws IOException {
+    protected LocalQueryRunner createLocalQueryRunner()
+            throws IOException
+    {
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema(SCHEMA_NAME)
