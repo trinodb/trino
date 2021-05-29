@@ -23,6 +23,10 @@ public class MongoServer
 {
     private static final int MONGO_PORT = 27017;
 
+    private static final String MONGO_INITDB_ROOT_USERNAME = "mongoadmin";
+
+    private static final String MONGO_INITDB_ROOT_PASSWORD = "secret";
+
     private final MongoDBContainer dockerContainer;
 
     public MongoServer()
@@ -33,7 +37,7 @@ public class MongoServer
     public MongoServer(String mongoVersion)
     {
         this.dockerContainer = new MongoDBContainer("mongo:" + mongoVersion)
-                .withEnv("MONGO_INITDB_DATABASE", "tpch")
+                .withEnv("MONGO_INITDB_DATABASE", "tpch", "MONGO_INITDB_ROOT_USERNAME", "MONGO_INITDB_ROOT_PASSWORD")
                 .withCommand("--bind_ip 0.0.0.0");
         this.dockerContainer.start();
     }
