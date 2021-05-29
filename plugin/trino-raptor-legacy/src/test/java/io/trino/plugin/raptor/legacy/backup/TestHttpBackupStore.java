@@ -32,6 +32,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import javax.inject.Singleton;
+
 import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
