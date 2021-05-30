@@ -16,6 +16,13 @@ env:
   MAVEN_TEST: "-B -Dair.check.skip-all --fail-at-end"
   RETRY: .github/bin/retry
 
+# Cancel previous PR builds.
+concurrency:
+  # Cancel all workflow runs except latest within a concurrency group. This is achieved by defining a concurrency group for the PR.
+  # Non-PR builds have singleton concurrency groups.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   maven-checks:
     runs-on: ubuntu-latest
