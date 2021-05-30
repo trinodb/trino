@@ -3192,6 +3192,8 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT CAST(row(true, array[0, 2]) AS row(aa boolean, bb array(boolean))).bb[1]", "SELECT false");
         assertQuery("SELECT CAST(row(0.1, array[0, 2], row(1, 0.5)) AS row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))).cc.ee", "SELECT '0.5'");
         assertQuery("SELECT CAST(array[row(0.1, array[0, 2], row(1, 0.5))] AS array<row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))>)[1].cc.ee", "SELECT '0.5'");
+        assertQuery("SELECT CAST(ROW(1, 2, 3) AS ROW(a BIGINT, A DOUBLE, c BIGINT)).c", "SELECT 3");
+        assertQueryFails("SELECT CAST(ROW(1, 2) AS ROW(a BIGINT, A DOUBLE)).a", "line 1:51: Ambiguous row field reference: a");
     }
 
     @Test

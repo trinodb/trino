@@ -144,6 +144,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
@@ -619,11 +620,15 @@ public class ExpressionAnalyzer
             RowType rowType = (RowType) baseType;
             String fieldName = node.getField().getValue();
 
+            boolean foundFieldName = false;
             Type rowFieldType = null;
             for (RowType.Field rowField : rowType.getFields()) {
                 if (fieldName.equalsIgnoreCase(rowField.getName().orElse(null))) {
+                    if (foundFieldName) {
+                        throw semanticException(AMBIGUOUS_NAME, node.getField(), "Ambiguous row field reference: " + fieldName);
+                    }
+                    foundFieldName = true;
                     rowFieldType = rowField.getType();
-                    break;
                 }
             }
 
