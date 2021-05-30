@@ -274,7 +274,7 @@ public class TestCassandraConnector
                     }
                 }
                 else {
-                    fail("Unknown primitive type " + columnIndex);
+                    fail("Unknown primitive type " + type + " for column " + columnIndex);
                 }
             }
         }
