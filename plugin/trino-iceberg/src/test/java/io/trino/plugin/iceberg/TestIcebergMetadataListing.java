@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
@@ -28,10 +29,14 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.transaction.TransactionId;
+import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -41,12 +46,13 @@ import java.util.Optional;
 
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergMetadataListing
         extends AbstractTestQueryFramework
 {
     private HiveMetastore metastore;
+    private SchemaTableName storageTable;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
@@ -87,14 +93,20 @@ public class TestIcebergMetadataListing
         assertQuerySucceeds("CREATE SCHEMA hive.test_schema");
         assertQuerySucceeds("CREATE TABLE iceberg.test_schema.iceberg_table1 (_string VARCHAR, _integer INTEGER)");
         assertQuerySucceeds("CREATE TABLE iceberg.test_schema.iceberg_table2 (_double DOUBLE) WITH (partitioning = ARRAY['_double'])");
+        assertQuerySucceeds("CREATE MATERIALIZED VIEW iceberg.test_schema.iceberg_materialized_view AS " +
+                "SELECT * FROM iceberg.test_schema.iceberg_table1");
+        storageTable = getStorageTable("iceberg", "test_schema", "iceberg_materialized_view");
+
         assertQuerySucceeds("CREATE TABLE hive.test_schema.hive_table (_double DOUBLE)");
-        assertEquals(ImmutableSet.copyOf(metastore.getAllTables("test_schema")), ImmutableSet.of("iceberg_table1", "iceberg_table2", "hive_table"));
+        assertQuerySucceeds("CREATE VIEW hive.test_schema.hive_view AS SELECT * FROM hive.test_schema.hive_table");
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS hive.test_schema.hive_table");
+        assertQuerySucceeds("DROP VIEW IF EXISTS hive.test_schema.hive_view");
+        assertQuerySucceeds("DROP MATERIALIZED VIEW IF EXISTS iceberg.test_schema.iceberg_materialized_view");
         assertQuerySucceeds("DROP TABLE IF EXISTS iceberg.test_schema.iceberg_table2");
         assertQuerySucceeds("DROP TABLE IF EXISTS iceberg.test_schema.iceberg_table1");
         assertQuerySucceeds("DROP SCHEMA IF EXISTS hive.test_schema");
@@ -103,15 +115,37 @@ public class TestIcebergMetadataListing
     @Test
     public void testTableListing()
     {
-        assertQuery("SHOW TABLES FROM iceberg.test_schema", "VALUES 'iceberg_table1', 'iceberg_table2'");
+        assertThat(metastore.getAllTables("test_schema"))
+                .containsExactlyInAnyOrder(
+                        "iceberg_table1",
+                        "iceberg_table2",
+                        "iceberg_materialized_view",
+                        storageTable.getTableName(),
+                        "hive_table",
+                        "hive_view");
+
+        assertQuery(
+                "SHOW TABLES FROM iceberg.test_schema",
+                "VALUES " +
+                        "'iceberg_table1', " +
+                        "'iceberg_table2', " +
+                        "'iceberg_materialized_view', " +
+                        "'" + storageTable.getTableName() + "'");
     }
 
     @Test
     public void testTableColumnListing()
     {
         // Verify information_schema.columns does not include columns from non-Iceberg tables
-        assertQuery("SELECT table_name, column_name FROM iceberg.information_schema.columns WHERE table_schema = 'test_schema'",
-                "VALUES ('iceberg_table1', '_string'), ('iceberg_table1', '_integer'), ('iceberg_table2', '_double')");
+        // TODO this should include columns from the materialized view as well
+        assertQuery(
+                "SELECT table_name, column_name FROM iceberg.information_schema.columns WHERE table_schema = 'test_schema'",
+                "VALUES " +
+                        "('iceberg_table1', '_string'), " +
+                        "('iceberg_table1', '_integer'), " +
+                        "('iceberg_table2', '_double'), " +
+                        "('" + storageTable.getTableName() + "', '_string'), " +
+                        "('" + storageTable.getTableName() + "', '_integer')");
     }
 
     @Test
@@ -125,5 +159,16 @@ public class TestIcebergMetadataListing
     {
         assertQuerySucceeds("SELECT * FROM iceberg.test_schema.iceberg_table1");
         assertQueryFails("SELECT * FROM iceberg.test_schema.hive_table", "Not an Iceberg table: test_schema.hive_table");
+    }
+
+    private SchemaTableName getStorageTable(String catalogName, String schemaName, String objectName)
+    {
+        TransactionManager transactionManager = getQueryRunner().getTransactionManager();
+        TransactionId transactionId = transactionManager.beginTransaction(false);
+        Session session = getSession().beginTransactionId(transactionId, transactionManager, getQueryRunner().getAccessControl());
+        Optional<ConnectorMaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
+                .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, objectName));
+        assertThat(materializedView).isPresent();
+        return materializedView.get().getStorageTable().get().getSchemaTableName();
     }
 }
