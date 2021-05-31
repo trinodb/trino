@@ -406,7 +406,7 @@ class RelationPlanner
             variableDefinitions.put(label, definition);
         }
         // add `true` definition for undefined labels
-        for (String label : analysis.getUndefinedLabels(node)) {
+        for (String label : analysis.getUndefinedLabels(node.getPattern())) {
             variableDefinitions.put(irLabel(label), ExpressionAndValuePointers.TRUE);
         }
 

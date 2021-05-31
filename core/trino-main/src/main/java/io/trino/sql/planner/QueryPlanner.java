@@ -24,6 +24,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SortOrder;
@@ -99,6 +100,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -107,6 +109,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static io.trino.SystemSessionProperties.isSkipRedundantSort;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -371,6 +374,14 @@ class QueryPlanner
 
     public RelationPlan plan(QuerySpecification node)
     {
+        Stream.concat(
+                analysis.getWindowMeasures(node).stream(),
+                node.getOrderBy().map(analysis::getOrderByWindowMeasures).orElse(ImmutableList.of()).stream())
+                .findFirst()
+                .ifPresent(measure -> {
+                    throw new TrinoException(NOT_SUPPORTED, "Row pattern measures over window not yet supported");
+                });
+
         PlanBuilder builder = planFrom(node);
 
         builder = filter(builder, analysis.getWhere(node), node);
