@@ -21,6 +21,7 @@ import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Optional;
 
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class NoneHiveMaterializedViewMetadata
@@ -47,6 +48,6 @@ public class NoneHiveMaterializedViewMetadata
     @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
-        return new MaterializedViewFreshness(false);
+        throw new TrinoException(NOT_FOUND, "This connector does not support materialized views");
     }
 }
