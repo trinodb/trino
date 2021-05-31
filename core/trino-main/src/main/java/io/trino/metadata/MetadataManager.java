@@ -626,11 +626,14 @@ public final class MetadataManager
 
     private boolean isExistingRelation(Session session, QualifiedObjectName name)
     {
-        if (getTableHandle(session, name).isPresent()) {
+        if (getMaterializedView(session, name).isPresent()) {
+            return true;
+        }
+        if (getView(session, name).isPresent()) {
             return true;
         }
 
-        return getView(session, name).isPresent();
+        return getTableHandle(session, name).isPresent();
     }
 
     @Override
