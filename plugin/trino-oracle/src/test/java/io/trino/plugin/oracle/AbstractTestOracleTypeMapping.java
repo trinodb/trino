@@ -662,57 +662,6 @@ public abstract class AbstractTestOracleTypeMapping
     /* Datetime tests */
 
     @Test
-    public void testLegacyDateMapping()
-    {
-        legacyDateTests(zone -> trinoCreateAsSelect("l_date_" + zone));
-    }
-
-    @Test
-    public void testLegacyDateReadMapping()
-    {
-        legacyDateTests(zone -> oracleCreateAndInsert("l_read_date_" + zone));
-    }
-
-    private void legacyDateTests(Function<String, DataSetup> dataSetup)
-    {
-        Map<String, TimeZoneKey> zonesBySqlName = ImmutableMap.of(
-                "UTC", UTC_KEY,
-                "JVM", getTimeZoneKey(ZoneId.systemDefault().getId()),
-                "other", getTimeZoneKey(ZoneId.of("Europe/Vilnius").getId()));
-
-        for (Map.Entry<String, TimeZoneKey> zone : zonesBySqlName.entrySet()) {
-            runLegacyTimestampTestInZone(
-                    dataSetup.apply(zone.getKey()),
-                    zone.getValue().getId(),
-                    legacyDateTests());
-        }
-    }
-
-    private static DataTypeTest legacyDateTests()
-    {
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone =
-                LocalDate.of(1983, 10, 1);
-
-        verify(someZone.getRules().getValidOffsets(
-                dateOfLocalTimeChangeBackwardAtMidnightInSomeZone
-                        .atStartOfDay().minusMinutes(1)).size() == 2);
-
-        return DataTypeTest.create()
-                // before epoch
-                .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
-                // summer on northern hemisphere (possible DST)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1))
-                // winter on northern hemisphere
-                // (possible DST on southern hemisphere)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1))
-                .addRoundTrip(dateDataType(),
-                        dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
-    }
-
-    @Test
     public void testDateMapping()
     {
         DateTests(zone -> trinoCreateAsSelect("nl_date_" + zone));
@@ -941,20 +890,6 @@ public abstract class AbstractTestOracleTypeMapping
         for (DataTypeTest test : tests) {
             test.execute(getQueryRunner(), dataSetup);
         }
-    }
-
-    /**
-     * Run a {@link DataTypeTest} in the given time zone, using legacy timestamps.
-     * <p>
-     * If the given time zone is {@code null}, use the default session time zone.
-     */
-    private void runLegacyTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
-    {
-        Session.SessionBuilder session = Session.builder(getSession());
-        if (zone != null) {
-            session.setTimeZoneKey(getTimeZoneKey(zone));
-        }
-        test.execute(getQueryRunner(), session.build(), dataSetup);
     }
 
     /**
