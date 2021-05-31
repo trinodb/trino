@@ -83,7 +83,9 @@ public class BeginTableWrite
                 String explain = textLogicalPlan(plan, types, metadata, StatsAndCosts.empty(), session, nestLevel, false);
                 e.addSuppressed(new Exception("Current plan:\n" + explain));
             }
-            catch (RuntimeException ignore) {}
+            catch (RuntimeException ignore) {
+                // ignored
+            }
             throw e;
         }
     }
