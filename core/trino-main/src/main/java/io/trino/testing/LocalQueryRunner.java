@@ -103,12 +103,13 @@ import io.trino.metadata.TablePropertyManager;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
-import io.trino.operator.LookupJoinOperators;
 import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactories;
 import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.TaskContext;
+import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
@@ -267,6 +268,7 @@ public class LocalQueryRunner
     private final NodeSpillConfig nodeSpillConfig;
     private final FeaturesConfig featuresConfig;
     private final PlanOptimizersProvider planOptimizersProvider;
+    private final OperatorFactories operatorFactories;
     private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -289,7 +291,8 @@ public class LocalQueryRunner
             boolean alwaysRevokeMemory,
             int nodeCountForStats,
             Map<String, List<PropertyMetadata<?>>> defaultSessionProperties,
-            PlanOptimizersProvider planOptimizersProvider)
+            PlanOptimizersProvider planOptimizersProvider,
+            OperatorFactories operatorFactories)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         requireNonNull(defaultSessionProperties, "defaultSessionProperties is null");
@@ -298,6 +301,7 @@ public class LocalQueryRunner
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
         this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
         this.planOptimizersProvider = requireNonNull(planOptimizersProvider, "planOptimizersProvider is null");
+        this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
         this.yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
@@ -774,7 +778,7 @@ public class LocalQueryRunner
                 partitioningSpillerFactory,
                 new PagesIndex.TestingFactory(false),
                 joinCompiler,
-                new LookupJoinOperators(),
+                operatorFactories,
                 new OrderingCompiler(typeOperators),
                 new DynamicFilterConfig(),
                 typeOperators,
@@ -998,6 +1002,7 @@ public class LocalQueryRunner
                         new CostComparator(featuresConfig),
                         taskCountEstimator,
                         nodePartitioningManager).get();
+        private OperatorFactories operatorFactories = new TrinoOperatorFactories();
 
         private Builder(Session defaultSession)
         {
@@ -1046,6 +1051,12 @@ public class LocalQueryRunner
             return this;
         }
 
+        public Builder withOperatorFactories(OperatorFactories operatorFactories)
+        {
+            this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
+            return this;
+        }
+
         public LocalQueryRunner build()
         {
             return new LocalQueryRunner(
@@ -1056,7 +1067,8 @@ public class LocalQueryRunner
                     alwaysRevokeMemory,
                     nodeCountForStats,
                     defaultSessionProperties,
-                    planOptimizersProvider);
+                    planOptimizersProvider,
+                    operatorFactories);
         }
     }
 }
