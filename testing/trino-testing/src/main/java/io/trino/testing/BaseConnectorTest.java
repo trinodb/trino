@@ -434,8 +434,22 @@ public abstract class BaseConnectorTest
         // information_schema.tables with table_name filter
         checkInformationSchemaTablesForPointedQueryForMaterializedView(schemaName, viewName);
 
+        // system.jdbc.tables without filter
+        assertThat(query("SELECT table_schem, table_name, table_type FROM system.jdbc.tables"))
+                .skippingTypesCheck()
+                .containsAll("VALUES ('" + schemaName + "', '" + viewName + "', 'TABLE')");
+
+        // system.jdbc.tables with table prefix filter
+        assertQuery(
+                "SELECT table_schem, table_name, table_type " +
+                        "FROM system.jdbc.tables " +
+                        "WHERE table_cat = '" + catalogName + "' AND " +
+                        "table_schem = '" + schemaName + "' AND " +
+                        "table_name = '" + viewName + "'",
+                "VALUES ('" + schemaName + "', '" + viewName + "', 'TABLE')");
+
         // column listing
-        checkShowColumnsForMaterializedView(viewName);
+        checkShowColumnsForMaterializedView(schemaName, viewName);
 
         // information_schema.columns without table_name filter
         checkInformationSchemaColumnsForMaterializedView(schemaName, viewName);
@@ -461,13 +475,13 @@ public abstract class BaseConnectorTest
     // TODO inline when all implementations fixed
     protected void checkInformationSchemaTablesForPointedQueryForMaterializedView(String schemaName, String viewName)
     {
-        assertThat(query("SELECT table_name FROM information_schema.tables WHERE table_schema = '" + schemaName + "' and table_name = '" + viewName + "'"))
-                .skippingTypesCheck()
-                .isEqualTo("VALUES '" + viewName + "'");
+        assertQuery(
+                "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '" + schemaName + "' and table_name = '" + viewName + "'",
+                "VALUES ('" + viewName + "', 'BASE TABLE')");
     }
 
     // TODO inline when all implementations fixed
-    protected void checkShowColumnsForMaterializedView(String viewName)
+    protected void checkShowColumnsForMaterializedView(String schemaName, String viewName)
     {
         assertThat(query("SHOW COLUMNS FROM " + viewName))
                 .skippingTypesCheck()
