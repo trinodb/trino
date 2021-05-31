@@ -616,19 +616,8 @@ public abstract class AbstractTestDistributedQueries
         }
 
         String tableName = "test_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-
-        // delete half the table, then delete the rest
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE orderkey % 2 <> 0");
-
-        assertUpdate("DELETE FROM " + tableName, "SELECT count(*) FROM orders WHERE orderkey % 2 <> 0");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders LIMIT 0");
-
-        assertUpdate("DROP TABLE " + tableName);
 
         // delete successive parts of the table
-
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
 
         assertUpdate("DELETE FROM " + tableName + " WHERE custkey <= 100", "SELECT count(*) FROM orders WHERE custkey <= 100");
@@ -642,30 +631,62 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("DROP TABLE " + tableName);
 
-        // delete using a constant property
-
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE orderstatus <> 'O'");
-
-        assertUpdate("DROP TABLE " + tableName);
-
         // delete without matching any rows
-
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-        assertUpdate("DELETE FROM " + tableName + " WHERE rand() < 0", 0);
         assertUpdate("DELETE FROM " + tableName + " WHERE orderkey < 0", 0);
         assertUpdate("DROP TABLE " + tableName);
 
         // delete with a predicate that optimizes to false
-
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
         assertUpdate("DELETE FROM " + tableName + " WHERE orderkey > 5 AND orderkey < 4", 0);
         assertUpdate("DROP TABLE " + tableName);
 
-        // delete using a subquery
+        // test EXPLAIN ANALYZE with CTAS
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT CAST(orderstatus AS VARCHAR(15)) orderstatus FROM orders");
+        assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
+        // check that INSERT works also
+        assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO " + tableName + " SELECT clerk FROM orders");
+        assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders UNION ALL SELECT clerk FROM orders");
+        // check DELETE works with EXPLAIN ANALYZE
+        assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE TRUE");
+        assertQuery("SELECT COUNT(*) from " + tableName, "SELECT 0");
+        assertUpdate("DROP TABLE " + tableName);
+    }
 
+    @Test
+    public void testDeleteWithComplexPredicate()
+    {
+        if (!supportsDelete()) {
+            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
+            return;
+        }
+
+        String tableName = "test_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        // delete half the table, then delete the rest
+        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE orderkey % 2 <> 0");
+
+        assertUpdate("DELETE FROM " + tableName, "SELECT count(*) FROM orders WHERE orderkey % 2 <> 0");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders LIMIT 0");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE rand() < 0", 0);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDeleteWithSubquery()
+    {
+        if (!supportsDelete()) {
+            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
+            return;
+        }
+
+        String tableName = "test_delete_" + randomTableSuffix();
+
+        // delete using a subquery
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
 
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%')", 15);
@@ -675,8 +696,26 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("DROP TABLE " + tableName);
 
-        // delete with multiple SemiJoin
+        // delete using a scalar and EXISTS subquery
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey = (SELECT orderkey FROM orders ORDER BY orderkey LIMIT 1)", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey = (SELECT orderkey FROM orders WHERE false)", 0);
+        assertUpdate("DELETE FROM " + tableName + " WHERE EXISTS(SELECT 1 WHERE false)", 0);
+        assertUpdate("DELETE FROM " + tableName + " WHERE EXISTS(SELECT 1)", "SELECT count(*) - 1 FROM orders");
+        assertUpdate("DROP TABLE " + tableName);
+    }
 
+    @Test
+    public void testDeleteWithSemiJoin()
+    {
+        if (!supportsDelete()) {
+            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
+            return;
+        }
+
+        String tableName = "test_delete_" + randomTableSuffix();
+
+        // delete with multiple SemiJoin
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
 
         assertUpdate(
@@ -693,7 +732,6 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
 
         // delete with SemiJoin null handling
-
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
 
         assertUpdate(
@@ -707,24 +745,22 @@ public abstract class AbstractTestDistributedQueries
                         "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NOT NULL\n");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
 
-        // delete using a scalar and EXISTS subquery
+    @Test
+    public void testDeleteWithVarcharPredicate()
+    {
+        if (!supportsDelete()) {
+            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
+            return;
+        }
+
+        String tableName = "test_delete_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey = (SELECT orderkey FROM orders ORDER BY orderkey LIMIT 1)", 1);
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey = (SELECT orderkey FROM orders WHERE false)", 0);
-        assertUpdate("DELETE FROM " + tableName + " WHERE EXISTS(SELECT 1 WHERE false)", 0);
-        assertUpdate("DELETE FROM " + tableName + " WHERE EXISTS(SELECT 1)", "SELECT count(*) - 1 FROM orders");
-        assertUpdate("DROP TABLE " + tableName);
 
-        // test EXPLAIN ANALYZE with CTAS
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT CAST(orderstatus AS VARCHAR(15)) orderstatus FROM orders");
-        assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
-        // check that INSERT works also
-        assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO " + tableName + " SELECT clerk FROM orders");
-        assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders UNION ALL SELECT clerk FROM orders");
-        // check DELETE works with EXPLAIN ANALYZE
-        assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE TRUE");
-        assertQuery("SELECT COUNT(*) from " + tableName, "SELECT 0");
+        assertUpdate("DELETE FROM " + tableName + " WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE orderstatus <> 'O'");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
