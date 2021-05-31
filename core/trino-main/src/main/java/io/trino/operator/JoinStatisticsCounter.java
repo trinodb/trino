@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import io.trino.operator.LookupJoinOperators.JoinType;
+import io.trino.operator.LookupJoinOperatorFactory.JoinType;
 
 import java.util.Optional;
 import java.util.function.Supplier;

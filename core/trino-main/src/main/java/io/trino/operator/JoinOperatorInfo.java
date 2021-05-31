@@ -15,7 +15,7 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.operator.LookupJoinOperators.JoinType;
+import io.trino.operator.LookupJoinOperatorFactory.JoinType;
 import io.trino.util.Mergeable;
 
 import java.util.Optional;
