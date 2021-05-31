@@ -52,7 +52,9 @@ import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
+import io.trino.sql.analyzer.Analysis.Range;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
+import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalysis;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -98,6 +100,7 @@ import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalBinaryExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Measure;
+import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -108,7 +111,9 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.Row;
+import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SortItem;
@@ -121,6 +126,7 @@ import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.TryExpression;
+import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.type.FunctionType;
@@ -159,6 +165,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
 import static io.trino.spi.StandardErrorCode.INVALID_PATTERN_RECOGNITION_FUNCTION;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
+import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_MEASURE;
 import static io.trino.spi.StandardErrorCode.MISSING_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.MISSING_ROW_PATTERN;
 import static io.trino.spi.StandardErrorCode.MISSING_VARIABLE_DEFINITIONS;
@@ -192,9 +199,10 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
+import static io.trino.sql.analyzer.CanonicalizationAware.canonicalizationAwareKey;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
-import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -274,13 +282,16 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<DereferenceExpression>, LabelPrefixedReference> labelDereferences = new LinkedHashMap<>();
     // Record functions specific to row pattern recognition context
     private final Set<NodeRef<FunctionCall>> patternRecognitionFunctions = new LinkedHashSet<>();
+    private final Map<NodeRef<RangeQuantifier>, Range> ranges = new LinkedHashMap<>();
+    private final Map<NodeRef<RowPattern>, Set<String>> undefinedLabels = new LinkedHashMap<>();
+    private final Map<NodeRef<Measure>, MeasureDefinition> measureDefinitions = new LinkedHashMap<>();
 
     private final Session session;
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private final WarningCollector warningCollector;
     private final TypeCoercion typeCoercion;
     private final Function<Expression, Type> getPreanalyzedType;
-    private final Function<FunctionCall, ResolvedWindow> getResolvedWindow;
+    private final Function<Node, ResolvedWindow> getResolvedWindow;
     private final List<Field> sourceFields = new ArrayList<>();
 
     public ExpressionAnalyzer(
@@ -293,7 +304,7 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             boolean isDescribe,
             Function<Expression, Type> getPreanalyzedType,
-            Function<FunctionCall, ResolvedWindow> getResolvedWindow)
+            Function<Node, ResolvedWindow> getResolvedWindow)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -455,6 +466,21 @@ public class ExpressionAnalyzer
     public Set<NodeRef<FunctionCall>> getPatternRecognitionFunctions()
     {
         return patternRecognitionFunctions;
+    }
+
+    public Map<NodeRef<RangeQuantifier>, Range> getRanges()
+    {
+        return ranges;
+    }
+
+    public Map<NodeRef<RowPattern>, Set<String>> getUndefinedLabels()
+    {
+        return undefinedLabels;
+    }
+
+    public Map<NodeRef<Measure>, MeasureDefinition> getMeasureDefinitions()
+    {
+        return measureDefinitions;
     }
 
     private class Visitor
@@ -1180,9 +1206,9 @@ public class ExpressionAnalyzer
             if (!window.isFrameInherited()) {
                 window.getFrame().ifPresent(childNodes::add);
             }
-            List<FunctionCall> nestedWindowFunctions = extractWindowFunctions(childNodes.build());
-            if (!nestedWindowFunctions.isEmpty()) {
-                throw semanticException(NESTED_WINDOW, nestedWindowFunctions.get(0), "Cannot nest window functions inside window specification");
+            List<Expression> nestedWindowExpressions = extractWindowExpressions(childNodes.build());
+            if (!nestedWindowExpressions.isEmpty()) {
+                throw semanticException(NESTED_WINDOW, nestedWindowExpressions.get(0), "Cannot nest window functions or row pattern measures inside window specification");
             }
 
             if (!window.isPartitionByInherited()) {
@@ -1218,6 +1244,36 @@ public class ExpressionAnalyzer
                     if (frame.getStart().getType() != CURRENT_ROW || frame.getEnd().isEmpty()) {
                         throw semanticException(INVALID_WINDOW_FRAME, frame, "Pattern recognition requires frame specified as BETWEEN CURRENT ROW AND ...");
                     }
+                    PatternRecognitionAnalysis analysis = PatternRecognitionAnalyzer.analyze(
+                            frame.getSubsets(),
+                            frame.getVariableDefinitions(),
+                            frame.getMeasures(),
+                            frame.getPattern().get(),
+                            frame.getAfterMatchSkipTo());
+
+                    ranges.putAll(analysis.getRanges());
+                    undefinedLabels.put(NodeRef.of(frame.getPattern().get()), analysis.getUndefinedLabels());
+
+                    PatternRecognitionAnalyzer.validateNoPatternAnchors(frame.getPattern().get());
+
+                    // analyze expressions in MEASURES and DEFINE (with set of all labels passed as context)
+                    for (VariableDefinition variableDefinition : frame.getVariableDefinitions()) {
+                        Expression expression = variableDefinition.getExpression();
+                        Type type = process(expression, new StackableAstVisitorContext<>(context.getContext().patternRecognition(analysis.getAllLabels())));
+                        if (!type.equals(BOOLEAN)) {
+                            throw semanticException(TYPE_MISMATCH, expression, "Expression defining a label must be boolean (actual type: %s)", type);
+                        }
+                    }
+                    for (MeasureDefinition measureDefinition : frame.getMeasures()) {
+                        Expression expression = measureDefinition.getExpression();
+                        process(expression, new StackableAstVisitorContext<>(context.getContext().patternRecognition(analysis.getAllLabels())));
+                    }
+
+                    // validate pattern recognition expressions: MATCH_NUMBER() is not allowed in window
+                    // this must run after the expressions in MEASURES and DEFINE are analyzed, and the patternRecognitionFunctions are recorded
+                    PatternRecognitionAnalyzer.validateNoMatchNumber(frame.getMeasures(), frame.getVariableDefinitions(), patternRecognitionFunctions);
+
+                    // TODO prohibited nesting: pattern recognition in frame end expression(?)
                 }
                 else {
                     if (!frame.getMeasures().isEmpty()) {
@@ -1391,7 +1447,31 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitMeasure(Measure node, StackableAstVisitorContext<Context> context)
         {
-            throw semanticException(NOT_SUPPORTED, node, "Row pattern measures over window not yet supported");
+            ResolvedWindow window = getResolvedWindow.apply(node);
+            checkState(window != null, "no resolved window for: " + node);
+
+            if (window.getFrame().isEmpty()) {
+                throw semanticException(INVALID_WINDOW_MEASURE, node, "Measure %s is not defined in the corresponding window", node.getName().getValue());
+            }
+            CanonicalizationAware<Identifier> canonicalName = canonicalizationAwareKey(node.getName());
+            List<MeasureDefinition> matchingMeasures = window.getFrame().get().getMeasures().stream()
+                    .filter(measureDefinition -> canonicalizationAwareKey(measureDefinition.getName()).equals(canonicalName))
+                    .collect(toImmutableList());
+            if (matchingMeasures.isEmpty()) {
+                throw semanticException(INVALID_WINDOW_MEASURE, node, "Measure %s is not defined in the corresponding window", node.getName().getValue());
+            }
+            if (matchingMeasures.size() > 1) {
+                throw semanticException(AMBIGUOUS_NAME, node, "Measure %s is defined more than once", node.getName().getValue());
+            }
+            MeasureDefinition matchingMeasure = getOnlyElement(matchingMeasures);
+            measureDefinitions.put(NodeRef.of(node), matchingMeasure);
+
+            analyzeWindow(window, context, (Node) node.getWindow());
+
+            Expression expression = matchingMeasure.getExpression();
+            Type type = window.isFrameInherited() ? getPreanalyzedType.apply(expression) : getExpressionType(expression);
+
+            return setExpressionType(node, type);
         }
 
         public List<TypeSignatureProvider> getCallArgumentTypes(List<Expression> arguments, StackableAstVisitorContext<Context> context)
@@ -2315,6 +2395,11 @@ public class ExpressionAnalyzer
             return new Context(scope, null, null, requireNonNull(labels, "labels is null"), CorrelationSupport.DISALLOWED);
         }
 
+        public Context patternRecognition(Set<String> labels)
+        {
+            return new Context(scope, functionInputTypes, fieldToLambdaArgumentDeclaration, requireNonNull(labels, "labels is null"), CorrelationSupport.DISALLOWED);
+        }
+
         public Context notExpectingLabels()
         {
             return new Context(scope, functionInputTypes, fieldToLambdaArgumentDeclaration, null, correlationSupport);
@@ -2522,6 +2607,9 @@ public class ExpressionAnalyzer
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());
         analysis.addLabelDereferences(analyzer.getLabelDereferences());
         analysis.addPatternRecognitionFunctions(analyzer.getPatternRecognitionFunctions());
+        analysis.setRanges(analyzer.getRanges());
+        analysis.setUndefinedLabels(analyzer.getUndefinedLabels());
+        analysis.setMeasureDefinitions(analyzer.getMeasureDefinitions());
         analysis.addPredicateCoercions(analyzer.getPredicateCoercions());
     }
 
