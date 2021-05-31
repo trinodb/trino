@@ -83,7 +83,6 @@ public class BenchmarkHashBuildAndJoinOperators
     private static final int HASH_BUILD_OPERATOR_ID = 1;
     private static final int HASH_JOIN_OPERATOR_ID = 2;
     private static final PlanNodeId TEST_PLAN_NODE_ID = new PlanNodeId("test");
-    private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators();
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
 
     @State(Thread)
@@ -199,6 +198,11 @@ public class BenchmarkHashBuildAndJoinOperators
         @Setup
         public void setup()
         {
+            setup(new TrinoOperatorFactories());
+        }
+
+        public void setup(OperatorFactories operatorFactories)
+        {
             super.setup();
 
             switch (outputColumns) {
@@ -216,7 +220,7 @@ public class BenchmarkHashBuildAndJoinOperators
             }
 
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = getLookupSourceFactoryManager(this, outputChannels, partitionCount);
-            joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
+            joinOperatorFactory = operatorFactories.innerJoin(
                     HASH_JOIN_OPERATOR_ID,
                     TEST_PLAN_NODE_ID,
                     lookupSourceFactory,
