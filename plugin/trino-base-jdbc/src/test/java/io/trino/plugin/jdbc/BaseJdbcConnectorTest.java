@@ -32,7 +32,6 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
@@ -92,23 +91,6 @@ public abstract class BaseJdbcConnectorTest
     public void afterClass()
     {
         executor.shutdownNow();
-    }
-
-    @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        switch (connectorBehavior) {
-            case SUPPORTS_CREATE_VIEW:
-                // Not supported by JdbcMetadata
-                return false;
-
-            case SUPPORTS_DELETE:
-                // Not supported by JdbcMetadata
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
     }
 
     @Test
