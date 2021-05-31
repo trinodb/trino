@@ -471,27 +471,36 @@ public class TestJdbcConnection
         Future<?> future;
         try (Connection connection = createConnection()) {
             Statement statement = connection.createStatement();
-            future = executor.submit(() -> statement.execute(sql));
+            future = executor.submit(() -> {
+                try (ResultSet resultSet = statement.executeQuery(sql)) {
+                    //noinspection StatementWithEmptyBody
+                    while (resultSet.next()) {
+                        // consume results
+                    }
+                }
+                return null;
+            });
 
             // Wait for the queries to be started
-            assertEventually(() -> assertThat(listQueryStatuses(sql))
-                    .contains("RUNNING")
-                    .hasSize(1));
+            assertEventually(() -> {
+                assertThatFutureIsBlocked(future);
+                assertThat(listQueryStatuses(sql))
+                        .contains("RUNNING")
+                        .hasSize(1);
+            });
 
             // Closing statement should cancel queries
             statement.close();
 
             // verify that the query was cancelled
-            assertThatThrownBy(future::get)
-                    .hasCauseInstanceOf(SQLException.class)
-                    .hasStackTraceContaining("Error executing query");
+            assertThatThrownBy(future::get).isNotNull();
             assertThat(listQueryErrorCodes(sql))
                     .containsExactly("USER_CANCELED")
                     .hasSize(1);
         }
     }
 
-    @Test(timeOut = 60000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
     public void testConcurrentCancellationOnConnectionClose(boolean autoCommit)
             throws Exception
     {
@@ -501,24 +510,29 @@ public class TestJdbcConnection
         connection.setAutoCommit(autoCommit);
         futures = range(0, 10)
                 .mapToObj(i -> executor.submit(() -> {
-                    try (Statement statement = connection.createStatement()) {
-                        statement.execute(sql);
+                    try (Statement statement = connection.createStatement();
+                            ResultSet resultSet = statement.executeQuery(sql)) {
+                        //noinspection StatementWithEmptyBody
+                        while (resultSet.next()) {
+                            // consume results
+                        }
                     }
                     return null;
                 }))
                 .collect(toImmutableList());
 
         // Wait for the queries to be started
-        assertEventually(() -> assertThat(listQueryStatuses(sql))
-                .hasSize(futures.size()));
+        assertEventually(() -> {
+            futures.forEach(TestJdbcConnection::assertThatFutureIsBlocked);
+            assertThat(listQueryStatuses(sql))
+                    .hasSize(futures.size());
+        });
 
         // Closing connection should cancel queries
         connection.close();
 
         // verify that all queries were cancelled
-        futures.forEach(future -> assertThatThrownBy(future::get)
-                .hasCauseInstanceOf(SQLException.class)
-                .hasStackTraceContaining("Error executing query"));
+        futures.forEach(future -> assertThatThrownBy(future::get).isNotNull());
         assertThat(listQueryErrorCodes(sql))
                 .hasSize(futures.size())
                 .containsOnly("USER_CANCELED");
@@ -669,5 +683,20 @@ public class TestJdbcConnection
             session.getIdentity().getExtraCredentials().forEach(table::addRow);
             return table.build().cursor();
         }
+    }
+
+    private static void assertThatFutureIsBlocked(Future<?> future)
+    {
+        if (!future.isDone()) {
+            return;
+        }
+        // Calling Future::get to see if it failed and if so to learn why
+        try {
+            future.get();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        fail("Expecting future to be blocked");
     }
 }
