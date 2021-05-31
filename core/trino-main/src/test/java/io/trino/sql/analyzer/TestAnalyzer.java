@@ -58,7 +58,6 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
@@ -76,7 +75,7 @@ import java.util.function.Consumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
-import static io.trino.cost.StatsCalculatorModule.createNewStatsCalculator;
+import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
@@ -4402,7 +4401,7 @@ public class TestAnalyzer
                 emptyList(),
                 emptyMap(),
                 WarningCollector.NOOP,
-                createNewStatsCalculator(metadata, new TypeAnalyzer(SQL_PARSER, metadata)));
+                noopStatsCalculator());
     }
 
     private Analysis analyze(@Language("SQL") String query)
