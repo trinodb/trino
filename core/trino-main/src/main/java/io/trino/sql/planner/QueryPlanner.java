@@ -1251,19 +1251,7 @@ class QueryPlanner
             }
         }
 
-        // Rewrite PARTITION BY in terms of pre-projected inputs
-        ImmutableList.Builder<Symbol> partitionBySymbols = ImmutableList.builder();
-        for (Expression expression : window.getPartitionBy()) {
-            partitionBySymbols.add(coercions.get(expression));
-        }
-
-        // Rewrite ORDER BY in terms of pre-projected inputs
-        LinkedHashMap<Symbol, SortOrder> orderings = new LinkedHashMap<>();
-        for (SortItem item : getSortItemsFromOrderBy(window.getOrderBy())) {
-            Symbol symbol = coercions.get(item.getSortKey());
-            // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
-            orderings.putIfAbsent(symbol, sortItemToSortOrder(item));
-        }
+        WindowNode.Specification specification = planWindowSpecification(window.getPartitionBy(), window.getOrderBy(), coercions::get);
 
         // Rewrite frame bounds in terms of pre-projected inputs
         WindowNode.Frame frame = new WindowNode.Frame(
@@ -1295,13 +1283,6 @@ class QueryPlanner
                 frame,
                 nullTreatment == NullTreatment.IGNORE);
 
-        ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
-        orderBySymbols.addAll(orderings.keySet());
-        Optional<OrderingScheme> orderingScheme = Optional.empty();
-        if (!orderings.isEmpty()) {
-            orderingScheme = Optional.of(new OrderingScheme(orderBySymbols.build(), orderings));
-        }
-
         // create window node
         return new PlanBuilder(
                 subPlan.getTranslations()
@@ -1309,13 +1290,35 @@ class QueryPlanner
                 new WindowNode(
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
-                        new WindowNode.Specification(
-                                partitionBySymbols.build(),
-                                orderingScheme),
+                        specification,
                         ImmutableMap.of(newSymbol, function),
                         Optional.empty(),
                         ImmutableSet.of(),
                         0));
+    }
+
+    public static WindowNode.Specification planWindowSpecification(List<Expression> partitionBy, Optional<OrderBy> orderBy, Function<Expression, Symbol> expressionRewrite)
+    {
+        // Rewrite PARTITION BY
+        ImmutableList.Builder<Symbol> partitionBySymbols = ImmutableList.builder();
+        for (Expression expression : partitionBy) {
+            partitionBySymbols.add(expressionRewrite.apply(expression));
+        }
+
+        // Rewrite ORDER BY
+        LinkedHashMap<Symbol, SortOrder> orderings = new LinkedHashMap<>();
+        for (SortItem item : getSortItemsFromOrderBy(orderBy)) {
+            Symbol symbol = expressionRewrite.apply(item.getSortKey());
+            // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
+            orderings.putIfAbsent(symbol, sortItemToSortOrder(item));
+        }
+
+        Optional<OrderingScheme> orderingScheme = Optional.empty();
+        if (!orderings.isEmpty()) {
+            orderingScheme = Optional.of(new OrderingScheme(ImmutableList.copyOf(orderings.keySet()), orderings));
+        }
+
+        return new WindowNode.Specification(partitionBySymbols.build(), orderingScheme);
     }
 
     /**

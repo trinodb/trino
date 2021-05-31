@@ -22,7 +22,6 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionUtils;
@@ -109,10 +108,10 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.OrderingScheme.sortItemToSortOrder;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.coerce;
 import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
+import static io.trino.sql.planner.QueryPlanner.planWindowSpecification;
 import static io.trino.sql.planner.QueryPlanner.pruneInvisibleFields;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -343,27 +342,13 @@ class RelationPlanner
         ImmutableList.Builder<Symbol> outputLayout = ImmutableList.builder();
         boolean oneRowOutput = node.getRowsPerMatch().isEmpty() || node.getRowsPerMatch().get().isOneRow();
 
-        // Rewrite PARTITION BY in terms of pre-projected inputs
-        ImmutableList.Builder<Symbol> partitionBy = ImmutableList.builder();
-        for (Expression expression : node.getPartitionBy()) {
-            Symbol symbol = planBuilder.translate(expression);
-            partitionBy.add(symbol);
-            outputLayout.add(symbol);
-        }
-
-        // Rewrite ORDER BY in terms of pre-projected inputs
-        Map<Symbol, SortOrder> orderings = new LinkedHashMap<>();
-        for (SortItem item : getSortItemsFromOrderBy(node.getOrderBy())) {
-            Symbol symbol = planBuilder.translate(item.getSortKey());
-            // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
-            orderings.putIfAbsent(symbol, sortItemToSortOrder(item));
-            if (!oneRowOutput) {
-                outputLayout.add(symbol);
-            }
-        }
-        Optional<OrderingScheme> orderingScheme = Optional.empty();
-        if (!orderings.isEmpty()) {
-            orderingScheme = Optional.of(new OrderingScheme(ImmutableList.copyOf(orderings.keySet()), orderings));
+        WindowNode.Specification specification = planWindowSpecification(node.getPartitionBy(), node.getOrderBy(), planBuilder::translate);
+        outputLayout.addAll(specification.getPartitionBy());
+        if (!oneRowOutput) {
+            getSortItemsFromOrderBy(node.getOrderBy()).stream()
+                    .map(SortItem::getSortKey)
+                    .map(planBuilder::translate)
+                    .forEach(outputLayout::add);
         }
 
         // rewrite subsets
@@ -413,7 +398,7 @@ class RelationPlanner
         PatternRecognitionNode planNode = new PatternRecognitionNode(
                 idAllocator.getNextId(),
                 planBuilder.getRoot(),
-                new WindowNode.Specification(partitionBy.build(), orderingScheme),
+                specification,
                 Optional.empty(),
                 ImmutableSet.of(),
                 0,
