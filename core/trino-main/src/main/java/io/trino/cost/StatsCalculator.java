@@ -35,4 +35,9 @@ public interface StatsCalculator
             Lookup lookup,
             Session session,
             TypeProvider types);
+
+    static StatsCalculator noopStatsCalculator()
+    {
+        return (node, sourceStats, lookup, ignore, types) -> PlanNodeStatsEstimate.unknown();
+    }
 }
