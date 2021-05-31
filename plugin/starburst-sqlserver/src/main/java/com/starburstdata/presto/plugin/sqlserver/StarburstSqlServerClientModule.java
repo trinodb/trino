@@ -73,7 +73,7 @@ public class StarburstSqlServerClientModule
     @Provides
     @Singleton
     @ForImpersonation
-    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, SqlServerConfig connectorConfig, CredentialProvider credentialProvider)
+    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, StarburstSqlServerConfig connectorConfig, CredentialProvider credentialProvider)
     {
         ConnectionFactory factory = new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider);
         if (connectorConfig.isOverrideCatalogEnabled()) {

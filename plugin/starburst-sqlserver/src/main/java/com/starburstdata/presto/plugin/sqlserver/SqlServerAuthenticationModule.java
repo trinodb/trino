@@ -22,8 +22,8 @@ import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithCredentialProvider;
-import static com.starburstdata.presto.plugin.sqlserver.SqlServerConfig.SqlServerAuthenticationType.PASSWORD;
-import static com.starburstdata.presto.plugin.sqlserver.SqlServerConfig.SqlServerAuthenticationType.PASSWORD_PASS_THROUGH;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.PASSWORD;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.PASSWORD_PASS_THROUGH;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 
 public class SqlServerAuthenticationModule
@@ -33,19 +33,19 @@ public class SqlServerAuthenticationModule
     protected void setup(Binder binder)
     {
         install(installModuleIf(
-                SqlServerConfig.class,
+                StarburstSqlServerConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD,
                 new PasswordModule()));
 
         install(installModuleIf(
-                SqlServerConfig.class,
+                StarburstSqlServerConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH,
                 moduleBinder -> {
                     moduleBinder.bind(ConnectionFactory.class)
                             .annotatedWith(ForBaseJdbc.class)
                             .to(Key.get(ConnectionFactory.class, ForImpersonation.class))
                             .in(SINGLETON);
-                    install(new PasswordPassThroughModule<>(SqlServerConfig.class, SqlServerConfig::isImpersonationEnabled));
+                    install(new PasswordPassThroughModule<>(StarburstSqlServerConfig.class, StarburstSqlServerConfig::isImpersonationEnabled));
                 }));
     }
 
@@ -57,8 +57,8 @@ public class SqlServerAuthenticationModule
         {
             install(new CredentialProviderModule());
             install(installModuleIf(
-                    SqlServerConfig.class,
-                    SqlServerConfig::isImpersonationEnabled,
+                    StarburstSqlServerConfig.class,
+                    StarburstSqlServerConfig::isImpersonationEnabled,
                     new ImpersonationModule(),
                     noImpersonationModuleWithCredentialProvider()));
         }

@@ -16,8 +16,8 @@ import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.starburstdata.presto.plugin.sqlserver.SqlServerConfig.SQLSERVER_OVERRIDE_CATALOG_ENABLED;
-import static com.starburstdata.presto.plugin.sqlserver.SqlServerConfig.SQLSERVER_OVERRIDE_CATALOG_NAME;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SQLSERVER_OVERRIDE_CATALOG_ENABLED;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SQLSERVER_OVERRIDE_CATALOG_NAME;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStarburstSqlServerPlugin

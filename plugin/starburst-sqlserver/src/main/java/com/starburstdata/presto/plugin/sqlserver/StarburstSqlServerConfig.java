@@ -18,10 +18,9 @@ import javax.annotation.PostConstruct;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static com.starburstdata.presto.plugin.sqlserver.SqlServerConfig.SqlServerAuthenticationType.PASSWORD;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.PASSWORD;
 
-// TODO rename to avoid name collision & confusion with io.trino.plugin.sqlserver.SqlServerConfig
-public class SqlServerConfig
+public class StarburstSqlServerConfig
 {
     static final String SQLSERVER_OVERRIDE_CATALOG_NAME = "sqlserver.override-catalog.name";
     static final String SQLSERVER_OVERRIDE_CATALOG_ENABLED = "sqlserver.override-catalog.enabled";
@@ -44,7 +43,7 @@ public class SqlServerConfig
     }
 
     @Config("sqlserver.impersonation.enabled")
-    public SqlServerConfig setImpersonationEnabled(boolean impersonationEnabled)
+    public StarburstSqlServerConfig setImpersonationEnabled(boolean impersonationEnabled)
     {
         this.impersonationEnabled = impersonationEnabled;
         return this;
@@ -57,7 +56,7 @@ public class SqlServerConfig
 
     @Config(SQLSERVER_OVERRIDE_CATALOG_ENABLED)
     @ConfigDescription("Enable catalog override using system property")
-    public SqlServerConfig setOverrideCatalogEnabled(boolean overrideCatalogEnabled)
+    public StarburstSqlServerConfig setOverrideCatalogEnabled(boolean overrideCatalogEnabled)
     {
         this.overrideCatalogEnabled = overrideCatalogEnabled;
         return this;
@@ -70,7 +69,7 @@ public class SqlServerConfig
 
     @Config(SQLSERVER_OVERRIDE_CATALOG_NAME)
     @ConfigDescription("Name of the SQL server catalog to use as a catalog override")
-    public SqlServerConfig setOverrideCatalogName(@Nullable String overrideCatalogName)
+    public StarburstSqlServerConfig setOverrideCatalogName(@Nullable String overrideCatalogName)
     {
         this.overrideCatalogName = overrideCatalogName;
         return this;
@@ -83,7 +82,7 @@ public class SqlServerConfig
 
     @Config("sqlserver.authentication.type")
     @ConfigDescription("SQL Server authentication mechanism")
-    public SqlServerConfig setAuthenticationType(SqlServerAuthenticationType authenticationType)
+    public StarburstSqlServerConfig setAuthenticationType(SqlServerAuthenticationType authenticationType)
     {
         this.authenticationType = authenticationType;
         return this;

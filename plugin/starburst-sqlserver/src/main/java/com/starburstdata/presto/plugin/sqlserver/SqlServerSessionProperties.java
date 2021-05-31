@@ -30,7 +30,7 @@ public final class SqlServerSessionProperties
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
-    public SqlServerSessionProperties(SqlServerConfig config)
+    public SqlServerSessionProperties(StarburstSqlServerConfig config)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(

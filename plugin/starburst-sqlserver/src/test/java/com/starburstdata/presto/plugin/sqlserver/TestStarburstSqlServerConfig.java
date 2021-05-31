@@ -14,19 +14,19 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.starburstdata.presto.plugin.sqlserver.SqlServerConfig.SqlServerAuthenticationType.PASSWORD;
-import static com.starburstdata.presto.plugin.sqlserver.SqlServerConfig.SqlServerAuthenticationType.PASSWORD_PASS_THROUGH;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.PASSWORD;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.PASSWORD_PASS_THROUGH;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestSqlServerConfig
+public class TestStarburstSqlServerConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(SqlServerConfig.class)
+        assertRecordedDefaults(recordDefaults(StarburstSqlServerConfig.class)
                 .setImpersonationEnabled(false)
                 .setOverrideCatalogEnabled(false)
                 .setOverrideCatalogName(null)
@@ -43,7 +43,7 @@ public class TestSqlServerConfig
                 .put("sqlserver.authentication.type", "PASSWORD_PASS_THROUGH")
                 .build();
 
-        SqlServerConfig expected = new SqlServerConfig()
+        StarburstSqlServerConfig expected = new StarburstSqlServerConfig()
                 .setImpersonationEnabled(true)
                 .setOverrideCatalogEnabled(true)
                 .setOverrideCatalogName("catalog")
@@ -55,7 +55,7 @@ public class TestSqlServerConfig
     @Test
     public void testDisableOverrideCatalog()
     {
-        assertThatThrownBy(() -> new SqlServerConfig()
+        assertThatThrownBy(() -> new StarburstSqlServerConfig()
                 .setOverrideCatalogEnabled(false)
                 .setOverrideCatalogName("ignore")
                 .validate())
