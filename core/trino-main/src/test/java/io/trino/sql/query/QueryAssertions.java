@@ -15,7 +15,6 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
@@ -50,6 +49,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.query.QueryAssertions.ExpressionAssert.newExpressionAssert;
 import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
@@ -404,7 +404,7 @@ public class QueryAssertions
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
-                                (node, sourceStats, lookup, ignore, types) -> PlanNodeStatsEstimate.unknown(),
+                                noopStatsCalculator(),
                                 plan,
                                 PlanMatchPattern.output(
                                         PlanMatchPattern.exchange(
@@ -451,7 +451,7 @@ public class QueryAssertions
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
-                                (node, sourceStats, lookup, ignore, types) -> PlanNodeStatsEstimate.unknown(),
+                                noopStatsCalculator(),
                                 plan,
                                 expectedPlan);
                     });

@@ -45,7 +45,6 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.Identifier;
@@ -68,7 +67,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.cost.StatsCalculatorModule.createNewStatsCalculator;
+import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
@@ -128,7 +127,7 @@ public class TestCreateMaterializedViewTask
                 materializedViewPropertyManager,
                 testCatalog.getConnectorCatalogName());
         parser = new SqlParser();
-        statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(parser, metadata));
+        statsCalculator = noopStatsCalculator();
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl());
     }
 
