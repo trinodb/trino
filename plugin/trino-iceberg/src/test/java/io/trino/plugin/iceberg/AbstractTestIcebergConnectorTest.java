@@ -209,19 +209,11 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Override
-    protected void checkInformationSchemaTablesForPointedQueryForMaterializedView(String schemaName, String viewName)
-    {
-        // TODO The query should not fail, obviously. It should return the viewName, as information_schema.tables returns it when invoked without filters
-        assertThatThrownBy(() -> super.checkInformationSchemaTablesForPointedQueryForMaterializedView(schemaName, viewName))
-                .hasMessageContaining("Not an Iceberg table");
-    }
-
-    @Override
-    protected void checkShowColumnsForMaterializedView(String viewName)
+    protected void checkShowColumnsForMaterializedView(String schemaName, String viewName)
     {
         // TODO The query should not fail, obviously. It should return all the columns in the view
-        assertThatThrownBy(() -> super.checkShowColumnsForMaterializedView(viewName))
-                .hasMessageContaining("Not an Iceberg table");
+        assertThatThrownBy(() -> super.checkShowColumnsForMaterializedView(schemaName, viewName))
+                .hasMessageContaining(format("Table 'iceberg.%s.%s' does not exist", schemaName, viewName));
     }
 
     @Override
@@ -237,7 +229,7 @@ public abstract class AbstractTestIcebergConnectorTest
     {
         // TODO The query should not fail, obviously. It should return columns for the materialized view
         assertThatThrownBy(() -> super.checkInformationSchemaColumnsForPointedQueryForMaterializedView(schemaName, viewName))
-                .hasMessageContaining("Not an Iceberg table");
+                .hasMessageFindingMatch("(?s)Expecting.*to contain:.*, nationkey\\).*, name\\).*, regionkey\\).*, comment\\)");
     }
 
     @Override
