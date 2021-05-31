@@ -10,17 +10,12 @@
 
 package com.starburstdata.trino.plugin.stargate;
 
-import io.trino.Session;
-import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -32,52 +27,38 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStargateWithMemoryWritesEnabledConnectorTest
-        extends BaseJdbcConnectorTest
+        extends BaseStargateConnectorTest
 {
-    private DistributedQueryRunner remote;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        remote = closeAfterClass(
+        remoteStarburst = closeAfterClass(
                 createRemoteStarburstQueryRunnerWithMemory(Map.of(), REQUIRED_TPCH_TABLES, Optional.empty()));
         return createStargateQueryRunner(
                 true,
                 Map.of(),
                 Map.of(
-                        "connection-url", stargateConnectionUrl(remote, "memory"),
+                        "connection-url", stargateConnectionUrl(remoteStarburst, "memory"),
                         "allow-drop-table", "true"));
     }
 
     @Override
-    @SuppressWarnings("DuplicateBranchesInSwitch")
+    protected String getRemoteCatalogName()
+    {
+        return "memory";
+    }
+
+    @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return true;
-
-            case SUPPORTS_CREATE_TABLE:
-                return true;
-
-            case SUPPORTS_COMMENT_ON_TABLE:
-                // not yet supported in Remote connector
             case SUPPORTS_COMMENT_ON_COLUMN:
                 // not supported in memory connector
                 return false;
 
-            case SUPPORTS_INSERT:
-                return true;
             case SUPPORTS_DELETE:
                 // memory connector does not support deletes
-                return false;
-
-            case SUPPORTS_JOIN_PUSHDOWN:
-                return true;
-
-            case SUPPORTS_ARRAY:
-                // TODO Add support in Remote connector (https://starburstdata.atlassian.net/browse/SEP-4798)
                 return false;
 
             default:
@@ -158,48 +139,5 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
             throw new SkipException("skipped to save time");
         }
         super.testLargeIn(size);
-    }
-
-    @Override
-    public void testAggregationPushdown()
-    {
-        // TODO: Migrate to BaseJdbcConnectorTest
-        throw new SkipException("tested in TestStarburstRemoteWithHiveConnectorTest");
-    }
-
-    @Override
-    public void testDistinctAggregationPushdown()
-    {
-        // TODO: Migrate to BaseJdbcConnectorTest
-        throw new SkipException("tested in TestStarburstRemoteWithHiveConnectorTest");
-    }
-
-    @Override
-    protected TestTable createAggregationTestTable(String name, List<String> rows)
-    {
-        // TODO: Migrate to BaseJdbcConnectorTest
-        throw new SkipException("tested in TestStarburstRemoteWithHiveConnectorTest");
-    }
-
-    @Override
-    protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
-    {
-        // TODO: Migrate to BaseJdbcConnectorTest
-        throw new SkipException("tested in TestStarburstRemoteWithHiveConnectorTest");
-    }
-
-    @Override
-    protected Session joinPushdownEnabled(Session session)
-    {
-        return Session.builder(super.joinPushdownEnabled(session))
-                // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
-                .build();
-    }
-
-    @Override
-    protected SqlExecutor onRemoteDatabase()
-    {
-        return remote::execute;
     }
 }
