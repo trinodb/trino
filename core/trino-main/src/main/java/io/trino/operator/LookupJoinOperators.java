@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import io.trino.operator.JoinProbe.JoinProbeFactory;
+import io.trino.operator.LookupJoinOperatorFactory.JoinType;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -27,17 +28,13 @@ import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.operator.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
+import static io.trino.operator.LookupJoinOperatorFactory.JoinType.INNER;
+import static io.trino.operator.LookupJoinOperatorFactory.JoinType.LOOKUP_OUTER;
+import static io.trino.operator.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
 
 public class LookupJoinOperators
 {
-    public enum JoinType
-    {
-        INNER,
-        PROBE_OUTER, // the Probe is the outer side of the join
-        LOOKUP_OUTER, // The LookupSource is the outer side of the join
-        FULL_OUTER,
-    }
-
     @Inject
     public LookupJoinOperators()
     {
@@ -65,7 +62,7 @@ public class LookupJoinOperators
                 probeJoinChannel,
                 probeHashChannel,
                 probeOutputChannels.orElse(rangeList(probeTypes.size())),
-                JoinType.INNER,
+                INNER,
                 outputSingleMatch,
                 waitForBuild,
                 totalOperatorsCount,
@@ -94,7 +91,7 @@ public class LookupJoinOperators
                 probeJoinChannel,
                 probeHashChannel,
                 probeOutputChannels.orElse(rangeList(probeTypes.size())),
-                JoinType.PROBE_OUTER,
+                PROBE_OUTER,
                 outputSingleMatch,
                 false,
                 totalOperatorsCount,
@@ -123,7 +120,7 @@ public class LookupJoinOperators
                 probeJoinChannel,
                 probeHashChannel,
                 probeOutputChannels.orElse(rangeList(probeTypes.size())),
-                JoinType.LOOKUP_OUTER,
+                LOOKUP_OUTER,
                 false,
                 waitForBuild,
                 totalOperatorsCount,
@@ -151,7 +148,7 @@ public class LookupJoinOperators
                 probeJoinChannel,
                 probeHashChannel,
                 probeOutputChannels.orElse(rangeList(probeTypes.size())),
-                JoinType.FULL_OUTER,
+                FULL_OUTER,
                 false,
                 false,
                 totalOperatorsCount,

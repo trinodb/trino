@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.trino.execution.Lifespan;
 import io.trino.operator.JoinProbe.JoinProbeFactory;
-import io.trino.operator.LookupJoinOperators.JoinType;
 import io.trino.operator.LookupOuterOperator.LookupOuterOperatorFactory;
 import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
@@ -33,13 +32,21 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.operator.LookupJoinOperators.JoinType.INNER;
-import static io.trino.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
+import static io.trino.operator.LookupJoinOperatorFactory.JoinType.INNER;
+import static io.trino.operator.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
 import static java.util.Objects.requireNonNull;
 
 public class LookupJoinOperatorFactory
         implements JoinOperatorFactory, AdapterWorkProcessorOperatorFactory
 {
+    public enum JoinType
+    {
+        INNER,
+        PROBE_OUTER, // the Probe is the outer side of the join
+        LOOKUP_OUTER, // The LookupSource is the outer side of the join
+        FULL_OUTER,
+    }
+
     private final int operatorId;
     private final PlanNodeId planNodeId;
     private final List<Type> probeTypes;
