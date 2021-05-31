@@ -83,64 +83,64 @@ public class GracefulShutdownHandler
         }
         shutdownRequested = true;
 
-        // wait for a grace period to start the shutdown sequence
-        shutdownHandler.schedule(() -> {
-            List<TaskInfo> activeTasks = getActiveTasks();
+        // wait for a grace period (so that shutting down state is observed by the coordinator) to start the shutdown sequence
+        shutdownHandler.schedule(this::shutdown, gracePeriod.toMillis(), MILLISECONDS);
+    }
 
-            // wait for grace period for shutting down state to be observed by the coordinator
-            sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
+    private void shutdown()
+    {
+        List<TaskInfo> activeTasks = getActiveTasks();
 
-            // At this point no new tasks should be scheduled by coordinator on this worker node.
-            // Wait for all remaining tasks to finish.
-            while (activeTasks.size() > 0) {
-                CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
+        // At this point no new tasks should be scheduled by coordinator on this worker node.
+        // Wait for all remaining tasks to finish.
+        while (activeTasks.size() > 0) {
+            CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
 
-                for (TaskInfo taskInfo : activeTasks) {
-                    sqlTaskManager.addStateChangeListener(taskInfo.getTaskStatus().getTaskId(), newState -> {
-                        if (newState.isDone()) {
-                            countDownLatch.countDown();
-                        }
-                    });
-                }
-
-                log.info("Waiting for all tasks to finish");
-
-                try {
-                    countDownLatch.await();
-                }
-                catch (InterruptedException e) {
-                    log.warn("Interrupted while waiting for all tasks to finish");
-                    currentThread().interrupt();
-                }
-
-                activeTasks = getActiveTasks();
+            for (TaskInfo taskInfo : activeTasks) {
+                sqlTaskManager.addStateChangeListener(taskInfo.getTaskStatus().getTaskId(), newState -> {
+                    if (newState.isDone()) {
+                        countDownLatch.countDown();
+                    }
+                });
             }
 
-            // wait for another grace period for all task states to be observed by the coordinator
-            sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
+            log.info("Waiting for all tasks to finish");
 
-            Future<?> shutdownFuture = lifeCycleStopper.submit(() -> {
-                lifeCycleManager.stop();
-                return null;
-            });
-
-            // terminate the jvm if life cycle cannot be stopped in a timely manner
             try {
-                shutdownFuture.get(LIFECYCLE_STOP_TIMEOUT.toMillis(), MILLISECONDS);
-            }
-            catch (TimeoutException e) {
-                log.warn(e, "Timed out waiting for the life cycle to stop");
+                countDownLatch.await();
             }
             catch (InterruptedException e) {
-                log.warn(e, "Interrupted while waiting for the life cycle to stop");
+                log.warn("Interrupted while waiting for all tasks to finish");
                 currentThread().interrupt();
             }
-            catch (ExecutionException e) {
-                log.warn(e, "Problem stopping the life cycle");
-            }
 
-            shutdownAction.onShutdown();
-        }, gracePeriod.toMillis(), MILLISECONDS);
+            activeTasks = getActiveTasks();
+        }
+
+        // wait for another grace period for all task states to be observed by the coordinator
+        sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
+
+        Future<?> shutdownFuture = lifeCycleStopper.submit(() -> {
+            lifeCycleManager.stop();
+            return null;
+        });
+
+        // terminate the jvm if life cycle cannot be stopped in a timely manner
+        try {
+            shutdownFuture.get(LIFECYCLE_STOP_TIMEOUT.toMillis(), MILLISECONDS);
+        }
+        catch (TimeoutException e) {
+            log.warn(e, "Timed out waiting for the life cycle to stop");
+        }
+        catch (InterruptedException e) {
+            log.warn(e, "Interrupted while waiting for the life cycle to stop");
+            currentThread().interrupt();
+        }
+        catch (ExecutionException e) {
+            log.warn(e, "Problem stopping the life cycle");
+        }
+
+        shutdownAction.onShutdown();
     }
 
     private List<TaskInfo> getActiveTasks()
