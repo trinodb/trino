@@ -19,11 +19,11 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static com.starburstdata.presto.plugin.sqlserver.SqlServerSessionProperties.OVERRIDE_CATALOG;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.ALICE_USER;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.CATALOG;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.OVERRIDE_CATALOG;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.function.Function.identity;
 

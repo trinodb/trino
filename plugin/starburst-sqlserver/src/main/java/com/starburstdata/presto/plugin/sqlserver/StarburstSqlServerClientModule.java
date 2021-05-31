@@ -40,7 +40,7 @@ import java.sql.SQLException;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static com.starburstdata.presto.plugin.sqlserver.SqlServerSessionProperties.getOverrideCatalog;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.getOverrideCatalog;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
@@ -58,7 +58,7 @@ public class StarburstSqlServerClientModule
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
 
-        bindSessionPropertiesProvider(binder, SqlServerSessionProperties.class);
+        bindSessionPropertiesProvider(binder, StarburstSqlServerSessionProperties.class);
 
         bindTablePropertiesProvider(binder, SqlServerTableProperties.class);
 

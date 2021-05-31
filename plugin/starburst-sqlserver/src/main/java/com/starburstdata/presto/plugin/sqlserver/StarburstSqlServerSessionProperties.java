@@ -22,7 +22,7 @@ import java.util.Optional;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
-public final class SqlServerSessionProperties
+public final class StarburstSqlServerSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String OVERRIDE_CATALOG = "override_catalog";
@@ -30,7 +30,7 @@ public final class SqlServerSessionProperties
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
-    public SqlServerSessionProperties(StarburstSqlServerConfig config)
+    public StarburstSqlServerSessionProperties(StarburstSqlServerConfig config)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
