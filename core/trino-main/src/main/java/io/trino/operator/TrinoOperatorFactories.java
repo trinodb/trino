@@ -20,8 +20,6 @@ import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.type.BlockTypeOperators;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -33,13 +31,10 @@ import static io.trino.operator.LookupJoinOperatorFactory.JoinType.INNER;
 import static io.trino.operator.LookupJoinOperatorFactory.JoinType.LOOKUP_OUTER;
 import static io.trino.operator.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
 
-public class LookupJoinOperators
+public class TrinoOperatorFactories
+        implements OperatorFactories
 {
-    @Inject
-    public LookupJoinOperators()
-    {
-    }
-
+    @Override
     public OperatorFactory innerJoin(
             int operatorId,
             PlanNodeId planNodeId,
@@ -70,6 +65,7 @@ public class LookupJoinOperators
                 blockTypeOperators);
     }
 
+    @Override
     public OperatorFactory probeOuterJoin(
             int operatorId,
             PlanNodeId planNodeId,
@@ -99,6 +95,7 @@ public class LookupJoinOperators
                 blockTypeOperators);
     }
 
+    @Override
     public OperatorFactory lookupOuterJoin(
             int operatorId,
             PlanNodeId planNodeId,
@@ -128,6 +125,7 @@ public class LookupJoinOperators
                 blockTypeOperators);
     }
 
+    @Override
     public OperatorFactory fullOuterJoin(
             int operatorId,
             PlanNodeId planNodeId,

@@ -86,9 +86,10 @@ import io.trino.operator.ExchangeClientConfig;
 import io.trino.operator.ExchangeClientFactory;
 import io.trino.operator.ExchangeClientSupplier;
 import io.trino.operator.ForExchange;
-import io.trino.operator.LookupJoinOperators;
+import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
 import io.trino.server.ExpressionSerialization.ExpressionSerializer;
@@ -307,7 +308,7 @@ public class ServerMainModule
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
-        binder.bind(LookupJoinOperators.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, OperatorFactories.class).setDefault().to(TrinoOperatorFactories.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
         jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);

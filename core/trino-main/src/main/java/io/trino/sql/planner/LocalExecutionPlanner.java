@@ -63,13 +63,13 @@ import io.trino.operator.JoinOperatorFactory;
 import io.trino.operator.JoinOperatorFactory.OuterOperatorFactoryResult;
 import io.trino.operator.LimitOperator.LimitOperatorFactory;
 import io.trino.operator.LocalPlannerAware;
-import io.trino.operator.LookupJoinOperators;
 import io.trino.operator.LookupOuterOperator.LookupOuterOperatorFactory;
 import io.trino.operator.LookupSourceFactory;
 import io.trino.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.trino.operator.MergeOperator.MergeOperatorFactory;
 import io.trino.operator.NestedLoopJoinBridge;
 import io.trino.operator.NestedLoopJoinPagesSupplier;
+import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.OrderByOperator.OrderByOperatorFactory;
 import io.trino.operator.OutputFactory;
@@ -354,7 +354,7 @@ public class LocalExecutionPlanner
     private final PartitioningSpillerFactory partitioningSpillerFactory;
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
-    private final LookupJoinOperators lookupJoinOperators;
+    private final OperatorFactories operatorFactories;
     private final OrderingCompiler orderingCompiler;
     private final DynamicFilterConfig dynamicFilterConfig;
     private final TypeOperators typeOperators;
@@ -380,7 +380,7 @@ public class LocalExecutionPlanner
             PartitioningSpillerFactory partitioningSpillerFactory,
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
-            LookupJoinOperators lookupJoinOperators,
+            OperatorFactories operatorFactories,
             OrderingCompiler orderingCompiler,
             DynamicFilterConfig dynamicFilterConfig,
             TypeOperators typeOperators,
@@ -407,7 +407,7 @@ public class LocalExecutionPlanner
         this.maxLocalExchangeBufferSize = taskManagerConfig.getMaxLocalExchangeBufferSize();
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        this.lookupJoinOperators = requireNonNull(lookupJoinOperators, "lookupJoinOperators is null");
+        this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.dynamicFilterConfig = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
@@ -2022,7 +2022,7 @@ public class LocalExecutionPlanner
             OptionalInt totalOperatorsCount = context.getDriverInstanceCount();
             switch (node.getType()) {
                 case INNER:
-                    lookupJoinOperatorFactory = lookupJoinOperators.innerJoin(
+                    lookupJoinOperatorFactory = operatorFactories.innerJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2037,7 +2037,7 @@ public class LocalExecutionPlanner
                             blockTypeOperators);
                     break;
                 case SOURCE_OUTER:
-                    lookupJoinOperatorFactory = lookupJoinOperators.probeOuterJoin(
+                    lookupJoinOperatorFactory = operatorFactories.probeOuterJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2642,7 +2642,7 @@ public class LocalExecutionPlanner
             boolean waitForBuild = consumedLocalDynamicFilters;
             switch (node.getType()) {
                 case INNER:
-                    return lookupJoinOperators.innerJoin(
+                    return operatorFactories.innerJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2656,7 +2656,7 @@ public class LocalExecutionPlanner
                             partitioningSpillerFactory,
                             blockTypeOperators);
                 case LEFT:
-                    return lookupJoinOperators.probeOuterJoin(
+                    return operatorFactories.probeOuterJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2669,7 +2669,7 @@ public class LocalExecutionPlanner
                             partitioningSpillerFactory,
                             blockTypeOperators);
                 case RIGHT:
-                    return lookupJoinOperators.lookupOuterJoin(
+                    return operatorFactories.lookupOuterJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2682,7 +2682,7 @@ public class LocalExecutionPlanner
                             partitioningSpillerFactory,
                             blockTypeOperators);
                 case FULL:
-                    return lookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory, blockTypeOperators);
+                    return operatorFactories.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory, blockTypeOperators);
             }
             throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
         }
