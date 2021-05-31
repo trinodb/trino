@@ -22,6 +22,8 @@ import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.PlanNode;
 
+import javax.inject.Inject;
+
 import java.lang.reflect.Modifier;
 import java.util.Iterator;
 import java.util.List;
@@ -37,6 +39,7 @@ public class ComposableStatsCalculator
 {
     private final ListMultimap<Class<?>, Rule<?>> rulesByRootType;
 
+    @Inject
     public ComposableStatsCalculator(List<Rule<?>> rules)
     {
         this.rulesByRootType = rules.stream()
