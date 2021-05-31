@@ -847,6 +847,48 @@ public class TestCassandraConnectorTest
         assertEquals(execute("SELECT * FROM " + keyspaceAndTable + whereMultiplePartitionKey).getRowCount(), 0);
     }
 
+    @Override
+    public void testDeleteWithComplexPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithComplexPredicate)
+                .hasStackTraceContaining("Deleting without partition key is not supported");
+    }
+
+    @Override
+    public void testDeleteWithSemiJoin()
+    {
+        assertThatThrownBy(super::testDeleteWithSemiJoin)
+                .hasStackTraceContaining("Deleting without partition key is not supported");
+    }
+
+    @Override
+    public void testDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testDeleteWithSubquery)
+                .hasStackTraceContaining("Deleting without partition key is not supported");
+    }
+
+    @Override
+    public void testDeleteWithVarcharPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithVarcharPredicate)
+                .hasStackTraceContaining("Deleting without partition key is not supported");
+    }
+
+    @Override
+    public void testDeleteAllTable()
+    {
+        assertThatThrownBy(super::testDeleteAllTable)
+                .hasStackTraceContaining("Deleting without partition key is not supported");
+    }
+
+    @Override
+    public void testRowLevelDelete()
+    {
+        assertThatThrownBy(super::testRowLevelDelete)
+                .hasStackTraceContaining("Deleting without partition key is not supported");
+    }
+
     private void assertSelect(String tableName, boolean createdByTrino)
     {
         Type uuidType = createdByTrino ? createUnboundedVarcharType() : createVarcharType(36);
