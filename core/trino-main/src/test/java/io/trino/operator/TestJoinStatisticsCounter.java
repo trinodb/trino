@@ -13,10 +13,10 @@
  */
 package io.trino.operator;
 
-import io.trino.operator.LookupJoinOperators.JoinType;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.operator.LookupJoinOperatorFactory.JoinType.INNER;
 import static org.testng.Assert.assertEquals;
 
 public class TestJoinStatisticsCounter
@@ -24,7 +24,7 @@ public class TestJoinStatisticsCounter
     @Test
     public void testRecord()
     {
-        JoinStatisticsCounter counter = new JoinStatisticsCounter(JoinType.INNER);
+        JoinStatisticsCounter counter = new JoinStatisticsCounter(INNER);
         JoinOperatorInfo info = counter.get();
         assertEquals(makeHistogramArray(0, 0, 0, 0, 0, 0, 0, 0), info.getLogHistogramProbes());
         assertEquals(makeHistogramArray(0, 0, 0, 0, 0, 0, 0, 0), info.getLogHistogramOutput());

@@ -13,12 +13,12 @@
  */
 package io.trino.operator;
 
-import io.trino.operator.LookupJoinOperators.JoinType;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.operator.LookupJoinOperatorFactory.JoinType.INNER;
 import static org.testng.Assert.assertEquals;
 
 public class TestJoinOperatorInfo
@@ -27,12 +27,12 @@ public class TestJoinOperatorInfo
     public void testMerge()
     {
         JoinOperatorInfo base = new JoinOperatorInfo(
-                JoinType.INNER,
+                INNER,
                 makeHistogramArray(10, 20, 30, 40, 50, 60, 70, 80),
                 makeHistogramArray(12, 22, 32, 42, 52, 62, 72, 82),
                 Optional.of(1L));
         JoinOperatorInfo other = new JoinOperatorInfo(
-                JoinType.INNER,
+                INNER,
                 makeHistogramArray(11, 21, 31, 41, 51, 61, 71, 81),
                 makeHistogramArray(15, 25, 35, 45, 55, 65, 75, 85),
                 Optional.of(2L));
