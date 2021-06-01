@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.trino.operator.PartitionedOutputOperator.PartitionedOutputInfo;
 import io.trino.operator.TableWriterOperator.TableWriterInfo;
 import io.trino.operator.exchange.LocalExchangeBufferInfo;
+import io.trino.operator.join.JoinOperatorInfo;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
