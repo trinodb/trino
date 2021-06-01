@@ -36,7 +36,7 @@ import java.io.File;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class TestJoinQueryOnPartitionedColumn
+public class TestJoinQueryOnPartitioningColumn
         extends AbstractTestQueryFramework
 {
     @Override
