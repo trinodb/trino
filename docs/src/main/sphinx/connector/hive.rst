@@ -1000,9 +1000,9 @@ Hive connector limitations
 --------------------------
 
 * :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
-* :doc:`/sql/delete` applied to non-transactional tables is only supported if the ``WHERE`` clause matches entire partitions.
-  Transactional Hive tables with format ORC support "row-by-row" deletion, in which the ``WHERE`` clause may match arbitrary
-  sets of rows.
+* :doc:`/sql/delete` applied to non-transactional tables is only supported if the table is partitioned and
+  the ``WHERE`` clause matches entire partitions. Transactional Hive tables with ORC format support
+  "row-by-row" deletion, in which the ``WHERE`` clause may match arbitrary sets of rows.
 * :doc:`/sql/update` is only supported for transactional Hive tables with format ORC.  ``UPDATE`` of partition or bucket
   columns is not supported.
 
