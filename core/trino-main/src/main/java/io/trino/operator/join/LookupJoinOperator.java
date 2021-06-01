@@ -22,6 +22,7 @@ import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.trino.operator.join.JoinProbe.JoinProbeFactory;
 import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
+import io.trino.operator.join.PageJoiner.PageJoinerFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
@@ -61,21 +62,28 @@ public class LookupJoinOperator
         this.waitForBuild = waitForBuild;
         lookupSourceProviderFuture = lookupSourceFactory.createLookupSourceProvider();
         pageBuffer = new PageBuffer();
+        PageJoinerFactory pageJoinerFactory = (lookupSourceProvider, joinerPartitioningSpillerFactory, savedRows) ->
+                new PageJoiner(
+                        processorContext,
+                        probeTypes,
+                        buildOutputTypes,
+                        joinType,
+                        outputSingleMatch,
+                        hashGenerator,
+                        joinProbeFactory,
+                        lookupSourceFactory,
+                        lookupSourceProvider,
+                        joinerPartitioningSpillerFactory,
+                        statisticsCounter,
+                        savedRows);
         joinProcessor = new SpillingJoinProcessor(
-                processorContext,
                 afterClose,
                 lookupJoinsCount,
-                probeTypes,
-                buildOutputTypes,
-                joinType,
-                outputSingleMatch,
                 waitForBuild,
-                hashGenerator,
-                joinProbeFactory,
                 lookupSourceFactory,
                 lookupSourceProviderFuture,
-                statisticsCounter,
                 partitioningSpillerFactory,
+                pageJoinerFactory,
                 sourcePages.orElse(pageBuffer.pages()));
         pages = flatten(WorkProcessor.create(joinProcessor));
     }

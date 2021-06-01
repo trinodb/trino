@@ -61,6 +61,14 @@ import static java.util.Objects.requireNonNull;
 public class PageJoiner
         implements WorkProcessor.Transformation<Page, Page>
 {
+    public interface PageJoinerFactory
+    {
+        PageJoiner getPageJoiner(
+                ListenableFuture<LookupSourceProvider> lookupSourceProvider,
+                Optional<PartitioningSpillerFactory> partitioningSpillerFactory,
+                Iterator<SavedRow> savedRows);
+    }
+
     private final List<Type> probeTypes;
     private final JoinProbeFactory joinProbeFactory;
     private final ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture;
