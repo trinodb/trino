@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.airlift.log.Logging;
 import io.trino.plugin.blackhole.BlackHolePlugin;
-import io.trino.plugin.hive.HiveHadoop2Plugin;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.tpch.TpchMetadata;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.BasicQueryInfo;
@@ -114,8 +114,8 @@ public class TestTrinoDatabaseMetaData
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
 
-        server.installPlugin(new HiveHadoop2Plugin());
-        server.createCatalog("hive", "hive-hadoop2", ImmutableMap.<String, String>builder()
+        server.installPlugin(new HivePlugin());
+        server.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
                 .put("hive.security", "sql-standard")
