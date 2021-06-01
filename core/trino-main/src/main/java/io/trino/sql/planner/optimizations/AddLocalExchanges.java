@@ -467,6 +467,7 @@ public class AddLocalExchanges
                     node.getHashSymbol(),
                     prePartitionedInputs,
                     preSortedOrderPrefix,
+                    node.getWindowFunctions(),
                     node.getMeasures(),
                     node.getCommonBaseFrame(),
                     node.getRowsPerMatch(),
