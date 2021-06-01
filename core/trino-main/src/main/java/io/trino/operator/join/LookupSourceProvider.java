@@ -28,8 +28,6 @@ public interface LookupSourceProvider
     {
         LookupSource getLookupSource();
 
-        boolean hasSpilled();
-
         long spillEpoch();
 
         IntPredicate getSpillMask();
