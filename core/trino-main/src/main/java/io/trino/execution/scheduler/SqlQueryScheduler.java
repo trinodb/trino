@@ -391,7 +391,7 @@ public class SqlQueryScheduler
                 // contains local source
                 List<PlanNodeId> schedulingOrder = plan.getFragment().getPartitionedSources();
                 Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
-                catalogName.orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
+                checkArgument(catalogName.isPresent(), "No connector ID for partitioning handle: %s", partitioningHandle);
                 List<ConnectorPartitionHandle> connectorPartitionHandles;
                 boolean groupedExecutionForStage = plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution();
                 if (groupedExecutionForStage) {
