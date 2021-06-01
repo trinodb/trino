@@ -98,8 +98,7 @@ public class TestJdbcResultSetCompatibilityOldServer
         }
 
         DockerImageName image = DockerImageName.parse("trinodb/trino")
-                .withTag(testedTrinoVersion.get())
-                .asCompatibleSubstituteFor("prestosql/presto");
+                .withTag(testedTrinoVersion.get());
         trinoContainer = new TrinoContainer(image);
         trinoContainer.start();
 
