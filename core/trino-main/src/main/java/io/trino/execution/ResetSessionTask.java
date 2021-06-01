@@ -55,14 +55,16 @@ public class ResetSessionTask
 
         // validate the property name
         if (parts.size() == 1) {
-            metadata.getSessionPropertyManager().getSystemSessionPropertyMetadata(parts.get(0))
-                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName()));
+            if (metadata.getSessionPropertyManager().getSystemSessionPropertyMetadata(parts.get(0)).isEmpty()) {
+                throw semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName());
+            }
         }
         else {
             CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), parts.get(0))
                     .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, statement, "Catalog '%s' does not exist", parts.get(0)));
-            metadata.getSessionPropertyManager().getConnectorSessionPropertyMetadata(catalogName, parts.get(1))
-                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName()));
+            if (metadata.getSessionPropertyManager().getConnectorSessionPropertyMetadata(catalogName, parts.get(1)).isEmpty()) {
+                throw semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName());
+            }
         }
 
         stateMachine.addResetSessionProperties(statement.getName().toString());
