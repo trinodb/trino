@@ -13,6 +13,8 @@
  */
 package io.trino.operator;
 
+import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.LookupSourceFactory;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;

@@ -13,8 +13,11 @@
  */
 package io.trino.operator;
 
-import io.trino.operator.JoinProbe.JoinProbeFactory;
-import io.trino.operator.LookupJoinOperatorFactory.JoinType;
+import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.JoinProbe.JoinProbeFactory;
+import io.trino.operator.join.LookupJoinOperatorFactory;
+import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
+import io.trino.operator.join.LookupSourceFactory;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -26,10 +29,10 @@ import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.operator.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
-import static io.trino.operator.LookupJoinOperatorFactory.JoinType.INNER;
-import static io.trino.operator.LookupJoinOperatorFactory.JoinType.LOOKUP_OUTER;
-import static io.trino.operator.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
+import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
+import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.INNER;
+import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.LOOKUP_OUTER;
+import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
 
 public class TrinoOperatorFactories
         implements OperatorFactories
