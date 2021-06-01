@@ -28,6 +28,7 @@ import org.apache.avro.SchemaBuilder;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,10 +48,10 @@ public class TestAvroConfluentContentSchemaReader
         Schema schema = getAvroSchema();
         mockSchemaRegistryClient.register(SUBJECT_NAME, schema);
         AvroConfluentContentSchemaReader avroConfluentSchemaReader = new AvroConfluentContentSchemaReader(mockSchemaRegistryClient);
-        KafkaTableHandle tableHandle = new KafkaTableHandle("default", TOPIC, TOPIC, AvroRowDecoderFactory.NAME, AvroRowDecoderFactory.NAME, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(SUBJECT_NAME), ImmutableList.of(), TupleDomain.all());
+        KafkaTableHandle tableHandle = new KafkaTableHandle("default", TOPIC, TOPIC, AvroRowDecoderFactory.NAME, AvroRowDecoderFactory.NAME, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(SUBJECT_NAME), ImmutableList.of(), TupleDomain.all(), OptionalLong.empty());
         assertEquals(avroConfluentSchemaReader.readValueContentSchema(tableHandle), Optional.of(schema).map(Schema::toString));
         assertEquals(avroConfluentSchemaReader.readKeyContentSchema(tableHandle), Optional.empty());
-        KafkaTableHandle invalidTableHandle = new KafkaTableHandle("default", TOPIC, TOPIC, AvroRowDecoderFactory.NAME, AvroRowDecoderFactory.NAME, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("another-schema"), ImmutableList.of(), TupleDomain.all());
+        KafkaTableHandle invalidTableHandle = new KafkaTableHandle("default", TOPIC, TOPIC, AvroRowDecoderFactory.NAME, AvroRowDecoderFactory.NAME, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("another-schema"), ImmutableList.of(), TupleDomain.all(), OptionalLong.empty());
         assertThatThrownBy(() -> avroConfluentSchemaReader.readValueContentSchema(invalidTableHandle))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Could not resolve schema for the 'another-schema' subject");
