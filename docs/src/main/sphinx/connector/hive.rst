@@ -174,13 +174,13 @@ Configuration
 -------------
 
 Create ``etc/catalog/hive.properties`` with the following contents
-to mount the ``hive-hadoop2`` connector as the ``hive`` catalog,
+to mount the ``hive`` connector as the ``hive`` catalog,
 replacing ``example.net:9083`` with the correct host and port
 for your Hive metastore Thrift service:
 
 .. code-block:: text
 
-    connector.name=hive-hadoop2
+    connector.name=hive
     hive.metastore.uri=thrift://example.net:9083
 
 Multiple Hive clusters
