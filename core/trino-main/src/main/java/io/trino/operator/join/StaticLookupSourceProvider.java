@@ -50,12 +50,6 @@ public final class StaticLookupSourceProvider
         }
 
         @Override
-        public boolean hasSpilled()
-        {
-            return false;
-        }
-
-        @Override
         public long spillEpoch()
         {
             return 0;

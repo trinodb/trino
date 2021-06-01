@@ -491,12 +491,6 @@ public final class PartitionedLookupSourceFactory
         }
 
         @Override
-        public boolean hasSpilled()
-        {
-            return spillingInfo.hasSpilled();
-        }
-
-        @Override
         public long spillEpoch()
         {
             return spillingInfo.spillEpoch();
