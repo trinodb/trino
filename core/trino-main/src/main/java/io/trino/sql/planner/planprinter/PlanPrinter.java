@@ -720,13 +720,21 @@ public class PlanPrinter
 
             NodeRepresentation nodeOutput = addNode(node, "PatterRecognition", format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashSymbol())));
 
+            if (node.getCommonBaseFrame().isPresent()) {
+                nodeOutput.appendDetailsLine("base frame: " + formatFrame(node.getCommonBaseFrame().get()));
+            }
+            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+                WindowNode.Function function = entry.getValue();
+                nodeOutput.appendDetailsLine("%s := %s(%s)", entry.getKey(), function.getResolvedFunction().getSignature().getName(), Joiner.on(", ").join(function.getArguments()));
+            }
+
             for (Map.Entry<Symbol, Measure> entry : node.getMeasures().entrySet()) {
                 nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), unresolveFunctions(entry.getValue().getExpressionAndValuePointers().getExpression()));
                 appendValuePointers(nodeOutput, entry.getValue().getExpressionAndValuePointers());
             }
             nodeOutput.appendDetailsLine(formatRowsPerMatch(node.getRowsPerMatch()));
             nodeOutput.appendDetailsLine(formatSkipTo(node.getSkipToPosition(), node.getSkipToLabel()));
-            nodeOutput.appendDetailsLine(format("pattern[%s]", node.getPattern()));
+            nodeOutput.appendDetailsLine(format("pattern[%s] (%s)", node.getPattern(), node.isInitial() ? "INITIAL" : "SEEK"));
             nodeOutput.appendDetailsLine(format("subsets[%s]", node.getSubsets().entrySet().stream()
                     .map(subset -> subset.getKey().getName() +
                             " := " +

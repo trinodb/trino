@@ -378,6 +378,7 @@ class RelationPlanner
                 Optional.empty(),
                 ImmutableSet.of(),
                 0,
+                ImmutableMap.of(),
                 components.getMeasures(),
                 Optional.empty(),
                 node.getRowsPerMatch().orElse(ONE),

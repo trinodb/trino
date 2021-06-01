@@ -1349,9 +1349,6 @@ class QueryPlanner
                         frame.getPattern().get(),
                         frame.getVariableDefinitions());
 
-        // fail after the planning is done. Currently, a windowFunction cannot be recorded in PatternRecognitionNode
-        checkState(function == null, "Window functions with pattern recognition not yet supported");
-
         // create pattern recognition node
         return new PlanBuilder(
                 subPlan.getTranslations()
@@ -1363,6 +1360,7 @@ class QueryPlanner
                         Optional.empty(),
                         ImmutableSet.of(),
                         0,
+                        ImmutableMap.of(newSymbol, function),
                         components.getMeasures(),
                         Optional.of(baseFrame),
                         RowsPerMatch.WINDOW,
@@ -1478,6 +1476,7 @@ class QueryPlanner
                         Optional.empty(),
                         ImmutableSet.of(),
                         0,
+                        ImmutableMap.of(),
                         components.getMeasures(),
                         Optional.of(baseFrame),
                         RowsPerMatch.WINDOW,

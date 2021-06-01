@@ -316,6 +316,7 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.SkipTo.Position.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
@@ -1172,7 +1173,40 @@ public class LocalExecutionPlanner
                 nextOutputChannel++;
             }
 
-            // TODO here go window functions in the following channels, similarly to measures
+            // process window functions
+            ImmutableList.Builder<WindowFunctionDefinition> windowFunctionsBuilder = ImmutableList.builder();
+            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+                // window functions outputs go in remaining channels starting after the last measure channel
+                outputMappings.put(entry.getKey(), nextOutputChannel);
+                nextOutputChannel++;
+
+                // the common base frame applies to all window functions. This frameInfo will be ignored.
+                FrameInfo ignoredFrame = new FrameInfo(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+
+                WindowNode.Function function = entry.getValue();
+                ResolvedFunction resolvedFunction = function.getResolvedFunction();
+                ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
+                for (Expression argument : function.getArguments()) {
+                    if (!(argument instanceof LambdaExpression)) {
+                        Symbol argumentSymbol = Symbol.from(argument);
+                        arguments.add(source.getLayout().get(argumentSymbol));
+                    }
+                }
+                WindowFunctionSupplier windowFunctionSupplier = metadata.getWindowFunctionImplementation(resolvedFunction);
+                Type type = resolvedFunction.getSignature().getReturnType();
+
+                List<LambdaExpression> lambdaExpressions = function.getArguments().stream()
+                        .filter(LambdaExpression.class::isInstance)
+                        .map(LambdaExpression.class::cast)
+                        .collect(toImmutableList());
+                List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
+                        .filter(FunctionType.class::isInstance)
+                        .map(FunctionType.class::cast)
+                        .collect(toImmutableList());
+
+                List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, windowFunctionSupplier.getLambdaInterfaces(), functionTypes);
+                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, ignoredFrame, function.isIgnoreNulls(), lambdaProviders, arguments.build()));
+            }
 
             // prepare structures specific to PatternRecognitionNode
             // 1. establish a two-way mapping of IrLabels to `int`
@@ -1266,7 +1300,7 @@ public class LocalExecutionPlanner
                     node.getId(),
                     source.getTypes(),
                     outputChannels.build(),
-                    ImmutableList.of(), // TODO support window functions
+                    windowFunctionsBuilder.build(),
                     partitionChannels,
                     preGroupedChannels,
                     sortChannels,

@@ -19,11 +19,15 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.server.ExpressionSerialization;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
+import io.trino.sql.planner.plan.WindowNode.Frame;
+import io.trino.sql.planner.plan.WindowNode.Function;
 import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ValuePointer;
@@ -40,6 +44,7 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.TypeDeserializer;
+import io.trino.type.TypeSignatureKeyDeserializer;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -49,8 +54,11 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_SHOW_EMPTY;
 import static io.trino.sql.tree.SkipTo.Position.LAST;
+import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static org.testng.Assert.assertEquals;
 
 public class TestPatternRecognitionNodeSerialization
@@ -133,10 +141,14 @@ public class TestPatternRecognitionNodeSerialization
         provider.setJsonDeserializers(ImmutableMap.of(
                 Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser()),
                 Type.class, new TypeDeserializer(createTestMetadataManager())));
+        provider.setKeyDeserializers(ImmutableMap.of(
+                TypeSignature.class, new TypeSignatureKeyDeserializer()));
         JsonCodec<PatternRecognitionNode> codec = new JsonCodecFactory(provider).jsonCodec(PatternRecognitionNode.class);
 
+        ResolvedFunction rankFunction = createTestMetadataManager().resolveFunction(QualifiedName.of("rank"), ImmutableList.of());
+
         // test remaining fields inside PatternRecognitionNode specific to pattern recognition:
-        // measures, rowsPerMatch, skipToLabel, skipToPosition, initial, pattern, subsets, variableDefinitions
+        // windowFunctions, measures, commonBaseFrame, rowsPerMatch, skipToLabel, skipToPosition, initial, pattern, subsets, variableDefinitions
         PatternRecognitionNode node = new PatternRecognitionNode(
                 new PlanNodeId("0"),
                 new ValuesNode(new PlanNodeId("1"), 1),
@@ -145,9 +157,16 @@ public class TestPatternRecognitionNodeSerialization
                 ImmutableSet.of(),
                 0,
                 ImmutableMap.of(
+                        new Symbol("rank"),
+                        new Function(
+                                rankFunction,
+                                ImmutableList.of(),
+                                new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                                false)),
+                ImmutableMap.of(
                         new Symbol("measure"),
                         new Measure(new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of(), ImmutableList.of(), ImmutableSet.of(), ImmutableSet.of()), BOOLEAN)),
-                Optional.empty(),
+                Optional.of(new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())),
                 ALL_SHOW_EMPTY,
                 Optional.of(new IrLabel("B")),
                 LAST,

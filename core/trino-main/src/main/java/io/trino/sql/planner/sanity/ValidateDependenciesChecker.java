@@ -184,6 +184,15 @@ public final class ValidateDependenciesChecker
                         node.getOrderingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
             }
 
+            node.getCommonBaseFrame()
+                    .flatMap(WindowNode.Frame::getEndValue)
+                    .ifPresent(value -> checkDependencies(inputs, ImmutableList.of(value), "Invalid node. Frame end symbol (%s) not in source plan output (%s)", value, node.getSource().getOutputSymbols()));
+
+            for (WindowNode.Function function : node.getWindowFunctions().values()) {
+                Set<Symbol> dependencies = extractUnique(function);
+                checkDependencies(inputs, dependencies, "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+            }
+
             Set<Symbol> measuresSymbols = node.getMeasures().values().stream()
                     .map(Measure::getExpressionAndValuePointers)
                     .map(SymbolsExtractor::extractUnique)
