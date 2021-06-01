@@ -60,8 +60,9 @@ public class SetViewAuthorizationTask
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
         CatalogName catalogName = metadata.getCatalogHandle(session, viewName.getCatalogName())
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + viewName.getCatalogName()));
-        metadata.getView(session, viewName)
-                .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName));
+        if (metadata.getView(session, viewName).isEmpty()) {
+            throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
+        }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
         if (principal.getType() == PrincipalType.ROLE

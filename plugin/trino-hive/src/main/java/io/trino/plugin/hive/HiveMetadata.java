@@ -1229,8 +1229,7 @@ public class HiveMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        Optional<Table> target = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName());
-        if (target.isEmpty()) {
+        if (metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName()).isEmpty()) {
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
         metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
@@ -1239,9 +1238,10 @@ public class HiveMetadata
     @Override
     public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
-        metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        if (metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName()).isEmpty()) {
+            throw new TableNotFoundException(handle.getSchemaTableName());
+        }
         return tableHandle;
     }
 

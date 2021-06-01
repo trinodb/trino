@@ -61,8 +61,9 @@ public class SetTableAuthorizationTask
 
         CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
-        metadata.getTableHandle(session, tableName)
-                .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName));
+        if (metadata.getTableHandle(session, tableName).isEmpty()) {
+            throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+        }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
 
