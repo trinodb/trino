@@ -232,16 +232,14 @@ public class IcebergMetadata
     @Override
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        // We rely on transaction level metadata cache to avoid incurring more communication to metastore
-        if (getMaterializedView(session, tableName).isPresent() || getView(session, tableName).isPresent()) {
-            return null;
-        }
-
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
         verify(name.getTableType() == DATA, "Wrong table type: " + name.getTableType());
 
         Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
         if (hiveTable.isEmpty()) {
+            return null;
+        }
+        if (isMaterializedView(hiveTable.get())) {
             return null;
         }
         if (!isIcebergTable(hiveTable.get())) {
