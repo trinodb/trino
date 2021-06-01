@@ -208,7 +208,9 @@ public class TableStatisticsMaker
         }
         if (type instanceof Type.NestedType) {
             type.asNestedType().fields().forEach(child -> buildIdPrimitiveTypeMapping(child, icebergIdToTypeMapping));
+            return;
         }
+        throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
     private boolean dataFileMatches(
