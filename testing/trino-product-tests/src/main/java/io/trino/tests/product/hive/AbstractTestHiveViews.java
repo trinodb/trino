@@ -346,6 +346,22 @@ public abstract class AbstractTestHiveViews
         assertThat(connectToPresto("alice@presto").executeQuery(testQuery)).containsOnly(row("alice"));
     }
 
+    @Test(groups = HIVE_VIEWS)
+    public void testNestedGroupBy()
+    {
+        onHive().executeQuery("DROP VIEW IF EXISTS test_nested_group_by_view");
+        onHive().executeQuery("CREATE VIEW test_nested_group_by_view AS SELECT n_regionkey, count(1) count FROM (SELECT n_regionkey FROM nation GROUP BY n_regionkey ) t GROUP BY n_regionkey");
+
+        assertViewQuery(
+                "SELECT * FROM test_nested_group_by_view",
+                queryAssert -> queryAssert.containsOnly(
+                        row(0, 1),
+                        row(1, 1),
+                        row(2, 1),
+                        row(3, 1),
+                        row(4, 1)));
+    }
+
     protected static void assertViewQuery(String query, Consumer<QueryAssert> assertion)
     {
         // Ensure Hive and Presto view compatibility by comparing the results
