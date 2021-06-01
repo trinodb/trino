@@ -368,7 +368,7 @@ public class TestPageProcessor
 
         // force a compute
         // one block of previouslyComputedResults will be saved given the first column is with 8MB
-        output.hasNext();
+        assertTrue(output.hasNext());
 
         // verify we do not count block sizes twice
         // comparing with the input page, the output page also contains an extra instance size for previouslyComputedResults
