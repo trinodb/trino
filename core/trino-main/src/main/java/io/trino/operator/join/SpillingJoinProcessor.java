@@ -16,21 +16,16 @@ package io.trino.operator.join;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.operator.HashGenerator;
-import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
-import io.trino.operator.join.JoinProbe.JoinProbeFactory;
-import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
+import io.trino.operator.join.PageJoiner.PageJoinerFactory;
 import io.trino.operator.join.PageJoiner.SavedRow;
 import io.trino.spi.Page;
-import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
@@ -44,19 +39,12 @@ import static java.util.Objects.requireNonNull;
 public class SpillingJoinProcessor
         implements WorkProcessor.Process<WorkProcessor<Page>>
 {
-    private final ProcessorContext processorContext;
     private final Runnable afterClose;
     private final OptionalInt lookupJoinsCount;
-    private final List<Type> probeTypes;
-    private final List<Type> buildOutputTypes;
-    private final JoinType joinType;
-    private final boolean outputSingleMatch;
     private final boolean waitForBuild;
-    private final HashGenerator hashGenerator;
-    private final JoinProbeFactory joinProbeFactory;
     private final LookupSourceFactory lookupSourceFactory;
     private final ListenableFuture<LookupSourceProvider> lookupSourceProvider;
-    private final JoinStatisticsCounter statisticsCounter;
+    private final PageJoinerFactory pageJoinerFactory;
     private final PageJoiner sourcePagesJoiner;
     private final WorkProcessor<Page> joinedSourcePages;
 
@@ -72,47 +60,24 @@ public class SpillingJoinProcessor
     private ListenableFuture<Supplier<LookupSource>> previousPartitionLookupSource;
 
     public SpillingJoinProcessor(
-            ProcessorContext processorContext,
             Runnable afterClose,
             OptionalInt lookupJoinsCount,
-            List<Type> probeTypes,
-            List<Type> buildOutputTypes,
-            JoinType joinType,
-            boolean outputSingleMatch,
             boolean waitForBuild,
-            HashGenerator hashGenerator,
-            JoinProbeFactory joinProbeFactory,
             LookupSourceFactory lookupSourceFactory,
             ListenableFuture<LookupSourceProvider> lookupSourceProvider,
-            JoinStatisticsCounter statisticsCounter,
             PartitioningSpillerFactory partitioningSpillerFactory,
+            PageJoinerFactory pageJoinerFactory,
             WorkProcessor<Page> sourcePages)
     {
-        this.processorContext = requireNonNull(processorContext, "processorContext is null");
         this.afterClose = requireNonNull(afterClose, "afterClose is null");
         this.lookupJoinsCount = requireNonNull(lookupJoinsCount, "lookupJoinsCount is null");
-        this.probeTypes = requireNonNull(probeTypes, "probeTypes is null");
-        this.buildOutputTypes = requireNonNull(buildOutputTypes, "buildOutputTypes is null");
-        this.joinType = requireNonNull(joinType, "joinType is null");
-        this.outputSingleMatch = outputSingleMatch;
         this.waitForBuild = waitForBuild;
-        this.hashGenerator = requireNonNull(hashGenerator, "hashGenerator is null");
-        this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
         this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
         this.lookupSourceProvider = requireNonNull(lookupSourceProvider, "lookupSourceProvider is null");
-        this.statisticsCounter = requireNonNull(statisticsCounter, "statisticsCounter is null");
-        sourcePagesJoiner = new PageJoiner(
-                processorContext,
-                probeTypes,
-                buildOutputTypes,
-                joinType,
-                outputSingleMatch,
-                hashGenerator,
-                joinProbeFactory,
-                lookupSourceFactory,
+        this.pageJoinerFactory = requireNonNull(pageJoinerFactory, "pageJoinerFactory is null");
+        sourcePagesJoiner = pageJoinerFactory.getPageJoiner(
                 lookupSourceProvider,
                 Optional.of(partitioningSpillerFactory),
-                statisticsCounter,
                 emptyIterator());
         joinedSourcePages = sourcePages.transform(sourcePagesJoiner);
     }
@@ -198,18 +163,9 @@ public class SpillingJoinProcessor
                 supplier -> new StaticLookupSourceProvider(supplier.get()),
                 directExecutor());
 
-        return unspilledInputPages.transform(new PageJoiner(
-                processorContext,
-                probeTypes,
-                buildOutputTypes,
-                joinType,
-                outputSingleMatch,
-                hashGenerator,
-                joinProbeFactory,
-                lookupSourceFactory,
+        return unspilledInputPages.transform(pageJoinerFactory.getPageJoiner(
                 unspilledLookupSourceProvider,
                 Optional.empty(),
-                statisticsCounter,
                 savedRow));
     }
 }
