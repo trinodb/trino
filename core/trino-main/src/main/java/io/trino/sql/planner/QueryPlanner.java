@@ -24,7 +24,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SortOrder;
@@ -37,6 +36,7 @@ import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.RelationType;
+import io.trino.sql.planner.RelationPlanner.PatternRecognitionComponents;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
@@ -45,6 +45,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.OffsetNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -76,6 +77,7 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
@@ -86,6 +88,7 @@ import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowOperation;
 import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
@@ -100,16 +103,15 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static io.trino.SystemSessionProperties.isSkipRedundantSort;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -374,20 +376,13 @@ class QueryPlanner
 
     public RelationPlan plan(QuerySpecification node)
     {
-        Stream.concat(
-                analysis.getWindowMeasures(node).stream(),
-                node.getOrderBy().map(analysis::getOrderByWindowMeasures).orElse(ImmutableList.of()).stream())
-                .findFirst()
-                .ifPresent(measure -> {
-                    throw new TrinoException(NOT_SUPPORTED, "Row pattern measures over window not yet supported");
-                });
-
         PlanBuilder builder = planFrom(node);
 
         builder = filter(builder, analysis.getWhere(node), node);
         builder = aggregate(builder, node);
         builder = filter(builder, analysis.getHaving(node), node);
-        builder = window(node, builder, ImmutableList.copyOf(analysis.getWindowFunctions(node)));
+        builder = planWindowFunctions(node, builder, ImmutableList.copyOf(analysis.getWindowFunctions(node)));
+        builder = planWindowMeasures(node, builder, ImmutableList.copyOf(analysis.getWindowMeasures(node)));
 
         List<SelectExpression> selectExpressions = analysis.getSelectExpressions(node);
         List<Expression> expressions = selectExpressions.stream()
@@ -426,7 +421,8 @@ class QueryPlanner
 
             builder = builder.withScope(analysis.getScope(node.getOrderBy().get()), newFields);
 
-            builder = window(node, builder, ImmutableList.copyOf(analysis.getOrderByWindowFunctions(node.getOrderBy().get())));
+            builder = planWindowFunctions(node, builder, ImmutableList.copyOf(analysis.getOrderByWindowFunctions(node.getOrderBy().get())));
+            builder = planWindowMeasures(node, builder, ImmutableList.copyOf(analysis.getOrderByWindowMeasures(node.getOrderBy().get())));
         }
 
         List<Expression> orderBy = analysis.getOrderByExpressions(node);
@@ -926,7 +922,7 @@ class QueryPlanner
                 (translations, groupingOperation) -> false);
     }
 
-    private PlanBuilder window(Node node, PlanBuilder subPlan, List<FunctionCall> windowFunctions)
+    private PlanBuilder planWindowFunctions(Node node, PlanBuilder subPlan, List<FunctionCall> windowFunctions)
     {
         if (windowFunctions.isEmpty()) {
             return subPlan;
@@ -1019,7 +1015,12 @@ class QueryPlanner
                 throw new IllegalArgumentException("unexpected window frame type: " + window.getFrame().get().getType());
             }
 
-            subPlan = planWindow(subPlan, windowFunction, window, coercions, frameStart, sortKeyCoercedForFrameStartComparison, frameEnd, sortKeyCoercedForFrameEndComparison);
+            if (window.getFrame().isPresent() && window.getFrame().get().getPattern().isPresent()) {
+                subPlan = planPatternRecognition(subPlan, windowFunction, window, coercions, frameEnd);
+            }
+            else {
+                subPlan = planWindow(subPlan, windowFunction, window, coercions, frameStart, sortKeyCoercedForFrameStartComparison, frameEnd, sortKeyCoercedForFrameEndComparison);
+            }
         }
 
         return subPlan;
@@ -1298,6 +1299,82 @@ class QueryPlanner
                         0));
     }
 
+    private PlanBuilder planPatternRecognition(
+            PlanBuilder subPlan,
+            FunctionCall windowFunction,
+            ResolvedWindow window,
+            PlanAndMappings coercions,
+            Optional<Symbol> frameEndSymbol)
+    {
+        WindowNode.Specification specification = planWindowSpecification(window.getPartitionBy(), window.getOrderBy(), coercions::get);
+
+        // in window frame with pattern recognition, the frame extent is specified as `ROWS BETWEEN CURRENT ROW AND ... `
+        WindowFrame frame = window.getFrame().get();
+        FrameBound frameEnd = frame.getEnd().get();
+        WindowNode.Frame baseFrame = new WindowNode.Frame(
+                WindowFrame.Type.ROWS,
+                FrameBound.Type.CURRENT_ROW,
+                Optional.empty(),
+                Optional.empty(),
+                frameEnd.getType(),
+                frameEndSymbol,
+                Optional.empty(),
+                Optional.empty(),
+                frameEnd.getValue());
+
+        Symbol newSymbol = symbolAllocator.newSymbol(windowFunction, analysis.getType(windowFunction));
+
+        NullTreatment nullTreatment = windowFunction.getNullTreatment()
+                .orElse(NullTreatment.RESPECT);
+
+        WindowNode.Function function = new WindowNode.Function(
+                analysis.getResolvedFunction(windowFunction),
+                windowFunction.getArguments().stream()
+                        .map(argument -> {
+                            if (argument instanceof LambdaExpression) {
+                                return subPlan.rewrite(argument);
+                            }
+                            return coercions.get(argument).toSymbolReference();
+                        })
+                        .collect(toImmutableList()),
+                baseFrame,
+                nullTreatment == NullTreatment.IGNORE);
+
+        PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
+                .planPatternRecognitionComponents(
+                        subPlan::rewrite,
+                        frame.getSubsets(),
+                        ImmutableList.of(),
+                        frame.getAfterMatchSkipTo(),
+                        frame.getPatternSearchMode(),
+                        frame.getPattern().get(),
+                        frame.getVariableDefinitions());
+
+        // fail after the planning is done. Currently, a windowFunction cannot be recorded in PatternRecognitionNode
+        checkState(function == null, "Window functions with pattern recognition not yet supported");
+
+        // create pattern recognition node
+        return new PlanBuilder(
+                subPlan.getTranslations()
+                        .withAdditionalMappings(ImmutableMap.of(scopeAwareKey(windowFunction, analysis, subPlan.getScope()), newSymbol)),
+                new PatternRecognitionNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        specification,
+                        Optional.empty(),
+                        ImmutableSet.of(),
+                        0,
+                        components.getMeasures(),
+                        Optional.of(baseFrame),
+                        RowsPerMatch.WINDOW,
+                        components.getSkipToLabel(),
+                        components.getSkipToPosition(),
+                        components.isInitial(),
+                        components.getPattern(),
+                        components.getSubsets(),
+                        components.getVariableDefinitions()));
+    }
+
     public static WindowNode.Specification planWindowSpecification(List<Expression> partitionBy, Optional<OrderBy> orderBy, Function<Expression, Symbol> expressionRewrite)
     {
         // Rewrite PARTITION BY
@@ -1320,6 +1397,97 @@ class QueryPlanner
         }
 
         return new WindowNode.Specification(partitionBySymbols.build(), orderingScheme);
+    }
+
+    private PlanBuilder planWindowMeasures(Node node, PlanBuilder subPlan, List<WindowOperation> windowMeasures)
+    {
+        if (windowMeasures.isEmpty()) {
+            return subPlan;
+        }
+
+        for (WindowOperation windowMeasure : scopeAwareDistinct(subPlan, windowMeasures)) {
+            ResolvedWindow window = analysis.getWindow(windowMeasure);
+            checkState(window != null, "no resolved window for: " + windowMeasure);
+
+            // pre-project inputs
+            ImmutableList.Builder<Expression> inputsBuilder = ImmutableList.<Expression>builder()
+                    .addAll(window.getPartitionBy())
+                    .addAll(getSortItemsFromOrderBy(window.getOrderBy()).stream()
+                            .map(SortItem::getSortKey)
+                            .iterator());
+            Optional<Expression> endValue = window.getFrame().get().getEnd().get().getValue();
+            endValue.ifPresent(inputsBuilder::add);
+
+            List<Expression> inputs = inputsBuilder.build();
+
+            subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, analysis.getSubqueries(node));
+            subPlan = subPlan.appendProjections(inputs, symbolAllocator, idAllocator);
+
+            // process frame end
+            FrameOffsetPlanAndSymbol plan = planFrameOffset(subPlan, endValue.map(subPlan::translate));
+            subPlan = plan.getSubPlan();
+            Optional<Symbol> frameEnd = plan.getFrameOffsetSymbol();
+
+            subPlan = planPatternRecognition(subPlan, windowMeasure, window, frameEnd);
+        }
+
+        return subPlan;
+    }
+
+    private PlanBuilder planPatternRecognition(
+            PlanBuilder subPlan,
+            WindowOperation windowMeasure,
+            ResolvedWindow window,
+            Optional<Symbol> frameEndSymbol)
+    {
+        WindowNode.Specification specification = planWindowSpecification(window.getPartitionBy(), window.getOrderBy(), subPlan::translate);
+
+        // in window frame with pattern recognition, the frame extent is specified as `ROWS BETWEEN CURRENT ROW AND ... `
+        WindowFrame frame = window.getFrame().get();
+        FrameBound frameEnd = frame.getEnd().get();
+        WindowNode.Frame baseFrame = new WindowNode.Frame(
+                WindowFrame.Type.ROWS,
+                FrameBound.Type.CURRENT_ROW,
+                Optional.empty(),
+                Optional.empty(),
+                frameEnd.getType(),
+                frameEndSymbol,
+                Optional.empty(),
+                Optional.empty(),
+                frameEnd.getValue());
+
+        PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
+                .planPatternRecognitionComponents(
+                        subPlan::rewrite,
+                        frame.getSubsets(),
+                        ImmutableList.of(analysis.getMeasureDefinition(windowMeasure)),
+                        frame.getAfterMatchSkipTo(),
+                        frame.getPatternSearchMode(),
+                        frame.getPattern().get(),
+                        frame.getVariableDefinitions());
+
+        Symbol measureSymbol = getOnlyElement(components.getMeasures().keySet());
+
+        // create pattern recognition node
+        return new PlanBuilder(
+                subPlan.getTranslations()
+                        .withAdditionalMappings(ImmutableMap.of(scopeAwareKey(windowMeasure, analysis, subPlan.getScope()), measureSymbol)),
+                new PatternRecognitionNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        specification,
+                        Optional.empty(),
+                        ImmutableSet.of(),
+                        0,
+                        components.getMeasures(),
+                        Optional.of(baseFrame),
+                        RowsPerMatch.WINDOW,
+                        components.getSkipToLabel(),
+                        components.getSkipToPosition(),
+                        components.isInitial(),
+                        components.getPattern(),
+                        components.getSubsets(),
+                        components.getVariableDefinitions()));
     }
 
     /**
