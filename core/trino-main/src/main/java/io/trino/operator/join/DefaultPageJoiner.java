@@ -59,16 +59,8 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultPageJoiner
-        implements WorkProcessor.Transformation<Page, Page>
+        implements PageJoiner
 {
-    public interface PageJoinerFactory
-    {
-        DefaultPageJoiner getPageJoiner(
-                ListenableFuture<LookupSourceProvider> lookupSourceProvider,
-                Optional<PartitioningSpillerFactory> partitioningSpillerFactory,
-                Iterator<SavedRow> savedRows);
-    }
-
     private final List<Type> probeTypes;
     private final JoinProbeFactory joinProbeFactory;
     private final ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture;
@@ -128,16 +120,19 @@ public class DefaultPageJoiner
         probeOnOuterSide = joinType == PROBE_OUTER || joinType == FULL_OUTER;
     }
 
+    @Override
     public Map<Integer, SavedRow> getSpilledRows()
     {
         return spilledRows;
     }
 
+    @Override
     public Optional<PartitioningSpiller> getSpiller()
     {
         return spiller;
     }
 
+    @Override
     public void close()
     {
         pageBuilder.reset();
