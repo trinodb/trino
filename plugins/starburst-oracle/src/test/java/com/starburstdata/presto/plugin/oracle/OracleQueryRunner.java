@@ -34,6 +34,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.ALICE_USER;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.USER;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.connectionProperties;
+import static com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest.redirectionDisabled;
 import static io.airlift.log.Level.DEBUG;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -108,7 +109,7 @@ public final class OracleQueryRunner
 
         Streams.stream(tables)
                 .filter(table -> !existingTables.contains(table.getTableName().toLowerCase(ENGLISH)))
-                .forEach(table -> copyTable(queryRunner, "tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH), session));
+                .forEach(table -> copyTable(queryRunner, "tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH), redirectionDisabled(session)));
     }
 
     public static Session createSession(String user)
