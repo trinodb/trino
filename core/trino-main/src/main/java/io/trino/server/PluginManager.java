@@ -91,7 +91,6 @@ public class PluginManager
     private final BlockEncodingManager blockEncodingManager;
     private final HandleResolver handleResolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
-    private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
     @Inject
     public PluginManager(
@@ -137,8 +136,6 @@ public class PluginManager
         pluginsProvider.loadPlugins(this::loadPlugin, PluginManager::createClassLoader);
 
         typeRegistry.verifyTypes();
-
-        pluginsLoaded.set(true);
     }
 
     private void loadPlugin(String plugin, Supplier<PluginClassLoader> createClassLoader)
