@@ -17,8 +17,8 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.WorkProcessor;
-import io.trino.operator.join.PageJoiner.PageJoinerFactory;
-import io.trino.operator.join.PageJoiner.SavedRow;
+import io.trino.operator.join.DefaultPageJoiner.PageJoinerFactory;
+import io.trino.operator.join.DefaultPageJoiner.SavedRow;
 import io.trino.spi.Page;
 import io.trino.spiller.PartitioningSpillerFactory;
 
@@ -45,7 +45,7 @@ public class SpillingJoinProcessor
     private final LookupSourceFactory lookupSourceFactory;
     private final ListenableFuture<LookupSourceProvider> lookupSourceProvider;
     private final PageJoinerFactory pageJoinerFactory;
-    private final PageJoiner sourcePagesJoiner;
+    private final DefaultPageJoiner sourcePagesJoiner;
     private final WorkProcessor<Page> joinedSourcePages;
 
     private boolean closed;

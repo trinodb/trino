@@ -58,12 +58,12 @@ import static io.trino.operator.join.PartitionedLookupSourceFactory.NO_SPILL_EPO
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class PageJoiner
+public class DefaultPageJoiner
         implements WorkProcessor.Transformation<Page, Page>
 {
     public interface PageJoinerFactory
     {
-        PageJoiner getPageJoiner(
+        DefaultPageJoiner getPageJoiner(
                 ListenableFuture<LookupSourceProvider> lookupSourceProvider,
                 Optional<PartitioningSpillerFactory> partitioningSpillerFactory,
                 Iterator<SavedRow> savedRows);
@@ -96,7 +96,7 @@ public class PageJoiner
     private Optional<PartitioningSpiller> spiller = Optional.empty();
     private ListenableFuture<?> spillInProgress = NOT_BLOCKED;
 
-    public PageJoiner(
+    public DefaultPageJoiner(
             ProcessorContext processorContext,
             List<Type> probeTypes,
             List<Type> buildOutputTypes,
@@ -433,18 +433,18 @@ public class PageJoiner
         public final Page row;
 
         /**
-         * A snapshot of {@link PageJoiner#joinPosition} "de-partitioned", i.e. {@link PageJoiner#joinPosition} is a join position
+         * A snapshot of {@link DefaultPageJoiner#joinPosition} "de-partitioned", i.e. {@link DefaultPageJoiner#joinPosition} is a join position
          * with respect to (potentially) partitioned lookup source, while this value is a join position with respect to containing partition.
          */
         public final long joinPositionWithinPartition;
 
         /**
-         * A snapshot of {@link PageJoiner#currentProbePositionProducedRow}
+         * A snapshot of {@link DefaultPageJoiner#currentProbePositionProducedRow}
          */
         public final boolean currentProbePositionProducedRow;
 
         /**
-         * A snapshot of {@link PageJoiner#joinSourcePositions}
+         * A snapshot of {@link DefaultPageJoiner#joinSourcePositions}
          */
         public final int joinSourcePositions;
 
