@@ -95,6 +95,7 @@ public class MetricAggregation
                 .findFirst()
                 .map(assignments::get)
                 .map(ElasticsearchColumnHandle.class::cast)
+                .filter(ElasticsearchColumnHandle::isNumericType)
                 .filter(ElasticsearchColumnHandle::isSupportsPredicates);
         // only count can accept empty ElasticsearchColumnHandle
         if (!AGG_COUNT.equals(function.getFunctionName()) && parameterColumnHandle.isEmpty()) {

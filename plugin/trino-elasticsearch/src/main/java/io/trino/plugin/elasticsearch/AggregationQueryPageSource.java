@@ -26,6 +26,7 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.metrics.NumericMetricsAggregation;
+import org.elasticsearch.search.aggregations.metrics.stats.Stats;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -70,7 +71,7 @@ public class AggregationQueryPageSource
         this.client = client;
         this.table = table;
         this.split = split;
-        this.pageSize = pageSize <= 0 ? 1000 : pageSize;
+        this.pageSize = (int) table.getLimit().stream().filter(limit -> limit < pageSize).findFirst().orElse(pageSize);
         this.columns = columns;
         this.after = Optional.empty();
         columnBuilders = columns.stream()
@@ -173,6 +174,9 @@ public class AggregationQueryPageSource
                             NumericMetricsAggregation.SingleValue sv = (NumericMetricsAggregation.SingleValue) metricAgg;
                             line.put(metricAgg.getName(), extractSingleValue(sv));
                         }
+                        else if (metricAgg instanceof Stats) {
+                            line.put(metricAgg.getName(), extractSumFromStatsValue((Stats) metricAgg));
+                        }
                     }
                     result.add(line);
                 }
@@ -185,6 +189,17 @@ public class AggregationQueryPageSource
                 NumericMetricsAggregation.SingleValue sv = (NumericMetricsAggregation.SingleValue) agg;
                 singleValueMap.put(agg.getName(), extractSingleValue(sv));
             }
+            // We use stats aggregation instead of sum aggregation
+            else if (agg instanceof Stats) {
+                hasMetricAggregation = true;
+                if (hasBucketsAggregation) {
+                    throw new IllegalStateException("Bucket and metric aggregations should not be both present.");
+                }
+                singleValueMap.put(agg.getName(), extractSumFromStatsValue((Stats) agg));
+            }
+            else {
+                throw new IllegalStateException("Unrecognized aggregation type: " + agg.getType());
+            }
         }
         if (hasBucketsAggregation) {
             return result.build();
@@ -194,9 +209,28 @@ public class AggregationQueryPageSource
         }
     }
 
+    // When running a sum() over values that are all null, ES returns 0, while Trino semantics
+    // require the result to be null. Other aggregations, like avg()/min()/max() match Trino's
+    // semantics, therefore, when calculating SUM, the stats aggregation is used, so that the
+    // results of sum and min can be obtained at the same time, and then decide whether the
+    // result of sum should be corrected to null.
+    private Double extractSumFromStatsValue(Stats statsValue)
+    {
+        double sumValue = statsValue.getSum();
+        // Check min(not avg) result to see if the sum result is valid.
+        // Es server return null for avg/min/max, but the es client return 0 as the result of avg even server return null.
+        // See org.elasticsearch.search.aggregations.metrics.stats.ParsedStats for more
+        double minValue = statsValue.getMin();
+        if (Double.isInfinite(minValue)) {
+            return null;
+        }
+        return sumValue;
+    }
+
     private Double extractSingleValue(NumericMetricsAggregation.SingleValue singleValue)
     {
-        if (singleValue.value() == Double.POSITIVE_INFINITY) {
+        // null will be decoded as Double.POSITIVE_INFINITY or Double.NEGATIVE_INFINITY
+        if (Double.isInfinite(singleValue.value())) {
             return null;
         }
         else {

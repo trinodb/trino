@@ -18,8 +18,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
 
 public final class ElasticsearchColumnHandle
@@ -56,6 +64,13 @@ public final class ElasticsearchColumnHandle
     public boolean isSupportsPredicates()
     {
         return supportsPredicates;
+    }
+
+    private static final List<Type> NUMERIC_TYPES = Arrays.asList(REAL, DOUBLE, TINYINT, SMALLINT, INTEGER, BIGINT);
+
+    public boolean isNumericType()
+    {
+        return NUMERIC_TYPES.contains(this.type);
     }
 
     @Override

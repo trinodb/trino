@@ -14,7 +14,9 @@
 package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,8 +73,14 @@ public abstract class BaseAggregationPushDownTest
                 "    \"text_column\": {\n" +
                 "      \"type\": \"text\"\n" +
                 "    },\n" +
-                "  \"value_column\": {\n" +
+                "    \"value_column\": {\n" +
                 "      \"type\": \"float\"\n" +
+                "    },\n" +
+                "    \"value_column2\": {\n" +
+                "      \"type\": \"double\"\n" +
+                "    },\n" +
+                "    \"int_column\": {\n" +
+                "      \"type\": \"long\"\n" +
                 "    }\n" +
                 "  }\n" +
                 "}";
@@ -83,6 +91,7 @@ public abstract class BaseAggregationPushDownTest
                 .put("kw_column1", "a")
                 .put("text_column", "A")
                 .put("value_column", 2.0)
+                .put("int_column", 2)
                 .build());
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("kw_column", "B")
@@ -97,6 +106,10 @@ public abstract class BaseAggregationPushDownTest
                 .put("value_column", 3.0)
                 .build());
 
-        assertThat(query("SELECT kw_column, kw_column1, count(*), avg(value_column) FROM keyword_agg_pushdown GROUP BY kw_column, kw_column1")).isFullyPushedDown();
+        assertThat(query("SELECT kw_column, kw_column1, count(*), avg(value_column), sum(int_column) FROM keyword_agg_pushdown GROUP BY kw_column, kw_column1")).isFullyPushedDown();
+        // For all null column aggregation
+        assertThat(query("SELECT sum(value_column2), max(value_column2), min(value_column2), avg(value_column2), count(value_column2) FROM keyword_agg_pushdown GROUP BY kw_column")).isFullyPushedDown();
+        // ES only supports aggregates min/max for numeric types
+        assertThat(query("SELECT kw_column, max(kw_column1) FROM keyword_agg_pushdown GROUP BY kw_column")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
     }
 }

@@ -452,7 +452,7 @@ public class ElasticsearchClient
         return left.isPrimary() ? 1 : -1;
     }
 
-    public void fetchVersion()
+    private void fetchVersion()
     {
         this.version = doRequest("/", body -> {
             try {
@@ -698,7 +698,7 @@ public class ElasticsearchClient
                 .searchType(QUERY_THEN_FETCH)
                 .source(sourceBuilder);
 
-        // apply aggregation to sourceBuilder if the query include aggregation
+        // apply aggregation to sourceBuilder if the query includes aggregation
         // also must not use _shards and scroll in this case
         if (aggregations.isPresent()) {
             aggregations.get().forEach(sourceBuilder::aggregation);

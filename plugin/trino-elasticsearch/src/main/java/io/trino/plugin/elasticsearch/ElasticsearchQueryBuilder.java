@@ -36,7 +36,7 @@ import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.avg.AvgAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.max.MaxAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.min.MinAggregationBuilder;
-import org.elasticsearch.search.aggregations.metrics.sum.SumAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.stats.StatsAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.valuecount.ValueCountAggregationBuilder;
 
 import java.time.Instant;
@@ -72,7 +72,7 @@ public final class ElasticsearchQueryBuilder
     private static final Map<String, BiFunction<String, String, AggregationBuilder>> converters =
             ImmutableMap.of(MetricAggregation.AGG_MAX, (alias, field) -> new MaxAggregationBuilder(alias).field(field),
                     MetricAggregation.AGG_MIN, (alias, field) -> new MinAggregationBuilder(alias).field(field),
-                    MetricAggregation.AGG_SUM, (alias, field) -> new SumAggregationBuilder(alias).field(field),
+                    MetricAggregation.AGG_SUM, (alias, field) -> new StatsAggregationBuilder(alias).field(field),
                     MetricAggregation.AGG_AVG, (alias, field) -> new AvgAggregationBuilder(alias).field(field),
                     MetricAggregation.AGG_COUNT, (alias, field) -> new ValueCountAggregationBuilder(alias, null).field(field));
 

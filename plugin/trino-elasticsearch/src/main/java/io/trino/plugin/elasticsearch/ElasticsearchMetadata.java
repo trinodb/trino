@@ -137,7 +137,7 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
         Version version = client.getVersion();
-        // in order to support null bucket, we need missing_bucket in composite aggregation which is introduced after 6.4.0
+        // in order to support null bucket, we need missing_bucket in composite aggregation which was introduced in 6.4.0
         if (version == null || version.before(ElasticsearchClient.MINIMUM_VERSION_REQUIRE_FOR_AGG_PUSHDOWN)) {
             return Optional.empty();
         }
@@ -195,7 +195,7 @@ public class ElasticsearchMetadata
                 handle.getLimit(),
                 termAggregationList,
                 aggregationList);
-        return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of()));
+        return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
     }
 
     @Override

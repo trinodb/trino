@@ -32,6 +32,7 @@ public interface CompositeAggregation
     interface Bucket
             extends MultiBucketsAggregation.Bucket
     {
+        @Override
         Map<String, Object> getKey();
     }
 
