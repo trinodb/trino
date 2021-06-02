@@ -64,7 +64,6 @@ public class ShardCompactionManager
     private final ScheduledExecutorService compactionDiscoveryService = newScheduledThreadPool(1, daemonThreadsNamed("shard-compaction-discovery"));
 
     private final AtomicBoolean discoveryStarted = new AtomicBoolean();
-    private final AtomicBoolean shutdown = new AtomicBoolean();
 
     private final MetadataDao metadataDao;
     private final ShardOrganizer organizer;
@@ -141,7 +140,6 @@ public class ShardCompactionManager
         if (!compactionEnabled) {
             return;
         }
-        shutdown.set(true);
         compactionDiscoveryService.shutdown();
     }
 
