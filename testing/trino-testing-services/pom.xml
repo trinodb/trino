@@ -56,6 +56,8 @@
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
+            <!-- it's either on classpath because anyway, or not needed at all. Let's not force the dependency on downstream when not needed. -->
+            <optional>true</optional>
         </dependency>
 
         <!-- testing -->
