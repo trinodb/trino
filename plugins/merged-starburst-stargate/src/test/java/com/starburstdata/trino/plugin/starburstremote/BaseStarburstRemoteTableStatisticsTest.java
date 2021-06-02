@@ -56,12 +56,6 @@ public abstract class BaseStarburstRemoteTableStatisticsTest
                         "(null, null, null, 5e0)");
     }
 
-    @Override
-    protected String testStatsWithPredicatePushdownWithStatsPrecalculationDisabledExpectedResult()
-    {
-        throw new UnsupportedOperationException();
-    }
-
     @Test
     public abstract void testShowStatsWithWhere();
 
