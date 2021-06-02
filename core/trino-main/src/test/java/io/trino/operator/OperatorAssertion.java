@@ -352,7 +352,7 @@ public final class OperatorAssertion
         }
     }
 
-    static <T> List<T> without(List<T> list, Collection<Integer> indexes)
+    public static <T> List<T> without(List<T> list, Collection<Integer> indexes)
     {
         Set<Integer> indexesSet = ImmutableSet.copyOf(indexes);
 
@@ -362,7 +362,7 @@ public final class OperatorAssertion
                 .collect(toImmutableList());
     }
 
-    static List<Page> dropChannel(List<Page> pages, List<Integer> channels)
+    public static List<Page> dropChannel(List<Page> pages, List<Integer> channels)
     {
         List<Page> actualPages = new ArrayList<>();
         for (Page page : pages) {

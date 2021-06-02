@@ -23,6 +23,7 @@ import io.trino.cost.CostCalculator;
 import io.trino.cost.CostCalculatorUsingExchanges;
 import io.trino.cost.CostCalculatorWithEstimatedExchanges;
 import io.trino.cost.CostComparator;
+import io.trino.cost.ScalarStatsCalculator;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
@@ -169,6 +170,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
         QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false);
+    }
+
+    protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, Consumer<Plan> planAssertion)
+    {
+        assertQuery(getSession(), actual, expected, planAssertion);
     }
 
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, Consumer<Plan> planAssertion)
@@ -417,15 +423,17 @@ public abstract class AbstractTestQueryFramework
         TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         TypeOperators typeOperators = new TypeOperators();
+        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(sqlParser, metadata);
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
                 typeOperators,
-                new TypeAnalyzer(sqlParser, metadata),
+                typeAnalyzer,
                 new TaskManagerConfig(),
                 forceSingleNode,
                 queryRunner.getSplitManager(),
                 queryRunner.getPageSourceManager(),
                 queryRunner.getStatsCalculator(),
+                new ScalarStatsCalculator(metadata, typeAnalyzer),
                 costCalculator,
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),

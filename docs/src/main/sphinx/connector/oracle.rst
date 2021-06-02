@@ -9,12 +9,11 @@ like Oracle and Hive, or different Oracle database instances.
 Requirements
 ------------
 
-Requirements for using the connector in a catalog to connect to a Oracle data
-source are:
+To connect to Oracle, you need:
 
-* Oracle 12 or higher
-* Network access, by default on port 1521, from the Trino coordinator and
-  workers to Oracle.
+* Oracle 12 or higher.
+* Network access from the Trino coordinator and workers to Oracle.
+  Port 1521 is the default port.
 
 Configuration
 -------------

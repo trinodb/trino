@@ -399,7 +399,8 @@ public class TestTableScanRedirectionWithPushdown
                 new ProjectionApplicationResult<>(
                         new MockConnectorTableHandle(handle.getTableName(), handle.getConstraint(), Optional.of(newColumns)),
                         outputExpressions.build(),
-                        outputAssignments.build()));
+                        outputAssignments.build(),
+                        false));
     }
 
     private ApplyFilter getMockApplyFilter(Set<ColumnHandle> pushdownColumns)
@@ -419,7 +420,8 @@ public class TestTableScanRedirectionWithPushdown
                     new ConstraintApplicationResult<>(
                             new MockConnectorTableHandle(handle.getTableName(), newDomain, Optional.empty()),
                             constraint.getSummary()
-                                    .filter((columnHandle, domain) -> !pushdownColumns.contains(columnHandle))));
+                                    .filter((columnHandle, domain) -> !pushdownColumns.contains(columnHandle)),
+                            false));
         };
     }
 

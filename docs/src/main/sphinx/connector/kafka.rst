@@ -28,12 +28,11 @@ See the :doc:`kafka-tutorial`.
 Requirements
 ------------
 
-Requirements for using the connector in a catalog to connect to a Kafka
-data source are:
+To connect to Kafka, you need:
 
-* Kafka broker version is 0.10.0 or higher
-* Network access, by default on port 9092, from the Trino coordinator and
-  workers to the Kafka nodes.
+* Kafka broker version 0.10.0 or higher.
+* Network access from the Trino coordinator and workers to the Kafka nodes.
+  Port 9092 is the default port.
 
 Configuration
 -------------

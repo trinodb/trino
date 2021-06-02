@@ -1,14 +1,21 @@
 name: cleanup
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
+  # Triggered on every PR merge or close
+  pull_request:
+    types:
+      - closed
 
 jobs:
   cancel:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: n1hility/cancel-previous-runs@2e3c1893986568a2197c41957b9c809cbcf1a61e
+      - name: 'Cancel Runs For Closed PRs'
+        uses: styfle/cancel-workflow-action@0.9.0
         with:
-          token: ${{ github.token }}
-          workflow: ci.yml
+          # Cancel workflow when PR closed. https://github.com/styfle/cancel-workflow-action#advanced-ignore-sha
+          ignore_sha: true
+          # Note: workflow_id can be a Workflow ID (number) or Workflow File Name (string).
+          workflow_id: "ci.yml"
+          access_token: ${{ github.token }}

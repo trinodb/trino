@@ -239,6 +239,9 @@ public class IcebergMetadata
         if (hiveTable.isEmpty()) {
             return null;
         }
+        if (isMaterializedView(hiveTable.get())) {
+            return null;
+        }
         if (!isIcebergTable(hiveTable.get())) {
             throw new UnknownTableTypeException(tableName);
         }
@@ -821,7 +824,8 @@ public class IcebergMetadata
                         table.getSnapshotId(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint),
-                newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast)));
+                newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast),
+                false));
     }
 
     private static Set<Integer> identityPartitionColumnsInAllSpecs(org.apache.iceberg.Table table)

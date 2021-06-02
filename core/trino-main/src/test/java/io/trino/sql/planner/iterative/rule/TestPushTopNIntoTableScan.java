@@ -108,7 +108,7 @@ public class TestPushTopNIntoTableScan
             MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
             // make the mock connector return a new connectorHandle
             MockConnectorFactory.ApplyTopN applyTopN =
-                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true));
+                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
             MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
@@ -140,7 +140,7 @@ public class TestPushTopNIntoTableScan
             MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
             // make the mock connector return a new connectorHandle
             MockConnectorFactory.ApplyTopN applyTopN =
-                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false));
+                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false, false));
             MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
@@ -176,7 +176,7 @@ public class TestPushTopNIntoTableScan
             MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
             // make the mock connector return a new connectorHandle
             MockConnectorFactory.ApplyTopN applyTopN =
-                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true));
+                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
             MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
@@ -208,7 +208,7 @@ public class TestPushTopNIntoTableScan
             MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
             // make the mock connector return a new connectorHandle
             MockConnectorFactory.ApplyTopN applyTopN =
-                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false));
+                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false, false));
             MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
@@ -262,7 +262,7 @@ public class TestPushTopNIntoTableScan
             MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
             // make the mock connector return a new connectorHandle
             MockConnectorFactory.ApplyTopN applyTopN =
-                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true));
+                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
             MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());

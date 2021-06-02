@@ -175,6 +175,6 @@ public class SystemTablesMetadata
             // TODO (https://github.com/trinodb/trino/issues/3647) indicate the table scan is empty
         }
         table = new SystemTableHandle(table.getSchemaName(), table.getTableName(), newDomain);
-        return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), false));
     }
 }

@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
@@ -51,12 +52,18 @@ public class TableScanNode
 
     @Nullable // null on workers
     private final TupleDomain<ColumnHandle> enforcedConstraint;
+    @Nullable // null on workers
+    private final Optional<PlanNodeStatsEstimate> statistics;
     private final boolean updateTarget;
     private final Optional<Boolean> useConnectorNodePartitioning;
 
+    /**
+     * @deprecated Use explicit constructor instead. Calling this method when transforming the plan may lead to information loss.
+     */
     // We need this factory method to disambiguate with the constructor used for deserializing
     // from a json object. The deserializer sets some fields which are never transported
     // to null
+    @Deprecated
     public static TableScanNode newInstance(
             PlanNodeId id,
             TableHandle table,
@@ -65,7 +72,7 @@ public class TableScanNode
             boolean updateTarget,
             Optional<Boolean> useConnectorNodePartitioning)
     {
-        return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), updateTarget, useConnectorNodePartitioning);
+        return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), Optional.empty(), updateTarget, useConnectorNodePartitioning);
     }
 
     /*
@@ -88,6 +95,7 @@ public class TableScanNode
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.enforcedConstraint = null;
+        this.statistics = null;
         this.updateTarget = updateTarget;
         this.useConnectorNodePartitioning = requireNonNull(useConnectorNodePartitioning, "useConnectorNodePartitioning is null");
     }
@@ -98,6 +106,7 @@ public class TableScanNode
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> enforcedConstraint,
+            Optional<PlanNodeStatsEstimate> statistics,
             boolean updateTarget,
             Optional<Boolean> useConnectorNodePartitioning)
     {
@@ -109,6 +118,7 @@ public class TableScanNode
         requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         validateEnforcedConstraint(enforcedConstraint, outputs, assignments);
         this.enforcedConstraint = enforcedConstraint;
+        this.statistics = requireNonNull(statistics, "statistics is null");
         this.updateTarget = updateTarget;
         this.useConnectorNodePartitioning = requireNonNull(useConnectorNodePartitioning, "useConnectorNodePartitioning is null");
     }
@@ -172,6 +182,16 @@ public class TableScanNode
         return enforcedConstraint;
     }
 
+    /**
+     * Statistics if already known.
+     */
+    @JsonIgnore
+    public Optional<PlanNodeStatsEstimate> getStatistics()
+    {
+        checkState(statistics != null, "statistics should only be used in planner. It is not transported to workers.");
+        return statistics;
+    }
+
     @JsonProperty("updateTarget")
     public boolean isUpdateTarget()
     {
@@ -229,6 +249,7 @@ public class TableScanNode
                 outputSymbols,
                 assignments,
                 enforcedConstraint,
+                statistics,
                 updateTarget,
                 Optional.of(useConnectorNodePartitioning));
     }

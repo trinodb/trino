@@ -22,7 +22,7 @@ import com.google.inject.Scopes;
 import io.airlift.log.Logging;
 import io.trino.client.ClientSelectedRole;
 import io.trino.plugin.blackhole.BlackHolePlugin;
-import io.trino.plugin.hive.HiveHadoop2Plugin;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -86,8 +86,8 @@ public class TestJdbcConnection
         server = TestingTrinoServer.builder()
                 .setAdditionalModule(systemTables)
                 .build();
-        server.installPlugin(new HiveHadoop2Plugin());
-        server.createCatalog("hive", "hive-hadoop2", ImmutableMap.<String, String>builder()
+        server.installPlugin(new HivePlugin());
+        server.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
                 .put("hive.security", "sql-standard")

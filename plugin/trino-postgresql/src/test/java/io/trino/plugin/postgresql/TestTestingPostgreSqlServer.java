@@ -13,10 +13,7 @@
  */
 package io.trino.plugin.postgresql;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
-import net.jodah.failsafe.function.CheckedRunnable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -25,8 +22,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
@@ -34,6 +29,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -56,47 +52,48 @@ public class TestTestingPostgreSqlServer
     {
         closeAll(
                 postgreSqlServer,
-                () -> threadPool.shutdownNow());
+                threadPool::shutdownNow);
     }
 
     @Test
     public void testCapturingSuccessfulStatement()
-            throws Throwable
     {
         String sql = "SELECT 1";
-        Set<RemoteDatabaseEvent> remoteDatabaseEvents = captureRemoteEventsDuring(() -> postgreSqlServer.execute(sql));
-        assertThat(remoteDatabaseEvents).contains(new RemoteDatabaseEvent(sql, RUNNING));
+        RemoteDatabaseEvent event = new RemoteDatabaseEvent(sql, RUNNING);
+
+        // verify query was not run before
+        assertThat(postgreSqlServer.getRemoteDatabaseEvents()).doesNotContain(event);
+
+        postgreSqlServer.execute(sql);
+        // logging events is asynchronous, it may take some time till it is available
+        assertEventually(() -> assertThat(postgreSqlServer.getRemoteDatabaseEvents()).contains(event));
     }
 
     @Test(timeOut = 60_000)
     public void testCapturingCancelledStatement()
-            throws Throwable
+            throws Exception
     {
         String sql = "SELECT pg_sleep(60)";
-        Set<RemoteDatabaseEvent> remoteDatabaseEvents = captureRemoteEventsDuring(() -> {
-            try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
-                    Statement statement = connection.createStatement()) {
-                Future<Boolean> executeFuture = threadPool.submit(() -> statement.execute(sql));
-                Thread.sleep(5000);
-                statement.cancel();
-                assertThatThrownBy(() -> executeFuture.get())
-                        .hasRootCauseInstanceOf(SQLException.class)
-                        .hasRootCauseMessage("ERROR: canceling statement due to user request");
-            }
-            catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        assertThat(remoteDatabaseEvents).contains(new RemoteDatabaseEvent(sql, RUNNING));
-        assertThat(remoteDatabaseEvents).contains(new RemoteDatabaseEvent(sql, CANCELLED));
-    }
 
-    private Set<RemoteDatabaseEvent> captureRemoteEventsDuring(CheckedRunnable runnable)
-            throws Throwable
-    {
-        List<RemoteDatabaseEvent> before = postgreSqlServer.getRemoteDatabaseEvents();
-        runnable.run();
-        List<RemoteDatabaseEvent> after = postgreSqlServer.getRemoteDatabaseEvents();
-        return Sets.difference(ImmutableSet.copyOf(after), ImmutableSet.copyOf(before));
+        // verify query was not run before
+        RemoteDatabaseEvent running = new RemoteDatabaseEvent(sql, RUNNING);
+        RemoteDatabaseEvent cancelled = new RemoteDatabaseEvent(sql, CANCELLED);
+        assertThat(postgreSqlServer.getRemoteDatabaseEvents()).doesNotContain(running, cancelled);
+
+        try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
+                Statement statement = connection.createStatement()) {
+            Future<Boolean> executeFuture = threadPool.submit(() -> statement.execute(sql));
+
+            // wait for query to become running
+            assertEventually(() -> assertThat(postgreSqlServer.getRemoteDatabaseEvents()).contains(running));
+
+            // cancel the query
+            statement.cancel();
+            assertThatThrownBy(executeFuture::get)
+                    .hasRootCauseInstanceOf(SQLException.class)
+                    .hasRootCauseMessage("ERROR: canceling statement due to user request");
+        }
+
+        assertEventually(() -> assertThat(postgreSqlServer.getRemoteDatabaseEvents()).contains(cancelled));
     }
 }

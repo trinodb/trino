@@ -10,12 +10,11 @@ between two different SQL Server instances.
 Requirements
 ------------
 
-Requirements for using the connector in a catalog to connect to a SQL Server
-data source are:
+To connect to SQL Server, you need:
 
-* SQL Server 2012 or higher, or Azure SQL Database
-* Network access, by default on port 1433, from the Trino coordinator and
-  workers to SQL Server.
+* SQL Server 2012 or higher, or Azure SQL Database.
+* Network access from the Trino coordinator and workers to SQL Server.
+  Port 1433 is the default port.
 
 Configuration
 -------------
