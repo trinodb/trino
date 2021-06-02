@@ -65,6 +65,8 @@ This holds the following configuration:
 * Config Properties: configuration for the Trino server
 * Catalog Properties: configuration for :doc:`/connector` (data sources)
 
+.. _node_properties:
+
 Node properties
 ^^^^^^^^^^^^^^^
 
@@ -83,8 +85,8 @@ The above properties are described below:
 
 * ``node.environment``:
   The name of the environment. All Trino nodes in a cluster must have the same
-  environment name. The name must start with an alphanumeric character and
-  only contain alphanumeric, ``-``, or ``_`` characters.
+  environment name. The name must start with a lowercase alphanumeric character
+  and only contain lowercase alphanumeric or underscore (``_``) characters.
 
 * ``node.id``:
   The unique identifier for this installation of Trino. This must be
