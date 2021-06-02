@@ -52,6 +52,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.time-zone",
         "hive.assume-canonical-partition-keys",
         "hive.partition-use-column-names",
+        "hive.allow-corrupt-writes-for-testing",
 })
 public class HiveConfig
 {
@@ -77,8 +78,6 @@ public class HiveConfig
     private int maxConcurrentFileRenames = 20;
     private int maxConcurrentMetastoreDrops = 20;
     private int maxConcurrentMetastoreUpdates = 20;
-
-    private boolean allowCorruptWritesForTesting;
 
     private long perTransactionMetastoreCacheMaximumSize = 1000;
 
@@ -370,21 +369,6 @@ public class HiveConfig
     public HiveConfig setMaxSplitIteratorThreads(int maxSplitIteratorThreads)
     {
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
-        return this;
-    }
-
-    @Deprecated
-    public boolean getAllowCorruptWritesForTesting()
-    {
-        return allowCorruptWritesForTesting;
-    }
-
-    @Deprecated
-    @Config("hive.allow-corrupt-writes-for-testing")
-    @ConfigDescription("Allow Hive connector to write data even when data will likely be corrupt")
-    public HiveConfig setAllowCorruptWritesForTesting(boolean allowCorruptWritesForTesting)
-    {
-        this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         return this;
     }
 
