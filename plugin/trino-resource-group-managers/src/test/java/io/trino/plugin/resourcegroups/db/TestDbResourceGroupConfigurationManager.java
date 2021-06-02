@@ -35,7 +35,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -115,11 +114,9 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, 5, null, null, null, 1L, ENVIRONMENT);
         dao.insertSelector(2, 1, null, null, null, null, null, null);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
-        AtomicBoolean exported = new AtomicBoolean();
-        InternalResourceGroup global = new InternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
+        InternalResourceGroup global = new InternalResourceGroup("global", (group, export) -> {}, directExecutor());
         manager.configure(global, new SelectionContext<>(global.getId(), new ResourceGroupIdTemplate("global")));
         assertEqualsResourceGroup(global, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
-        exported.set(false);
         InternalResourceGroup sub = global.getOrCreateSubGroup("sub");
         manager.configure(sub, new SelectionContext<>(sub.getId(), new ResourceGroupIdTemplate("global.sub")));
         assertEqualsResourceGroup(sub, "2MB", 4, 3, 3, FAIR, 5, false, Duration.ofMillis(Long.MAX_VALUE), Duration.ofMillis(Long.MAX_VALUE));
@@ -195,8 +192,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
         manager.start();
-        AtomicBoolean exported = new AtomicBoolean();
-        InternalResourceGroup global = new InternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
+        InternalResourceGroup global = new InternalResourceGroup("global", (group, export) -> {}, directExecutor());
         manager.configure(global, new SelectionContext<>(global.getId(), new ResourceGroupIdTemplate("global")));
         InternalResourceGroup globalSub = global.getOrCreateSubGroup("sub");
         manager.configure(globalSub, new SelectionContext<>(globalSub.getId(), new ResourceGroupIdTemplate("global.sub")));
