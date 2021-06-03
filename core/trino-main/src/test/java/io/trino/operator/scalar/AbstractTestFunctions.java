@@ -106,13 +106,6 @@ public abstract class AbstractTestFunctions
                 expectedResult);
     }
 
-    // this is not safe as it catches all RuntimeExceptions
-    @Deprecated
-    protected void assertInvalidFunction(String projection)
-    {
-        functionAssertions.assertInvalidFunction(projection);
-    }
-
     protected void assertInvalidFunction(String projection, ErrorCodeSupplier errorCode, String message)
     {
         functionAssertions.assertInvalidFunction(projection, errorCode, message);
