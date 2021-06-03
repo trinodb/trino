@@ -76,6 +76,13 @@ public class ElasticsearchConfig
     private boolean ignorePublishAddress;
     private boolean verifyHostnames = true;
 
+    private boolean unionSchemaIndicesForAlias;
+    private boolean failOnAliasSchemaMismatch = true;
+    private String defaultDataTypeForAliasSchemaMismatch = "text";
+
+    private Duration indexMetaDataCacheTtl = new Duration(1, MINUTES);
+    private long indexMetaDataCacheMaximumSize = 1000;
+
     private Security security;
 
     @NotNull
@@ -114,6 +121,71 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setDefaultSchema(String defaultSchema)
     {
         this.defaultSchema = defaultSchema;
+        return this;
+    }
+
+    @NotNull
+    public Duration getIndexMetaDataCacheTtl()
+    {
+        return indexMetaDataCacheTtl;
+    }
+
+    @Config("elasticsearch.index-metadata-cache-ttl")
+    public ElasticsearchConfig setIndexMetaDataCacheTtl(Duration indexMetaDataCacheTtl)
+    {
+        this.indexMetaDataCacheTtl = indexMetaDataCacheTtl;
+        return this;
+    }
+
+    @Min(1)
+    public long getIndexMetaDataCacheMaximumSize()
+    {
+        return indexMetaDataCacheMaximumSize;
+    }
+
+    @Config("elasticsearch.index-metadata-cache-maximum-size")
+    public ElasticsearchConfig setIndexMetaDataCacheMaximumSize(long indexMetaDataCacheMaximumSize)
+    {
+        this.indexMetaDataCacheMaximumSize = indexMetaDataCacheMaximumSize;
+        return this;
+    }
+
+    public boolean isUnionSchemaIndicesForAlias()
+    {
+        return unionSchemaIndicesForAlias;
+    }
+
+    @Config("elasticsearch.union-schema-indices-for-alias")
+    @ConfigDescription("Union schema indices for alias")
+    public ElasticsearchConfig setUnionSchemaIndicesForAlias(boolean unionSchemaIndicesForAlias)
+    {
+        this.unionSchemaIndicesForAlias = unionSchemaIndicesForAlias;
+        return this;
+    }
+
+    public boolean isFailOnAliasSchemaMismatch()
+    {
+        return failOnAliasSchemaMismatch;
+    }
+
+    @Config("elasticsearch.fail-on-alias-schema-mismatch")
+    @ConfigDescription("Fail on alias schema mismatch")
+    public ElasticsearchConfig setFailOnAliasSchemaMismatch(boolean failOnAliasSchemaMismatch)
+    {
+        this.failOnAliasSchemaMismatch = failOnAliasSchemaMismatch;
+        return this;
+    }
+
+    public String getDefaultDataTypeForAliasSchemaMismatch()
+    {
+        return defaultDataTypeForAliasSchemaMismatch;
+    }
+
+    @Config("elasticsearch.default-datatype-for-alias-schema-mismatch")
+    @ConfigDescription("Fail on alias schema mismatch")
+    public ElasticsearchConfig setDefaultDataTypeForAliasSchemaMismatch(String defaultDataTypeForAliasSchemaMismatch)
+    {
+        this.defaultDataTypeForAliasSchemaMismatch = defaultDataTypeForAliasSchemaMismatch;
         return this;
     }
 
