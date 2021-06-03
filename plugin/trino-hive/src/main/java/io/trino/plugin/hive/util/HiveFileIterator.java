@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Iterators;
 import io.airlift.stats.TimeStat;
 import io.trino.plugin.hive.DirectoryLister;
 import io.trino.plugin.hive.NamenodeStats;
@@ -22,6 +23,7 @@ import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.FileNotFoundException;
@@ -52,6 +54,7 @@ public class HiveFileIterator
     private final NamenodeStats namenodeStats;
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
     private final boolean ignoreAbsentPartitions;
+    private final PathFilter pathFilter;
 
     private Iterator<LocatedFileStatus> remoteIterator = emptyIterator();
 
@@ -62,7 +65,8 @@ public class HiveFileIterator
             DirectoryLister directoryLister,
             NamenodeStats namenodeStats,
             NestedDirectoryPolicy nestedDirectoryPolicy,
-            boolean ignoreAbsentPartitions)
+            boolean ignoreAbsentPartitions,
+            PathFilter pathfilter)
     {
         paths.addLast(requireNonNull(path, "path is null"));
         this.table = requireNonNull(table, "table is null");
@@ -71,6 +75,7 @@ public class HiveFileIterator
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.nestedDirectoryPolicy = requireNonNull(nestedDirectoryPolicy, "nestedDirectoryPolicy is null");
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
+        this.pathFilter = requireNonNull(pathfilter, "pathFilter is null");
     }
 
     @Override
@@ -104,17 +109,17 @@ public class HiveFileIterator
             if (paths.isEmpty()) {
                 return endOfData();
             }
-            remoteIterator = getLocatedFileStatusRemoteIterator(paths.removeFirst());
+            remoteIterator = getLocatedFileStatusRemoteIterator(paths.removeFirst(), pathFilter);
         }
     }
 
-    private Iterator<LocatedFileStatus> getLocatedFileStatusRemoteIterator(Path path)
+    private Iterator<LocatedFileStatus> getLocatedFileStatusRemoteIterator(Path path, PathFilter pathFilter)
     {
         try (TimeStat.BlockTimer ignored = namenodeStats.getListLocatedStatus().time()) {
             if (ignoreAbsentPartitions && !exists(path)) {
                 return emptyIterator();
             }
-            return new FileStatusIterator(table, path, fileSystem, directoryLister, namenodeStats);
+            return Iterators.filter(new FileStatusIterator(table, path, fileSystem, directoryLister, namenodeStats), input -> pathFilter.accept(input.getPath()));
         }
     }
 

@@ -31,6 +31,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-parquet</artifactId>
+                 <exclusions>
+                     <exclusion>
+                         <groupId>org.apache.parquet</groupId>
+                         <artifactId>parquet-encoding</artifactId>
+                     </exclusion>
+                 </exclusions>
         </dependency>
 
         <dependency>
@@ -224,6 +230,12 @@
             <groupId>org.alluxio</groupId>
             <artifactId>alluxio-shaded-client</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-hadoop-mr</artifactId>
+            <version>${dep.hudi.version}</version>
+       </dependency>
 
         <dependency>
             <groupId>org.apache.thrift</groupId>

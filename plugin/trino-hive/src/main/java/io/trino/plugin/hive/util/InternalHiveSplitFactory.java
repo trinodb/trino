@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -53,6 +54,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveColumnHandle.isPathColumnHandle;
+import static io.trino.plugin.hive.util.CustomSplitConversionUtils.extractCustomSplitInfo;
 import static io.trino.plugin.hive.util.HiveUtil.isSplittable;
 import static java.util.Objects.requireNonNull;
 
@@ -126,13 +128,15 @@ public class InternalHiveSplitFactory
                 status.getModificationTime(),
                 bucketNumber,
                 splittable,
-                acidInfo);
+                acidInfo,
+                ImmutableMap.of());
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(FileSplit split)
             throws IOException
     {
         FileStatus file = fileSystem.getFileStatus(split.getPath());
+        Map<String, String> customSplitInfo = extractCustomSplitInfo(split);
         return createInternalHiveSplit(
                 split.getPath(),
                 fileSystem.getFileBlockLocations(file, split.getStart(), split.getLength()),
@@ -142,7 +146,8 @@ public class InternalHiveSplitFactory
                 file.getModificationTime(),
                 OptionalInt.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                customSplitInfo);
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(
@@ -154,7 +159,8 @@ public class InternalHiveSplitFactory
             long fileModificationTime,
             OptionalInt bucketNumber,
             boolean splittable,
-            Optional<AcidInfo> acidInfo)
+            Optional<AcidInfo> acidInfo,
+            Map<String, String> customSplitInfo)
     {
         String pathString = path.toString();
         if (!pathMatchesPredicate(pathDomain, pathString)) {
@@ -226,7 +232,8 @@ public class InternalHiveSplitFactory
                 bucketConversion,
                 bucketValidation,
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
-                acidInfo));
+                acidInfo,
+                customSplitInfo));
     }
 
     private static void checkBlocks(Path path, List<InternalHiveBlock> blocks, long start, long length)
