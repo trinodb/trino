@@ -307,19 +307,6 @@ public final class FunctionAssertions
         return Iterables.getOnlyElement(resultSet);
     }
 
-    // this is not safe as it catches all RuntimeExceptions
-    @Deprecated
-    public void assertInvalidFunction(String projection)
-    {
-        try {
-            evaluateInvalid(projection);
-            fail("Expected to fail");
-        }
-        catch (RuntimeException e) {
-            // Expected
-        }
-    }
-
     public void assertInvalidFunction(String projection, ErrorCodeSupplier errorCode, String message)
     {
         assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
