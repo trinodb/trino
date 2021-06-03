@@ -22,7 +22,6 @@ import java.util.Optional;
 
 import static io.trino.plugin.pinot.query.PinotQueryBuilder.getFilterClause;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -112,7 +111,7 @@ public final class DynamicTablePqlExtractor
 
     private static String convertAggregationExpressionToPql(AggregationExpression aggregationExpression)
     {
-        return format("%s(%s)", aggregationExpression.getAggregationType(), aggregationExpression.getBaseColumnName()).toLowerCase(ENGLISH);
+        return format("%s(%s)", aggregationExpression.getAggregationType(), aggregationExpression.getBaseColumnName());
     }
 
     public static String encloseInParentheses(String value)
