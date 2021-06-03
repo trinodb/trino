@@ -59,7 +59,7 @@ Use ``--help`` to see information about specifying the keystore, truststore, and
 other authentication details as required. If using Kerberos, see :doc:`/security/cli`.
 
 External authentication - SSO
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``--external-authentication`` option is used for browser-based SSO
 authentication, as detailed in :doc:`/security/oauth2`. With this configuration,
@@ -79,6 +79,35 @@ The detailed behavior is as follows:
   authentication token remains valid. Token expiration depends on the external
   authentication system configuration.
 * Expired tokens force you to log in again.
+
+.. _cli-certificate-auth:
+
+Certificate authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use the following command line arguments to allow you to connect the CLI to a
+cluster that enables client :doc:`certificate authentication
+</security/certificate>`.
+
+.. list-table:: Certificate authentication options
+   :widths: 35 65
+   :header-rows: 1
+
+   * - Option
+     - Description
+   * - ``--keystore-path=<path>``
+     - Keystore path to a :doc:`PEM </security/inspect-pem>` or :doc:`JKS
+       </security/inspect-jks>` file, which must include a certificate and
+       private key for the CLI.
+   * - ``--keystore-password=<password>``
+     - Only required if the key has a password.
+   * - ``--keystore-type=<type>``
+     - Rarely used. Specifies the service name for the keystore type in the JVM.
+       You can query the JVM for its list of supported key types.
+
+The three ``--truststore`` related options are used to specify the trust chain
+for validating the *server's* certificate, and are not part of client
+certificate authentication for the CLI.
 
 Pagination
 ----------

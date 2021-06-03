@@ -110,6 +110,8 @@ These methods may be mixed; some parameters may be specified in the URL,
 while others are specified using properties. However, the same parameter
 may not be specified using both methods.
 
+.. _jdbc-parameter-reference:
+
 Parameter reference
 -------------------
 
@@ -132,17 +134,19 @@ Name                                                         Description
                                                              property nor ``ApplicationName`` or ``source`` are set, the source
                                                              name for the query is ``trino-jdbc``.
 ``accessToken``                                              Access token for token based authentication.
-``SSL``                                                      Use HTTPS for connections
-``SSLVerification``                                          The method of SSL verification. There are three modes: ``FULL``
+``SSL``                                                      Use HTTPS/TLS for connections
+``SSLVerification``                                          The method of TLS verification. There are three modes: ``FULL``
                                                              (default), ``CA`` and ``NONE``. For ``FULL``, the normal TLS
                                                              verification is performed. For ``CA``, only the CA is verified but
                                                              hostname mismatch is allowed. For ``NONE``, there is no verification.
-``SSLKeyStorePath``                                          The location of the Java KeyStore file that contains the certificate
-                                                             and private key to use for authentication.
-``SSLKeyStorePassword``                                      The password for the KeyStore.
+``SSLKeyStorePath``                                          Keystore path to a :doc:`PEM </security/inspect-pem>` or :doc:`JKS
+                                                             </security/inspect-jks>` file, which must include a certificate and
+                                                             private key for the JDBC client for use when connecting to a cluster
+                                                             with :doc:`/security/certificate` enabled.
+``SSLKeyStorePassword``                                      The password for the KeyStore, if any.
 ``SSLKeyStoreType``                                          The type of the KeyStore. The default type is provided by the Java
                                                              ``keystore.type`` security property or ``jks`` if none exists.
-``SSLTrustStorePath``                                        The location of the Java TrustStore file to use.
+``SSLTrustStorePath``                                        The location of the Java TrustStore file to use
                                                              to validate HTTPS server certificates.
 ``SSLTrustStorePassword``                                    The password for the TrustStore.
 ``SSLTrustStoreType``                                        The type of the TrustStore. The default type is provided by the Java

@@ -12,7 +12,7 @@ and authenticators are available:
 
 * ``PASSSWORD`` for  :doc:`password-file`, :doc:`ldap`, and :doc:`salesforce`
 * ``OAUTH2`` for :doc:`oauth2`
-* ``CERTIFICATE`` for :doc:`cert-auth`
+* ``CERTIFICATE`` for :doc:`certificate`
 * ``JWT`` for Java Web Token (JWT) authentication
 * ``KERBEROS`` for :doc:`kerberos`
 
