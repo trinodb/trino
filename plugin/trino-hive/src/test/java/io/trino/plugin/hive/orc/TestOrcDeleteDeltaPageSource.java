@@ -22,6 +22,8 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.ql.io.AcidOutputFormat;
+import org.apache.hadoop.hive.ql.io.BucketCodec;
 import org.apache.hadoop.mapred.JobConf;
 import org.testng.annotations.Test;
 
@@ -30,6 +32,7 @@ import java.io.File;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcDeleteDeltaPageSource
@@ -47,9 +50,11 @@ public class TestOrcDeleteDeltaPageSource
                 new FileFormatDataSourceStats());
 
         ConnectorPageSource pageSource = pageSourceFactory.createPageSource(new Path(deleteDeltaFile.toURI()), deleteDeltaFile.length()).orElseThrow();
-        MaterializedResult materializedRows = MaterializedResult.materializeSourceDataStream(SESSION, pageSource, ImmutableList.of(BIGINT, BIGINT));
+        MaterializedResult materializedRows = MaterializedResult.materializeSourceDataStream(SESSION, pageSource, ImmutableList.of(BIGINT, INTEGER, BIGINT));
 
         assertEquals(materializedRows.getRowCount(), 1);
-        assertEquals(materializedRows.getMaterializedRows().get(0), new MaterializedRow(5, 2L, 0L));
+
+        AcidOutputFormat.Options bucketOptions = new AcidOutputFormat.Options(new Configuration(false)).bucket(0);
+        assertEquals(materializedRows.getMaterializedRows().get(0), new MaterializedRow(5, 2L, BucketCodec.V1.encode(bucketOptions), 0L));
     }
 }
