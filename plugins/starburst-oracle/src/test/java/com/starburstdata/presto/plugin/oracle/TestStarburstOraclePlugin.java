@@ -21,7 +21,6 @@ import static com.google.common.io.Resources.getResource;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS_PASS_THROUGH;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD_PASS_THROUGH;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.expectThrows;
 
 public class TestStarburstOraclePlugin
 {
@@ -38,7 +37,7 @@ public class TestStarburstOraclePlugin
     {
         Plugin plugin = new StarburstOraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        expectThrows(ApplicationConfigurationException.class, () -> factory.create(
+        assertThatThrownBy(() -> factory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", "jdbc:oracle:thin:@test")
@@ -48,8 +47,9 @@ public class TestStarburstOraclePlugin
                         .put("kerberos.config", getResource("krb/krb5.conf").getPath())
                         .put("connection-user", "WHAT?!")
                         .build(),
-                new TestingConnectorContext())
-        ).getMessage().contains("Configuration property 'connection-user' was not used");
+                new TestingConnectorContext()))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Configuration property 'connection-user' was not used");
     }
 
     @Test
