@@ -612,6 +612,35 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testReadAfterMultiInsertAndDelete()
+    {
+        // Test reading from a table after Hive multi-insert. Multi-insert involves non-zero statement ID, encoded
+        // within ORC-level bucketId field, while originalTransactionId and rowId can be the same for two different rows.
+        //
+        // This is a regression test to verify that Trino correctly takes into account the bucketId field, including encoded
+        // statement id, when filtering out deleted rows.
+        //
+        // For more context see https://issues.apache.org/jira/browse/HIVE-16832
+        withTemporaryTable("partitioned_multi_insert", true, true, BucketingType.BUCKETED_V1, tableName -> {
+            withTemporaryTable("tmp_data_table", false, false, NONE, dataTableName -> {
+                onTrino().executeQuery(format("CREATE TABLE %s (a int, b int, c varchar(5)) WITH " +
+                        "(transactional = true, partitioned_by = ARRAY['c'], bucketed_by = ARRAY['a'], bucket_count = 2)", tableName));
+                onTrino().executeQuery(format("CREATE TABLE %s (x int)", dataTableName));
+                onTrino().executeQuery(format("INSERT INTO %s VALUES 1", dataTableName));
+
+                // Perform a multi-insert
+                onHive().executeQuery("SET hive.exec.dynamic.partition.mode = nonstrict");
+                // Combine dynamic and static partitioning to trick Hive to insert two rows with same rowId but different statementId to a single partition.
+                onHive().executeQuery(format("FROM %s INSERT INTO %s partition(c) SELECT 0, 0, 'c' || x INSERT INTO %2$s partition(c='c1') SELECT 0, 1",
+                        dataTableName,
+                        tableName));
+                onHive().executeQuery(format("DELETE FROM %s WHERE b = 1", tableName));
+                verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(0, 0, "c1"));
+            });
+        });
+    }
+
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testTransactionalMetadataDelete(HiveOrPresto inserter, HiveOrPresto deleter)
     {
