@@ -266,12 +266,15 @@ export class QueryList extends React.Component {
         this.handleSortClick = this.handleSortClick.bind(this);
     }
 
-    sortAndLimitQueries(queries, sortType, sortOrder, maxQueries) {
+    sortQueries(queries, sortType, sortOrder) {
         queries.sort(function (queryA, queryB) {
             return sortOrder(sortType(queryA) - sortType(queryB));
         }, this);
+    }
 
-        if (maxQueries !== 0 && queries.length > maxQueries) {
+    sortAndLimitQueries(queries, sortType, sortOrder, maxQueries) {
+        this.sortQueries(queries, sortType, sortOrder);
+        if (queries.length > maxQueries) {
             queries.splice(maxQueries, (queries.length - maxQueries));
         }
     }
@@ -363,11 +366,11 @@ export class QueryList extends React.Component {
             if (this.state.reorderInterval !== 0 && ((lastRefresh - lastReorder) >= this.state.reorderInterval)) {
                 updatedQueries = this.filterQueries(updatedQueries, this.state.stateFilters, this.state.errorTypeFilters, this.state.searchString);
                 updatedQueries = updatedQueries.concat(newQueries);
-                this.sortAndLimitQueries(updatedQueries, this.state.currentSortType, this.state.currentSortOrder, 0);
+                this.sortQueries(updatedQueries, this.state.currentSortType, this.state.currentSortOrder);
                 lastReorder = Date.now();
             }
             else {
-                this.sortAndLimitQueries(newQueries, this.state.currentSortType, this.state.currentSortOrder, 0);
+                this.sortQueries(newQueries, this.state.currentSortType, this.state.currentSortOrder);
                 updatedQueries = updatedQueries.concat(newQueries);
             }
 
@@ -513,7 +516,7 @@ export class QueryList extends React.Component {
         }
 
         const filteredQueries = this.filterQueries(this.state.allQueries, newFilters, this.state.errorTypeFilters, this.state.searchString);
-        this.sortAndLimitQueries(filteredQueries, this.state.currentSortType, this.state.currentSortOrder);
+        this.sortAndLimitQueries(filteredQueries, this.state.currentSortType, this.state.currentSortOrder, this.state.maxQueries);
 
         this.setState({
             stateFilters: newFilters,
@@ -545,7 +548,7 @@ export class QueryList extends React.Component {
         }
 
         const filteredQueries = this.filterQueries(this.state.allQueries, this.state.stateFilters, newFilters, this.state.searchString);
-        this.sortAndLimitQueries(filteredQueries, this.state.currentSortType, this.state.currentSortOrder);
+        this.sortAndLimitQueries(filteredQueries, this.state.currentSortType, this.state.currentSortOrder, this.state.maxQueries);
 
         this.setState({
             errorTypeFilters: newFilters,
