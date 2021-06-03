@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.trino.plugin.pinot.client.PinotHostMapper;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
@@ -784,5 +785,15 @@ public class TestPinotIntegrationSmokeTest
 
         // Array filters are not pushed down, as there are no array literals in pinot
         assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE prices = ARRAY[3.5, 5.5]")).isNotFullyPushedDown(FilterNode.class);
+    }
+
+    @Test
+    public void testLimitPushdown()
+    {
+        assertThat(query("SELECT string_col, long_col FROM " + "\"SELECT string_col, long_col, bool_col FROM " + ALL_TYPES_TABLE + " WHERE int_col > 0\" " +
+                "  WHERE bool_col = 'false' LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
+                .isFullyPushedDown();
+        assertThat(query("SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + "  WHERE int_col >0 AND bool_col = 'false' LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
+                .isNotFullyPushedDown(LimitNode.class);
     }
 }
