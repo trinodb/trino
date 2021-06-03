@@ -10,7 +10,7 @@
 package com.starburstdata.trino.plugin.starburstremote;
 
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.plugin.hive.StarburstHiveHadoop2Plugin;
+import com.starburstdata.presto.plugin.hive.StarburstHivePlugin;
 import com.starburstdata.presto.plugin.postgresql.StarburstPostgreSqlPlugin;
 import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
 import io.airlift.log.Logger;
@@ -98,8 +98,8 @@ public final class StarburstRemoteQueryRunner
             throws Exception
     {
         try {
-            queryRunner.installPlugin(new StarburstHiveHadoop2Plugin());
-            queryRunner.createCatalog("hive", "hive-hadoop2", ImmutableMap.of(
+            queryRunner.installPlugin(new StarburstHivePlugin());
+            queryRunner.createCatalog("hive", "hive", ImmutableMap.of(
                     "hive.metastore", "file",
                     "hive.metastore.catalog.dir", hiveCatalog.toUri().toString(),
                     "hive.security", "allow-all"));
