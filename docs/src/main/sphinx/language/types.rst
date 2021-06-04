@@ -168,7 +168,7 @@ Example: ``TIME '01:02:03.456'``
 
 Time of day (hour, minute, second, millisecond) with a time zone.
 Values of this type are rendered using the time zone from the value.
-Time zones are expressed as the numeric UTC offset value:
+Time zones are expressed as the numeric UTC offset value::
 
     SELECT TIME '01:02:03.456 -08:00';
     -- 1:02:03.456-08:00
