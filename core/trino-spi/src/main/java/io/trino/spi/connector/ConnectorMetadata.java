@@ -235,6 +235,7 @@ public interface ConnectorMetadata
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
+     *
      * @deprecated use {@link #streamTableColumns} which handles redirected tables
      */
     @Deprecated
@@ -1176,7 +1177,7 @@ public interface ConnectorMetadata
     /**
      * Redirects table to other table which may or may not be in the same catalog.
      * Currently the engine tries to do redirection only for table reads and metadata listing.
-     *
+     * <p>
      * Also consider implementing streamTableColumns to support redirection for listing.
      */
     default Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)

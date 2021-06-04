@@ -120,17 +120,17 @@ public interface Metadata
      * Return table schema definition for the specified table handle.
      * Table schema definition is a set of information
      * required by semantic analyzer to analyze the query.
-     * @see {@link #getTableMetadata(Session, TableHandle)}
      *
      * @throws RuntimeException if table handle is no longer valid
+     * @see {@link #getTableMetadata(Session, TableHandle)}
      */
     TableSchema getTableSchema(Session session, TableHandle tableHandle);
 
     /**
      * Return the metadata for the specified table handle.
-     * @see {@link #getTableSchema(Session, TableHandle)} which is less expsensive.
      *
      * @throws RuntimeException if table handle is no longer valid
+     * @see {@link #getTableSchema(Session, TableHandle)} which is less expsensive.
      */
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
@@ -646,7 +646,6 @@ public interface Metadata
 
     /**
      * Get the target table handle after performing redirection.
-     *
      */
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName);
 }
