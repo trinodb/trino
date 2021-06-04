@@ -130,7 +130,7 @@ public interface Metadata
      * Return the metadata for the specified table handle.
      *
      * @throws RuntimeException if table handle is no longer valid
-     * @see {@link #getTableSchema(Session, TableHandle)} which is less expsensive.
+     * @see {@link #getTableSchema(Session, TableHandle)} which is less expensive.
      */
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
