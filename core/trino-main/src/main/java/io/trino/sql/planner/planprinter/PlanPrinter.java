@@ -150,6 +150,7 @@ import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
@@ -732,7 +733,9 @@ public class PlanPrinter
                 nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), unresolveFunctions(entry.getValue().getExpressionAndValuePointers().getExpression()));
                 appendValuePointers(nodeOutput, entry.getValue().getExpressionAndValuePointers());
             }
-            nodeOutput.appendDetailsLine(formatRowsPerMatch(node.getRowsPerMatch()));
+            if (node.getRowsPerMatch() != WINDOW) {
+                nodeOutput.appendDetailsLine(formatRowsPerMatch(node.getRowsPerMatch()));
+            }
             nodeOutput.appendDetailsLine(formatSkipTo(node.getSkipToPosition(), node.getSkipToLabel()));
             nodeOutput.appendDetailsLine(format("pattern[%s] (%s)", node.getPattern(), node.isInitial() ? "INITIAL" : "SEEK"));
             nodeOutput.appendDetailsLine(format("subsets[%s]", node.getSubsets().entrySet().stream()
@@ -805,10 +808,9 @@ public class PlanPrinter
                     return "ALL ROWS PER MATCH OMIT EMPTY MATCHES";
                 case ALL_WITH_UNMATCHED:
                     return "ALL ROWS PER MATCH WITH UNMATCHED ROWS";
-                case WINDOW:
-                    throw new UnsupportedOperationException("pattern matching in WINDOW is not supported");
+                default:
+                    throw new IllegalArgumentException("unexpected rowsPer match value: " + rowsPerMatch.name());
             }
-            throw new UnsupportedOperationException("unsupported ROWS PER MATCH option");
         }
 
         private String formatSkipTo(Position position, Optional<IrLabel> label)

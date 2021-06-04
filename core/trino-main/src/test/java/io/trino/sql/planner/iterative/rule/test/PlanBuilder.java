@@ -67,6 +67,7 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -1197,6 +1198,13 @@ public class PlanBuilder
                 maxRankingPerPartition,
                 false,
                 hashSymbol);
+    }
+
+    public PatternRecognitionNode patternRecognition(Consumer<PatternRecognitionBuilder> consumer)
+    {
+        PatternRecognitionBuilder patternRecognitionBuilder = new PatternRecognitionBuilder();
+        consumer.accept(patternRecognitionBuilder);
+        return patternRecognitionBuilder.build(idAllocator);
     }
 
     public static Expression expression(String sql)
