@@ -136,6 +136,7 @@ public class FileHiveMetastore
     private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
     private static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
     private static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
+    private static final String TRINO_MATERIALIZED_VIEW = "TRINO_MATERIALIZED_VIEW";
 
     private final String currentVersion;
     private final VersionCompatibility versionCompatibility;
@@ -311,7 +312,7 @@ public class FileHiveMetastore
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Could not validate external location", e);
             }
         }
-        else {
+        else if (!table.getTableType().equals(TRINO_MATERIALIZED_VIEW)) {
             throw new TrinoException(NOT_SUPPORTED, "Table type not supported: " + table.getTableType());
         }
 
