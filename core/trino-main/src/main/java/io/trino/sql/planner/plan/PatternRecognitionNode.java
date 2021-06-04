@@ -41,7 +41,10 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
+import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
+import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -107,6 +110,11 @@ public class PatternRecognitionNode
         requireNonNull(measures, "measures is null");
         requireNonNull(commonBaseFrame, "commonBaseFrame is null");
         requireNonNull(rowsPerMatch, "rowsPerMatch is null");
+        checkArgument(windowFunctions.isEmpty() || commonBaseFrame.isPresent(), "Common base frame is required for pattern recognition with window functions");
+        checkArgument(commonBaseFrame.isEmpty() || rowsPerMatch == WINDOW, "Invalid ROWS PER MATCH option for pattern recognition in window: %s", rowsPerMatch.name());
+        checkArgument(rowsPerMatch != WINDOW || commonBaseFrame.isPresent(), "Common base frame is required for pattern recognition in window");
+        checkArgument(initial || rowsPerMatch == WINDOW, "Pattern search mode SEEK is only supported in window");
+        commonBaseFrame.ifPresent(frame -> checkArgument(frame.getType() == ROWS && frame.getStartType() == CURRENT_ROW, "Invalid common base frame for pattern recognition in window"));
         requireNonNull(skipToLabel, "skipToLabel is null");
         requireNonNull(skipToPosition, "skipToPosition is null");
         requireNonNull(pattern, "pattern is null");
