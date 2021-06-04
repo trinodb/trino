@@ -57,7 +57,7 @@ view of the server:
 * The server asks for a certificate from clients, but allows connection without one.
 * The server must have a certificate from clients to allow connection.
 
-Trino's client certificate support is the middle type, asks for a certificate
+Trino's client certificate support is the middle type. It asks for a certificate
 but allows connection if another authentication method passes.
 
 Certificate authentication configuration
