@@ -27,9 +27,11 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.tree.Statement;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -73,6 +75,11 @@ public interface QueryExecution
     void recordHeartbeat();
 
     boolean shouldWaitForMinWorkers();
+
+    default Optional<Statement> getStatement()
+    {
+        return Optional.empty();
+    }
 
     /**
      * Add a listener for the final query info.  This notification is guaranteed to be fired only once.

@@ -25,6 +25,8 @@ import io.trino.spi.resourcegroups.ResourceGroup;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.ResourceGroupState;
 import io.trino.spi.resourcegroups.SchedulingPolicy;
+import io.trino.sql.tree.Call;
+import io.trino.sql.tree.Statement;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -78,6 +80,7 @@ public class InternalResourceGroup
         implements ResourceGroup
 {
     public static final int DEFAULT_WEIGHT = 1;
+    private static final String KILL_QUERY = "kill_query";
 
     private final InternalResourceGroup root;
     private final Optional<InternalResourceGroup> parent;
@@ -586,6 +589,17 @@ public class InternalResourceGroup
         }
     }
 
+    public boolean isKillQuery(Optional<Statement> statement)
+    {
+        if (statement.isPresent() && statement.get() instanceof Call) {
+            Call call = (Call) statement.get();
+            if (call.getName().toString().endsWith(KILL_QUERY)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void run(ManagedQueryExecution query)
     {
         synchronized (root) {
@@ -596,14 +610,17 @@ public class InternalResourceGroup
             InternalResourceGroup group = this;
             boolean canQueue = true;
             boolean canRun = true;
-            while (true) {
-                canQueue = canQueue && group.canQueueMore();
-                canRun = canRun && group.canRunMore();
-                if (group.parent.isEmpty()) {
-                    break;
+            if (!isKillQuery(query.getStatement())) {
+                while (true) {
+                    canQueue = canQueue && group.canQueueMore();
+                    canRun = canRun && group.canRunMore();
+                    if (group.parent.isEmpty()) {
+                        break;
+                    }
+                    group = group.parent.get();
                 }
-                group = group.parent.get();
             }
+
             if (!canQueue && !canRun) {
                 query.fail(new QueryQueueFullException(id));
                 return;
