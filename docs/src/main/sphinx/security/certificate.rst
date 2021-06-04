@@ -47,7 +47,7 @@ Several rules emerge from these steps:
 
 Trino validates based on the distinguished name (DN) from the X.509 ``Subject``
 field. The principal created for the connection is the common name (CN) from the
-``Subject`` field. You can use :doc:`User mapping </security/user-mapping>` to
+``Subject`` field. You can use :doc:`user mapping </security/user-mapping>` to
 map the CN to a Trino user name.
 
 There are three levels of client certificate support possible. From the point of
