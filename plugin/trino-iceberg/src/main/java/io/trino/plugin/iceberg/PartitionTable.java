@@ -291,6 +291,9 @@ public class PartitionTable
             // TODO the client sees the bytearray's tostring ouput instead of seeing actual bytes, needs to be fixed.
             return ((ByteBuffer) value).array();
         }
+        if (type instanceof Types.DateType) {
+            return Long.parseLong(value.toString());
+        }
         if (type instanceof Types.TimestampType) {
             long epochMicros = Long.parseLong(value.toString());
             if (((Types.TimestampType) type).shouldAdjustToUTC()) {

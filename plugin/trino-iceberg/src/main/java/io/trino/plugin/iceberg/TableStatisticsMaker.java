@@ -111,7 +111,7 @@ public class TableStatisticsMaker
                     field,
                     idToColumnHandle.get(field.sourceId()),
                     type,
-                    toTrinoType(idToTypeMapping.get(field.sourceId()), typeManager),
+                    toTrinoType(type, typeManager),
                     type.typeId().javaClass()));
         }
         Map<Integer, ColumnFieldDetails> idToDetails = idToDetailsBuilder.build();
@@ -128,7 +128,7 @@ public class TableStatisticsMaker
                 if (!dataFileMatches(
                         dataFile,
                         constraint,
-                        idToTypeMapping,
+                        icebergPartitionTypes,
                         partitionFields,
                         idToDetails)) {
                     continue;
@@ -216,7 +216,7 @@ public class TableStatisticsMaker
     private boolean dataFileMatches(
             DataFile dataFile,
             Constraint constraint,
-            Map<Integer, Type.PrimitiveType> idToTypeMapping,
+            List<Type> icebergPartitionTypes,
             List<PartitionField> partitionFields,
             Map<Integer, ColumnFieldDetails> fieldDetails)
     {
@@ -233,7 +233,7 @@ public class TableStatisticsMaker
             int fieldId = field.sourceId();
             ColumnFieldDetails details = fieldDetails.get(fieldId);
             IcebergColumnHandle column = details.getColumnHandle();
-            Object value = PartitionTable.convert(dataFile.partition().get(index, details.getJavaClass()), idToTypeMapping.get(fieldId));
+            Object value = PartitionTable.convert(dataFile.partition().get(index, details.getJavaClass()), icebergPartitionTypes.get(index));
             Domain allowedDomain = domains.get(column);
             if (allowedDomain != null && !allowedDomain.includesNullableValue(value)) {
                 return false;
