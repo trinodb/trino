@@ -110,6 +110,7 @@ import io.trino.sql.planner.iterative.rule.PruneMarkDistinctColumns;
 import io.trino.sql.planner.iterative.rule.PruneOffsetColumns;
 import io.trino.sql.planner.iterative.rule.PruneOrderByInAggregation;
 import io.trino.sql.planner.iterative.rule.PruneOutputSourceColumns;
+import io.trino.sql.planner.iterative.rule.PrunePattenRecognitionColumns;
 import io.trino.sql.planner.iterative.rule.PruneProjectColumns;
 import io.trino.sql.planner.iterative.rule.PruneRowNumberColumns;
 import io.trino.sql.planner.iterative.rule.PruneSampleColumns;
@@ -336,6 +337,7 @@ public class PlanOptimizers
                 new PruneMarkDistinctColumns(),
                 new PruneOffsetColumns(),
                 new PruneOutputSourceColumns(),
+                new PrunePattenRecognitionColumns(),
                 new PruneProjectColumns(),
                 new PruneRowNumberColumns(),
                 new PruneSampleColumns(),
