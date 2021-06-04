@@ -85,8 +85,10 @@ provider.
 
 * :doc:`Password file authentication <password-file>`
 * :doc:`LDAP authentication <ldap>`
-* :doc:`OAuth 2.0 authentication <oauth2>`
 * :doc:`Salesforce authentication <salesforce>`
+* :doc:`OAuth 2.0 authentication <oauth2>`
+* :doc:`Certificate authentication <certificate>`
+* Java Web Token (JWT) authentication
 * :doc:`Kerberos authentication <kerberos>`
 
 .. _user-name-management:

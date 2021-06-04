@@ -77,7 +77,7 @@ The detailed behavior is as follows:
   the query.
 * Further queries in the CLI session do not require additional logins while the
   authentication token remains valid. Token expiration depends on the external
-  authentication system configuration.
+  authentication type configuration.
 * Expired tokens force you to log in again.
 
 .. _cli-certificate-auth:
@@ -85,29 +85,28 @@ The detailed behavior is as follows:
 Certificate authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Use the following command line arguments to allow you to connect the CLI to a
-cluster that enables client :doc:`certificate authentication
-</security/certificate>`.
+Use the following CLI command line arguments to connect to a cluster that uses
+:doc:`certificate authentication </security/certificate>`.
 
-.. list-table:: Certificate authentication options
+.. list-table:: CLI options for ertificate authentication
    :widths: 35 65
    :header-rows: 1
 
    * - Option
      - Description
    * - ``--keystore-path=<path>``
-     - Keystore path to a :doc:`PEM </security/inspect-pem>` or :doc:`JKS
-       </security/inspect-jks>` file, which must include a certificate and
-       private key for the CLI.
+     - Absolute or relative path to a :doc:`PEM </security/inspect-pem>` or
+       :doc:`JKS </security/inspect-jks>` file, which must contain a certificate
+       that is trusted by the Trino cluster you are connecting to.
    * - ``--keystore-password=<password>``
-     - Only required if the key has a password.
+     - Only required if the keystore has a password.
    * - ``--keystore-type=<type>``
-     - Rarely used. Specifies the service name for the keystore type in the JVM.
-       You can query the JVM for its list of supported key types.
+     - Rarely used. Specifies the value of the keystore.type property, or ``jks``
+       if not specified. See the ``java.security`` file in your JDK
+       installation's ``lib/security`` or ``conf/security`` directory.
 
-The three ``--truststore`` related options are used to specify the trust chain
-for validating the *server's* certificate, and are not part of client
-certificate authentication for the CLI.
+The three ``--truststore`` related options are not used for client certificate
+authentication with the CLI.
 
 Pagination
 ----------

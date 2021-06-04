@@ -139,10 +139,11 @@ Name                                                         Description
                                                              (default), ``CA`` and ``NONE``. For ``FULL``, the normal TLS
                                                              verification is performed. For ``CA``, only the CA is verified but
                                                              hostname mismatch is allowed. For ``NONE``, there is no verification.
-``SSLKeyStorePath``                                          Keystore path to a :doc:`PEM </security/inspect-pem>` or :doc:`JKS
-                                                             </security/inspect-jks>` file, which must include a certificate and
-                                                             private key for the JDBC client for use when connecting to a cluster
-                                                             with :doc:`/security/certificate` enabled.
+``SSLKeyStorePath``                                          Use only when connecting to a Trino cluster that has :doc:`certificate
+                                                             authentication </security/certificate>` enabled.
+                                                             Specifies the path to a :doc:`PEM </security/inspect-pem>` or :doc:`JKS
+                                                             </security/inspect-jks>` file, which must contain a certificate that
+                                                             is trusted by the Trino cluster you connect to.
 ``SSLKeyStorePassword``                                      The password for the KeyStore, if any.
 ``SSLKeyStoreType``                                          The type of the KeyStore. The default type is provided by the Java
                                                              ``keystore.type`` security property or ``jks`` if none exists.
