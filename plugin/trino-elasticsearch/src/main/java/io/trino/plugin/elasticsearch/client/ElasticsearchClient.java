@@ -572,6 +572,9 @@ public class ElasticsearchClient
                         // for a given index. Newer versions support only one and don't
                         // expose it in the document. Here we skip it if it's present.
                         mappings = mappings.elements().next();
+                        if (!mappings.has("properties")) {
+                            return new IndexMetadata(outputSchema);
+                        }
                     }
 
                     JsonNode metaNode = nullSafeNode(mappings, "_meta");
@@ -592,10 +595,10 @@ public class ElasticsearchClient
 
     private IndexMetadata.ObjectType merge(String index, String parentPrefix, IndexMetadata.ObjectType schema1, IndexMetadata.ObjectType schema2)
     {
-        if (schema2 == null) {
+        if (schema2 == null || schema2.getFields().isEmpty()) {
             return schema1;
         }
-        if (schema1 == null) {
+        if (schema1 == null || schema1.getFields().isEmpty()) {
             return schema2;
         }
         List<IndexMetadata.Field> fields = merge(index, parentPrefix, schema1.getFields(), schema2.getFields());
