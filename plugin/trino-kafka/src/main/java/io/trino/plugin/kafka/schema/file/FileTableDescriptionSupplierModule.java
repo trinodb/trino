@@ -19,6 +19,8 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.decoder.DecoderModule;
 import io.trino.plugin.kafka.encoder.EncoderModule;
 import io.trino.plugin.kafka.schema.ContentSchemaReader;
+import io.trino.plugin.kafka.schema.ForKafkaRead;
+import io.trino.plugin.kafka.schema.ForKafkaWrite;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -33,6 +35,7 @@ public class FileTableDescriptionSupplierModule
         binder.bind(TableDescriptionSupplier.class).toProvider(FileTableDescriptionSupplier.class).in(Scopes.SINGLETON);
         install(new DecoderModule());
         install(new EncoderModule());
-        binder.bind(ContentSchemaReader.class).to(FileContentSchemaReader.class).in(Scopes.SINGLETON);
+        binder.bind(ContentSchemaReader.class).annotatedWith(ForKafkaRead.class).to(FileContentSchemaReader.class).in(Scopes.SINGLETON);
+        binder.bind(ContentSchemaReader.class).annotatedWith(ForKafkaWrite.class).to(FileWriterSchemaReader.class).in(Scopes.SINGLETON);
     }
 }

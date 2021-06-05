@@ -23,11 +23,16 @@ import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.trino.plugin.kafka.KafkaConfig;
 import io.trino.plugin.kafka.KafkaTopicDescription;
+import io.trino.plugin.kafka.KafkaTopicFieldDescription;
 import io.trino.plugin.kafka.KafkaTopicFieldGroup;
+import io.trino.plugin.kafka.decoder.KafkaRowDecoderFactory;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -44,10 +49,12 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.kafka.KafkaErrorCode.SCHEMA_REGISTRY_AMBIGUOUS_SUBJECT;
+import static io.trino.plugin.kafka.encoder.kafka.KafkaSerializerRowEncoder.fromTrinoType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -70,7 +77,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     private static final String VALUE_SUBJECT = "value-subject";
 
     private static final String KEY_COLUMNS = "key-columns";
-
+    private static final String KEY_COLUMN_TYPE_DELIMITER = ":";
     private static final String KEY_SUFFIX = "-key";
     private static final String VALUE_SUFFIX = "-value";
 
@@ -79,18 +86,21 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     private final String defaultSchema;
     private final Supplier<SetMultimap<String, TopicAndSubjects>> topicAndSubjectsSupplier;
     private final Supplier<SetMultimap<String, String>> subjectsSupplier;
+    private final TypeManager typeManager;
 
     public ConfluentSchemaRegistryTableDescriptionSupplier(
             SchemaRegistryClient schemaRegistryClient,
             Map<String, SchemaParser> schemaParsers,
             String defaultSchema,
-            Duration subjectsCacheRefreshInterval)
+            Duration subjectsCacheRefreshInterval,
+            TypeManager typeManager)
     {
         this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
         this.schemaParsers = ImmutableMap.copyOf(requireNonNull(schemaParsers, "schemaParsers is null"));
         this.defaultSchema = requireNonNull(defaultSchema, "defaultSchema is null");
         topicAndSubjectsSupplier = memoizeWithExpiration(this::getTopicAndSubjects, subjectsCacheRefreshInterval.toMillis(), MILLISECONDS);
         subjectsSupplier = memoizeWithExpiration(this::getAllSubjects, subjectsCacheRefreshInterval.toMillis(), MILLISECONDS);
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     public static class Factory
@@ -100,13 +110,15 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         private final Map<String, SchemaParser> schemaParsers;
         private final String defaultSchema;
         private final Duration subjectsCacheRefreshInterval;
+        private final TypeManager typeManager;
 
         @Inject
         public Factory(
                 SchemaRegistryClient schemaRegistryClient,
                 Map<String, SchemaParser> schemaParsers,
                 KafkaConfig kafkaConfig,
-                ConfluentSchemaRegistryConfig confluentConfig)
+                ConfluentSchemaRegistryConfig confluentConfig,
+                TypeManager typeManager)
         {
             this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
             this.schemaParsers = ImmutableMap.copyOf(requireNonNull(schemaParsers, "schemaParsers is null"));
@@ -114,12 +126,13 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             this.defaultSchema = kafkaConfig.getDefaultSchema();
             requireNonNull(confluentConfig, "confluentConfig is null");
             this.subjectsCacheRefreshInterval = confluentConfig.getConfluentSubjectsCacheRefreshInterval();
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override
         public TableDescriptionSupplier get()
         {
-            return new ConfluentSchemaRegistryTableDescriptionSupplier(schemaRegistryClient, schemaParsers, defaultSchema, subjectsCacheRefreshInterval);
+            return new ConfluentSchemaRegistryTableDescriptionSupplier(schemaRegistryClient, schemaParsers, defaultSchema, subjectsCacheRefreshInterval, typeManager);
         }
     }
 
@@ -197,15 +210,50 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             topicAndSubjects = new TopicAndSubjects(
                     topicAndSubjectsFromCache.getTopic(),
                     topicAndSubjects.getKeySubject().or(topicAndSubjectsFromCache::getKeySubject),
-                    topicAndSubjects.getValueSubject().or(topicAndSubjectsFromCache::getValueSubject));
+                    topicAndSubjects.getValueSubject().or(topicAndSubjectsFromCache::getValueSubject),
+                    topicAndSubjects.getKeyColumns());
         }
 
         if (topicAndSubjects.getKeySubject().isEmpty() && topicAndSubjects.getValueSubject().isEmpty()) {
             return Optional.empty();
         }
         Optional<KafkaTopicFieldGroup> key = topicAndSubjects.getKeySubject().map(subject -> getFieldGroup(session, subject));
+        if (key.isEmpty() && topicAndSubjects.getKeyColumns().isPresent()) {
+            key = Optional.of(getFieldGroupFromKeyColumns(topicAndSubjects.getKeyColumns().get()));
+        }
         Optional<KafkaTopicFieldGroup> message = topicAndSubjects.getValueSubject().map(subject -> getFieldGroup(session, subject));
-        return Optional.of(new KafkaTopicDescription(tableName, Optional.of(schemaTableName.getSchemaName()), topicAndSubjects.getTopic(), key, message, topicAndSubjects.getKeyColumns()));
+        return Optional.of(new KafkaTopicDescription(tableName, Optional.of(schemaTableName.getSchemaName()), topicAndSubjects.getTopic(), key, message, topicAndSubjects.getKeyColumns().map(this::getKeyColumnNames)));
+    }
+
+    private List<String> getKeyColumnNames(List<String> keyColumns)
+    {
+        Splitter splitter = Splitter.on(KEY_COLUMN_TYPE_DELIMITER).omitEmptyStrings().trimResults();
+        return keyColumns.stream().map(nameAndType -> splitter.splitToList(nameAndType).get(0))
+                .collect(toImmutableList());
+    }
+
+    private KafkaTopicFieldGroup getFieldGroupFromKeyColumns(List<String> keyColumns)
+    {
+        String keyColumnNameAndType = getOnlyElement(keyColumns);
+        List<String> nameAndType = Splitter.on(KEY_COLUMN_TYPE_DELIMITER).omitEmptyStrings().trimResults().splitToList(keyColumnNameAndType);
+        Type keyColumnType = typeManager.getType(TypeId.of(nameAndType.get(1)));
+        return new KafkaTopicFieldGroup(KafkaRowDecoderFactory.NAME, Optional.of(fromTrinoType(keyColumnType).toString()), Optional.empty(), keyColumns.stream()
+                .map(keyColumn -> getFieldDescriptionFromKeyColumn(keyColumn))
+                .collect(toImmutableList()));
+    }
+
+    private KafkaTopicFieldDescription getFieldDescriptionFromKeyColumn(String keyColumn)
+    {
+        List<String> nameAndType = Splitter.on(KEY_COLUMN_TYPE_DELIMITER).omitEmptyStrings().trimResults().splitToList(keyColumn);
+        checkState(nameAndType.size() == 2, "Unexpected format for key column/type. Should be <name>:<type>");
+        return new KafkaTopicFieldDescription(
+                nameAndType.get(0),
+                typeManager.getType(TypeId.of(nameAndType.get(1))),
+                nameAndType.get(0),
+                null,
+                null,
+                null,
+                false);
     }
 
     private KafkaTopicFieldGroup getFieldGroup(ConnectorSession session, String subject)

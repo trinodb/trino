@@ -45,7 +45,7 @@ public class AvroConfluentContentSchemaReader
     protected Optional<String> readSchema(Optional<String> dataSchemaLocation, Optional<String> subject)
     {
         if (subject.isEmpty()) {
-            return Optional.empty();
+            return dataSchemaLocation;
         }
         checkState(dataSchemaLocation.isEmpty(), "Unexpected parameter: dataSchemaLocation");
         try {

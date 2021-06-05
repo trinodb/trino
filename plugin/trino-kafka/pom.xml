@@ -81,7 +81,17 @@
 
         <dependency>
             <groupId>io.confluent</groupId>
+            <artifactId>kafka-avro-serializer</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-schema-serializer</artifactId>
         </dependency>
 
         <dependency>
@@ -228,20 +238,8 @@
 
         <dependency>
             <groupId>io.confluent</groupId>
-            <artifactId>kafka-avro-serializer</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.confluent</groupId>
             <artifactId>kafka-json-schema-serializer</artifactId>
             <!-- This is under Confluence Community License and it should not be used with compile scope -->
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.confluent</groupId>
-            <artifactId>kafka-schema-serializer</artifactId>
             <scope>test</scope>
         </dependency>
 

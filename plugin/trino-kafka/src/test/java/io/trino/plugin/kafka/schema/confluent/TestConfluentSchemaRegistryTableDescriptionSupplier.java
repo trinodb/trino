@@ -196,7 +196,8 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
                 SCHEMA_REGISTRY_CLIENT,
                 ImmutableMap.of("AVRO", new AvroSchemaParser(new TestingTypeManager())),
                 DEFAULT_NAME,
-                new Duration(1, SECONDS));
+                new Duration(1, SECONDS),
+                new TestingTypeManager());
     }
 
     private static Schema getAvroSchema(String topicName, String columnNamePrefix)
