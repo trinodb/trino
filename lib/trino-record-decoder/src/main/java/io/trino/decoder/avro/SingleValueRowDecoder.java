@@ -23,7 +23,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-class SingleValueRowDecoder
+public class SingleValueRowDecoder
         implements RowDecoder
 {
     private final DecoderColumnHandle column;
