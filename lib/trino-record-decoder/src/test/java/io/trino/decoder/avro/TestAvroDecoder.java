@@ -61,6 +61,7 @@ import java.util.Set;
 import static io.trino.decoder.avro.AvroDecoderTestUtil.checkArrayValues;
 import static io.trino.decoder.avro.AvroDecoderTestUtil.checkMapValues;
 import static io.trino.decoder.avro.AvroDecoderTestUtil.checkRowValues;
+import static io.trino.decoder.avro.AvroRowDecoderFactory.DATA_SCHEMA;
 import static io.trino.decoder.util.DecoderTestUtil.checkIsNull;
 import static io.trino.decoder.util.DecoderTestUtil.checkValue;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
@@ -84,7 +85,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestAvroDecoder
 {
-    private static final String DATA_SCHEMA = "dataSchema";
     private static final AvroRowDecoderFactory DECODER_FACTORY = new AvroRowDecoderFactory(new FixedSchemaAvroReaderSupplier.Factory(), new AvroFileDeserializer.Factory());
 
     private static final Metadata METADATA = createTestMetadataManager();
