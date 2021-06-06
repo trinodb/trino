@@ -233,6 +233,72 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testNullPredicate()
+            throws IOException
+    {
+        String indexName = "null_predicate1";
+        @Language("JSON")
+        String properties = "" +
+                "{" +
+                "  \"properties\":{" +
+                "    \"null_keyword\":   { \"type\": \"keyword\" }," +
+                "    \"custkey\":   { \"type\": \"keyword\" }" +
+                "  }" +
+                "}";
+        createIndex(indexName, properties);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("null_keyword", 32)
+                .put("custkey", 1301)
+                .build());
+
+        assertQueryReturnsEmptyResult("SELECT * FROM null_predicate1 WHERE null_keyword IS NULL");
+        assertQueryReturnsEmptyResult("SELECT * FROM null_predicate1 WHERE null_keyword = '10' OR null_keyword IS NULL");
+
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, 32)");
+        assertQuery("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301)");
+
+        // not null filter
+        // filtered column is selected
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword IS NOT NULL", "VALUES (1301, 32)");
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL", "VALUES (1301, 32)");
+
+        // filtered column is not selected
+        assertQuery("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL", "VALUES (1301)");
+
+        indexName = "null_predicate2";
+        properties = "" +
+                "{" +
+                "  \"properties\":{" +
+                "    \"null_keyword\":   { \"type\": \"keyword\" }," +
+                "    \"custkey\":   { \"type\": \"keyword\" }" +
+                "  }" +
+                "}";
+        createIndex(indexName, properties);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("custkey", 1301)
+                .build());
+
+        // not null filter
+        assertQueryReturnsEmptyResult("SELECT * FROM null_predicate2 WHERE null_keyword IS NOT NULL");
+        assertQueryReturnsEmptyResult("SELECT * FROM null_predicate2 WHERE null_keyword = '10' OR null_keyword IS NOT NULL");
+
+        // filtered column is selected
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword IS NULL", "VALUES (1301, NULL)");
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, NULL)");
+
+        // filtered column is not selected
+        assertQuery("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301)");
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("null_keyword", 32)
+                .put("custkey", 1302)
+                .build());
+
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, NULL), (1302, 32)");
+        assertQuery("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301), (1302)");
+    }
+
+    @Test
     public void testNestedFields()
             throws IOException
     {
