@@ -106,12 +106,10 @@ public class TestConnectorExpressionTranslator
                                                                    .setName(QualifiedName.of(("lower")))
                                                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
                                                                    .build(),
-                                                           // TODO: replace after resolving the issue with FunctionPushdown
-                                                           Optional.empty());
-//                                                           Optional.of(new Function(VARCHAR_TYPE,
-//                                                                                    "lower",
-//                                                                                    List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE)),
-//                                                                                    Optional.empty())));
+                                                           Optional.of(new Function(VARCHAR_TYPE,
+                                                                                    "lower",
+                                                                                    List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE)),
+                                                                                    Optional.empty())));
                 });
     }
 
@@ -150,7 +148,7 @@ public class TestConnectorExpressionTranslator
 
     private void assertTranslationToConnectorExpression(Session session, Expression expression, Optional<ConnectorExpression> connectorExpression)
     {
-        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_ANALYZER, TYPE_PROVIDER);
+        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_ANALYZER, TYPE_PROVIDER, METADATA);
         assertEquals(connectorExpression.isPresent(), translation.isPresent());
         translation.ifPresent(value -> assertEquals(value, connectorExpression.get()));
     }

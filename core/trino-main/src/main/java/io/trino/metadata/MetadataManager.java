@@ -1699,8 +1699,7 @@ public final class MetadataManager
     public boolean supportsConnectorExpressionPushdown(Session session, TableHandle tableHandle)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
-        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
         return metadata.supportsConnectorExpressionPushdown(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
     }
 

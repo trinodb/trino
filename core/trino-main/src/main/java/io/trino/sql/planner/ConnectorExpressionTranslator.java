@@ -13,9 +13,12 @@
  */
 package io.trino.sql.planner;
 
+import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.JoniRegexpCasts;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.ConnectorExpressionVisitor;
 import io.trino.spi.expression.Constant;
@@ -26,6 +29,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BinaryLiteral;
@@ -43,6 +47,8 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.type.JoniRegexp;
+import io.trino.type.JoniRegexpType;
 
 import javax.annotation.Nullable;
 
@@ -65,9 +71,9 @@ public final class ConnectorExpressionTranslator
                 .orElseThrow(() -> new UnsupportedOperationException("Expression type not supported: " + expression.getClass().getName()));
     }
 
-    public static Optional<ConnectorExpression> translate(Session session, Expression expression, TypeAnalyzer types, TypeProvider inputTypes)
+    public static Optional<ConnectorExpression> translate(Session session, Expression expression, TypeAnalyzer types, TypeProvider inputTypes, Metadata metadata)
     {
-        return new SqlToConnectorExpressionTranslator(types.getTypes(session, inputTypes, expression))
+        return new SqlToConnectorExpressionTranslator(session, types.getTypes(session, inputTypes, expression), metadata)
                 .process(expression);
     }
 
@@ -116,6 +122,15 @@ public final class ConnectorExpressionTranslator
             List<Expression> arguments = node.getArguments().stream()
                                              .map(argument -> ConnectorExpressionPredicateTranslator.toPredicate(argument, literalEncoder, metadata))
                                              .collect(Collectors.toList());
+
+            if ("regexp_like".equalsIgnoreCase(node.getName()) && arguments.size() == 2) {
+                Expression pattern = arguments.get(1);
+                if (pattern instanceof StringLiteral) {
+                    Slice slice = ((StringLiteral) pattern).getSlice();
+                    JoniRegexp joniRegexp = JoniRegexpCasts.castVarcharToJoniRegexp(slice);
+                    arguments.set(1, literalEncoder.toExpression(joniRegexp, JoniRegexpType.JONI_REGEXP));
+                }
+            }
 
             Optional<FunctionCall.NullTreatment> nullTreatment;
             if (node.getNullTreatment().isEmpty()) {
@@ -172,11 +187,15 @@ public final class ConnectorExpressionTranslator
     static class SqlToConnectorExpressionTranslator
             extends AstVisitor<Optional<ConnectorExpression>, Void>
     {
+        private final Session session;
         private final Map<NodeRef<Expression>, Type> types;
+        private final Metadata metadata;
 
-        public SqlToConnectorExpressionTranslator(Map<NodeRef<Expression>, Type> types)
+        public SqlToConnectorExpressionTranslator(Session session, Map<NodeRef<Expression>, Type> types, Metadata metadata)
         {
+            this.session = requireNonNull(session, "types is null");
             this.types = requireNonNull(types, "types is null");
+            this.metadata = requireNonNull(metadata, "types is null");
         }
 
         @Override
@@ -242,15 +261,23 @@ public final class ConnectorExpressionTranslator
 
             String functionName = ResolvedFunction.extractFunctionName(node.getName());
 
+            if (LiteralFunction.LITERAL_FUNCTION_NAME.equalsIgnoreCase(functionName)) {
+                ExpressionInterpreter interpreter = new ExpressionInterpreter(node, metadata, session, types);
+                Object value = interpreter.evaluate();
+                if (value instanceof JoniRegexp) {
+                    Slice pattern = ((JoniRegexp) value).pattern();
+                    return Optional.of(new Constant(pattern, VarcharType.createVarcharType(pattern.length())));
+                }
+                return Optional.empty();
+            }
+
             List<ConnectorExpression> arguments = new ArrayList<>();
             for (Expression argumentExpression : node.getArguments()) {
-                if (argumentExpression instanceof SymbolReference || argumentExpression instanceof FunctionCall || argumentExpression instanceof StringLiteral) {
-                    Optional<ConnectorExpression> argument = process(argumentExpression);
-                    if (argument.isEmpty()) {
-                        return Optional.empty();
-                    }
-                    arguments.add(argument.get());
+                Optional<ConnectorExpression> argument = process(argumentExpression);
+                if (argument.isEmpty()) {
+                    return Optional.empty();
                 }
+                arguments.add(argument.get());
             }
 
             // Not sure if it can be relevant (maybe always Ignore \ Respect in applyFilter functions?)
@@ -268,9 +295,7 @@ public final class ConnectorExpressionTranslator
                 throw new RuntimeException("Unknown NullTreatment value " + node.getNullTreatment().get().name());
             }
 
-            // TODO: replace after resolving the issue with FunctionPushdown
-            // return Optional.of(new Function(typeOf(node), functionName, arguments, nullTreatment));
-            return Optional.empty();
+            return Optional.of(new Function(typeOf(node), functionName, arguments, nullTreatment));
         }
 
         @Override

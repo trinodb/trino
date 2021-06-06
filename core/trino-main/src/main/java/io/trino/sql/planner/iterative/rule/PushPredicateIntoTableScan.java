@@ -189,7 +189,7 @@ public class PushPredicateIntoTableScan
 
         boolean supportsConnectorExpressionPushdown = metadata.supportsConnectorExpressionPushdown(session, node.getTable());
         ConnectorExpressionPredicateTranslator.ExtractionResult connectorExpressionExtractionResult =
-                extractConnectorExpression(session, types, typeAnalyzer, decomposedPredicate.getRemainingExpression(), supportsConnectorExpressionPushdown);
+                extractConnectorExpression(session, types, typeAnalyzer, decomposedPredicate.getRemainingExpression(), supportsConnectorExpressionPushdown, metadata);
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
@@ -312,10 +312,10 @@ public class PushPredicateIntoTableScan
     }
 
     private static ConnectorExpressionPredicateTranslator.ExtractionResult extractConnectorExpression(
-            Session session, TypeProvider types, TypeAnalyzer typeAnalyzer, Expression expression, boolean supportsConnectorExpressionPushdown)
+            Session session, TypeProvider types, TypeAnalyzer typeAnalyzer, Expression expression, boolean supportsConnectorExpressionPushdown, Metadata metadata)
     {
         if (supportsConnectorExpressionPushdown) {
-            return ConnectorExpressionPredicateTranslator.translate(session, expression, typeAnalyzer, types);
+            return ConnectorExpressionPredicateTranslator.translate(session, expression, typeAnalyzer, types, metadata);
         }
         return new ConnectorExpressionPredicateTranslator.ExtractionResult(TRUE_CONSTANT, expression);
     }

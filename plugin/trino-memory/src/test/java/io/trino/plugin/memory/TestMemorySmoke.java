@@ -40,6 +40,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
@@ -386,6 +387,22 @@ public class TestMemorySmoke
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .build();
+    }
+
+    @Test
+    public void testRegexpLikePushdown()
+    {
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(getSession(),
+                                                                                                      "SELECT custkey FROM customer WHERE regexp_like(name, '.*000001000')");
+        assertEquals(result.getResult().getRowCount(), 1);
+        MemoryTableHandle table = getSingleTableHandle(result.getQueryId());
+
+        assertEquals(table.getConnectorExpressions(),
+                     List.of(new Function(createVarcharType(25),
+                                          "regexp_like",
+                                          List.of(new Variable("name", createVarcharType(25)),
+                                                  new Constant(Slices.wrappedBuffer(".*000001000".getBytes(UTF_8)), createVarcharType(11))),
+                                          Optional.empty())));
     }
 
     @Test

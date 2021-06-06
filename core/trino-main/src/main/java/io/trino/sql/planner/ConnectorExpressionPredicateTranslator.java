@@ -39,9 +39,9 @@ public class ConnectorExpressionPredicateTranslator
         return ConnectorExpressionTranslator.translate(connectorExpression, metadata, literalEncoder, Optional.empty());
     }
 
-    public static ExtractionResult translate(Session session, Expression expression, TypeAnalyzer types, TypeProvider inputTypes)
+    public static ExtractionResult translate(Session session, Expression expression, TypeAnalyzer types, TypeProvider inputTypes, Metadata metadata)
     {
-        return new ToConnectorExpressionVisitor(types.getTypes(session, inputTypes, expression)).process(expression);
+        return new ToConnectorExpressionVisitor(session, types.getTypes(session, inputTypes, expression), metadata).process(expression);
     }
 
     private static class ToConnectorExpressionVisitor
@@ -49,9 +49,9 @@ public class ConnectorExpressionPredicateTranslator
     {
         private final ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator translator;
 
-        ToConnectorExpressionVisitor(Map<NodeRef<Expression>, Type> types)
+        ToConnectorExpressionVisitor(Session session, Map<NodeRef<Expression>, Type> types, Metadata metadata)
         {
-            this.translator = new ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator(types);
+            this.translator = new ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator(session, types, metadata);
         }
 
         // TODO: Support partial translation

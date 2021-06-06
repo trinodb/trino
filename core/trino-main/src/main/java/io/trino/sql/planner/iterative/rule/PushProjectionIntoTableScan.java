@@ -110,7 +110,8 @@ public class PushProjectionIntoTableScan
                     expression.getValue(),
                     context.getSession(),
                     typeAnalyzer,
-                    context.getSymbolAllocator().getTypes());
+                    context.getSymbolAllocator().getTypes(),
+                    metadata);
 
             partialTranslations.forEach((nodeRef, expr) -> {
                 nodeReferencesBuilder.add(nodeRef);
