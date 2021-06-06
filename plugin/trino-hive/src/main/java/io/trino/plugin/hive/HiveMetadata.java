@@ -74,11 +74,13 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -180,6 +182,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isCreateEmptyBucketFile
 import static io.trino.plugin.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
 import static io.trino.plugin.hive.HiveSessionProperties.isParallelPartitionedBucketedWrites;
 import static io.trino.plugin.hive.HiveSessionProperties.isProjectionPushdownEnabled;
+import static io.trino.plugin.hive.HiveSessionProperties.isPropagateTableScanSortingProperties;
 import static io.trino.plugin.hive.HiveSessionProperties.isRespectTableFormat;
 import static io.trino.plugin.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
@@ -361,6 +364,7 @@ public class HiveMetadata
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
     }
 
+    @Override
     public SemiTransactionalHiveMetastore getMetastore()
     {
         return metastore;
@@ -517,7 +521,7 @@ public class HiveMetadata
         return Optional.of(createSystemTable(
                 new ConnectorTableMetadata(tableName, partitionSystemTableColumns),
                 constraint -> {
-                    TupleDomain<ColumnHandle> targetTupleDomain = constraint.transform(fieldIdToColumnHandle::get);
+                    TupleDomain<ColumnHandle> targetTupleDomain = constraint.transformKeys(fieldIdToColumnHandle::get);
                     Predicate<Map<ColumnHandle, NullableValue>> targetPredicate = convertToPredicate(targetTupleDomain);
                     Constraint targetConstraint = new Constraint(targetTupleDomain, targetPredicate);
                     Iterable<List<Object>> records = () ->
@@ -1225,8 +1229,7 @@ public class HiveMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        Optional<Table> target = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName());
-        if (target.isEmpty()) {
+        if (metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName()).isEmpty()) {
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
         metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
@@ -1235,9 +1238,10 @@ public class HiveMetadata
     @Override
     public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
-        metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        if (metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName()).isEmpty()) {
+            throw new TableNotFoundException(handle.getSchemaTableName());
+        }
         return tableHandle;
     }
 
@@ -2206,19 +2210,34 @@ public class HiveMetadata
         }
 
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
-        if (isBucketExecutionEnabled(session) && hiveTable.getBucketHandle().isPresent()) {
-            tablePartitioning = hiveTable.getBucketHandle().map(bucketing -> new ConnectorTablePartitioning(
-                    new HivePartitioningHandle(
-                            bucketing.getBucketingVersion(),
-                            bucketing.getReadBucketCount(),
-                            bucketing.getColumns().stream()
-                                    .map(HiveColumnHandle::getHiveType)
-                                    .collect(toImmutableList()),
-                            OptionalInt.empty(),
-                            false),
-                    bucketing.getColumns().stream()
-                            .map(ColumnHandle.class::cast)
-                            .collect(toImmutableList())));
+        List<LocalProperty<ColumnHandle>> sortingProperties = ImmutableList.of();
+        if (hiveTable.getBucketHandle().isPresent()) {
+            if (isPropagateTableScanSortingProperties(session) && !hiveTable.getBucketHandle().get().getSortedBy().isEmpty()) {
+                // Populating SortingProperty guarantees to the engine that it is reading pre-sorted input.
+                // We detect compatibility between table and partition level sorted_by properties
+                // and fail the query if there is a mismatch in HiveSplitManager#getPartitionMetadata.
+                // This can lead to incorrect results if a sorted_by property is defined over unsorted files.
+                Map<String, ColumnHandle> columnHandles = getColumnHandles(session, table);
+                sortingProperties = hiveTable.getBucketHandle().get().getSortedBy().stream()
+                        .map(sortingColumn -> new SortingProperty<>(
+                                columnHandles.get(sortingColumn.getColumnName()),
+                                sortingColumn.getOrder().getSortOrder()))
+                        .collect(toImmutableList());
+            }
+            if (isBucketExecutionEnabled(session)) {
+                tablePartitioning = hiveTable.getBucketHandle().map(bucketing -> new ConnectorTablePartitioning(
+                        new HivePartitioningHandle(
+                                bucketing.getBucketingVersion(),
+                                bucketing.getReadBucketCount(),
+                                bucketing.getColumns().stream()
+                                        .map(HiveColumnHandle::getHiveType)
+                                        .collect(toImmutableList()),
+                                OptionalInt.empty(),
+                                false),
+                        bucketing.getColumns().stream()
+                                .map(ColumnHandle.class::cast)
+                                .collect(toImmutableList())));
+            }
         }
 
         return new ConnectorTableProperties(
@@ -2226,7 +2245,7 @@ public class HiveMetadata
                 tablePartitioning,
                 Optional.empty(),
                 discretePredicates,
-                ImmutableList.of());
+                sortingProperties);
     }
 
     @Override
@@ -2245,7 +2264,7 @@ public class HiveMetadata
             return Optional.empty();
         }
 
-        return Optional.of(new ConstraintApplicationResult<>(newHandle, partitionResult.getUnenforcedConstraint()));
+        return Optional.of(new ConstraintApplicationResult<>(newHandle, partitionResult.getUnenforcedConstraint(), false));
     }
 
     @Override
@@ -2305,7 +2324,8 @@ public class HiveMetadata
             return Optional.of(new ProjectionApplicationResult<>(
                     hiveTableHandle.withProjectedColumns(projectedColumns),
                     projections,
-                    assignmentsList));
+                    assignmentsList,
+                    false));
         }
 
         Map<String, Assignment> newAssignments = new HashMap<>();
@@ -2351,7 +2371,8 @@ public class HiveMetadata
         return Optional.of(new ProjectionApplicationResult<>(
                 hiveTableHandle.withProjectedColumns(projectedColumnsBuilder.build()),
                 newProjections,
-                outputAssignments));
+                outputAssignments,
+                false));
     }
 
     private HiveColumnHandle createProjectedColumnHandle(HiveColumnHandle column, List<Integer> indices)
@@ -2485,7 +2506,8 @@ public class HiveMetadata
                         bucketHandle.getColumns(),
                         bucketHandle.getBucketingVersion(),
                         bucketHandle.getTableBucketCount(),
-                        hivePartitioningHandle.getBucketCount())),
+                        hivePartitioningHandle.getBucketCount(),
+                        bucketHandle.getSortedBy())),
                 hiveTable.getBucketFilter(),
                 hiveTable.getAnalyzePartitionValues(),
                 hiveTable.getAnalyzeColumnNames(),

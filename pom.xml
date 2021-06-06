@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>358-SNAPSHOT</version>
+    <version>359-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -53,17 +53,16 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.11.946</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
-        <dep.jdbi3.version>3.17.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
         <dep.scribejava.version>6.9.0</dep.scribejava.version>
         <dep.selenium.version>3.141.59</dep.selenium.version>
         <dep.tempto.version>183</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
-        <dep.errorprone.version>2.5.1</dep.errorprone.version>
+        <dep.errorprone.version>2.7.1</dep.errorprone.version>
         <dep.testcontainers.version>1.15.3</dep.testcontainers.version>
         <dep.docker-java.version>3.2.8</dep.docker-java.version>
-        <dep.coral.version>1.0.42</dep.coral.version>
+        <dep.coral.version>1.0.58</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
 
         <!--
@@ -978,6 +977,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.github.ben-manes.caffeine</groupId>
+                <artifactId>caffeine</artifactId>
+                <version>3.0.2</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.github.scribejava</groupId>
                 <artifactId>scribejava-apis</artifactId>
                 <version>${dep.scribejava.version}</version>
@@ -1367,6 +1372,12 @@
                 </exclusions>
             </dependency>
 
+            <dependency>
+                <groupId>org.checkerframework</groupId>
+                <artifactId>checker-qual</artifactId>
+                <version>3.14.0</version>
+            </dependency>
+
             <!-- force newer version to be used for dependencies -->
             <dependency>
                 <groupId>org.javassist</groupId>
@@ -1382,14 +1393,10 @@
 
             <dependency>
                 <groupId>org.jdbi</groupId>
-                <artifactId>jdbi3-core</artifactId>
-                <version>${dep.jdbi3.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jdbi</groupId>
-                <artifactId>jdbi3-sqlobject</artifactId>
-                <version>${dep.jdbi3.version}</version>
+                <artifactId>jdbi3-bom</artifactId>
+                <type>pom</type>
+                <version>3.20.0</version>
+                <scope>import</scope>
             </dependency>
 
             <dependency>
@@ -1635,7 +1642,7 @@
                 <plugin>
                     <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                     <artifactId>provisio-maven-plugin</artifactId>
-                    <version>1.0.16</version>
+                    <version>1.0.18</version>
                 </plugin>
             </plugins>
         </pluginManagement>

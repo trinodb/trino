@@ -109,7 +109,7 @@ public final class PlanCopier
         @Override
         public PlanNode visitLimit(LimitNode node, RewriteContext<Void> context)
         {
-            return new LimitNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getCount(), node.getTiesResolvingScheme(), node.isPartial());
+            return new LimitNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getCount(), node.getTiesResolvingScheme(), node.isPartial(), node.getPreSortedInputs());
         }
 
         @Override
@@ -121,7 +121,15 @@ public final class PlanCopier
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
-            return new TableScanNode(idAllocator.getNextId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), node.getEnforcedConstraint(), node.isUpdateTarget(), node.getUseConnectorNodePartitioning());
+            return new TableScanNode(
+                    idAllocator.getNextId(),
+                    node.getTable(),
+                    node.getOutputSymbols(),
+                    node.getAssignments(),
+                    node.getEnforcedConstraint(),
+                    node.getStatistics(),
+                    node.isUpdateTarget(),
+                    node.getUseConnectorNodePartitioning());
         }
 
         @Override

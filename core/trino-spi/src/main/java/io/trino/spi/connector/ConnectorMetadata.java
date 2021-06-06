@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -65,7 +66,13 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Returns a table handle for the specified table name, or null if the connector does not contain the table.
+     * Returns a table handle for the specified table name, or {@code null} if {@code tableName} relation does not exist
+     * or is not a table (e.g. is a view, or a materialized view).
+     *
+     * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
+     * cannot be queried.
+     * @see #getView(ConnectorSession, SchemaTableName)
+     * @see #getMaterializedView(ConnectorSession, SchemaTableName)
      */
     @Nullable
     default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
@@ -228,10 +235,22 @@ public interface ConnectorMetadata
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
+     * @deprecated use {@link #streamTableColumns} which handles redirected tables
      */
+    @Deprecated
     default Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyMap();
+    }
+
+    /**
+     * Gets the metadata for all columns that match the specified table prefix. Redirected table names are included, but
+     * the column metadata for them is not.
+     */
+    default Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return listTableColumns(session, prefix).entrySet().stream()
+                .map(entry -> TableColumnsMetadata.forTable(entry.getKey(), entry.getValue()));
     }
 
     /**
@@ -609,7 +628,11 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Gets the view data for the specified view name.
+     * Gets the view data for the specified view name. Returns {@link Optional#empty()} if {@code viewName}
+     * relation does not or is not a view (e.g. is a table, or a materialized view).
+     *
+     * @see #getTableHandle(ConnectorSession, SchemaTableName)
+     * @see #getMaterializedView(ConnectorSession, SchemaTableName)
      */
     default Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
@@ -946,7 +969,7 @@ public interface ConnectorMetadata
      * to loop indefinitely.
      * </p>
      */
-    default Optional<ConnectorTableHandle> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
+    default Optional<SampleApplicationResult<ConnectorTableHandle>> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
     {
         return Optional.empty();
     }
@@ -1126,7 +1149,11 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Gets the materialized view data for the specified materialized view name.
+     * Gets the materialized view data for the specified materialized view name. Returns {@link Optional#empty()}
+     * if {@code viewName} relation does not or is not a materialized view (e.g. is a table, or a view).
+     *
+     * @see #getTableHandle(ConnectorSession, SchemaTableName)
+     * @see #getView(ConnectorSession, SchemaTableName)
      */
     default Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
@@ -1138,10 +1165,21 @@ public interface ConnectorMetadata
      */
     default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
-        return new MaterializedViewFreshness(false);
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getMaterializedView() is implemented without getMaterializedViewFreshness()");
     }
 
     default Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Redirects table to other table which may or may not be in the same catalog.
+     * Currently the engine tries to do redirection only for table reads and metadata listing.
+     *
+     * Also consider implementing streamTableColumns to support redirection for listing.
+     */
+    default Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
     {
         return Optional.empty();
     }

@@ -523,7 +523,7 @@ public class TestCoordinatorDynamicFiltering
                         ConnectorSplit split,
                         ConnectorTableHandle table,
                         List<ColumnHandle> columns,
-                        TupleDomain<ColumnHandle> dynamicFilter)
+                        DynamicFilter dynamicFilter)
                 {
                     return new EmptyPageSource();
                 }

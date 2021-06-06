@@ -797,6 +797,7 @@ public class TestCostCalculator
                 symbolsList,
                 assignments.build(),
                 TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.of(false));
     }

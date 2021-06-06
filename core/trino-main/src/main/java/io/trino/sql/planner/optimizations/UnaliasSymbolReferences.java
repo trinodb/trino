@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
@@ -293,13 +294,26 @@ public class UnaliasSymbolReferences
 
             List<Symbol> newOutputs = mapper.map(node.getOutputSymbols());
 
+            Optional<PlanNodeStatsEstimate> statistics = node.getStatistics();
+            PlanNodeStatsEstimate.Builder newStatistics = PlanNodeStatsEstimate.builder();
+            statistics.ifPresent(stats -> newStatistics.setOutputRowCount(stats.getOutputRowCount()));
             Map<Symbol, ColumnHandle> newAssignments = new HashMap<>();
             node.getAssignments().forEach((symbol, handle) -> {
-                newAssignments.put(mapper.map(symbol), handle);
+                Symbol newSymbol = mapper.map(symbol);
+                newAssignments.put(newSymbol, handle);
+                statistics.ifPresent(stats -> newStatistics.addSymbolStatistics(newSymbol, stats.getSymbolStatistics(symbol)));
             });
 
             return new PlanAndMappings(
-                    new TableScanNode(node.getId(), node.getTable(), newOutputs, newAssignments, node.getEnforcedConstraint(), node.isUpdateTarget(), node.getUseConnectorNodePartitioning()),
+                    new TableScanNode(
+                            node.getId(),
+                            node.getTable(),
+                            newOutputs,
+                            newAssignments,
+                            node.getEnforcedConstraint(),
+                            statistics.isPresent() ? Optional.of(newStatistics.build()) : Optional.empty(),
+                            node.isUpdateTarget(),
+                            node.getUseConnectorNodePartitioning()),
                     mapping);
         }
 

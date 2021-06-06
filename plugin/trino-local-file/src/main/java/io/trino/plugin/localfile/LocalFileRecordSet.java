@@ -48,7 +48,7 @@ public class LocalFileRecordSet
         this.columnTypes = types.build();
         this.address = Iterables.getOnlyElement(split.getAddresses());
         this.effectivePredicate = table.getConstraint()
-                .transform(LocalFileColumnHandle.class::cast);
+                .transformKeys(LocalFileColumnHandle.class::cast);
         this.tableName = table.getSchemaTableName();
 
         this.localFileTables = requireNonNull(localFileTables, "localFileTables is null");

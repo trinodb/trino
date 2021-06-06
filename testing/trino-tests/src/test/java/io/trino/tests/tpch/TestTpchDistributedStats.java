@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import static io.trino.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
 import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.statistics.MetricComparisonStrategies.absoluteError;
 import static io.trino.testing.statistics.MetricComparisonStrategies.defaultTolerance;
 import static io.trino.testing.statistics.MetricComparisonStrategies.noError;
@@ -175,5 +176,18 @@ public class TestTpchDistributedStats
     {
         statisticsAssertion.check("SELECT * FROM nation ORDER BY n_nationkey",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
+    }
+
+    @Test
+    public void testTablesample()
+    {
+        statisticsAssertion.check("SELECT * FROM orders TABLESAMPLE BERNOULLI (42)",
+                checks -> checks.noEstimate(OUTPUT_ROW_COUNT)); // BERNOULLI sample gets converted to a `rand() < 0.42` filter and does not get estimated currently
+
+        // Using eventual assertion because TABLESAMPLE SYSTEM has high variance of number of result rows being returned, when calculating the actual value.
+        assertEventually(() -> {
+            statisticsAssertion.check("SELECT * FROM orders TABLESAMPLE SYSTEM (42)",
+                    checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(.3)));
+        });
     }
 }

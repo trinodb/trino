@@ -440,7 +440,7 @@ public final class TupleDomain<T>
 
     /**
      * @deprecated This method is deprecated because it drops part of the {@link TupleDomain} information
-     * when mapping function inadvertenly returns null. Use {@link #filter(BiPredicate)} or {@link #transformDomains(BiFunction)}
+     * when mapping function inadvertenly returns null. Use {@link #filter(BiPredicate)} or {@link #transformKeys(Function)}
      * instead.
      */
     @Deprecated
@@ -467,6 +467,30 @@ public final class TupleDomain<T>
 
             Domain previous = result.put(key, entry.getValue());
 
+            if (previous != null) {
+                throw new IllegalArgumentException(format("Every argument must have a unique mapping. %s maps to %s and %s", entry.getKey(), entry.getValue(), previous));
+            }
+        }
+
+        return TupleDomain.withColumnDomains(result);
+    }
+
+    public <U> TupleDomain<U> transformKeys(Function<T, U> function)
+    {
+        if (isNone()) {
+            return none();
+        }
+        if (isAll()) {
+            return all();
+        }
+
+        Map<T, Domain> domains = this.domains.orElseThrow();
+        HashMap<U, Domain> result = new LinkedHashMap<>(domains.size());
+        for (Map.Entry<T, Domain> entry : domains.entrySet()) {
+            U key = function.apply(entry.getKey());
+            requireNonNull(key, () -> format("mapping function %s returned null for %s", function, entry.getKey()));
+
+            Domain previous = result.put(key, entry.getValue());
             if (previous != null) {
                 throw new IllegalArgumentException(format("Every argument must have a unique mapping. %s maps to %s and %s", entry.getKey(), entry.getValue(), previous));
             }

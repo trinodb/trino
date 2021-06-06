@@ -246,7 +246,7 @@ public class PinotMetadata
                 handle.getConstraint(),
                 OptionalLong.of(limit),
                 dynamicTable);
-        return Optional.of(new LimitApplicationResult<>(handle, false));
+        return Optional.of(new LimitApplicationResult<>(handle, false, false));
     }
 
     @Override
@@ -267,7 +267,7 @@ public class PinotMetadata
                 newDomain,
                 handle.getLimit(),
                 handle.getQuery());
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
     }
 
     @Override

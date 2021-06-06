@@ -171,6 +171,7 @@ public class IcebergMetadata
         implements ConnectorMetadata
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
+    private static final String ICEBERG_MATERIALIZED_VIEW_COMMENT = "Presto Materialized View";
     public static final String DEPENDS_ON_TABLES = "dependsOnTables";
 
     private final CatalogName catalogName;
@@ -237,6 +238,9 @@ public class IcebergMetadata
 
         Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
         if (hiveTable.isEmpty()) {
+            return null;
+        }
+        if (isMaterializedView(hiveTable.get())) {
             return null;
         }
         if (!isIcebergTable(hiveTable.get())) {
@@ -371,7 +375,7 @@ public class IcebergMetadata
                 // still keeps predicate and discretePredicates evaluation the same on every row of the table. This
                 // can be further optimized by intersecting with partition values at the cost of iterating
                 // over all tableScan.planFiles() and caching partition values in table handle.
-                enforcedPredicate.transform(ColumnHandle.class::cast),
+                enforcedPredicate.transformKeys(ColumnHandle.class::cast),
                 // TODO: implement table partitioning
                 Optional.empty(),
                 Optional.empty(),
@@ -405,7 +409,7 @@ public class IcebergMetadata
 
         schemaName.map(Collections::singletonList)
                 .orElseGet(metastore::getAllDatabases).stream()
-                .flatMap(schema -> metastore.getAllViews(schema).stream()
+                .flatMap(schema -> metastore.getTablesWithParameter(schema, TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT).stream()
                         .map(table -> new SchemaTableName(schema, table)))
                 .forEach(tablesListBuilder::add);
         return tablesListBuilder.build();
@@ -800,12 +804,12 @@ public class IcebergMetadata
         // TODO: Avoid enforcing the constraint when partition filters have large IN expressions, since iceberg cannot
         // support it. Such large expressions cannot be simplified since simplification changes the filtered set.
         TupleDomain<IcebergColumnHandle> newEnforcedConstraint = constraint.getSummary()
-                .transform(IcebergColumnHandle.class::cast)
+                .transformKeys(IcebergColumnHandle.class::cast)
                 .filter(isIdentityPartition)
                 .intersect(table.getEnforcedPredicate());
 
         TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = constraint.getSummary()
-                .transform(IcebergColumnHandle.class::cast)
+                .transformKeys(IcebergColumnHandle.class::cast)
                 .filter(isIdentityPartition.negate())
                 .intersect(table.getUnenforcedPredicate());
 
@@ -821,7 +825,8 @@ public class IcebergMetadata
                         table.getSnapshotId(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint),
-                newUnenforcedConstraint.transform(ColumnHandle.class::cast)));
+                newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast),
+                false));
     }
 
     private static Set<Integer> identityPartitionColumnsInAllSpecs(org.apache.iceberg.Table table)
@@ -892,7 +897,7 @@ public class IcebergMetadata
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .put(STORAGE_TABLE, storageTableName)
                 .put(PRESTO_VIEW_FLAG, "true")
-                .put(TABLE_COMMENT, "Presto Materialized View")
+                .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)
                 .build();
 
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());

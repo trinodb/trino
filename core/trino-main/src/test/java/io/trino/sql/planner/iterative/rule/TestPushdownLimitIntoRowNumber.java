@@ -141,4 +141,27 @@ public class TestPushdownLimitIntoRowNumber
                                         p.values(p.symbol("a")))))
                 .doesNotFire();
     }
+
+    @Test
+    public void testLimitWithPreSortedInputs()
+    {
+        tester().assertThat(new PushdownLimitIntoRowNumber())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    return p.limit(
+                            5,
+                            false,
+                            ImmutableList.of(a),
+                            p.rowNumber(
+                                    ImmutableList.of(),
+                                    Optional.of(3),
+                                    p.symbol("row_number"), p.values(a)));
+                })
+                .matches(
+                        rowNumber(rowNumber -> rowNumber
+                                        .partitionBy(ImmutableList.of())
+                                        .maxRowCountPerPartition(Optional.of(3))
+                                        .orderSensitive(true),
+                                values("a")));
+    }
 }

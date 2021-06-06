@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import org.testng.annotations.Test;
 
@@ -76,6 +77,41 @@ public class TestRemoveRedundantLimit
                                                         expressions("2", "11"))))))
                 // TODO: verify contents
                 .matches(values(ImmutableMap.of()));
+    }
+
+    @Test
+    public void testLimitWithPreSortedInputs()
+    {
+        tester().assertThat(new RemoveRedundantLimit())
+                .on(p -> p.limit(
+                        10,
+                        ImmutableList.of(),
+                        true,
+                        ImmutableList.of(p.symbol("c")),
+                        p.aggregation(builder -> builder
+                                .addAggregation(p.symbol("c"), expression("count(foo)"), ImmutableList.of(BIGINT))
+                                .globalGrouping()
+                                .source(p.values(p.symbol("foo"))))))
+                .matches(
+                        node(AggregationNode.class,
+                                node(ValuesNode.class)));
+
+        tester().assertThat(new RemoveRedundantLimit())
+                .on(p -> p.limit(
+                        10,
+                        ImmutableList.of(),
+                        true,
+                        ImmutableList.of(p.symbol("a")),
+                        p.filter(
+                                expression("b > 5"),
+                                p.values(
+                                        ImmutableList.of(p.symbol("a"), p.symbol("b")),
+                                        ImmutableList.of(
+                                                expressions("1", "10"),
+                                                expressions("2", "11"))))))
+                .matches(
+                        node(FilterNode.class,
+                                        node(ValuesNode.class)));
     }
 
     @Test

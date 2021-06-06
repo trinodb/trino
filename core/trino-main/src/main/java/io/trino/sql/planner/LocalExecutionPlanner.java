@@ -56,27 +56,18 @@ import io.trino.operator.ExplainAnalyzeOperator.ExplainAnalyzeOperatorFactory;
 import io.trino.operator.FilterAndProjectOperator;
 import io.trino.operator.GroupIdOperator;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
-import io.trino.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.operator.HashSemiJoinOperator;
-import io.trino.operator.JoinBridgeManager;
-import io.trino.operator.JoinOperatorFactory;
-import io.trino.operator.JoinOperatorFactory.OuterOperatorFactoryResult;
 import io.trino.operator.LimitOperator.LimitOperatorFactory;
 import io.trino.operator.LocalPlannerAware;
-import io.trino.operator.LookupJoinOperators;
-import io.trino.operator.LookupOuterOperator.LookupOuterOperatorFactory;
-import io.trino.operator.LookupSourceFactory;
 import io.trino.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.trino.operator.MergeOperator.MergeOperatorFactory;
-import io.trino.operator.NestedLoopJoinBridge;
-import io.trino.operator.NestedLoopJoinPagesSupplier;
+import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.OrderByOperator.OrderByOperatorFactory;
 import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.PartitionedLookupSourceFactory;
 import io.trino.operator.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.operator.PipelineExecutionStrategy;
 import io.trino.operator.RowNumberOperator;
@@ -115,6 +106,15 @@ import io.trino.operator.index.IndexBuildDriverFactoryProvider;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexLookupSourceFactory;
 import io.trino.operator.index.IndexSourceOperator;
+import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.JoinOperatorFactory;
+import io.trino.operator.join.JoinOperatorFactory.OuterOperatorFactoryResult;
+import io.trino.operator.join.LookupOuterOperator.LookupOuterOperatorFactory;
+import io.trino.operator.join.LookupSourceFactory;
+import io.trino.operator.join.NestedLoopJoinBridge;
+import io.trino.operator.join.NestedLoopJoinPagesSupplier;
+import io.trino.operator.join.PartitionedLookupSourceFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
@@ -267,9 +267,6 @@ import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.SystemSessionProperties.isSpillOrderBy;
 import static io.trino.SystemSessionProperties.isSpillWindowOperator;
 import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
-import static io.trino.operator.JoinUtils.isBuildSideReplicated;
-import static io.trino.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
-import static io.trino.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
@@ -280,6 +277,9 @@ import static io.trino.operator.TableWriterOperator.STATS_START_CHANNEL;
 import static io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static io.trino.operator.WindowFunctionDefinition.window;
 import static io.trino.operator.WorkProcessorPipelineSourceOperator.toOperatorFactories;
+import static io.trino.operator.join.JoinUtils.isBuildSideReplicated;
+import static io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
+import static io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import static io.trino.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
@@ -354,7 +354,7 @@ public class LocalExecutionPlanner
     private final PartitioningSpillerFactory partitioningSpillerFactory;
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
-    private final LookupJoinOperators lookupJoinOperators;
+    private final OperatorFactories operatorFactories;
     private final OrderingCompiler orderingCompiler;
     private final DynamicFilterConfig dynamicFilterConfig;
     private final TypeOperators typeOperators;
@@ -380,7 +380,7 @@ public class LocalExecutionPlanner
             PartitioningSpillerFactory partitioningSpillerFactory,
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
-            LookupJoinOperators lookupJoinOperators,
+            OperatorFactories operatorFactories,
             OrderingCompiler orderingCompiler,
             DynamicFilterConfig dynamicFilterConfig,
             TypeOperators typeOperators,
@@ -407,7 +407,7 @@ public class LocalExecutionPlanner
         this.maxLocalExchangeBufferSize = taskManagerConfig.getMaxLocalExchangeBufferSize();
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        this.lookupJoinOperators = requireNonNull(lookupJoinOperators, "lookupJoinOperators is null");
+        this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.dynamicFilterConfig = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
@@ -2022,7 +2022,7 @@ public class LocalExecutionPlanner
             OptionalInt totalOperatorsCount = context.getDriverInstanceCount();
             switch (node.getType()) {
                 case INNER:
-                    lookupJoinOperatorFactory = lookupJoinOperators.innerJoin(
+                    lookupJoinOperatorFactory = operatorFactories.innerJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2037,7 +2037,7 @@ public class LocalExecutionPlanner
                             blockTypeOperators);
                     break;
                 case SOURCE_OUTER:
-                    lookupJoinOperatorFactory = lookupJoinOperators.probeOuterJoin(
+                    lookupJoinOperatorFactory = operatorFactories.probeOuterJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2642,7 +2642,7 @@ public class LocalExecutionPlanner
             boolean waitForBuild = consumedLocalDynamicFilters;
             switch (node.getType()) {
                 case INNER:
-                    return lookupJoinOperators.innerJoin(
+                    return operatorFactories.innerJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2656,7 +2656,7 @@ public class LocalExecutionPlanner
                             partitioningSpillerFactory,
                             blockTypeOperators);
                 case LEFT:
-                    return lookupJoinOperators.probeOuterJoin(
+                    return operatorFactories.probeOuterJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2669,7 +2669,7 @@ public class LocalExecutionPlanner
                             partitioningSpillerFactory,
                             blockTypeOperators);
                 case RIGHT:
-                    return lookupJoinOperators.lookupOuterJoin(
+                    return operatorFactories.lookupOuterJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
@@ -2682,7 +2682,7 @@ public class LocalExecutionPlanner
                             partitioningSpillerFactory,
                             blockTypeOperators);
                 case FULL:
-                    return lookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory, blockTypeOperators);
+                    return operatorFactories.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory, blockTypeOperators);
             }
             throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
         }

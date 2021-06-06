@@ -172,6 +172,6 @@ public class PrometheusMetadata
     {
         PrometheusTableHandle tableHandle = ((PrometheusTableHandle) handle)
                 .withPredicate(constraint.getSummary());
-        return Optional.of(new ConstraintApplicationResult<>(tableHandle, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(tableHandle, constraint.getSummary(), false));
     }
 }

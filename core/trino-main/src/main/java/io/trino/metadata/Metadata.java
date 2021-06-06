@@ -40,9 +40,11 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
@@ -157,9 +159,10 @@ public interface Metadata
     ColumnMetadata getColumnMetadata(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
 
     /**
-     * Gets the metadata for all columns that match the specified table prefix.
+     * Gets the columns metadata for all tables that match the specified prefix.
+     * TODO: consider returning a stream for more efficient processing
      */
-    Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
+    Map<CatalogName, List<TableColumnsMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Creates a schema.
@@ -419,7 +422,7 @@ public interface Metadata
 
     Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments);
 
-    Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
+    Optional<SampleApplicationResult<TableHandle>> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
 
     Optional<AggregationApplicationResult<TableHandle>> applyAggregation(
             Session session,
@@ -640,4 +643,10 @@ public interface Metadata
      * This method is called after security checks against the original table.
      */
     Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle);
+
+    /**
+     * Get the target table handle after performing redirection.
+     *
+     */
+    RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName);
 }

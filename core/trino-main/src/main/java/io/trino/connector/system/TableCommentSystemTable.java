@@ -108,7 +108,7 @@ public class TableCommentSystemTable
                 QualifiedObjectName tableName = new QualifiedObjectName(prefix.getCatalogName(), name.getSchemaName(), name.getTableName());
                 Optional<String> comment = Optional.empty();
                 try {
-                    comment = metadata.getTableHandle(session, tableName)
+                    comment = metadata.getRedirectionAwareTableHandle(session, tableName).getTableHandle()
                             .map(handle -> metadata.getTableMetadata(session, handle))
                             .map(metadata -> metadata.getMetadata().getComment())
                             .get();

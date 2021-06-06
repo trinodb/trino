@@ -682,13 +682,15 @@ public abstract class BaseJdbcClient
     @Override
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
-        String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
-        String columnNames = handle.getColumnNames().stream()
-                .map(this::quoted)
-                .collect(joining(", "));
-        String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s", targetTable, columnNames, columnNames, temporaryTable);
-        String cleanupSql = "DROP TABLE " + temporaryTable;
+        RemoteTableName temporaryTable = new RemoteTableName(
+                Optional.ofNullable(handle.getCatalogName()),
+                Optional.ofNullable(handle.getSchemaName()),
+                handle.getTemporaryTableName());
+        RemoteTableName targetTable = new RemoteTableName(
+                Optional.ofNullable(handle.getCatalogName()),
+                Optional.ofNullable(handle.getSchemaName()),
+                handle.getTableName());
+        String insertSql = buildInsertSql(session, targetTable, temporaryTable, handle.getColumnNames());
 
         try (Connection connection = getConnection(session, handle)) {
             execute(connection, insertSql);
@@ -696,13 +698,17 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+        finally {
+            dropTable(session, temporaryTable);
+        }
+    }
 
-        try (Connection connection = getConnection(session, handle)) {
-            execute(connection, cleanupSql);
-        }
-        catch (SQLException e) {
-            log.warn(e, "Failed to cleanup temporary table: %s", temporaryTable);
-        }
+    protected String buildInsertSql(ConnectorSession session, RemoteTableName targetTable, RemoteTableName sourceTable, List<String> columnNames)
+    {
+        String columns = columnNames.stream()
+                .map(this::quoted)
+                .collect(joining(", "));
+        return format("INSERT INTO %s (%s) SELECT %s FROM %s", quoted(targetTable), columns, columns, quoted(sourceTable));
     }
 
     @Override
@@ -752,7 +758,12 @@ public abstract class BaseJdbcClient
     @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
-        String sql = "DROP TABLE " + quoted(handle.asPlainTable().getRemoteTableName());
+        dropTable(session, handle.asPlainTable().getRemoteTableName());
+    }
+
+    private void dropTable(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        String sql = "DROP TABLE " + quoted(remoteTableName);
         execute(session, sql);
     }
 

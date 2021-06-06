@@ -32,6 +32,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
@@ -537,6 +538,7 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName targetTable = createQualifiedObjectName(session, refreshMaterializedView, storageName.get());
+            checkStorageTableNotRedirected(targetTable);
 
             // analyze the query that creates the data
             Query query = parseView(optionalView.get().getOriginalSql(), name, refreshMaterializedView);
@@ -1280,7 +1282,6 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
-            analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
 
             Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
             if (optionalMaterializedView.isPresent()) {
@@ -1291,6 +1292,7 @@ class StatementAnalyzer
                         throw semanticException(INVALID_VIEW, table, "Materialized view '%s' is fresh but does not have storage table name", name);
                     }
                     QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName.get());
+                    checkStorageTableNotRedirected(storageTableName);
                     Optional<TableHandle> tableHandle = metadata.getTableHandle(session, storageTableName);
                     if (tableHandle.isEmpty()) {
                         throw semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName);
@@ -1307,24 +1309,30 @@ class StatementAnalyzer
             // This could be a reference to a logical view or a table
             Optional<ConnectorViewDefinition> optionalView = metadata.getView(session, name);
             if (optionalView.isPresent()) {
+                analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
                 return createScopeForView(table, name, scope, optionalView.get());
             }
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
+
+            // This can only be a table
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, name);
+            Optional<TableHandle> tableHandle = redirection.getTableHandle();
+            QualifiedObjectName targetTableName = redirection.getRedirectedTableName().orElse(name);
+            analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName);
 
             if (tableHandle.isEmpty()) {
-                if (metadata.getCatalogHandle(session, name.getCatalogName()).isEmpty()) {
-                    throw semanticException(CATALOG_NOT_FOUND, table, "Catalog '%s' does not exist", name.getCatalogName());
+                if (metadata.getCatalogHandle(session, targetTableName.getCatalogName()).isEmpty()) {
+                    throw semanticException(CATALOG_NOT_FOUND, table, "Catalog '%s' does not exist", targetTableName.getCatalogName());
                 }
-                if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
-                    throw semanticException(SCHEMA_NOT_FOUND, table, "Schema '%s' does not exist", name.getSchemaName());
+                if (!metadata.schemaExists(session, new CatalogSchemaName(targetTableName.getCatalogName(), targetTableName.getSchemaName()))) {
+                    throw semanticException(SCHEMA_NOT_FOUND, table, "Schema '%s' does not exist", targetTableName.getSchemaName());
                 }
-                throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", name);
+                throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", targetTableName);
             }
             TableSchema tableSchema = metadata.getTableSchema(session, tableHandle.get());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
-            fields.addAll(analyzeTableOutputFields(table, tableSchema, columnHandles));
+            fields.addAll(analyzeTableOutputFields(table, targetTableName, tableSchema, columnHandles));
 
             if (updateKind.isPresent()) {
                 // Add the row id field
@@ -1355,7 +1363,7 @@ class StatementAnalyzer
 
             List<Field> outputFields = fields.build();
 
-            analyzeFiltersAndMasks(table, name, tableHandle, outputFields, session.getIdentity().getUser());
+            analyzeFiltersAndMasks(table, targetTableName, tableHandle, outputFields, session.getIdentity().getUser());
 
             Scope tableScope = createAndAssignScope(table, scope, outputFields);
 
@@ -1366,6 +1374,13 @@ class StatementAnalyzer
             }
 
             return tableScope;
+        }
+
+        private void checkStorageTableNotRedirected(QualifiedObjectName source)
+        {
+            metadata.getRedirectionAwareTableHandle(session, source).getRedirectedTableName().ifPresent(name -> {
+                throw new TrinoException(NOT_SUPPORTED, format("Redirection of materialized view storage table '%s' to '%s' is not supported", source, name));
+            });
         }
 
         private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, List<Field> fields, String authorization)
@@ -1557,7 +1572,9 @@ class StatementAnalyzer
         {
             TableSchema tableSchema = metadata.getTableSchema(session, storageTable);
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, storageTable);
-            List<Field> tableFields = analyzeTableOutputFields(table, tableSchema, columnHandles)
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            checkStorageTableNotRedirected(tableName);
+            List<Field> tableFields = analyzeTableOutputFields(table, tableName, tableSchema, columnHandles)
                     .stream()
                     .filter(field -> !field.isHidden())
                     .collect(toImmutableList());
@@ -1615,10 +1632,9 @@ class StatementAnalyzer
             return tableFields;
         }
 
-        private List<Field> analyzeTableOutputFields(Table table, TableSchema tableSchema, Map<String, ColumnHandle> columnHandles)
+        private List<Field> analyzeTableOutputFields(Table table, QualifiedObjectName tableName, TableSchema tableSchema, Map<String, ColumnHandle> columnHandles)
         {
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
-            QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
             for (ColumnSchema column : tableSchema.getColumns()) {
                 Field field = Field.newQualified(
@@ -1626,14 +1642,14 @@ class StatementAnalyzer
                         Optional.of(column.getName()),
                         column.getType(),
                         column.isHidden(),
-                        Optional.of(name),
+                        Optional.of(tableName),
                         Optional.of(column.getName()),
                         false);
                 fields.add(field);
                 ColumnHandle columnHandle = columnHandles.get(column.getName());
                 checkArgument(columnHandle != null, "Unknown field %s", field);
                 analysis.setColumn(field, columnHandle);
-                analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, column.getName())));
+                analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(tableName, column.getName())));
             }
             return fields.build();
         }

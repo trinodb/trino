@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.cost.ScalarStatsCalculator;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
@@ -62,7 +63,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Optional;
 
-import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -133,7 +133,10 @@ public class TestConnectorPushdownRulesWithHive
     public void testProjectionPushdown()
     {
         String tableName = "projection_test";
-        PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(tester().getMetadata(), tester().getTypeAnalyzer());
+        PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(
+                tester().getMetadata(),
+                tester().getTypeAnalyzer(),
+                new ScalarStatsCalculator(tester().getMetadata(), tester().getTypeAnalyzer()));
 
         tester().getQueryRunner().execute(format(
                 "CREATE TABLE  %s (struct_of_int) AS " +
@@ -173,9 +176,9 @@ public class TestConnectorPushdownRulesWithHive
                         project(
                                 ImmutableMap.of("expr", expression("col")),
                                 tableScan(
-                                        equalTo(hiveTable.withProjectedColumns(ImmutableSet.of(fullColumn))),
+                                        hiveTable.withProjectedColumns(ImmutableSet.of(fullColumn))::equals,
                                         TupleDomain.all(),
-                                        ImmutableMap.of("col", equalTo(fullColumn)))));
+                                        ImmutableMap.of("col", fullColumn::equals))));
 
         // Rule should return Optional.empty after projected ColumnHandles have been added to HiveTableHandle
         tester().assertThat(pushProjectionIntoTableScan)
@@ -205,9 +208,9 @@ public class TestConnectorPushdownRulesWithHive
                 .matches(project(
                         ImmutableMap.of("expr_deref", expression(new SymbolReference("struct_of_int#a"))),
                         tableScan(
-                                equalTo(hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn))),
+                                hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
                                 TupleDomain.all(),
-                                ImmutableMap.of("struct_of_int#a", equalTo(partialColumn)))));
+                                ImmutableMap.of("struct_of_int#a", partialColumn::equals))));
 
         metastore.dropTable(new HiveIdentity(SESSION), SCHEMA_NAME, tableName, true);
     }
@@ -239,7 +242,7 @@ public class TestConnectorPushdownRulesWithHive
                                 tableHandle -> ((HiveTableHandle) tableHandle).getCompactEffectivePredicate().getDomains().get()
                                         .equals(ImmutableMap.of(column, Domain.singleValue(INTEGER, 5L))),
                                 TupleDomain.all(),
-                                ImmutableMap.of("a", equalTo(column)))));
+                                ImmutableMap.of("a", column::equals))));
 
         metastore.dropTable(new HiveIdentity(SESSION), SCHEMA_NAME, tableName, true);
     }
@@ -275,9 +278,9 @@ public class TestConnectorPushdownRulesWithHive
                         strictProject(
                                 ImmutableMap.of("expr", PlanMatchPattern.expression("COLA")),
                                 tableScan(
-                                        equalTo(hiveTable.withProjectedColumns(ImmutableSet.of(columnA))),
+                                        hiveTable.withProjectedColumns(ImmutableSet.of(columnA))::equals,
                                         TupleDomain.all(),
-                                        ImmutableMap.of("COLA", equalTo(columnA)))));
+                                        ImmutableMap.of("COLA", columnA::equals))));
 
         metastore.dropTable(new HiveIdentity(SESSION), SCHEMA_NAME, tableName, true);
     }

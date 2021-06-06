@@ -172,9 +172,9 @@ F
 - :func:`from_ieee754_64`
 - :func:`from_iso8601_date`
 - :func:`from_iso8601_timestamp`
-- ``from_iso8601_timestamp_nanos``
+- :func:`from_iso8601_timestamp_nanos`
 - :func:`from_unixtime`
-- ``from_unixtime_nanos``
+- :func:`from_unixtime_nanos`
 - :func:`from_utf8`
 
 G
@@ -292,7 +292,7 @@ M
 - :func:`month`
 - :func:`multimap_agg`
 - :func:`multimap_from_entries`
-- ``murmur3``
+- :func:`murmur3`
 
 N
 -

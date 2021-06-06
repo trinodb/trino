@@ -189,7 +189,7 @@ public class ThriftHiveMetastore
     private final CoalescingCounter metastoreSetDateStatisticsFailures = new CoalescingCounter(new Duration(1, SECONDS));
 
     private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
-    private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9]*$");
+    private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
     private final boolean assumeCanonicalPartitionKeys;
 
     @Inject
@@ -1760,7 +1760,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getConfigValueFromServer", () -> {
                         try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            return Optional.ofNullable(metastoreClient.get_config_value(name, null));
+                            return Optional.ofNullable(metastoreClient.getConfigValue(name, null));
                         }
                     });
         }

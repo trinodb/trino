@@ -357,7 +357,7 @@ public class BackgroundHiveSplitLoader
         String partitionName = hivePartition.getPartitionId();
         Properties schema = getPartitionSchema(table, partition.getPartition());
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
-        TupleDomain<HiveColumnHandle> effectivePredicate = compactEffectivePredicate.transform(HiveColumnHandle.class::cast);
+        TupleDomain<HiveColumnHandle> effectivePredicate = compactEffectivePredicate.transformKeys(HiveColumnHandle.class::cast);
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table, typeManager);
         BooleanSupplier partitionMatchSupplier = () -> partitionMatches(partitionColumns, dynamicFilter.getCurrentPredicate(), hivePartition);

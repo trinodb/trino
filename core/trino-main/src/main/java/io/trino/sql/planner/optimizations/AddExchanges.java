@@ -21,6 +21,9 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.cost.CachingStatsProvider;
+import io.trino.cost.StatsCalculator;
+import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.GroupingProperty;
@@ -90,6 +93,7 @@ import static io.trino.SystemSessionProperties.ignoreDownStreamPreferences;
 import static io.trino.SystemSessionProperties.isColocatedJoinEnabled;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
 import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
+import static io.trino.SystemSessionProperties.isUsePartialDistinctLimit;
 import static io.trino.sql.planner.FragmentTableScanCounter.countSources;
 import static io.trino.sql.planner.FragmentTableScanCounter.hasMultipleSources;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -109,6 +113,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.roundRobinExchange;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class AddExchanges
@@ -118,13 +123,15 @@ public class AddExchanges
     private final Metadata metadata;
     private final TypeOperators typeOperators;
     private final DomainTranslator domainTranslator;
+    private final StatsCalculator statsCalculator;
 
-    public AddExchanges(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
+    public AddExchanges(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer, StatsCalculator statsCalculator)
     {
         this.metadata = metadata;
         this.typeOperators = typeOperators;
         this.domainTranslator = new DomainTranslator(metadata);
         this.typeAnalyzer = typeAnalyzer;
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
     }
 
     @Override
@@ -140,6 +147,7 @@ public class AddExchanges
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
         private final TypeProvider types;
+        private final StatsProvider statsProvider;
         private final Session session;
         private final boolean distributedIndexJoins;
         private final boolean preferStreamingOperators;
@@ -151,6 +159,7 @@ public class AddExchanges
             this.idAllocator = idAllocator;
             this.symbolAllocator = symbolAllocator;
             this.types = symbolAllocator.getTypes();
+            this.statsProvider = new CachingStatsProvider(statsCalculator, session, types);
             this.session = session;
             this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
@@ -442,6 +451,23 @@ public class AddExchanges
                     return rebaseAndDeriveProperties(node, child);
                 case PARTIAL:
                     child = planChild(node, PreferredProperties.any());
+                    // If source is pre-sorted, partial topN can be replaced with partial limit N.
+                    // We record the pre-sorted symbols in LimitNode to avoid pushdown of such replaced LimitNode
+                    // through the source which was producing ordered input.
+                    List<LocalProperty<Symbol>> desiredProperties = node.getOrderingScheme().toLocalProperties();
+                    boolean sortingSatisfied = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
+                            .allMatch(Optional::isEmpty);
+                    if (sortingSatisfied) {
+                        return withDerivedProperties(
+                                new LimitNode(
+                                        node.getId(),
+                                        child.getNode(),
+                                        node.getCount(),
+                                        Optional.empty(),
+                                        true,
+                                        node.getOrderingScheme().getOrderBy()),
+                                child.getProperties());
+                    }
                     return rebaseAndDeriveProperties(node, child);
             }
             throw new UnsupportedOperationException(format("Unsupported step for TopN [%s]", node.getStep()));
@@ -517,7 +543,7 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
-            if (!child.getProperties().isSingleNode()) {
+            if (!child.getProperties().isSingleNode() && isUsePartialDistinctLimit(session)) {
                 child = withDerivedProperties(
                         gatheringExchange(
                                 idAllocator.getNextId(),
@@ -539,10 +565,10 @@ public class AddExchanges
                         true,
                         session,
                         types,
-                        idAllocator,
                         metadata,
                         typeOperators,
                         typeAnalyzer,
+                        statsProvider,
                         domainTranslator);
                 if (plan.isPresent()) {
                     return new PlanWithProperties(plan.get(), derivePropertiesRecursively(plan.get()));

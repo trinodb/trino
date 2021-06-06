@@ -19,11 +19,17 @@ public class TopNApplicationResult<T>
 {
     private final T handle;
     private final boolean topNGuaranteed;
+    private final boolean precalculateStatistics;
 
-    public TopNApplicationResult(T handle, boolean topNGuaranteed)
+    /**
+     * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
+     * as the connector may be unable to provide good table statistics for {@code handle}.
+     */
+    public TopNApplicationResult(T handle, boolean topNGuaranteed, boolean precalculateStatistics)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.topNGuaranteed = topNGuaranteed;
+        this.precalculateStatistics = precalculateStatistics;
     }
 
     public T getHandle()
@@ -34,5 +40,10 @@ public class TopNApplicationResult<T>
     public boolean isTopNGuaranteed()
     {
         return topNGuaranteed;
+    }
+
+    public boolean isPrecalculateStatistics()
+    {
+        return precalculateStatistics;
     }
 }

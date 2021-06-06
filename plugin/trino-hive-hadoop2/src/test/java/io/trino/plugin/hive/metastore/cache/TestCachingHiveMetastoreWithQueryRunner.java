@@ -16,7 +16,7 @@ package io.trino.plugin.hive.metastore.cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.hive.HiveHadoop2Plugin;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.DistributedQueryRunner;
@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.Lists.cartesianProduct;
+import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -61,9 +62,9 @@ public class TestCachingHiveMetastoreWithQueryRunner
                 .builder(ADMIN)
                 .setNodeCount(1)
                 .build();
-        queryRunner.installPlugin(new HiveHadoop2Plugin());
+        queryRunner.installPlugin(new HivePlugin());
         temporaryDirectory = createTempDirectory("tmp").toFile();
-        queryRunner.createCatalog(CATALOG, "hive-hadoop2", ImmutableMap.of(
+        queryRunner.createCatalog(CATALOG, "hive", ImmutableMap.of(
                 "hive.metastore", "file",
                 "hive.metastore.catalog.dir", temporaryDirectory.toURI().toString(),
                 "hive.security", "sql-standard",

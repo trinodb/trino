@@ -41,6 +41,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedDomain;
@@ -202,6 +203,13 @@ public class TestHiveConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_CREATE_VIEW:
+                return true;
+
+            case SUPPORTS_DELETE:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -210,7 +218,8 @@ public class TestHiveConnectorTest
     @Override
     public void testDelete()
     {
-        throw new SkipException("Hive connector supports row-by-row delete only for ACID tables but these currently cannot be used with file metastore.");
+        assertThatThrownBy(super::testDelete)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
     }
 
     @Test
@@ -7264,6 +7273,52 @@ public class TestHiveConnectorTest
         MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUseSortedProperties()
+    {
+        String tableName = "test_propagate_table_scan_sorting_properties";
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s " +
+                        "WITH (" +
+                        "   bucket_count = 8," +
+                        "   bucketed_by = ARRAY['custkey']," +
+                        "   sorted_by = ARRAY['custkey']" +
+                        ") AS " +
+                        "SELECT * FROM tpch.tiny.customer",
+                tableName);
+        assertUpdate(createTableSql, 1500L);
+
+        @Language("SQL") String expected = "SELECT custkey FROM customer ORDER BY 1 NULLS FIRST LIMIT 100";
+        @Language("SQL") String actual = format("SELECT custkey FROM %s ORDER BY 1 NULLS FIRST LIMIT 100", tableName);
+        Session session = getSession();
+        assertQuery(session, actual, expected, assertPartialLimitWithPreSortedInputsCount(session, 0));
+
+        session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "propagate_table_scan_sorting_properties", "true")
+                .build();
+        assertQuery(session, actual, expected, assertPartialLimitWithPreSortedInputsCount(session, 1));
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private Consumer<Plan> assertPartialLimitWithPreSortedInputsCount(Session session, int expectedCount)
+    {
+        return plan -> {
+            int actualCount = searchFrom(plan.getRoot())
+                    .where(node -> node instanceof LimitNode && ((LimitNode) node).isPartial() && ((LimitNode) node).requiresPreSortedInputs())
+                    .findAll()
+                    .size();
+            if (actualCount != expectedCount) {
+                Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
+                throw new AssertionError(format(
+                        "Expected [\n%s\n] partial limit but found [\n%s\n] partial limit. Actual plan is [\n\n%s\n]",
+                        expectedCount,
+                        actualCount,
+                        formattedPlan));
+            }
+        };
     }
 
     @Test

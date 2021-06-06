@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 
 import java.util.List;
@@ -36,19 +37,22 @@ public class HiveBucketHandle
     // Number of buckets the table will appear to have when the Hive connector
     // presents the table to the engine for read.
     private final int readBucketCount;
+    private final List<SortingColumn> sortedBy;
 
     @JsonCreator
     public HiveBucketHandle(
             @JsonProperty("columns") List<HiveColumnHandle> columns,
             @JsonProperty("bucketingVersion") BucketingVersion bucketingVersion,
             @JsonProperty("tableBucketCount") int tableBucketCount,
-            @JsonProperty("readBucketCount") int readBucketCount)
+            @JsonProperty("readBucketCount") int readBucketCount,
+            @JsonProperty("sortedBy") List<SortingColumn> sortedBy)
     {
         this.columns = requireNonNull(columns, "columns is null");
         columns.forEach(column -> checkArgument(column.isBaseColumn(), format("projected column %s is not allowed for bucketing", column)));
         this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
         this.tableBucketCount = tableBucketCount;
         this.readBucketCount = readBucketCount;
+        this.sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
     }
 
     @JsonProperty
@@ -75,6 +79,12 @@ public class HiveBucketHandle
         return readBucketCount;
     }
 
+    @JsonProperty
+    public List<SortingColumn> getSortedBy()
+    {
+        return sortedBy;
+    }
+
     public HiveBucketProperty toTableBucketProperty()
     {
         return new HiveBucketProperty(
@@ -83,7 +93,7 @@ public class HiveBucketHandle
                         .collect(toList()),
                 bucketingVersion,
                 tableBucketCount,
-                ImmutableList.of());
+                sortedBy);
     }
 
     @Override
@@ -99,13 +109,14 @@ public class HiveBucketHandle
         return Objects.equals(this.columns, other.columns) &&
                 this.bucketingVersion == other.bucketingVersion &&
                 this.tableBucketCount == other.tableBucketCount &&
-                this.readBucketCount == other.readBucketCount;
+                this.readBucketCount == other.readBucketCount &&
+                Objects.equals(sortedBy, other.sortedBy);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columns, bucketingVersion, tableBucketCount, readBucketCount);
+        return Objects.hash(columns, bucketingVersion, tableBucketCount, readBucketCount, sortedBy);
     }
 
     @Override
@@ -116,6 +127,7 @@ public class HiveBucketHandle
                 .add("bucketingVersion", bucketingVersion)
                 .add("tableBucketCount", tableBucketCount)
                 .add("readBucketCount", readBucketCount)
+                .add("sortedBy", sortedBy)
                 .toString();
     }
 }

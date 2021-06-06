@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -21,7 +22,6 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.planner.iterative.rule.Util.transpose;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.semiJoin;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -52,6 +52,13 @@ public class PushLimitThroughSemiJoin
                 return Result.empty();
             }
         }
-        return Result.ofPlanNode(transpose(parent, semiJoinNode));
+        // Do not push down Limit with pre-sorted inputs if input ordering depends on symbol produced by SemiJoin
+        if (parent.getPreSortedInputs().contains(semiJoinNode.getSemiJoinOutput())) {
+            return Result.empty();
+        }
+        return Result.ofPlanNode(
+                semiJoinNode.replaceChildren(ImmutableList.of(
+                        parent.replaceChildren(ImmutableList.of(semiJoinNode.getSource())),
+                        semiJoinNode.getFilteringSource())));
     }
 }

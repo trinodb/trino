@@ -519,7 +519,7 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public String get_config_value(String name, String defaultValue)
+    public String getConfigValue(String name, String defaultValue)
             throws TException
     {
         return client.get_config_value(name, defaultValue);

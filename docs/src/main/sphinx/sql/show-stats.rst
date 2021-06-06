@@ -8,12 +8,12 @@ Synopsis
 .. code-block:: text
 
     SHOW STATS FOR table
-    SHOW STATS FOR ( SELECT * FROM table [ WHERE condition ] )
+    SHOW STATS FOR ( query )
 
 Description
 -----------
 
-Returns approximated statistics for the named table or for the results of a (limited) query.
+Returns approximated statistics for the named table or for the results of a query.
 
 Statistics are returned for each column, along with a summary row.
 

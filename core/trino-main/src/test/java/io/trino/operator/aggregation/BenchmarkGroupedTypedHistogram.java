@@ -17,6 +17,7 @@ import com.google.common.primitives.Ints;
 import io.trino.metadata.Metadata;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.aggregation.groupby.GroupByAggregationTestUtils;
+import io.trino.operator.aggregation.histogram.Histogram;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.sql.tree.QualifiedName;
@@ -43,7 +44,6 @@ import java.util.stream.IntStream;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.operator.aggregation.histogram.Histogram.NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 
@@ -142,7 +142,7 @@ public class BenchmarkGroupedTypedHistogram
     private static InternalAggregationFunction getInternalAggregationFunctionVarChar()
     {
         Metadata metadata = createTestMetadataManager();
-        return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(VARCHAR)));
+        return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR)));
     }
 
     public static void main(String[] args)
