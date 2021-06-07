@@ -33,6 +33,7 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -381,7 +382,11 @@ public final class KuduTableProperties
             case UNIXTIME_MICROS:
                 long millis = bound.getLong(idx) / 1000;
                 return ISODateTimeFormat.dateTime().withZone(DateTimeZone.UTC).print(millis);
+            case DATE:
+                int epochDays = bound.getInt(idx);
+                return ISODateTimeFormat.date().print(epochDays);
             case STRING:
+            case VARCHAR:
                 return bound.getString(idx);
             case INT64:
                 return bound.getLong(idx);

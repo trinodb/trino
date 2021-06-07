@@ -33,15 +33,10 @@ import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.SessionConfiguration;
 import org.apache.kudu.client.Upsert;
 
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -144,6 +139,10 @@ public class KuduPageSink
         else if (TIMESTAMP_MILLIS.equals(type)) {
             row.addLong(destChannel, truncateEpochMicrosToMillis(type.getLong(block, position)));
         }
+        else if (DATE.equals(type)) {
+            SqlDate date = (SqlDate) type.getObjectValue(connectorSession, block, position);
+            row.addInt(destChannel, date.getDays());
+        }
         else if (REAL.equals(type)) {
             row.addFloat(destChannel, intBitsToFloat(toIntExact(type.getLong(block, position))));
         }
@@ -166,16 +165,7 @@ public class KuduPageSink
             row.addDouble(destChannel, type.getDouble(block, position));
         }
         else if (type instanceof VarcharType) {
-            Type originalType = originalColumnTypes.get(destChannel);
-            if (DATE.equals(originalType)) {
-                SqlDate date = (SqlDate) originalType.getObjectValue(connectorSession, block, position);
-                LocalDateTime ldt = LocalDateTime.ofEpochSecond(TimeUnit.DAYS.toSeconds(date.getDays()), 0, ZoneOffset.UTC);
-                byte[] bytes = ldt.format(DateTimeFormatter.ISO_LOCAL_DATE).getBytes(StandardCharsets.UTF_8);
-                row.addStringUtf8(destChannel, bytes);
-            }
-            else {
-                row.addString(destChannel, type.getSlice(block, position).toStringUtf8());
-            }
+            row.addString(destChannel, type.getSlice(block, position).toStringUtf8());
         }
         else if (VARBINARY.equals(type)) {
             row.addBinary(destChannel, type.getSlice(block, position).toByteBuffer());
