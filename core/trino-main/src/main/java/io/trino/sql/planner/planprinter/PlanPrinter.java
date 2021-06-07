@@ -801,7 +801,7 @@ public class PlanPrinter
         {
             switch (rowsPerMatch) {
                 case ONE:
-                    return "ALL ROWS PER MATCH";
+                    return "ONE ROW PER MATCH";
                 case ALL_SHOW_EMPTY:
                     return "ALL ROWS PER MATCH SHOW EMPTY MATCHES";
                 case ALL_OMIT_EMPTY:
