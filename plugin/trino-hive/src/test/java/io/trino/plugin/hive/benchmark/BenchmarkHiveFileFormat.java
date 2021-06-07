@@ -528,6 +528,11 @@ public class BenchmarkHiveFileFormat
                 .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g", "-XX:+UseG1GC"))
                 .run();
 
+        printResults(results);
+    }
+
+    public static void printResults(Collection<RunResult> results)
+    {
         for (RunResult result : results) {
             Statistics inputSizeStats = result.getSecondaryResults().get("inputSize").getStatistics();
             Statistics outputSizeStats = result.getSecondaryResults().get("outputSize").getStatistics();
