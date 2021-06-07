@@ -25,6 +25,7 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AssertProvider;
+import org.assertj.core.util.CanIgnoreReturnValue;
 
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,7 @@ public class MatchAssert
         return () -> new MatchAssert(matcher.run(identityEvaluator(mappedInput), new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "dummy")), labelMapping);
     }
 
+    @CanIgnoreReturnValue
     public MatchAssert hasLabels(char[] expectedLabels)
     {
         int[] mappedExpected = new int[expectedLabels.length];
@@ -70,6 +72,7 @@ public class MatchAssert
                         .isEqualTo(mappedExpected));
     }
 
+    @CanIgnoreReturnValue
     public MatchAssert hasCaptures(int[] expectedCaptures)
     {
         return satisfies(actual -> assertThat(actual.isMatched()))
@@ -78,6 +81,7 @@ public class MatchAssert
                         .isEqualTo(expectedCaptures));
     }
 
+    @CanIgnoreReturnValue
     public MatchAssert isNoMatch()
     {
         return satisfies(actual -> assertThat(!actual.isMatched()));
