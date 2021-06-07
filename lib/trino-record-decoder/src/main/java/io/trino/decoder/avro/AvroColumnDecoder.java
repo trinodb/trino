@@ -166,7 +166,7 @@ public class AvroColumnDecoder
         @Override
         public double getDouble()
         {
-            if (value instanceof Double || value instanceof Float) {
+            if (value instanceof Double) {
                 return ((Number) value).doubleValue();
             }
             throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
@@ -186,6 +186,9 @@ public class AvroColumnDecoder
         {
             if (value instanceof Long || value instanceof Integer) {
                 return ((Number) value).longValue();
+            }
+            else if (value instanceof Float) {
+                return floatToIntBits((Float) value);
             }
             throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
         }
