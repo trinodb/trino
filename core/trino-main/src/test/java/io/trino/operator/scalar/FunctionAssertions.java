@@ -394,7 +394,8 @@ public final class FunctionAssertions
                     newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                     SOURCE_PAGE);
             // consume the iterator
-            Iterators.getOnlyElement(output);
+            @SuppressWarnings("unused")
+            Optional<Page> ignored = Iterators.getOnlyElement(output);
 
             long retainedSize = processor.getProjections().stream()
                     .mapToLong(this::getRetainedSizeOfCachedInstance)

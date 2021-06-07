@@ -132,7 +132,7 @@ public class TestDynamicTable
         String tableName = "primitive_types_table";
         String query = "SELECT string_col FROM " + tableName + " WHERE double_col = 3.5E5";
         assertThatNullPointerException().isThrownBy(() -> buildFromPql(pinotMetadata, new SchemaTableName("default", query)))
-                .withFailMessage("");
+                .withMessage(Runtime.version().feature() < 15 ? null : "Cannot invoke \"java.lang.Integer.intValue()\" because \"this.scale\" is null");
     }
 
     @Test
