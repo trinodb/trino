@@ -454,7 +454,8 @@ Property Name                                      Description                  
 ``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered ``0s``
                                         valid.
 
-``hive.metastore-cache-maximum-size``   Hive metastore cache maximum size.                            10000
+``hive.metastore-cache-maximum-size``   Maximum number of metastore data objects in the Hive         10000
+                                        metastore cache.
 
 ``hive.metastore-refresh-interval``     Asynchronously refresh cached metastore data after access
                                         if it is older than this but is not yet expired, allowing
