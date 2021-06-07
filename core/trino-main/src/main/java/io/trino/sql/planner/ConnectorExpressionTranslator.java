@@ -19,11 +19,11 @@ import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.JoniRegexpCasts;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.ConnectorExpressionVisitor;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
-import io.trino.spi.expression.Function;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
@@ -62,6 +62,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class ConnectorExpressionTranslator
 {
+    public static final String LIKE_FUNCTION_NAME = "like_function";
+    public static final String REGEXP_LIKE_FUNCTION_NAME = "regexp_like";
+
     private ConnectorExpressionTranslator() {}
 
     public static Expression translate(ConnectorExpression expression, Metadata metadata, LiteralEncoder literalEncoder, Optional<Map<String, Symbol>> variableMappings)
@@ -111,10 +114,10 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<Expression> visitFunction(Function node, Void context)
+        protected Optional<Expression> visitCall(Call node, Void context)
         {
-            if (Function.LIKE_FUNCTION_NAME.equals(node.getName())) {
-                return visitLikeFunction(node.getArguments().get(0), node.getArguments().get(1), context);
+            if (LIKE_FUNCTION_NAME.equals(node.getName())) {
+                return visitLike(node.getArguments().get(0), node.getArguments().get(1), context);
             }
 
             QualifiedName qualifiedName = getQualifiedName(node);
@@ -123,7 +126,7 @@ public final class ConnectorExpressionTranslator
                                              .map(argument -> ConnectorExpressionPredicateTranslator.toPredicate(argument, literalEncoder, metadata))
                                              .collect(Collectors.toList());
 
-            if ("regexp_like".equalsIgnoreCase(node.getName()) && arguments.size() == 2) {
+            if (REGEXP_LIKE_FUNCTION_NAME.equalsIgnoreCase(node.getName()) && arguments.size() == 2) {
                 Expression pattern = arguments.get(1);
                 if (pattern instanceof StringLiteral) {
                     Slice slice = ((StringLiteral) pattern).getSlice();
@@ -132,32 +135,18 @@ public final class ConnectorExpressionTranslator
                 }
             }
 
-            Optional<FunctionCall.NullTreatment> nullTreatment;
-            if (node.getNullTreatment().isEmpty()) {
-                nullTreatment = Optional.empty();
-            }
-            else if (node.getNullTreatment().get() == Function.NullTreatment.IGNORE) {
-                nullTreatment = Optional.of(FunctionCall.NullTreatment.IGNORE);
-            }
-            else if (node.getNullTreatment().get() == Function.NullTreatment.RESPECT) {
-                nullTreatment = Optional.of(FunctionCall.NullTreatment.RESPECT);
-            }
-            else {
-                throw new RuntimeException("Unknown NullTreatment value " + node.getNullTreatment().get().name());
-            }
-
             return Optional.of(new FunctionCall(Optional.empty(),
                                                 qualifiedName,
                                                 Optional.empty(),
                                                 Optional.empty(),
                                                 Optional.empty(),
                                                 false,
-                                                nullTreatment,
+                                                Optional.empty(),
                                                 Optional.empty(),
                                                 arguments));
         }
 
-        protected Optional<Expression> visitLikeFunction(ConnectorExpression value, ConnectorExpression pattern, Void context)
+        protected Optional<Expression> visitLike(ConnectorExpression value, ConnectorExpression pattern, Void context)
         {
             Optional<Expression> valueExpression = process(value);
             Optional<Expression> patternExpression = process(pattern);
@@ -175,10 +164,10 @@ public final class ConnectorExpressionTranslator
             return Optional.of(expression);
         }
 
-        private QualifiedName getQualifiedName(Function function)
+        private QualifiedName getQualifiedName(Call call)
         {
-            List<TypeSignature> typeSignatures = function.getArguments().stream().map(argument -> argument.getType().getTypeSignature()).collect(Collectors.toList());
-            return metadata.resolveFunction(QualifiedName.of(function.getName()),
+            List<TypeSignature> typeSignatures = call.getArguments().stream().map(argument -> argument.getType().getTypeSignature()).collect(Collectors.toList());
+            return metadata.resolveFunction(QualifiedName.of(call.getName()),
                                             TypeSignatureProvider.fromTypeSignatures(typeSignatures))
                            .toQualifiedName();
         }
@@ -255,7 +244,7 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitFunctionCall(FunctionCall node, Void context)
         {
-            if (!node.getFilter().isEmpty() || !node.getOrderBy().isEmpty() || !node.getWindow().isEmpty() || node.isDistinct()) {
+            if (node.getFilter().isPresent() || node.getOrderBy().isPresent() || node.getWindow().isPresent() || node.getNullTreatment().isPresent() || node.isDistinct()) {
                 return Optional.empty();
             }
 
@@ -280,22 +269,7 @@ public final class ConnectorExpressionTranslator
                 arguments.add(argument.get());
             }
 
-            // Not sure if it can be relevant (maybe always Ignore \ Respect in applyFilter functions?)
-            Optional<Function.NullTreatment> nullTreatment;
-            if (node.getNullTreatment().isEmpty()) {
-                nullTreatment = Optional.empty();
-            }
-            else if (node.getNullTreatment().get() == FunctionCall.NullTreatment.IGNORE) {
-                nullTreatment = Optional.of(Function.NullTreatment.IGNORE);
-            }
-            else if (node.getNullTreatment().get() == FunctionCall.NullTreatment.RESPECT) {
-                nullTreatment = Optional.of(Function.NullTreatment.RESPECT);
-            }
-            else {
-                throw new RuntimeException("Unknown NullTreatment value " + node.getNullTreatment().get().name());
-            }
-
-            return Optional.of(new Function(typeOf(node), functionName, arguments, nullTreatment));
+            return Optional.of(new Call(typeOf(node), functionName, arguments));
         }
 
         @Override
@@ -308,7 +282,7 @@ public final class ConnectorExpressionTranslator
                 Optional<ConnectorExpression> pattern = process(node.getPattern());
                 if (value.isPresent() && pattern.isPresent()) {
                     Type columnType = typeOf(node.getValue());
-                    return Optional.of(Function.ofLikeFunction(columnType, value.get(), pattern.get()));
+                    return Optional.of(new Call(columnType, LIKE_FUNCTION_NAME, List.of(value.get(), pattern.get())));
                 }
             }
             return Optional.empty();

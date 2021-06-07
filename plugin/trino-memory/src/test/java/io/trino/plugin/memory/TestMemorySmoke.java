@@ -22,8 +22,8 @@ import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.operator.OperatorStats;
 import io.trino.spi.QueryId;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.Constant;
-import io.trino.spi.expression.Function;
 import io.trino.spi.expression.Variable;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.planner.Plan;
@@ -40,7 +40,6 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
@@ -51,6 +50,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
+import static io.trino.sql.planner.ConnectorExpressionTranslator.LIKE_FUNCTION_NAME;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
@@ -398,11 +398,10 @@ public class TestMemorySmoke
         MemoryTableHandle table = getSingleTableHandle(result.getQueryId());
 
         assertEquals(table.getConnectorExpressions(),
-                     List.of(new Function(createVarcharType(25),
-                                          "regexp_like",
-                                          List.of(new Variable("name", createVarcharType(25)),
-                                                  new Constant(Slices.wrappedBuffer(".*000001000".getBytes(UTF_8)), createVarcharType(11))),
-                                          Optional.empty())));
+                     List.of(new Call(createVarcharType(25),
+                                      "regexp_like",
+                                      List.of(new Variable("name", createVarcharType(25)),
+                                                  new Constant(Slices.wrappedBuffer(".*000001000".getBytes(UTF_8)), createVarcharType(11))))));
     }
 
     @Test
@@ -414,9 +413,10 @@ public class TestMemorySmoke
         MemoryTableHandle table = getSingleTableHandle(result.getQueryId());
 
         assertEquals(table.getConnectorExpressions(),
-                     List.of(Function.ofLikeFunction(createVarcharType(25),
-                                                     new Variable("name", createVarcharType(25)),
-                                                     new Constant(Slices.wrappedBuffer("%000001000".getBytes(UTF_8)), createVarcharType(10)))));
+                     List.of(new Call(createVarcharType(25),
+                                      LIKE_FUNCTION_NAME,
+                                      List.of(new Variable("name", createVarcharType(25)),
+                                              new Constant(Slices.wrappedBuffer("%000001000".getBytes(UTF_8)), createVarcharType(10))))));
     }
 
     private MemoryTableHandle getSingleTableHandle(QueryId queryId)

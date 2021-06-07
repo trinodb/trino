@@ -18,10 +18,10 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
-import io.trino.spi.expression.Function;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
 import io.trino.sql.parser.SqlParser;
@@ -47,6 +47,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.ConnectorExpressionTranslator.LIKE_FUNCTION_NAME;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -94,9 +95,10 @@ public class TestConnectorExpressionTranslator
                         new SymbolReference("varchar_symbol_1"),
                         new StringLiteral(pattern),
                         Optional.empty()),
-                Optional.of(Function.ofLikeFunction(VARCHAR_TYPE,
-                                                    new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                                    new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())))));
+                Optional.of(new Call(VARCHAR_TYPE,
+                                     LIKE_FUNCTION_NAME,
+                                     List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                             new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length()))))));
 
         transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .readOnly()
@@ -106,10 +108,9 @@ public class TestConnectorExpressionTranslator
                                                                    .setName(QualifiedName.of(("lower")))
                                                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
                                                                    .build(),
-                                                           Optional.of(new Function(VARCHAR_TYPE,
-                                                                                    "lower",
-                                                                                    List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE)),
-                                                                                    Optional.empty())));
+                                                           Optional.of(new Call(VARCHAR_TYPE,
+                                                                                "lower",
+                                                                                List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE)))));
                 });
     }
 
@@ -129,17 +130,17 @@ public class TestConnectorExpressionTranslator
 
         String pattern = "%pattern%";
         assertTranslationFromConnectorExpression(
-                Function.ofLikeFunction(VARCHAR_TYPE,
-                                        new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                        new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length()))),
+                new Call(VARCHAR_TYPE,
+                         LIKE_FUNCTION_NAME,
+                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                 new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())))),
                 new LikePredicate(new SymbolReference("varchar_symbol_1"),
                                   new StringLiteral(pattern),
                                   Optional.empty()));
 
-        assertTranslationFromConnectorExpression(new Function(VARCHAR_TYPE,
-                                                              "lower",
-                                                              List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE)),
-                                                              Optional.empty()),
+        assertTranslationFromConnectorExpression(new Call(VARCHAR_TYPE,
+                                                          "lower",
+                                                          List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))),
                                                  new FunctionCallBuilder(METADATA)
                                                          .setName(QualifiedName.of(("lower")))
                                                          .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))

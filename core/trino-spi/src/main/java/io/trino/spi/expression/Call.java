@@ -18,33 +18,21 @@ import io.trino.spi.type.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
-public class Function
+public class Call
         extends ConnectorExpression
 {
-    public static final String LIKE_FUNCTION_NAME = "like-function";
-
     private final String name;
     private final List<ConnectorExpression> arguments;
-    private final Optional<NullTreatment> nullTreatment;
 
-    public Function(Type type,
-                    String name,
-                    List<ConnectorExpression> arguments,
-                    Optional<NullTreatment> nullTreatment)
+    public Call(
+            Type type,
+            String name,
+            List<ConnectorExpression> arguments)
     {
         super(type);
         this.name = name;
         this.arguments = new ArrayList<>(arguments);
-        this.nullTreatment = nullTreatment;
-    }
-
-    public static Function ofLikeFunction(Type type,
-                                          ConnectorExpression value,
-                                          ConnectorExpression pattern)
-    {
-        return new Function(type, LIKE_FUNCTION_NAME, List.of(value, pattern), Optional.empty());
     }
 
     public String getName()
@@ -57,15 +45,10 @@ public class Function
         return new ArrayList<>(arguments);
     }
 
-    public Optional<NullTreatment> getNullTreatment()
-    {
-        return nullTreatment;
-    }
-
     @Override
     protected <R, C> R accept(ConnectorExpressionVisitor<R, C> connectorExpressionVisitor, C context)
     {
-        return connectorExpressionVisitor.visitFunction(this, context);
+        return connectorExpressionVisitor.visitCall(this, context);
     }
 
     @Override
@@ -83,16 +66,15 @@ public class Function
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Function function = (Function) o;
-        return Objects.equals(name, function.name) &&
-                Objects.equals(arguments, function.arguments) &&
-                Objects.equals(nullTreatment, function.nullTreatment);
+        Call call = (Call) o;
+        return Objects.equals(name, call.name) &&
+                Objects.equals(arguments, call.arguments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, arguments, nullTreatment);
+        return Objects.hash(name, arguments);
     }
 
     @Override
@@ -101,12 +83,6 @@ public class Function
         return "Function{" +
                 "name='" + name + '\'' +
                 ", arguments=" + arguments +
-                ", nullTreatment=" + nullTreatment +
                 "}";
-    }
-
-    public enum NullTreatment
-    {
-        IGNORE, RESPECT
     }
 }

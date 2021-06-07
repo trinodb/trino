@@ -42,7 +42,7 @@ public abstract class ConnectorExpressionVisitor<R, C>
         return visitConnectorExpression(node, context);
     }
 
-    protected R visitFunction(Function node, C context)
+    protected R visitCall(Call node, C context)
     {
         return visitConnectorExpression(node, context);
     }
