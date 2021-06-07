@@ -712,6 +712,8 @@ You can also drop statistics for selected partitions only::
 
     CALL system.drop_stats(schema_name, table_name, ARRAY[ARRAY['p2_value1', 'p2_value2']])
 
+.. _hive_dynamic_filtering:
+
 Dynamic filtering
 -----------------
 
