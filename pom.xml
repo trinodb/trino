@@ -1715,6 +1715,7 @@
                                     -Xep:BadInstanceof:ERROR
                                     -Xep:BadShiftAmount:ERROR
                                     -Xep:BoxedPrimitiveConstructor:ERROR
+                                    -Xep:CheckReturnValue:ERROR
                                     -Xep:ClassCanBeStatic:ERROR
                                     -Xep:CompareToZero:ERROR
                                     -Xep:ComparingThisWithNull:ERROR

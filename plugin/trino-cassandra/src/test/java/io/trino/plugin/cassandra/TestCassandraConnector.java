@@ -288,6 +288,7 @@ public class TestCassandraConnector
         assertEquals(rowNumber, 2);
     }
 
+    @SuppressWarnings({"ResultOfMethodCallIgnored", "CheckReturnValue"}) // we only check if the values are valid, we don't need them otherwise
     private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
     {
         for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
