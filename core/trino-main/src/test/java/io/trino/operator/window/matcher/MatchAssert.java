@@ -66,7 +66,7 @@ public class MatchAssert
         for (int i = 0; i < expectedLabels.length; i++) {
             mappedExpected[i] = labelMapping.get(new IrLabel(String.valueOf(expectedLabels[i])));
         }
-        return satisfies(actual -> assertThat(actual.isMatched()))
+        return satisfies(actual -> assertThat(actual.isMatched()).isTrue())
                 .satisfies(actual -> assertThat(actual.getLabels().toArray())
                         .as("Matched labels")
                         .isEqualTo(mappedExpected));
@@ -75,7 +75,7 @@ public class MatchAssert
     @CanIgnoreReturnValue
     public MatchAssert hasCaptures(int[] expectedCaptures)
     {
-        return satisfies(actual -> assertThat(actual.isMatched()))
+        return satisfies(actual -> assertThat(actual.isMatched()).isTrue())
                 .satisfies(actual -> assertThat(actual.getExclusions().toArray())
                         .as("Captured exclusions")
                         .isEqualTo(expectedCaptures));
@@ -84,7 +84,7 @@ public class MatchAssert
     @CanIgnoreReturnValue
     public MatchAssert isNoMatch()
     {
-        return satisfies(actual -> assertThat(!actual.isMatched()));
+        return satisfies(actual -> assertThat(actual.isMatched()).isFalse());
     }
 
     private static LabelEvaluator identityEvaluator(int[] input)
