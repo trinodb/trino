@@ -43,7 +43,10 @@ The results of dynamic filtering optimization can include the following benefits
 * reduced load on the remote data source
 
 Support for push down of dynamic filters is specific to each connector,
-and the relevant underlying database or storage system.
+and the relevant underlying database or storage system. The documentation for
+specific connectors with support for dynamic filtering includes further details,
+for example the :ref:`Hive connector <hive_dynamic_filtering>`
+or the :ref:`Memory connector <memory_dynamic_filtering>`.
 
 Analysis and confirmation
 -------------------------
@@ -243,7 +246,6 @@ of selected rows from the dimension table.
 Limitations
 -----------
 
-* Dynamic filtering is currently implemented only for :doc:`/connector/hive` and :doc:`/connector/memory` connectors.
 * Push down of dynamic filters into local table scan on worker nodes is limited to broadcast joins.
 * Min-max dynamic filter collection is not supported for ``DOUBLE``, ``REAL`` and unorderable data types.
 * Dynamic filtering is not supported for ``DOUBLE`` and ``REAL`` data types when using ``IS NOT DISTINCT FROM`` predicate.
