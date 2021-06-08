@@ -22,6 +22,7 @@ import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.CHARLIE
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.UNKNOWN_USER;
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSession;
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
+import static java.util.function.Function.identity;
 
 public class TestSynapseImpersonationWithAuthToLocal
         extends AbstractTestQueryFramework
@@ -33,7 +34,7 @@ public class TestSynapseImpersonationWithAuthToLocal
         SynapseServer synapseServer = new SynapseServer();
         return createSynapseQueryRunner(
                 synapseServer,
-                session -> createSession(ALICE_USER + "/admin@company.com"),
+                identity(),
                 ImmutableMap.of(
                         "synapse.impersonation.enabled", "true",
                         "auth-to-local.config-file", getResource("auth-to-local.json").getPath()),
