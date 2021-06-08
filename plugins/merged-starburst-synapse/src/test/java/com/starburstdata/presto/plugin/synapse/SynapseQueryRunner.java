@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableMap;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
 import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.jmx.JmxPlugin;
@@ -60,6 +61,7 @@ public final class SynapseQueryRunner
             throws Exception
     {
         return createSynapseQueryRunner(
+                Map.of(),
                 synapseServer,
                 DEFAULT_CATALOG_NAME,
                 connectorProperties,
@@ -67,6 +69,7 @@ public final class SynapseQueryRunner
     }
 
     public static DistributedQueryRunner createSynapseQueryRunner(
+            Map<String, String> extraProperties,
             SynapseServer synapseServer,
             String catalogName,
             Map<String, String> connectorProperties,
@@ -74,7 +77,10 @@ public final class SynapseQueryRunner
             throws Exception
     {
         Session session = createSession(USERNAME, catalogName);
-        DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner.builder(session).build();
+        DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner
+                .builder(session)
+                .setExtraProperties(extraProperties)
+                .build();
         try {
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx");
@@ -171,5 +177,23 @@ public final class SynapseQueryRunner
         String sql = format("CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM %s", table.getObjectName(), table);
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
         log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+
+        @SuppressWarnings("resource")
+        DistributedQueryRunner queryRunner = createSynapseQueryRunner(
+                Map.of("http-server.http.port", "8080"),
+                new SynapseServer(), // dummy
+                DEFAULT_CATALOG_NAME,
+                Map.of(),
+                TpchTable.getTables());
+
+        Logger log = Logger.get(SynapseQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
