@@ -291,6 +291,17 @@ public class PartitionTable
             // TODO the client sees the bytearray's tostring ouput instead of seeing actual bytes, needs to be fixed.
             return ((ByteBuffer) value).array();
         }
+        if (type instanceof Types.IntegerType || type instanceof Types.DateType) {
+            // date transform applied
+            if (value instanceof Integer) {
+                int actual = (int) value;
+                return (long) actual;
+            }
+            if (value instanceof Long) {
+                return value;
+            }
+            throw new IllegalArgumentException("Unexpected type : " + type);
+        }
         if (type instanceof Types.TimestampType) {
             long epochMicros = (long) value;
             if (((Types.TimestampType) type).shouldAdjustToUTC()) {
