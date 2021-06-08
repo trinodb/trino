@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
 import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
@@ -54,12 +53,6 @@ public final class SynapseQueryRunner
     public static final String BOB_USER = "bob";
     public static final String CHARLIE_USER = "charlie";
     public static final String UNKNOWN_USER = "non_existing_user";
-
-    public static DistributedQueryRunner createSynapseQueryRunner(SynapseServer synapseServer, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createSynapseQueryRunner(synapseServer, true, ImmutableMap.of(), ImmutableList.copyOf(tables));
-    }
 
     public static DistributedQueryRunner createSynapseQueryRunner(
             SynapseServer synapseServer,
