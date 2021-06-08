@@ -20,6 +20,6 @@ public class TestingSynapsePlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(getConnectorFactory(NOOP_LICENSE_MANAGER));
+        return ImmutableList.of(getConnectorFactory(NOOP_LICENSE_MANAGER, new TestingSynapseModule()));
     }
 }

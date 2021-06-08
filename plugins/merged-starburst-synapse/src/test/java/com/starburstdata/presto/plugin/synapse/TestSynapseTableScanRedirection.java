@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
+import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
 import io.trino.testing.QueryRunner;
 
@@ -26,7 +27,11 @@ public class TestSynapseTableScanRedirection
         SynapseServer synapseServer = new SynapseServer();
         return createSynapseQueryRunner(
                 synapseServer,
-                getRedirectionProperties(DEFAULT_CATALOG_NAME, TEST_SCHEMA),
+                ImmutableMap.<String, String>builder()
+                        .putAll(getRedirectionProperties(DEFAULT_CATALOG_NAME, TEST_SCHEMA))
+                        // Synapse tests are slow. Cache metadata to speed them up.
+                        .put("metadata.cache-ttl", "60m")
+                        .build(),
                 REQUIRED_TPCH_TABLES);
     }
 }

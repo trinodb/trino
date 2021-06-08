@@ -26,14 +26,16 @@ public class TestSynapseAutomaticJoinPushdown
     private SynapseServer synapseServer;
 
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         synapseServer = new SynapseServer();
         return createSynapseQueryRunner(
                 Map.of(),
                 synapseServer,
                 "sqlserver",
-                Map.of(),
+                // Synapse tests are slow. Cache metadata to speed them up.
+                Map.of("metadata.cache-ttl", "60m"),
                 List.of());
     }
 
@@ -48,5 +50,8 @@ public class TestSynapseAutomaticJoinPushdown
             synapseServer.execute(format("CREATE STATISTICS %1$s ON %2$s (%1$s)", columnName, tableName));
         }
         synapseServer.execute("UPDATE STATISTICS " + tableName);
+
+        String schema = getSession().getSchema().orElseThrow();
+        getQueryRunner().execute(format("CALL sqlserver.system.flush_statistics_cache('%s', '%s')", schema, tableName));
     }
 }

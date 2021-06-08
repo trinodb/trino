@@ -28,6 +28,7 @@ public class TestSynapseConnectorSmokeTest
                 Map.of(),
                 new SynapseServer(),
                 "sqlserver",
+                // No metadata cache enabled here.
                 Map.of(),
                 REQUIRED_TPCH_TABLES);
     }

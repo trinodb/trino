@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.synapse;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
 import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.license.LicenseManagerProvider;
@@ -30,18 +31,19 @@ public class StarburstSynapsePlugin
     {
         return ImmutableList.of(new LicenceCheckingConnectorFactory(
                 StarburstFeature.SYNAPSE,
-                getConnectorFactory(new LicenseManagerProvider().get())));
+                getConnectorFactory(new LicenseManagerProvider().get(), binder -> {})));
     }
 
     @VisibleForTesting
-    DynamicFilteringJdbcConnectorFactory getConnectorFactory(LicenseManager licenseManager)
+    DynamicFilteringJdbcConnectorFactory getConnectorFactory(LicenseManager licenseManager, Module extensions)
     {
         requireNonNull(licenseManager, "licenseManager is null");
         return new DynamicFilteringJdbcConnectorFactory(
                 "synapse",
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
-                        new StarburstSynapseClientModule()),
+                        new StarburstSynapseClientModule(),
+                        extensions),
                 licenseManager);
     }
 }

@@ -33,7 +33,11 @@ public class TestSynapseTypeMapping
             throws Exception
     {
         SynapseServer synapseServer = new SynapseServer();
-        return createSynapseQueryRunner(synapseServer, Map.of(), List.of());
+        return createSynapseQueryRunner(
+                synapseServer,
+                // Synapse tests are slow. Cache metadata to speed them up.
+                Map.of("metadata.cache-ttl", "60m"),
+                List.of());
     }
 
     @Override

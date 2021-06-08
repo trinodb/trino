@@ -40,7 +40,8 @@ public class TestSynapseConnectorTest
                 Map.of(),
                 synapseServer,
                 "sqlserver",
-                Map.of(),
+                // Synapse tests are slow. Cache metadata to speed them up. Synapse without caching is exercised by TestSynapseConnectorSmokeTest.
+                Map.of("metadata.cache-ttl", "60m"),
                 REQUIRED_TPCH_TABLES);
     }
 
