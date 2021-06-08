@@ -11,8 +11,6 @@ package com.starburstdata.trino.plugin.starburstremote;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.hash.HashCode;
-import com.google.common.hash.Hashing;
 import io.trino.Session;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.H2QueryRunner;
@@ -41,7 +39,6 @@ import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStarburstRemoteTableStatisticsWithHive
         extends BaseStarburstRemoteTableStatisticsTest
@@ -406,19 +403,6 @@ public class TestStarburstRemoteTableStatisticsWithHive
                             "('long_decimals_big_integral', null, 1.0, 0.5, null, '-1.2345678901234568E36', '1.2345678901234568E36')," +
                             "(null, null, null, null, 4, null, null)");
         }
-    }
-
-    @Override
-    protected String testStatsWithDistinctLimitPushdownExpectedResult()
-    {
-        // sanity check override is still necessary (of course, failure here doesn't guarantee it's _not_ necessary)
-        assertThat(Hashing.md5().hashUnencodedChars(super.testStatsWithDistinctLimitPushdownExpectedResult()))
-                .isEqualTo(HashCode.fromString("3b6d7e10c747ca72467d43910fe9bc21"));
-
-        // TODO (https://starburstdata.atlassian.net/browse/SEP-6235) add stats rule for DistinctLimit
-        return "VALUES " +
-                "('regionkey', null, null, null)," +
-                "(null, null, null, null)";
     }
 
     @Test
