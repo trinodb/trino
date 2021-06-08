@@ -12,7 +12,6 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.USER;
 
@@ -20,7 +19,7 @@ public class TestOracleTableScanRedirection
         extends AbstractTableScanRedirectionTest
 {
     @Override
-    protected QueryRunner createQueryRunner(Iterable<TpchTable<?>> tables)
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         return OracleQueryRunner.builder()
@@ -28,7 +27,7 @@ public class TestOracleTableScanRedirection
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .putAll(getRedirectionProperties("oracle", USER))
                         .build())
-                .withTables(tables)
+                .withTables(REQUIRED_TPCH_TABLES)
                 .withUnlockEnterpriseFeatures(true)
                 .build();
     }
