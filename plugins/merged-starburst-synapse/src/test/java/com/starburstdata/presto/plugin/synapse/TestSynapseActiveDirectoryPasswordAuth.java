@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.synapse;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
@@ -18,12 +18,11 @@ import java.util.List;
 
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 import static com.starburstdata.presto.plugin.synapse.SynapseServer.JDBC_URL;
-import static java.lang.String.format;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.util.Objects.requireNonNull;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSynapseActiveDirectoryPasswordAuth
-        extends AbstractTestIntegrationSmokeTest
+        extends AbstractTestQueryFramework
 {
     private static final String ACTIVE_DIRECTORY_USERNAME = requireNonNull(System.getProperty("test.synapse.jdbc.active-directory-user"), "test.synapse.jdbc.active-directory-user is not set");
     private static final String ACTIVE_DIRECTORY_PASSWORD = requireNonNull(System.getProperty("test.synapse.jdbc.active-directory-password"), "test.synapse.jdbc.active-directory-password is not set");
@@ -48,24 +47,8 @@ public class TestSynapseActiveDirectoryPasswordAuth
     @Test
     public void testActiveDirectoryPasswordAuthentication()
     {
-        assertQuery("SELECT count(*) FROM nation", "SELECT 25");
-    }
-
-    @Test
-    @Override // default test execution too long
-    public void testSelectInformationSchemaTables()
-    {
-        assertThat(query(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", getSession().getSchema().orElseThrow())))
-                .skippingTypesCheck()
-                .containsAll("VALUES 'nation', 'region'");
-    }
-
-    @Test
-    @Override // default test execution too long
-    public void testSelectInformationSchemaColumns()
-    {
-        assertThat(query(format("SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = 'region'", getSession().getSchema().orElseThrow())))
-                .skippingTypesCheck()
-                .matches("VALUES 'regionkey', 'name', 'comment'");
+        assertQuery("SELECT count(*) FROM nation");
+        assertQuery("SELECT * FROM nation");
+        assertEquals(computeScalar("SELECT session_user_column FROM user_context"), ACTIVE_DIRECTORY_USERNAME);
     }
 }
