@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
-import com.starburstdata.presto.testing.SessionMutator;
 import io.trino.Session;
 import io.trino.plugin.sqlserver.BaseSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.DataCompression;
@@ -32,7 +31,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestSynapseConnectorTest
         extends BaseSqlServerConnectorTest
 {
-    private final SessionMutator sessionMutator = new SessionMutator(super::getSession);
     private SynapseServer synapseServer;
 
     @Override
@@ -47,12 +45,6 @@ public class TestSynapseConnectorTest
                 Function.identity(),
                 Map.of(),
                 TpchTable.getTables());
-    }
-
-    @Override
-    protected Session getSession()
-    {
-        return sessionMutator.getSession();
     }
 
     @Override
