@@ -16,7 +16,6 @@ import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -41,7 +40,7 @@ public class TestSynapseConnectorTest
                 synapseServer,
                 "sqlserver",
                 Map.of(),
-                TpchTable.getTables());
+                REQUIRED_TPCH_TABLES);
     }
 
     @Override
