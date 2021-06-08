@@ -12,8 +12,8 @@ env:
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
-  MAVEN_TEST: "-B -Dair.check.skip-all --fail-at-end"
+  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
+  MAVEN_TEST: "-B --strict-checksums -Dair.check.skip-all --fail-at-end"
   RETRY: .github/bin/retry
 
 # Cancel previous PR builds.
@@ -47,11 +47,11 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+          $RETRY ./mvnw install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY bash -c './mvnw verify -B -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +'
+          $RETRY bash -c './mvnw verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +'
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!:trino-server,!:trino-cli'
       - name: Test Docker Image
