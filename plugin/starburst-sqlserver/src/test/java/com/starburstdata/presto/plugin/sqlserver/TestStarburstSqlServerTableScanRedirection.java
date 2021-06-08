@@ -12,7 +12,6 @@ package com.starburstdata.presto.plugin.sqlserver;
 import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
@@ -23,7 +22,7 @@ public class TestStarburstSqlServerTableScanRedirection
     private TestingSqlServer sqlServer;
 
     @Override
-    protected QueryRunner createQueryRunner(Iterable<TpchTable<?>> tables)
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         sqlServer = new TestingSqlServer();
@@ -31,7 +30,7 @@ public class TestStarburstSqlServerTableScanRedirection
                 sqlServer,
                 true,
                 getRedirectionProperties("sqlserver", "dbo"),
-                tables);
+                REQUIRED_TPCH_TABLES);
     }
 
     @AfterClass(alwaysRun = true)
