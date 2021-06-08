@@ -113,7 +113,7 @@ public final class Standard
     @SuppressWarnings("resource")
     private DockerContainer createTestsContainer()
     {
-        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/centos6-oj8:" + imagesVersion, TESTS)
+        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/centos7-oj8:" + imagesVersion, TESTS)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
                 .waitingFor(new WaitAllStrategy()) // don't wait
