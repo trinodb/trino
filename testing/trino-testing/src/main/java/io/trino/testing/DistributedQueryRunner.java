@@ -83,6 +83,7 @@ public class DistributedQueryRunner
     private final Closer closer = Closer.create();
 
     private final TestingTrinoClient trinoClient;
+    private final CancelingTrinoClient cancelingClient;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -185,6 +186,7 @@ public class DistributedQueryRunner
         // copy session using property manager in coordinator
         defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getMetadata().getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials());
         this.trinoClient = closer.register(new TestingTrinoClient(coordinator, defaultSession));
+        this.cancelingClient = closer.register(new CancelingTrinoClient(coordinator, defaultSession));
 
         waitForAllNodesGloballyVisible();
 
@@ -505,8 +507,20 @@ public class DistributedQueryRunner
     @Override
     public Plan createPlan(Session session, String sql, WarningCollector warningCollector)
     {
-        QueryId queryId = executeWithQueryId(session, sql).getQueryId();
+        ResultWithQueryId<Void> plannedExecution;
+
+        lock.readLock().lock();
+        try {
+            plannedExecution = cancelingClient.execute(session, sql);
+        }
+        finally {
+            lock.readLock().unlock();
+        }
+
+        QueryId queryId = plannedExecution.getQueryId();
         Plan queryPlan = getQueryPlan(queryId);
+
+        // Query should already be cancelled, but let's make sure.
         coordinator.getQueryManager().cancelQuery(queryId);
         return queryPlan;
     }
