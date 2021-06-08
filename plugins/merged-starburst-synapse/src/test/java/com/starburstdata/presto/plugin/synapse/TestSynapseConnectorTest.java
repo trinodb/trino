@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 import static java.lang.String.format;
@@ -41,7 +40,6 @@ public class TestSynapseConnectorTest
         return createSynapseQueryRunner(
                 synapseServer,
                 "sqlserver",
-                Function.identity(),
                 Map.of(),
                 TpchTable.getTables());
     }

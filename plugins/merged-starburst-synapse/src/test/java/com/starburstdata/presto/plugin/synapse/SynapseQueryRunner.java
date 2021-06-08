@@ -24,7 +24,6 @@ import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 
 import static com.starburstdata.presto.plugin.synapse.SynapseServer.JDBC_URL;
 import static com.starburstdata.presto.plugin.synapse.SynapseServer.PASSWORD;
@@ -62,22 +61,7 @@ public final class SynapseQueryRunner
     {
         return createSynapseQueryRunner(
                 synapseServer,
-                Function.identity(),
-                connectorProperties,
-                tables);
-    }
-
-    public static DistributedQueryRunner createSynapseQueryRunner(
-            SynapseServer synapseServer,
-            Function<Session, Session> sessionModifier,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return createSynapseQueryRunner(
-                synapseServer,
                 DEFAULT_CATALOG_NAME,
-                sessionModifier,
                 connectorProperties,
                 tables);
     }
@@ -85,7 +69,6 @@ public final class SynapseQueryRunner
     public static DistributedQueryRunner createSynapseQueryRunner(
             SynapseServer synapseServer,
             String catalogName,
-            Function<Session, Session> sessionModifier,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
@@ -93,8 +76,6 @@ public final class SynapseQueryRunner
         Session session = createSession(USERNAME, catalogName);
         DistributedQueryRunner queryRunner = StarburstDistributedQueryRunner.builder(session).build();
         try {
-            Session modifiedSession = sessionModifier.apply(session);
-
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx");
 
@@ -131,7 +112,7 @@ public final class SynapseQueryRunner
 
             queryRunner.createCatalog(catalogName, "synapse", connectorProperties);
 
-            copyTpchTablesIfNotExists(queryRunner, "tpch", TINY_SCHEMA_NAME, modifiedSession, tables);
+            copyTpchTablesIfNotExists(queryRunner, "tpch", TINY_SCHEMA_NAME, session, tables);
 
             return queryRunner;
         }

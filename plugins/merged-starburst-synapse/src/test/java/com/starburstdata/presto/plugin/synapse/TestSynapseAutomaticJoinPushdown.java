@@ -14,7 +14,6 @@ import io.trino.testing.QueryRunner;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
@@ -33,7 +32,6 @@ public class TestSynapseAutomaticJoinPushdown
         return createSynapseQueryRunner(
                 synapseServer,
                 "sqlserver",
-                Function.identity(),
                 Map.of(),
                 List.of());
     }
