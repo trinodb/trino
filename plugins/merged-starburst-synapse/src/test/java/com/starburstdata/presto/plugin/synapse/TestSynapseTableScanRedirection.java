@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.synapse;
 
 import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.DEFAULT_CATALOG_NAME;
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.TEST_SCHEMA;
@@ -21,13 +20,13 @@ public class TestSynapseTableScanRedirection
         extends AbstractTableScanRedirectionTest
 {
     @Override
-    protected QueryRunner createQueryRunner(Iterable<TpchTable<?>> tables)
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         SynapseServer synapseServer = new SynapseServer();
         return createSynapseQueryRunner(
                 synapseServer,
                 getRedirectionProperties(DEFAULT_CATALOG_NAME, TEST_SCHEMA),
-                tables);
+                REQUIRED_TPCH_TABLES);
     }
 }

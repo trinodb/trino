@@ -12,7 +12,6 @@ package com.starburstdata.presto.plugin.snowflake;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
@@ -24,7 +23,7 @@ public class TestDistributedSnowflakeTableScanRedirection
     protected final SnowflakeServer server = new SnowflakeServer();
 
     @Override
-    protected QueryRunner createQueryRunner(Iterable<TpchTable<?>> tables)
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         return distributedBuilder()
