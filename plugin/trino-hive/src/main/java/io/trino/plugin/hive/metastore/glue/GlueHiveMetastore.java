@@ -753,6 +753,9 @@ public class GlueHiveMetastore
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
+        if (partitionKeysFilter.isNone()) {
+            return Optional.of(ImmutableList.of());
+        }
         Table table = getExistingTable(identity, databaseName, tableName);
         String expression = GlueExpressionUtil.buildGlueExpression(columnNames, partitionKeysFilter, assumeCanonicalPartitionKeys);
         List<Partition> partitions = getPartitions(table, expression);
