@@ -13,15 +13,14 @@
  */
 package io.trino.server.security;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
-import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 
 import javax.ws.rs.container.ContainerRequestContext;
 
+import java.security.Principal;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static java.lang.String.format;
@@ -30,12 +29,10 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractBearerAuthenticator
         implements Authenticator
 {
-    private final String principalField;
     private final UserMapping userMapping;
 
-    protected AbstractBearerAuthenticator(String principalField, UserMapping userMapping)
+    protected AbstractBearerAuthenticator(UserMapping userMapping)
     {
-        this.principalField = requireNonNull(principalField, "principalField is null");
         this.userMapping = requireNonNull(userMapping, "userMapping is null");
     }
 
@@ -50,14 +47,14 @@ public abstract class AbstractBearerAuthenticator
             throws AuthenticationException
     {
         try {
-            Jws<Claims> claimsJws = parseClaimsJws(token);
-            String principal = claimsJws.getBody().get(principalField, String.class);
-            if (principal == null) {
+            Optional<Principal> principal = extractPrincipalFromToken(token);
+            if (principal.isEmpty()) {
                 throw needAuthentication(request, "Invalid credentials");
             }
-            String authenticatedUser = userMapping.mapUser(principal);
+
+            String authenticatedUser = userMapping.mapUser(principal.get().getName());
             return Identity.forUser(authenticatedUser)
-                    .withPrincipal(new BasicPrincipal(principal))
+                    .withPrincipal(principal.get())
                     .build();
         }
         catch (JwtException | UserMappingException e) {
@@ -91,7 +88,7 @@ public abstract class AbstractBearerAuthenticator
         return token;
     }
 
-    protected abstract Jws<Claims> parseClaimsJws(String jws);
+    protected abstract Optional<Principal> extractPrincipalFromToken(String token);
 
     protected abstract AuthenticationException needAuthentication(ContainerRequestContext request, String message);
 }
