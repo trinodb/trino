@@ -1835,6 +1835,116 @@ public abstract class AbstractTestIcebergConnectorTest
         dropTable("test_iceberg_file_size");
     }
 
+    @Test
+    public void testJoinWithPartitionTable()
+    {
+        // non partitioned tables
+        assertUpdate("CREATE TABLE test_join_partitioning_normal1(a BIGINT, b VARCHAR)");
+        assertUpdate("CREATE TABLE test_join_partitioning_normal2(a BIGINT, b VARCHAR, c row(d BIGINT, e VARCHAR), g map(BIGINT, VARCHAR))");
+
+        String normalValues1 = "VALUES (0, 'a'), (1,'b'), (2, 'c'), (3, 'd'),(4, NULL)";
+        String normalValues2 = "VALUES " +
+                "(0, 'a', (0, 'a'), map(ARRAY[1], ARRAY['a']))," +
+                "(1, 'b', (1,'b'), map(ARRAY[1], ARRAY['b'])), " +
+                "(2, 'c', (2, 'c'), map(ARRAY[2], ARRAY['c'])), " +
+                "(3, 'd', (3, 'd'), map(ARRAY[3, 33], ARRAY['d', 'x']))," +
+                "(4, NULL, NULL, NULL), " +
+                "(5, 'f', (5, NULL), map()) ";
+        assertUpdate("INSERT INTO test_join_partitioning_normal1 " + normalValues1, 5);
+        assertUpdate("INSERT INTO test_join_partitioning_normal2 " + normalValues2, 6);
+
+        String expectedValues1 = "VALUES (1,'b'), (2, 'c'), (3, 'd'),(4, NULL)";
+        String expectedvalues2 = "VALUES " +
+                "(1, 'b'), " +
+                "(2, 'c'), " +
+                "(3, 'd')," +
+                "(4, NULL), " +
+                "(5, 'f') ";
+
+        // partitioned tables
+        assertUpdate("CREATE TABLE test_join_partitioning1(a BIGINT, b VARCHAR, c TIMESTAMP(6) ) WITH (partitioning = ARRAY['a', 'day(c)'])");
+        assertUpdate("CREATE TABLE test_join_partitioning2(a BIGINT, b VARCHAR, c TIMESTAMP(6) WITH TIME ZONE) WITH (partitioning = ARRAY['a', 'month(c)'])");
+        assertUpdate("CREATE TABLE test_join_partitioning3(a BIGINT, b VARCHAR, c DATE) WITH (partitioning = ARRAY['year(c)'])");
+        assertUpdate("CREATE TABLE test_join_partitioning4(a BIGINT, b VARCHAR, c  row(d BIGINT, e VARCHAR ), g map(BIGINT, VARCHAR)) WITH (partitioning = ARRAY['a'])");
+
+        // join non-partitioned table with partitioned table
+        String partitioningValues1 = "VALUES " +
+                "(0, 'a', CAST('2019-09-08' AS TIMESTAMP(6))), " +
+                "(1, 'b', TIMESTAMP '2020-09-09 10:10:23.123213'), " +
+                "(2, 'c',  TIMESTAMP '2020-09-09 11:10:33.234234')," +
+                "(3, 'd',  TIMESTAMP '2020-09-10 11:10:43.234234')," +
+                "(4, 'e',  TIMESTAMP '2020-09-10 11:10:53.234234')," +
+                "(5, 'f',  TIMESTAMP '2020-09-10 09:10:33.123355')";
+        assertUpdate("INSERT INTO test_join_partitioning1 " + partitioningValues1, 6);
+        assertQuery("SELECT nt.* FROM test_join_partitioning_normal1 nt JOIN test_join_partitioning1 pt ON nt.a = pt.a", normalValues1);
+        assertQuery("SELECT COUNT(*) FROM test_join_partitioning_normal1 nt JOIN test_join_partitioning1 pt ON nt.a = pt.a", "VALUES 5");
+        assertQuery("SELECT nt.* FROM test_join_partitioning_normal1 nt LEFT JOIN test_join_partitioning1 pt ON nt.a = pt.a", normalValues1);
+        assertQuery("SELECT pt.* FROM test_join_partitioning_normal2 nt RIGHT JOIN test_join_partitioning1 pt ON nt.a = pt.a", partitioningValues1);
+
+        String partitioningValues2 = "VALUES " +
+                "(1, 'b', TIMESTAMP '2020-09-09 10:10:23.123213 UTC'), " +
+                "(2, 'c',  TIMESTAMP '2020-09-09 11:10:33.234234 UTC')," +
+                "(3, 'd',  TIMESTAMP '2020-09-10 11:10:33.234234 UTC')," +
+                "(4, 'e',  TIMESTAMP '2020-09-10 11:10:33.234234 UTC')," +
+                "(5, 'f',  TIMESTAMP '2020-09-10 11:10:33.234234 UTC')";
+
+        assertUpdate("INSERT INTO test_join_partitioning2 " + partitioningValues2, 5);
+        assertQuery("SELECT nt.* FROM test_join_partitioning_normal1 nt JOIN test_join_partitioning2 pt ON nt.a = pt.a", expectedValues1);
+        assertQuery("SELECT nt.a, nt.b FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning2 pt ON nt.a = pt.a", expectedvalues2);
+        assertQuery("SELECT COUNT(nt.b) FROM test_join_partitioning_normal1 nt JOIN test_join_partitioning2 pt ON nt.a = pt.a", "VALUES 3");
+        assertQuery("SELECT COUNT(nt.b) FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning2 pt ON nt.a = pt.a", "VALUES 4");
+        assertQuery("SELECT COUNT(nt.a) FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning2 pt ON nt.a = pt.a", "VALUES 5");
+
+        String partitioningValues3 = "VALUES " +
+                "(1, 'b', DATE '2020-09-09'), " +
+                "(2, 'c', DATE '2021-09-09')," +
+                "(3, 'd', DATE '2022-09-09')," +
+                "(4, 'e', DATE '2023-09-10')," +
+                "(5, 'f', DATE '2024-09-10')," +
+                "(6, 'z', DATE '2050-09-10')";
+        assertUpdate("INSERT INTO test_join_partitioning3 " + partitioningValues3, 6);
+        assertQuery("SELECT nt.* FROM test_join_partitioning_normal1 nt JOIN test_join_partitioning3 pt ON nt.a = pt.a", expectedValues1);
+        assertQuery("SELECT nt.a, nt.b FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning3 pt ON nt.a = pt.a", expectedvalues2);
+        assertQuery("SELECT COUNT(nt.b) FROM test_join_partitioning_normal1 nt JOIN test_join_partitioning3 pt ON nt.b = pt.b", "VALUES 3");
+        assertQuery("SELECT COUNT(nt.b) FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning3 pt ON nt.b = pt.b", "VALUES 4");
+
+        assertUpdate("INSERT INTO test_join_partitioning4 SELECT * FROM test_join_partitioning_normal2", "VALUES 6");
+        assertQuery("SELECT nt.* FROM test_join_partitioning_normal1 nt JOIN test_join_partitioning4 pt ON nt.a = pt.a", normalValues1);
+        assertQuery("SELECT pt.a, pt.b FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning4 pt ON nt.a = pt.a where nt.a > 0", expectedvalues2);
+
+        // join partitioned table with partitioned table
+        String expectedPartitioningValues1 = "VALUES " +
+                "(1, 'b', TIMESTAMP '2020-09-09 10:10:23.123213'), " +
+                "(2, 'c',  TIMESTAMP '2020-09-09 11:10:33.234234')," +
+                "(3, 'd',  TIMESTAMP '2020-09-10 11:10:43.234234')," +
+                "(4, 'e',  TIMESTAMP '2020-09-10 11:10:53.234234')," +
+                "(5, 'f',  TIMESTAMP '2020-09-10 09:10:33.123355')";
+        String expectedPartitioningValues2 = "VALUES " +
+                "(1, 'b')," +
+                "(2, 'c')," +
+                "(3, 'd')," +
+                "(4, 'e')," +
+                "(5, 'f')";
+        assertQuery("SELECT pt1.* FROM test_join_partitioning1 pt1 JOIN test_join_partitioning2 pt2 ON pt1.a = pt2.a", expectedPartitioningValues1);
+        assertQuery("SELECT pt1.* FROM test_join_partitioning1 pt1 JOIN test_join_partitioning3 pt3 ON pt1.b = pt3.b", expectedPartitioningValues1);
+        assertQuery("SELECT pt1.* FROM test_join_partitioning1 pt1 JOIN test_join_partitioning4 pt4 ON pt1.a = pt4.a", partitioningValues1);
+
+        assertQuery("SELECT pt2.a, pt2.b FROM test_join_partitioning2 pt2 JOIN test_join_partitioning3 pt3 ON pt2.a = pt3.a", expectedPartitioningValues2);
+        assertQuery("SELECT pt2.a, pt2.b FROM test_join_partitioning2 pt2 JOIN test_join_partitioning4 pt4 ON pt2.a = pt4.a", expectedPartitioningValues2);
+        assertQuery("SELECT pt3.a, pt3.b FROM test_join_partitioning3 pt3 JOIN test_join_partitioning4 pt4 ON pt3.a = pt4.a", expectedPartitioningValues2);
+
+        assertQuery("SELECT count(pt1.a) FROM test_join_partitioning1 pt1 JOIN test_join_partitioning2 pt2 ON pt1.a = pt2.a", "VALUES 5");
+        assertQuery("SELECT count(pt4.a) FROM test_join_partitioning1 pt1 JOIN test_join_partitioning4 pt4 ON pt1.a = pt4.a", "VALUES 6");
+        assertQuery("SELECT count(pt4.b) FROM test_join_partitioning1 pt1 JOIN test_join_partitioning4 pt4 ON pt1.a = pt4.a", "VALUES 5");
+
+        dropTable("test_join_partitioning1");
+        dropTable("test_join_partitioning2");
+        dropTable("test_join_partitioning3");
+        dropTable("test_join_partitioning4");
+        dropTable("test_join_partitioning_normal1");
+        dropTable("test_join_partitioning_normal2");
+    }
+
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
