@@ -33,7 +33,7 @@ public class TestSynapseTypeMapping
             throws Exception
     {
         SynapseServer synapseServer = new SynapseServer();
-        return createSynapseQueryRunner(synapseServer, true, Map.of(), List.of());
+        return createSynapseQueryRunner(synapseServer, Map.of(), List.of());
     }
 
     @Override

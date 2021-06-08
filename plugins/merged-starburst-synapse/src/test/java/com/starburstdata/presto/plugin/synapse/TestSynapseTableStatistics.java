@@ -51,7 +51,7 @@ public class TestSynapseTableStatistics
             throws Exception
     {
         synapseServer = new SynapseServer();
-        return createSynapseQueryRunner(synapseServer, true, Map.of(), List.of(NATION));
+        return createSynapseQueryRunner(synapseServer, Map.of(), List.of(NATION));
     }
 
     @Override

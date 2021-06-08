@@ -32,7 +32,6 @@ public class TestSynapseImpersonation
         SynapseServer synapseServer = new SynapseServer();
         return createSynapseQueryRunner(
                 synapseServer,
-                true,
                 session -> createSession(ALICE_USER),
                 ImmutableMap.of("synapse.impersonation.enabled", "true"),
                 ImmutableList.of());

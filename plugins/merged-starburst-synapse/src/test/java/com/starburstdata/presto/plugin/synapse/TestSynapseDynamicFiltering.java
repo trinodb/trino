@@ -26,7 +26,7 @@ public class TestSynapseDynamicFiltering
             throws Exception
     {
         SynapseServer synapseServer = new SynapseServer();
-        return createSynapseQueryRunner(synapseServer, true, Map.of(), List.of(ORDERS));
+        return createSynapseQueryRunner(synapseServer, Map.of(), List.of(ORDERS));
     }
 
     @Override

@@ -33,7 +33,6 @@ public class TestSynapseImpersonationWithAuthToLocal
         SynapseServer synapseServer = new SynapseServer();
         return createSynapseQueryRunner(
                 synapseServer,
-                true,
                 session -> createSession(ALICE_USER + "/admin@company.com"),
                 ImmutableMap.of(
                         "synapse.impersonation.enabled", "true",

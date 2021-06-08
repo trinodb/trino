@@ -27,7 +27,6 @@ public class TestSynapseTableScanRedirection
         SynapseServer synapseServer = new SynapseServer();
         return createSynapseQueryRunner(
                 synapseServer,
-                true,
                 getRedirectionProperties(DEFAULT_CATALOG_NAME, TEST_SCHEMA),
                 tables);
     }

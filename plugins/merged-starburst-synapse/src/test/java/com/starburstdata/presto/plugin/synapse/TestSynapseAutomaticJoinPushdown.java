@@ -33,7 +33,6 @@ public class TestSynapseAutomaticJoinPushdown
         return createSynapseQueryRunner(
                 synapseServer,
                 "sqlserver",
-                true,
                 Function.identity(),
                 Map.of(),
                 List.of());

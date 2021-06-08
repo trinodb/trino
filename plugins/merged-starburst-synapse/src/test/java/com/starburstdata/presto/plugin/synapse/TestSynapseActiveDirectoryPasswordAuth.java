@@ -34,7 +34,6 @@ public class TestSynapseActiveDirectoryPasswordAuth
         SynapseServer synapseServer = new SynapseServer();
         return createSynapseQueryRunner(
                 synapseServer,
-                true,
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", JDBC_URL)
                         .put("connection-user", ACTIVE_DIRECTORY_USERNAME)

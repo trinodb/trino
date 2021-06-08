@@ -41,7 +41,6 @@ public class TestSynapseConnectorTest
         return createSynapseQueryRunner(
                 synapseServer,
                 "sqlserver",
-                true,
                 Function.identity(),
                 Map.of(),
                 TpchTable.getTables());

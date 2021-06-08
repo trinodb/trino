@@ -56,14 +56,12 @@ public final class SynapseQueryRunner
 
     public static DistributedQueryRunner createSynapseQueryRunner(
             SynapseServer synapseServer,
-            boolean unlockEnterpriseFeatures,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
         return createSynapseQueryRunner(
                 synapseServer,
-                unlockEnterpriseFeatures,
                 Function.identity(),
                 connectorProperties,
                 tables);
@@ -71,7 +69,6 @@ public final class SynapseQueryRunner
 
     public static DistributedQueryRunner createSynapseQueryRunner(
             SynapseServer synapseServer,
-            boolean unlockEnterpriseFeatures,
             Function<Session, Session> sessionModifier,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
@@ -80,7 +77,6 @@ public final class SynapseQueryRunner
         return createSynapseQueryRunner(
                 synapseServer,
                 DEFAULT_CATALOG_NAME,
-                unlockEnterpriseFeatures,
                 sessionModifier,
                 connectorProperties,
                 tables);
@@ -89,7 +85,6 @@ public final class SynapseQueryRunner
     public static DistributedQueryRunner createSynapseQueryRunner(
             SynapseServer synapseServer,
             String catalogName,
-            boolean unlockEnterpriseFeatures,
             Function<Session, Session> sessionModifier,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
@@ -132,9 +127,7 @@ public final class SynapseQueryRunner
             synapseServer.execute(format("GRANT SELECT ON %s.user_context to %s", TEST_SCHEMA, ALICE_USER));
             synapseServer.execute(format("GRANT SELECT ON %s.user_context to %s", TEST_SCHEMA, BOB_USER));
 
-            queryRunner.installPlugin(unlockEnterpriseFeatures
-                    ? new TestingSynapsePlugin()
-                    : new StarburstSynapsePlugin());
+            queryRunner.installPlugin(new TestingSynapsePlugin());
 
             queryRunner.createCatalog(catalogName, "synapse", connectorProperties);
 
