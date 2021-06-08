@@ -727,6 +727,8 @@ public class StarburstRemoteClient
             // Disabling prefer_partial_aggregation allows estimates
             // to be propagated through the aggregate node.
             remoteConnection.setSessionProperty("prefer_partial_aggregation", "false");
+            // Disabling partial TopN allows estimates to be propagated through TopN node.
+            remoteConnection.setSessionProperty("use_partial_topn", "false");
             return connection;
         }
         catch (SQLException e) {
@@ -749,13 +751,7 @@ public class StarburstRemoteClient
                 table.getConstraint(),
                 Optional.empty());
 
-        if (table.getLimit().isPresent()) {
-            if (table.getSortOrder().isPresent()) {
-                // TODO (https://github.com/trinodb/trino/pull/8028) include ORDER BY too, SET SESSION use_partial_topn=false; and switch to simpler:
-                //     preparedQuery = preparedQuery.transformQuery(applyLimit(tableHandle.getLimit().getAsLong()));
-            }
-            preparedQuery = preparedQuery.transformQuery(sql -> limitFunction().orElseThrow().apply(sql, table.getLimit().orElseThrow()));
-        }
+        preparedQuery = applyQueryTransformations(table, preparedQuery);
 
         preparedQuery = preparedQuery.transformQuery(sql -> "SHOW STATS FOR (" + sql + ")");
         return queryBuilder.prepareStatement(session, connection, preparedQuery);
