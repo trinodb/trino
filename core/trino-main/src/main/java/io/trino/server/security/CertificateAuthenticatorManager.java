@@ -15,6 +15,7 @@ package io.trino.server.security;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.CertificateAuthenticator;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 
@@ -76,7 +77,11 @@ public class CertificateAuthenticatorManager
         CertificateAuthenticatorFactory factory = factories.get(name);
         checkState(factory != null, "Certificate authenticator '%s' is not registered", name);
 
-        CertificateAuthenticator authenticator = factory.create(ImmutableMap.copyOf(properties));
+        CertificateAuthenticator authenticator;
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+            authenticator = factory.create(ImmutableMap.copyOf(properties));
+        }
+
         this.authenticator.set(requireNonNull(authenticator, "authenticator is null"));
 
         log.info("-- Loaded certificate authenticator %s --", name);
