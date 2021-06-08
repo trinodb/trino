@@ -135,7 +135,7 @@ public final class BenchmarkFileFormatsUtils
             Statistics outputSizeStats = result.getSecondaryResults().get("outputSize").getStatistics();
             double compressionRatio = inputSizeStats.getSum() / outputSizeStats.getSum();
             String compression = result.getParams().getParam("compression");
-            String fileFormat = result.getParams().getParam("fileFormat");
+            String fileFormat = result.getParams().getParam("benchmarkFileFormat");
             String dataSet = result.getParams().getParam("dataSet");
             System.out.printf("  %-10s  %-30s  %-10s  %-25s  %2.2f  %10s ± %11s (%5.2f%%) (N = %d, \u03B1 = 99.9%%)\n",
                     result.getPrimaryResult().getLabel(),
