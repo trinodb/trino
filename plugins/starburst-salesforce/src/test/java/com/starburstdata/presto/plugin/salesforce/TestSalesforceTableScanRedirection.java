@@ -15,7 +15,6 @@ import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
 import com.starburstdata.presto.redirection.RedirectedTable;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -28,20 +27,13 @@ public class TestSalesforceTableScanRedirection
         extends AbstractTableScanRedirectionTest
 {
     @Override
-    protected QueryRunner createQueryRunner(Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return SalesforceQueryRunner.builder()
-                .setTables(tables)
-                .addConnectorProperties(getRedirectionProperties("salesforce", "salesforce"))
-                .build();
-    }
-
-    @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = createQueryRunner(tables);
+        QueryRunner queryRunner = SalesforceQueryRunner.builder()
+                .setTables(REQUIRED_TPCH_TABLES)
+                .addConnectorProperties(getRedirectionProperties("salesforce", "salesforce"))
+                .build();
         queryRunner.installPlugin(new MemoryPlugin());
         queryRunner.createCatalog("memory", "memory", ImmutableMap.of());
         queryRunner.execute("CREATE SCHEMA memory.target_schema");
