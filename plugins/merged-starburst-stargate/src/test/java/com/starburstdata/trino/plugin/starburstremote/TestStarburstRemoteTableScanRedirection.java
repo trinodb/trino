@@ -13,7 +13,6 @@ import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 
 import java.util.Map;
 import java.util.Optional;
@@ -26,12 +25,12 @@ public class TestStarburstRemoteTableScanRedirection
         extends AbstractTableScanRedirectionTest
 {
     @Override
-    protected QueryRunner createQueryRunner(Iterable<TpchTable<?>> tables)
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         DistributedQueryRunner remoteStarburst = closeAfterClass(createStarburstRemoteQueryRunnerWithMemory(
                 Map.of(),
-                tables,
+                REQUIRED_TPCH_TABLES,
                 Optional.empty()));
 
         Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
