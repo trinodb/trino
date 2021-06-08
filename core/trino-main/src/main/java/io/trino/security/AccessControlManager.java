@@ -29,6 +29,7 @@ import io.trino.plugin.base.security.ForwardingSystemAccessControl;
 import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -166,10 +167,14 @@ public class AccessControlManager
         String name = properties.remove(NAME_PROPERTY);
         checkState(!isNullOrEmpty(name), "Access control configuration does not contain '%s' property: %s", NAME_PROPERTY, configFile);
 
-        SystemAccessControlFactory systemAccessControlFactory = systemAccessControlFactories.get(name);
-        checkState(systemAccessControlFactory != null, "Access control '%s' is not registered: %s", name, configFile);
+        SystemAccessControlFactory factory = systemAccessControlFactories.get(name);
+        checkState(factory != null, "Access control '%s' is not registered: %s", name, configFile);
 
-        SystemAccessControl systemAccessControl = systemAccessControlFactory.create(ImmutableMap.copyOf(properties));
+        SystemAccessControl systemAccessControl;
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+            systemAccessControl = factory.create(ImmutableMap.copyOf(properties));
+        }
+
         log.info("-- Loaded system access control %s --", name);
         return systemAccessControl;
     }
@@ -180,10 +185,14 @@ public class AccessControlManager
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");
 
-        SystemAccessControlFactory systemAccessControlFactory = systemAccessControlFactories.get(name);
-        checkState(systemAccessControlFactory != null, "Access control '%s' is not registered", name);
+        SystemAccessControlFactory factory = systemAccessControlFactories.get(name);
+        checkState(factory != null, "Access control '%s' is not registered", name);
 
-        SystemAccessControl systemAccessControl = systemAccessControlFactory.create(ImmutableMap.copyOf(properties));
+        SystemAccessControl systemAccessControl;
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+            systemAccessControl = factory.create(ImmutableMap.copyOf(properties));
+        }
+
         setSystemAccessControls(ImmutableList.of(systemAccessControl));
     }
 
