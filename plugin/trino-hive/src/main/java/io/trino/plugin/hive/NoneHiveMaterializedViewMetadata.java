@@ -71,12 +71,12 @@ public class NoneHiveMaterializedViewMetadata
     @Override
     public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping materialized views");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
 
     @Override
     public CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping materialized views");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
 }
