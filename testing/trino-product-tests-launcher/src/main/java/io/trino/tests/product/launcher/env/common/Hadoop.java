@@ -43,7 +43,7 @@ public final class Hadoop
     public static final String CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS = CONTAINER_PRESTO_ETC + "/catalog/hive_timestamp_nanos.properties";
     public static final String CONTAINER_PRESTO_ICEBERG_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties";
 
-    private final DockerFiles dockerFiles;
+    private final DockerFiles.ResourceProvider resources;
     private final PortBinder portBinder;
 
     private final String hadoopBaseImage;
@@ -55,7 +55,8 @@ public final class Hadoop
             PortBinder portBinder,
             EnvironmentConfig environmentConfig)
     {
-        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.resources = requireNonNull(dockerFiles, "dockerFiles is null")
+                .getDockerFilesHostDirectory("common/hadoop/");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
         hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
@@ -64,7 +65,7 @@ public final class Hadoop
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainer(createHadoopContainer(dockerFiles, hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP));
+        builder.addContainer(createHadoopContainer(resources, hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP));
 
         builder.configureContainer(HADOOP, container -> {
             portBinder.exposePort(container, 1180);  // socks proxy
@@ -85,26 +86,26 @@ public final class Hadoop
         builder.configureContainer(
                 COORDINATOR,
                 container -> container
-                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
-                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES)
-                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_timestamp_nanos.properties")), CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS)
-                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES));
+                        .withCopyFileToContainer(forHostPath(resources.getPath("hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
+                        .withCopyFileToContainer(forHostPath(resources.getPath("hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES)
+                        .withCopyFileToContainer(forHostPath(resources.getPath("hive_timestamp_nanos.properties")), CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS)
+                        .withCopyFileToContainer(forHostPath(resources.getPath("hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES));
     }
 
     @SuppressWarnings("resource")
-    public static DockerContainer createHadoopContainer(DockerFiles dockerFiles, String dockerImage, String logicalName)
+    public static DockerContainer createHadoopContainer(DockerFiles.ResourceProvider resources, String dockerImage, String logicalName)
     {
         return new DockerContainer(dockerImage, logicalName)
                 // TODO HIVE_PROXY_PORT:1180
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), CONTAINER_CONF_ROOT)
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/hadoop-health-check.sh")), CONTAINER_HEALTH_D + "hadoop-health-check.sh")
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hadoop-run.sh")), "/usr/local/hadoop-run.sh")
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/apply-config-overrides.sh")), CONTAINER_HADOOP_INIT_D + "00-apply-config-overrides.sh")
+                .withCopyFileToContainer(forHostPath(resources.getHostPath()), CONTAINER_CONF_ROOT)
+                .withCopyFileToContainer(forHostPath(resources.getPath("hadoop-health-check.sh")), CONTAINER_HEALTH_D + "hadoop-health-check.sh")
+                .withCopyFileToContainer(forHostPath(resources.getPath("hadoop-run.sh")), "/usr/local/hadoop-run.sh")
+                .withCopyFileToContainer(forHostPath(resources.getPath("apply-config-overrides.sh")), CONTAINER_HADOOP_INIT_D + "00-apply-config-overrides.sh")
                 .withCommand("/usr/local/hadoop-run.sh")
                 .withExposedLogPaths("/var/log/hadoop-yarn", "/var/log/hadoop-hdfs", "/var/log/hive", "/var/log/container-health.log")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forSelectedPorts(10000), forHealthcheck()) // HiveServer2
                 .withStartupTimeout(Duration.ofMinutes(5))
-                .withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
+                .withHealthCheck(resources.getPath("health.sh"));
     }
 }

@@ -41,7 +41,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class TwoMixedHives
         extends EnvironmentProvider
 {
-    private final DockerFiles dockerFiles;
+    private final DockerFiles.ResourceProvider resources;
 
     private final String hadoopBaseImage;
     private final String hadoopImagesVersion;
@@ -54,7 +54,8 @@ public final class TwoMixedHives
             EnvironmentConfig environmentConfig)
     {
         super(ImmutableList.of(standard, hadoopKerberos));
-        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.resources = requireNonNull(dockerFiles, "dockerFiles is null")
+                .getDockerFilesHostDirectory("common/hadoop", "conf/environment/two-mixed-hives/");
         hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
         hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
     }
@@ -64,16 +65,16 @@ public final class TwoMixedHives
     {
         builder.configureContainer(COORDINATOR, container -> {
             container.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hive1.properties")),
+                    forHostPath(resources.getPath("hive1.properties")),
                     CONTAINER_PRESTO_ETC + "/catalog/hive1.properties");
             container.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hive2.properties")),
+                    forHostPath(resources.getPath("hive2.properties")),
                     CONTAINER_PRESTO_ETC + "/catalog/hive2.properties");
             container.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/iceberg1.properties")),
+                    forHostPath(resources.getPath("iceberg1.properties")),
                     CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties");
             container.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/iceberg2.properties")),
+                    forHostPath(resources.getPath("iceberg2.properties")),
                     CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
         });
 
@@ -83,15 +84,15 @@ public final class TwoMixedHives
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster2()
     {
-        return createHadoopContainer(dockerFiles, hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP + "-2")
+        return createHadoopContainer(resources, hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP + "-2")
                 .withCopyFileToContainer(
-                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/core-site.xml")),
+                        forHostPath(resources.getPath("hadoop-master-2/core-site.xml")),
                         "/etc/hadoop/conf/core-site.xml")
                 .withCopyFileToContainer(
-                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/mapred-site.xml")),
+                        forHostPath(resources.getPath("hadoop-master-2/mapred-site.xml")),
                         "/etc/hadoop/conf/mapred-site.xml")
                 .withCopyFileToContainer(
-                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/yarn-site.xml")),
+                        forHostPath(resources.getPath("hadoop-master-2/yarn-site.xml")),
                         "/etc/hadoop/conf/yarn-site.xml");
     }
 }

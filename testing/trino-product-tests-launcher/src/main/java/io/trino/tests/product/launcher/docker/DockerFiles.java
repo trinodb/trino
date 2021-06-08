@@ -13,6 +13,8 @@
  */
 package io.trino.tests.product.launcher.docker;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
 import net.jodah.failsafe.Failsafe;
@@ -28,12 +30,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static java.lang.String.format;
 import static java.nio.file.Files.copy;
 import static java.util.UUID.randomUUID;
 
@@ -74,14 +79,35 @@ public final class DockerFiles
         return dockerFilesHostPath;
     }
 
-    public ResourceProvider getDockerFilesHostDirectory(String directory)
+    public ResourceProvider getDockerFilesHostDirectory(String... searchDirectories)
     {
-        Path hostPath = getDockerFilesHostPath(directory);
-        return file -> {
-            checkArgument(file != null && !file.isEmpty() && !(file.charAt(0) == '/'), "Invalid file: %s", file);
-            Path filePath = hostPath.resolve(file);
-            checkArgument(Files.exists(filePath), "'%s' resolves to '%s', but it does not exist", file, filePath);
-            return filePath;
+        // Resources are searched for from last to the first provided search directory.
+        List<Path> searchPaths = ImmutableList.copyOf(searchDirectories).reverse().stream()
+                .map(this::getDockerFilesHostPath)
+                .collect(toImmutableList());
+
+        return new ResourceProvider()
+        {
+            @Override
+            public Path getPath(String file)
+            {
+                checkArgument(file != null && !file.isEmpty() && !(file.charAt(0) == '/'), "Invalid file: %s", file);
+
+                for (Path searchPath : searchPaths) {
+                    Path filePath = searchPath.resolve(file);
+                    if (Files.exists(filePath)) {
+                        return filePath;
+                    }
+                }
+
+                throw new IllegalArgumentException(format("Could not find '%s' in following directories: %s", file, Joiner.on(", ").join(searchPaths)));
+            }
+
+            @Override
+            public Path getHostPath()
+            {
+                return getDockerFilesHostPath();
+            }
         };
     }
 
@@ -149,5 +175,7 @@ public final class DockerFiles
     public interface ResourceProvider
     {
         Path getPath(String resourceName);
+
+        Path getHostPath();
     }
 }

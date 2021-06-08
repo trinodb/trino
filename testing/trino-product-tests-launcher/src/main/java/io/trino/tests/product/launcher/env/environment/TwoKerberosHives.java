@@ -53,7 +53,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class TwoKerberosHives
         extends EnvironmentProvider
 {
-    private final DockerFiles dockerFiles;
+    private final DockerFiles.ResourceProvider resources;
 
     private final String hadoopBaseImage;
     private final String hadoopImagesVersion;
@@ -68,7 +68,8 @@ public final class TwoKerberosHives
             EnvironmentConfig environmentConfig)
     {
         super(ImmutableList.of(standard, hadoopKerberos));
-        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.resources = requireNonNull(dockerFiles, "dockerFiles is null")
+                .getDockerFilesHostDirectory("common/hadoop", "conf/environment/two-kerberos-hives");
         hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
         hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
     }
@@ -90,23 +91,23 @@ public final class TwoKerberosHives
                     .withFileSystemBind(keytabsHostDirectory, "/etc/presto/conf", READ_WRITE)
 
                     .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/presto-krb5.conf")),
+                            forHostPath(resources.getPath("presto-krb5.conf")),
                             "/etc/krb5.conf")
 
                     .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/hive1.properties")),
+                            forHostPath(resources.getPath("hive1.properties")),
                             CONTAINER_PRESTO_ETC + "/catalog/hive1.properties")
 
                     .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/hive2.properties")),
+                            forHostPath(resources.getPath("hive2.properties")),
                             CONTAINER_PRESTO_ETC + "/catalog/hive2.properties")
 
                     .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/iceberg1.properties")),
+                            forHostPath(resources.getPath("iceberg1.properties")),
                             CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties")
 
                     .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/iceberg2.properties")),
+                            forHostPath(resources.getPath("iceberg2.properties")),
                             CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
         });
 
@@ -114,7 +115,7 @@ public final class TwoKerberosHives
             container.setDockerImageName(hadoopBaseImage + "-kerberized:" + hadoopImagesVersion);
             container.withFileSystemBind(keytabsHostDirectory, "/presto_keytabs", READ_WRITE);
             container.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/hadoop-master-copy-keytabs.sh")),
+                    forHostPath(resources.getPath("hadoop-master-copy-keytabs.sh")),
                     CONTAINER_HADOOP_INIT_D + "copy-kerberos.sh");
         });
 
@@ -137,10 +138,10 @@ public final class TwoKerberosHives
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster2(String keytabsHostDirectory)
     {
-        return createHadoopContainer(dockerFiles, hadoopBaseImage + "-kerberized-2:" + hadoopImagesVersion, HADOOP + "-2")
+        return createHadoopContainer(resources, hadoopBaseImage + "-kerberized-2:" + hadoopImagesVersion, HADOOP + "-2")
                 .withFileSystemBind(keytabsHostDirectory, "/presto_keytabs", READ_WRITE)
                 .withCopyFileToContainer(
-                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/hadoop-master-2-copy-keytabs.sh")),
+                        forHostPath(resources.getPath("hadoop-master-2-copy-keytabs.sh")),
                         CONTAINER_HADOOP_INIT_D + "copy-kerberos.sh");
     }
 }
