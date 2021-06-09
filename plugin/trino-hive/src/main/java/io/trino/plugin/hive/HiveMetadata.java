@@ -2650,6 +2650,12 @@ public class HiveMetadata
     }
 
     @Override
+    public boolean roleExists(ConnectorSession session, String role)
+    {
+        return accessControlMetadata.roleExists(session, role);
+    }
+
+    @Override
     public void createRole(ConnectorSession session, String role, Optional<TrinoPrincipal> grantor)
     {
         accessControlMetadata.createRole(session, role, grantor.map(HivePrincipal::from));

@@ -25,7 +25,6 @@ import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
@@ -60,11 +59,10 @@ public class CreateRoleTask
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
         Optional<TrinoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         accessControl.checkCanCreateRole(session.toSecurityContext(), role, grantor, catalog);
-        Set<String> existingRoles = metadata.listRoles(session, catalog);
-        if (existingRoles.contains(role)) {
+        if (metadata.roleExists(session, role, catalog)) {
             throw semanticException(ROLE_ALREADY_EXISTS, statement, "Role '%s' already exists", role);
         }
-        if (grantor.isPresent() && grantor.get().getType() == ROLE && !existingRoles.contains(grantor.get().getName())) {
+        if (grantor.isPresent() && grantor.get().getType() == ROLE && !metadata.roleExists(session, grantor.get().getName(), catalog)) {
             throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", grantor.get().getName());
         }
         metadata.createRole(session, role, grantor, catalog);

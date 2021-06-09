@@ -67,7 +67,6 @@ public class GrantRolesTask
         Optional<TrinoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         String catalog = getSessionCatalog(metadata, session, statement);
 
-        Set<String> availableRoles = metadata.listRoles(session, catalog);
         Set<String> specifiedRoles = new LinkedHashSet<>();
         specifiedRoles.addAll(roles);
         grantees.stream()
@@ -79,7 +78,7 @@ public class GrantRolesTask
         }
 
         for (String role : specifiedRoles) {
-            if (!availableRoles.contains(role)) {
+            if (!metadata.roleExists(session, role, catalog)) {
                 throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", role);
             }
         }

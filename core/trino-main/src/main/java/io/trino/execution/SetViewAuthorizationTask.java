@@ -15,7 +15,6 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -57,14 +56,13 @@ public class SetViewAuthorizationTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
-        CatalogName catalogName = getRequiredCatalogHandle(metadata, session, statement, viewName.getCatalogName());
+        getRequiredCatalogHandle(metadata, session, statement, viewName.getCatalogName());
         if (metadata.getView(session, viewName).isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
         }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
-        if (principal.getType() == PrincipalType.ROLE
-                && !metadata.listRoles(session, catalogName.getCatalogName()).contains(principal.getName())) {
+        if (principal.getType() == PrincipalType.ROLE && !metadata.roleExists(session, principal.getName(), viewName.getCatalogName())) {
             throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", principal.getName());
         }
 
