@@ -446,6 +446,7 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Test
+    @Override
     public void testAggregationPushdown()
     {
         // TODO support aggregation pushdown with GROUPING SETS
@@ -545,7 +546,29 @@ public abstract class BaseSnowflakeConnectorTest
         }
     }
 
+    @Override
+    public void testAggregationWithUnsupportedResultType()
+    {
+        // TODO: Migrate to BaseJdbcConnectorTest
+        throw new SkipException("tested via testAggregationPushdown");
+    }
+
+    @Override
+    public void testDistinctAggregationPushdown()
+    {
+        // TODO: Migrate to BaseJdbcConnectorTest
+        throw new SkipException("tested via testAggregationPushdown");
+    }
+
+    @Override
+    public void testNumericAggregationPushdown()
+    {
+        // TODO: Migrate to BaseJdbcConnectorTest
+        throw new SkipException("tested via testAggregationPushdown");
+    }
+
     @Test
+    @Override
     public void testStddevAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
@@ -579,6 +602,7 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Test
+    @Override
     public void testVarianceAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
@@ -612,6 +636,7 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Test
+    @Override
     public void testCovarianceAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
@@ -646,6 +671,7 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Test
+    @Override
     public void testCorrAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
@@ -677,6 +703,7 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Test
+    @Override
     public void testRegrAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
@@ -922,5 +949,11 @@ public abstract class BaseSnowflakeConnectorTest
                             "TIME '04:05:06.123'," + // Snowflake truncates on cast
                             "TIME '23:59:59.999'");
         }
+    }
+
+    @Override
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return snowflakeExecutor;
     }
 }
