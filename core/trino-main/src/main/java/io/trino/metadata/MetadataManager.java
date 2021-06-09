@@ -1722,9 +1722,13 @@ public final class MetadataManager
     //
 
     @Override
-    public boolean roleExists(Session session, String role, String catalog)
+    public boolean roleExists(Session session, String role, Optional<String> catalog)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(catalog));
+        if (catalog.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Global roles are not supported yet");
+        }
+
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(catalog.get()));
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
@@ -1732,9 +1736,13 @@ public final class MetadataManager
     }
 
     @Override
-    public void createRole(Session session, String role, Optional<TrinoPrincipal> grantor, String catalog)
+    public void createRole(Session session, String role, Optional<TrinoPrincipal> grantor, Optional<String> catalog)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
+        if (catalog.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Global roles are not supported yet");
+        }
+
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
@@ -1742,9 +1750,13 @@ public final class MetadataManager
     }
 
     @Override
-    public void dropRole(Session session, String role, String catalog)
+    public void dropRole(Session session, String role, Optional<String> catalog)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
+        if (catalog.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Global roles are not supported yet");
+        }
+
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
@@ -1752,9 +1764,13 @@ public final class MetadataManager
     }
 
     @Override
-    public Set<String> listRoles(Session session, String catalog)
+    public Set<String> listRoles(Session session, Optional<String> catalog)
     {
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
+        if (catalog.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
         if (catalogMetadata.isEmpty()) {
             return ImmutableSet.of();
         }
@@ -1767,9 +1783,13 @@ public final class MetadataManager
     }
 
     @Override
-    public Set<RoleGrant> listAllRoleGrants(Session session, String catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
+    public Set<RoleGrant> listAllRoleGrants(Session session, Optional<String> catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
     {
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
+        if (catalog.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
         if (catalogMetadata.isEmpty()) {
             return ImmutableSet.of();
         }
@@ -1780,9 +1800,13 @@ public final class MetadataManager
     }
 
     @Override
-    public Set<RoleGrant> listRoleGrants(Session session, String catalog, TrinoPrincipal principal)
+    public Set<RoleGrant> listRoleGrants(Session session, Optional<String> catalog, TrinoPrincipal principal)
     {
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
+        if (catalog.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
         if (catalogMetadata.isEmpty()) {
             return ImmutableSet.of();
         }
@@ -1793,9 +1817,13 @@ public final class MetadataManager
     }
 
     @Override
-    public void grantRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalog)
+    public void grantRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalog)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
+        if (catalog.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Global roles are not supported yet");
+        }
+
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
@@ -1803,9 +1831,13 @@ public final class MetadataManager
     }
 
     @Override
-    public void revokeRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalog)
+    public void revokeRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalog)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
+        if (catalog.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Global roles are not supported yet");
+        }
+
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
@@ -1813,9 +1845,13 @@ public final class MetadataManager
     }
 
     @Override
-    public Set<RoleGrant> listApplicableRoles(Session session, TrinoPrincipal principal, String catalog)
+    public Set<RoleGrant> listApplicableRoles(Session session, TrinoPrincipal principal, Optional<String> catalog)
     {
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
+        if (catalog.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
         if (catalogMetadata.isEmpty()) {
             return ImmutableSet.of();
         }

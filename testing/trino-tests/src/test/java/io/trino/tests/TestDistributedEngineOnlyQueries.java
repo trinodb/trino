@@ -110,12 +110,12 @@ public class TestDistributedEngineOnlyQueries
     public void testRoles()
     {
         Session invalid = Session.builder(getSession()).setCatalog("invalid").build();
-        assertQueryFails(invalid, "CREATE ROLE test", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "CREATE ROLE test", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "DROP ROLE test", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "GRANT test TO USER foo", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "REVOKE test FROM USER foo", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "SET ROLE test", "line 1:1: Catalog 'invalid' does not exist");
+        assertQueryFails(invalid, "CREATE ROLE test", "Global roles are not supported yet");
+        assertQueryFails(invalid, "CREATE ROLE test", "Global roles are not supported yet");
+        assertQueryFails(invalid, "DROP ROLE test", "Global roles are not supported yet");
+        assertQueryFails(invalid, "GRANT test TO USER foo", "Global roles are not supported yet");
+        assertQueryFails(invalid, "REVOKE test FROM USER foo", "Global roles are not supported yet");
+        assertQueryFails(invalid, "SET ROLE test", "Global roles are not supported yet");
     }
 
     @Test

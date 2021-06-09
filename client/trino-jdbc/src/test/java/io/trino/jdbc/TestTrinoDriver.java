@@ -743,17 +743,19 @@ public class TestTrinoDriver
     {
         try (TrinoConnection connection = createConnection(TEST_CATALOG, "tiny").unwrap(TrinoConnection.class)) {
             try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("SET ROLE ALL");
+                statement.executeUpdate("SET ROLE ALL IN " + TEST_CATALOG);
             }
             assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new ClientSelectedRole(ClientSelectedRole.Type.ALL, Optional.empty())));
             try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("SET ROLE NONE");
+                statement.executeUpdate("SET ROLE NONE IN " + TEST_CATALOG);
             }
             assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new ClientSelectedRole(ClientSelectedRole.Type.NONE, Optional.empty())));
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("SET ROLE bar");
-            }
-            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new ClientSelectedRole(ClientSelectedRole.Type.ROLE, Optional.of("bar"))));
+
+            // Only hive connector supports roles
+            // try (Statement statement = connection.createStatement()) {
+            //     statement.executeUpdate("SET ROLE bar IN " + TEST_CATALOG);
+            // }
+            // assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new ClientSelectedRole(ClientSelectedRole.Type.ROLE, Optional.of("bar"))));
         }
     }
 

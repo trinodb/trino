@@ -393,65 +393,79 @@ public interface AccessControl
     /**
      * Check if identity is allowed to create the specified role.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanCreateRole(SecurityContext context, String role, Optional<TrinoPrincipal> grantor, String catalogName);
+    void checkCanCreateRole(SecurityContext context, String role, Optional<TrinoPrincipal> grantor, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to drop the specified role.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanDropRole(SecurityContext context, String role, String catalogName);
+    void checkCanDropRole(SecurityContext context, String role, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to grant the specified roles to the specified principals.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName);
+    void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to revoke the specified roles from the specified principals.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName);
+    void checkCanRevokeRoles(SecurityContext context,
+            Set<String> roles,
+            Set<TrinoPrincipal> grantees,
+            boolean adminOption,
+            Optional<TrinoPrincipal> grantor,
+            Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to set role for specified catalog.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetRole(SecurityContext context, String role, String catalogName);
+    void checkCanSetCatalogRole(SecurityContext context, String role, String catalogName);
 
     /**
      * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, String catalogName);
+    void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to show roles on the specified catalog.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanShowRoles(SecurityContext context, String catalogName);
+    void checkCanShowRoles(SecurityContext context, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to show current roles on the specified catalog.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanShowCurrentRoles(SecurityContext context, String catalogName);
+    void checkCanShowCurrentRoles(SecurityContext context, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to show its own role grants on the specified catalog.
      *
+     * @param catalogName if present, the role catalog; otherwise the role is a system role
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanShowRoleGrants(SecurityContext context, String catalogName);
+    void checkCanShowRoleGrants(SecurityContext context, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to execute procedure
