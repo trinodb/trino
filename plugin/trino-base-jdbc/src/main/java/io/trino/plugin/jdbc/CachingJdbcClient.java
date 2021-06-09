@@ -289,7 +289,7 @@ public class CachingJdbcClient
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.finishInsertTable(session, handle);
-        invalidateTableCaches(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        invalidateCache(statisticsCache, key -> key.tableHandle.references(new SchemaTableName(handle.getSchemaName(), handle.getTableName())));
     }
 
     @Override
