@@ -106,7 +106,7 @@ public final class SynapseQueryRunner
                         TEST_SCHEMA));
             }
             catch (RuntimeException e) {
-                if (e.getCause() instanceof SQLServerException && ((SQLServerException) e.getCause()).getErrorCode() != ERROR_OBJECT_EXISTS) {
+                if (!(e.getCause() instanceof SQLServerException) || ((SQLServerException) e.getCause()).getErrorCode() != ERROR_OBJECT_EXISTS) {
                     throw e;
                 }
             }
