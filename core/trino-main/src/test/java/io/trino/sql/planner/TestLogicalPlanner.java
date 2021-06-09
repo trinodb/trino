@@ -56,6 +56,8 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.rowpattern.ir.IrLabel;
+import io.trino.sql.planner.rowpattern.ir.IrQuantified;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
@@ -85,10 +87,13 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
@@ -114,11 +119,13 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictConstrainedTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
@@ -126,6 +133,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -141,12 +149,17 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
+import static io.trino.sql.planner.rowpattern.ir.IrQuantifier.oneOrMore;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.tests.QueryTemplate.queryTemplate;
 import static io.trino.util.MorePredicates.isInstanceOfAny;
 import static java.lang.String.format;
@@ -1809,6 +1822,81 @@ public class TestLogicalPlanner
                                                         new Row(ImmutableList.of(new LongLiteral("2"))),
                                                         toSqlType(RowType.anonymous(ImmutableList.of(BIGINT)))),
                                                 toSqlType(RowType.anonymous(ImmutableList.of(DOUBLE)))))))));
+    }
+
+    @Test
+    public void testMergePatternRecognitionNodes()
+    {
+        // The pattern matching window `w` is referenced in three calls: row pattern measure calls: `val OVER w` and `label OVER w`,
+        // and window function call `row_number() OVER w`. They are all planned within a single PatternRecognitionNode.
+        assertPlan("SELECT id, val OVER w, label OVER w, row_number() OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES " +
+                        "                            RUNNING LAST(value) AS val, " +
+                        "                            CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addMeasure("val", "LAST(value)", INTEGER)
+                                                .addMeasure("label", "CLASSIFIER()", VARCHAR)
+                                                .addFunction("row_number", functionCall("row_number", ImmutableList.of()))
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+    }
+
+    @Test
+    public void testMergePatternRecognitionNodesWithProjections()
+    {
+        // The pattern matching window `w` is referenced in three calls: row pattern measure calls: `value OVER w` and `label OVER w`,
+        // and window function call `min(input1) OVER w`. They are all planned within a single PatternRecognitionNode.
+        assertPlan("SELECT id, 2 * value OVER w, lower(label OVER w), 1 + min(input1) OVER w " +
+                        "          FROM (VALUES (1, 2, 3)) t(id, input1, input2) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES " +
+                        "                            RUNNING LAST(input2) AS value, " +
+                        "                            CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )",
+                output(
+                        project(
+                                ImmutableMap.of(
+                                        "output1", expression("id"),
+                                        "output2", expression("value * 2"),
+                                        "output3", expression("lower(label)"),
+                                        "output4", expression("min + 1")),
+                                project(
+                                        ImmutableMap.of(
+                                                "id", expression("id"),
+                                                "value", expression("value"),
+                                                "label", expression("label"),
+                                                "min", expression("min")),
+                                        patternRecognition(builder -> builder
+                                                        .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                        .addMeasure("value", "LAST(input2)", INTEGER)
+                                                        .addMeasure("label", "CLASSIFIER()", VARCHAR)
+                                                        .addFunction("min", functionCall("min", ImmutableList.of("input1")))
+                                                        .rowsPerMatch(WINDOW)
+                                                        .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                        .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                        .addVariableDefinition(new IrLabel("A"), "true"),
+                                                values(
+                                                        ImmutableList.of("id", "input1", "input2"),
+                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3")))))))));
     }
 
     private Session noJoinReordering()
