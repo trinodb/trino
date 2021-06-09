@@ -32,33 +32,44 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 abstract class AbstractTestHiveRoles
         extends AbstractTestQueryFramework
 {
+    private final boolean legacyCommands;
+
+    AbstractTestHiveRoles(boolean legacyCommands)
+    {
+        this.legacyCommands = legacyCommands;
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.create();
+        return HiveQueryRunner.builder()
+                .addExtraProperty("deprecated.legacy-catalog-roles", String.valueOf(legacyCommands))
+                .build();
     }
 
     @AfterMethod(alwaysRun = true)
     public void afterMethod()
     {
         for (String role : listRoles()) {
-            executeFromAdmin("DROP ROLE " + role);
+            executeFromAdmin(dropRoleSql(role));
         }
     }
 
     @Test
     public void testCreateRole()
     {
-        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin(createRoleSql("role1"));
         assertEquals(listRoles(), ImmutableSet.of("role1", "admin"));
         assertEquals(listRoles(), ImmutableSet.of("role1", "admin"));
     }
@@ -66,50 +77,50 @@ abstract class AbstractTestHiveRoles
     @Test
     public void testCreateDuplicateRole()
     {
-        executeFromAdmin("CREATE ROLE duplicate_role");
-        assertQueryFails(createAdminSession(), "CREATE ROLE duplicate_role", ".*?Role 'duplicate_role' already exists");
+        executeFromAdmin(createRoleSql("duplicate_role"));
+        assertQueryFails(createAdminSession(), createRoleSql("duplicate_role"), ".*?Role 'duplicate_role' already exists");
     }
 
     @Test
     public void testCreateRoleWithAdminOption()
     {
-        assertQueryFails(createAdminSession(), "CREATE ROLE role1 WITH ADMIN admin", ".*?Hive Connector does not support WITH ADMIN statement");
+        assertQueryFails(createAdminSession(), "CREATE ROLE role1 WITH ADMIN admin" + optionalCatalogDeclaration(), ".*?Hive Connector does not support WITH ADMIN statement");
     }
 
     @Test
     public void testCreateReservedRole()
     {
-        assertQueryFails(createAdminSession(), "CREATE ROLE all", "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
-        assertQueryFails(createAdminSession(), "CREATE ROLE default", "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
-        assertQueryFails(createAdminSession(), "CREATE ROLE none", "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
-        assertQueryFails(createAdminSession(), "CREATE ROLE None", "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
+        assertQueryFails(createAdminSession(), createRoleSql("all"), "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
+        assertQueryFails(createAdminSession(), createRoleSql("default"), "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
+        assertQueryFails(createAdminSession(), createRoleSql("none"), "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
+        assertQueryFails(createAdminSession(), createRoleSql("None"), "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
     }
 
     @Test
     public void testCreateRoleByNonAdminUser()
     {
-        assertQueryFails(createUserSession("non_admin_user"), "CREATE ROLE role1", "Access Denied: Cannot create role role1");
+        assertQueryFails(createUserSession("non_admin_user"), createRoleSql("role1"), "Access Denied: Cannot create role role1");
     }
 
     @Test
     public void testDropRole()
     {
-        executeFromAdmin("CREATE ROLE role1");
+        executeFromAdmin(createRoleSql("role1"));
         assertEquals(listRoles(), ImmutableSet.of("role1", "admin"));
-        executeFromAdmin("DROP ROLE role1");
+        executeFromAdmin(dropRoleSql("role1"));
         assertEquals(listRoles(), ImmutableSet.of("admin"));
     }
 
     @Test
     public void testDropNonExistentRole()
     {
-        assertQueryFails(createAdminSession(), "DROP ROLE non_existent_role", ".*?Role 'non_existent_role' does not exist in catalog 'hive'");
+        assertQueryFails(createAdminSession(), dropRoleSql("non_existent_role"), ".*?Role 'non_existent_role' does not exist in catalog '.*'");
     }
 
     @Test
     public void testDropRoleByNonAdminUser()
     {
-        assertQueryFails(createUserSession("non_admin_user"), "DROP ROLE role1", "Access Denied: Cannot drop role role1");
+        assertQueryFails(createUserSession("non_admin_user"), dropRoleSql("role1"), "Access Denied: Cannot drop role role1");
     }
 
     @Test
@@ -133,18 +144,18 @@ abstract class AbstractTestHiveRoles
     @Test
     public void testGrantRoleToUser()
     {
-        executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("GRANT role1 TO USER user");
+        executeFromAdmin(createRoleSql("role1"));
+        executeFromAdmin(grantRoleToUserSql("role1", "user"));
         assertContains(listApplicableRoles("user"), applicableRoles("user", "USER", "role1", "NO"));
     }
 
     @Test
     public void testGrantRoleToRole()
     {
-        executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("CREATE ROLE role2");
-        executeFromAdmin("GRANT role1 TO USER user");
-        executeFromAdmin("GRANT role2 TO ROLE role1");
+        executeFromAdmin(createRoleSql("role1"));
+        executeFromAdmin(createRoleSql("role2"));
+        executeFromAdmin(grantRoleToUserSql("role1", "user"));
+        executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "NO",
                 "role1", "ROLE", "role2", "NO"));
@@ -153,10 +164,10 @@ abstract class AbstractTestHiveRoles
     @Test
     public void testGrantRoleWithAdminOption()
     {
-        executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("CREATE ROLE role2");
-        executeFromAdmin("GRANT role1 TO USER user WITH ADMIN OPTION");
-        executeFromAdmin("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        executeFromAdmin(createRoleSql("role1"));
+        executeFromAdmin(createRoleSql("role2"));
+        executeFromAdmin(grantRoleToUserWithAdminSql("role1", "user"));
+        executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "YES",
                 "role1", "ROLE", "role2", "YES"));
@@ -165,16 +176,16 @@ abstract class AbstractTestHiveRoles
     @Test
     public void testGrantRoleMultipleTimes()
     {
-        executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("CREATE ROLE role2");
-        executeFromAdmin("GRANT role1 TO USER user");
-        executeFromAdmin("GRANT role1 TO USER user");
-        executeFromAdmin("GRANT role2 TO ROLE role1");
-        executeFromAdmin("GRANT role2 TO ROLE role1");
-        executeFromAdmin("GRANT role1 TO USER user WITH ADMIN OPTION");
-        executeFromAdmin("GRANT role1 TO USER user WITH ADMIN OPTION");
-        executeFromAdmin("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
-        executeFromAdmin("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        executeFromAdmin(createRoleSql("role1"));
+        executeFromAdmin(createRoleSql("role2"));
+        executeFromAdmin(grantRoleToUserSql("role1", "user"));
+        executeFromAdmin(grantRoleToUserSql("role1", "user"));
+        executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
+        executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
+        executeFromAdmin(grantRoleToUserWithAdminSql("role1", "user"));
+        executeFromAdmin(grantRoleToUserWithAdminSql("role1", "user"));
+        executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
+        executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "YES",
                 "role1", "ROLE", "role2", "YES"));
@@ -183,34 +194,38 @@ abstract class AbstractTestHiveRoles
     @Test
     public void testGrantNonExistingRole()
     {
-        assertQueryFails("GRANT grant_revoke_role_existing_1 TO USER grant_revoke_existing_user_1", ".*?Role 'grant_revoke_role_existing_1' does not exist in catalog 'hive'");
-        executeFromAdmin("CREATE ROLE grant_revoke_role_existing_1");
-        assertQueryFails("GRANT grant_revoke_role_existing_1 TO ROLE grant_revoke_role_existing_2", ".*?Role 'grant_revoke_role_existing_2' does not exist in catalog 'hive'");
+        assertQueryFails(
+                grantRoleToUserSql("grant_revoke_role_existing_1", "grant_revoke_existing_user_1"),
+                ".*?Role 'grant_revoke_role_existing_1' does not exist in catalog '.*'");
+        executeFromAdmin(createRoleSql("grant_revoke_role_existing_1"));
+        assertQueryFails(
+                grantRoleToRoleSql("grant_revoke_role_existing_1", "grant_revoke_role_existing_2"),
+                ".*?Role 'grant_revoke_role_existing_2' does not exist in catalog '.*'");
     }
 
     @Test
     public void testRevokeRoleFromUser()
     {
-        executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("GRANT role1 TO USER user");
+        executeFromAdmin(createRoleSql("role1"));
+        executeFromAdmin(grantRoleToUserSql("role1", "user"));
         assertContains(listApplicableRoles("user"), applicableRoles("user", "USER", "role1", "NO"));
 
-        executeFromAdmin("REVOKE role1 FROM USER user");
+        executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
     }
 
     @Test
     public void testRevokeRoleFromRole()
     {
-        executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("CREATE ROLE role2");
-        executeFromAdmin("GRANT role1 TO USER user");
-        executeFromAdmin("GRANT role2 TO ROLE role1");
+        executeFromAdmin(createRoleSql("role1"));
+        executeFromAdmin(createRoleSql("role2"));
+        executeFromAdmin(grantRoleToUserSql("role1", "user"));
+        executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "NO",
                 "role1", "ROLE", "role2", "NO"));
 
-        executeFromAdmin("REVOKE role2 FROM ROLE role1");
+        executeFromAdmin(revokeRoleFromRoleSql("role2", "role1"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "public", "NO",
                 "user", "USER", "role1", "NO"));
@@ -219,47 +234,47 @@ abstract class AbstractTestHiveRoles
     @Test
     public void testDropGrantedRole()
     {
-        executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("GRANT role1 TO USER user");
+        executeFromAdmin(createRoleSql("role1"));
+        executeFromAdmin(grantRoleToUserSql("role1", "user"));
         assertContains(listApplicableRoles("user"), applicableRoles("user", "USER", "role1", "NO"));
 
-        executeFromAdmin("DROP ROLE role1");
+        executeFromAdmin(dropRoleSql("role1"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
     }
 
     @Test
     public void testRevokeTransitiveRoleFromUser()
     {
-        executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("CREATE ROLE role2");
-        executeFromAdmin("CREATE ROLE role3");
-        executeFromAdmin("GRANT role1 TO USER user");
-        executeFromAdmin("GRANT role2 TO ROLE role1");
-        executeFromAdmin("GRANT role3 TO ROLE role2");
+        executeFromAdmin(createRoleSql("role1"));
+        executeFromAdmin(createRoleSql("role2"));
+        executeFromAdmin(createRoleSql("role3"));
+        executeFromAdmin(grantRoleToUserSql("role1", "user"));
+        executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
+        executeFromAdmin(grantRoleToRoleSql("role3", "role2"));
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "NO",
                 "role1", "ROLE", "role2", "NO",
                 "role2", "ROLE", "role3", "NO"));
 
-        executeFromAdmin("REVOKE role1 FROM USER user");
+        executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
     }
 
     @Test
     public void testRevokeTransitiveRoleFromRole()
     {
-        executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("CREATE ROLE role2");
-        executeFromAdmin("CREATE ROLE role3");
-        executeFromAdmin("GRANT role1 TO USER user");
-        executeFromAdmin("GRANT role2 TO ROLE role1");
-        executeFromAdmin("GRANT role3 TO ROLE role2");
+        executeFromAdmin(createRoleSql("role1"));
+        executeFromAdmin(createRoleSql("role2"));
+        executeFromAdmin(createRoleSql("role3"));
+        executeFromAdmin(grantRoleToUserSql("role1", "user"));
+        executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
+        executeFromAdmin(grantRoleToRoleSql("role3", "role2"));
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "NO",
                 "role1", "ROLE", "role2", "NO",
                 "role2", "ROLE", "role3", "NO"));
 
-        executeFromAdmin("REVOKE role2 FROM ROLE role1");
+        executeFromAdmin(revokeRoleFromRoleSql("role2", "role1"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "public", "NO",
                 "user", "USER", "role1", "NO"));
@@ -268,18 +283,18 @@ abstract class AbstractTestHiveRoles
     @Test
     public void testDropTransitiveRole()
     {
-        executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("CREATE ROLE role2");
-        executeFromAdmin("CREATE ROLE role3");
-        executeFromAdmin("GRANT role1 TO USER user");
-        executeFromAdmin("GRANT role2 TO ROLE role1");
-        executeFromAdmin("GRANT role3 TO ROLE role2");
+        executeFromAdmin(createRoleSql("role1"));
+        executeFromAdmin(createRoleSql("role2"));
+        executeFromAdmin(createRoleSql("role3"));
+        executeFromAdmin(grantRoleToUserSql("role1", "user"));
+        executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
+        executeFromAdmin(grantRoleToRoleSql("role3", "role2"));
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "NO",
                 "role1", "ROLE", "role2", "NO",
                 "role2", "ROLE", "role3", "NO"));
 
-        executeFromAdmin("DROP ROLE role2");
+        executeFromAdmin(dropRoleSql("role2"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "public", "NO",
                 "user", "USER", "role1", "NO"));
@@ -288,16 +303,16 @@ abstract class AbstractTestHiveRoles
     @Test
     public void testRevokeAdminOption()
     {
-        executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("CREATE ROLE role2");
-        executeFromAdmin("GRANT role1 TO USER user WITH ADMIN OPTION");
-        executeFromAdmin("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        executeFromAdmin(createRoleSql("role1"));
+        executeFromAdmin(createRoleSql("role2"));
+        executeFromAdmin(grantRoleToUserWithAdminSql("role1", "user"));
+        executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "YES",
                 "role1", "ROLE", "role2", "YES"));
 
-        executeFromAdmin("REVOKE ADMIN OPTION FOR role1 FROM USER user");
-        executeFromAdmin("REVOKE ADMIN OPTION FOR role2 FROM ROLE role1");
+        executeFromAdmin(revokeAdminOptionForRoleFromUserSql("role1", "user"));
+        executeFromAdmin(revokeAdminOptionForRoleFromRoleSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "NO",
                 "role1", "ROLE", "role2", "NO"));
@@ -306,26 +321,26 @@ abstract class AbstractTestHiveRoles
     @Test
     public void testRevokeRoleMultipleTimes()
     {
-        executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("CREATE ROLE role2");
-        executeFromAdmin("GRANT role1 TO USER user WITH ADMIN OPTION");
-        executeFromAdmin("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        executeFromAdmin(createRoleSql("role1"));
+        executeFromAdmin(createRoleSql("role2"));
+        executeFromAdmin(grantRoleToUserWithAdminSql("role1", "user"));
+        executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "YES",
                 "role1", "ROLE", "role2", "YES"));
 
-        executeFromAdmin("REVOKE ADMIN OPTION FOR role1 FROM USER user");
-        executeFromAdmin("REVOKE ADMIN OPTION FOR role1 FROM USER user");
-        executeFromAdmin("REVOKE ADMIN OPTION FOR role2 FROM ROLE role1");
-        executeFromAdmin("REVOKE ADMIN OPTION FOR role2 FROM ROLE role1");
+        executeFromAdmin(revokeAdminOptionForRoleFromUserSql("role1", "user"));
+        executeFromAdmin(revokeAdminOptionForRoleFromUserSql("role1", "user"));
+        executeFromAdmin(revokeAdminOptionForRoleFromRoleSql("role2", "role1"));
+        executeFromAdmin(revokeAdminOptionForRoleFromRoleSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "NO",
                 "role1", "ROLE", "role2", "NO"));
 
-        executeFromAdmin("REVOKE role1 FROM USER user");
-        executeFromAdmin("REVOKE role1 FROM USER user");
-        executeFromAdmin("REVOKE role2 FROM ROLE role1");
-        executeFromAdmin("REVOKE role2 FROM ROLE role1");
+        executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
+        executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
+        executeFromAdmin(revokeRoleFromRoleSql("role2", "role1"));
+        executeFromAdmin(revokeRoleFromRoleSql("role2", "role1"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
     }
 
@@ -334,25 +349,25 @@ abstract class AbstractTestHiveRoles
     {
         assertQueryFails(
                 createAdminSession(),
-                "REVOKE grant_revoke_role_existing_1 FROM USER grant_revoke_existing_user_1",
-                ".*?Role 'grant_revoke_role_existing_1' does not exist in catalog 'hive'");
-        executeFromAdmin("CREATE ROLE grant_revoke_role_existing_1");
+                revokeRoleFromUserSql("grant_revoke_role_existing_1", "grant_revoke_existing_user_1"),
+                ".*?Role 'grant_revoke_role_existing_1' does not exist in catalog '.*'");
+        executeFromAdmin(createRoleSql("grant_revoke_role_existing_1"));
         assertQueryFails(
                 createAdminSession(),
-                "REVOKE grant_revoke_role_existing_1 FROM ROLE grant_revoke_role_existing_2",
-                ".*?Role 'grant_revoke_role_existing_2' does not exist in catalog 'hive'");
+                revokeRoleFromRoleSql("grant_revoke_role_existing_1", "grant_revoke_role_existing_2"),
+                ".*?Role 'grant_revoke_role_existing_2' does not exist in catalog '.*'");
     }
 
     @Test
     public void testSetRole()
     {
-        executeFromAdmin("CREATE ROLE set_role_1");
-        executeFromAdmin("CREATE ROLE set_role_2");
-        executeFromAdmin("CREATE ROLE set_role_3");
-        executeFromAdmin("CREATE ROLE set_role_4");
-        executeFromAdmin("GRANT set_role_1 TO USER set_user_1");
-        executeFromAdmin("GRANT set_role_2 TO ROLE set_role_1");
-        executeFromAdmin("GRANT set_role_3 TO ROLE set_role_2");
+        executeFromAdmin(createRoleSql("set_role_1"));
+        executeFromAdmin(createRoleSql("set_role_2"));
+        executeFromAdmin(createRoleSql("set_role_3"));
+        executeFromAdmin(createRoleSql("set_role_4"));
+        executeFromAdmin(grantRoleToUserSql("set_role_1", "set_user_1"));
+        executeFromAdmin(grantRoleToRoleSql("set_role_2", "set_role_1"));
+        executeFromAdmin(grantRoleToRoleSql("set_role_3", "set_role_2"));
 
         Session unsetRole = Session.builder(getSession())
                 .setIdentity(Identity.ofUser("set_user_1"))
@@ -440,10 +455,10 @@ abstract class AbstractTestHiveRoles
 
         assertQueryFails(setRole4, "SELECT * FROM hive.information_schema.enabled_roles", ".*?Cannot set role set_role_4");
 
-        executeFromAdmin("DROP ROLE set_role_1");
-        executeFromAdmin("DROP ROLE set_role_2");
-        executeFromAdmin("DROP ROLE set_role_3");
-        executeFromAdmin("DROP ROLE set_role_4");
+        executeFromAdmin(dropRoleSql("set_role_1"));
+        executeFromAdmin(dropRoleSql("set_role_2"));
+        executeFromAdmin(dropRoleSql("set_role_3"));
+        executeFromAdmin(dropRoleSql("set_role_4"));
     }
 
     private Set<String> listRoles()
@@ -505,5 +520,60 @@ abstract class AbstractTestHiveRoles
         return Session.builder(getSession())
                 .setIdentity(Identity.ofUser(user))
                 .build();
+    }
+
+    private String dropRoleSql(String role)
+    {
+        return "DROP ROLE " + role + optionalCatalogDeclaration();
+    }
+
+    private String createRoleSql(String role)
+    {
+        return "CREATE ROLE " + role + optionalCatalogDeclaration();
+    }
+
+    private String grantRoleToUserSql(String role, String toUser)
+    {
+        return "GRANT " + role + " TO USER " + toUser + optionalCatalogDeclaration();
+    }
+
+    private String grantRoleToUserWithAdminSql(String role, String toUser)
+    {
+        return "GRANT " + role + " TO USER " + toUser + " WITH ADMIN OPTION " + optionalCatalogDeclaration();
+    }
+
+    private String grantRoleToRoleSql(String role, String toRole)
+    {
+        return "GRANT " + role + " TO ROLE " + toRole + optionalCatalogDeclaration();
+    }
+
+    private String grantRoleToRoleWithAdminSql(String role, String toRole)
+    {
+        return "GRANT " + role + " TO ROLE " + toRole + " WITH ADMIN OPTION " + optionalCatalogDeclaration();
+    }
+
+    private String revokeRoleFromUserSql(String role, String toUser)
+    {
+        return "REVOKE " + role + " FROM USER " + toUser + optionalCatalogDeclaration();
+    }
+
+    private String revokeAdminOptionForRoleFromUserSql(String role, String toUser)
+    {
+        return "REVOKE ADMIN OPTION FOR " + role + " FROM USER " + toUser + optionalCatalogDeclaration();
+    }
+
+    private String revokeRoleFromRoleSql(String role, String fromRole)
+    {
+        return "REVOKE " + role + " FROM ROLE " + fromRole + optionalCatalogDeclaration();
+    }
+
+    private String revokeAdminOptionForRoleFromRoleSql(String role, String fromRole)
+    {
+        return "REVOKE ADMIN OPTION FOR " + role + " FROM ROLE " + fromRole + optionalCatalogDeclaration();
+    }
+
+    private String optionalCatalogDeclaration()
+    {
+        return legacyCommands ? "" : " IN " + HIVE_CATALOG;
     }
 }

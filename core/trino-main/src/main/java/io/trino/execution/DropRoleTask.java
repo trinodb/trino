@@ -18,20 +18,34 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
+import io.trino.spi.TrinoException;
+import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.checkRoleExists;
-import static io.trino.metadata.MetadataUtil.getSessionCatalog;
+import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Locale.ENGLISH;
 
 public class DropRoleTask
         implements DataDefinitionTask<DropRole>
 {
+    private final boolean legacyCatalogRoles;
+
+    @Inject
+    public DropRoleTask(FeaturesConfig featuresConfig)
+    {
+        legacyCatalogRoles = featuresConfig.isLegacyCatalogRoles();
+    }
+
     @Override
     public String getName()
     {
@@ -49,7 +63,8 @@ public class DropRoleTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        String catalog = getSessionCatalog(metadata, session, statement);
+        String catalog = processRoleCommandCatalog(metadata, session, statement, statement.getCatalog().map(Identifier::getValue), legacyCatalogRoles)
+                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "System roles are not supported yet"));
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
         accessControl.checkCanDropRole(session.toSecurityContext(), role, catalog);
         checkRoleExists(session, statement, metadata, role, catalog);
