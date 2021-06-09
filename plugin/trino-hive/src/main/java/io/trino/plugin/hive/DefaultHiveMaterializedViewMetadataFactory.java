@@ -13,15 +13,13 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-
 public class DefaultHiveMaterializedViewMetadataFactory
         implements HiveMaterializedViewMetadataFactory
 {
     private static final HiveMaterializedViewMetadata NONE = new NoneHiveMaterializedViewMetadata();
 
     @Override
-    public HiveMaterializedViewMetadata create(SemiTransactionalHiveMetastore metastore)
+    public HiveMaterializedViewMetadata create(HiveMetastoreClosure hiveMetastoreClosure)
     {
         return NONE;
     }

@@ -169,9 +169,11 @@ public class HiveMetadataFactory
     @Override
     public TransactionalMetadata create()
     {
+        HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(
+                memoizeMetastore(this.metastore, perTransactionCacheMaximumSize)); // per-transaction cache
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
-                new HiveMetastoreClosure(memoizeMetastore(this.metastore, perTransactionCacheMaximumSize)), // per-transaction cache
+                hiveMetastoreClosure,
                 renameExecution,
                 dropExecutor,
                 updateExecutor,
@@ -195,7 +197,7 @@ public class HiveMetadataFactory
                 trinoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
                 hiveRedirectionsProvider,
-                hiveMaterializedViewMetadataFactory.create(metastore),
+                hiveMaterializedViewMetadataFactory.create(hiveMetastoreClosure),
                 accessControlMetadataFactory.create(metastore));
     }
 }
