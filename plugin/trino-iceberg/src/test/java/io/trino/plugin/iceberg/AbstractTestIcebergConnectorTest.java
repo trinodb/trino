@@ -1842,8 +1842,8 @@ public abstract class AbstractTestIcebergConnectorTest
         assertUpdate("CREATE TABLE test_join_partitioning_normal1(a BIGINT, b VARCHAR)");
         assertUpdate("CREATE TABLE test_join_partitioning_normal2(a BIGINT, b VARCHAR, c row(d BIGINT, e VARCHAR), g map(BIGINT, VARCHAR))");
 
-        String normalValues1 = "VALUES (0, 'a'), (1,'b'), (2, 'c'), (3, 'd'),(4, NULL)";
-        String normalValues2 = "VALUES " +
+        @Language("SQL") String normalValues1 = "VALUES (0, 'a'), (1,'b'), (2, 'c'), (3, 'd'),(4, NULL)";
+        @Language("SQL") String normalValues2 = "VALUES " +
                 "(0, 'a', (0, 'a'), map(ARRAY[1], ARRAY['a']))," +
                 "(1, 'b', (1,'b'), map(ARRAY[1], ARRAY['b'])), " +
                 "(2, 'c', (2, 'c'), map(ARRAY[2], ARRAY['c'])), " +
@@ -1853,8 +1853,8 @@ public abstract class AbstractTestIcebergConnectorTest
         assertUpdate("INSERT INTO test_join_partitioning_normal1 " + normalValues1, 5);
         assertUpdate("INSERT INTO test_join_partitioning_normal2 " + normalValues2, 6);
 
-        String expectedValues1 = "VALUES (1,'b'), (2, 'c'), (3, 'd'),(4, NULL)";
-        String expectedvalues2 = "VALUES " +
+        @Language("SQL") String expectedValues1 = "VALUES (1,'b'), (2, 'c'), (3, 'd'),(4, NULL)";
+        @Language("SQL") String expectedValues2 = "VALUES " +
                 "(1, 'b'), " +
                 "(2, 'c'), " +
                 "(3, 'd')," +
@@ -1868,7 +1868,7 @@ public abstract class AbstractTestIcebergConnectorTest
         assertUpdate("CREATE TABLE test_join_partitioning4(a BIGINT, b VARCHAR, c  row(d BIGINT, e VARCHAR ), g map(BIGINT, VARCHAR)) WITH (partitioning = ARRAY['a'])");
 
         // join non-partitioned table with partitioned table
-        String partitioningValues1 = "VALUES " +
+        @Language("SQL") String partitioningValues1 = "VALUES " +
                 "(0, 'a', CAST('2019-09-08' AS TIMESTAMP(6))), " +
                 "(1, 'b', TIMESTAMP '2020-09-09 10:10:23.123213'), " +
                 "(2, 'c',  TIMESTAMP '2020-09-09 11:10:33.234234')," +
@@ -1881,7 +1881,7 @@ public abstract class AbstractTestIcebergConnectorTest
         assertQuery("SELECT nt.* FROM test_join_partitioning_normal1 nt LEFT JOIN test_join_partitioning1 pt ON nt.a = pt.a", normalValues1);
         assertQuery("SELECT pt.* FROM test_join_partitioning_normal2 nt RIGHT JOIN test_join_partitioning1 pt ON nt.a = pt.a", partitioningValues1);
 
-        String partitioningValues2 = "VALUES " +
+        @Language("SQL") String partitioningValues2 = "VALUES " +
                 "(1, 'b', TIMESTAMP '2020-09-09 10:10:23.123213 UTC'), " +
                 "(2, 'c',  TIMESTAMP '2020-09-09 11:10:33.234234 UTC')," +
                 "(3, 'd',  TIMESTAMP '2020-09-10 11:10:33.234234 UTC')," +
@@ -1890,12 +1890,14 @@ public abstract class AbstractTestIcebergConnectorTest
 
         assertUpdate("INSERT INTO test_join_partitioning2 " + partitioningValues2, 5);
         assertQuery("SELECT nt.* FROM test_join_partitioning_normal1 nt JOIN test_join_partitioning2 pt ON nt.a = pt.a", expectedValues1);
-        assertQuery("SELECT nt.a, nt.b FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning2 pt ON nt.a = pt.a", expectedvalues2);
+        assertQuery("SELECT nt.a, nt.b FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning2 pt ON nt.a = pt.a", expectedValues2);
         assertQuery("SELECT COUNT(nt.b) FROM test_join_partitioning_normal1 nt JOIN test_join_partitioning2 pt ON nt.a = pt.a", "VALUES 3");
         assertQuery("SELECT COUNT(nt.b) FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning2 pt ON nt.a = pt.a", "VALUES 4");
         assertQuery("SELECT COUNT(nt.a) FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning2 pt ON nt.a = pt.a", "VALUES 5");
+        assertThat(query("SELECT pt.* FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning2 pt ON nt.a = pt.a"))
+                .matches("SELECT * FROM test_join_partitioning2");
 
-        String partitioningValues3 = "VALUES " +
+        @Language("SQL") String partitioningValues3 = "VALUES " +
                 "(1, 'b', DATE '2020-09-09'), " +
                 "(2, 'c', DATE '2021-09-09')," +
                 "(3, 'd', DATE '2022-09-09')," +
@@ -1904,22 +1906,22 @@ public abstract class AbstractTestIcebergConnectorTest
                 "(6, 'z', DATE '2050-09-10')";
         assertUpdate("INSERT INTO test_join_partitioning3 " + partitioningValues3, 6);
         assertQuery("SELECT nt.* FROM test_join_partitioning_normal1 nt JOIN test_join_partitioning3 pt ON nt.a = pt.a", expectedValues1);
-        assertQuery("SELECT nt.a, nt.b FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning3 pt ON nt.a = pt.a", expectedvalues2);
+        assertQuery("SELECT nt.a, nt.b FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning3 pt ON nt.a = pt.a", expectedValues2);
         assertQuery("SELECT COUNT(nt.b) FROM test_join_partitioning_normal1 nt JOIN test_join_partitioning3 pt ON nt.b = pt.b", "VALUES 3");
         assertQuery("SELECT COUNT(nt.b) FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning3 pt ON nt.b = pt.b", "VALUES 4");
 
         assertUpdate("INSERT INTO test_join_partitioning4 SELECT * FROM test_join_partitioning_normal2", "VALUES 6");
         assertQuery("SELECT nt.* FROM test_join_partitioning_normal1 nt JOIN test_join_partitioning4 pt ON nt.a = pt.a", normalValues1);
-        assertQuery("SELECT pt.a, pt.b FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning4 pt ON nt.a = pt.a where nt.a > 0", expectedvalues2);
+        assertQuery("SELECT pt.a, pt.b FROM test_join_partitioning_normal2 nt JOIN test_join_partitioning4 pt ON nt.a = pt.a where nt.a > 0", expectedValues2);
 
         // join partitioned table with partitioned table
-        String expectedPartitioningValues1 = "VALUES " +
+        @Language("SQL") String expectedPartitioningValues1 = "VALUES " +
                 "(1, 'b', TIMESTAMP '2020-09-09 10:10:23.123213'), " +
                 "(2, 'c',  TIMESTAMP '2020-09-09 11:10:33.234234')," +
                 "(3, 'd',  TIMESTAMP '2020-09-10 11:10:43.234234')," +
                 "(4, 'e',  TIMESTAMP '2020-09-10 11:10:53.234234')," +
                 "(5, 'f',  TIMESTAMP '2020-09-10 09:10:33.123355')";
-        String expectedPartitioningValues2 = "VALUES " +
+        @Language("SQL") String expectedPartitioningValues2 = "VALUES " +
                 "(1, 'b')," +
                 "(2, 'c')," +
                 "(3, 'd')," +
@@ -1928,6 +1930,8 @@ public abstract class AbstractTestIcebergConnectorTest
         assertQuery("SELECT pt1.* FROM test_join_partitioning1 pt1 JOIN test_join_partitioning2 pt2 ON pt1.a = pt2.a", expectedPartitioningValues1);
         assertQuery("SELECT pt1.* FROM test_join_partitioning1 pt1 JOIN test_join_partitioning3 pt3 ON pt1.b = pt3.b", expectedPartitioningValues1);
         assertQuery("SELECT pt1.* FROM test_join_partitioning1 pt1 JOIN test_join_partitioning4 pt4 ON pt1.a = pt4.a", partitioningValues1);
+        assertThat(query("SELECT pt4.* FROM test_join_partitioning4 pt4 JOIN test_join_partitioning1 pt1 ON pt1.a = pt4.a"))
+                .matches("SELECT * FROM test_join_partitioning4");
 
         assertQuery("SELECT pt2.a, pt2.b FROM test_join_partitioning2 pt2 JOIN test_join_partitioning3 pt3 ON pt2.a = pt3.a", expectedPartitioningValues2);
         assertQuery("SELECT pt2.a, pt2.b FROM test_join_partitioning2 pt2 JOIN test_join_partitioning4 pt4 ON pt2.a = pt4.a", expectedPartitioningValues2);
