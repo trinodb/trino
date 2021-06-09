@@ -18,18 +18,24 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.system.StaticSystemTablesProvider;
+import io.trino.connector.system.SystemTablesMetadata;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
@@ -50,6 +56,7 @@ import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -61,6 +68,7 @@ import static org.testng.Assert.assertEquals;
 public class TestSetRoleTask
 {
     private static final String CATALOG_NAME = "foo";
+    private static final String SYSTEM_ROLE_CATALOG_NAME = "system_role";
     private static final String USER_NAME = "user";
     private static final String ROLE_NAME = "bar";
 
@@ -88,10 +96,36 @@ public class TestSetRoleTask
                 CATALOG_NAME,
                 catalogName,
                 testConnector,
+                SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalogName),
                 testConnector,
                 createSystemTablesCatalogName(catalogName),
                 testConnector));
+
+        CatalogName systemRoleCatalog = new CatalogName(SYSTEM_ROLE_CATALOG_NAME);
+        Connector systemRoleConnector = new Connector()
+        {
+            @Override
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            {
+                return new ConnectorTransactionHandle() {};
+            }
+
+            @Override
+            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+            {
+                return new SystemTablesMetadata(new StaticSystemTablesProvider(ImmutableSet.of()));
+            }
+        };
+        catalogManager.registerCatalog(new Catalog(
+                SYSTEM_ROLE_CATALOG_NAME,
+                systemRoleCatalog,
+                systemRoleConnector,
+                SecurityManagement.SYSTEM,
+                createInformationSchemaCatalogName(systemRoleCatalog),
+                systemRoleConnector,
+                createSystemTablesCatalogName(systemRoleCatalog),
+                systemRoleConnector));
 
         executor = newCachedThreadPool(daemonThreadsNamed("test-set-role-task-executor-%s"));
         parser = new SqlParser();
@@ -130,6 +164,14 @@ public class TestSetRoleTask
         assertTrinoExceptionThrownBy(() -> executeSetRole("SET ROLE foo IN invalid"))
                 .hasErrorCode(CATALOG_NOT_FOUND)
                 .hasMessage("line 1:1: Catalog 'invalid' does not exist");
+    }
+
+    @Test
+    public void testSetCatalogRoleInCatalogWithSystemSecurity()
+    {
+        assertTrinoExceptionThrownBy(() -> executeSetRole("SET ROLE foo IN " + SYSTEM_ROLE_CATALOG_NAME))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Catalog '" + SYSTEM_ROLE_CATALOG_NAME + "' does not support role management");
     }
 
     private void assertSetRole(String statement, Map<String, SelectedRole> expected)

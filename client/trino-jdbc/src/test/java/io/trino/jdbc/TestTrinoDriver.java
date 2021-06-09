@@ -13,9 +13,7 @@
  */
 package io.trino.jdbc;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
-import io.trino.client.ClientSelectedRole;
 import io.trino.execution.QueryState;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -743,13 +741,22 @@ public class TestTrinoDriver
     {
         try (TrinoConnection connection = createConnection(TEST_CATALOG, "tiny").unwrap(TrinoConnection.class)) {
             try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("SET ROLE ALL IN " + TEST_CATALOG);
+                // Global roles are not supported yet
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE ALL"))
+                        .hasMessageMatching(".* System roles are not supported yet");
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE NONE"))
+                        .hasMessageMatching(".* System roles are not supported yet");
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE bar"))
+                        .hasMessageMatching(".* System roles are not supported yet");
+
+                // Only hive connector supports roles
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE ALL IN " + TEST_CATALOG))
+                        .hasMessageMatching(".* Catalog '.*' does not support role management");
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE NONE IN " + TEST_CATALOG))
+                        .hasMessageMatching(".* Catalog '.*' does not support role management");
+                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE bar IN " + TEST_CATALOG))
+                        .hasMessageMatching(".* Catalog '.*' does not support role management");
             }
-            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new ClientSelectedRole(ClientSelectedRole.Type.ALL, Optional.empty())));
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("SET ROLE NONE IN " + TEST_CATALOG);
-            }
-            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new ClientSelectedRole(ClientSelectedRole.Type.NONE, Optional.empty())));
         }
     }
 
