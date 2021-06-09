@@ -496,7 +496,7 @@ public class DefaultJdbcMetadata
                 handle.getOtherReferencedTables(),
                 handle.getNextSyntheticColumnId());
 
-        return Optional.of(new TopNApplicationResult<>(sortedTableHandle, jdbcClient.isTopNLimitGuaranteed(session), false));
+        return Optional.of(new TopNApplicationResult<>(sortedTableHandle, jdbcClient.isTopNGuaranteed(session), false));
     }
 
     @Override
