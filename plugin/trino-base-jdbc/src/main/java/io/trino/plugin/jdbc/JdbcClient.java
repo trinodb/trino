@@ -106,7 +106,10 @@ public interface JdbcClient
 
     boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder);
 
-    boolean isTopNLimitGuaranteed(ConnectorSession session);
+    /**
+     * Reports whether result cardinality and ordering is guaranteed when {@link #supportsTopN(ConnectorSession, JdbcTableHandle, List)} returns true.
+     */
+    boolean isTopNGuaranteed(ConnectorSession session);
 
     boolean supportsLimit();
 
