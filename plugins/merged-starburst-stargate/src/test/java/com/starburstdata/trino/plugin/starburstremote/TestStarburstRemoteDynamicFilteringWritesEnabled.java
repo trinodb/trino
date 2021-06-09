@@ -42,14 +42,6 @@ public class TestStarburstRemoteDynamicFilteringWritesEnabled
     }
 
     @Override
-    protected boolean supportsSplitDynamicFiltering()
-    {
-        // JDBC connectors always generate single split
-        // TODO https://starburstdata.atlassian.net/browse/SEP-4769 revisit in parallel Starburst Remote connector
-        return false;
-    }
-
-    @Override
     protected boolean isJoinPushdownEnabledByDefault()
     {
         return true;
