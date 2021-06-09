@@ -35,12 +35,6 @@ public class TestSapHanaDynamicFiltering
     }
 
     @Override
-    protected boolean supportsSplitDynamicFiltering()
-    {
-        return false;
-    }
-
-    @Override
     protected boolean isJoinPushdownEnabledByDefault()
     {
         return true;
