@@ -108,16 +108,6 @@ public final class MetadataUtil
                 .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, node, "Catalog '%s' does not exist", catalogName));
     }
 
-    public static String getSessionCatalog(Metadata metadata, Session session, Node node)
-    {
-        String catalog = session.getCatalog().orElseThrow(() ->
-                semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set"));
-
-        getRequiredCatalogHandle(metadata, session, node, catalog);
-
-        return catalog;
-    }
-
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
     {
         String catalogName = session.getCatalog().orElse(null);
@@ -223,6 +213,19 @@ public final class MetadataUtil
         if (!metadata.roleExists(session, role, catalog)) {
             throw semanticException(ROLE_NOT_FOUND, node, "Role '%s' does not exist in catalog '%s'", role, catalog);
         }
+    }
+
+    public static Optional<String> processRoleCommandCatalog(Metadata metadata, Session session, Node node, Optional<String> catalog, boolean legacyCatalogRoles)
+    {
+        // old role commands use only supported catalog roles and used session catalog as the default
+        if (catalog.isEmpty() && legacyCatalogRoles) {
+            catalog = session.getCatalog();
+            if (catalog.isEmpty()) {
+                throw semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set");
+            }
+        }
+        catalog.ifPresent(catalogName -> getRequiredCatalogHandle(metadata, session, node, catalogName));
+        return catalog;
     }
 
     public static class TableMetadataBuilder

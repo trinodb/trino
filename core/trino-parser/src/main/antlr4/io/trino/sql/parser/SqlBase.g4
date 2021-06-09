@@ -85,19 +85,23 @@ statement
     | ALTER VIEW from=qualifiedName SET AUTHORIZATION principal        #setViewAuthorization
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE ROLE name=identifier
-        (WITH ADMIN grantor)?                                          #createRole
-    | DROP ROLE name=identifier                                        #dropRole
+        (WITH ADMIN grantor)?
+        (IN catalog=identifier)?                                       #createRole
+    | DROP ROLE name=identifier (IN catalog=identifier)?            #dropRole
     | GRANT
         roles
         TO principal (',' principal)*
         (WITH ADMIN OPTION)?
-        (GRANTED BY grantor)?                                          #grantRoles
+        (GRANTED BY grantor)?
+        (IN catalog=identifier)?                                       #grantRoles
     | REVOKE
         (ADMIN OPTION FOR)?
         roles
         FROM principal (',' principal)*
-        (GRANTED BY grantor)?                                          #revokeRoles
-    | SET ROLE (ALL | NONE | role=identifier)                          #setRole
+        (GRANTED BY grantor)?
+        (IN catalog=identifier)?                                       #revokeRoles
+    | SET ROLE (ALL | NONE | role=identifier)
+        (IN catalog=identifier)?                                       #setRole
     | GRANT
         (privilege (',' privilege)* | ALL PRIVILEGES)
         ON (SCHEMA | TABLE)? qualifiedName
