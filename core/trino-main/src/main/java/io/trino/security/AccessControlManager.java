@@ -897,7 +897,7 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, catalogName);
 
-        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanGrantRoles(context, roles, grantees, adminOption, grantor, catalogName));
+        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanGrantRoles(context, roles, grantees, adminOption, grantor));
     }
 
     @Override
@@ -911,7 +911,7 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, catalogName);
 
-        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanRevokeRoles(context, roles, grantees, adminOption, grantor, catalogName));
+        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanRevokeRoles(context, roles, grantees, adminOption, grantor));
     }
 
     @Override
@@ -923,7 +923,7 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, catalogName);
 
-        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanSetRole(context, role, catalogName));
+        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanSetRole(context, role));
     }
 
     @Override
@@ -934,7 +934,7 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, catalogName);
 
-        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanShowRoleAuthorizationDescriptors(context, catalogName));
+        catalogAuthorizationCheck(catalogName, securityContext, ConnectorAccessControl::checkCanShowRoleAuthorizationDescriptors);
     }
 
     @Override
@@ -945,7 +945,7 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, catalogName);
 
-        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanShowRoles(context, catalogName));
+        catalogAuthorizationCheck(catalogName, securityContext, ConnectorAccessControl::checkCanShowRoles);
     }
 
     @Override
@@ -956,7 +956,7 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, catalogName);
 
-        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanShowCurrentRoles(context, catalogName));
+        catalogAuthorizationCheck(catalogName, securityContext, ConnectorAccessControl::checkCanShowCurrentRoles);
     }
 
     @Override
@@ -967,7 +967,7 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, catalogName);
 
-        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanShowRoleGrants(context, catalogName));
+        catalogAuthorizationCheck(catalogName, securityContext, ConnectorAccessControl::checkCanShowRoleGrants);
     }
 
     @Override

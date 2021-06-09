@@ -412,25 +412,25 @@ public class DenyAllAccessControl
     @Override
     public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, String catalogName)
     {
-        denyShowRoleAuthorizationDescriptors(catalogName);
+        denyShowRoleAuthorizationDescriptors();
     }
 
     @Override
     public void checkCanShowRoles(SecurityContext context, String catalogName)
     {
-        denyShowRoles(catalogName);
+        denyShowRoles();
     }
 
     @Override
     public void checkCanShowCurrentRoles(SecurityContext context, String catalogName)
     {
-        denyShowCurrentRoles(catalogName);
+        denyShowCurrentRoles();
     }
 
     @Override
     public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
     {
-        denyShowRoleGrants(catalogName);
+        denyShowRoleGrants();
     }
 
     @Override

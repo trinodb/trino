@@ -568,7 +568,7 @@ public class TestRoles
                         row("admin"),
                         row("role1"));
         QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("SHOW ROLES"))
-                .hasMessageContaining("Cannot show roles from catalog hive");
+                .hasMessageContaining("Cannot show roles");
         onTrino().executeQuery("GRANT admin TO alice");
         onPrestoAlice().executeQuery("SET ROLE admin");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW ROLES"))
