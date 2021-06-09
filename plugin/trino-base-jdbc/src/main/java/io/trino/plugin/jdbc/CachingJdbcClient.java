@@ -435,6 +435,11 @@ public class CachingJdbcClient
         return delegate.getTableScanRedirection(session, tableHandle);
     }
 
+    public void onDataChanged(JdbcTableHandle handle)
+    {
+        invalidateCache(statisticsCache, key -> key.tableHandle.equals(handle));
+    }
+
     private JdbcIdentityCacheKey getIdentityKey(ConnectorSession session)
     {
         return identityMapping.getRemoteUserCacheKey(JdbcIdentity.from(session));
@@ -495,11 +500,6 @@ public class CachingJdbcClient
                 .collect(toImmutableSet());
 
         cache.invalidateAll(cacheKeys);
-    }
-
-    public void onDataChanged(JdbcTableHandle handle)
-    {
-        invalidateCache(statisticsCache, key -> key.tableHandle.equals(handle));
     }
 
     private static final class ColumnsCacheKey
