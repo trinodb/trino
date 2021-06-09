@@ -864,32 +864,34 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateRole(SecurityContext securityContext, String role, Optional<TrinoPrincipal> grantor, String catalogName)
+    public void checkCanCreateRole(SecurityContext securityContext, String role, Optional<TrinoPrincipal> grantor, Optional<String> catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(role, "role is null");
         requireNonNull(grantor, "grantor is null");
         requireNonNull(catalogName, "catalogName is null");
 
-        checkCanAccessCatalog(securityContext, catalogName);
-
-        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanCreateRole(context, role, grantor));
+        if (catalogName.isPresent()) {
+            checkCanAccessCatalog(securityContext, catalogName.get());
+            catalogAuthorizationCheck(catalogName.get(), securityContext, (control, context) -> control.checkCanCreateRole(context, role, grantor));
+        }
     }
 
     @Override
-    public void checkCanDropRole(SecurityContext securityContext, String role, String catalogName)
+    public void checkCanDropRole(SecurityContext securityContext, String role, Optional<String> catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(role, "role is null");
         requireNonNull(catalogName, "catalogName is null");
 
-        checkCanAccessCatalog(securityContext, catalogName);
-
-        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanDropRole(context, role));
+        if (catalogName.isPresent()) {
+            checkCanAccessCatalog(securityContext, catalogName.get());
+            catalogAuthorizationCheck(catalogName.get(), securityContext, (control, context) -> control.checkCanDropRole(context, role));
+        }
     }
 
     @Override
-    public void checkCanGrantRoles(SecurityContext securityContext, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(SecurityContext securityContext, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(roles, "roles is null");
@@ -897,13 +899,14 @@ public class AccessControlManager
         requireNonNull(grantor, "grantor is null");
         requireNonNull(catalogName, "catalogName is null");
 
-        checkCanAccessCatalog(securityContext, catalogName);
-
-        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanGrantRoles(context, roles, grantees, adminOption, grantor));
+        if (catalogName.isPresent()) {
+            checkCanAccessCatalog(securityContext, catalogName.get());
+            catalogAuthorizationCheck(catalogName.get(), securityContext, (control, context) -> control.checkCanGrantRoles(context, roles, grantees, adminOption, grantor));
+        }
     }
 
     @Override
-    public void checkCanRevokeRoles(SecurityContext securityContext, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(SecurityContext securityContext, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(roles, "roles is null");
@@ -911,65 +914,69 @@ public class AccessControlManager
         requireNonNull(grantor, "grantor is null");
         requireNonNull(catalogName, "catalogName is null");
 
-        checkCanAccessCatalog(securityContext, catalogName);
-
-        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanRevokeRoles(context, roles, grantees, adminOption, grantor));
+        if (catalogName.isPresent()) {
+            checkCanAccessCatalog(securityContext, catalogName.get());
+            catalogAuthorizationCheck(catalogName.get(), securityContext, (control, context) -> control.checkCanRevokeRoles(context, roles, grantees, adminOption, grantor));
+        }
     }
 
     @Override
-    public void checkCanSetRole(SecurityContext securityContext, String role, String catalogName)
+    public void checkCanSetCatalogRole(SecurityContext securityContext, String role, String catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(role, "role is null");
         requireNonNull(catalogName, "catalogName is null");
 
         checkCanAccessCatalog(securityContext, catalogName);
-
         catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanSetRole(context, role));
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext securityContext, String catalogName)
+    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext securityContext, Optional<String> catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(catalogName, "catalogName is null");
 
-        checkCanAccessCatalog(securityContext, catalogName);
-
-        catalogAuthorizationCheck(catalogName, securityContext, ConnectorAccessControl::checkCanShowRoleAuthorizationDescriptors);
+        if (catalogName.isPresent()) {
+            checkCanAccessCatalog(securityContext, catalogName.get());
+            catalogAuthorizationCheck(catalogName.get(), securityContext, ConnectorAccessControl::checkCanShowRoleAuthorizationDescriptors);
+        }
     }
 
     @Override
-    public void checkCanShowRoles(SecurityContext securityContext, String catalogName)
+    public void checkCanShowRoles(SecurityContext securityContext, Optional<String> catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(catalogName, "catalogName is null");
 
-        checkCanAccessCatalog(securityContext, catalogName);
-
-        catalogAuthorizationCheck(catalogName, securityContext, ConnectorAccessControl::checkCanShowRoles);
+        if (catalogName.isPresent()) {
+            checkCanAccessCatalog(securityContext, catalogName.get());
+            catalogAuthorizationCheck(catalogName.get(), securityContext, ConnectorAccessControl::checkCanShowRoles);
+        }
     }
 
     @Override
-    public void checkCanShowCurrentRoles(SecurityContext securityContext, String catalogName)
+    public void checkCanShowCurrentRoles(SecurityContext securityContext, Optional<String> catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(catalogName, "catalogName is null");
 
-        checkCanAccessCatalog(securityContext, catalogName);
-
-        catalogAuthorizationCheck(catalogName, securityContext, ConnectorAccessControl::checkCanShowCurrentRoles);
+        if (catalogName.isPresent()) {
+            checkCanAccessCatalog(securityContext, catalogName.get());
+            catalogAuthorizationCheck(catalogName.get(), securityContext, ConnectorAccessControl::checkCanShowCurrentRoles);
+        }
     }
 
     @Override
-    public void checkCanShowRoleGrants(SecurityContext securityContext, String catalogName)
+    public void checkCanShowRoleGrants(SecurityContext securityContext, Optional<String> catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(catalogName, "catalogName is null");
 
-        checkCanAccessCatalog(securityContext, catalogName);
-
-        catalogAuthorizationCheck(catalogName, securityContext, ConnectorAccessControl::checkCanShowRoleGrants);
+        if (catalogName.isPresent()) {
+            checkCanAccessCatalog(securityContext, catalogName.get());
+            catalogAuthorizationCheck(catalogName.get(), securityContext, ConnectorAccessControl::checkCanShowRoleGrants);
+        }
     }
 
     @Override

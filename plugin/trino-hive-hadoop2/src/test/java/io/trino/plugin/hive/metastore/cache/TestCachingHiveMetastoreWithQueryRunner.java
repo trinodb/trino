@@ -107,7 +107,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
     {
         assertThatThrownBy(() -> queryRunner.execute(ALICE, "SELECT * FROM test"))
                 .hasMessageContaining("Access Denied");
-        queryRunner.execute("CREATE ROLE test_role");
+        queryRunner.execute("CREATE ROLE test_role IN " + CATALOG);
         grantRoleStatements.forEach(queryRunner::execute);
         queryRunner.execute(ALICE, "SELECT * FROM test");
         queryRunner.execute(revokeRoleStatement);
@@ -119,14 +119,14 @@ public class TestCachingHiveMetastoreWithQueryRunner
     private Object[][] testCacheRefreshOnRoleGrantAndRevokeParams()
     {
         String grantSelectStatement = "GRANT SELECT ON test TO ROLE test_role";
-        String grantRoleStatement = "GRANT test_role TO " + ALICE_NAME;
+        String grantRoleStatement = "GRANT test_role TO " + ALICE_NAME + " IN " + CATALOG;
         List<List<String>> grantRoleStatements = ImmutableList.of(
                 ImmutableList.of(grantSelectStatement, grantRoleStatement),
                 ImmutableList.of(grantRoleStatement, grantSelectStatement));
         List<String> revokeRoleStatements = ImmutableList.of(
-                "DROP ROLE test_role",
+                "DROP ROLE test_role IN " + CATALOG,
                 "REVOKE SELECT ON test FROM ROLE test_role",
-                "REVOKE test_role FROM " + ALICE_NAME);
+                "REVOKE test_role FROM " + ALICE_NAME + " IN " + CATALOG);
         return cartesianProduct(grantRoleStatements, revokeRoleStatements).stream()
                 .map(a -> a.toArray(Object[]::new)).toArray(Object[][]::new);
     }
