@@ -20,6 +20,7 @@ import io.trino.connector.CatalogName;
 import io.trino.connector.informationschema.InformationSchemaConnector;
 import io.trino.connector.system.SystemConnector;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
@@ -216,6 +217,7 @@ public class TestMaterializedViews
                 catalogName,
                 catalog,
                 connector,
+                SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
                 new InformationSchemaConnector(catalogName, nodeManager, queryRunner.getMetadata(), queryRunner.getAccessControl()),
                 systemId,

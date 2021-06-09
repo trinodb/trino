@@ -466,6 +466,11 @@ public interface Metadata
     //
 
     /**
+     * Does the specified catalog manage security directly, or does it use global security management?
+     */
+    boolean isCatalogManagedSecurity(Session session, String catalog);
+
+    /**
      * Does the specified role exist.
      *
      * @param catalog if present, the role catalog; otherwise the role is a system role

@@ -39,6 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.security.PrincipalType.ROLE;
@@ -223,6 +224,11 @@ public final class MetadataUtil
             catalog.orElseThrow(() -> semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set"));
         }
         catalog.ifPresent(catalogName -> getRequiredCatalogHandle(metadata, session, node, catalogName));
+
+        if (catalog.isPresent() && !metadata.isCatalogManagedSecurity(session, catalog.get())) {
+            throw semanticException(NOT_SUPPORTED, node, "Catalog '%s' does not support role management", catalog.get());
+        }
+
         return catalog;
     }
 

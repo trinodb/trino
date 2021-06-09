@@ -24,6 +24,7 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.informationschema.InformationSchemaColumnHandle;
 import io.trino.connector.informationschema.InformationSchemaMetadata;
 import io.trino.connector.informationschema.InformationSchemaTableHandle;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -91,6 +92,7 @@ public class TestInformationSchemaMetadata
                 catalogName,
                 catalog,
                 testConnector,
+                SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
                 testConnector,
                 createSystemTablesCatalogName(catalog),

@@ -31,6 +31,7 @@ import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
@@ -1722,6 +1723,13 @@ public final class MetadataManager
     //
 
     @Override
+    public boolean isCatalogManagedSecurity(Session session, String catalog)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(catalog));
+        return catalogMetadata.getSecurityManagement() == SecurityManagement.CONNECTOR;
+    }
+
+    @Override
     public boolean roleExists(Session session, String role, Optional<String> catalog)
     {
         if (catalog.isEmpty()) {
@@ -1731,7 +1739,6 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(catalog.get()));
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
         return metadata.roleExists(session.toConnectorSession(catalogName), role);
     }
 
@@ -1745,7 +1752,6 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
         metadata.createRole(session.toConnectorSession(catalogName), role, grantor);
     }
 
@@ -1759,61 +1765,72 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
         metadata.dropRole(session.toConnectorSession(catalogName), role);
     }
 
     @Override
     public Set<String> listRoles(Session session, Optional<String> catalog)
     {
-        if (catalog.isEmpty()) {
-            return ImmutableSet.of();
+        if (catalog.isPresent()) {
+            Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
+            if (catalogMetadata.isEmpty()) {
+                return ImmutableSet.of();
+            }
+            // If the connector is using global security management, we fall through to the global call
+            // instead of returning nothing so information schema role tables will work properly
+            if (catalogMetadata.get().getSecurityManagement() == SecurityManagement.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.get().getCatalogName();
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+                return metadata.listRoles(connectorSession).stream()
+                        .map(role -> role.toLowerCase(ENGLISH))
+                        .collect(toImmutableSet());
+            }
         }
 
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
-        if (catalogMetadata.isEmpty()) {
-            return ImmutableSet.of();
-        }
-        CatalogName catalogName = catalogMetadata.get().getCatalogName();
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
-        return metadata.listRoles(connectorSession).stream()
-                .map(role -> role.toLowerCase(ENGLISH))
-                .collect(toImmutableSet());
+        return ImmutableSet.of();
     }
 
     @Override
     public Set<RoleGrant> listAllRoleGrants(Session session, Optional<String> catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
     {
-        if (catalog.isEmpty()) {
-            return ImmutableSet.of();
+        if (catalog.isPresent()) {
+            Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
+            if (catalogMetadata.isEmpty()) {
+                return ImmutableSet.of();
+            }
+            // If the connector is using global security management, we fall through to the global call
+            // instead of returning nothing so information schema role tables will work properly
+            if (catalogMetadata.get().getSecurityManagement() == SecurityManagement.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.get().getCatalogName();
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+                return metadata.listAllRoleGrants(connectorSession, roles, grantees, limit);
+            }
         }
 
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
-        if (catalogMetadata.isEmpty()) {
-            return ImmutableSet.of();
-        }
-        CatalogName catalogName = catalogMetadata.get().getCatalogName();
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
-        return metadata.listAllRoleGrants(connectorSession, roles, grantees, limit);
+        return ImmutableSet.of();
     }
 
     @Override
     public Set<RoleGrant> listRoleGrants(Session session, Optional<String> catalog, TrinoPrincipal principal)
     {
-        if (catalog.isEmpty()) {
-            return ImmutableSet.of();
+        if (catalog.isPresent()) {
+            Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
+            if (catalogMetadata.isEmpty()) {
+                return ImmutableSet.of();
+            }
+            // If the connector is using global security management, we fall through to the global call
+            // instead of returning nothing so information schema role tables will work properly
+            if (catalogMetadata.get().getSecurityManagement() == SecurityManagement.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.get().getCatalogName();
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+                return metadata.listRoleGrants(connectorSession, principal);
+            }
         }
 
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
-        if (catalogMetadata.isEmpty()) {
-            return ImmutableSet.of();
-        }
-        CatalogName catalogName = catalogMetadata.get().getCatalogName();
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
-        return metadata.listRoleGrants(connectorSession, principal);
+        return ImmutableSet.of();
     }
 
     @Override
@@ -1826,7 +1843,6 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
         metadata.grantRoles(session.toConnectorSession(catalogName), roles, grantees, adminOption, grantor);
     }
 
@@ -1840,34 +1856,40 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
         metadata.revokeRoles(session.toConnectorSession(catalogName), roles, grantees, adminOption, grantor);
     }
 
     @Override
     public Set<RoleGrant> listApplicableRoles(Session session, TrinoPrincipal principal, Optional<String> catalog)
     {
-        if (catalog.isEmpty()) {
-            return ImmutableSet.of();
+        if (catalog.isPresent()) {
+            Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
+            if (catalogMetadata.isEmpty()) {
+                return ImmutableSet.of();
+            }
+            // If the connector is using global security management, we fall through to the global call
+            // instead of returning nothing so information schema role tables will work properly
+            if (catalogMetadata.get().getSecurityManagement() == SecurityManagement.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.get().getCatalogName();
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+                return ImmutableSet.copyOf(metadata.listApplicableRoles(connectorSession, principal));
+            }
         }
 
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
-        if (catalogMetadata.isEmpty()) {
-            return ImmutableSet.of();
-        }
-        CatalogName catalogName = catalogMetadata.get().getCatalogName();
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
-        return ImmutableSet.copyOf(metadata.listApplicableRoles(connectorSession, principal));
+        return ImmutableSet.of();
     }
 
     @Override
     public Set<String> listEnabledRoles(Session session, String catalog)
     {
         Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
-        if (catalogMetadata.isEmpty()) {
+        // If the connector is using global security management, we fall through to the global call
+        // instead of returning nothing so information schema role tables will work properly
+        if (catalogMetadata.isEmpty() || catalogMetadata.get().getSecurityManagement() == SecurityManagement.GLOBAL) {
             return ImmutableSet.of();
         }
+
         CatalogName catalogName = catalogMetadata.get().getCatalogName();
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);

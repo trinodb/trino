@@ -20,6 +20,7 @@ import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
@@ -88,6 +89,7 @@ public class TestSetRoleTask
                 CATALOG_NAME,
                 catalogName,
                 testConnector,
+                SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalogName),
                 testConnector,
                 createSystemTablesCatalogName(catalogName),

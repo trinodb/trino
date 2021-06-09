@@ -69,6 +69,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -871,6 +872,7 @@ public class AccessControlManager
 
         if (catalogName.isPresent()) {
             checkCanAccessCatalog(securityContext, catalogName.get());
+            checkCatalogRoles(securityContext, catalogName.get());
             catalogAuthorizationCheck(catalogName.get(), securityContext, (control, context) -> control.checkCanCreateRole(context, role, grantor));
         }
     }
@@ -884,6 +886,7 @@ public class AccessControlManager
 
         if (catalogName.isPresent()) {
             checkCanAccessCatalog(securityContext, catalogName.get());
+            checkCatalogRoles(securityContext, catalogName.get());
             catalogAuthorizationCheck(catalogName.get(), securityContext, (control, context) -> control.checkCanDropRole(context, role));
         }
     }
@@ -899,6 +902,7 @@ public class AccessControlManager
 
         if (catalogName.isPresent()) {
             checkCanAccessCatalog(securityContext, catalogName.get());
+            checkCatalogRoles(securityContext, catalogName.get());
             catalogAuthorizationCheck(catalogName.get(), securityContext, (control, context) -> control.checkCanGrantRoles(context, roles, grantees, adminOption, grantor));
         }
     }
@@ -914,6 +918,7 @@ public class AccessControlManager
 
         if (catalogName.isPresent()) {
             checkCanAccessCatalog(securityContext, catalogName.get());
+            checkCatalogRoles(securityContext, catalogName.get());
             catalogAuthorizationCheck(catalogName.get(), securityContext, (control, context) -> control.checkCanRevokeRoles(context, roles, grantees, adminOption, grantor));
         }
     }
@@ -937,6 +942,7 @@ public class AccessControlManager
 
         if (catalogName.isPresent()) {
             checkCanAccessCatalog(securityContext, catalogName.get());
+            checkCatalogRoles(securityContext, catalogName.get());
             catalogAuthorizationCheck(catalogName.get(), securityContext, ConnectorAccessControl::checkCanShowRoleAuthorizationDescriptors);
         }
     }
@@ -949,6 +955,7 @@ public class AccessControlManager
 
         if (catalogName.isPresent()) {
             checkCanAccessCatalog(securityContext, catalogName.get());
+            checkCatalogRoles(securityContext, catalogName.get());
             catalogAuthorizationCheck(catalogName.get(), securityContext, ConnectorAccessControl::checkCanShowRoles);
         }
     }
@@ -961,6 +968,7 @@ public class AccessControlManager
 
         if (catalogName.isPresent()) {
             checkCanAccessCatalog(securityContext, catalogName.get());
+            checkCatalogRoles(securityContext, catalogName.get());
             catalogAuthorizationCheck(catalogName.get(), securityContext, ConnectorAccessControl::checkCanShowCurrentRoles);
         }
     }
@@ -973,6 +981,7 @@ public class AccessControlManager
 
         if (catalogName.isPresent()) {
             checkCanAccessCatalog(securityContext, catalogName.get());
+            checkCatalogRoles(securityContext, catalogName.get());
             catalogAuthorizationCheck(catalogName.get(), securityContext, ConnectorAccessControl::checkCanShowRoleGrants);
         }
     }
@@ -1110,6 +1119,14 @@ public class AccessControlManager
         catch (TrinoException e) {
             authorizationFail.update(1);
             throw e;
+        }
+    }
+
+    private void checkCatalogRoles(SecurityContext securityContext, String catalogName)
+    {
+        CatalogAccessControlEntry entry = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
+        if (entry == null) {
+            throw new TrinoException(NOT_SUPPORTED, format("Catalog %s does not support catalog roles", catalogName));
         }
     }
 

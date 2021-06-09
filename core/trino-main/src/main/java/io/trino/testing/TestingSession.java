@@ -21,6 +21,7 @@ import io.trino.connector.system.StaticSystemTablesProvider;
 import io.trino.connector.system.SystemTablesMetadata;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -80,6 +81,7 @@ public final class TestingSession
                 catalogName,
                 catalog,
                 createTestSessionConnector(),
+                SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
                 createTestSessionConnector(),
                 createSystemTablesCatalogName(catalog),
