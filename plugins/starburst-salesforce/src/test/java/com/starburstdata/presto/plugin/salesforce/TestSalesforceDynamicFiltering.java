@@ -32,13 +32,6 @@ public class TestSalesforceDynamicFiltering
     }
 
     @Override
-    protected boolean supportsSplitDynamicFiltering()
-    {
-        // JDBC connectors always generate single split
-        return false;
-    }
-
-    @Override
     protected boolean isJoinPushdownEnabledByDefault()
     {
         return false;
@@ -57,9 +50,7 @@ public class TestSalesforceDynamicFiltering
     {
         assertDynamicFilters(
                 "SELECT * FROM (SELECT orderkey__c, count(*) FROM orders__c GROUP BY 1) a JOIN orders__c b " +
-                        "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000",
-                // selected rows might cover same number of splits as for query without DF
-                false);
+                        "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000");
     }
 
     @Override
@@ -98,10 +89,10 @@ public class TestSalesforceDynamicFiltering
     {
         String query = "SELECT * FROM orders__c a JOIN orders__c b " +
                 "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c <= 1000";
-        QueryInputStats filteredStats = getQueryInputStats(broadcastJoinWithDynamicFiltering(true), query);
-        QueryInputStats unfilteredStats = getQueryInputStats(broadcastJoinWithDynamicFiltering(false), query);
+        long filteredInputPositions = getQueryInputPositions(broadcastJoinWithDynamicFiltering(true), query);
+        long unfilteredInputPositions = getQueryInputPositions(broadcastJoinWithDynamicFiltering(false), query);
 
-        assertGreaterThan(unfilteredStats.inputPositions, filteredStats.inputPositions);
+        assertGreaterThan(unfilteredInputPositions, filteredInputPositions);
     }
 
     @Override
@@ -115,12 +106,12 @@ public class TestSalesforceDynamicFiltering
             String query = "SELECT * FROM orders__c a " +
                     "JOIN " + tableName + "__c b ON a.orderkey__c = b.orderkey__c";
 
-            QueryInputStats filteredStats = getQueryInputStats(dynamicFiltering(true), query);
-            QueryInputStats smallCompactionStats = getQueryInputStats(dynamicFilteringWithCompactionThreshold(1), query);
-            QueryInputStats unfilteredStats = getQueryInputStats(dynamicFiltering(false), query);
+            long filteredInputPositions = getQueryInputPositions(dynamicFiltering(true), query);
+            long smallCompactionInputPositions = getQueryInputPositions(dynamicFilteringWithCompactionThreshold(1), query);
+            long unfilteredInputPositions = getQueryInputPositions(dynamicFiltering(false), query);
 
-            assertGreaterThan(unfilteredStats.inputPositions, smallCompactionStats.inputPositions);
-            assertGreaterThan(smallCompactionStats.inputPositions, filteredStats.inputPositions);
+            assertGreaterThan(unfilteredInputPositions, smallCompactionInputPositions);
+            assertGreaterThan(smallCompactionInputPositions, filteredInputPositions);
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName + "__c");
