@@ -88,11 +88,11 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Progressable;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
-import java.io.Closeable;
 import java.io.EOFException;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -163,6 +163,7 @@ public class TrinoS3FileSystem
 {
     public static final String S3_USER_AGENT_PREFIX = "trino.s3.user-agent-prefix";
     public static final String S3_CREDENTIALS_PROVIDER = "trino.s3.credentials-provider";
+    public static final String S3_CREDENTIALS_PROVIDER_FACTORY = "trino.s3.credentials-provider-factory";
     public static final String S3_SSE_TYPE = "trino.s3.sse.type";
     public static final String S3_SSE_ENABLED = "trino.s3.sse.enabled";
     public static final String S3_SSE_KMS_KEY_ID = "trino.s3.sse.kms-key-id";
@@ -212,7 +213,7 @@ public class TrinoS3FileSystem
     private URI uri;
     private Path workingDirectory;
     private AmazonS3 s3;
-    private AWSCredentialsProvider credentialsProvider;
+    private AWSCredentialsProviderFactory credentialsProviderFactory;
     private File stagingDirectory;
     private int maxAttempts;
     private Duration maxBackoffTime;
@@ -290,7 +291,7 @@ public class TrinoS3FileSystem
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix("Trino");
 
-        this.credentialsProvider = createAwsCredentialsProvider(uri, conf);
+        this.credentialsProviderFactory = createAwsCredentialsProviderFactory(uri, conf);
         this.s3 = createAmazonS3Client(conf, configuration);
     }
 
@@ -300,9 +301,6 @@ public class TrinoS3FileSystem
     {
         try (Closer closer = Closer.create()) {
             closer.register(super::close);
-            if (credentialsProvider instanceof Closeable) {
-                closer.register((Closeable) credentialsProvider);
-            }
             closer.register(uploadExecutor::shutdown);
             closer.register(s3::shutdown);
         }
@@ -457,8 +455,8 @@ public class TrinoS3FileSystem
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
-                        new TrinoS3InputStream(s3, getBucketName(uri), path, requesterPaysEnabled, maxAttempts, maxBackoffTime, maxRetryTime),
-                        bufferSize));
+                        new TrinoS3InputStream(s3, getRequestAwsCredentialsProvider(keyFromPath(path), TrinoS3OperationType.READ),
+                        getBucketName(uri), path, requesterPaysEnabled, maxAttempts, maxBackoffTime, maxRetryTime), bufferSize));
     }
 
     @Override
@@ -478,7 +476,8 @@ public class TrinoS3FileSystem
 
         if (streamingUploadEnabled) {
             Supplier<String> uploadIdFactory = () -> initMultipartUpload(bucketName, key).getUploadId();
-            return new TrinoS3StreamingOutputStream(s3, bucketName, key, this::customizePutObjectRequest, uploadIdFactory, uploadExecutor, streamingUploadPartSize);
+            return new TrinoS3StreamingOutputStream(s3, getRequestAwsCredentialsProvider(key, TrinoS3OperationType.WRITE), bucketName, key,
+                    this::customizePutObjectRequest, uploadIdFactory, uploadExecutor, streamingUploadPartSize);
         }
 
         if (!stagingDirectory.exists()) {
@@ -488,7 +487,8 @@ public class TrinoS3FileSystem
             throw new IOException("Configured staging path is not a directory: " + stagingDirectory);
         }
         File tempFile = createTempFile(stagingDirectory.toPath(), "trino-s3-", ".tmp").toFile();
-        return new TrinoS3StagingOutputStream(s3, bucketName, key, tempFile, this::customizePutObjectRequest, multiPartUploadMinFileSize, multiPartUploadMinPartSize);
+        return new TrinoS3StagingOutputStream(s3, getRequestAwsCredentialsProvider(key, TrinoS3OperationType.WRITE), bucketName,
+                key, tempFile, this::customizePutObjectRequest, multiPartUploadMinFileSize, multiPartUploadMinPartSize);
     }
 
     @Override
@@ -532,8 +532,11 @@ public class TrinoS3FileSystem
             deleteObject(keyFromPath(src) + DIRECTORY_SUFFIX);
         }
         else {
+            // TODO copyObject is tricky since it's both a read AND a write
+            // for now since this is part of a "rename" operation, we mostly care about the source.
             s3.copyObject(new CopyObjectRequest(getBucketName(uri), keyFromPath(src), getBucketName(uri), keyFromPath(dst))
-                    .withRequesterPays(requesterPaysEnabled));
+                    .withRequesterPays(requesterPaysEnabled)
+                    .withRequestCredentialsProvider(getRequestAwsCredentialsProvider(keyFromPath(src), TrinoS3OperationType.READ)));
             delete(src, true);
         }
 
@@ -580,7 +583,7 @@ public class TrinoS3FileSystem
                 // currently the method exists, but is ineffective (doesn't set the required HTTP header)
                 deleteObjectRequest.putCustomRequestHeader(Headers.REQUESTER_PAYS_HEADER, Constants.REQUESTER_PAYS);
             }
-
+            deleteObjectRequest.withRequestCredentialsProvider(getRequestAwsCredentialsProvider(key, TrinoS3OperationType.WRITE));
             s3.deleteObject(deleteObjectRequest);
             return true;
         }
@@ -635,7 +638,8 @@ public class TrinoS3FileSystem
                 .withPrefix(prefix)
                 .withDelimiter(mode == ListingMode.RECURSIVE_FILES_ONLY ? null : PATH_SEPARATOR)
                 .withMaxKeys(initialMaxKeys.isPresent() ? initialMaxKeys.getAsInt() : null)
-                .withRequesterPays(requesterPaysEnabled);
+                .withRequesterPays(requesterPaysEnabled)
+                .withRequestCredentialsProvider(getRequestAwsCredentialsProvider(prefix, TrinoS3OperationType.READ));
 
         STATS.newListObjectsCall();
         Iterator<ListObjectsV2Result> listings = new AbstractSequentialIterator<>(s3.listObjectsV2(request))
@@ -757,7 +761,8 @@ public class TrinoS3FileSystem
                         try {
                             STATS.newMetadataCall();
                             return s3.getObjectMetadata(new GetObjectMetadataRequest(bucketName, key)
-                                    .withRequesterPays(requesterPaysEnabled));
+                                    .withRequesterPays(requesterPaysEnabled)
+                                    .withRequestCredentialsProvider(getRequestAwsCredentialsProvider(key, TrinoS3OperationType.READ)));
                         }
                         catch (RuntimeException e) {
                             STATS.newGetMetadataError();
@@ -852,14 +857,12 @@ public class TrinoS3FileSystem
 
         if (encryptionMaterialsProvider.isPresent()) {
             clientBuilder = AmazonS3EncryptionClient.encryptionBuilder()
-                    .withCredentials(credentialsProvider)
                     .withEncryptionMaterials(encryptionMaterialsProvider.get())
                     .withClientConfiguration(clientConfig)
                     .withMetricsCollector(METRIC_COLLECTOR);
         }
         else {
             clientBuilder = AmazonS3Client.builder()
-                    .withCredentials(credentialsProvider)
                     .withClientConfiguration(clientConfig)
                     .withMetricsCollector(METRIC_COLLECTOR);
         }
@@ -918,7 +921,59 @@ public class TrinoS3FileSystem
         }
     }
 
-    private AWSCredentialsProvider createAwsCredentialsProvider(URI uri, Configuration conf)
+    /**
+     * Get the correct AwsCredentialsProvider for a given s3 key and operation type (READ,WRITE)
+     * @param key the s3 key to get credentials for
+     * @param type the type of operation we're doing on the key
+     *
+     * This defaults to getDefaultAwsCredentialsProvider if the user is not retrievable from the UGI.
+     *
+     * @return an AwsCredentialProvider to use for the request
+     */
+    private AWSCredentialsProvider getRequestAwsCredentialsProvider(String key, TrinoS3OperationType type)
+    {
+        try {
+            return credentialsProviderFactory.getAWSCredentialsProvider(UserGroupInformation.getCurrentUser().getUserName(), getBucketName(uri), key, type);
+        }
+        catch (IOException e) {
+            log.debug(e, "Retrieving user through UGI failed. Reverting to default AwsCredentialsProvider.");
+            return getDefaultAwsCredentialsProvider(uri, getConf());
+        }
+    }
+
+    /**
+     * Create an AwsCredentialsProviderFactory
+     * @param uri the uri used to construct the factory
+     * @param conf the configuration used to construct the factory
+     *
+     * This will first check if S3_CREDENTIALS_PROVIDER_FACTORY is supplied. If it is, we'll
+     * attempt to create an instance of the supplised credentials provider factory. That factory
+     * will be used to retrieve an AwsCredentialsProviders per request.
+     *
+     * If no class is supplied, this will instantiate a DefaultAwsCredentialsProviderFactory which simply returns
+     * the provider from getDefaultAwsCredentialsProvider for each request.
+     *
+     * @return an AwsCredentialsProviderFactory instance
+     */
+    private AWSCredentialsProviderFactory createAwsCredentialsProviderFactory(URI uri, Configuration conf)
+    {
+        String providerClass = conf.get(S3_CREDENTIALS_PROVIDER_FACTORY);
+        if (!isNullOrEmpty(providerClass)) {
+            try {
+                log.debug("Using AWS credential provider factory %s for URI %s", providerClass, uri);
+                return conf.getClassByName(providerClass)
+                        .asSubclass(AWSCredentialsProviderFactory.class)
+                        .getConstructor(URI.class, Configuration.class)
+                        .newInstance(uri, conf);
+            }
+            catch (ReflectiveOperationException e) {
+                throw new RuntimeException(format("Error creating an instance of %s for URI %s", providerClass, uri), e);
+            }
+        }
+        return new DefaultAWSCredentialProviderFactory(uri, conf);
+    }
+
+    private AWSCredentialsProvider getDefaultAwsCredentialsProvider(URI uri, Configuration conf)
     {
         // credentials embedded in the URI take precedence and are used alone
         Optional<AWSCredentials> credentials = getEmbeddedAwsCredentials(uri);
@@ -1018,7 +1073,8 @@ public class TrinoS3FileSystem
                 .withObjectMetadata(new ObjectMetadata())
                 .withCannedACL(s3AclType.getCannedACL())
                 .withRequesterPays(requesterPaysEnabled)
-                .withStorageClass(s3StorageClass.getS3StorageClass());
+                .withStorageClass(s3StorageClass.getS3StorageClass())
+                .withRequestCredentialsProvider(getRequestAwsCredentialsProvider(key, TrinoS3OperationType.WRITE));
 
         if (sseEnabled) {
             switch (sseType) {
@@ -1043,6 +1099,7 @@ public class TrinoS3FileSystem
             extends FSInputStream
     {
         private final AmazonS3 s3;
+        private final AWSCredentialsProvider provider;
         private final String bucket;
         private final Path path;
         private final boolean requesterPaysEnabled;
@@ -1056,9 +1113,10 @@ public class TrinoS3FileSystem
         private long streamPosition;
         private long nextReadPosition;
 
-        public TrinoS3InputStream(AmazonS3 s3, String bucket, Path path, boolean requesterPaysEnabled, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
+        public TrinoS3InputStream(AmazonS3 s3, AWSCredentialsProvider provider, String bucket, Path path, boolean requesterPaysEnabled, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
         {
             this.s3 = requireNonNull(s3, "s3 is null");
+            this.provider = requireNonNull(provider, "credentials provider is null");
             this.bucket = requireNonNull(bucket, "bucket is null");
             this.path = requireNonNull(path, "path is null");
             this.requesterPaysEnabled = requesterPaysEnabled;
@@ -1100,7 +1158,8 @@ public class TrinoS3FileSystem
                             try {
                                 GetObjectRequest request = new GetObjectRequest(bucket, keyFromPath(path))
                                         .withRange(position, (position + length) - 1)
-                                        .withRequesterPays(requesterPaysEnabled);
+                                        .withRequesterPays(requesterPaysEnabled)
+                                        .withRequestCredentialsProvider(provider);
                                 stream = s3.getObject(request).getObjectContent();
                             }
                             catch (RuntimeException e) {
@@ -1274,7 +1333,8 @@ public class TrinoS3FileSystem
                             try {
                                 GetObjectRequest request = new GetObjectRequest(bucket, keyFromPath(path))
                                         .withRange(start)
-                                        .withRequesterPays(requesterPaysEnabled);
+                                        .withRequesterPays(requesterPaysEnabled)
+                                        .withRequestCredentialsProvider(provider);
                                 return s3.getObject(request).getObjectContent();
                             }
                             catch (RuntimeException e) {
@@ -1353,6 +1413,7 @@ public class TrinoS3FileSystem
             extends FilterOutputStream
     {
         private final TransferManager transferManager;
+        private final AWSCredentialsProvider provider;
         private final String bucket;
         private final String key;
         private final File tempFile;
@@ -1362,6 +1423,7 @@ public class TrinoS3FileSystem
 
         public TrinoS3StagingOutputStream(
                 AmazonS3 s3,
+                AWSCredentialsProvider provider,
                 String bucket,
                 String key,
                 File tempFile,
@@ -1377,6 +1439,7 @@ public class TrinoS3FileSystem
                     .withMinimumUploadPartSize(multiPartUploadMinPartSize)
                     .withMultipartUploadThreshold(multiPartUploadMinFileSize).build();
 
+            this.provider = requireNonNull(provider, "credentials provider is null");
             this.bucket = requireNonNull(bucket, "bucket is null");
             this.key = requireNonNull(key, "key is null");
             this.tempFile = tempFile;
@@ -1414,7 +1477,8 @@ public class TrinoS3FileSystem
                 log.debug("Starting upload for bucket: %s, key: %s, file: %s, size: %s", bucket, key, tempFile, tempFile.length());
                 STATS.uploadStarted();
 
-                PutObjectRequest request = new PutObjectRequest(bucket, key, tempFile);
+                PutObjectRequest request = new PutObjectRequest(bucket, key, tempFile)
+                        .withRequestCredentialsProvider(provider);
                 requestCustomizer.accept(request);
 
                 Upload upload = transferManager.upload(request);
@@ -1468,6 +1532,7 @@ public class TrinoS3FileSystem
             extends OutputStream
     {
         private final AmazonS3 s3;
+        private final AWSCredentialsProvider provider;
         private final String bucketName;
         private final String key;
         private final Consumer<PutObjectRequest> requestCustomizer;
@@ -1485,6 +1550,7 @@ public class TrinoS3FileSystem
 
         public TrinoS3StreamingOutputStream(
                 AmazonS3 s3,
+                AWSCredentialsProvider provider,
                 String bucketName,
                 String key,
                 Consumer<PutObjectRequest> requestCustomizer,
@@ -1495,6 +1561,7 @@ public class TrinoS3FileSystem
             STATS.uploadStarted();
 
             this.s3 = requireNonNull(s3, "s3 is null");
+            this.provider = requireNonNull(provider, "credentials provider is null");
 
             this.buffer = new byte[partSize];
 
@@ -1589,7 +1656,8 @@ public class TrinoS3FileSystem
                 metadata.setContentLength(bufferSize);
                 metadata.setContentMD5(getMd5AsBase64(buffer, 0, bufferSize));
 
-                PutObjectRequest request = new PutObjectRequest(bucketName, key, in, metadata);
+                PutObjectRequest request = new PutObjectRequest(bucketName, key, in, metadata)
+                        .withRequestCredentialsProvider(provider);
                 requestCustomizer.accept(request);
 
                 try {
@@ -1645,7 +1713,8 @@ public class TrinoS3FileSystem
                     .withPartNumber(currentPartNumber)
                     .withInputStream(new ByteArrayInputStream(data, 0, length))
                     .withPartSize(length)
-                    .withMD5Digest(getMd5AsBase64(data, 0, length));
+                    .withMD5Digest(getMd5AsBase64(data, 0, length))
+                    .withRequestCredentialsProvider(provider);
 
             UploadPartResult partResult = s3.uploadPart(uploadRequest);
             parts.add(partResult);
@@ -1657,7 +1726,7 @@ public class TrinoS3FileSystem
             List<PartETag> etags = parts.stream()
                     .map(UploadPartResult::getPartETag)
                     .collect(toList());
-            s3.completeMultipartUpload(new CompleteMultipartUploadRequest(bucketName, key, uploadId, etags));
+            s3.completeMultipartUpload(new CompleteMultipartUploadRequest(bucketName, key, uploadId, etags).withRequestCredentialsProvider(provider));
 
             STATS.uploadSuccessful();
         }
@@ -1666,7 +1735,7 @@ public class TrinoS3FileSystem
         {
             STATS.uploadFailed();
 
-            uploadId.ifPresent(id -> s3.abortMultipartUpload(new AbortMultipartUploadRequest(bucketName, key, id)));
+            uploadId.ifPresent(id -> s3.abortMultipartUpload(new AbortMultipartUploadRequest(bucketName, key, id).withRequestCredentialsProvider(provider)));
         }
 
         @SuppressWarnings("ObjectEquality")
@@ -1733,5 +1802,48 @@ public class TrinoS3FileSystem
         @SuppressWarnings("deprecation")
         byte[] md5 = md5().hashBytes(data, offset, length).asBytes();
         return Base64.getEncoder().encodeToString(md5);
+    }
+
+    private class DefaultAWSCredentialProviderFactory
+            implements AWSCredentialsProviderFactory
+    {
+        // We can keep the same provider for all request since the default implementation doesn't swap
+        // credentials per request
+        private AWSCredentialsProvider provider;
+
+        public DefaultAWSCredentialProviderFactory(URI uri, Configuration conf)
+        {
+            // credentials embedded in the URI take precedence and are used alone
+            Optional<AWSCredentials> credentials = getEmbeddedAwsCredentials(uri);
+            if (credentials.isPresent()) {
+                provider = new AWSStaticCredentialsProvider(credentials.get());
+                return;
+            }
+
+            // a custom credential provider is also used alone
+            String providerClass = conf.get(S3_CREDENTIALS_PROVIDER);
+            if (!isNullOrEmpty(providerClass)) {
+                provider = getCustomAWSCredentialsProvider(uri, conf, providerClass);
+                return;
+            }
+
+            // use configured credentials or default chain with optional role
+            provider = getAwsCredentials(conf)
+                    .map(value -> (AWSCredentialsProvider) new AWSStaticCredentialsProvider(value))
+                    .orElseGet(DefaultAWSCredentialsProviderChain::getInstance);
+
+            if (iamRole != null) {
+                provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, "trino-session")
+                        .withExternalId(externalId)
+                        .withLongLivedCredentialsProvider(provider)
+                        .build();
+            }
+        }
+
+        @Override
+        public AWSCredentialsProvider getAWSCredentialsProvider(String user, String bucketName, String key, TrinoS3OperationType type)
+        {
+            return provider;
+        }
     }
 }
