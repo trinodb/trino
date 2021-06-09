@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-import io.trino.spi.TrinoException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.CreateRole;
@@ -35,7 +34,6 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.checkRoleExists;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.ROLE_ALREADY_EXISTS;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
@@ -68,8 +66,7 @@ public class CreateRoleTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        String catalog = processRoleCommandCatalog(metadata, session, statement, statement.getCatalog().map(Identifier::getValue), legacyCatalogRoles)
-                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "System roles are not supported yet"));
+        Optional<String> catalog = processRoleCommandCatalog(metadata, session, statement, statement.getCatalog().map(Identifier::getValue), legacyCatalogRoles);
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
         Optional<TrinoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         accessControl.checkCanCreateRole(session.toSecurityContext(), role, grantor, catalog);

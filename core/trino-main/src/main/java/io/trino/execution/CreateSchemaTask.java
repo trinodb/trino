@@ -119,7 +119,7 @@ public class CreateSchemaTask
         }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal().get());
-        checkRoleExists(session, statement, metadata, principal, catalog);
+        checkRoleExists(session, statement, metadata, principal, Optional.of(catalog));
         return principal;
     }
 }

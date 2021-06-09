@@ -282,7 +282,7 @@ public class InformationSchemaMetadata
         }
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        return Optional.of(metadata.listRoles(session, catalogName)
+        return Optional.of(metadata.listRoles(session, Optional.of(catalogName))
                 .stream()
                 .filter(role -> predicate.get().test(roleAsFixedValues(role)))
                 .collect(toImmutableSet()));

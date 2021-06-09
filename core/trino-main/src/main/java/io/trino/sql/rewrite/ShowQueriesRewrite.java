@@ -96,8 +96,6 @@ import java.util.SortedMap;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.connector.informationschema.InformationSchemaTable.COLUMNS;
-import static io.trino.connector.informationschema.InformationSchemaTable.ENABLED_ROLES;
-import static io.trino.connector.informationschema.InformationSchemaTable.ROLES;
 import static io.trino.connector.informationschema.InformationSchemaTable.SCHEMATA;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLES;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
@@ -292,23 +290,28 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowRoles(ShowRoles node, Void context)
         {
-            if (node.getCatalog().isEmpty() && session.getCatalog().isEmpty()) {
-                throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
+            Optional<String> catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH));
+            if (catalog.isEmpty()) {
+                throw new TrinoException(NOT_SUPPORTED, "System roles are not supported yet");
             }
-
-            String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
 
             if (node.isCurrent()) {
                 accessControl.checkCanShowCurrentRoles(session.toSecurityContext(), catalog);
+                List<Expression> rows = metadata.listEnabledRoles(session, catalog.orElseThrow()).stream()
+                        .map(role -> row(new StringLiteral(role)))
+                        .collect(toList());
                 return simpleQuery(
-                        selectList(aliasedName("role_name", "Role")),
-                        from(catalog, ENABLED_ROLES.getSchemaTableName()));
+                        selectList(new AllColumns()),
+                        aliased(new Values(rows), "role_name", ImmutableList.of("Role")));
             }
             else {
                 accessControl.checkCanShowRoles(session.toSecurityContext(), catalog);
+                List<Expression> rows = metadata.listRoles(session, catalog).stream()
+                        .map(role -> row(new StringLiteral(role)))
+                        .collect(toList());
                 return simpleQuery(
-                        selectList(aliasedName("role_name", "Role")),
-                        from(catalog, ROLES.getSchemaTableName()));
+                        selectList(new AllColumns()),
+                        aliased(new Values(rows), "role_name", ImmutableList.of("Role")));
             }
         }
 
@@ -319,7 +322,7 @@ final class ShowQueriesRewrite
                 throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
+            Optional<String> catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH));
             TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, session.getUser());
 
             accessControl.checkCanShowRoleGrants(session.toSecurityContext(), catalog);

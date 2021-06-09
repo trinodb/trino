@@ -345,7 +345,7 @@ public final class Session
                     .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName))
                     .getCatalogName();
             if (role.getType() == SelectedRole.Type.ROLE) {
-                accessControl.checkCanSetRole(new SecurityContext(transactionId, identity, queryId), role.getRole().get(), catalogName);
+                accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId), role.getRole().orElseThrow(), catalogName);
             }
             roles.put(catalog.getCatalogName(), role);
 

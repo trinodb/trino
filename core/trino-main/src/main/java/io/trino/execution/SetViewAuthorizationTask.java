@@ -25,6 +25,7 @@ import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.transaction.TransactionManager;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.checkRoleExists;
@@ -61,7 +62,7 @@ public class SetViewAuthorizationTask
         }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
-        checkRoleExists(session, statement, metadata, principal, viewName.getCatalogName());
+        checkRoleExists(session, statement, metadata, principal, Optional.of(viewName.getCatalogName()));
 
         accessControl.checkCanSetViewAuthorization(session.toSecurityContext(), viewName, principal);
 
