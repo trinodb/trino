@@ -231,6 +231,7 @@ public class TestStarburstOracleConnectorTest
     }
 
     @Test
+    @Override
     public void testAggregationPushdown()
     {
         // TODO support aggregation pushdown with GROUPING SETS
@@ -321,7 +322,22 @@ public class TestStarburstOracleConnectorTest
         }
     }
 
+    @Override
+    public void testDistinctAggregationPushdown()
+    {
+        // TODO: Migrate to BaseJdbcConnectorTest
+        throw new SkipException("tested via testAggregationPushdown");
+    }
+
+    @Override
+    public void testNumericAggregationPushdown()
+    {
+        // TODO: Migrate to BaseJdbcConnectorTest
+        throw new SkipException("tested via testAggregationPushdown");
+    }
+
     @Test
+    @Override
     public void testStddevAggregationPushdown()
     {
         try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
@@ -359,6 +375,7 @@ public class TestStarburstOracleConnectorTest
     }
 
     @Test
+    @Override
     public void testVarianceAggregationPushdown()
     {
         try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
@@ -397,6 +414,7 @@ public class TestStarburstOracleConnectorTest
     }
 
     @Test
+    @Override
     public void testCovarianceAggregationPushdown()
     {
         String schema = getSession().getSchema().orElseThrow();
