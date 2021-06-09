@@ -248,7 +248,7 @@ public class SnowflakeClient
     }
 
     @Override
-    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    public boolean isTopNGuaranteed(ConnectorSession session)
     {
         // The data returned conforms to TopN requirements, but can be returned out of order
         return !distributedConnector;
