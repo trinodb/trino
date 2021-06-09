@@ -521,25 +521,28 @@ These rules govern the privileges granted on specific tables.
 
 .. note::
 
-    Privileges ``OWNERSHIP`` are required when following actions are taken on the table::
+    ``OWNERSHIP`` privilege is required for performing the following operations::
 
-    * SHOW CREATE TABLE
-    * CREATE TABLE
-    * DROP TABLE
-    * RENAME TABLE
-    * SET TABLE COMMENT
-    * ADD COLUMN
-    * DROP COLUMN
-    * RENAME COLUMN
+        CREATE SCHEMA
+        DROP SCHEMA
+        RENAME SCHEMA
+        SET SCHEMA AUTHORIZATION
+        SHOW CREATE SCHEMA
+        SHOW CREATE TABLE
 
-    Privileges ``OWNERSHIP`` are required when following actions are token on the view::
-
-    * CREATE VIEW
-    * RENAME VIEW
-    * SET VIEW AUTHORIZATION
-    * DROP VIEW
-    * CREATE MATERIALIZED VIEW
-    * DROP MATERIALIZED VIEW
+        CREATE TABLE
+        DROP TABLE
+        RENAME TABLE
+        SET TABLE COMMENT
+        ADD COLUMN
+        DROP COLUMN
+        RENAME COLUMN
+        CREATE VIEW
+        RENAME VIEW
+        SET VIEW AUTHORIZATION
+        DROP VIEW
+        CREATE MATERIALIZED VIEW
+        DROP MATERIALIZED VIEW
 
 Column constraint
 ^^^^^^^^^^^^^^^^^
