@@ -201,17 +201,17 @@ public final class MetadataUtil
         return metadata.getTableHandle(session, name).isPresent();
     }
 
-    public static void checkRoleExists(Session session, Node node, Metadata metadata, TrinoPrincipal principal, String catalog)
+    public static void checkRoleExists(Session session, Node node, Metadata metadata, TrinoPrincipal principal, Optional<String> catalog)
     {
         if (principal.getType() == ROLE) {
             checkRoleExists(session, node, metadata, principal.getName(), catalog);
         }
     }
 
-    public static void checkRoleExists(Session session, Node node, Metadata metadata, String role, String catalog)
+    public static void checkRoleExists(Session session, Node node, Metadata metadata, String role, Optional<String> catalog)
     {
         if (!metadata.roleExists(session, role, catalog)) {
-            throw semanticException(ROLE_NOT_FOUND, node, "Role '%s' does not exist in catalog '%s'", role, catalog);
+            throw semanticException(ROLE_NOT_FOUND, node, "Role '%s' does not exist%s", role, catalog.map(c -> format(" in catalog '%s'", c)).orElse(""));
         }
     }
 

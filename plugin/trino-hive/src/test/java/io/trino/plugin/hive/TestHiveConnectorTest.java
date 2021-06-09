@@ -481,8 +481,8 @@ public class TestHiveConnectorTest
         // make sure role-grants only work on existing roles
         assertQueryFails(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist in catalog 'hive'");
 
-        assertUpdate(admin, "CREATE ROLE authorized_users");
-        assertUpdate(admin, "GRANT authorized_users TO user");
+        assertUpdate(admin, "CREATE ROLE authorized_users IN hive");
+        assertUpdate(admin, "GRANT authorized_users TO user IN hive");
 
         assertUpdate(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE authorized_users");
 
@@ -512,7 +512,7 @@ public class TestHiveConnectorTest
         assertUpdate(user, "DROP TABLE test_schema_authorization_role.test");
         assertUpdate(user, "DROP SCHEMA test_schema_authorization_role");
 
-        assertUpdate(admin, "DROP ROLE authorized_users");
+        assertUpdate(admin, "DROP ROLE authorized_users IN hive");
     }
 
     @Test
@@ -585,8 +585,8 @@ public class TestHiveConnectorTest
                         .build())
                 .build();
 
-        assertUpdate(admin, "CREATE ROLE authorized_users");
-        assertUpdate(admin, "GRANT authorized_users TO user");
+        assertUpdate(admin, "CREATE ROLE authorized_users IN hive");
+        assertUpdate(admin, "GRANT authorized_users TO user IN hive");
 
         assertQueryFails(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist in catalog 'hive'");
         assertUpdate(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE authorized_users");
@@ -603,7 +603,7 @@ public class TestHiveConnectorTest
         assertUpdate(user, "DROP TABLE test_createschema_authorization_role.test");
         assertUpdate(user, "DROP SCHEMA test_createschema_authorization_role");
 
-        assertUpdate(admin, "DROP ROLE authorized_users");
+        assertUpdate(admin, "DROP ROLE authorized_users IN hive");
     }
 
     @Test
@@ -838,8 +838,8 @@ public class TestHiveConnectorTest
                 .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
                 .build();
 
-        assertUpdate(admin, "CREATE ROLE test_show_create_schema_role");
-        assertUpdate(admin, "GRANT test_show_create_schema_role TO user");
+        assertUpdate(admin, "CREATE ROLE test_show_create_schema_role IN hive");
+        assertUpdate(admin, "GRANT test_show_create_schema_role TO user IN hive");
 
         assertUpdate(admin, "CREATE SCHEMA test_show_create_schema");
 
@@ -870,7 +870,7 @@ public class TestHiveConnectorTest
         assertThat(actualResult).matches(createSchemaSql);
 
         assertUpdate(user, "DROP SCHEMA test_show_create_schema");
-        assertUpdate(admin, "DROP ROLE test_show_create_schema_role");
+        assertUpdate(admin, "DROP ROLE test_show_create_schema_role IN hive");
     }
 
     @Test
@@ -5663,9 +5663,9 @@ public class TestHiveConnectorTest
                 .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
                 .build();
 
-        assertUpdate("CREATE ROLE test_r_a_d1");
-        assertUpdate("CREATE ROLE test_r_a_d2");
-        assertUpdate("CREATE ROLE test_r_a_d3");
+        assertUpdate("CREATE ROLE test_r_a_d1 IN hive");
+        assertUpdate("CREATE ROLE test_r_a_d2 IN hive");
+        assertUpdate("CREATE ROLE test_r_a_d3 IN hive");
 
         // nothing showing because no roles have been granted
         assertQueryReturnsEmptyResult("SELECT * FROM information_schema.role_authorization_descriptors");
@@ -5674,12 +5674,12 @@ public class TestHiveConnectorTest
         assertQueryFails(user, "SELECT * FROM information_schema.role_authorization_descriptors",
                 "Access Denied: Cannot select from table information_schema.role_authorization_descriptors");
 
-        assertUpdate("GRANT test_r_a_d1 TO USER user");
+        assertUpdate("GRANT test_r_a_d1 TO USER user IN hive");
         // user with same name as a role
-        assertUpdate("GRANT test_r_a_d2 TO USER test_r_a_d1");
-        assertUpdate("GRANT test_r_a_d2 TO USER user1 WITH ADMIN OPTION");
-        assertUpdate("GRANT test_r_a_d2 TO USER user2");
-        assertUpdate("GRANT test_r_a_d2 TO ROLE test_r_a_d1");
+        assertUpdate("GRANT test_r_a_d2 TO USER test_r_a_d1 IN hive");
+        assertUpdate("GRANT test_r_a_d2 TO USER user1 WITH ADMIN OPTION IN hive");
+        assertUpdate("GRANT test_r_a_d2 TO USER user2 IN hive");
+        assertUpdate("GRANT test_r_a_d2 TO ROLE test_r_a_d1 IN hive");
 
         // role_authorization_descriptors is not accessible for a non-admin user
         assertQueryFails(user, "SELECT * FROM information_schema.role_authorization_descriptors",
@@ -5757,9 +5757,9 @@ public class TestHiveConnectorTest
                 "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee_type = 'ROLE'",
                 "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')");
 
-        assertUpdate("DROP ROLE test_r_a_d1");
-        assertUpdate("DROP ROLE test_r_a_d2");
-        assertUpdate("DROP ROLE test_r_a_d3");
+        assertUpdate("DROP ROLE test_r_a_d1 IN hive");
+        assertUpdate("DROP ROLE test_r_a_d2 IN hive");
+        assertUpdate("DROP ROLE test_r_a_d3 IN hive");
     }
 
     @Test

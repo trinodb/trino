@@ -26,7 +26,7 @@ public final class JdbcDriverUtils
             throws SQLException
     {
         try (Statement statement = connection.createStatement()) {
-            statement.execute("SET ROLE " + role);
+            statement.execute("SET ROLE " + role + " IN hive");
         }
     }
 
