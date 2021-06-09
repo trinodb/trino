@@ -7,7 +7,8 @@ allow you to implement complex functionality and behavior of the SQL executed by
 Trino operating on the underlying data sources.
 
 If you are looking for a specific function or operator,
-see the :doc:`full list</functions/list>`.
+see the :doc:`full alphabetical list</functions/list>` or the
+:doc:`full topical list </functions/list-by-topic>`.
 
 Also see the :doc:`SQL data types</language>`
 and the :doc:`SQL statement and syntax reference</sql>`.
@@ -44,3 +45,4 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Teradata            <functions/teradata>
     Machine learning    <functions/ml>
     functions/list
+    functions/list-by-topic
