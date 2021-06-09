@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.trino.NotInTransactionException;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.CatalogMetadata;
 import io.trino.spi.TrinoException;
@@ -424,6 +425,7 @@ public class InMemoryTransactionManager
                         systemTables.getCatalogName(),
                         systemTables.getConnectorMetadata(),
                         systemTables.getTransactionHandle(),
+                        metadata.getSecurityManagement(),
                         connector.getCapabilities());
 
                 this.catalogMetadata.put(catalog.getConnectorCatalogName(), catalogMetadata);
@@ -436,7 +438,7 @@ public class InMemoryTransactionManager
         public synchronized ConnectorTransactionMetadata createConnectorTransactionMetadata(CatalogName catalogName, Catalog catalog)
         {
             Connector connector = catalog.getConnector(catalogName);
-            ConnectorTransactionMetadata transactionMetadata = new ConnectorTransactionMetadata(catalogName, connector, beginTransaction(connector));
+            ConnectorTransactionMetadata transactionMetadata = new ConnectorTransactionMetadata(catalogName, connector, beginTransaction(connector), catalog.getSecurityManagement());
             checkState(connectorIdToMetadata.put(catalogName, transactionMetadata) == null);
             return transactionMetadata;
         }
@@ -561,14 +563,20 @@ public class InMemoryTransactionManager
             private final CatalogName catalogName;
             private final Connector connector;
             private final ConnectorTransactionHandle transactionHandle;
+            private final SecurityManagement securityManagement;
             private final ConnectorMetadata connectorMetadata;
             private final AtomicBoolean finished = new AtomicBoolean();
 
-            public ConnectorTransactionMetadata(CatalogName catalogName, Connector connector, ConnectorTransactionHandle transactionHandle)
+            public ConnectorTransactionMetadata(
+                    CatalogName catalogName,
+                    Connector connector,
+                    ConnectorTransactionHandle transactionHandle,
+                    SecurityManagement securityManagement)
             {
                 this.catalogName = requireNonNull(catalogName, "catalogName is null");
                 this.connector = requireNonNull(connector, "connector is null");
                 this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
+                this.securityManagement = requireNonNull(securityManagement, "securityManagement is null");
                 this.connectorMetadata = connector.getMetadata(transactionHandle);
             }
 
@@ -580,6 +588,11 @@ public class InMemoryTransactionManager
             public boolean isSingleStatementWritesOnly()
             {
                 return connector.isSingleStatementWritesOnly();
+            }
+
+            public SecurityManagement getSecurityManagement()
+            {
+                return securityManagement;
             }
 
             public synchronized ConnectorMetadata getConnectorMetadata()

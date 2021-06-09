@@ -26,6 +26,7 @@ import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.index.IndexManager;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
@@ -78,6 +79,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
+import static io.trino.metadata.Catalog.SecurityManagement.CONNECTOR;
+import static io.trino.metadata.Catalog.SecurityManagement.SYSTEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -241,10 +244,13 @@ public class ConnectorManager
                 systemTablesProvider,
                 transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogName)));
 
+        SecurityManagement securityManagement = connector.getAccessControl().isPresent() ? CONNECTOR : SYSTEM;
+
         Catalog catalog = new Catalog(
                 catalogName.getCatalogName(),
                 connector.getCatalogName(),
                 connector.getConnector(),
+                securityManagement,
                 informationSchemaConnector.getCatalogName(),
                 informationSchemaConnector.getConnector(),
                 systemConnector.getCatalogName(),

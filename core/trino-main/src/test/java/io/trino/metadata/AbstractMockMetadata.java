@@ -569,6 +569,12 @@ public abstract class AbstractMockMetadata
     //
 
     @Override
+    public boolean isCatalogManagedSecurity(Session session, String catalog)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean roleExists(Session session, String role, Optional<String> catalog)
     {
         throw new UnsupportedOperationException();
