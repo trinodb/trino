@@ -34,13 +34,6 @@ public class TestSynapseDynamicFiltering
     }
 
     @Override
-    protected boolean supportsSplitDynamicFiltering()
-    {
-        // JDBC connectors always generate single split
-        return false;
-    }
-
-    @Override
     protected boolean isJoinPushdownEnabledByDefault()
     {
         return true;

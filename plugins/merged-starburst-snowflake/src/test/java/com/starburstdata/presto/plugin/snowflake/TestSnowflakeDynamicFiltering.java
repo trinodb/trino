@@ -52,12 +52,6 @@ public class TestSnowflakeDynamicFiltering
     }
 
     @Override
-    protected boolean supportsSplitDynamicFiltering()
-    {
-        return true;
-    }
-
-    @Override
     protected boolean isJoinPushdownEnabledByDefault()
     {
         return false;
