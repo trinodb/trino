@@ -2858,6 +2858,7 @@ class StatementAnalyzer
                                 }
 
                                 column = outputExpressions.get(toIntExact(ordinal - 1));
+                                verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");
                             }
                             else {
                                 verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");
