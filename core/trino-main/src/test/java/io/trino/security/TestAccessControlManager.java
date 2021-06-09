@@ -21,6 +21,7 @@ import io.trino.connector.informationschema.InformationSchemaConnector;
 import io.trino.connector.system.SystemConnector;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Metadata;
@@ -377,6 +378,7 @@ public class TestAccessControlManager
                 catalogName,
                 catalog,
                 connector,
+                SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
                 new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
                 systemId,

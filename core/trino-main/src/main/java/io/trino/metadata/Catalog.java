@@ -22,9 +22,15 @@ import static java.util.Objects.requireNonNull;
 
 public class Catalog
 {
+    public enum SecurityManagement
+    {
+        SYSTEM, CONNECTOR
+    }
+
     private final String catalogName;
     private final CatalogName connectorCatalogName;
     private final Connector connector;
+    private final SecurityManagement securityManagement;
 
     private final CatalogName informationSchemaId;
     private final Connector informationSchema;
@@ -36,6 +42,7 @@ public class Catalog
             String catalogName,
             CatalogName connectorCatalogName,
             Connector connector,
+            SecurityManagement securityManagement,
             CatalogName informationSchemaId,
             Connector informationSchema,
             CatalogName systemTablesId,
@@ -44,6 +51,7 @@ public class Catalog
         this.catalogName = checkCatalogName(catalogName);
         this.connectorCatalogName = requireNonNull(connectorCatalogName, "connectorCatalogName is null");
         this.connector = requireNonNull(connector, "connector is null");
+        this.securityManagement = requireNonNull(securityManagement, "securityManagement is null");
         this.informationSchemaId = requireNonNull(informationSchemaId, "informationSchemaId is null");
         this.informationSchema = requireNonNull(informationSchema, "informationSchema is null");
         this.systemTablesId = requireNonNull(systemTablesId, "systemTablesId is null");
@@ -58,6 +66,11 @@ public class Catalog
     public CatalogName getConnectorCatalogName()
     {
         return connectorCatalogName;
+    }
+
+    public SecurityManagement getSecurityManagement()
+    {
+        return securityManagement;
     }
 
     public CatalogName getInformationSchemaId()

@@ -19,6 +19,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.SelectedRole;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.Expression;
@@ -33,6 +34,7 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
@@ -66,6 +68,9 @@ public class SetRoleTask
     {
         Session session = stateMachine.getSession();
         Optional<String> catalog = processRoleCommandCatalog(metadata, session, statement, statement.getCatalog().map(Identifier::getValue), legacyCatalogRoles);
+        if (catalog.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "System roles are not supported yet");
+        }
         if (statement.getType() == SetRole.Type.ROLE) {
             String role = statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseThrow();
             if (!metadata.roleExists(session, role, catalog)) {
