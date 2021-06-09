@@ -1722,6 +1722,16 @@ public final class MetadataManager
     //
 
     @Override
+    public boolean roleExists(Session session, String role, String catalog)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(catalog));
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        return metadata.roleExists(session.toConnectorSession(catalogName), role);
+    }
+
+    @Override
     public void createRole(Session session, String role, Optional<TrinoPrincipal> grantor, String catalog)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);

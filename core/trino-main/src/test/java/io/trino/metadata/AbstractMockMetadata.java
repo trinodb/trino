@@ -569,6 +569,12 @@ public abstract class AbstractMockMetadata
     //
 
     @Override
+    public boolean roleExists(Session session, String role, String catalog)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void createRole(Session session, String role, Optional<TrinoPrincipal> grantor, String catalog)
     {
         throw new UnsupportedOperationException();

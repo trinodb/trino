@@ -719,6 +719,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Does the specified role exist.
+     */
+    default boolean roleExists(ConnectorSession session, String role)
+    {
+        return listRoles(session).contains(role);
+    }
+
+    /**
      * Creates the specified role.
      *
      * @param grantor represents the principal specified by WITH ADMIN statement

@@ -466,6 +466,11 @@ public interface Metadata
     //
 
     /**
+     * Does the specified role exist.
+     */
+    boolean roleExists(Session session, String role, String catalog);
+
+    /**
      * Creates the specified role in the specified catalog.
      *
      * @param grantor represents the principal specified by WITH ADMIN statement
