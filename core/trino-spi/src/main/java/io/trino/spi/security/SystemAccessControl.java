@@ -593,7 +593,7 @@ public interface SystemAccessControl
      */
     default void checkCanShowRoles(SystemSecurityContext context, String catalogName)
     {
-        denyShowRoles(catalogName);
+        denyShowRoles();
     }
 
     /**

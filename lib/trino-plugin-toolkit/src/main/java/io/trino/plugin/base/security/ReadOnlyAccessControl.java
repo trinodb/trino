@@ -221,25 +221,25 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
+    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
     {
         // allow
     }
 
     @Override
-    public void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
+    public void checkCanShowRoles(ConnectorSecurityContext context)
     {
         // allow
     }
 
     @Override
-    public void checkCanShowCurrentRoles(ConnectorSecurityContext context, String catalogName)
+    public void checkCanShowCurrentRoles(ConnectorSecurityContext context)
     {
         // allow
     }
 
     @Override
-    public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
+    public void checkCanShowRoleGrants(ConnectorSecurityContext context)
     {
         // allow
     }

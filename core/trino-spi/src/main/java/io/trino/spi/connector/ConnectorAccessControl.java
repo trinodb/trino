@@ -111,7 +111,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
+     * Check if identity is allowed to execute SHOW SCHEMAS in this catalog.
      * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterSchemas} method must handle filter all results for unauthorized users,
@@ -203,7 +203,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
+     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in this catalog.
      * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterTables} method must filter all results for unauthorized users,
@@ -461,17 +461,17 @@ public interface ConnectorAccessControl
         denyDropRole(role);
     }
 
-    default void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName)
+    default void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
     {
         denyGrantRoles(roles, grantees);
     }
 
-    default void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName)
+    default void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
     {
         denyRevokeRoles(roles, grantees);
     }
 
-    default void checkCanSetRole(ConnectorSecurityContext context, String role, String catalogName)
+    default void checkCanSetRole(ConnectorSecurityContext context, String role)
     {
         denySetRole(role);
     }
@@ -481,39 +481,39 @@ public interface ConnectorAccessControl
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
+    default void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
     {
-        denyShowRoleAuthorizationDescriptors(catalogName);
+        denyShowRoleAuthorizationDescriptors();
     }
 
     /**
-     * Check if identity is allowed to show roles on the specified catalog.
+     * Check if identity is allowed to show roles in this catalog.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
+    default void checkCanShowRoles(ConnectorSecurityContext context)
     {
-        denyShowRoles(catalogName);
+        denyShowRoles();
     }
 
     /**
-     * Check if identity is allowed to show current roles on the specified catalog.
+     * Check if identity is allowed to show current roles in this catalog.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowCurrentRoles(ConnectorSecurityContext context, String catalogName)
+    default void checkCanShowCurrentRoles(ConnectorSecurityContext context)
     {
-        denyShowCurrentRoles(catalogName);
+        denyShowCurrentRoles();
     }
 
     /**
-     * Check if identity is allowed to show its own role grants on the specified catalog.
+     * Check if identity is allowed to show its own role grants in this catalog.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
+    default void checkCanShowRoleGrants(ConnectorSecurityContext context)
     {
-        denyShowRoleGrants(catalogName);
+        denyShowRoleGrants();
     }
 
     default void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
