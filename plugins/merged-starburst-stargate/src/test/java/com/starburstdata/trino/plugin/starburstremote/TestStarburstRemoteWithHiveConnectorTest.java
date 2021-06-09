@@ -64,6 +64,7 @@ public class TestStarburstRemoteWithHiveConnectorTest
                         "allow-drop-table", "true"));
     }
 
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return remoteStarburst::execute;
@@ -149,6 +150,7 @@ public class TestStarburstRemoteWithHiveConnectorTest
     }
 
     @Test
+    @Override
     public void testAggregationPushdown()
     {
         // TODO support aggregation pushdown with GROUPING SETS
@@ -243,7 +245,7 @@ public class TestStarburstRemoteWithHiveConnectorTest
         assertThat(query("SELECT geometric_mean(nationkey) FROM nation")).isFullyPushedDown();
     }
 
-    @Test
+    @Override
     public void testAggregationWithUnsupportedResultType()
     {
         // array_agg returns array, which is not supported
@@ -257,6 +259,27 @@ public class TestStarburstRemoteWithHiveConnectorTest
 
         // approx_set returns HyperLogLog, which is not supported
         assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+    }
+
+    @Override
+    public void testDistinctAggregationPushdown()
+    {
+        // TODO: Migrate to BaseJdbcConnectorTest
+        throw new SkipException("tested via testAggregationPushdown");
+    }
+
+    @Override
+    protected TestTable createAggregationTestTable(String name, List<String> rows)
+    {
+        // TODO: Migrate to BaseJdbcConnectorTest
+        throw new SkipException("tested via testAggregationPushdown");
+    }
+
+    @Override
+    protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
+    {
+        // TODO: Migrate to BaseJdbcConnectorTest
+        throw new SkipException("tested via testAggregationPushdown");
     }
 
     @Test
