@@ -458,24 +458,24 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot revoke privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denyShowRoles(String catalogName)
+    public static void denyShowRoles()
     {
-        throw new AccessDeniedException(format("Cannot show roles from catalog %s", catalogName));
+        throw new AccessDeniedException("Cannot show roles");
     }
 
-    public static void denyShowRoleAuthorizationDescriptors(String catalogName)
+    public static void denyShowRoleAuthorizationDescriptors()
     {
-        throw new AccessDeniedException(format("Cannot show role authorizatin descriptors from catalog %s", catalogName));
+        throw new AccessDeniedException("Cannot show role authorization descriptors");
     }
 
-    public static void denyShowCurrentRoles(String catalogName)
+    public static void denyShowCurrentRoles()
     {
-        throw new AccessDeniedException(format("Cannot show current roles from catalog %s", catalogName));
+        throw new AccessDeniedException("Cannot show current roles");
     }
 
-    public static void denyShowRoleGrants(String catalogName)
+    public static void denyShowRoleGrants()
     {
-        throw new AccessDeniedException(format("Cannot show role grants from catalog %s", catalogName));
+        throw new AccessDeniedException("Cannot show role grants");
     }
 
     public static void denySetSystemSessionProperty(String propertyName)

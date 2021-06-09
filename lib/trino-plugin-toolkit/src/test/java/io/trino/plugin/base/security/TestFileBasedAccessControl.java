@@ -88,22 +88,20 @@ public class TestFileBasedAccessControl
                 ImmutableSet.of("test"),
                 ImmutableSet.of(someUser),
                 false,
-                Optional.empty(),
-                "any"));
+                Optional.empty()));
         assertDenied(() -> accessControl.checkCanRevokeRoles(
                 ADMIN,
                 ImmutableSet.of("test"),
                 ImmutableSet.of(someUser),
                 false,
-                Optional.empty(),
-                "any"));
-        assertDenied(() -> accessControl.checkCanSetRole(ADMIN, "role", "any"));
+                Optional.empty()));
+        assertDenied(() -> accessControl.checkCanSetRole(ADMIN, "role"));
 
         // showing roles and permissions is hard coded to allow
-        accessControl.checkCanShowRoleAuthorizationDescriptors(UNKNOWN, "any");
-        accessControl.checkCanShowRoles(UNKNOWN, "any");
-        accessControl.checkCanShowCurrentRoles(UNKNOWN, "any");
-        accessControl.checkCanShowRoleGrants(UNKNOWN, "any");
+        accessControl.checkCanShowRoleAuthorizationDescriptors(UNKNOWN);
+        accessControl.checkCanShowRoles(UNKNOWN);
+        accessControl.checkCanShowCurrentRoles(UNKNOWN);
+        accessControl.checkCanShowRoleGrants(UNKNOWN);
     }
 
     @Test
