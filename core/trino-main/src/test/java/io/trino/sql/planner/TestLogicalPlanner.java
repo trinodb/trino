@@ -1825,6 +1825,117 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testDoNotPlanUnreferencedRowPatternMeasures()
+    {
+        // row pattern measure `label` is not referenced
+        assertPlan("SELECT val OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES " +
+                        "                            RUNNING LAST(value) AS val, " +
+                        "                            CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addMeasure("val", "LAST(value)", INTEGER)
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+
+        // row pattern measure `label` is not referenced
+        assertPlan("SELECT min(value) OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addFunction("min", functionCall("min", ImmutableList.of("value")))
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+    }
+
+    @Test
+    public void testPruneUnreferencedRowPatternWindowFunctions()
+    {
+        // window function `row_number` is not referenced
+        assertPlan("SELECT id, min FROM " +
+                        "       (SELECT id, min(value) OVER w min, row_number() OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )" +
+                        "       )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addFunction("min", functionCall("min", ImmutableList.of("value")))
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+    }
+
+    @Test
+    public void testPruneUnreferencedRowPatternMeasures()
+    {
+        // row pattern measure `label` is not referenced
+        assertPlan("SELECT id, val FROM " +
+                        "       (SELECT id, val OVER w val, label OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES " +
+                        "                            RUNNING LAST(value) AS val, " +
+                        "                            CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )" +
+                        "       )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addMeasure("val", "LAST(value)", INTEGER)
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+    }
+
+    @Test
     public void testMergePatternRecognitionNodes()
     {
         // The pattern matching window `w` is referenced in three calls: row pattern measure calls: `val OVER w` and `label OVER w`,
