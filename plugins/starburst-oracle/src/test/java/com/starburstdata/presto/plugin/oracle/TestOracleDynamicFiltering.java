@@ -32,12 +32,6 @@ public class TestOracleDynamicFiltering
     }
 
     @Override
-    protected boolean supportsSplitDynamicFiltering()
-    {
-        return false; // Dynamic filters do not allow Oracle to eliminate splits
-    }
-
-    @Override
     protected boolean isJoinPushdownEnabledByDefault()
     {
         return true;
