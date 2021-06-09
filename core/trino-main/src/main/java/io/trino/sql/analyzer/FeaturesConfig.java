@@ -141,6 +141,8 @@ public class FeaturesConfig
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
 
+    private boolean legacyCatalogRoles;
+
     public enum JoinReorderingStrategy
     {
         NONE,
@@ -1086,6 +1088,18 @@ public class FeaturesConfig
     public FeaturesConfig setMergeProjectWithValues(boolean mergeProjectWithValues)
     {
         this.mergeProjectWithValues = mergeProjectWithValues;
+        return this;
+    }
+
+    public boolean isLegacyCatalogRoles()
+    {
+        return legacyCatalogRoles;
+    }
+
+    @Config("deprecated.legacy-catalog-roles")
+    public FeaturesConfig setLegacyCatalogRoles(boolean legacyCatalogRoles)
+    {
+        this.legacyCatalogRoles = legacyCatalogRoles;
         return this;
     }
 }
