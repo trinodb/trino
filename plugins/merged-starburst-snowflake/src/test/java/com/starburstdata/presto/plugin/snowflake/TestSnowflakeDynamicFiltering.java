@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.snowflake;
 
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
@@ -26,22 +25,6 @@ public class TestSnowflakeDynamicFiltering
         return distributedBuilder()
                 .withAdditionalProperties(impersonationDisabled())
                 .build();
-    }
-
-    @Override
-    // TODO: investigate to fix TNT-18
-    @Test(enabled = false)
-    public void testDynamicFilteringWithAggregationAggregateColumn()
-    {
-        super.testDynamicFilteringWithAggregationAggregateColumn();
-    }
-
-    @Override
-    // TODO: investigate to fix TNT-18
-    @Test(enabled = false)
-    public void testDynamicFiltering()
-    {
-        super.testDynamicFiltering();
     }
 
     @Override
