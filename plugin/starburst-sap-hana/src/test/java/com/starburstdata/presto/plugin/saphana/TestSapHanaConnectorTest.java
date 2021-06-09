@@ -19,8 +19,10 @@ import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -188,6 +190,7 @@ public class TestSapHanaConnectorTest
     }
 
     @Test
+    @Override
     public void testAggregationPushdown()
     {
         // TODO support aggregation pushdown with GROUPING SETS
@@ -252,7 +255,22 @@ public class TestSapHanaConnectorTest
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
     }
 
+    @Override
+    public void testDistinctAggregationPushdown()
+    {
+        // TODO: Migrate to BaseJdbcConnectorTest
+        throw new SkipException("tested via testAggregationPushdown");
+    }
+
+    @Override
+    public void testNumericAggregationPushdown()
+    {
+        // TODO: Migrate to BaseJdbcConnectorTest
+        throw new SkipException("tested via testAggregationPushdown");
+    }
+
     @Test
+    @Override
     public void testStddevAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
@@ -291,6 +309,7 @@ public class TestSapHanaConnectorTest
     }
 
     @Test
+    @Override
     public void testVarianceAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
@@ -436,5 +455,11 @@ public class TestSapHanaConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
+    }
+
+    @Override
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return server::execute;
     }
 }
