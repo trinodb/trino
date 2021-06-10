@@ -1229,7 +1229,7 @@ public class LocalExecutionPlanner
                     .map(baseFrame -> {
                         checkArgument(
                                 baseFrame.getType() == ROWS &&
-                                        baseFrame.getEndType() == CURRENT_ROW,
+                                        baseFrame.getStartType() == CURRENT_ROW,
                                 "invalid base frame");
                         return new FrameInfo(
                                 baseFrame.getType(),
