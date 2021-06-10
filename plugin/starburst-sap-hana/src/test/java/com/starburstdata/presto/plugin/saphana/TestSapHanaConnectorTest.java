@@ -13,23 +13,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
-import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.planner.plan.ExchangeNode;
-import io.trino.sql.planner.plan.MarkDistinctNode;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
-import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,6 +54,8 @@ public class TestSapHanaConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
@@ -188,165 +184,6 @@ public class TestSapHanaConnectorTest
             assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE char_10 = CHAR'0'"))
                     .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')")
                     .isFullyPushedDown();
-        }
-    }
-
-    @Test
-    @Override
-    public void testAggregationPushdown()
-    {
-        // TODO support aggregation pushdown with GROUPING SETS
-        // TODO support aggregation over expressions
-
-        // SELECT DISTINCT
-        assertThat(query("SELECT DISTINCT regionkey FROM nation")).isFullyPushedDown();
-
-        // count()
-        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
-
-        // GROUP BY
-        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-
-        Session withMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(USE_MARK_DISTINCT, "true")
-                .build();
-
-        // distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
-        // distinct aggregation with GROUP BY
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        // distinct aggregation with varchar
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
-        // two distinct aggregations
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
-                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
-        // distinct aggregation and a non-distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
-                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
-
-        Session withoutMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(USE_MARK_DISTINCT, "false")
-                .build();
-
-        // distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
-        // distinct aggregation with GROUP BY
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        // distinct aggregation with varchar
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
-        // two distinct aggregations
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
-        // distinct aggregation and a non-distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
-
-        // GROUP BY and WHERE on bigint column
-        // GROUP BY and WHERE on aggregation key
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
-
-        // GROUP BY and WHERE on varchar column
-        // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
-    }
-
-    @Override
-    public void testDistinctAggregationPushdown()
-    {
-        // TODO: Migrate to BaseJdbcConnectorTest
-        throw new SkipException("tested via testAggregationPushdown");
-    }
-
-    @Override
-    public void testNumericAggregationPushdown()
-    {
-        // TODO: Migrate to BaseJdbcConnectorTest
-        throw new SkipException("tested via testAggregationPushdown");
-    }
-
-    @Test
-    @Override
-    public void testStddevAggregationPushdown()
-    {
-        String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = new TestTable(server::execute, schemaName + ".test_stddev_pushdown",
-                "(t_double DOUBLE PRECISION)")) {
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
-
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        try (TestTable testTable = new TestTable(server::execute, schemaName + ".test_stddev_pushdown",
-                "(t_double DOUBLE PRECISION)")) {
-            // Test non-whole number results
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (2)");
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (4)");
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
-
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-    }
-
-    @Test
-    @Override
-    public void testVarianceAggregationPushdown()
-    {
-        String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = new TestTable(server::execute, schemaName + ".test_variance_pushdown",
-                "(t_double DOUBLE PRECISION)")) {
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
-
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        try (TestTable testTable = new TestTable(server::execute, schemaName + ".test_variance_pushdown",
-                "(t_double DOUBLE PRECISION)")) {
-            // Test non-whole number results
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (2)");
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (4)");
-            server.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
-
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
     }
 
