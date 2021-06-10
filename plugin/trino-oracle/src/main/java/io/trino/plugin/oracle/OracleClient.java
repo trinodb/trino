@@ -22,14 +22,25 @@ import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DoubleWriteFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
+import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
+import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
+import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
+import io.trino.plugin.jdbc.expression.ImplementCount;
+import io.trino.plugin.jdbc.expression.ImplementCountAll;
+import io.trino.plugin.jdbc.expression.ImplementMinMax;
+import io.trino.plugin.jdbc.expression.ImplementSum;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SchemaTableName;
@@ -129,6 +140,8 @@ public class OracleClient
 
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
 
+    private final AggregateFunctionRewriter aggregateFunctionRewriter;
+
     private static final Set<String> INTERNAL_SCHEMAS = ImmutableSet.<String>builder()
             .add("ctxsys")
             .add("flows_files")
@@ -166,6 +179,25 @@ public class OracleClient
 
         requireNonNull(oracleConfig, "oracleConfig is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
+
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), 40, 0, Optional.empty(), Optional.empty());
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
+                this::quoted,
+                ImmutableSet.<AggregateFunctionRule>builder()
+                        .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementMinMax())
+                        .add(new ImplementSum(OracleClient::toTypeHandle))
+                        .add(new ImplementAvgFloatingPoint())
+                        .add(new ImplementAvgDecimal())
+                        .add(new ImplementAvgBigint())
+                        .build());
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
     @Override
@@ -272,7 +304,14 @@ public class OracleClient
                 int scale = max(decimalDigits, 0);
                 Optional<Integer> numberDefaultScale = getNumberDefaultScale(session);
                 RoundingMode roundingMode = getNumberRoundingMode(session);
-                if (precision < scale) {
+                if (precision == 40 && decimalDigits == 0) {
+                    return Optional.of(ColumnMapping.longMapping(
+                            BIGINT,
+                            ResultSet::getLong,
+                            bigintWriteFunction(),
+                            FULL_PUSHDOWN));
+                }
+                else if (precision < scale) {
                     if (roundingMode == RoundingMode.UNNECESSARY) {
                         break;
                     }
@@ -425,6 +464,11 @@ public class OracleClient
     {
         return (statement, index, value) ->
                 ((OraclePreparedStatement) statement).setFixedCHAR(index, value.toStringUtf8());
+    }
+
+    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), decimalType.getScale(), Optional.empty(), Optional.empty()));
     }
 
     @Override
