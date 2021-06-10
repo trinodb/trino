@@ -45,7 +45,6 @@ import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
@@ -55,7 +54,7 @@ public class TestRefreshMaterializedView
     private ListeningExecutorService executorService;
     private SettableFuture<?> startRefreshMaterializedView;
     private SettableFuture<?> finishRefreshMaterializedView;
-    private boolean refreshInterrupted;
+    private SettableFuture<?> refreshInterrupted;
 
     @BeforeClass
     public void setUp()
@@ -74,7 +73,7 @@ public class TestRefreshMaterializedView
     {
         startRefreshMaterializedView = SettableFuture.create();
         finishRefreshMaterializedView = SettableFuture.create();
-        refreshInterrupted = false;
+        refreshInterrupted = SettableFuture.create();
     }
 
     @Override
@@ -109,7 +108,7 @@ public class TestRefreshMaterializedView
                                     startRefreshMaterializedView.set(null);
                                     SettableFuture<?> refreshMaterializedView = SettableFuture.create();
                                     finishRefreshMaterializedView.addListener(() -> refreshMaterializedView.set(null), directExecutor());
-                                    addExceptionCallback(refreshMaterializedView, () -> refreshInterrupted = true);
+                                    addExceptionCallback(refreshMaterializedView, () -> refreshInterrupted.set(null));
                                     return toCompletableFuture(refreshMaterializedView);
                                 }))
                                 .build()));
@@ -144,7 +143,7 @@ public class TestRefreshMaterializedView
 
         assertThatThrownBy(() -> getFutureValue(queryFuture))
                 .hasMessage("Query was canceled");
-        assertThat(refreshInterrupted).isTrue();
+        getFutureValue(refreshInterrupted);
     }
 
     private ListenableFuture<?> assertUpdateAsync(@Language("SQL") String sql)
