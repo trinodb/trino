@@ -296,9 +296,12 @@ public class AcidInfo
         public Optional<AcidInfo> build()
         {
             List<DeleteDeltaInfo> deleteDeltas = ImmutableList.copyOf(deleteDeltaInfos);
-            if (deleteDeltas.isEmpty() && orcAcidVersionValidated) {
-                // We do not want to bail out with `Optional.empty()` if ORC ACID version was not validated based on _orc_acid_version file.
-                // If we did so extra validation in OrcPageSourceFactory (based on file metadata) would not be performed.
+            if (deleteDeltas.isEmpty()) {
+                // We should not bail out with `Optional.empty()` here if orcAcidVersionValidated is false (ORC ACID version was not validated based on _orc_acid_version file).
+                // If we do so extra validation in OrcPageSourceFactory (based on file metadata) would not be performed.
+                // Temporarily we disable validation as we ended up getting to this code path for INSERT-ONLY tables.
+                // And later one the code failed on checkArgument(acidInfo.isEmpty(), "Acid is not supported") in HivePageSourceProvider.
+                // TODO: change code so empty AcidInfo is always returned for INSERT-ONLY tables
                 return Optional.empty();
             }
             return Optional.of(new AcidInfo(partitionLocation.toString(), deleteDeltas, ImmutableList.of(), -1, orcAcidVersionValidated));
