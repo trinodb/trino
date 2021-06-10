@@ -64,8 +64,10 @@ import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
+import io.trino.metadata.DisabledGlobalSecurityMetadata;
 import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
+import io.trino.metadata.GlobalSecurityMetadata;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -347,6 +349,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+        binder.bind(GlobalSecurityMetadata.class).to(DisabledGlobalSecurityMetadata.class).in(Scopes.SINGLETON);
         binder.bind(TypeOperatorsCache.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TypeOperatorsCache.class).as(factory -> factory.generatedNameOf(TypeOperators.class));
         binder.bind(BlockTypeOperators.class).in(Scopes.SINGLETON);

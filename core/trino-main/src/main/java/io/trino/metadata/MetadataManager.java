@@ -214,6 +214,7 @@ public final class MetadataManager
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
+    private final GlobalSecurityMetadata globalSecurityMetadata;
     private final TransactionManager transactionManager;
     private final TypeRegistry typeRegistry;
 
@@ -234,6 +235,7 @@ public final class MetadataManager
             MaterializedViewPropertyManager materializedViewPropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
+            GlobalSecurityMetadata globalSecurityMetadata,
             TransactionManager transactionManager,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
@@ -251,6 +253,7 @@ public final class MetadataManager
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
+        this.globalSecurityMetadata = requireNonNull(globalSecurityMetadata, "globalRoleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
 
@@ -324,6 +327,7 @@ public final class MetadataManager
                 new MaterializedViewPropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
+                new DisabledGlobalSecurityMetadata(),
                 transactionManager,
                 typeOperators,
                 new BlockTypeOperators(typeOperators),
@@ -1733,7 +1737,7 @@ public final class MetadataManager
     public boolean roleExists(Session session, String role, Optional<String> catalog)
     {
         if (catalog.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Global roles are not supported yet");
+            return globalSecurityMetadata.roleExists(session, role);
         }
 
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(catalog.get()));
@@ -1746,7 +1750,8 @@ public final class MetadataManager
     public void createRole(Session session, String role, Optional<TrinoPrincipal> grantor, Optional<String> catalog)
     {
         if (catalog.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Global roles are not supported yet");
+            globalSecurityMetadata.createRole(session, role, grantor);
+            return;
         }
 
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
@@ -1759,7 +1764,8 @@ public final class MetadataManager
     public void dropRole(Session session, String role, Optional<String> catalog)
     {
         if (catalog.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Global roles are not supported yet");
+            globalSecurityMetadata.dropRole(session, role);
+            return;
         }
 
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
@@ -1788,7 +1794,7 @@ public final class MetadataManager
             }
         }
 
-        return ImmutableSet.of();
+        return globalSecurityMetadata.listRoles(session);
     }
 
     @Override
@@ -1809,7 +1815,7 @@ public final class MetadataManager
             }
         }
 
-        return ImmutableSet.of();
+        return globalSecurityMetadata.listAllRoleGrants(session, roles, grantees, limit);
     }
 
     @Override
@@ -1830,14 +1836,15 @@ public final class MetadataManager
             }
         }
 
-        return ImmutableSet.of();
+        return globalSecurityMetadata.listRoleGrants(session, principal);
     }
 
     @Override
     public void grantRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalog)
     {
         if (catalog.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Global roles are not supported yet");
+            globalSecurityMetadata.grantRoles(session, roles, grantees, adminOption, grantor);
+            return;
         }
 
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
@@ -1850,7 +1857,8 @@ public final class MetadataManager
     public void revokeRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalog)
     {
         if (catalog.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Global roles are not supported yet");
+            globalSecurityMetadata.revokeRoles(session, roles, grantees, adminOption, grantor);
+            return;
         }
 
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
@@ -1877,17 +1885,20 @@ public final class MetadataManager
             }
         }
 
-        return ImmutableSet.of();
+        return globalSecurityMetadata.listApplicableRoles(session, principal);
     }
 
     @Override
     public Set<String> listEnabledRoles(Session session, String catalog)
     {
         Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
+        if (catalogMetadata.isEmpty()) {
+            return ImmutableSet.of();
+        }
         // If the connector is using global security management, we fall through to the global call
         // instead of returning nothing so information schema role tables will work properly
-        if (catalogMetadata.isEmpty() || catalogMetadata.get().getSecurityManagement() == SecurityManagement.GLOBAL) {
-            return ImmutableSet.of();
+        if (catalogMetadata.get().getSecurityManagement() == SecurityManagement.GLOBAL) {
+            return globalSecurityMetadata.listEnabledRoles(session.getIdentity());
         }
 
         CatalogName catalogName = catalogMetadata.get().getCatalogName();
@@ -1900,6 +1911,10 @@ public final class MetadataManager
     public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.CONNECTOR) {
+            globalSecurityMetadata.grantTablePrivileges(session, tableName, privileges, grantee, grantOption);
+            return;
+        }
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
@@ -1910,6 +1925,10 @@ public final class MetadataManager
     public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.CONNECTOR) {
+            globalSecurityMetadata.revokeTablePrivileges(session, tableName, privileges, grantee, grantOption);
+            return;
+        }
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
@@ -1920,6 +1939,10 @@ public final class MetadataManager
     public void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schemaName.getCatalogName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.CONNECTOR) {
+            globalSecurityMetadata.grantSchemaPrivileges(session, schemaName, privileges, grantee, grantOption);
+            return;
+        }
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
@@ -1930,6 +1953,10 @@ public final class MetadataManager
     public void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schemaName.getCatalogName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.CONNECTOR) {
+            globalSecurityMetadata.revokeSchemaPrivileges(session, schemaName, privileges, grantee, grantOption);
+            return;
+        }
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
@@ -1954,7 +1981,12 @@ public final class MetadataManager
                     .orElseGet(catalogMetadata::listConnectorIds);
             for (CatalogName catalogName : connectorIds) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
-                grantInfos.addAll(metadata.listTablePrivileges(connectorSession, prefix.asSchemaTablePrefix()));
+                if (catalogMetadata.getSecurityManagement() == SecurityManagement.CONNECTOR) {
+                    grantInfos.addAll(globalSecurityMetadata.listTablePrivileges(session, prefix));
+                }
+                else {
+                    grantInfos.addAll(metadata.listTablePrivileges(connectorSession, prefix.asSchemaTablePrefix()));
+                }
             }
         }
         return ImmutableList.copyOf(grantInfos.build());
