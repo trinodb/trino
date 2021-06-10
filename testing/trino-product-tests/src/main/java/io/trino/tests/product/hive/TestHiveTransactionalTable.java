@@ -191,7 +191,38 @@ public class TestHiveTransactionalTable
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
-    public void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType)
+    public void testReadInsertOnlyOrc(boolean isPartitioned, BucketingType bucketingType)
+    {
+        testReadInsertOnly(isPartitioned, bucketingType, "STORED AS ORC");
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeSmokeDataProvider", timeOut = TEST_TIMEOUT)
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    public void testReadInsertOnlyParquet(boolean isPartitioned, BucketingType bucketingType)
+    {
+        testReadInsertOnly(isPartitioned, bucketingType, "STORED AS PARQUET");
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeSmokeDataProvider", timeOut = TEST_TIMEOUT)
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    public void testReadInsertOnlyText(boolean isPartitioned, BucketingType bucketingType)
+    {
+        testReadInsertOnly(isPartitioned, bucketingType, "STORED AS TEXTFILE");
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testReadInsertOnlyTextWithCustomFormatProperties()
+    {
+        testReadInsertOnly(
+                false,
+                NONE,
+                "  ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe' " +
+                        "  WITH SERDEPROPERTIES ('field.delim'=',', 'line.delim'='\\n', 'serialization.format'=',') " +
+                        "  STORED AS INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
+                        "  OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'");
+    }
+
+    private void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType, String hiveTableFormatDefinition)
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
@@ -203,7 +234,7 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("CREATE TABLE " + tableName + " (col INT) " +
                     (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
                     bucketingType.getHiveClustering("col", 4) + " " +
-                    "STORED AS ORC " +
+                    hiveTableFormatDefinition + " " +
                     hiveTableProperties(INSERT_ONLY, bucketingType));
 
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
@@ -454,6 +485,15 @@ public class TestHiveTransactionalTable
                 {false, BucketingType.NONE},
                 {false, BucketingType.BUCKETED_DEFAULT},
                 {true, BucketingType.NONE},
+                {true, BucketingType.BUCKETED_DEFAULT},
+        };
+    }
+
+    @DataProvider
+    public Object[][] partitioningAndBucketingTypeSmokeDataProvider()
+    {
+        return new Object[][] {
+                {false, BucketingType.NONE},
                 {true, BucketingType.BUCKETED_DEFAULT},
         };
     }
