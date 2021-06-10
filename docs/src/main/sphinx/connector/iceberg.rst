@@ -99,8 +99,7 @@ Transform                             Description
 ``truncate(s, w)``                    If ``s`` is a string, the partition value is the first ``w`` 
                                       characters of ``s`` for strings. If ``s`` is an integer, the 
                                       partition value is rounded to the largest multiple of ``w`` less <=
-                                      to ``s``. Details
-                                      `here <https://iceberg.apache.org/spec/#truncate-transform-details>`_
+                                      to ``s``. `More details <https://iceberg.apache.org/spec/#truncate-transform-details>`_
 ===================================== ====================================================================
 
 In this example, the table is partitioned by the month of ``order_date``, a hash of
@@ -201,7 +200,11 @@ and a file system location of ``/var/my_tables/test_table``::
         partitioning = ARRAY['c1', 'c2'],
         location = '/var/my_tables/test_table')
 
-Iceberg limitations
--------------------
+Limitations
+-----------
 
-Iceberg cannot be used to create views. Details `here <https://github.com/trinodb/trino/blob/e4cae791c0b56509af281ceb7b91bc7c62dce6e5/plugin/trino-iceberg/src/main/java/io/trino/plugin/iceberg/IcebergMetadata.java#L1035>`_.
+The following SQL statements are not yet supported:
+
+* :doc:`/sql/create-view`
+  
+  - `Github Issue <https://github.com/trinodb/trino/issues/8216>`_
