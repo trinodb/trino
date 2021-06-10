@@ -23,6 +23,7 @@ import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosKmsHdfs
 import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosKmsHdfsNoImpersonation;
 import io.trino.tests.product.launcher.env.environment.SinglenodeLdap;
 import io.trino.tests.product.launcher.env.environment.SinglenodeLdapAndFile;
+import io.trino.tests.product.launcher.env.environment.SinglenodeLdapBindDn;
 import io.trino.tests.product.launcher.env.environment.SinglenodeLdapInsecure;
 import io.trino.tests.product.launcher.env.environment.SinglenodeLdapReferrals;
 import io.trino.tests.product.launcher.suite.Suite;
@@ -46,6 +47,7 @@ public class Suite6NonGeneric
                 testOnEnvironment(SinglenodeLdapAndFile.class).withGroups("ldap", "ldap_and_file", "ldap_cli", "ldap_and_file_cli").build(),
                 testOnEnvironment(SinglenodeLdapInsecure.class).withGroups("ldap").build(),
                 testOnEnvironment(SinglenodeLdapReferrals.class).withGroups("ldap").build(),
+                testOnEnvironment(SinglenodeLdapBindDn.class).withGroups("ldap").build(),
                 testOnEnvironment(SinglenodeKerberosKmsHdfsNoImpersonation.class).withGroups("storage_formats").build(),
                 testOnEnvironment(SinglenodeKerberosKmsHdfsImpersonation.class).withGroups("storage_formats").build(),
                 testOnEnvironment(SinglenodeCassandra.class).withGroups("cassandra").build(),
