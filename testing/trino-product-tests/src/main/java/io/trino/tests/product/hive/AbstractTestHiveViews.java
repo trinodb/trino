@@ -282,7 +282,7 @@ public abstract class AbstractTestHiveViews
                 queryAssert -> queryAssert.containsOnly(row("KENYA")));
     }
 
-    @Test
+    @Test(groups = HIVE_VIEWS)
     public void testSelectFromHiveViewWithoutDefaultCatalogAndSchema()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS no_catalog_schema_view");
@@ -295,7 +295,7 @@ public abstract class AbstractTestHiveViews
                 .containsOnly(row(1L));
     }
 
-    @Test
+    @Test(groups = HIVE_VIEWS)
     public void testTimestampHiveView()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS timestamp_hive_table");
@@ -335,7 +335,7 @@ public abstract class AbstractTestHiveViews
         ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
     }
 
-    @Test
+    @Test(groups = HIVE_VIEWS)
     public void testCurrentUser()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS current_user_hive_view");
