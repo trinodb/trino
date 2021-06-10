@@ -36,7 +36,7 @@ databases:
     https_keystore_password: '123456'
     cli_kerberos_authentication: true
     cli_kerberos_principal: presto-client/presto-master.docker.cluster@LABS.TERADATA.COM
-    cli_kerberos_keytab: /etc/presto/conf/presto-client.keytab
+    cli_kerberos_keytab: /etc/trino/conf/presto-client.keytab
     cli_kerberos_config_path: /etc/krb5.conf
     cli_kerberos_service_name: presto-server
     cli_kerberos_use_canonical_hostname: false
