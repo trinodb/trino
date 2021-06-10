@@ -31,7 +31,9 @@ import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSapHanaConnectorTest
         extends BaseJdbcConnectorTest
@@ -345,6 +347,32 @@ public class TestSapHanaConnectorTest
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testDecimalAvgPushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        try (TestTable testTable = new TestTable(onRemoteDatabase(),
+                schemaName + ".test_agg_pushdown_avg_max_decimal",
+                "(t_decimal DECIMAL(38, 10))",
+                ImmutableList.of("12345789.9876543210", format("%s.%s", "1".repeat(28), "9".repeat(10))))) {
+            // For max decimal precision we cannot extend the scale and precision and hence the result doesn't match Trino avg semantics
+            assertThatThrownBy(() -> assertThat(query("SELECT avg(t_decimal) FROM " + testTable.getName())).isFullyPushedDown())
+                    .isInstanceOf(AssertionError.class)
+                    .hasMessageContaining("elements not found:\n" +
+                            "  <(555555555555555555561728450.9938271605)>\n" +
+                            "and elements not expected:\n" +
+                            "  <(555555555555555555561728450.9938270000)>");
+        }
+
+        try (TestTable testTable = new TestTable(onRemoteDatabase(),
+                schemaName + ".test_agg_pushdown_avg_max_decimal",
+                "(t_decimal DECIMAL(18, 18))",
+                ImmutableList.of("0.987654321234567890", format("0.%s", "1".repeat(18))))) {
+            // For decimal precisions lower than max supported precision we perform correct pushdown by extending scale and precision
+            assertThat(query("SELECT avg(t_decimal) FROM " + testTable.getName())).isFullyPushedDown();
         }
     }
 

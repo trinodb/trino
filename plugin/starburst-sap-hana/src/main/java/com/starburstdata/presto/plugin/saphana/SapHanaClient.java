@@ -36,7 +36,6 @@ import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
-import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
@@ -64,7 +63,6 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
@@ -177,6 +175,7 @@ public class SapHanaClient
 
     private static final int SAP_HANA_CHAR_LENGTH_LIMIT = 2000;
     private static final int SAP_HANA_VARCHAR_LENGTH_LIMIT = 5000;
+    static final int SAP_HANA_MAX_DECIMAL_PRECISION = 38;
 
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of("UTC"));
 
@@ -375,7 +374,7 @@ public class SapHanaClient
 
                 int precision = typeHandle.getRequiredColumnSize();
                 int scale = typeHandle.getRequiredDecimalDigits();
-                if (precision < 1 || precision > Decimals.MAX_PRECISION || scale < 0 || scale > precision) {
+                if (precision < 1 || precision > SAP_HANA_MAX_DECIMAL_PRECISION || scale < 0 || scale > precision) {
                     // SAP HANA supports precision [1, 38], and scale [0, precision]
                     log.warn("Unexpected decimal precision: %s", typeHandle);
                     return Optional.empty();
