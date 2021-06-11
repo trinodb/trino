@@ -191,19 +191,6 @@ public class TestHiveTransactionalTable
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
-    public void testFoo(boolean isPartitioned, BucketingType bucketingType)
-    {
-        testReadInsertOnlyOrc(isPartitioned, bucketingType);
-        testReadInsertOnlyParquet(isPartitioned, bucketingType);
-        testReadInsertOnlyText(isPartitioned, bucketingType);
-
-        if (!isPartitioned) {
-            testReadInsertOnlyTextWithCustomFormatProperties();
-        }
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
     public void testReadInsertOnlyOrc(boolean isPartitioned, BucketingType bucketingType)
     {
         testReadInsertOnly(isPartitioned, bucketingType, "STORED AS ORC");
