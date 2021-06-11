@@ -14,6 +14,7 @@
 package io.trino.operator.join;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.Lifespan;
 import io.trino.operator.DriverContext;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static java.util.Objects.requireNonNull;
 
@@ -107,6 +109,7 @@ public class LookupOuterOperator
 
     private final OperatorContext operatorContext;
     private final ListenableFuture<OuterPositionIterator> outerPositionsFuture;
+    private final ListenableFuture<Void> blockedFutureView;
 
     private final List<Type> probeOutputTypes;
     private final Runnable onClose;
@@ -125,6 +128,7 @@ public class LookupOuterOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outerPositionsFuture = requireNonNull(outerPositionsFuture, "outerPositionsFuture is null");
+        blockedFutureView = asVoid(outerPositionsFuture);
 
         List<Type> types = ImmutableList.<Type>builder()
                 .addAll(requireNonNull(probeOutputTypes, "probeOutputTypes is null"))
@@ -135,6 +139,11 @@ public class LookupOuterOperator
         this.onClose = requireNonNull(onClose, "onClose is null");
     }
 
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
+    }
+
     @Override
     public OperatorContext getOperatorContext()
     {
@@ -142,9 +151,9 @@ public class LookupOuterOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
-        return outerPositionsFuture;
+        return blockedFutureView;
     }
 
     @Override

@@ -70,7 +70,7 @@ public class RefreshMaterializedViewOperator
     private final Metadata metadata;
     private final QualifiedObjectName viewName;
     @Nullable
-    private ListenableFuture<?> refreshFuture;
+    private ListenableFuture<Void> refreshFuture;
     private boolean closed;
 
     public RefreshMaterializedViewOperator(OperatorContext operatorContext, Metadata metadata, QualifiedObjectName viewName)
@@ -87,7 +87,7 @@ public class RefreshMaterializedViewOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         if (refreshFuture == null) {
             return NOT_BLOCKED;

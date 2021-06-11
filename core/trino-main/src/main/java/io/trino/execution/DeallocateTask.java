@@ -23,7 +23,7 @@ import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 public class DeallocateTask
         implements DataDefinitionTask<Deallocate>
@@ -35,7 +35,7 @@ public class DeallocateTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             Deallocate statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -46,6 +46,6 @@ public class DeallocateTask
     {
         String statementName = statement.getName().getValue();
         stateMachine.removePreparedStatement(statementName);
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

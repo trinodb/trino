@@ -20,7 +20,7 @@ public interface MemoryReservationHandler
     /**
      * @return a future that signals the caller to block before reserving more memory.
      */
-    ListenableFuture<?> reserveMemory(String allocationTag, long delta);
+    ListenableFuture<Void> reserveMemory(String allocationTag, long delta);
 
     /**
      * Try reserving the given number of bytes.

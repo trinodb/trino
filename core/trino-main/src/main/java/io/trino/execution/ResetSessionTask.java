@@ -24,7 +24,7 @@ import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -39,7 +39,7 @@ public class ResetSessionTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             ResetSession statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -69,6 +69,6 @@ public class ResetSessionTask
 
         stateMachine.addResetSessionProperties(statement.getName().toString());
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

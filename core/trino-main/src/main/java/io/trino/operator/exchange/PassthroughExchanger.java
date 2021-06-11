@@ -51,7 +51,7 @@ public class PassthroughExchanger
     }
 
     @Override
-    public ListenableFuture<?> waitForWriting()
+    public ListenableFuture<Void> waitForWriting()
     {
         return bufferMemoryManager.getNotFullFuture();
     }

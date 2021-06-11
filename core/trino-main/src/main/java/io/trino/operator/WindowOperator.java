@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.WorkProcessor.ProcessState;
@@ -56,6 +55,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterators.peekingIterator;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
@@ -359,7 +359,7 @@ public class WindowOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         // We can block e.g. because of self-triggered spill
         if (outputPages.isBlocked()) {
@@ -396,7 +396,7 @@ public class WindowOperator
     }
 
     @Override
-    public ListenableFuture<?> startMemoryRevoke()
+    public ListenableFuture<Void> startMemoryRevoke()
     {
         return spillablePagesToPagesIndexes.get().spill();
     }
@@ -655,7 +655,7 @@ public class WindowOperator
         Optional<Page> currentSpillGroupRowPage;
         Optional<Spiller> spiller;
         // Spill can be trigger by Driver, by us or both. `spillInProgress` is not empty when spill was triggered but not `finishMemoryRevoke()` yet
-        Optional<ListenableFuture<?>> spillInProgress = Optional.empty();
+        Optional<ListenableFuture<Void>> spillInProgress = Optional.empty();
 
         SpillablePagesToPagesIndexes(
                 PagesIndexWithHashStrategies inMemoryPagesIndexWithHashStrategies,
@@ -753,7 +753,7 @@ public class WindowOperator
             return TransformationState.ofResult(unspill(), false);
         }
 
-        ListenableFuture<?> spill()
+        ListenableFuture<Void> spill()
         {
             if (spillInProgress.isPresent()) {
                 // Spill can be triggered first in SpillablePagesToPagesIndexes#process(..) and then by Driver (via WindowOperator#startMemoryRevoke)
@@ -762,7 +762,7 @@ public class WindowOperator
 
             if (localRevocableMemoryContext.getBytes() == 0) {
                 // This must be stale revoke request
-                spillInProgress = Optional.of(Futures.immediateFuture(null));
+                spillInProgress = Optional.of(immediateVoidFuture());
                 return spillInProgress.get();
             }
 

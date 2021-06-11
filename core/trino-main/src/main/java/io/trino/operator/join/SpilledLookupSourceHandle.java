@@ -41,17 +41,17 @@ final class SpilledLookupSourceHandle
     @GuardedBy("this")
     private State state = State.SPILLED;
 
-    private final SettableFuture<?> unspillingRequested = SettableFuture.create();
+    private final SettableFuture<Void> unspillingRequested = SettableFuture.create();
 
     @GuardedBy("this")
     @Nullable
     private SettableFuture<Supplier<LookupSource>> unspilledLookupSource;
 
-    private final SettableFuture<?> disposeRequested = SettableFuture.create();
+    private final SettableFuture<Void> disposeRequested = SettableFuture.create();
 
-    private final ListenableFuture<?> unspillingOrDisposeRequested = whenAnyComplete(ImmutableList.of(unspillingRequested, disposeRequested));
+    private final ListenableFuture<Void> unspillingOrDisposeRequested = whenAnyComplete(ImmutableList.of(unspillingRequested, disposeRequested));
 
-    public SettableFuture<?> getUnspillingRequested()
+    public SettableFuture<Void> getUnspillingRequested()
     {
         return unspillingRequested;
     }
@@ -88,12 +88,12 @@ final class SpilledLookupSourceHandle
         setState(State.DISPOSED);
     }
 
-    public SettableFuture<?> getDisposeRequested()
+    public SettableFuture<Void> getDisposeRequested()
     {
         return disposeRequested;
     }
 
-    public ListenableFuture<?> getUnspillingOrDisposeRequested()
+    public ListenableFuture<Void> getUnspillingOrDisposeRequested()
     {
         return unspillingOrDisposeRequested;
     }

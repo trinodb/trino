@@ -22,7 +22,7 @@ public interface DispatchQuery
 {
     void recordHeartbeat();
 
-    ListenableFuture<?> getDispatchedFuture();
+    ListenableFuture<Void> getDispatchedFuture();
 
     DispatchInfo getDispatchInfo();
 

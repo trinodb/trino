@@ -167,7 +167,7 @@ public class QueryContext
      *
      * @see this#updateSystemMemory(String, long) for details.
      */
-    private synchronized ListenableFuture<?> updateUserMemory(String allocationTag, long delta)
+    private synchronized ListenableFuture<Void> updateUserMemory(String allocationTag, long delta)
     {
         if (delta >= 0) {
             enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory);
@@ -178,7 +178,7 @@ public class QueryContext
     }
 
     //TODO Add tagging support for revocable memory reservations if needed
-    private synchronized ListenableFuture<?> updateRevocableMemory(String allocationTag, long delta)
+    private synchronized ListenableFuture<Void> updateRevocableMemory(String allocationTag, long delta)
     {
         if (delta >= 0) {
             return memoryPool.reserveRevocable(queryId, delta);
@@ -187,7 +187,7 @@ public class QueryContext
         return NOT_BLOCKED;
     }
 
-    private synchronized ListenableFuture<?> updateSystemMemory(String allocationTag, long delta)
+    private synchronized ListenableFuture<Void> updateSystemMemory(String allocationTag, long delta)
     {
         // We call memoryPool.getQueryMemoryReservation(queryId) instead of calling queryMemoryContext.getUserMemory() to
         // calculate the total memory size.
@@ -216,13 +216,13 @@ public class QueryContext
     }
 
     //TODO move spill tracking to the new memory tracking framework
-    public synchronized ListenableFuture<?> reserveSpill(long bytes)
+    public synchronized ListenableFuture<Void> reserveSpill(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
         if (spillUsed + bytes > maxSpill) {
             throw exceededPerQueryLocalLimit(succinctBytes(maxSpill));
         }
-        ListenableFuture<?> future = spillSpaceTracker.reserve(bytes);
+        ListenableFuture<Void> future = spillSpaceTracker.reserve(bytes);
         spillUsed += bytes;
         return future;
     }
@@ -230,7 +230,7 @@ public class QueryContext
     private synchronized boolean tryUpdateUserMemory(String allocationTag, long delta)
     {
         if (delta <= 0) {
-            ListenableFuture<?> future = updateUserMemory(allocationTag, delta);
+            ListenableFuture<Void> future = updateUserMemory(allocationTag, delta);
             // When delta == 0 and the pool is full the future can still not be done,
             // but, for negative deltas it must always be done.
             if (delta < 0) {
@@ -270,7 +270,7 @@ public class QueryContext
             // Don't unblock our tasks and thrash the pools, if this is a no-op
             return;
         }
-        ListenableFuture<?> future = memoryPool.moveQuery(queryId, newMemoryPool);
+        ListenableFuture<Void> future = memoryPool.moveQuery(queryId, newMemoryPool);
         memoryPool = newMemoryPool;
         if (resourceOverCommit) {
             // Reset the memory limits based on the new pool assignment
@@ -334,11 +334,11 @@ public class QueryContext
     private static class QueryMemoryReservationHandler
             implements MemoryReservationHandler
     {
-        private final BiFunction<String, Long, ListenableFuture<?>> reserveMemoryFunction;
+        private final BiFunction<String, Long, ListenableFuture<Void>> reserveMemoryFunction;
         private final BiPredicate<String, Long> tryReserveMemoryFunction;
 
         public QueryMemoryReservationHandler(
-                BiFunction<String, Long, ListenableFuture<?>> reserveMemoryFunction,
+                BiFunction<String, Long, ListenableFuture<Void>> reserveMemoryFunction,
                 BiPredicate<String, Long> tryReserveMemoryFunction)
         {
             this.reserveMemoryFunction = requireNonNull(reserveMemoryFunction, "reserveMemoryFunction is null");
@@ -346,7 +346,7 @@ public class QueryContext
         }
 
         @Override
-        public ListenableFuture<?> reserveMemory(String allocationTag, long delta)
+        public ListenableFuture<Void> reserveMemory(String allocationTag, long delta)
         {
             return reserveMemoryFunction.apply(allocationTag, delta);
         }

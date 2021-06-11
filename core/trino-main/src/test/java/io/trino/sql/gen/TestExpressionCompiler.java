@@ -164,7 +164,7 @@ public class TestExpressionCompiler
     private long start;
     private ListeningExecutorService executor;
     private FunctionAssertions functionAssertions;
-    private List<ListenableFuture<?>> futures;
+    private List<ListenableFuture<Void>> futures;
 
     @BeforeClass
     public void setupClass()
@@ -1930,7 +1930,7 @@ public class TestExpressionCompiler
     private void addCallable(Runnable runnable)
     {
         if (PARALLEL) {
-            futures.add(executor.submit(runnable));
+            futures.add(Futures.submit(runnable, executor));
         }
         else {
             runnable.run();

@@ -14,7 +14,6 @@
 package io.trino.execution.executor;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.testing.TestingTicker;
@@ -32,6 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
@@ -65,9 +65,9 @@ public class TestTaskExecutor
 
             // add two jobs
             TestingJob driver1 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
-            ListenableFuture<?> future1 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1)));
+            ListenableFuture<Void> future1 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1)));
             TestingJob driver2 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
-            ListenableFuture<?> future2 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver2)));
+            ListenableFuture<Void> future2 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver2)));
             assertEquals(driver1.getCompletedPhases(), 0);
             assertEquals(driver2.getCompletedPhases(), 0);
 
@@ -90,7 +90,7 @@ public class TestTaskExecutor
 
             // add one more job
             TestingJob driver3 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
-            ListenableFuture<?> future3 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver3)));
+            ListenableFuture<Void> future3 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver3)));
 
             // advance one phase and verify
             beginPhase.arriveAndAwaitAdvance();
@@ -484,7 +484,7 @@ public class TestTaskExecutor
         private final AtomicInteger lastPhase = new AtomicInteger(-1);
 
         private final AtomicBoolean started = new AtomicBoolean();
-        private final SettableFuture<?> completed = SettableFuture.create();
+        private final SettableFuture<Void> completed = SettableFuture.create();
 
         public TestingJob(TestingTicker ticker, Phaser globalPhaser, Phaser beginQuantaPhaser, Phaser endQuantaPhaser, int requiredPhases, int quantaTimeMillis)
         {
@@ -519,7 +519,7 @@ public class TestTaskExecutor
         }
 
         @Override
-        public ListenableFuture<?> processFor(Duration duration)
+        public ListenableFuture<Void> processFor(Duration duration)
         {
             started.set(true);
             ticker.increment(quantaTimeMillis, MILLISECONDS);
@@ -535,7 +535,7 @@ public class TestTaskExecutor
                 completed.set(null);
             }
 
-            return Futures.immediateFuture(null);
+            return immediateVoidFuture();
         }
 
         @Override
@@ -560,7 +560,7 @@ public class TestTaskExecutor
         {
         }
 
-        public Future<?> getCompletedFuture()
+        public Future<Void> getCompletedFuture()
         {
             return completed;
         }

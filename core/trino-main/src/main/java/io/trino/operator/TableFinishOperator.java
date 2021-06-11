@@ -165,7 +165,7 @@ public class TableFinishOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         return statisticsAggregationOperator.isBlocked();
     }

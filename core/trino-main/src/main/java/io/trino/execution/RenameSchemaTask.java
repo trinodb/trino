@@ -26,7 +26,7 @@ import io.trino.transaction.TransactionManager;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
@@ -42,7 +42,7 @@ public class RenameSchemaTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             RenameSchema statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -67,6 +67,6 @@ public class RenameSchemaTask
 
         metadata.renameSchema(session, source, statement.getTarget().getValue());
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }
