@@ -191,7 +191,51 @@ public class TestHiveTransactionalTable
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
-    public void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType)
+    public void testFoo(boolean isPartitioned, BucketingType bucketingType)
+    {
+        testReadInsertOnlyOrc(isPartitioned, bucketingType);
+        testReadInsertOnlyParquet(isPartitioned, bucketingType);
+        testReadInsertOnlyText(isPartitioned, bucketingType);
+
+        if (!isPartitioned) {
+            testReadInsertOnlyTextWithCustomFormatProperties();
+        }
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    public void testReadInsertOnlyOrc(boolean isPartitioned, BucketingType bucketingType)
+    {
+        testReadInsertOnly(isPartitioned, bucketingType, "STORED AS ORC");
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeSmokeDataProvider", timeOut = TEST_TIMEOUT)
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    public void testReadInsertOnlyParquet(boolean isPartitioned, BucketingType bucketingType)
+    {
+        testReadInsertOnly(isPartitioned, bucketingType, "STORED AS PARQUET");
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeSmokeDataProvider", timeOut = TEST_TIMEOUT)
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    public void testReadInsertOnlyText(boolean isPartitioned, BucketingType bucketingType)
+    {
+        testReadInsertOnly(isPartitioned, bucketingType, "STORED AS TEXTFILE");
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testReadInsertOnlyTextWithCustomFormatProperties()
+    {
+        testReadInsertOnly(
+                false,
+                NONE,
+                "  ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe' " +
+                        "  WITH SERDEPROPERTIES ('field.delim'=',', 'line.delim'='\\n', 'serialization.format'=',') " +
+                        "  STORED AS INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
+                        "  OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'");
+    }
+
+    private void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType, String hiveTableFormatDefinition)
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
@@ -203,64 +247,7 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("CREATE TABLE " + tableName + " (col INT) " +
                     (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
                     bucketingType.getHiveClustering("col", 4) + " " +
-                    "STORED AS ORC " +
-                    hiveTableProperties(INSERT_ONLY, bucketingType));
-
-            String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
-            String predicate = isPartitioned ? " WHERE part_col = 2 " : "";
-
-            onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " SELECT 1");
-            String selectFromOnePartitionsSql = "SELECT col FROM " + tableName + predicate + " ORDER BY COL";
-            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(1));
-
-            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 2");
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
-
-            assertThat(query("SELECT col FROM " + tableName + " WHERE col=2")).containsExactly(row(2));
-
-            // test minor compacted data read
-            compactTableAndWait(MINOR, tableName, hivePartitionString, new Duration(6, MINUTES));
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
-            assertThat(query("SELECT col FROM " + tableName + " WHERE col=2")).containsExactly(row(2));
-
-            onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " SELECT 3");
-            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3));
-
-            if (getHiveVersionMajor() >= 4) {
-                // Major compaction on insert only table does not work prior to Hive 4:
-                // https://issues.apache.org/jira/browse/HIVE-21280
-
-                // test major compaction
-                onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 4");
-                compactTableAndWait(MAJOR, tableName, hivePartitionString, new Duration(6, MINUTES));
-                assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3), row(4));
-            }
-        }
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
-    public void testReadNonOrcInsertOnly(boolean isPartitioned, BucketingType bucketingType)
-    {
-        if (getHiveVersionMajor() < 3) {
-            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
-        }
-
-        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName("insert_only", isPartitioned, bucketingType))) {
-            String tableName = table.getName();
-
-            onHive().executeQuery("CREATE TABLE " + tableName + " (col INT) " +
-                    (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
-                    "  ROW FORMAT SERDE\n" +
-                    "    'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'\n" +
-                    "  WITH SERDEPROPERTIES (\n" +
-                    "    'field.delim'=',',\n" +
-                    "    'line.delim'='\\n',\n" +
-                    "    'serialization.format'=',')\n" +
-                    "  STORED AS INPUTFORMAT\n" +
-                    "    'org.apache.hadoop.mapred.TextInputFormat'\n" +
-                    "  OUTPUTFORMAT\n" +
-                    "    'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'" +
+                    hiveTableFormatDefinition + " " +
                     hiveTableProperties(INSERT_ONLY, bucketingType));
 
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
@@ -511,6 +498,15 @@ public class TestHiveTransactionalTable
                 {false, BucketingType.NONE},
                 {false, BucketingType.BUCKETED_DEFAULT},
                 {true, BucketingType.NONE},
+                {true, BucketingType.BUCKETED_DEFAULT},
+        };
+    }
+
+    @DataProvider
+    public Object[][] partitioningAndBucketingTypeSmokeDataProvider()
+    {
+        return new Object[][] {
+                {false, BucketingType.NONE},
                 {true, BucketingType.BUCKETED_DEFAULT},
         };
     }
