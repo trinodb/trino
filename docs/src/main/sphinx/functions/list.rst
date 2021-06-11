@@ -194,7 +194,7 @@ H
 -
 
 - :func:`hamming_distance`
-- ``hash_counts``
+- :func:`hash_counts`
 - :func:`histogram`
 - :func:`hmac_md5`
 - :func:`hmac_sha1`
@@ -209,7 +209,7 @@ I
 - :ref:`if <if_function>`
 - :func:`index`
 - :func:`infinity`
-- ``intersection_cardinality``
+- :func:`intersection_cardinality`
 - :func:`inverse_beta_cdf`
 - :func:`inverse_normal_cdf`
 - :func:`is_finite`
@@ -224,7 +224,7 @@ I
 J
 -
 
-- ``jaccard_index``
+- :func:`jaccard_index`
 - :func:`json_array_contains`
 - :func:`json_array_get`
 - :func:`json_array_length`
@@ -269,7 +269,7 @@ L
 M
 -
 
-- ``make_set_digest``
+- :func:`make_set_digest`
 - :func:`map`
 - :func:`map_agg`
 - :func:`map_concat`
@@ -284,7 +284,7 @@ M
 - :func:`max_by`
 - :func:`md5`
 - :func:`merge`
-- ``merge_set_digest``
+- :func:`merge_set_digest`
 - :func:`millisecond`
 - :func:`min`
 - :func:`min_by`
