@@ -443,6 +443,19 @@ For more details, see :doc:`session`
 * :data:`current_schema`
 * :data:`current_user`
 
+Set Digest
+----------
+
+For more details, see :doc:`setdigest`
+
+* :func:`make_set_digest`
+* :func:`merge_set_digest`
+* :ref:`cardinality() <setdigest-cardinality>`
+* :func:`intersection_cardinality`
+* :func:`jaccard_index`
+* :func:`hash_counts`
+
+
 String
 ------
 
