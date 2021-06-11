@@ -34,7 +34,7 @@ import java.util.function.IntFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.allAsList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
@@ -48,12 +48,12 @@ public final class PartitionedConsumption<T>
 
     PartitionedConsumption(int consumersCount, Iterable<Integer> partitionNumbers, IntFunction<ListenableFuture<T>> loader, IntConsumer disposer)
     {
-        this(consumersCount, immediateFuture(null), partitionNumbers, loader, disposer);
+        this(consumersCount, immediateVoidFuture(), partitionNumbers, loader, disposer);
     }
 
     private PartitionedConsumption(
             int consumersCount,
-            ListenableFuture<?> activator,
+            ListenableFuture<Void> activator,
             Iterable<Integer> partitionNumbers,
             IntFunction<ListenableFuture<T>> loader,
             IntConsumer disposer)
@@ -64,7 +64,7 @@ public final class PartitionedConsumption<T>
     }
 
     private List<Partition<T>> createPartitions(
-            ListenableFuture<?> activator,
+            ListenableFuture<Void> activator,
             Iterable<Integer> partitionNumbers,
             IntFunction<ListenableFuture<T>> loader,
             IntConsumer disposer)
@@ -74,7 +74,7 @@ public final class PartitionedConsumption<T>
         requireNonNull(disposer, "disposer is null");
 
         ImmutableList.Builder<Partition<T>> partitions = ImmutableList.builder();
-        ListenableFuture<?> partitionActivator = activator;
+        ListenableFuture<Void> partitionActivator = activator;
         for (Integer partitionNumber : partitionNumbers) {
             Partition<T> partition = new Partition<>(consumersCount, partitionNumber, loader, partitionActivator, disposer);
             partitions.add(partition);
@@ -109,9 +109,9 @@ public final class PartitionedConsumption<T>
     public static class Partition<T>
     {
         private final int partitionNumber;
-        private final SettableFuture<?> requested;
+        private final SettableFuture<Void> requested;
         private final ListenableFuture<T> loaded;
-        private final SettableFuture<?> released;
+        private final SettableFuture<Void> released;
 
         @GuardedBy("this")
         private int pendingReleases;
@@ -120,7 +120,7 @@ public final class PartitionedConsumption<T>
                 int consumersCount,
                 int partitionNumber,
                 IntFunction<ListenableFuture<T>> loader,
-                ListenableFuture<?> previousReleased,
+                ListenableFuture<Void> previousReleased,
                 IntConsumer disposer)
         {
             this.partitionNumber = partitionNumber;

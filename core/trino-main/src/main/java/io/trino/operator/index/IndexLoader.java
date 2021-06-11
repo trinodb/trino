@@ -346,7 +346,7 @@ public class IndexLoader
                 ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(recordSetForLookupSource), Lifespan.taskWide()));
                 driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(split), true));
                 while (!driver.isFinished()) {
-                    ListenableFuture<?> process = driver.process();
+                    ListenableFuture<Void> process = driver.process();
                     checkState(process.isDone(), "Driver should never block");
                 }
             }

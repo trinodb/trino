@@ -130,7 +130,7 @@ public class TestThrottledAsyncQueue
         queue.offer(4);
         queue.offer(5);
 
-        ListenableFuture<?> future1 = queue.offer(6);
+        ListenableFuture<Void> future1 = queue.offer(6);
         assertFalse(future1.isDone());
 
         Runnable runnable = () -> {
@@ -143,7 +143,7 @@ public class TestThrottledAsyncQueue
                 .isInstanceOf(ExecutionException.class)
                 .hasMessageContaining("test fail");
 
-        ListenableFuture<?> future2 = queue.offer(7);
+        ListenableFuture<Void> future2 = queue.offer(7);
         assertFalse(future1.isDone());
         assertFalse(future2.isDone());
         queue.finish();
@@ -190,7 +190,7 @@ public class TestThrottledAsyncQueue
 
         assertFalse(queue.offer("4").isDone());
         assertFalse(queue.offer("5").isDone());
-        ListenableFuture<?> offerFuture = queue.offer("6");
+        ListenableFuture<Void> offerFuture = queue.offer("6");
         assertFalse(offerFuture.isDone());
 
         assertEquals(queue.getBatchAsync(2).get(), ImmutableList.of("1", "2"));
@@ -220,7 +220,7 @@ public class TestThrottledAsyncQueue
         assertTrue(queue.offer("3").isDone());
         assertEquals(queue.getBatchAsync(2).get(), ImmutableList.of("1", "2"));
         assertEquals(queue.getBatchAsync(2).get(), ImmutableList.of("3"));
-        ListenableFuture<?> batchFuture = queue.getBatchAsync(2);
+        ListenableFuture<List<String>> batchFuture = queue.getBatchAsync(2);
         assertFalse(batchFuture.isDone());
 
         assertTrue(queue.offer("4").isDone());

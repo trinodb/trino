@@ -25,7 +25,7 @@ import io.trino.transaction.TransactionManager;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.getSessionCatalog;
 import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -41,7 +41,7 @@ public class DropRoleTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             DropRole statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -59,6 +59,6 @@ public class DropRoleTask
             throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", role);
         }
         metadata.dropRole(session, role, catalog);
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

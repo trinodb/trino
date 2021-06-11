@@ -13,6 +13,7 @@
  */
 package io.trino.operator.join;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.DriverYieldSignal;
@@ -43,6 +44,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
@@ -86,7 +88,7 @@ public class DefaultPageJoiner
     private boolean currentProbePositionProducedRow;
 
     private Optional<PartitioningSpiller> spiller = Optional.empty();
-    private ListenableFuture<?> spillInProgress = NOT_BLOCKED;
+    private ListenableFuture<Void> spillInProgress = NOT_BLOCKED;
 
     public DefaultPageJoiner(
             ProcessorContext processorContext,
@@ -169,7 +171,7 @@ public class DefaultPageJoiner
 
         if (lookupSourceProvider == null) {
             if (!lookupSourceProviderFuture.isDone()) {
-                return blocked(lookupSourceProviderFuture);
+                return blocked(asVoid(lookupSourceProviderFuture));
             }
 
             lookupSourceProvider = requireNonNull(getDone(lookupSourceProviderFuture));
@@ -480,5 +482,10 @@ public class DefaultPageJoiner
         {
             return spillMask;
         }
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 }

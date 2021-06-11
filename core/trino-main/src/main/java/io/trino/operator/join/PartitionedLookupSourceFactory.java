@@ -44,6 +44,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -69,10 +70,10 @@ public final class PartitionedLookupSourceFactory
     @GuardedBy("lock")
     private final Supplier<LookupSource>[] partitions;
 
-    private final SettableFuture<?> partitionsNoLongerNeeded = SettableFuture.create();
+    private final SettableFuture<Void> partitionsNoLongerNeeded = SettableFuture.create();
 
     @GuardedBy("lock")
-    private final SettableFuture<?> destroyed = SettableFuture.create();
+    private final SettableFuture<Void> destroyed = SettableFuture.create();
 
     @GuardedBy("lock")
     private int partitionsSet;
@@ -162,7 +163,7 @@ public final class PartitionedLookupSourceFactory
     }
 
     @Override
-    public ListenableFuture<?> whenBuildFinishes()
+    public ListenableFuture<Void> whenBuildFinishes()
     {
         return transform(
                 this.createLookupSourceProvider(),
@@ -175,7 +176,7 @@ public final class PartitionedLookupSourceFactory
                 directExecutor());
     }
 
-    public ListenableFuture<?> lendPartitionLookupSource(int partitionIndex, Supplier<LookupSource> partitionLookupSource)
+    public ListenableFuture<Void> lendPartitionLookupSource(int partitionIndex, Supplier<LookupSource> partitionLookupSource)
     {
         requireNonNull(partitionLookupSource, "partitionLookupSource is null");
 
@@ -184,7 +185,7 @@ public final class PartitionedLookupSourceFactory
         lock.writeLock().lock();
         try {
             if (destroyed.isDone()) {
-                return immediateFuture(null);
+                return immediateVoidFuture();
             }
 
             checkState(partitions[partitionIndex] == null, "Partition already set");
@@ -432,7 +433,7 @@ public final class PartitionedLookupSourceFactory
 
     @SuppressWarnings("FieldAccessNotGuarded")
     @Override
-    public ListenableFuture<?> isDestroyed()
+    public ListenableFuture<Void> isDestroyed()
     {
         return nonCancellationPropagating(destroyed);
     }

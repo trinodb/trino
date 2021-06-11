@@ -133,7 +133,7 @@ public class TestArbitraryOutputBuffer
         assertQueueState(buffer, 9, FIRST, 1, 3);
 
         // try to add one more page, which should block
-        ListenableFuture<?> future = enqueuePage(buffer, createPage(13));
+        ListenableFuture<Void> future = enqueuePage(buffer, createPage(13));
         assertFalse(future.isDone());
         assertQueueState(buffer, 10, FIRST, 1, 3);
 
@@ -654,8 +654,8 @@ public class TestArbitraryOutputBuffer
         }
 
         // enqueue the addition two pages more pages
-        ListenableFuture<?> firstEnqueuePage = enqueuePage(buffer, createPage(5));
-        ListenableFuture<?> secondEnqueuePage = enqueuePage(buffer, createPage(6));
+        ListenableFuture<Void> firstEnqueuePage = enqueuePage(buffer, createPage(5));
+        ListenableFuture<Void> secondEnqueuePage = enqueuePage(buffer, createPage(6));
 
         // get and acknowledge one page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), MAX_WAIT), bufferResult(0, createPage(0)));
@@ -736,8 +736,8 @@ public class TestArbitraryOutputBuffer
         }
 
         // add two pages to the buffer queue
-        ListenableFuture<?> firstEnqueuePage = enqueuePage(buffer, createPage(5));
-        ListenableFuture<?> secondEnqueuePage = enqueuePage(buffer, createPage(6));
+        ListenableFuture<Void> firstEnqueuePage = enqueuePage(buffer, createPage(5));
+        ListenableFuture<Void> secondEnqueuePage = enqueuePage(buffer, createPage(6));
 
         // get and acknowledge one page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), MAX_WAIT), bufferResult(0, createPage(0)));
@@ -809,8 +809,8 @@ public class TestArbitraryOutputBuffer
         }
 
         // add two pages to the buffer queue
-        ListenableFuture<?> firstEnqueuePage = enqueuePage(buffer, createPage(5));
-        ListenableFuture<?> secondEnqueuePage = enqueuePage(buffer, createPage(6));
+        ListenableFuture<Void> firstEnqueuePage = enqueuePage(buffer, createPage(5));
+        ListenableFuture<Void> secondEnqueuePage = enqueuePage(buffer, createPage(6));
 
         // get and acknowledge one page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), MAX_WAIT), bufferResult(0, createPage(0)));
@@ -986,10 +986,10 @@ public class TestArbitraryOutputBuffer
         return getFuture(future, maxWait);
     }
 
-    private static ListenableFuture<?> enqueuePage(OutputBuffer buffer, Page page)
+    private static ListenableFuture<Void> enqueuePage(OutputBuffer buffer, Page page)
     {
         buffer.enqueue(ImmutableList.of(serializePage(page)));
-        ListenableFuture<?> future = buffer.isFull();
+        ListenableFuture<Void> future = buffer.isFull();
         assertFalse(future.isDone());
         return future;
     }

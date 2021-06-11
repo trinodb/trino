@@ -33,7 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -52,7 +52,7 @@ public class GrantTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             Grant statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -67,7 +67,7 @@ public class GrantTask
         else {
             executeGrantOnTable(stateMachine.getSession(), statement, metadata, accessControl);
         }
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 
     private void executeGrantOnSchema(Session session, Grant statement, Metadata metadata, AccessControl accessControl)

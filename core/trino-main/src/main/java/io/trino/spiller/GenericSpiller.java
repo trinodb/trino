@@ -14,7 +14,6 @@
 package io.trino.spiller;
 
 import com.google.common.io.Closer;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.SpillContext;
@@ -29,6 +28,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -41,7 +41,7 @@ public class GenericSpiller
     private final AggregatedMemoryContext aggregatedMemoryContext;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
     private final Closer closer = Closer.create();
-    private ListenableFuture<?> previousSpill = Futures.immediateFuture(null);
+    private ListenableFuture<Void> previousSpill = immediateVoidFuture();
     private final List<SingleStreamSpiller> singleStreamSpillers = new ArrayList<>();
 
     public GenericSpiller(
@@ -57,7 +57,7 @@ public class GenericSpiller
     }
 
     @Override
-    public ListenableFuture<?> spill(Iterator<Page> pageIterator)
+    public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
     {
         checkNoSpillInProgress();
         SingleStreamSpiller singleStreamSpiller = singleStreamSpillerFactory.create(types, spillContext, aggregatedMemoryContext.newLocalMemoryContext(GenericSpiller.class.getSimpleName()));

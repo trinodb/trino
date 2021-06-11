@@ -94,6 +94,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
@@ -339,7 +340,7 @@ class Query
         }
 
         // wait for a results data or query to finish, up to the wait timeout
-        ListenableFuture<?> futureStateChange = addTimeout(
+        ListenableFuture<Void> futureStateChange = addTimeout(
                 getFutureStateChange(),
                 () -> null,
                 wait,
@@ -349,7 +350,7 @@ class Query
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
-    private synchronized ListenableFuture<?> getFutureStateChange()
+    private synchronized ListenableFuture<Void> getFutureStateChange()
     {
         // if the exchange client is open, wait for data
         if (!exchangeClient.isClosed()) {
@@ -362,7 +363,7 @@ class Query
             return queryDoneFuture(queryManager.getQueryState(queryId));
         }
         catch (NoSuchElementException e) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
     }
 
@@ -584,10 +585,10 @@ class Query
         }
     }
 
-    private ListenableFuture<?> queryDoneFuture(QueryState currentState)
+    private ListenableFuture<Void> queryDoneFuture(QueryState currentState)
     {
         if (currentState.isDone()) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }
