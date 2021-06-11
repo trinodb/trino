@@ -529,6 +529,7 @@ class QueryPlanner
             builder = filter(builder, node.getWhere().get(), node);
         }
 
+        builder = subqueryPlanner.handleSubqueries(builder, orderedColumnValues, analysis.getSubqueries(node));
         builder = builder.appendProjections(orderedColumnValues, symbolAllocator, idAllocator);
 
         PlanAndMappings planAndMappings = coerce(builder, orderedColumnValues, analysis, idAllocator, symbolAllocator, typeCoercion);
