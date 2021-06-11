@@ -299,7 +299,7 @@ public interface Metadata
     /**
      * Refresh materialized view
      */
-    ListenableFuture<?> refreshMaterializedView(Session session, QualifiedObjectName viewName);
+    ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName);
 
     /**
      * Begin refresh materialized view query

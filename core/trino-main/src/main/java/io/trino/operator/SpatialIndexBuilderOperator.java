@@ -145,7 +145,7 @@ public class SpatialIndexBuilderOperator
     private final Map<Integer, Rectangle> partitions;
 
     private final PagesIndex index;
-    private ListenableFuture<?> indexNotNeeded;
+    private ListenableFuture<Void> indexNotNeeded;
 
     private boolean finishing;
     private boolean finished;
@@ -214,7 +214,7 @@ public class SpatialIndexBuilderOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         if (indexNotNeeded != null && !indexNotNeeded.isDone()) {
             return indexNotNeeded;

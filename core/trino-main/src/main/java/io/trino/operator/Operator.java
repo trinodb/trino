@@ -13,14 +13,15 @@
  */
 package io.trino.operator;
 
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.spi.Page;
+
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 public interface Operator
         extends AutoCloseable
 {
-    ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
+    ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
 
     OperatorContext getOperatorContext();
 
@@ -29,7 +30,7 @@ public interface Operator
      * unblocked.  If the operator is not blocked, this method should return
      * {@code NOT_BLOCKED}.
      */
-    default ListenableFuture<?> isBlocked()
+    default ListenableFuture<Void> isBlocked()
     {
         return NOT_BLOCKED;
     }
@@ -65,7 +66,7 @@ public interface Operator
      * processing methods on it (isBlocked/needsInput/addInput/getOutput) until
      * {@link #finishMemoryRevoke()} is called.
      */
-    default ListenableFuture<?> startMemoryRevoke()
+    default ListenableFuture<Void> startMemoryRevoke()
     {
         return NOT_BLOCKED;
     }

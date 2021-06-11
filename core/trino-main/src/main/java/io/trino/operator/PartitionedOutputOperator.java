@@ -200,7 +200,7 @@ public class PartitionedOutputOperator
     private final PagePartitioner partitionFunction;
     private final LocalMemoryContext systemMemoryContext;
     private final long partitionsInitialRetainedSize;
-    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
+    private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
     private boolean finished;
 
     public PartitionedOutputOperator(
@@ -256,7 +256,7 @@ public class PartitionedOutputOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         // Avoid re-synchronizing on the output buffer when operator is already blocked
         if (isBlocked.isDone()) {
@@ -366,7 +366,7 @@ public class PartitionedOutputOperator
             }
         }
 
-        public ListenableFuture<?> isFull()
+        public ListenableFuture<Void> isFull()
         {
             return outputBuffer.isFull();
         }

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
@@ -157,6 +158,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.primitives.Primitives.wrap;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
@@ -948,11 +950,16 @@ public final class MetadataManager
     }
 
     @Override
-    public ListenableFuture<?> refreshMaterializedView(Session session, QualifiedObjectName viewName)
+    public ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName)
     {
         CatalogName catalogName = new CatalogName(viewName.getCatalogName());
         ConnectorMetadata metadata = getMetadata(session, catalogName);
-        return toListenableFuture(metadata.refreshMaterializedView(session.toConnectorSession(catalogName), viewName.asSchemaTableName()));
+        return asVoid(toListenableFuture(metadata.refreshMaterializedView(session.toConnectorSession(catalogName), viewName.asSchemaTableName())));
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 
     @Override

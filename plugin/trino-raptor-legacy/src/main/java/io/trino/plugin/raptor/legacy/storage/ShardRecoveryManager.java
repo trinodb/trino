@@ -165,7 +165,7 @@ public class ShardRecoveryManager
         try {
             for (ShardMetadata shard : getMissingShards()) {
                 stats.incrementBackgroundShardRecovery();
-                ListenableFuture<?> future = shardQueue.submit(new MissingShard(shard.getShardUuid(), shard.getCompressedSize(), shard.getXxhash64(), false));
+                ListenableFuture<Void> future = shardQueue.submit(new MissingShard(shard.getShardUuid(), shard.getCompressedSize(), shard.getXxhash64(), false));
                 addExceptionCallback(future, t -> log.warn(t, "Error recovering shard: %s", shard.getShardUuid()));
             }
         }
@@ -187,7 +187,7 @@ public class ShardRecoveryManager
         return !storageFile.exists() || (storageFile.length() != shardSize);
     }
 
-    public Future<?> recoverShard(UUID shardUuid)
+    public Future<Void> recoverShard(UUID shardUuid)
             throws ExecutionException
     {
         ShardMetadata shard = shardManager.getShard(shardUuid);
@@ -411,7 +411,7 @@ public class ShardRecoveryManager
 
     private class MissingShardsQueue
     {
-        private final LoadingCache<MissingShard, ListenableFuture<?>> queuedMissingShards;
+        private final LoadingCache<MissingShard, ListenableFuture<Void>> queuedMissingShards;
 
         public MissingShardsQueue(PrioritizedFifoExecutor<MissingShardRunnable> shardRecoveryExecutor)
         {
@@ -419,21 +419,21 @@ public class ShardRecoveryManager
             this.queuedMissingShards = CacheBuilder.newBuilder().build(new CacheLoader<>()
             {
                 @Override
-                public ListenableFuture<?> load(MissingShard missingShard)
+                public ListenableFuture<Void> load(MissingShard missingShard)
                 {
                     MissingShardRecovery task = new MissingShardRecovery(
                             missingShard.getShardUuid(),
                             missingShard.getShardSize(),
                             missingShard.getShardXxhash64(),
                             missingShard.isActive());
-                    ListenableFuture<?> future = shardRecoveryExecutor.submit(task);
+                    ListenableFuture<Void> future = shardRecoveryExecutor.submit(task);
                     future.addListener(() -> queuedMissingShards.invalidate(missingShard), directExecutor());
                     return future;
                 }
             });
         }
 
-        public ListenableFuture<?> submit(MissingShard shard)
+        public ListenableFuture<Void> submit(MissingShard shard)
                 throws ExecutionException
         {
             return queuedMissingShards.get(shard);

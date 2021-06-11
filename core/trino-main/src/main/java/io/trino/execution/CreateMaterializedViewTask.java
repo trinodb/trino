@@ -40,7 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.sql.NodeUtils.mapFromProperties;
@@ -76,7 +76,7 @@ public class CreateMaterializedViewTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             CreateMaterializedView statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -129,6 +129,6 @@ public class CreateMaterializedViewTask
         stateMachine.setOutput(analysis.getTarget());
         stateMachine.setReferencedTables(analysis.getReferencedTables());
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

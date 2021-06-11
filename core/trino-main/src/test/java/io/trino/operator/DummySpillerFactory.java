@@ -26,7 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 public class DummySpillerFactory
         implements SpillerFactory
@@ -41,11 +41,11 @@ public class DummySpillerFactory
             private final List<Iterable<Page>> spills = new ArrayList<>();
 
             @Override
-            public ListenableFuture<?> spill(Iterator<Page> pageIterator)
+            public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
             {
                 spillsCount++;
                 spills.add(ImmutableList.copyOf(pageIterator));
-                return immediateFuture(null);
+                return immediateVoidFuture();
             }
 
             @Override

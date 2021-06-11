@@ -123,7 +123,7 @@ public class WorkProcessorSourceOperatorAdapter
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         if (!pages.isBlocked()) {
             return NOT_BLOCKED;
@@ -236,7 +236,7 @@ public class WorkProcessorSourceOperatorAdapter
     {
         private final List<Split> pendingSplits = new ArrayList<>();
 
-        private SettableFuture<?> blockedOnSplits = SettableFuture.create();
+        private SettableFuture<Void> blockedOnSplits = SettableFuture.create();
         private boolean noMoreSplits;
 
         @Override

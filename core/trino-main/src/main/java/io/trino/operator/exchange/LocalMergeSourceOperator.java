@@ -136,7 +136,7 @@ public class LocalMergeSourceOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         if (mergedPages.isBlocked()) {
             return mergedPages.getBlockedFuture();

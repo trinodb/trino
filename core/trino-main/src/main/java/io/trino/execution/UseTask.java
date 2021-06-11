@@ -26,7 +26,7 @@ import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -42,7 +42,7 @@ public class UseTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             Use statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -74,6 +74,6 @@ public class UseTask
         }
         stateMachine.setSetSchema(schema);
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

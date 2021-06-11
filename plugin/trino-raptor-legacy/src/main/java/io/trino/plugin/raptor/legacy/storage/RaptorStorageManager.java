@@ -358,7 +358,7 @@ public class RaptorStorageManager
 
         if (!file.exists() && backupStore.isPresent()) {
             try {
-                Future<?> future = recoveryManager.recoverShard(shardUuid);
+                Future<Void> future = recoveryManager.recoverShard(shardUuid);
                 future.get(recoveryTimeout.toMillis(), TimeUnit.MILLISECONDS);
             }
             catch (InterruptedException e) {

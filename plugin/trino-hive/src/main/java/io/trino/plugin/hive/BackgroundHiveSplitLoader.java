@@ -21,6 +21,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
 import com.google.common.io.CharStreams;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -91,7 +92,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.fromProperties;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
@@ -140,7 +142,7 @@ public class BackgroundHiveSplitLoader
             // Hive ACID with optional direct insert attempt id
             BUCKET_WITH_OPTIONAL_ATTEMPT_ID_PATTERN);
 
-    private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
+    private static final ListenableFuture<Void> COMPLETED_FUTURE = immediateVoidFuture();
 
     private final Table table;
     private final AcidTransaction transaction;
@@ -232,7 +234,7 @@ public class BackgroundHiveSplitLoader
         this.hiveSplitSource = splitSource;
         this.stopwatch = Stopwatch.createStarted();
         for (int i = 0; i < loaderConcurrency; i++) {
-            ListenableFuture<?> future = ResumableTasks.submit(executor, new HiveSplitLoaderTask());
+            ListenableFuture<Void> future = ResumableTasks.submit(executor, new HiveSplitLoaderTask());
             addExceptionCallback(future, hiveSplitSource::fail); // best effort; hiveSplitSource could be already completed
         }
     }
@@ -253,13 +255,13 @@ public class BackgroundHiveSplitLoader
                 if (stopped) {
                     return TaskStatus.finished();
                 }
-                ListenableFuture<?> future;
+                ListenableFuture<Void> future;
                 // Block until one of below conditions is met:
                 // 1. Completion of DynamicFilter
                 // 2. Timeout after waiting for the configured time
                 long timeLeft = dynamicFilteringProbeBlockingTimeoutMillis - stopwatch.elapsed(MILLISECONDS);
                 if (timeLeft > 0 && dynamicFilter.isAwaitable()) {
-                    future = toListenableFuture(dynamicFilter.isBlocked().orTimeout(timeLeft, MILLISECONDS));
+                    future = asVoid(toListenableFuture(dynamicFilter.isBlocked().orTimeout(timeLeft, MILLISECONDS)));
                     return TaskStatus.continueOn(future);
                 }
                 taskExecutionLock.readLock().lock();
@@ -326,7 +328,12 @@ public class BackgroundHiveSplitLoader
         }
     }
 
-    private ListenableFuture<?> loadSplits()
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
+    }
+
+    private ListenableFuture<Void> loadSplits()
             throws IOException
     {
         Iterator<InternalHiveSplit> splits = fileIterators.poll();
@@ -339,7 +346,7 @@ public class BackgroundHiveSplitLoader
         }
 
         while (splits.hasNext() && !stopped) {
-            ListenableFuture<?> future = hiveSplitSource.addToQueue(splits.next());
+            ListenableFuture<Void> future = hiveSplitSource.addToQueue(splits.next());
             if (!future.isDone()) {
                 fileIterators.addFirst(splits);
                 return future;
@@ -350,7 +357,7 @@ public class BackgroundHiveSplitLoader
         return COMPLETED_FUTURE;
     }
 
-    private ListenableFuture<?> loadPartition(HivePartitionMetadata partition)
+    private ListenableFuture<Void> loadPartition(HivePartitionMetadata partition)
             throws IOException
     {
         HivePartition hivePartition = partition.getHivePartition();
@@ -557,7 +564,7 @@ public class BackgroundHiveSplitLoader
         }
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
-            ListenableFuture<?> lastResult = immediateFuture(null); // TODO document in addToQueue() that it is sufficient to hold on to last returned future
+            ListenableFuture<Void> lastResult = immediateVoidFuture(); // TODO document in addToQueue() that it is sufficient to hold on to last returned future
             for (Path readPath : readPaths) {
                 // list all files in the partition
                 List<LocatedFileStatus> files = new ArrayList<>();
@@ -600,7 +607,7 @@ public class BackgroundHiveSplitLoader
         return COMPLETED_FUTURE;
     }
 
-    private ListenableFuture<?> createHiveSymlinkSplits(
+    private ListenableFuture<Void> createHiveSymlinkSplits(
             String partitionName,
             InputFormat<?, ?> targetInputFormat,
             Properties schema,
@@ -612,7 +619,7 @@ public class BackgroundHiveSplitLoader
             List<Path> targetPaths)
             throws IOException
     {
-        ListenableFuture<?> lastResult = COMPLETED_FUTURE;
+        ListenableFuture<Void> lastResult = COMPLETED_FUTURE;
         for (Path targetPath : targetPaths) {
             // the splits must be generated using the file system for the target path
             // get the configuration for the target path -- it may be a different hdfs instance
@@ -734,10 +741,10 @@ public class BackgroundHiveSplitLoader
                 .iterator();
     }
 
-    private ListenableFuture<?> addSplitsToSource(InputSplit[] targetSplits, InternalHiveSplitFactory splitFactory)
+    private ListenableFuture<Void> addSplitsToSource(InputSplit[] targetSplits, InternalHiveSplitFactory splitFactory)
             throws IOException
     {
-        ListenableFuture<?> lastResult = COMPLETED_FUTURE;
+        ListenableFuture<Void> lastResult = COMPLETED_FUTURE;
         for (InputSplit inputSplit : targetSplits) {
             Optional<InternalHiveSplit> internalHiveSplit = splitFactory.createInternalHiveSplit((FileSplit) inputSplit);
             if (internalHiveSplit.isPresent()) {

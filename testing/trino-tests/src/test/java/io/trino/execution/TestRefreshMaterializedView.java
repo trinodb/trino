@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
@@ -52,9 +53,9 @@ public class TestRefreshMaterializedView
         extends AbstractTestQueryFramework
 {
     private ListeningExecutorService executorService;
-    private SettableFuture<?> startRefreshMaterializedView;
-    private SettableFuture<?> finishRefreshMaterializedView;
-    private SettableFuture<?> refreshInterrupted;
+    private SettableFuture<Void> startRefreshMaterializedView;
+    private SettableFuture<Void> finishRefreshMaterializedView;
+    private SettableFuture<Void> refreshInterrupted;
 
     @BeforeClass
     public void setUp()
@@ -106,7 +107,7 @@ public class TestRefreshMaterializedView
                                 .withDelegateMaterializedViewRefreshToConnector((connectorSession, schemaTableName) -> true)
                                 .withRefreshMaterializedView(((connectorSession, schemaTableName) -> {
                                     startRefreshMaterializedView.set(null);
-                                    SettableFuture<?> refreshMaterializedView = SettableFuture.create();
+                                    SettableFuture<Void> refreshMaterializedView = SettableFuture.create();
                                     finishRefreshMaterializedView.addListener(() -> refreshMaterializedView.set(null), directExecutor());
                                     addExceptionCallback(refreshMaterializedView, () -> refreshInterrupted.set(null));
                                     return toCompletableFuture(refreshMaterializedView);
@@ -119,7 +120,7 @@ public class TestRefreshMaterializedView
     @Test(timeOut = 30_000)
     public void testDelegateRefreshMaterializedViewToConnector()
     {
-        ListenableFuture<?> queryFuture = assertUpdateAsync("REFRESH MATERIALIZED VIEW mock.default.delegate_refresh_to_connector");
+        ListenableFuture<Void> queryFuture = assertUpdateAsync("REFRESH MATERIALIZED VIEW mock.default.delegate_refresh_to_connector");
 
         // wait for connector to start refreshing MV
         getFutureValue(startRefreshMaterializedView);
@@ -132,7 +133,7 @@ public class TestRefreshMaterializedView
     @Test(timeOut = 30_000)
     public void testDelegateRefreshMaterializedViewToConnectorWithCancellation()
     {
-        ListenableFuture<?> queryFuture = assertUpdateAsync("REFRESH MATERIALIZED VIEW mock.default.delegate_refresh_to_connector");
+        ListenableFuture<Void> queryFuture = assertUpdateAsync("REFRESH MATERIALIZED VIEW mock.default.delegate_refresh_to_connector");
 
         // wait for connector to start refreshing MV
         getFutureValue(startRefreshMaterializedView);
@@ -146,8 +147,8 @@ public class TestRefreshMaterializedView
         getFutureValue(refreshInterrupted);
     }
 
-    private ListenableFuture<?> assertUpdateAsync(@Language("SQL") String sql)
+    private ListenableFuture<Void> assertUpdateAsync(@Language("SQL") String sql)
     {
-        return executorService.submit(() -> assertUpdate(sql));
+        return Futures.submit(() -> assertUpdate(sql), executorService);
     }
 }

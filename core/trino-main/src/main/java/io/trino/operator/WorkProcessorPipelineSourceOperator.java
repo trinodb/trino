@@ -71,9 +71,9 @@ public class WorkProcessorPipelineSourceOperator
     private final List<WorkProcessorOperatorContext> workProcessorOperatorContexts = new ArrayList<>();
     private final List<Split> pendingSplits = new ArrayList<>();
 
-    private ListenableFuture<?> blockedFuture;
+    private ListenableFuture<Void> blockedFuture;
     private WorkProcessorSourceOperator sourceOperator;
-    private SettableFuture<?> blockedOnSplits = SettableFuture.create();
+    private SettableFuture<Void> blockedOnSplits = SettableFuture.create();
     private boolean operatorFinishing;
 
     public static List<OperatorFactory> convertOperators(
@@ -435,7 +435,7 @@ public class WorkProcessorPipelineSourceOperator
     }
 
     @Override
-    public ListenableFuture<?> startMemoryRevoke()
+    public ListenableFuture<Void> startMemoryRevoke()
     {
         // TODO: support spill
         throw new UnsupportedOperationException();
@@ -464,7 +464,7 @@ public class WorkProcessorPipelineSourceOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         if (!pages.isBlocked()) {
             return NOT_BLOCKED;
@@ -588,9 +588,9 @@ public class WorkProcessorPipelineSourceOperator
         }
 
         @Override
-        public ListenableFuture<?> setBytes(long bytes)
+        public ListenableFuture<Void> setBytes(long bytes)
         {
-            ListenableFuture<?> blocked = delegate.setBytes(bytes);
+            ListenableFuture<Void> blocked = delegate.setBytes(bytes);
             allocationListener.run();
             return blocked;
         }
