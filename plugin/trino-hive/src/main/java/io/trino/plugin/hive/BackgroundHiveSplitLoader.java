@@ -526,6 +526,12 @@ public class BackgroundHiveSplitLoader
             // Create a registry of delete_delta directories for the partition
             for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
                 if (delta.isDeleteDelta()) {
+                    if (!isFullAcid) {
+                        throw new TrinoException(HIVE_BAD_DATA, format(
+                                "Unexpected delete delta for a non full ACID table '%s'. Would be ignored by the reader: %s",
+                                table.getSchemaTableName(),
+                                delta.getPath()));
+                    }
                     acidInfoBuilder.addDeleteDelta(delta.getPath());
                 }
             }
