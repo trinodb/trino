@@ -333,8 +333,8 @@ public class OrcPageSource
                     Optional.empty(),
                     new Block[] {
                             sourcePage.getBlock(ORIGINAL_TRANSACTION_CHANNEL),
-                            sourcePage.getBlock(ROW_ID_CHANNEL),
                             sourcePage.getBlock(BUCKET_CHANNEL),
+                            sourcePage.getBlock(ROW_ID_CHANNEL),
                     }));
             return rowBlock;
         }
@@ -394,8 +394,8 @@ public class OrcPageSource
             ImmutableList.Builder<Block> originalFilesBlockBuilder = ImmutableList.builder();
             originalFilesBlockBuilder.add(
                     new RunLengthEncodedBlock(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
-                    createOriginalFilesRowIdBlock(startingRowId, filePosition, positionCount),
-                    new RunLengthEncodedBlock(bucketBlock, positionCount));
+                    new RunLengthEncodedBlock(bucketBlock, positionCount),
+                    createOriginalFilesRowIdBlock(startingRowId, filePosition, positionCount));
             for (int channel = 0; channel < sourcePage.getChannelCount(); channel++) {
                 originalFilesBlockBuilder.add(sourcePage.getBlock(channel));
             }
@@ -425,8 +425,8 @@ public class OrcPageSource
                     Optional.empty(),
                     new Block[] {
                             new RunLengthEncodedBlock(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
-                            createOriginalFilesRowIdBlock(startingRowId, filePosition, positionCount),
-                            new RunLengthEncodedBlock(bucketBlock, positionCount)
+                            new RunLengthEncodedBlock(bucketBlock, positionCount),
+                            createOriginalFilesRowIdBlock(startingRowId, filePosition, positionCount)
                     }));
             return rowBlock;
         }

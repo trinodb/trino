@@ -133,6 +133,31 @@ public class TestTpchConnectorTest
     }
 
     @Test
+    public void testPreSortedInput()
+    {
+        // TPCH connector produces pre-sorted data for orders and lineitem tables
+        assertExplain(
+                "EXPLAIN SELECT * FROM orders ORDER BY orderkey ASC NULLS FIRST LIMIT 10",
+                "\\QLimitPartial[10, input pre-sorted by (orderkey)]");
+        assertExplain(
+                "EXPLAIN SELECT * FROM lineitem ORDER BY orderkey ASC NULLS FIRST LIMIT 10",
+                "\\QLimitPartial[10, input pre-sorted by (orderkey)]");
+        assertExplain(
+                "EXPLAIN SELECT * FROM lineitem ORDER BY orderkey ASC NULLS FIRST, linenumber ASC NULLS FIRST LIMIT 10",
+                "\\QLimitPartial[10, input pre-sorted by (orderkey, linenumber)]");
+        assertExplain(
+                "EXPLAIN SELECT * FROM lineitem ORDER BY orderkey ASC NULLS FIRST, linenumber LIMIT 10",
+                "\\QTopNPartial[10 by (orderkey ASC NULLS FIRST, linenumber ASC NULLS LAST)]");
+        assertExplain(
+                "EXPLAIN SELECT * FROM lineitem ORDER BY orderkey ASC LIMIT 10",
+                "\\QTopNPartial[10 by (orderkey ASC NULLS LAST)]");
+
+        assertQuery(
+                "SELECT * FROM lineitem WHERE orderkey IS NOT NULL ORDER BY orderkey ASC NULLS FIRST LIMIT 10",
+                "SELECT * FROM lineitem ORDER BY orderkey ASC LIMIT 10");
+    }
+
+    @Test
     @Override
     public void testShowTables()
     {

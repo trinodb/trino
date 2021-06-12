@@ -62,7 +62,7 @@
         <dep.errorprone.version>2.7.1</dep.errorprone.version>
         <dep.testcontainers.version>1.15.3</dep.testcontainers.version>
         <dep.docker-java.version>3.2.8</dep.docker-java.version>
-        <dep.coral.version>1.0.58</dep.coral.version>
+        <dep.coral.version>1.0.60</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
 
         <!--
@@ -538,7 +538,7 @@
             <dependency>
                 <groupId>io.trino.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
-                <version>3.2.0-11</version>
+                <version>3.2.0-12</version>
             </dependency>
 
             <dependency>
@@ -1043,7 +1043,7 @@
             <dependency>
                 <groupId>com.linkedin.calcite</groupId>
                 <artifactId>calcite-core</artifactId>
-                <version>1.21.0.140</version>
+                <version>1.21.0.146</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -1532,12 +1532,6 @@
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
                 <version>1.26</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.zeroturnaround</groupId>
-                <artifactId>zt-exec</artifactId>
-                <version>1.12</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

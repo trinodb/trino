@@ -207,7 +207,7 @@ public class WindowOperator
     private final int[] outputChannels;
     private final List<FramedWindowFunction> windowFunctions;
     private final WindowInfo.DriverWindowInfoBuilder windowInfo;
-    private final AtomicReference<Optional<WindowInfo.DriverWindowInfo>> driverWindowInfo = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<WindowInfo> driverWindowInfo = new AtomicReference<>(WindowInfo.emptyInfo());
 
     private final Optional<SpillablePagesToPagesIndexes> spillablePagesToPagesIndexes;
 
@@ -335,14 +335,9 @@ public class WindowOperator
         }
 
         windowInfo = new WindowInfo.DriverWindowInfoBuilder();
-        operatorContext.setInfoSupplier(this::getWindowInfo);
+        operatorContext.setInfoSupplier(driverWindowInfo::get);
 
         this.partitioner = partitioner;
-    }
-
-    private OperatorInfo getWindowInfo()
-    {
-        return new WindowInfo(driverWindowInfo.get().map(ImmutableList::of).orElse(ImmutableList.of()));
     }
 
     @Override
@@ -941,7 +936,7 @@ public class WindowOperator
     @Override
     public void close()
     {
-        driverWindowInfo.set(Optional.of(windowInfo.build()));
+        driverWindowInfo.set(new WindowInfo(ImmutableList.of(windowInfo.build())));
         spillablePagesToPagesIndexes.ifPresent(SpillablePagesToPagesIndexes::clearIndexes);
         spillablePagesToPagesIndexes.ifPresent(SpillablePagesToPagesIndexes::closeSpiller);
     }

@@ -191,7 +191,38 @@ public class TestHiveTransactionalTable
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
-    public void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType)
+    public void testReadInsertOnlyOrc(boolean isPartitioned, BucketingType bucketingType)
+    {
+        testReadInsertOnly(isPartitioned, bucketingType, "STORED AS ORC");
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeSmokeDataProvider", timeOut = TEST_TIMEOUT)
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    public void testReadInsertOnlyParquet(boolean isPartitioned, BucketingType bucketingType)
+    {
+        testReadInsertOnly(isPartitioned, bucketingType, "STORED AS PARQUET");
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeSmokeDataProvider", timeOut = TEST_TIMEOUT)
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4927", match = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition")
+    public void testReadInsertOnlyText(boolean isPartitioned, BucketingType bucketingType)
+    {
+        testReadInsertOnly(isPartitioned, bucketingType, "STORED AS TEXTFILE");
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testReadInsertOnlyTextWithCustomFormatProperties()
+    {
+        testReadInsertOnly(
+                false,
+                NONE,
+                "  ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe' " +
+                        "  WITH SERDEPROPERTIES ('field.delim'=',', 'line.delim'='\\n', 'serialization.format'=',') " +
+                        "  STORED AS INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
+                        "  OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'");
+    }
+
+    private void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType, String hiveTableFormatDefinition)
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
@@ -203,7 +234,7 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("CREATE TABLE " + tableName + " (col INT) " +
                     (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
                     bucketingType.getHiveClustering("col", 4) + " " +
-                    "STORED AS ORC " +
+                    hiveTableFormatDefinition + " " +
                     hiveTableProperties(INSERT_ONLY, bucketingType));
 
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
@@ -458,6 +489,15 @@ public class TestHiveTransactionalTable
         };
     }
 
+    @DataProvider
+    public Object[][] partitioningAndBucketingTypeSmokeDataProvider()
+    {
+        return new Object[][] {
+                {false, BucketingType.NONE},
+                {true, BucketingType.BUCKETED_DEFAULT},
+        };
+    }
+
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "testCreateAcidTableDataProvider")
     public void testCtasAcidTable(boolean isPartitioned, BucketingType bucketingType)
     {
@@ -609,6 +649,35 @@ public class TestHiveTransactionalTable
             execute(deleter, format("DELETE FROM %s WHERE column1 = 9", tableName));
             execute(deleter, format("DELETE FROM %s WHERE column1 = 2 OR column1 = 3", tableName));
             verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, 100), row(4, 400), row(5, 500), row(6, 600), row(7, 700), row(8, 800), row(10, 1000));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testReadAfterMultiInsertAndDelete()
+    {
+        // Test reading from a table after Hive multi-insert. Multi-insert involves non-zero statement ID, encoded
+        // within ORC-level bucketId field, while originalTransactionId and rowId can be the same for two different rows.
+        //
+        // This is a regression test to verify that Trino correctly takes into account the bucketId field, including encoded
+        // statement id, when filtering out deleted rows.
+        //
+        // For more context see https://issues.apache.org/jira/browse/HIVE-16832
+        withTemporaryTable("partitioned_multi_insert", true, true, BucketingType.BUCKETED_V1, tableName -> {
+            withTemporaryTable("tmp_data_table", false, false, NONE, dataTableName -> {
+                onTrino().executeQuery(format("CREATE TABLE %s (a int, b int, c varchar(5)) WITH " +
+                        "(transactional = true, partitioned_by = ARRAY['c'], bucketed_by = ARRAY['a'], bucket_count = 2)", tableName));
+                onTrino().executeQuery(format("CREATE TABLE %s (x int)", dataTableName));
+                onTrino().executeQuery(format("INSERT INTO %s VALUES 1", dataTableName));
+
+                // Perform a multi-insert
+                onHive().executeQuery("SET hive.exec.dynamic.partition.mode = nonstrict");
+                // Combine dynamic and static partitioning to trick Hive to insert two rows with same rowId but different statementId to a single partition.
+                onHive().executeQuery(format("FROM %s INSERT INTO %s partition(c) SELECT 0, 0, 'c' || x INSERT INTO %2$s partition(c='c1') SELECT 0, 1",
+                        dataTableName,
+                        tableName));
+                onHive().executeQuery(format("DELETE FROM %s WHERE b = 1", tableName));
+                verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(0, 0, "c1"));
+            });
         });
     }
 

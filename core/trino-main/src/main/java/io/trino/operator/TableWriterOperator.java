@@ -42,6 +42,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -165,6 +166,8 @@ public class TableWriterOperator
     private final OperationTiming statisticsTiming = new OperationTiming();
     private final boolean statisticsCpuTimerEnabled;
 
+    private final Supplier<TableWriterInfo> tableWriterInfoSupplier;
+
     public TableWriterOperator(
             OperatorContext operatorContext,
             ConnectorPageSink pageSink,
@@ -180,10 +183,11 @@ public class TableWriterOperator
         this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
         this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
         checkArgument(columnChannels.size() == notNullChannelColumnNames.size(), "columnChannels and notNullColumnNames have different sizes");
-        this.operatorContext.setInfoSupplier(this::getInfo);
         this.statisticAggregationOperator = requireNonNull(statisticAggregationOperator, "statisticAggregationOperator is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
+        this.tableWriterInfoSupplier = createTableWriterInfoSupplier(pageSinkPeakMemoryUsage, statisticsTiming, pageSink);
+        this.operatorContext.setInfoSupplier(tableWriterInfoSupplier);
     }
 
     @Override
@@ -393,7 +397,15 @@ public class TableWriterOperator
     @VisibleForTesting
     TableWriterInfo getInfo()
     {
-        return new TableWriterInfo(
+        return tableWriterInfoSupplier.get();
+    }
+
+    private static Supplier<TableWriterInfo> createTableWriterInfoSupplier(AtomicLong pageSinkPeakMemoryUsage, OperationTiming statisticsTiming, ConnectorPageSink pageSink)
+    {
+        requireNonNull(pageSinkPeakMemoryUsage, "pageSinkPeakMemoryUsage is null");
+        requireNonNull(statisticsTiming, "statisticsTiming is null");
+        requireNonNull(pageSink, "pageSink is null");
+        return () -> new TableWriterInfo(
                 pageSinkPeakMemoryUsage.get(),
                 new Duration(statisticsTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(statisticsTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),

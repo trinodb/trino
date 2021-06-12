@@ -282,7 +282,7 @@ public abstract class AbstractTestHiveViews
                 queryAssert -> queryAssert.containsOnly(row("KENYA")));
     }
 
-    @Test
+    @Test(groups = HIVE_VIEWS)
     public void testSelectFromHiveViewWithoutDefaultCatalogAndSchema()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS no_catalog_schema_view");
@@ -295,7 +295,7 @@ public abstract class AbstractTestHiveViews
                 .containsOnly(row(1L));
     }
 
-    @Test
+    @Test(groups = HIVE_VIEWS)
     public void testTimestampHiveView()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS timestamp_hive_table");
@@ -335,7 +335,7 @@ public abstract class AbstractTestHiveViews
         ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
     }
 
-    @Test
+    @Test(groups = HIVE_VIEWS)
     public void testCurrentUser()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS current_user_hive_view");
@@ -344,6 +344,22 @@ public abstract class AbstractTestHiveViews
         String testQuery = "SELECT cu FROM current_user_hive_view";
         assertThat(query(testQuery)).containsOnly(row("hive"));
         assertThat(connectToPresto("alice@presto").executeQuery(testQuery)).containsOnly(row("alice"));
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testNestedGroupBy()
+    {
+        onHive().executeQuery("DROP VIEW IF EXISTS test_nested_group_by_view");
+        onHive().executeQuery("CREATE VIEW test_nested_group_by_view AS SELECT n_regionkey, count(1) count FROM (SELECT n_regionkey FROM nation GROUP BY n_regionkey ) t GROUP BY n_regionkey");
+
+        assertViewQuery(
+                "SELECT * FROM test_nested_group_by_view",
+                queryAssert -> queryAssert.containsOnly(
+                        row(0, 1),
+                        row(1, 1),
+                        row(2, 1),
+                        row(3, 1),
+                        row(4, 1)));
     }
 
     protected static void assertViewQuery(String query, Consumer<QueryAssert> assertion)

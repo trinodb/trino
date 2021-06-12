@@ -131,6 +131,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -706,6 +707,8 @@ public class HiveMetadata
                 tableNames.add(new SchemaTableName(schemaName, tableName));
             }
         }
+
+        tableNames.addAll(listMaterializedViews(session, optionalSchemaName));
         return tableNames.build();
     }
 
@@ -3036,6 +3039,18 @@ public class HiveMetadata
     }
 
     @Override
+    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return hiveMaterializedViewMetadata.listMaterializedViews(session, schemaName);
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorMaterializedViewDefinition> getMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return hiveMaterializedViewMetadata.getMaterializedViews(session, schemaName);
+    }
+
+    @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return hiveMaterializedViewMetadata.getMaterializedView(session, viewName);
@@ -3045,6 +3060,12 @@ public class HiveMetadata
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         return hiveMaterializedViewMetadata.getMaterializedViewFreshness(session, name);
+    }
+
+    @Override
+    public CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName name)
+    {
+        return hiveMaterializedViewMetadata.refreshMaterializedView(session, name);
     }
 
     public static Optional<SchemaTableName> getSourceTableNameFromSystemTable(SchemaTableName tableName)
