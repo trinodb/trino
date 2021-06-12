@@ -28,6 +28,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
@@ -149,6 +150,7 @@ public class ElasticsearchClient
     private final boolean ignorePublishAddress;
 
     private boolean unionSchemaIndicesForAlias;
+    private int maxNumberOfIndicesForAliasSchema;
     private boolean failOnAliasSchemaMismatch;
     private String defaultDataTypeForAliasSchemaMismatch;
 
@@ -175,6 +177,7 @@ public class ElasticsearchClient
         this.refreshInterval = config.getNodeRefreshInterval();
         this.tlsEnabled = config.isTlsEnabled();
         this.unionSchemaIndicesForAlias = config.isUnionSchemaIndicesForAlias();
+        this.maxNumberOfIndicesForAliasSchema = config.getMaxNumberOfIndicesForAliasSchema();
         this.failOnAliasSchemaMismatch = config.isFailOnAliasSchemaMismatch();
         this.defaultDataTypeForAliasSchemaMismatch = config.getDefaultDataTypeForAliasSchemaMismatch();
         indexMetaDataCache = newCacheBuilder(OptionalLong.of(config.getIndexMetaDataCacheTtl().toMillis()), config.getIndexMetaDataCacheMaximumSize())
@@ -560,12 +563,15 @@ public class ElasticsearchClient
         return doRequest(path, body -> {
             try {
                 Iterator<JsonNode> indicesIterator = OBJECT_MAPPER.readTree(body).elements();
+                if (maxNumberOfIndicesForAliasSchema > 0) {
+                    indicesIterator = Iterators.limit(indicesIterator, maxNumberOfIndicesForAliasSchema);
+                }
                 IndexMetadata.ObjectType outputSchema = new IndexMetadata.ObjectType(ImmutableList.of());
                 do {
                     JsonNode mappings = indicesIterator.next().get("mappings");
 
                     if (!mappings.elements().hasNext()) {
-                        return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
+                        return new IndexMetadata(outputSchema);
                     }
                     if (!mappings.has("properties")) {
                         // Older versions of ElasticSearch supported multiple "type" mappings
@@ -605,34 +611,37 @@ public class ElasticsearchClient
         return new IndexMetadata.ObjectType(fields);
     }
 
-    private List<IndexMetadata.Field> merge(String index, String parentPrefix, List<IndexMetadata.Field> a, List<IndexMetadata.Field> b)
+    private List<IndexMetadata.Field> merge(String index, String parentPrefix, List<IndexMetadata.Field> schemaFields1, List<IndexMetadata.Field> schemaFields2)
     {
         // Non object type fields
-        Set<IndexMetadata.Field> fields = Stream.concat(a.stream(), b.stream())
+        Set<IndexMetadata.Field> fields = Stream.concat(schemaFields1.stream(), schemaFields2.stream())
                 .filter(field -> !(field.getType() instanceof IndexMetadata.ObjectType))
                 .collect(Collectors.toSet());
 
         // Object Type fields
-        Set<IndexMetadata.Field> objectTypeFields = Stream.concat(a.stream(), b.stream())
+        Set<IndexMetadata.Field> objectTypeFields = Stream.concat(schemaFields1.stream(), schemaFields2.stream())
                 .filter(field -> field.getType() instanceof IndexMetadata.ObjectType)
                 .collect(Collectors.groupingBy(field -> field.getName()))
                 .entrySet()
                 .stream()
-                .map(nameList -> {
-                    String p = Strings.isNullOrEmpty(parentPrefix) ? nameList.getKey() : getFlattenedKey(parentPrefix, nameList.getKey());
-                    IndexMetadata.ObjectType type = nameList.getValue().stream()
-                            .map(field -> (IndexMetadata.ObjectType) field.getType())
-                            .reduce((nestedSchema1, nestedSchema2) -> merge(index, p, nestedSchema1, nestedSchema2))
-                            .get();
-                    IndexMetadata.Field f = nameList.getValue().iterator().next();
-                    return new IndexMetadata.Field(f.isArray(), f.getName(), type);
-                })
+                .map(fieldList -> mergeNestedFields(fieldList.getKey(), fieldList.getValue(), index, parentPrefix))
                 .collect(Collectors.toSet());
 
         fields.addAll(objectTypeFields);
         fields = checkAndCorrectMismatchFields(index, parentPrefix, fields);
 
         return new ArrayList<>(fields);
+    }
+
+    private IndexMetadata.Field mergeNestedFields(String fieldName, List<IndexMetadata.Field> fields,
+                                                  String index, String parentPrefix) {
+        String prefix = Strings.isNullOrEmpty(parentPrefix) ? fieldName : getFlattenedKey(parentPrefix, fieldName);
+        IndexMetadata.ObjectType type = fields.stream()
+            .map(field -> (IndexMetadata.ObjectType) field.getType())
+            .reduce((nestedSchema1, nestedSchema2) -> merge(index, prefix, nestedSchema1, nestedSchema2))
+            .get();
+        IndexMetadata.Field indexField = fields.iterator().next();
+        return new IndexMetadata.Field(indexField.isArray(), indexField.getName(), type);
     }
 
     private String getFlattenedKey(String parent, String child)
@@ -648,7 +657,7 @@ public class ElasticsearchClient
         Map<String, List<IndexMetadata.Field>> typeMismatchFields = fieldsMap.entrySet()
                 .stream()
                 .filter(fieldNameToFieldsList -> fieldNameToFieldsList.getValue().size() > 1)
-                .collect(Collectors.toMap(o -> o.getKey(), o -> o.getValue()));
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         if (!typeMismatchFields.isEmpty() && failOnAliasSchemaMismatch) {
             Set<String> failedColNames = typeMismatchFields.keySet();
@@ -668,7 +677,7 @@ public class ElasticsearchClient
                 .collect(Collectors.toSet());
 
         correctedFields.forEach(field -> fieldsMap.put(field.getName(), Lists.newArrayList(field)));
-        return fieldsMap.values().stream().map(f -> f.iterator().next()).collect(Collectors.toSet());
+        return fieldsMap.values().stream().map(field -> field.iterator().next()).collect(Collectors.toSet());
     }
 
     private IndexMetadata.ObjectType parseType(JsonNode properties, JsonNode metaProperties)

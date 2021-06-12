@@ -77,7 +77,8 @@ public class ElasticsearchConfig
     private boolean verifyHostnames = true;
 
     private boolean unionSchemaIndicesForAlias;
-    private boolean failOnAliasSchemaMismatch = true;
+    private int maxNumberOfIndicesForAliasSchema;
+    private boolean failOnAliasSchemaMismatch;
     private String defaultDataTypeForAliasSchemaMismatch = "text";
 
     private Duration indexMetaDataCacheTtl = new Duration(1, MINUTES);
@@ -163,6 +164,19 @@ public class ElasticsearchConfig
         return this;
     }
 
+    public int getMaxNumberOfIndicesForAliasSchema()
+    {
+        return maxNumberOfIndicesForAliasSchema;
+    }
+
+    @Config("elasticsearch.max-number-of-indices-for-alias-schema")
+    @ConfigDescription("Maximum number of indices to include for alias schema")
+    public ElasticsearchConfig setMaxNumberOfIndicesForAliasSchema(int maxNumberOfIndicesForAliasSchema)
+    {
+        this.maxNumberOfIndicesForAliasSchema = maxNumberOfIndicesForAliasSchema;
+        return this;
+    }
+
     public boolean isFailOnAliasSchemaMismatch()
     {
         return failOnAliasSchemaMismatch;
@@ -182,7 +196,7 @@ public class ElasticsearchConfig
     }
 
     @Config("elasticsearch.default-datatype-for-alias-schema-mismatch")
-    @ConfigDescription("Fail on alias schema mismatch")
+    @ConfigDescription("Default datatype for alias schema mismatch")
     public ElasticsearchConfig setDefaultDataTypeForAliasSchemaMismatch(String defaultDataTypeForAliasSchemaMismatch)
     {
         this.defaultDataTypeForAliasSchemaMismatch = defaultDataTypeForAliasSchemaMismatch;

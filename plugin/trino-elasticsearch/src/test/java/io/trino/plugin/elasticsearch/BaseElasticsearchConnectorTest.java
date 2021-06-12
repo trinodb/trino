@@ -1050,7 +1050,9 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("elasticsearch.fail-on-alias-schema-mismatch", "false")
                 .build();
 
-        getQueryRunner().createCatalog("elasticsearch_multi_alias", "elasticsearch", config);
+        String catalogName = format("elasticsearch_%s", Math.abs(UUID.randomUUID().hashCode()));
+
+        getQueryRunner().createCatalog(catalogName, "elasticsearch", config);
 
         String indexName1 = "racks";
         @Language("JSON")
@@ -1058,27 +1060,41 @@ public abstract class BaseElasticsearchConnectorTest
                 "{" +
                 "  \"properties\":{" +
                 "    \"name\":   { \"type\": \"text\" }," +
-                "    \"rackid\":   { \"type\": \"keyword\" }" +
+                "    \"rackid\":   { \"type\": \"integer\" }" +
                 "  }" +
                 "}";
         createIndex(indexName1, properties);
 
-        String indexName2 = "books";
+        // Matches the index 'racks'
+        String indexName2 = "racks2";
+        properties = "" +
+            "{" +
+            "  \"properties\":{" +
+            "    \"name\":   { \"type\": \"text\" }," +
+            "    \"rackid\":   { \"type\": \"integer\" }" +
+            "  }" +
+            "}";
+        createIndex(indexName2, properties);
+
+        // Index that brings a new field 'bookid' that needs to be added & rackid that needs to be merged.
+        String indexName3 = "books";
         properties = "" +
                 "{" +
                 "  \"properties\":{" +
                 "    \"name\":   { \"type\": \"text\" }," +
+                "    \"rackid\":   { \"type\": \"long\" }," +
                 "    \"bookid\":   { \"type\": \"long\" }" +
                 "  }" +
                 "}";
-        createIndex(indexName2, properties);
+        createIndex(indexName3, properties);
 
         String aliasName = format("alias_%s", Math.abs(UUID.randomUUID().hashCode()));
 
         addAlias(indexName1, aliasName);
         addAlias(indexName2, aliasName);
+        addAlias(indexName3, aliasName);
 
-        Session session = testSessionBuilder().setCatalog("elasticsearch_multi_alias").setSchema("tpch").build();
+        Session session = testSessionBuilder().setCatalog(catalogName).setSchema("tpch").build();
         MaterializedResult expectedColumns = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("name", "varchar", "", "")
                 .row("rackid", "varchar", "", "")
@@ -1088,6 +1104,187 @@ public abstract class BaseElasticsearchConnectorTest
         assertEquals(actualColumns, expectedColumns);
         deleteIndex(indexName1);
         deleteIndex(indexName2);
+        deleteIndex(indexName3);
+    }
+
+    @Test
+    public void testDescribeMultiIndexAliasWithLimit()
+            throws IOException
+    {
+        ImmutableMap<String, String> config = ImmutableMap.<String, String>builder()
+            .put("elasticsearch.host", elasticsearch.getAddress().getHost())
+            .put("elasticsearch.port", Integer.toString(elasticsearch.getAddress().getPort()))
+            // Node discovery relies on the publish_address exposed via the Elasticseach API
+            // This doesn't work well within a docker environment that maps ES's port to a random public port
+            .put("elasticsearch.ignore-publish-address", "true")
+            .put("elasticsearch.default-schema-name", "tpch")
+            .put("elasticsearch.scroll-size", "1000")
+            .put("elasticsearch.scroll-timeout", "1m")
+            .put("elasticsearch.request-timeout", "2m")
+            .put("elasticsearch.union-schema-indices-for-alias", "true")
+            .put("elasticsearch.fail-on-alias-schema-mismatch", "true")
+            .put("elasticsearch.max-number-of-indices-for-alias-schema", "1")
+            .build();
+
+        String catalogName = format("elasticsearch_%s", Math.abs(UUID.randomUUID().hashCode()));
+
+        getQueryRunner().createCatalog(catalogName, "elasticsearch", config);
+
+        // Index that brings a new field 'bookid' that needs to be added & rackid that needs to be merged.
+        String indexName1 = "books";
+        @Language("JSON")
+        String properties = "" +
+            "{" +
+            "  \"properties\":{" +
+            "    \"name\":   { \"type\": \"text\" }," +
+            "    \"rackid\":   { \"type\": \"long\" }," +
+            "    \"bookid\":   { \"type\": \"long\" }" +
+            "  }" +
+            "}";
+        createIndex(indexName1, properties);
+
+        String indexName2 = "racks";
+        properties = "" +
+            "{" +
+            "  \"properties\":{" +
+            "    \"name\":   { \"type\": \"text\" }," +
+            "    \"rackid\":   { \"type\": \"integer\" }" +
+            "  }" +
+            "}";
+        createIndex(indexName2, properties);
+
+        String aliasName = format("alias_%s", Math.abs(UUID.randomUUID().hashCode()));
+
+        addAlias(indexName1, aliasName);
+        addAlias(indexName2, aliasName);
+
+        Session session = testSessionBuilder().setCatalog(catalogName).setSchema("tpch").build();
+        /*
+        Elasticsearch returns the alias mappings in the random order of indices.
+        Hence, alias mapping should be same as either of the indices mapping.
+        i.e., racks or books
+         */
+        MaterializedResult expectedRacksColumns = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+            .row("name", "varchar", "", "")
+            .row("rackid", "integer", "", "")
+            .build();
+        MaterializedResult expectedBooksColumns = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+            .row("bookid", "bigint", "", "")
+            .row("name", "varchar", "", "")
+            .row("rackid", "bigint", "", "")
+            .build();
+        MaterializedResult actualColumns = computeActual(session, "DESCRIBE " + aliasName);
+        try {
+            assertEquals(actualColumns, expectedRacksColumns);
+        } catch (AssertionError e) {
+            assertEquals(actualColumns, expectedBooksColumns);
+        }
+        deleteIndex(indexName1);
+        deleteIndex(indexName2);
+    }
+
+    @Test
+    public void testSelectMultiIndexAlias()
+            throws IOException
+    {
+        ImmutableMap<String, String> config = ImmutableMap.<String, String>builder()
+            .put("elasticsearch.host", elasticsearch.getAddress().getHost())
+            .put("elasticsearch.port", Integer.toString(elasticsearch.getAddress().getPort()))
+            // Node discovery relies on the publish_address exposed via the Elasticseach API
+            // This doesn't work well within a docker environment that maps ES's port to a random public port
+            .put("elasticsearch.ignore-publish-address", "true")
+            .put("elasticsearch.default-schema-name", "tpch")
+            .put("elasticsearch.scroll-size", "1000")
+            .put("elasticsearch.scroll-timeout", "1m")
+            .put("elasticsearch.request-timeout", "2m")
+            .put("elasticsearch.union-schema-indices-for-alias", "true")
+            .put("elasticsearch.fail-on-alias-schema-mismatch", "false")
+            .build();
+
+        String catalogName = format("elasticsearch_%s", Math.abs(UUID.randomUUID().hashCode()));
+
+        getQueryRunner().createCatalog(catalogName, "elasticsearch", config);
+
+        String indexName1 = "racks1";
+        @Language("JSON")
+        String properties = "" +
+            "{" +
+            "  \"properties\":{" +
+            "    \"name\":   { \"type\": \"text\" }," +
+            "    \"rackid\":   { \"type\": \"integer\" }" +
+            "  }" +
+            "}";
+        createIndex(indexName1, properties);
+        index(indexName1, ImmutableMap.<String, Object>builder()
+            .put("name", "racks1")
+            .put("rackid", 100)
+            .build());
+
+        // Matches the index 'racks'
+        String indexName2 = "racks2";
+        properties = "" +
+            "{" +
+            "  \"properties\":{" +
+            "    \"name\":   { \"type\": \"text\" }," +
+            "    \"rackid\":   { \"type\": \"integer\" }" +
+            "  }" +
+            "}";
+        createIndex(indexName2, properties);
+        index(indexName2, ImmutableMap.<String, Object>builder()
+            .put("name", "racks2")
+            .put("rackid", 101)
+            .build());
+
+        // Index that brings a new field 'bookid' that needs to be merged.
+        String indexName3 = "books";
+        properties = "" +
+            "{" +
+            "  \"properties\":{" +
+            "    \"name\":   { \"type\": \"text\" }," +
+            "    \"rackid\":   { \"type\": \"long\" }," +
+            "    \"bookid\":   { \"type\": \"long\" }" +
+            "  }" +
+            "}";
+        createIndex(indexName3, properties);
+        index(indexName3, ImmutableMap.<String, Object>builder()
+            .put("name", "books")
+            .put("rackid", 102)
+            .put("bookid", 200)
+            .build());
+
+        String aliasName = format("alias_%s", Math.abs(UUID.randomUUID().hashCode()));
+
+        addAlias(indexName1, aliasName);
+        addAlias(indexName2, aliasName);
+        addAlias(indexName3, aliasName);
+
+        Session session = testSessionBuilder().setCatalog(catalogName).setSchema("tpch").build();
+
+        // Select all columns
+        // No filters
+        assertQuery(session, format("SELECT * FROM %s", aliasName),
+            "VALUES ('racks1', 100, NULL), ('racks2', 101, NULL), ('books', 102, 200)");
+        // Filter on common field
+        assertQuery(session, format("SELECT * FROM %s where name IN ('racks1', 'racks2')", aliasName),
+            "VALUES ('racks1', 100, NULL), ('racks2', 101, NULL)");
+        // Filter on merged field
+        assertQuery(session, format("SELECT * FROM %s where name = 'books'", aliasName),
+            "VALUES ('books', 102, 200)");
+
+        // Select specific columns
+        // No filters
+        assertQuery(session, format("SELECT name, bookid FROM %s", aliasName),
+            "VALUES ('racks1', NULL), ('racks2', NULL), ('books', 200)");
+        // Filter on common field
+        assertQuery(session, format("SELECT rackid, bookid FROM %s where name IN ('racks1', 'racks2')", aliasName),
+            "VALUES (100, NULL), (101, NULL)");
+        // Filter on merged field
+        assertQuery(session, format("SELECT rackid, name FROM %s where bookid=200", aliasName),
+            "VALUES (102, 'books')");
+
+        deleteIndex(indexName1);
+        deleteIndex(indexName2);
+        deleteIndex(indexName3);
     }
 
     @Test
@@ -1108,7 +1305,9 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("elasticsearch.fail-on-alias-schema-mismatch", "true")
                 .build();
 
-        getQueryRunner().createCatalog("elasticsearch_multi_alias_fail", "elasticsearch", config);
+        String catalogName = format("elasticsearch_%s", Math.abs(UUID.randomUUID().hashCode()));
+
+        getQueryRunner().createCatalog(catalogName, "elasticsearch", config);
 
         String indexName1 = format("index_%s", Math.abs(UUID.randomUUID().hashCode()));
         @Language("JSON")
@@ -1136,7 +1335,7 @@ public abstract class BaseElasticsearchConnectorTest
         addAlias(indexName1, aliasName);
         addAlias(indexName2, aliasName);
 
-        Session session = testSessionBuilder().setCatalog("elasticsearch_multi_alias_fail").setSchema("tpch").build();
+        Session session = testSessionBuilder().setCatalog(catalogName).setSchema("tpch").build();
         try {
             computeActual(session, "DESCRIBE " + aliasName);
         }
@@ -1167,7 +1366,9 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("elasticsearch.default-datatype-for-alias-schema-mismatch", "long")
                 .build();
 
-        getQueryRunner().createCatalog("elasticsearch_multi_alias_long", "elasticsearch", config);
+        String catalogName = format("elasticsearch_%s", Math.abs(UUID.randomUUID().hashCode()));
+
+        getQueryRunner().createCatalog(catalogName, "elasticsearch", config);
 
         String indexName1 = format("index_%s", Math.abs(UUID.randomUUID().hashCode()));
         @Language("JSON")
@@ -1195,7 +1396,7 @@ public abstract class BaseElasticsearchConnectorTest
         addAlias(indexName1, aliasName);
         addAlias(indexName2, aliasName);
 
-        Session session = testSessionBuilder().setCatalog("elasticsearch_multi_alias_long").setSchema("tpch").build();
+        Session session = testSessionBuilder().setCatalog(catalogName).setSchema("tpch").build();
         MaterializedResult expectedColumns = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("rackid", "varchar", "", "")
                 .row("name", "bigint", "", "")
