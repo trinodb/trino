@@ -164,6 +164,7 @@ public class ElasticsearchConfig
         return this;
     }
 
+    @Min(0)
     public int getMaxNumberOfIndicesForAliasSchema()
     {
         return maxNumberOfIndicesForAliasSchema;
