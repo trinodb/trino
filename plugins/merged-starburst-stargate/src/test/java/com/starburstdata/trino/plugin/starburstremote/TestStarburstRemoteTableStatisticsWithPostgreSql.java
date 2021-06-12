@@ -236,12 +236,6 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         throw new SkipException("Not implemented"); // TODO upgrade testing PostgreSQL server to newer version
     }
 
-    @Test
-    public void testPartitionedTableWithPredicate()
-    {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-5011"); // TODO https://starburstdata.atlassian.net/browse/SEP-5011
-    }
-
     @Override
     @Test
     public void testView()
