@@ -1,0 +1,100 @@
+package io.trino.plugin.ignite;
+
+import org.testcontainers.containers.JdbcDatabaseContainer;
+import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
+import org.testcontainers.utility.DockerImageName;
+
+import java.time.Duration;
+
+public class TestIgniteContainer
+        extends JdbcDatabaseContainer
+{
+    public static final String NAME = "ignite";
+    private static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse("apacheignite/ignite");
+    /**
+     * @deprecated
+     */
+    @Deprecated
+    public static final String IMAGE;
+    /**
+     * @deprecated
+     */
+    @Deprecated
+    public static final String DEFAULT_TAG = "2.10.0";
+    public static final Integer HTTP_PORT;
+    public static final Integer NATIVE_PORT;
+    private static final String DRIVER_CLASS_NAME = "org.apache.ignite.IgniteJdbcThinDriver";
+    private static final String JDBC_URL_PREFIX = "jdbc:ignite:thin://";
+    private static final String TEST_QUERY = "SELECT 1";
+    private String databaseName;
+    private String username;
+    private String password;
+
+    /**
+     * @deprecated
+     */
+    @Deprecated
+    public TestIgniteContainer()
+    {
+        this(DEFAULT_IMAGE_NAME.withTag("2.10.0"));
+    }
+
+    public TestIgniteContainer(String dockerImageName)
+    {
+        this(DockerImageName.parse(dockerImageName));
+    }
+
+    public TestIgniteContainer(DockerImageName dockerImageName)
+    {
+        super(dockerImageName);
+        this.databaseName = "default";
+        this.username = "default";
+        this.password = "";
+        dockerImageName.assertCompatibleWith(new DockerImageName[] {DEFAULT_IMAGE_NAME});
+        this.withExposedPorts(new Integer[] {HTTP_PORT, NATIVE_PORT});
+        this.waitingFor((new HttpWaitStrategy()).forStatusCode(200).forResponsePredicate((responseBody) -> {
+            return "Ok.".equals(responseBody);
+        }).withStartupTimeout(Duration.ofMinutes(1L)));
+    }
+
+    protected Integer getLivenessCheckPort()
+    {
+        return this.getMappedPort(HTTP_PORT);
+    }
+
+    public String getDriverClassName()
+    {
+        return "org.apache.ignite.IgniteJdbcThinDriver";
+    }
+
+    public String getJdbcUrl()
+    {
+        return "jdbc:ignite:thin://" + this.getHost() + ":" + this.getMappedPort(HTTP_PORT) + "/" + this.databaseName;
+    }
+
+    public String getUsername()
+    {
+        return this.username;
+    }
+
+    public String getPassword()
+    {
+        return this.password;
+    }
+
+    public String getTestQueryString()
+    {
+        return "SELECT 1";
+    }
+
+    public TestIgniteContainer withUrlParam(String paramName, String paramValue)
+    {
+        throw new UnsupportedOperationException("The ignite does not support this");
+    }
+
+    static {
+        IMAGE = DEFAULT_IMAGE_NAME.getUnversionedPart();
+        HTTP_PORT = 18000;
+        NATIVE_PORT = 9000;
+    }
+}
