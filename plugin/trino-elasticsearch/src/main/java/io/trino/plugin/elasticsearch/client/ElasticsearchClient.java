@@ -634,12 +634,13 @@ public class ElasticsearchClient
     }
 
     private IndexMetadata.Field mergeNestedFields(String fieldName, List<IndexMetadata.Field> fields,
-                                                  String index, String parentPrefix) {
+                                                  String index, String parentPrefix)
+    {
         String prefix = Strings.isNullOrEmpty(parentPrefix) ? fieldName : getFlattenedKey(parentPrefix, fieldName);
         IndexMetadata.ObjectType type = fields.stream()
-            .map(field -> (IndexMetadata.ObjectType) field.getType())
-            .reduce((nestedSchema1, nestedSchema2) -> merge(index, prefix, nestedSchema1, nestedSchema2))
-            .get();
+                .map(field -> (IndexMetadata.ObjectType) field.getType())
+                .reduce((nestedSchema1, nestedSchema2) -> merge(index, prefix, nestedSchema1, nestedSchema2))
+                .get();
         IndexMetadata.Field indexField = fields.iterator().next();
         return new IndexMetadata.Field(indexField.isArray(), indexField.getName(), type);
     }
