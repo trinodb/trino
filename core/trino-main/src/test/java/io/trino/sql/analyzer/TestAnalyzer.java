@@ -441,6 +441,18 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testGroupByAggregation()
+    {
+        assertFails("SELECT x, sum(y) FROM (VALUES (1, 2)) t(x, y) GROUP BY x, sum(y)")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageMatching(".* GROUP BY clause cannot contain aggregations, window functions or grouping operations: .*");
+
+        assertFails("SELECT x, sum(y) FROM (VALUES (1, 2)) t(x, y) GROUP BY 1, 2")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageMatching(".* GROUP BY clause cannot contain aggregations, window functions or grouping operations: .*");
+    }
+
+    @Test
     public void testGroupByWithSubquerySelectExpression()
     {
         analyze("SELECT (SELECT t1.a) FROM t1 GROUP BY a");

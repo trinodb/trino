@@ -54,6 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -72,6 +73,8 @@ public class MockConnectorFactory
     Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
+    private final BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector;
+    private final BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView;
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final ApplyProjection applyProjection;
@@ -94,6 +97,8 @@ public class MockConnectorFactory
             Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
+            BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector,
+            BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView,
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             ApplyProjection applyProjection,
@@ -115,6 +120,8 @@ public class MockConnectorFactory
         this.streamTableColumns = requireNonNull(streamTableColumns, "streamTableColumns is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
         this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
+        this.delegateMaterializedViewRefreshToConnector = requireNonNull(delegateMaterializedViewRefreshToConnector, "delegateMaterializedViewRefreshToConnector is null");
+        this.refreshMaterializedView = requireNonNull(refreshMaterializedView, "refreshMaterializedView is null");
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
@@ -153,6 +160,8 @@ public class MockConnectorFactory
                 streamTableColumns,
                 getViews,
                 getMaterializedViews,
+                delegateMaterializedViewRefreshToConnector,
+                refreshMaterializedView,
                 getTableHandle,
                 getColumns,
                 applyProjection,
@@ -245,6 +254,8 @@ public class MockConnectorFactory
         private Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns = Optional.empty();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = defaultGetViews();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews = defaultGetMaterializedViews();
+        private BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector = (session, viewName) -> false;
+        private BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView = (session, viewName) -> CompletableFuture.completedFuture(null);
         private BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle = defaultGetTableHandle();
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
         private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
@@ -297,6 +308,18 @@ public class MockConnectorFactory
         public Builder withGetMaterializedViews(BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews)
         {
             this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
+            return this;
+        }
+
+        public Builder withDelegateMaterializedViewRefreshToConnector(BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector)
+        {
+            this.delegateMaterializedViewRefreshToConnector = requireNonNull(delegateMaterializedViewRefreshToConnector, "delegateMaterializedViewRefreshToConnector is null");
+            return this;
+        }
+
+        public Builder withRefreshMaterializedView(BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView)
+        {
+            this.refreshMaterializedView = requireNonNull(refreshMaterializedView, "refreshMaterializedView is null");
             return this;
         }
 
@@ -420,6 +443,8 @@ public class MockConnectorFactory
                     streamTableColumns,
                     getViews,
                     getMaterializedViews,
+                    delegateMaterializedViewRefreshToConnector,
+                    refreshMaterializedView,
                     getTableHandle,
                     getColumns,
                     applyProjection,

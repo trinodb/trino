@@ -483,6 +483,7 @@ public class BackgroundHiveSplitLoader
         List<Path> readPaths;
         List<HdfsFileStatusWithId> fileStatusOriginalFiles = ImmutableList.of();
         AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(path);
+        boolean isFullAcid = AcidUtils.isFullAcidTable(table.getParameters());
         if (AcidUtils.isTransactionalTable(table.getParameters())) {
             AcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> AcidUtils.getAcidState(
                     path,
@@ -491,7 +492,7 @@ public class BackgroundHiveSplitLoader
                     false,
                     true));
 
-            if (AcidUtils.isFullAcidTable(table.getParameters())) {
+            if (isFullAcid) {
                 // From Hive version >= 3.0, delta/base files will always have file '_orc_acid_version' with value >= '2'.
                 Path baseOrDeltaPath = directory.getBaseDirectory() != null
                         ? directory.getBaseDirectory()
@@ -566,12 +567,19 @@ public class BackgroundHiveSplitLoader
                                     e.getNestedDirectoryPath(),
                                     splitFactory.getPartitionName()));
                 }
-                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(files, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, acidInfoBuilder.build()));
+                Optional<AcidInfo> acidInfo = Optional.empty();
+                if (isFullAcid) {
+                    acidInfo = acidInfoBuilder.build();
+                }
+                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(files, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, acidInfo));
             }
 
             for (HdfsFileStatusWithId hdfsFileStatusWithId : fileStatusOriginalFiles) {
                 List<LocatedFileStatus> locatedFileStatuses = ImmutableList.of((LocatedFileStatus) hdfsFileStatusWithId.getFileStatus());
-                Optional<AcidInfo> acidInfo = Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(hdfsFileStatusWithId.getFileStatus().getPath())));
+                Optional<AcidInfo> acidInfo = Optional.empty();
+                if (isFullAcid) {
+                    acidInfo = Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(hdfsFileStatusWithId.getFileStatus().getPath())));
+                }
                 lastResult = hiveSplitSource.addToQueue(getBucketedSplits(locatedFileStatuses, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, acidInfo));
             }
 
@@ -579,11 +587,15 @@ public class BackgroundHiveSplitLoader
         }
 
         for (Path readPath : readPaths) {
-            fileIterators.addLast(createInternalHiveSplitIterator(readPath, fs, splitFactory, splittable, acidInfoBuilder.build()));
+            Optional<AcidInfo> acidInfo = Optional.empty();
+            if (isFullAcid) {
+                acidInfo = acidInfoBuilder.build();
+            }
+            fileIterators.addLast(createInternalHiveSplitIterator(readPath, fs, splitFactory, splittable, acidInfo));
         }
 
         if (!fileStatusOriginalFiles.isEmpty()) {
-            fileIterators.addLast(generateOriginalFilesSplits(splitFactory, fileStatusOriginalFiles, splittable, acidInfoBuilder));
+            fileIterators.addLast(generateOriginalFilesSplits(splitFactory, fileStatusOriginalFiles, splittable, acidInfoBuilder, isFullAcid));
         }
 
         return COMPLETED_FUTURE;
@@ -703,12 +715,16 @@ public class BackgroundHiveSplitLoader
             InternalHiveSplitFactory splitFactory,
             List<HdfsFileStatusWithId> originalFileLocations,
             boolean splittable,
-            AcidInfo.Builder acidInfoBuilder)
+            AcidInfo.Builder acidInfoBuilder,
+            boolean isFullAcid)
     {
         return originalFileLocations.stream()
                 .map(HdfsFileStatusWithId::getFileStatus)
                 .map(fileStatus -> {
-                    Optional<AcidInfo> acidInfo = Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(fileStatus.getPath())));
+                    Optional<AcidInfo> acidInfo = Optional.empty();
+                    if (isFullAcid) {
+                        acidInfo = Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(fileStatus.getPath())));
+                    }
                     return splitFactory.createInternalHiveSplit(
                             (LocatedFileStatus) fileStatus,
                             OptionalInt.empty(),

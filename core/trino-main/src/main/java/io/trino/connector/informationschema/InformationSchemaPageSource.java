@@ -280,6 +280,7 @@ public class InformationSchemaPageSource
     {
         Set<SchemaTableName> tables = listTables(session, metadata, accessControl, prefix);
         Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
+        // TODO (https://github.com/trinodb/trino/issues/8207) define a type for materialized views
 
         for (SchemaTableName name : union(tables, views)) {
             // if table and view names overlap, the view wins

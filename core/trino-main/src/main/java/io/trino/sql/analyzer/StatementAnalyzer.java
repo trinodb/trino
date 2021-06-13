@@ -531,6 +531,16 @@ class StatementAnalyzer
 
             accessControl.checkCanRefreshMaterializedView(session.toSecurityContext(), name);
 
+            if (metadata.delegateMaterializedViewRefreshToConnector(session, name)) {
+                analysis.setDelegatedRefreshMaterializedView(name);
+                analysis.setUpdateType(
+                        "REFRESH MATERIALIZED VIEW",
+                        name,
+                        Optional.empty(),
+                        Optional.empty());
+                return createAndAssignScope(refreshMaterializedView, scope);
+            }
+
             Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalView.get());
 
             if (storageName.isEmpty()) {
@@ -2848,6 +2858,7 @@ class StatementAnalyzer
                                 }
 
                                 column = outputExpressions.get(toIntExact(ordinal - 1));
+                                verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");
                             }
                             else {
                                 verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");

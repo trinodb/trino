@@ -92,7 +92,7 @@
         <dependency>
             <groupId>org.apache.phoenix</groupId>
             <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
-            <version>5.1.1</version>
+            <version>5.1.2</version>
         </dependency>
 
         <!-- used by tests but also needed transitively -->

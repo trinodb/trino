@@ -168,11 +168,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.zeroturnaround</groupId>
-            <artifactId>zt-exec</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino.hive</groupId>
             <artifactId>hive-apache-jdbc</artifactId>
             <scope>runtime</scope>

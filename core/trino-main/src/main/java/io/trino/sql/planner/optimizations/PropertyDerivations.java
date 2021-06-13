@@ -60,6 +60,7 @@ import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
@@ -738,6 +739,14 @@ public final class PropertyDerivations
 
             return ActualProperties.builderFrom(translatedProperties)
                     .constants(constants)
+                    .build();
+        }
+
+        @Override
+        public ActualProperties visitRefreshMaterializedView(RefreshMaterializedViewNode node, List<ActualProperties> inputProperties)
+        {
+            return ActualProperties.builder()
+                    .global(coordinatorSingleStreamPartition())
                     .build();
         }
 

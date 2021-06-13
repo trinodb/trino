@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.jvm.Threads;
 import io.trino.tests.product.launcher.Extensions;
 import io.trino.tests.product.launcher.LauncherModule;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
@@ -39,7 +40,6 @@ import picocli.CommandLine.Option;
 import javax.inject.Inject;
 
 import java.io.File;
-import java.lang.management.ThreadInfo;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -336,8 +336,7 @@ public class SuiteRun
             log.warn(
                     "Full Thread Dump:\n%s",
                     Arrays.stream(getThreadMXBean().dumpAllThreads(true, true))
-                            // TODO ThreadInfo.toString truncates stacktrace to java.lang.management.ThreadInfo#MAX_FRAMES
-                            .map(ThreadInfo::toString)
+                            .map(Threads::fullToString)
                             .collect(joining("\n")));
         }
 

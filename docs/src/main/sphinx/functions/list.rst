@@ -65,7 +65,7 @@ B
 - :func:`bing_tile_at`
 - :func:`bing_tile_coordinates`
 - :func:`bing_tile_polygon`
-- ``bing_tile_quadkey``
+- :func:`bing_tile_quadkey`
 - :func:`bing_tile_zoom_level`
 - :func:`bing_tiles_around`
 - :func:`bit_count`
