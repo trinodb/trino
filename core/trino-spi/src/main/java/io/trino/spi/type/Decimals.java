@@ -27,6 +27,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.type.DecimalConversions.longToLongCast;
+import static io.trino.spi.type.DecimalConversions.shortToShortCast;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.toUnscaledString;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
@@ -287,6 +289,34 @@ public final class Decimals
         return value;
     }
 
+    public static long rescaleAndRoundHalfUp(long value, int fromScale, int toScale)
+    {
+        long scalingFactor = longTenToNth(abs(fromScale - toScale));
+        return shortToShortCast(
+                value,
+                MAX_SHORT_PRECISION,
+                fromScale,
+                MAX_SHORT_PRECISION,
+                toScale,
+                scalingFactor,
+                scalingFactor / 2);
+    }
+
+    public static BigInteger rescaleAndRoundHalfUp(BigInteger value, int fromScale, int toScale)
+    {
+        if (toScale < fromScale) {
+            return decodeUnscaledValue(
+                    longToLongCast(
+                            encodeUnscaledValue(value),
+                            MAX_PRECISION,
+                            fromScale,
+                            MAX_PRECISION,
+                            toScale));
+        }
+
+        return rescale(value, fromScale, toScale);
+    }
+
     public static void writeShortDecimal(BlockBuilder blockBuilder, long value)
     {
         blockBuilder.writeLong(value).closeEntry();
@@ -297,7 +327,15 @@ public final class Decimals
         if (toScale < fromScale) {
             throw new IllegalArgumentException("target scale must be larger than source scale");
         }
-        return value * longTenToNth(toScale - fromScale);
+
+        // To not overflow, abs(val) * pow(10, m) < pow(10, MAX_SHORT_PRECISION) => abs(val) < pow(10, MAX_SHORT_PRECISION - m)
+        if (toScale <= MAX_SHORT_PRECISION && abs(value) < longTenToNth(MAX_SHORT_PRECISION - (toScale - fromScale))) {
+            return value * longTenToNth(toScale - fromScale);
+        }
+
+        throw new TrinoException(
+                NUMERIC_VALUE_OUT_OF_RANGE,
+                format("Rescaled value for %s is out of range", Decimals.toString(value, fromScale)));
     }
 
     public static BigInteger rescale(BigInteger value, int fromScale, int toScale)
@@ -305,7 +343,11 @@ public final class Decimals
         if (toScale < fromScale) {
             throw new IllegalArgumentException("target scale must be larger than source scale");
         }
-        return value.multiply(bigIntegerTenToNth(toScale - fromScale));
+
+        value = value.multiply(bigIntegerTenToNth(toScale - fromScale));
+        checkOverflow(value);
+
+        return value;
     }
 
     public static boolean isShortDecimal(Type type)

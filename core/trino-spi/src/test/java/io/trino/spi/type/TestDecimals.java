@@ -16,6 +16,7 @@ package io.trino.spi.type;
 import com.google.common.primitives.UnsignedBytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.TrinoException;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -25,7 +26,10 @@ import java.util.Objects;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
+import static io.trino.spi.type.Decimals.rescale;
+import static io.trino.spi.type.Decimals.rescaleAndRoundHalfUp;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -160,6 +164,80 @@ public class TestDecimals
         assertEquals(encodeScaledValue(new BigDecimal("-2.13"), 2), sliceFromBytes(213, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, minus));
         assertEquals(encodeScaledValue(new BigDecimal("-2"), 2), sliceFromBytes(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, minus));
         assertEquals(encodeScaledValue(new BigDecimal("-172.60"), 2), sliceFromBytes(108, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, minus));
+    }
+
+    @Test
+    public void testRescaleAndRoundHalfUp()
+    {
+        assertEquals(Decimals.rescaleAndRoundHalfUp(10233L, 2, 3), 102330);
+        assertEquals(Decimals.rescaleAndRoundHalfUp(10250L, 4, 4), 10250);
+
+        assertEquals(Decimals.rescaleAndRoundHalfUp(10253L, 3, 1), 103);
+        assertEquals(Decimals.rescaleAndRoundHalfUp(10250L, 3, 1), 103);
+        assertEquals(Decimals.rescaleAndRoundHalfUp(10249L, 4, 2), 102);
+        assertEquals(Decimals.rescaleAndRoundHalfUp(10250000L, 5, 3), 102500);
+
+        assertEquals(Decimals.rescaleAndRoundHalfUp(-10233L, 4, 6), -1023300);
+        assertEquals(Decimals.rescaleAndRoundHalfUp(-10250L, 4, 4), -10250);
+
+        assertEquals(Decimals.rescaleAndRoundHalfUp(-10253L, 3, 1), -103);
+        assertEquals(Decimals.rescaleAndRoundHalfUp(-10250L, 3, 1), -103);
+        assertEquals(Decimals.rescaleAndRoundHalfUp(-10249L, 4, 2), -102);
+        assertEquals(Decimals.rescaleAndRoundHalfUp(-10250000L, 5, 3), -102500);
+
+        assertEquals(rescaleAndRoundHalfUp(new BigInteger("10253"), 2, 3), new BigInteger("102530"));
+        assertEquals(rescaleAndRoundHalfUp(new BigInteger("10253"), 4, 4), new BigInteger("10253"));
+
+        assertEquals(rescaleAndRoundHalfUp(new BigInteger("10253"), 4, 2), new BigInteger("103"));
+        assertEquals(rescaleAndRoundHalfUp(new BigInteger("10250"), 3, 1), new BigInteger("103"));
+        assertEquals(rescaleAndRoundHalfUp(new BigInteger("10249"), 4, 2), new BigInteger("102"));
+        assertEquals(rescaleAndRoundHalfUp(new BigInteger("1025000"), 4, 2), new BigInteger("10250"));
+
+        assertEquals(rescaleAndRoundHalfUp(new BigInteger("-10253"), 2, 3), new BigInteger("-102530"));
+        assertEquals(rescaleAndRoundHalfUp(new BigInteger("-10253"), 4, 4), new BigInteger("-10253"));
+
+        assertEquals(rescaleAndRoundHalfUp(new BigInteger("-10253"), 4, 2), new BigInteger("-103"));
+        assertEquals(rescaleAndRoundHalfUp(new BigInteger("-10250"), 3, 1), new BigInteger("-103"));
+        assertEquals(rescaleAndRoundHalfUp(new BigInteger("-10249"), 4, 2), new BigInteger("-102"));
+        assertEquals(rescaleAndRoundHalfUp(new BigInteger("-1025000"), 4, 2), new BigInteger("-10250"));
+    }
+
+    @Test
+    public void testRescale()
+    {
+        assertEquals(rescale(10233L, 2, 3), 102330);
+        assertEquals(rescale(10250L, 4, 4), 10250);
+        assertEquals(rescale((long) 1e17 - 1, 1, 2), (long) 1e18 - 10);
+
+        assertEquals(rescale(-10233L, 4, 6), -1023300);
+        assertEquals(rescale(-10250L, 4, 4), -10250);
+        assertEquals(rescale((long) -1e17 + 1, 1, 2), (long) -1e18 + 10);
+
+        assertThatThrownBy(() -> rescale(10253L, 3, 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("target scale must be larger than source scale");
+        assertThatThrownBy(() -> rescale(123456789123456789L, 3, 8))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Rescaled value for 123456789123456.789 is out of range");
+        assertThatThrownBy(() -> rescale((long) 1e17, 1, 2))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Rescaled value for 10000000000000000.0 is out of range");
+        assertThatThrownBy(() -> rescale(-123456789123456789L, 3, 8))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Rescaled value for -123456789123456.789 is out of range");
+
+        assertEquals(rescale(new BigInteger("10253"), 2, 3), new BigInteger("102530"));
+        assertEquals(rescale(new BigInteger("10253"), 4, 4), new BigInteger("10253"));
+
+        assertEquals(rescale(new BigInteger("-10253"), 2, 3), new BigInteger("-102530"));
+        assertEquals(rescale(new BigInteger("-10253"), 4, 4), new BigInteger("-10253"));
+
+        assertThatThrownBy(() -> rescale(new BigInteger("10253"), 4, 2))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("target scale must be larger than source scale");
+        assertThatThrownBy(() -> rescale(new BigInteger("12345678901234567890123456789012345678"), 4, 6))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Value is out of range: 1234567890123456789012345678901234567800");
     }
 
     private static Slice sliceFromBytes(int... bytes)
