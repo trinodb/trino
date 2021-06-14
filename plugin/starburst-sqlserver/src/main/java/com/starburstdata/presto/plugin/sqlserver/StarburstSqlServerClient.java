@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
+import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.log.Logger;
@@ -16,6 +17,7 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
@@ -50,6 +52,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.isBulkCopyForWrite;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -118,6 +121,22 @@ public class StarburstSqlServerClient
             throwIfInstanceOf(e, TrinoException.class);
             throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
         }
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
+            throws SQLException
+    {
+        Connection connection = super.getConnection(session, handle);
+        try {
+            connection.unwrap(SQLServerConnection.class)
+                    .setUseBulkCopyForBatchInsert(isBulkCopyForWrite(session));
+        }
+        catch (SQLException e) {
+            connection.close();
+            throw e;
+        }
+        return connection;
     }
 
     private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
