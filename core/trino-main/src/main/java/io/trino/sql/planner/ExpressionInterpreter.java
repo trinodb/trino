@@ -1149,8 +1149,12 @@ public class ExpressionInterpreter
                 if (!valueType.equals(superType)) {
                     valueExpression = new Cast(valueExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
                 }
-                Expression patternExpression = toExpression(unescapedPattern, patternType);
-                if (!patternType.equals(superType)) {
+                Expression patternExpression;
+                if (superType instanceof VarcharType) {
+                    patternExpression = toExpression(unescapedPattern, superType);
+                }
+                else {
+                    patternExpression = toExpression(unescapedPattern, patternType);
                     patternExpression = new Cast(patternExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(patternType, superType));
                 }
                 return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, valueExpression, patternExpression);
