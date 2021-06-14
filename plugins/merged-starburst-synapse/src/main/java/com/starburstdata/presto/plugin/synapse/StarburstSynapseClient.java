@@ -80,6 +80,19 @@ public class StarburstSynapseClient
                 identifierMapping);
     }
 
+    /**
+     * Table lock is a prerequisite for `minimal logging` in SQL Server only, not in Synapse.
+     * In Synapse CTAS and INSERT...SELECT are both bulk load operations.
+     * Synapse does not support table locking.
+     *
+     * @see <a href="https://docs.microsoft.com/en-us/azure/synapse-analytics/sql-data-warehouse/sql-data-warehouse-develop-best-practices-transactions#minimal-logging-with-bulk-load">minimal logging</a>
+     */
+    @Override
+    protected boolean isTableLockNeeded(ConnectorSession session)
+    {
+        return false;
+    }
+
     @Override
     protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
