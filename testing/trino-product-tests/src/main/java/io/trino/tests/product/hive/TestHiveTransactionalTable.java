@@ -1426,7 +1426,7 @@ public class TestHiveTransactionalTable
 
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testInsertDeletUpdateWithPrestoAndHive()
+    public void testInsertDeleteUpdateWithPrestoAndHive()
     {
         withTemporaryTable("update_insert_delete_presto_hive", true, true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (col1 TINYINT, col2 INT, col3 BIGINT, col4 INT, col5 TINYINT) WITH (transactional = true)", tableName));
