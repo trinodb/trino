@@ -127,7 +127,7 @@ public class TestLiteralEncoder
     {
         assertEncode(utf8Slice("hello"), createVarcharType(5), "'hello'");
         assertEncode(utf8Slice("hello"), createVarcharType(13), "CAST('hello' AS varchar(13))");
-        assertEncode(utf8Slice("hello"), VARCHAR, "CAST('hello' AS varchar)");
+        assertEncode(utf8Slice("hello"), VARCHAR, "VARCHAR 'hello'");
     }
 
     @Test
