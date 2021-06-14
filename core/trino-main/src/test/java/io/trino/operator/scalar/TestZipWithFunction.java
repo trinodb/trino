@@ -48,7 +48,7 @@ public class TestZipWithFunction
                 new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(1), INTEGER))),
                 ImmutableList.of(ImmutableList.of("a", 1), ImmutableList.of("b", 2)));
 
-        assertFunction("zip_with(ARRAY[1, 2], ARRAY[CAST('a' AS VARCHAR), CAST('b' AS VARCHAR)], (x, y) -> (y, x))",
+        assertFunction("zip_with(ARRAY[1, 2], ARRAY[VARCHAR 'a', VARCHAR 'b'], (x, y) -> (y, x))",
                 new ArrayType(RowType.anonymous(ImmutableList.of(VARCHAR, INTEGER))),
                 ImmutableList.of(ImmutableList.of("a", 1), ImmutableList.of("b", 2)));
 
@@ -68,7 +68,7 @@ public class TestZipWithFunction
                 new ArrayType(VARCHAR),
                 ImmutableList.of("ac", "bd"));
 
-        assertFunction("zip_with(ARRAY[MAP(ARRAY[CAST ('a' AS VARCHAR)], ARRAY[1]), MAP(ARRAY[CAST('b' AS VARCHAR)], ARRAY[2])], ARRAY[MAP(ARRAY['c'], ARRAY[3]), MAP()], (x, y) -> map_concat(x, y))",
+        assertFunction("zip_with(ARRAY[MAP(ARRAY[CAST ('a' AS VARCHAR)], ARRAY[1]), MAP(ARRAY[VARCHAR 'b'], ARRAY[2])], ARRAY[MAP(ARRAY['c'], ARRAY[3]), MAP()], (x, y) -> map_concat(x, y))",
                 new ArrayType(mapType(VARCHAR, INTEGER)),
                 ImmutableList.of(ImmutableMap.of("a", 1, "c", 3), ImmutableMap.of("b", 2)));
     }

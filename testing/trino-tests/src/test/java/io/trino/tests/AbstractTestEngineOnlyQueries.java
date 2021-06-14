@@ -701,11 +701,11 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT * FROM (" +
                         "  SELECT t2.x || t2.z cc FROM (" +
                         "    SELECT *" +
-                        "    FROM (VALUES (CAST('a' AS VARCHAR), CAST('c' AS VARCHAR))) t(x, z)" +
+                        "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) t(x, z)" +
                         "  ) t2" +
                         "  JOIN (" +
                         "    SELECT *" +
-                        "    FROM (VALUES (CAST('a' AS VARCHAR), CAST('c' AS VARCHAR))) u(x, z)" +
+                        "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) u(x, z)" +
                         "    WHERE z='c'" +
                         "  ) u2" +
                         "  ON t2.z = u2.z" +
@@ -1294,7 +1294,7 @@ public abstract class AbstractTestEngineOnlyQueries
                                 "FROM" +
                                 "  (" +
                                 " VALUES " +
-                                "     (CHAR 'Pi', CAST('PI' AS VARCHAR), TIMESTAMP '2012-03-14 1:59:26.535', TIMESTAMP '2012-03-14 1:59:26.535897', DECIMAL '3.14')" +
+                                "     (CHAR 'Pi', VARCHAR 'PI', TIMESTAMP '2012-03-14 1:59:26.535', TIMESTAMP '2012-03-14 1:59:26.535897', DECIMAL '3.14')" +
                                 ")  AS t (t_char, t_varchar, t_timestamp, t_timestamp_2, t_decimal)" +
                                 "WHERE t_char = ? AND t_varchar = ? AND t_timestamp = ? AND t_timestamp_2 = ? AND t_decimal = ?")
                 .build();
