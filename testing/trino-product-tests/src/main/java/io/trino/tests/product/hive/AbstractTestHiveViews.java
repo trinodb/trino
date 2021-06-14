@@ -210,7 +210,7 @@ public abstract class AbstractTestHiveViews
     public void testIdentifierThatStartWithDigit()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS \"7_table_with_number\"");
-        onTrino().executeQuery("CREATE TABLE \"7_table_with_number\" WITH (format='TEXTFILE') AS SELECT CAST('abc' AS varchar) x");
+        onTrino().executeQuery("CREATE TABLE \"7_table_with_number\" WITH (format='TEXTFILE') AS SELECT VARCHAR 'abc' x");
 
         onHive().executeQuery("DROP VIEW IF EXISTS view_on_identifiers_starting_with_numbers");
         onHive().executeQuery("CREATE VIEW view_on_identifiers_starting_with_numbers AS SELECT * FROM 7_table_with_number");

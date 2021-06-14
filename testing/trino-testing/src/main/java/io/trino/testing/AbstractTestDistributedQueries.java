@@ -468,7 +468,7 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnless(supportsCreateTable());
 
         String tableName = "test_add_column_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT CAST('first' AS varchar) x", 1);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT VARCHAR 'first' x", 1);
 
         assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN x bigint", ".* Column 'x' already exists");
         assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN X bigint", ".* Column 'X' already exists");

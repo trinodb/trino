@@ -609,7 +609,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("CAST(false AS varchar)", "'false'");
 
         // string
-        assertOptimizedEquals("CAST('xyz' AS varchar)", "'xyz'");
+        assertOptimizedEquals("VARCHAR 'xyz'", "'xyz'");
 
         // NULL
         assertOptimizedEquals("CAST(NULL AS varchar)", "NULL");
@@ -1379,13 +1379,13 @@ public class TestExpressionInterpreter
     @Test
     public void testLikeOptimization()
     {
-        assertOptimizedEquals("unbound_string LIKE 'abc'", "unbound_string = CAST('abc' AS varchar)");
+        assertOptimizedEquals("unbound_string LIKE 'abc'", "unbound_string = VARCHAR 'abc'");
 
         assertOptimizedEquals("unbound_string LIKE '' ESCAPE '#'", "unbound_string LIKE '' ESCAPE '#'");
-        assertOptimizedEquals("unbound_string LIKE 'abc' ESCAPE '#'", "unbound_string = CAST('abc' AS varchar)");
-        assertOptimizedEquals("unbound_string LIKE 'a#_b' ESCAPE '#'", "unbound_string = CAST('a_b' AS varchar)");
-        assertOptimizedEquals("unbound_string LIKE 'a#%b' ESCAPE '#'", "unbound_string = CAST('a%b' AS varchar)");
-        assertOptimizedEquals("unbound_string LIKE 'a#_##b' ESCAPE '#'", "unbound_string = CAST('a_#b' AS varchar)");
+        assertOptimizedEquals("unbound_string LIKE 'abc' ESCAPE '#'", "unbound_string = VARCHAR 'abc'");
+        assertOptimizedEquals("unbound_string LIKE 'a#_b' ESCAPE '#'", "unbound_string = VARCHAR 'a_b'");
+        assertOptimizedEquals("unbound_string LIKE 'a#%b' ESCAPE '#'", "unbound_string = VARCHAR 'a%b'");
+        assertOptimizedEquals("unbound_string LIKE 'a#_##b' ESCAPE '#'", "unbound_string = VARCHAR 'a_#b'");
         assertOptimizedEquals("unbound_string LIKE 'a#__b' ESCAPE '#'", "unbound_string LIKE 'a#__b' ESCAPE '#'");
         assertOptimizedEquals("unbound_string LIKE 'a##%b' ESCAPE '#'", "unbound_string LIKE 'a##%b' ESCAPE '#'");
 
