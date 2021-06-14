@@ -289,7 +289,7 @@ public class CachingJdbcClient
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.finishInsertTable(session, handle);
-        invalidateCache(statisticsCache, key -> key.tableHandle.references(new SchemaTableName(handle.getSchemaName(), handle.getTableName())));
+        onDataChanged(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
     }
 
     @Override
@@ -435,6 +435,17 @@ public class CachingJdbcClient
         return delegate.getTableScanRedirection(session, tableHandle);
     }
 
+    public void onDataChanged(SchemaTableName table)
+    {
+        invalidateCache(statisticsCache, key -> key.tableHandle.references(table));
+    }
+
+    /**
+     * @deprecated {@link JdbcTableHandle}  is not a good representation of the table. For example, we don't want
+     * to distinguish between "a plan table" and "table with selected columns", or "a table with a constraint" here.
+     * Use {@link #onDataChanged(SchemaTableName)}, which avoids these ambiguities.
+     */
+    @Deprecated
     public void onDataChanged(JdbcTableHandle handle)
     {
         invalidateCache(statisticsCache, key -> key.tableHandle.equals(handle));
