@@ -25,6 +25,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.BULK_COPY_FOR_WRITE;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.NON_TRANSACTIONAL_INSERT;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.CATALOG;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE;
@@ -89,13 +90,14 @@ public class TestStarburstSqlServerConnectorTest
     }
 
     @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "doubleTrueFalse")
-    public void testInsertWriteBulkiness(boolean bulkCopyForWrite, boolean bulkCopyForWriteLockDestinationTable)
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "tripleTrueFalse")
+    public void testInsertWriteBulkiness(boolean nonTransactionalInsert, boolean bulkCopyForWrite, boolean bulkCopyForWriteLockDestinationTable)
             throws SQLException
     {
         String table = "bulk_copy_insert_" + randomTableSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer WHERE 0 = 1", table));
         Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(CATALOG, NON_TRANSACTIONAL_INSERT, Boolean.toString(nonTransactionalInsert))
                 .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE, Boolean.toString(bulkCopyForWrite))
                 .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE, Boolean.toString(bulkCopyForWriteLockDestinationTable))
                 .build();
