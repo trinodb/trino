@@ -20,12 +20,14 @@ import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.sqlserver.SqlServerClient;
 import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -53,9 +55,11 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.isBulkCopyForWrite;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.isBulkCopyForWriteLockDestinationTable;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class StarburstSqlServerClient
         extends SqlServerClient
@@ -97,6 +101,63 @@ public class StarburstSqlServerClient
                 rightSource,
                 statistics,
                 () -> super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        JdbcOutputTableHandle table = super.beginCreateTable(session, tableMetadata);
+        enableTableLockOnBulkLoadTableOption(session, table);
+        return table;
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
+    {
+        JdbcOutputTableHandle table = super.beginInsertTable(session, tableHandle, columns);
+        enableTableLockOnBulkLoadTableOption(session, table);
+        return table;
+    }
+
+    private void enableTableLockOnBulkLoadTableOption(ConnectorSession session, JdbcOutputTableHandle table)
+    {
+        if (!isTableLockNeeded(session)) {
+            return;
+        }
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            // 'table lock on bulk load' table option causes the bulk load processes on user-defined tables to obtain a bulk update lock
+            // note: this is not a request to lock a table immediately
+            String sql = format("EXEC sp_tableoption '%s', 'table lock on bulk load', '1'",
+                    quoted(table.getCatalogName(), table.getSchemaName(), table.getTemporaryTableName()));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    protected String buildInsertSql(ConnectorSession session, RemoteTableName targetTable, RemoteTableName sourceTable, List<String> columnNames)
+    {
+        String columns = columnNames.stream()
+                .map(this::quoted)
+                .collect(joining(", "));
+        return format("INSERT INTO %s %s (%s) SELECT %s FROM %s",
+                targetTable,
+                isTableLockNeeded(session) ? "WITH (TABLOCK)" : "", // TABLOCK is a prerequisite for minimal logging in SQL Server
+                columns,
+                columns,
+                sourceTable);
+    }
+
+    /**
+     * Table lock is a prerequisite for `minimal logging` in SQL Server
+     *
+     * @see <a href="https://docs.microsoft.com/en-us/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import">minimal logging</a>
+     */
+    protected boolean isTableLockNeeded(ConnectorSession session)
+    {
+        return isBulkCopyForWrite(session) && isBulkCopyForWriteLockDestinationTable(session);
     }
 
     @Override

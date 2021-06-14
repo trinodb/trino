@@ -27,6 +27,7 @@ import java.sql.SQLException;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.BULK_COPY_FOR_WRITE;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.CATALOG;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,23 +61,24 @@ public class TestStarburstSqlServerConnectorTest
     }
 
     @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite)
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "doubleTrueFalse")
+    public void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite, boolean bulkCopyForWriteLockDestinationTable)
             throws SQLException
     {
         String table = "bulk_copy_ctas_" + randomTableSuffix();
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE, Boolean.toString(bulkCopyForWrite))
+                .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE, Boolean.toString(bulkCopyForWriteLockDestinationTable))
                 .build();
 
         // there should be enough rows in source table to minimal logging be enabled. `nation` table is too small.
         assertQuerySucceeds(session, format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer", table));
 
-        // check minimal logging was not applied because table was not locked.
+        // check whether minimal logging was applied.
         // Unlike fully logged operations, which use the transaction log to keep track of every row change,
         // minimally logged operations keep track of extent allocations and meta-data changes only.
         assertThat(getTableOperationsCount("LOP_INSERT_ROWS", table))
-                .isEqualTo(1500);
+                .isEqualTo(bulkCopyForWrite && bulkCopyForWriteLockDestinationTable ? 0 : 1500);
 
         // check that there are no locks remained on the target table after bulk copy
         assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) FROM customer");
@@ -87,24 +89,25 @@ public class TestStarburstSqlServerConnectorTest
     }
 
     @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testInsertWriteBulkiness(boolean bulkCopyForWrite)
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "doubleTrueFalse")
+    public void testInsertWriteBulkiness(boolean bulkCopyForWrite, boolean bulkCopyForWriteLockDestinationTable)
             throws SQLException
     {
         String table = "bulk_copy_insert_" + randomTableSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer WHERE 0 = 1", table));
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE, Boolean.toString(bulkCopyForWrite))
+                .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE, Boolean.toString(bulkCopyForWriteLockDestinationTable))
                 .build();
 
         // there should be enough rows in source table to minimal logging be enabled. `nation` table is too small.
         assertQuerySucceeds(session, format("INSERT INTO %s SELECT * FROM tpch.tiny.customer", table));
 
-        // check minimal logging was not applied because table was not locked.
+        // check whether minimal logging was applied.
         // Unlike fully logged operations, which use the transaction log to keep track of every row change,
         // minimally logged operations keep track of extent allocations and meta-data changes only.
         assertThat(getTableOperationsCount("LOP_INSERT_ROWS", table))
-                .isEqualTo(1500);
+                .isEqualTo(bulkCopyForWrite && bulkCopyForWriteLockDestinationTable ? 0 : 1500);
 
         // check that there are no locks remained on the target table after bulk copy
         assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) FROM customer");

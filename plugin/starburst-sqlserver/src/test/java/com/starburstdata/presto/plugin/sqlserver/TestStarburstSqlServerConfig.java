@@ -30,7 +30,8 @@ public class TestStarburstSqlServerConfig
                 .setImpersonationEnabled(false)
                 .setOverrideCatalogEnabled(false)
                 .setOverrideCatalogName(null)
-                .setAuthenticationType(PASSWORD));
+                .setAuthenticationType(PASSWORD)
+                .setBulkCopyForWriteLockDestinationTable(false));
     }
 
     @Test
@@ -41,13 +42,15 @@ public class TestStarburstSqlServerConfig
                 .put("sqlserver.override-catalog.enabled", "true")
                 .put("sqlserver.override-catalog.name", "catalog")
                 .put("sqlserver.authentication.type", "PASSWORD_PASS_THROUGH")
+                .put("sqlserver.bulk-copy-for-write.lock-destination-table", "true")
                 .build();
 
         StarburstSqlServerConfig expected = new StarburstSqlServerConfig()
                 .setImpersonationEnabled(true)
                 .setOverrideCatalogEnabled(true)
                 .setOverrideCatalogName("catalog")
-                .setAuthenticationType(PASSWORD_PASS_THROUGH);
+                .setAuthenticationType(PASSWORD_PASS_THROUGH)
+                .setBulkCopyForWriteLockDestinationTable(true);
 
         assertFullMapping(properties, expected);
     }
