@@ -17,6 +17,8 @@ import com.starburstdata.presto.plugin.jdbc.StarburstJdbcMetadataFactory;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
+import com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerConfig;
+import com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
@@ -30,6 +32,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
 
 public class StarburstSynapseClientModule
@@ -44,11 +47,15 @@ public class StarburstSynapseClientModule
         // whether this is the expected behavior.
         configBinder(binder).bindConfigDefaults(SqlServerConfig.class, config -> config.setSnapshotIsolationDisabled(true));
 
+        configBinder(binder).bindConfig(StarburstCommonSqlServerConfig.class);
+
         newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(StarburstJdbcMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstSynapseClient.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+
+        bindSessionPropertiesProvider(binder, StarburstCommonSqlServerSessionProperties.class);
 
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);

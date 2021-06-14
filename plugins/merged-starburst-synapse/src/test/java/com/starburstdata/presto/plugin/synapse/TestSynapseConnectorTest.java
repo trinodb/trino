@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
+import com.starburstdata.presto.testing.DataProviders;
 import io.trino.Session;
 import io.trino.plugin.sqlserver.BaseSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.DataCompression;
@@ -22,13 +23,16 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.BULK_COPY_FOR_WRITE;
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSynapseConnectorTest
         extends BaseSqlServerConnectorTest
 {
+    public static final String CATALOG = "sqlserver";
     private SynapseServer synapseServer;
 
     @Override
@@ -39,7 +43,7 @@ public class TestSynapseConnectorTest
         return createSynapseQueryRunner(
                 Map.of(),
                 synapseServer,
-                "sqlserver",
+                CATALOG,
                 // Synapse tests are slow. Cache metadata to speed them up. Synapse without caching is exercised by TestSynapseConnectorSmokeTest.
                 Map.of("metadata.cache-ttl", "60m"),
                 REQUIRED_TPCH_TABLES);
@@ -189,5 +193,44 @@ public class TestSynapseConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
+    }
+
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite)
+    {
+        String table = "bulk_copy_ctas_" + randomTableSuffix();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE, Boolean.toString(bulkCopyForWrite))
+                .build();
+
+        // loading data takes too long for this test, this test does not compare performance, just checks if the path passes, therefore LIMIT 1 is applied
+        assertQuerySucceeds(session, format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer LIMIT 1", table));
+
+        // check that there are no locks remained on the target table after bulk copy
+        assertQuery("SELECT count(*) FROM " + table, "VALUES 1");
+        assertUpdate(format("INSERT INTO %s SELECT * FROM tpch.tiny.customer LIMIT 1", table), 1);
+        assertQuery("SELECT count(*) FROM " + table, "VALUES 2");
+
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testInsertWriteBulkiness(boolean bulkCopyForWrite)
+    {
+        String table = "bulk_copy_insert_" + randomTableSuffix();
+        assertQuerySucceeds(format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer WHERE 0 = 1", table));
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE, Boolean.toString(bulkCopyForWrite))
+                .build();
+
+        // loading data takes too long for this test, this test does not compare performance, just checks if the path passes, therefore LIMIT 1 is applied
+        assertQuerySucceeds(session, format("INSERT INTO %s SELECT * FROM tpch.tiny.customer LIMIT 1", table));
+
+        // check that there are no locks remained on the target table after bulk copy
+        assertQuery("SELECT count(*) FROM " + table, "VALUES 1");
+        assertUpdate(format("INSERT INTO %s SELECT * FROM tpch.tiny.customer LIMIT 1", table), 1);
+        assertQuery("SELECT count(*) FROM " + table, "VALUES 2");
+
+        assertUpdate("DROP TABLE " + table);
     }
 }
