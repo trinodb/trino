@@ -369,8 +369,8 @@ public class TestRowFilter
         assertThat(assertions.query("SHOW STATS FOR (SELECT * FROM tiny.orders)"))
                 .containsAll(
                         "VALUES " +
-                                "(CAST('orderkey' AS varchar), 0e1, 0e1, 1e0, CAST(NULL AS double), CAST(NULL AS varchar), CAST(NULL AS varchar))," +
-                                "(CAST('custkey' AS varchar), 0e1, 0e1, 1e0, CAST(NULL AS double), CAST(NULL AS varchar), CAST(NULL AS varchar))," +
+                                "(VARCHAR 'orderkey', 0e1, 0e1, 1e0, CAST(NULL AS double), CAST(NULL AS varchar), CAST(NULL AS varchar))," +
+                                "(VARCHAR 'custkey', 0e1, 0e1, 1e0, CAST(NULL AS double), CAST(NULL AS varchar), CAST(NULL AS varchar))," +
                                 "(NULL, NULL, NULL, NULL, 0e1, NULL, NULL)");
     }
 

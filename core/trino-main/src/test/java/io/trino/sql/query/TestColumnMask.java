@@ -522,16 +522,16 @@ public class TestColumnMask
 
         assertThat(assertions.query("SHOW STATS FOR (SELECT * FROM orders)"))
                 .containsAll("VALUES " +
-                        "(CAST('orderkey' AS varchar), CAST(NULL AS double), 1e0, 0e1, NULL, '7', '7')," +
-                        "(CAST('clerk' AS varchar), 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
+                        "(VARCHAR 'orderkey', CAST(NULL AS double), 1e0, 0e1, NULL, '7', '7')," +
+                        "(VARCHAR 'clerk', 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
                         "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
         assertThat(assertions.query("SHOW STATS FOR (SELECT orderkey FROM orders)"))
                 .matches("VALUES " +
-                        "(CAST('orderkey' AS varchar), CAST(NULL AS double), 1e0, 0e1, NULL, CAST('7' AS varchar), CAST('7' AS varchar))," +
+                        "(VARCHAR 'orderkey', CAST(NULL AS double), 1e0, 0e1, NULL, VARCHAR '7', VARCHAR '7')," +
                         "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
         assertThat(assertions.query("SHOW STATS FOR (SELECT clerk FROM orders)"))
                 .matches("VALUES " +
-                        "(CAST('clerk' AS varchar), 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
+                        "(VARCHAR 'clerk', 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
                         "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
     }
 
