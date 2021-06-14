@@ -20,11 +20,13 @@ import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -34,18 +36,22 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -54,10 +60,33 @@ import static java.util.Objects.requireNonNull;
 public class IgniteJdbcClient
         extends BaseJdbcClient
 {
+    /**
+     * Ignite only support two schemas: sys and public.
+     * The sys schema is a view of all metadata about the database. user tables are all under the schema public.
+     */
+    private static final String IGNITE_SCHEMA = "public";
+
     @Inject
     public IgniteJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
     {
         super(config, "`", connectionFactory, identifierMapping);
+    }
+
+    @Override
+    public Collection<String> listSchemas(Connection connection)
+    {
+        return ImmutableList.of(IGNITE_SCHEMA);
+    }
+
+    @Override
+    public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
+            throws SQLException
+    {
+        DatabaseMetaData metadata = connection.getMetaData();
+        return metadata.getTables(connection.getCatalog(),
+                IGNITE_SCHEMA,
+                tableName.orElse(null),
+                null);
     }
 
     @Override
@@ -67,8 +96,6 @@ public class IgniteJdbcClient
             case Types.VARCHAR:
                 return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), false));
         }
-        List<String> a = ImmutableList.of("a");
-        System.out.println(a);
         return legacyColumnMapping(session, connection, typeHandle);
     }
 
@@ -122,6 +149,18 @@ public class IgniteJdbcClient
         }
         sb.append(quoted(table));
         return sb.toString();
+    }
+
+    @Override
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
+    }
+
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
     }
 
     @Override
@@ -214,5 +253,23 @@ public class IgniteJdbcClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return legacyToWriteMapping(session, type);
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
+    }
+
+    @Override
+    public void createSchema(ConnectorSession session, String schemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating schemas");
+    }
+
+    @Override
+    public void dropSchema(ConnectorSession session, String schemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 }
