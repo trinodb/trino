@@ -256,7 +256,7 @@ public class TestTableScanRedirectionWithPushdown
                     output(
                             ImmutableList.of("DEST_COL_B"),
                             project(ImmutableMap.of("DEST_COL_B", expression("DEST_COL_B")),
-                                    filter("CAST(DEST_COL_A AS VARCHAR) = CAST('foo' AS VARCHAR)",
+                                    filter("CAST(DEST_COL_A AS VARCHAR) = VARCHAR 'foo'",
                                             tableScan(
                                                     new MockConnectorTableHandle(
                                                             DESTINATION_TABLE,
