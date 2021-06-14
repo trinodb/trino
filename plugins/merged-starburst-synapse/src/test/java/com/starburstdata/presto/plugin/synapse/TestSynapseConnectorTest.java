@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.BULK_COPY_FOR_WRITE;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.NON_TRANSACTIONAL_INSERT;
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -214,12 +215,13 @@ public class TestSynapseConnectorTest
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testInsertWriteBulkiness(boolean bulkCopyForWrite)
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "doubleTrueFalse")
+    public void testInsertWriteBulkiness(boolean nonTransactionalInsert, boolean bulkCopyForWrite)
     {
         String table = "bulk_copy_insert_" + randomTableSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer WHERE 0 = 1", table));
         Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(CATALOG, NON_TRANSACTIONAL_INSERT, Boolean.toString(nonTransactionalInsert))
                 .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE, Boolean.toString(bulkCopyForWrite))
                 .build();
 
