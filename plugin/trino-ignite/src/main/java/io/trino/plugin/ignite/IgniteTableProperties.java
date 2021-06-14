@@ -14,6 +14,7 @@
 package io.trino.plugin.ignite;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.TablePropertiesProvider;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
@@ -22,8 +23,12 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.ignite.IgniteTemplateType.PARTITIONED;
+import static io.trino.plugin.ignite.IgniteWriteSyncMode.FULL_SYNC;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -34,10 +39,27 @@ public class IgniteTableProperties
 {
     private final List<PropertyMetadata<?>> tableProperties;
 
-    private static final String PRIMARY_KEY_PROPERTY = "primary_key";
-    private static final String BACK_UPS_PROPERTY = "backups";
-    private static final String AFFINITY_KEY_PROPERTY = "affinity_key";
-    private static final String TEMPLATE = "template";
+    public static final String PRIMARY_KEY_PROPERTY = "primary_key";
+    public static final String BACK_UPS_PROPERTY = "backups";
+    public static final String AFFINITY_KEY_PROPERTY = "affinity_key";
+    public static final String TEMPLATE_PROPERTY = "template";
+    public static final String WRITE_SYNCHRONIZATION_MODE_PROPERTY = "write_synchronization_mode";
+    public static final String CACHE_GROUP_PROPERTY = "cache_group";
+    public static final String CACHE_NAME_PROPERTY = "cache_name";
+    public static final String DATA_REGION_PROPERTY = "data_region";
+
+
+    /**
+     * The properties are in the Ignite WITH clause
+     */
+    public static final Set<String> WITH_PROPERTIES = ImmutableSet.of(
+            BACK_UPS_PROPERTY,
+            AFFINITY_KEY_PROPERTY,
+            TEMPLATE_PROPERTY,
+            WRITE_SYNCHRONIZATION_MODE_PROPERTY,
+            CACHE_GROUP_PROPERTY,
+            CACHE_NAME_PROPERTY,
+            DATA_REGION_PROPERTY);
 
     @Inject
     public IgniteTableProperties()
@@ -54,15 +76,43 @@ public class IgniteTableProperties
                         value -> value),
                 integerProperty(
                         BACK_UPS_PROPERTY,
-                        "the backup number for the table",
+                        "The backup number for the table",
                         1,
                         value -> checkArgument(value > 0, "backups should greater than 0"),
                         false),
                 stringProperty(
                         AFFINITY_KEY_PROPERTY,
-                        "An expression for sampling. it's optional for table MergeTree engine family",
+                        "The affinity key in Ignite, must be one of the primary key",
                         null,
-                        false));
+                        false),
+                enumProperty(
+                        TEMPLATE_PROPERTY,
+                        "Ignite table template, defaults to PARTITIONED",
+                        IgniteTemplateType.class,
+                        PARTITIONED,
+                        false),
+                enumProperty(
+                        WRITE_SYNCHRONIZATION_MODE_PROPERTY,
+                        "Ignite write synchronization mode, defaults to FULL_SYNC",
+                        IgniteWriteSyncMode.class,
+                        FULL_SYNC,
+                        false),
+                stringProperty(
+                        CACHE_GROUP_PROPERTY,
+                        "Specifies the group name the underlying cache belongs to",
+                        null,
+                        false),
+                stringProperty(
+                        CACHE_NAME_PROPERTY,
+                        "The name of the underlying cache created by the command.",
+                        null,
+                        false),
+                stringProperty(
+                        DATA_REGION_PROPERTY,
+                        "name of the data region where table entries should be stored",
+                        null,
+                        false)
+        );
     }
 
     @Override
@@ -74,7 +124,7 @@ public class IgniteTableProperties
     public static IgniteTemplateType getTemplate(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties, "tableProperties is null");
-        return (IgniteTemplateType) tableProperties.get(TEMPLATE);
+        return (IgniteTemplateType) tableProperties.get(TEMPLATE_PROPERTY);
     }
 
     @SuppressWarnings("unchecked")

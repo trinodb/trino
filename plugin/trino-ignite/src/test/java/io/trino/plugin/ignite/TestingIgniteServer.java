@@ -13,11 +13,7 @@
  */
 package io.trino.plugin.ignite;
 
-
 import java.io.Closeable;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
 
 import static io.trino.plugin.ignite.TestIgniteContainer.HTTP_PORT;
 import static java.lang.String.format;
