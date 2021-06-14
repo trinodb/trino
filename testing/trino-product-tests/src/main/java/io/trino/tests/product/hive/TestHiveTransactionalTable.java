@@ -1367,6 +1367,34 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testAcidUpdateWithSubqueryPredicate()
+    {
+        // TODO support UPDATE with correlated subquery in assignment
+        withTemporaryTable("test_update_subquery", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 varchar) WITH (transactional = true)", tableName));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 'x')", tableName));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES (2, 'y')", tableName));
+
+            // WHERE with uncorrelated subquery
+            onTrino().executeQuery(format("UPDATE %s SET column2 = 'row updated' WHERE column1 = (SELECT min(regionkey) + 1 FROM tpch.tiny.region)", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, "row updated"), row(2, "y"));
+
+            withTemporaryTable("second_table", true, false, NONE, secondTable -> {
+                onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS TABLE tpch.tiny.region", secondTable));
+
+                // UPDATE while reading from another transactional table. Multiple transactional could interfere with ConnectorMetadata.beginQuery
+                onTrino().executeQuery(format("UPDATE %s SET column2 = 'another row updated' WHERE column1 = (SELECT min(regionkey) + 2 FROM %s)", tableName, secondTable));
+                verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, "row updated"), row(2, "another row updated"));
+            });
+
+            // WHERE with correlated subquery
+            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET column2 = 'row updated yet again' WHERE column2 = (SELECT name FROM tpch.tiny.region WHERE regionkey = column1)", tableName)))
+                    // TODO (https://github.com/trinodb/trino/issues/3325) support correlated UPDATE
+                    .failsWithMessageMatching("\\Qjava.sql.SQLException: Query failed (#\\E\\S+\\Q): Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.MarkDistinctNode");
+        });
+    }
+
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testInsertDeletUpdateWithPrestoAndHive()
