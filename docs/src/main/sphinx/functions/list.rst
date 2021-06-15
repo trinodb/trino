@@ -263,7 +263,7 @@ L
 - :func:`lower`
 - :func:`lpad`
 - :func:`ltrim`
-- ``luhn_check``
+- :func:`luhn_check`
 
 M
 -
