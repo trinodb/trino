@@ -135,6 +135,7 @@ public class TestGrantOnTable
     {
         return new Object[][] {
                 {"SELECT"},
+                {"UPDATE"},
                 {"ALL PRIVILEGES"}
         };
     }
