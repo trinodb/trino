@@ -25,7 +25,11 @@ import java.util.Map;
 
 import static io.trino.client.ClientStandardTypes.ARRAY;
 import static io.trino.client.ClientStandardTypes.BIGINT;
+import static io.trino.client.ClientStandardTypes.DECIMAL;
+import static io.trino.client.ClientStandardTypes.DOUBLE;
+import static io.trino.client.ClientStandardTypes.INTEGER;
 import static io.trino.client.ClientStandardTypes.MAP;
+import static io.trino.client.ClientStandardTypes.REAL;
 import static io.trino.client.ClientStandardTypes.VARBINARY;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -279,6 +283,41 @@ public class TestAlignedTablePrinter
                 " fit        |        |            \n" +
                 " bye        | done   |        -15 \n" +
                 "(3 rows)\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testAlignedDecimalPrinting()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.<Column>builder()
+                .add(column("intField", INTEGER))
+                .add(column("decField", DECIMAL))
+                .add(column("realField", REAL))
+                .add(column("doubleField", DOUBLE))
+                .build();
+        StringWriter writer = new StringWriter();
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
+
+        printer.printRows(rows(
+                row(123, 4.543, Float.MAX_VALUE, -23337.99),
+                row(null, 4.2, -Float.MIN_VALUE, null),
+                row(-21, -34333.9, 2.3f, Double.MAX_VALUE),
+                row(49, null, null, Double.MIN_VALUE),
+                row(1, 12345678901234567890123456789.123456789, 43.64f, 21.3)),
+                true);
+        printer.finish();
+
+        String expected = "" +
+                " intField |          decField          |   realField   |         doubleField         \n" +
+                "----------+----------------------------+---------------+-----------------------------\n" +
+                "      123 |      4.543                 |  3.4028235E38 | -23337.99                   \n" +
+                "     NULL |      4.2                   | -1.4E-45      |                        NULL \n" +
+                "      -21 | -34333.9                   |  2.3          |      1.7976931348623157E308 \n" +
+                "       49 |                       NULL |          NULL |      4.9E-324               \n" +
+                "        1 |      1.2345678901234568E28 | 43.64         |     21.3                    \n" +
+                "(5 rows)\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
     }
