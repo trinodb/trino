@@ -614,7 +614,7 @@ pathSpecification
     ;
 
 privilege
-    : SELECT | DELETE | INSERT
+    : SELECT | DELETE | INSERT | UPDATE
     ;
 
 qualifiedName
