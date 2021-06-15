@@ -157,8 +157,8 @@ Migrating existing tables
 -------------------------
 
 The connector can read from or write to Hive tables that have been migrated to Iceberg.
-Currently, there is no Trino support to migrate Hive tables to Trino, so you will
-need to use either the Iceberg API or Spark.
+There is no Trino support for migrating Hive tables to Iceberg, so you need to either use
+the Iceberg API or Apache Spark.
 
 System tables and columns
 -------------------------
