@@ -79,7 +79,7 @@ Table property usage example::
     )
     WITH (
       engine = 'MergeTree',
-      order_by = ARRAY['id, birthday'],
+      order_by = ARRAY['id', 'birthday'],
       partition_by = 'toYYYYMM(logdate)'
     );
 
