@@ -137,16 +137,16 @@ String functions
 .. function:: soundex(char) -> string
 
    ``soundex`` returns a character string containing the phonetic representation of ``char``.
-    It is typically used to evaluate the similarity of two expressions phonetically, that is 
+    It is typically used to evaluate the similarity of two expressions phonetically, that is
     how the string sounds when spoken::
 
-        SELECT name 
+        SELECT name
         FROM nation
         WHERE SOUNDEX(name)  = SOUNDEX('CHYNA');
 
          name  |
         -------+----
-         CHINA | 
+         CHINA |
         (1 row)
 
 .. function:: split(string, delimiter) -> array(varchar)
