@@ -19,8 +19,10 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
+import static com.google.common.collect.Streams.stream;
 import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.PASSWORD_PASS_THROUGH;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStargatePlugin
@@ -31,16 +33,30 @@ public class TestStargatePlugin
     public void testLicenseRequired()
     {
         Plugin plugin = new StargatePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:trino://localhost:8080/test", "connection-user", "presto"), new TestingConnectorContext()))
-                .isInstanceOf(RuntimeException.class)
-                .hasToString("com.starburstdata.presto.license.StarburstLicenseException: Valid license required to use the feature: starburst-connector");
+
+        for (ConnectorFactory factory : plugin.getConnectorFactories()) {
+            assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:trino://localhost:8080/test", "connection-user", "presto"), new TestingConnectorContext()))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasToString("com.starburstdata.presto.license.StarburstLicenseException: Valid license required to use the feature: starburst-connector");
+        }
     }
 
     @Test
     public void testCreateConnector()
     {
         createTestingPlugin(ImmutableMap.of("connection-url", "jdbc:trino://localhost:8080/test", "connection-user", "presto"));
+    }
+
+    @Test
+    public void testCreateLegacyConnector()
+    {
+        createTestingPlugin("starburst-remote", ImmutableMap.of("connection-url", "jdbc:trino://localhost:8080/test", "connection-user", "presto"));
+    }
+
+    @Test
+    public void testLegacyConnectorAllMethodsOverridden()
+    {
+        assertAllMethodsOverridden(ConnectorFactory.class, StargatePlugin.LegacyConnectorFactory.class);
     }
 
     @Test
@@ -230,8 +246,18 @@ public class TestStargatePlugin
 
     public static void createTestingPlugin(Map<String, String> properties)
     {
+        createTestingPlugin("stargate", properties);
+    }
+
+    public static void createTestingPlugin(String connectorName, Map<String, String> properties)
+    {
         Plugin plugin = new TestingStargatePlugin(false);
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+
+        ConnectorFactory factory = stream(plugin.getConnectorFactories().iterator())
+                .filter(connector -> connector.getName().equals(connectorName))
+                .collect(toOptional())
+                .orElseThrow();
+
         factory.create("test", properties, new TestingConnectorContext());
     }
 }

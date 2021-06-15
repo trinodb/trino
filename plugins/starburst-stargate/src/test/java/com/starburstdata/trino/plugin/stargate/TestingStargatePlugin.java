@@ -9,7 +9,6 @@
  */
 package com.starburstdata.trino.plugin.stargate;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorFactory;
 
 import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
@@ -27,6 +26,6 @@ public class TestingStargatePlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(getConnectorFactory(NOOP_LICENSE_MANAGER, enableWrites));
+        return getConnectorFactories(NOOP_LICENSE_MANAGER, enableWrites);
     }
 }

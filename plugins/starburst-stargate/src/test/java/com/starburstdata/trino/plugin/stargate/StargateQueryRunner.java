@@ -224,7 +224,7 @@ public final class StargateQueryRunner
             connectorProperties.putIfAbsent("connection-user", "p2p");
 
             queryRunner.installPlugin(new TestingStargatePlugin(enableWrites));
-            queryRunner.createCatalog("p2p_remote", "starburst-remote", connectorProperties);
+            queryRunner.createCatalog("p2p_remote", "stargate", connectorProperties);
 
             return queryRunner;
         }
@@ -280,14 +280,14 @@ public final class StargateQueryRunner
                         "allow-drop-table", "true"));
         queryRunner.createCatalog(
                 "p2p_remote_postgresql",
-                "starburst-remote",
+                "stargate",
                 Map.of(
                         "connection-user", "p2p",
                         "connection-url", stargateConnectionUrl(stargateQueryRunner, "postgresql"),
                         "allow-drop-table", "true"));
         queryRunner.createCatalog(
                 "p2p_remote_hive",
-                "starburst-remote",
+                "stargate",
                 Map.of(
                         "connection-user", "p2p",
                         "connection-url", stargateConnectionUrl(stargateQueryRunner, "hive"),
