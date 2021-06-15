@@ -5,12 +5,12 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>357-e-SNAPSHOT</version>
+        <version>359-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
-    <artifactId>starburst-remote-connector</artifactId>
-    <description>Starburst Enterprise - Remote connector</description>
+    <artifactId>starburst-stargate</artifactId>
+    <description>Starburst Enterprise - Stargate connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
