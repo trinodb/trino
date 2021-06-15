@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
@@ -271,6 +272,15 @@ public class BeginTableWrite
                     return findTableScanHandle(joinNode.getLeft());
                 }
             }
+            if (node instanceof MarkDistinctNode) {
+                return findTableScanHandle(((MarkDistinctNode) node).getSource());
+            }
+            if (node instanceof ExchangeNode) {
+                Set<TableHandle> tableHandles = node.getSources().stream()
+                        .map(this::findTableScanHandle)
+                        .collect(toSet());
+                return getOnlyElement(tableHandles);
+            }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
         }
 
@@ -308,6 +318,10 @@ public class BeginTableWrite
                     PlanNode source = rewriteModifyTableScan(joinNode.getLeft(), handle);
                     return replaceChildren(node, ImmutableList.of(source, joinNode.getRight()));
                 }
+            }
+            if (node instanceof MarkDistinctNode) {
+                PlanNode source = rewriteModifyTableScan(((MarkDistinctNode) node).getSource(), handle);
+                return replaceChildren(node, ImmutableList.of(source));
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
         }

@@ -1404,9 +1404,12 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 'x')", tableName));
             onTrino().executeQuery(format("INSERT INTO %s VALUES (2, 'y')", tableName));
 
-            // SET with uncorrelated subquery
+            // SET with subquery
             onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT max(name) FROM tpch.tiny.region)", tableName));
             verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "MIDDLE EAST"), row(2, "MIDDLE EAST"));
+
+            onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT name FROM tpch.tiny.region WHERE column1 = regionkey)", tableName));
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AMERICA"), row(2, "ASIA"));
 
             withTemporaryTable("second_table", true, false, NONE, secondTable -> {
                 onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS TABLE tpch.tiny.region", secondTable));
@@ -1415,12 +1418,10 @@ public class TestHiveTransactionalTable
                 onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT min(name) FROM %s)", tableName, secondTable));
                 // TODO (https://github.com/trinodb/trino/issues/8268) verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AFRICA"));
                 verifySelect("onTrino", onTrino(), "SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AFRICA"));
-            });
 
-            // SET with correlated subquery
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT name FROM tpch.tiny.region WHERE column1 = regionkey)", tableName)))
-                    // TODO (https://github.com/trinodb/trino/issues/3325) support correlated UPDATE
-                    .failsWithMessageMatching("\\Qjava.sql.SQLException: Query failed (#\\E\\S+\\Q): Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.MarkDistinctNode");
+                onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT name FROM %s WHERE column1 = regionkey + 1)", tableName, secondTable));
+                verifySelect("onTrino", onTrino(), "SELECT * FROM " + tableName, "true", row(1, "ASIA"), row(2, "EUROPE"));
+            });
         });
     }
 
