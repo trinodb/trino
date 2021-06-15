@@ -28,12 +28,13 @@ import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class IgniteQueryRunner
 {
-    private static final String TPCH_SCHEMA = "public";
+    private static final String IGNITE_SCHEMA = "PUBLIC";
+
+    public static final String CREATE_CUSTOM = "CREATE TABLE ";
 
     private IgniteQueryRunner() {}
 
@@ -64,8 +65,8 @@ public final class IgniteQueryRunner
 
             queryRunner.installPlugin(new IgniteJdbcPlugin());
             queryRunner.createCatalog("ignite", "ignite", connectorProperties);
-//            server.execute("CREATE DATABASE " + TPCH_SCHEMA);
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+
+            copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
             return queryRunner;
         }
         catch (Throwable e) {
@@ -74,11 +75,25 @@ public final class IgniteQueryRunner
         }
     }
 
+    public static void copyFromTpchTables(
+            QueryRunner queryRunner,
+            String sourceCatalog,
+            String sourceSchema,
+            Session session,
+            Iterable<TpchTable<?>> tables)
+    {
+        // TODO create table then copy data.
+        long startTime = System.nanoTime();
+        for (TpchTable<?> table : tables) {
+
+        }
+    }
+
     public static Session createSession()
     {
         return testSessionBuilder()
                 .setCatalog("ignite")
-                .setSchema(TPCH_SCHEMA)
+                .setSchema(IGNITE_SCHEMA)
                 .build();
     }
 

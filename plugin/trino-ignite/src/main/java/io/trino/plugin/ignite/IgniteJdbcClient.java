@@ -20,6 +20,8 @@ import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -43,19 +45,23 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class IgniteJdbcClient
         extends BaseJdbcClient
@@ -64,7 +70,8 @@ public class IgniteJdbcClient
      * Ignite only support two schemas: sys and public.
      * The sys schema is a view of all metadata about the database. user tables are all under the schema public.
      */
-    private static final String IGNITE_SCHEMA = "public";
+    private static final String IGNITE_SYS_SCHEMA = "SYS";
+    private static final String IGNITE_SCHEMA = "PUBLIC";
 
     @Inject
     public IgniteJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
@@ -75,7 +82,7 @@ public class IgniteJdbcClient
     @Override
     public Collection<String> listSchemas(Connection connection)
     {
-        return ImmutableList.of(IGNITE_SCHEMA);
+        return ImmutableList.of(IGNITE_SYS_SCHEMA, IGNITE_SCHEMA);
     }
 
     @Override
@@ -84,7 +91,7 @@ public class IgniteJdbcClient
     {
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getTables(connection.getCatalog(),
-                IGNITE_SCHEMA,
+                connection.getSchema(),
                 tableName.orElse(null),
                 null);
     }
@@ -92,6 +99,7 @@ public class IgniteJdbcClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
+        // TODO complete type mapping
         switch (typeHandle.getJdbcType()) {
             case Types.VARCHAR:
                 return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), false));
@@ -100,11 +108,102 @@ public class IgniteJdbcClient
     }
 
     @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
+    {
+        SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            String remoteSchema = getIdentifierMapping().toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = getIdentifierMapping().toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String catalog = connection.getCatalog();
+
+            ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+            ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+            ImmutableList.Builder<JdbcTypeHandle> jdbcColumnTypes = ImmutableList.builder();
+            for (JdbcColumnHandle column : columns) {
+                columnNames.add(column.getColumnName());
+                columnTypes.add(column.getColumnType());
+                jdbcColumnTypes.add(column.getJdbcTypeHandle());
+            }
+
+            return new JdbcOutputTableHandle(
+                    catalog,
+                    remoteSchema,
+                    remoteTable,
+                    columnNames.build(),
+                    columnTypes.build(),
+                    Optional.of(jdbcColumnTypes.build()),
+                    remoteTable);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    {
+        String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
+
+        JdbcTableHandle tableHandle = getTableHandle(session, new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()))
+                .orElseThrow(() -> new TrinoException(INVALID_TABLE_PROPERTY, "Source table does not exists"));
+
+        Map<String, Object> properties = getTableProperties(session, new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        List<String> columnList = tableHandle.getColumns().get().stream()
+                .map(column -> getColumnDefinitionSql(session, column, column.getColumnName()))
+                .collect(toImmutableList());
+
+        String sql = createTableSql(new RemoteTableName(Optional.empty(), Optional.ofNullable(handle.getSchemaName()), handle.getTableName()), columnList, properties);
+
+        String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        String columnNames = handle.getColumnNames().stream()
+                .map(this::quoted)
+                .collect(joining(", "));
+        String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s", targetTable, columnNames, columnNames, temporaryTable);
+
+        try (Connection connection = getConnection(session, handle)) {
+            execute(connection, sql);
+            execute(connection, insertSql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    {
+    }
+
+    @Override
+    public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support rename table");
+    }
+
+    private String getColumnDefinitionSql(ConnectorSession session, JdbcColumnHandle columnHandle, String columnName)
+    {
+        StringBuilder sb = new StringBuilder()
+                .append(quoted(columnName))
+                .append(" ")
+                .append(toWriteMapping(session, columnHandle.getColumnType()).getDataType());
+        if (!columnHandle.isNullable()) {
+            sb.append(" NOT NULL");
+        }
+        return sb.toString();
+    }
+
+    @Override
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    {
+        return createTableSql(remoteTableName, columns, tableMetadata.getProperties());
+    }
+
+    private String createTableSql(RemoteTableName remoteTableName, List<String> columns, Map<String, Object> tableProperties)
     {
         ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
         ImmutableList.Builder<String> columnDefinitions = ImmutableList.builder();
-        Map<String, Object> tableProperties = tableMetadata.getProperties();
         columnDefinitions.addAll(columns);
 
         List<String> primaryKeys = IgniteTableProperties.getPrimaryKey(tableProperties);
@@ -163,13 +262,11 @@ public class IgniteJdbcClient
         return true;
     }
 
-    @Override
-    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
+    private Map<String, Object> getTableProperties(ConnectorSession session, SchemaTableName schemaTableName)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
         checkArgument(schemaTableName != null && schemaTableName.getSchemaName().equalsIgnoreCase("public"), "Ignite only support public schema");
-        String tableName = requireNonNull(schemaTableName.getTableName(), "Ignite table name can not be null").toUpperCase(Locale.ENGLISH);
+        String tableName = requireNonNull(schemaTableName.getTableName(), "Ignite table name can not be null").toUpperCase(ENGLISH);
         String sql = format("SELECT idx.CACHE_ID, " +
                 "che.CACHE_MODE as TEMPLATE, " +
                 "che.WRITE_SYNCHRONIZATION_MODE, " +
@@ -201,25 +298,32 @@ public class IgniteJdbcClient
                             }
                             break;
                         case IgniteTableProperties.BACK_UPS_PROPERTY:
-                            int backups = resultSet.getInt(property.toUpperCase());
-                            if (backups > 0) {
+                            int backups = resultSet.getInt(property.toUpperCase(ENGLISH));
+                            // backups should at least greater than 0, but default value is 1, we do not show the default value
+                            if (backups > 1) {
                                 properties.put(property, backups);
                             }
                             break;
                         case IgniteTableProperties.TEMPLATE_PROPERTY:
-                            Optional.ofNullable(resultSet.getString(property.toUpperCase()))
+                            Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH)))
                                     .map(IgniteTemplateType::valueOf)
+                                    .filter(template -> template != IgniteTemplateType.PARTITIONED)
                                     .ifPresent(value -> properties.put(property, value));
                             break;
                         case IgniteTableProperties.WRITE_SYNCHRONIZATION_MODE_PROPERTY:
-                            Optional.ofNullable(resultSet.getString(property.toUpperCase()))
+                            Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH)))
                                     .map(IgniteWriteSyncMode::valueOf)
+                                    .filter(mode -> mode != IgniteWriteSyncMode.FULL_SYNC)
                                     .ifPresent(value -> properties.put(property, value));
                             break;
                         case IgniteTableProperties.CACHE_NAME_PROPERTY:
                         case IgniteTableProperties.CACHE_GROUP_PROPERTY:
+                            Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH)))
+                                    .filter(name -> !name.equals("SQL_PUBLIC_" + tableName))
+                                    .ifPresent(value -> properties.put(property, value));
+                            break;
                         case IgniteTableProperties.DATA_REGION_PROPERTY:
-                            Optional.ofNullable(resultSet.getString(property.toUpperCase())).ifPresent(value -> properties.put(property, value));
+                            Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH))).ifPresent(value -> properties.put(property, value));
                             break;
                         default:
                             throw new IllegalStateException("Unexpected value: " + property);
@@ -234,6 +338,12 @@ public class IgniteJdbcClient
         return properties.build();
     }
 
+    @Override
+    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        return getTableProperties(session, tableHandle.asPlainTable().getSchemaTableName());
+    }
+
     // extract result from : "ID" ASC, "CITY_ID" ASC
     private List<String> extract(String row)
     {
@@ -244,7 +354,7 @@ public class IgniteJdbcClient
         for (String key : row.split(",")) {
             int left = key.indexOf("\"") + 1;
             int right = key.lastIndexOf("\"");
-            builder.add(key.substring(left, right).toLowerCase(Locale.ENGLISH));
+            builder.add(key.substring(left, right).toLowerCase(ENGLISH));
         }
         return builder.build();
     }
@@ -253,6 +363,11 @@ public class IgniteJdbcClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return legacyToWriteMapping(session, type);
+    }
+
+    @Override
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    {
     }
 
     @Override

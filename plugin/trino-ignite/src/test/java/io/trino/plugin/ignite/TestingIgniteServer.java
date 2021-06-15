@@ -31,7 +31,6 @@ public class TestingIgniteServer
                 .withStartupAttempts(10);
 
         dockerContainer.start();
-        System.out.println("aaaaaa");
     }
 
     public String getJdbcUrl()
