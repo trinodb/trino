@@ -43,6 +43,7 @@ public class GlueHiveMetastoreConfig
     private int readStatisticsThreads = 1;
     private int writeStatisticsThreads = 1;
     private boolean assumeCanonicalPartitionKeys;
+    private String s3SessionIdentifier = "trino-session";
 
     public Optional<String> getGlueRegion()
     {
@@ -270,6 +271,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
     {
         this.writeStatisticsThreads = writeStatisticsThreads;
+        return this;
+    }
+
+    public String getS3SessionIdentifier()
+    {
+        return s3SessionIdentifier;
+    }
+
+    @Config("hive.s3.session-identifier")
+    @ConfigDescription("Role session name for S3 access. ${USER} will be replaced with the Trino user.")
+    public GlueHiveMetastoreConfig setS3SessionIdentifier(String s3SessionIdentifier)
+    {
+        this.s3SessionIdentifier = s3SessionIdentifier;
         return this;
     }
 }
