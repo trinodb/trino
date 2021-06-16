@@ -37,12 +37,30 @@ public class TestSetDigestFunctions
     }
 
     @Test
-    public void testCardinality()
+    public void testCardinalityForBigintSetDigest()
     {
         assertThat(assertions.query(
                 "SELECT cardinality(make_set_digest(value)) " +
                         "FROM (VALUES 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5) T(value)"))
                 .matches("VALUES CAST(5 AS BIGINT)");
+    }
+
+    @Test
+    public void testCardinalityForVarcharSetDigest()
+    {
+        assertThat(assertions.query(
+                "SELECT cardinality(make_set_digest(value)) " +
+                        "FROM (VALUES 'trino', 'sql', 'everything', 'sql', 'trino') T(value)"))
+                .matches("VALUES CAST(3 AS BIGINT)");
+    }
+
+    @Test
+    public void testCardinalityForDateSetDigest()
+    {
+        assertThat(assertions.query(
+                "SELECT cardinality(make_set_digest(value)) " +
+                        "FROM (VALUES DATE '2001-08-22', DATE '2001-08-22', DATE '2001-08-23') T(value)"))
+                .matches("VALUES CAST(2 AS BIGINT)");
     }
 
     @Test
