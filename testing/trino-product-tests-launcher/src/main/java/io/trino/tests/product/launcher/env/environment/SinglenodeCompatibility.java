@@ -31,6 +31,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
@@ -63,6 +64,7 @@ public class SinglenodeCompatibility
     public void extendEnvironment(Environment.Builder builder)
     {
         configureCompatibilityTestContainer(builder, extraConfig);
+        configureTestsContainer(builder, extraConfig);
     }
 
     private void configureCompatibilityTestContainer(Environment.Builder builder, Config config)
@@ -97,6 +99,16 @@ public class SinglenodeCompatibility
         catch (NumberFormatException e) {
             throw new RuntimeException("Failed to parse version from docker image name " + dockerImageName);
         }
+    }
+
+    private void configureTestsContainer(Environment.Builder builder, Config config)
+    {
+        int version = getVersionFromDockerImageName(config.getCompatibilityTestDockerImage());
+        String temptoConfig = version <= 350 ? "presto-tempto-configuration.yaml" : "trino-tempto-configuration.yaml";
+        builder.configureContainer(TESTS, container -> container
+                .withCopyFileToContainer(
+                        forHostPath(configDir.getPath(temptoConfig)),
+                        "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml"));
     }
 
     protected int getVersionFromDockerImageName(String dockerImageName)
