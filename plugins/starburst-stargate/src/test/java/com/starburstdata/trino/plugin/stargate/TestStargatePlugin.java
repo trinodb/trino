@@ -101,7 +101,7 @@ public class TestStargatePlugin
                 .hasMessageContaining("Connection user is not configured");
 
         // PASSWORD authentication explicitly enabled
-        assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "jdbc:trino://localhost:8080/test", "starburst.authentication.type", "PASSWORD")))
+        assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "jdbc:trino://localhost:8080/test", "stargate.authentication.type", "PASSWORD")))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Connection user is not configured");
     }
@@ -121,7 +121,7 @@ public class TestStargatePlugin
                 "connection-url", "jdbc:trino://localhost:8080/test",
                 "connection-user", "presto",
                 "auth-to-local.config-file", AUTH_TO_LOCAL_FILE,
-                "starburst.impersonation.enabled", "true"));
+                "stargate.impersonation.enabled", "true"));
     }
 
     @Test
@@ -131,9 +131,9 @@ public class TestStargatePlugin
         assertThatThrownBy(() ->
                 createTestingPlugin(ImmutableMap.of(
                         "connection-url", "jdbc:trino://localhost:8080/test",
-                        "starburst.impersonation.enabled", "true",
+                        "stargate.impersonation.enabled", "true",
                         "auth-to-local.config-file", authToLocalFilePath,
-                        "starburst.authentication.type", "PASSWORD_PASS_THROUGH")))
+                        "stargate.authentication.type", "PASSWORD_PASS_THROUGH")))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("property 'auth-to-local.config-file' was not used");
     }
@@ -144,8 +144,8 @@ public class TestStargatePlugin
         assertThatThrownBy(() -> createTestingPlugin(
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", "jdbc:trino://localhost:8080/test")
-                        .put("starburst.impersonation.enabled", "true")
-                        .put("starburst.authentication.type", PASSWORD_PASS_THROUGH.name())
+                        .put("stargate.impersonation.enabled", "true")
+                        .put("stargate.authentication.type", PASSWORD_PASS_THROUGH.name())
                         .build()))
                 .isInstanceOf(RuntimeException.class)
                 .hasStackTraceContaining("Impersonation is not allowed when using credentials pass-through");
@@ -175,14 +175,14 @@ public class TestStargatePlugin
         createTestingPlugin(ImmutableMap.of(
                 "connection-url", "jdbc:trino://localhost:8080/test",
                 "connection-user", "presto",
-                "starburst.authentication.type", "PASSWORD",
+                "stargate.authentication.type", "PASSWORD",
                 "ssl.enabled", "true",
                 "ssl.truststore.path", "/dev/null"));
 
         createTestingPlugin(ImmutableMap.of(
                 "connection-url", "jdbc:trino://localhost:8080/test",
                 "connection-user", "presto",
-                "starburst.authentication.type", "PASSWORD",
+                "stargate.authentication.type", "PASSWORD",
                 "ssl.enabled", "false"));
     }
 
@@ -192,7 +192,7 @@ public class TestStargatePlugin
         Map<String, String> kerberosProperties = new ImmutableMap.Builder<String, String>()
                 .put("connection-url", "jdbc:trino://localhost:8080/hive")
                 .put("connection-user", "user")
-                .put("starburst.authentication.type", "KERBEROS")
+                .put("stargate.authentication.type", "KERBEROS")
                 .put("kerberos.config", "/dev/null")
                 .put("kerberos.client.keytab", "/dev/null")
                 .put("kerberos.client.principal", "client@kerberos.com")
@@ -217,13 +217,13 @@ public class TestStargatePlugin
     {
         Map<String, String> kerberosProperties = new ImmutableMap.Builder<String, String>()
                 .put("connection-url", "jdbc:trino://localhost:8080/hive")
-                .put("starburst.authentication.type", "KERBEROS")
+                .put("stargate.authentication.type", "KERBEROS")
                 .put("kerberos.config", "/dev/null")
                 .put("kerberos.client.keytab", "/dev/null")
                 .put("kerberos.client.principal", "client@kerberos.com")
                 .put("kerberos.remote.service-name", "remote-service")
                 .put("ssl.enabled", "true")
-                .put("starburst.impersonation.enabled", "true")
+                .put("stargate.impersonation.enabled", "true")
                 .put("auth-to-local.config-file", AUTH_TO_LOCAL_FILE)
                 .build();
 

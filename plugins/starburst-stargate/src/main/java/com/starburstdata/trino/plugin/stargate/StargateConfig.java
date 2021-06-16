@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugin.stargate;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 
 import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.PASSWORD;
 
@@ -25,7 +26,8 @@ public class StargateConfig
         return authenticationType;
     }
 
-    @Config("starburst.authentication.type")
+    @LegacyConfig("starburst.authentication.type")
+    @Config("stargate.authentication.type")
     public StargateConfig setAuthenticationType(StargateAuthenticationType authenticationType)
     {
         this.authenticationType = authenticationType;
@@ -37,7 +39,8 @@ public class StargateConfig
         return impersonationEnabled;
     }
 
-    @Config("starburst.impersonation.enabled")
+    @LegacyConfig("starburst.impersonation.enabled")
+    @Config("stargate.impersonation.enabled")
     @ConfigDescription("Impersonate session user in remote Starburst Enterprise cluster")
     public StargateConfig setImpersonationEnabled(boolean impersonationEnabled)
     {
