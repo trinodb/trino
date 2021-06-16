@@ -22,6 +22,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
@@ -44,7 +45,9 @@ import static java.util.Objects.requireNonNull;
 public class AggregationQueryPageSource
         implements ConnectorPageSource
 {
-    private long readTimeNanos;
+    // Since the Decoder defined SearchHit as parameter, we have to pass SearchHit instance to decode.
+    // But when push aggregation down, we never need SearchHit. So NO_UESD just act as a placeholder.
+    private static final SearchHit NO_UESD = new SearchHit(0);
     private final List<Decoder> decoders;
     private final BlockBuilder[] columnBuilders;
     private final List<ElasticsearchColumnHandle> columns;
@@ -52,10 +55,12 @@ public class AggregationQueryPageSource
     private final ElasticsearchTableHandle table;
     private final ElasticsearchSplit split;
     private final int pageSize;
+    private long readTimeNanos;
+    private QueryBuilder queryBuilder;
     // the after parameter that composite aggregation used to fetch by page
-    private Optional<Map<String, Object>> after;
+    private Optional<Map<String, Object>> after = Optional.empty();
     private boolean fetched;
-    private static final SearchHit noUsed = new SearchHit(0);
+    private long fetchedSize;
 
     public AggregationQueryPageSource(
             ElasticsearchClient client,
@@ -71,9 +76,12 @@ public class AggregationQueryPageSource
         this.client = client;
         this.table = table;
         this.split = split;
-        this.pageSize = (int) table.getLimit().stream().filter(limit -> limit < pageSize).findFirst().orElse(pageSize);
+        if (table.getLimit().isPresent()) {
+            pageSize = (int) Math.min(table.getLimit().getAsLong(), pageSize);
+        }
+        this.pageSize = pageSize;
+        this.queryBuilder = buildSearchQuery(table.getConstraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.getQuery());
         this.columns = columns;
-        this.after = Optional.empty();
         columnBuilders = columns.stream()
                 .map(ElasticsearchColumnHandle::getType)
                 .map(type -> type.createBlockBuilder(null, 1))
@@ -96,7 +104,10 @@ public class AggregationQueryPageSource
     @Override
     public boolean isFinished()
     {
-        return fetched && after.isEmpty();
+        // One of the following situation may stop the fetching
+        // 1. afterKey is empty, that means no more result can be fetched
+        // 2. fetchedSize >= the potential limit constraint
+        return (fetched && after.isEmpty()) || (table.getLimit().isPresent() && fetchedSize >= table.getLimit().getAsLong());
     }
 
     @Override
@@ -106,7 +117,7 @@ public class AggregationQueryPageSource
         SearchResponse searchResponse = client.beginSearch(
                 split.getIndex(),
                 split.getShard(),
-                buildSearchQuery(table.getConstraint().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()),
+                this.queryBuilder,
                 Optional.ofNullable(
                         buildAggregationQuery(table.getTermAggregations(), table.getMetricAggregations(), Optional.of(pageSize), after)),
                 Optional.empty(),
@@ -116,11 +127,12 @@ public class AggregationQueryPageSource
         readTimeNanos += System.nanoTime() - start;
         fetched = true;
         List<Map<String, Object>> flatResult = getResult(searchResponse);
+        fetchedSize += flatResult.size();
         after = extractAfter(searchResponse);
         for (Map<String, Object> result : flatResult) {
             for (int i = 0; i < columns.size(); i++) {
                 String key = columns.get(i).getName();
-                decoders.get(i).decode(noUsed, () -> result.get(key), columnBuilders[i]);
+                decoders.get(i).decode(NO_UESD, () -> result.get(key), columnBuilders[i]);
             }
         }
         Block[] blocks = new Block[columnBuilders.length];
@@ -253,7 +265,7 @@ public class AggregationQueryPageSource
     private List<Decoder> createDecoders(List<ElasticsearchColumnHandle> columns)
     {
         return columns.stream()
-                .map(column -> ScanQueryPageSource.createDecoder(column.getName(), column.getType()))
+                .map(column -> DecoderFactory.createDecoder(column.getName(), column.getType()))
                 .collect(toImmutableList());
     }
 }

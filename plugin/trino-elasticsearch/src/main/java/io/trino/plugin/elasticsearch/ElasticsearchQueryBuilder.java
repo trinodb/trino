@@ -69,12 +69,12 @@ public final class ElasticsearchQueryBuilder
 {
     private ElasticsearchQueryBuilder() {}
 
-    private static final Map<String, BiFunction<String, String, AggregationBuilder>> converters =
-            ImmutableMap.of(MetricAggregation.AGG_MAX, (alias, field) -> new MaxAggregationBuilder(alias).field(field),
-                    MetricAggregation.AGG_MIN, (alias, field) -> new MinAggregationBuilder(alias).field(field),
-                    MetricAggregation.AGG_SUM, (alias, field) -> new StatsAggregationBuilder(alias).field(field),
-                    MetricAggregation.AGG_AVG, (alias, field) -> new AvgAggregationBuilder(alias).field(field),
-                    MetricAggregation.AGG_COUNT, (alias, field) -> new ValueCountAggregationBuilder(alias, null).field(field));
+    private static final Map<String, BiFunction<String, String, AggregationBuilder>> CONVERTERS =
+            ImmutableMap.of(MetricAggregation.MAX, (alias, field) -> new MaxAggregationBuilder(alias).field(field),
+                    MetricAggregation.MIN, (alias, field) -> new MinAggregationBuilder(alias).field(field),
+                    MetricAggregation.SUM, (alias, field) -> new StatsAggregationBuilder(alias).field(field),
+                    MetricAggregation.AVG, (alias, field) -> new AvgAggregationBuilder(alias).field(field),
+                    MetricAggregation.COUNT, (alias, field) -> new ValueCountAggregationBuilder(alias, null).field(field));
 
     private static AggregationBuilder buildMetricAggregation(MetricAggregation aggregation)
     {
@@ -86,12 +86,10 @@ public final class ElasticsearchQueryBuilder
         else {
             field = column.get().getName();
         }
-        return converters.get(aggregation.getFunctionName()).apply(aggregation.getAlias(), field);
+        return CONVERTERS.get(aggregation.getFunctionName()).apply(aggregation.getAlias(), field);
     }
 
-    public static List<AggregationBuilder> buildAggregationQuery(
-            List<TermAggregation> termAggregations,
-            List<MetricAggregation> aggregates)
+    public static List<AggregationBuilder> buildAggregationQuery(List<TermAggregation> termAggregations, List<MetricAggregation> aggregates)
     {
         return buildAggregationQuery(termAggregations, aggregates, Optional.empty(), Optional.empty());
     }

@@ -85,7 +85,7 @@ public class ElasticsearchConfig
         return aggregationPushdownEnabled;
     }
 
-    @Config("aggregation-pushdown.enabled")
+    @Config("elasticsearch.aggregation-pushdown.enabled")
     @ConfigDescription("Enable aggregation pushdown")
     public ElasticsearchConfig setAggregationPushdownEnabled(boolean aggregationPushdownEnabled)
     {

@@ -17,31 +17,13 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
-import io.trino.plugin.elasticsearch.decoders.ArrayDecoder;
-import io.trino.plugin.elasticsearch.decoders.BigintDecoder;
-import io.trino.plugin.elasticsearch.decoders.BooleanDecoder;
 import io.trino.plugin.elasticsearch.decoders.Decoder;
-import io.trino.plugin.elasticsearch.decoders.DoubleDecoder;
-import io.trino.plugin.elasticsearch.decoders.IdColumnDecoder;
-import io.trino.plugin.elasticsearch.decoders.IntegerDecoder;
-import io.trino.plugin.elasticsearch.decoders.IpAddressDecoder;
-import io.trino.plugin.elasticsearch.decoders.RealDecoder;
-import io.trino.plugin.elasticsearch.decoders.RowDecoder;
-import io.trino.plugin.elasticsearch.decoders.ScoreColumnDecoder;
-import io.trino.plugin.elasticsearch.decoders.SmallintDecoder;
-import io.trino.plugin.elasticsearch.decoders.SourceColumnDecoder;
-import io.trino.plugin.elasticsearch.decoders.TimestampDecoder;
-import io.trino.plugin.elasticsearch.decoders.TinyintDecoder;
-import io.trino.plugin.elasticsearch.decoders.VarbinaryDecoder;
-import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
@@ -56,21 +38,10 @@ import java.util.OptionalLong;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.elasticsearch.BuiltinColumns.ID;
-import static io.trino.plugin.elasticsearch.BuiltinColumns.SCORE;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.SOURCE;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.isBuiltinColumn;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
 import static java.util.stream.Collectors.toList;
@@ -99,7 +70,7 @@ public class ScanQueryPageSource
 
         this.columns = ImmutableList.copyOf(columns);
 
-        decoders = createDecoders(columns);
+        decoders = DecoderFactory.createDecoders(columns);
 
         // When the _source field is requested, we need to bypass column pruning when fetching the document
         boolean needAllFields = columns.stream()
@@ -250,85 +221,6 @@ public class ScanQueryPageSource
         else {
             result.put(fieldName, type);
         }
-    }
-
-    private List<Decoder> createDecoders(List<ElasticsearchColumnHandle> columns)
-    {
-        return columns.stream()
-                .map(column -> {
-                    if (column.getName().equals(ID.getName())) {
-                        return new IdColumnDecoder();
-                    }
-
-                    if (column.getName().equals(SCORE.getName())) {
-                        return new ScoreColumnDecoder();
-                    }
-
-                    if (column.getName().equals(SOURCE.getName())) {
-                        return new SourceColumnDecoder();
-                    }
-
-                    return createDecoder(column.getName(), column.getType());
-                })
-                .collect(toImmutableList());
-    }
-
-    public static Decoder createDecoder(String path, Type type)
-    {
-        if (type.equals(VARCHAR)) {
-            return new VarcharDecoder(path);
-        }
-        if (type.equals(VARBINARY)) {
-            return new VarbinaryDecoder(path);
-        }
-        if (type.equals(TIMESTAMP_MILLIS)) {
-            return new TimestampDecoder(path);
-        }
-        if (type.equals(BOOLEAN)) {
-            return new BooleanDecoder(path);
-        }
-        if (type.equals(DOUBLE)) {
-            return new DoubleDecoder(path);
-        }
-        if (type.equals(REAL)) {
-            return new RealDecoder(path);
-        }
-        if (type.equals(TINYINT)) {
-            return new TinyintDecoder(path);
-        }
-        if (type.equals(SMALLINT)) {
-            return new SmallintDecoder(path);
-        }
-        if (type.equals(INTEGER)) {
-            return new IntegerDecoder(path);
-        }
-        if (type.equals(BIGINT)) {
-            return new BigintDecoder(path);
-        }
-        if (type.getBaseName().equals(StandardTypes.IPADDRESS)) {
-            return new IpAddressDecoder(path, type);
-        }
-        if (type instanceof RowType) {
-            RowType rowType = (RowType) type;
-
-            List<Decoder> decoders = rowType.getFields().stream()
-                    .map(field -> createDecoder(appendPath(path, field.getName().get()), field.getType()))
-                    .collect(toImmutableList());
-
-            List<String> fieldNames = rowType.getFields().stream()
-                    .map(RowType.Field::getName)
-                    .map(Optional::get)
-                    .collect(toImmutableList());
-
-            return new RowDecoder(path, fieldNames, decoders);
-        }
-        if (type instanceof ArrayType) {
-            Type elementType = ((ArrayType) type).getElementType();
-
-            return new ArrayDecoder(createDecoder(path, elementType));
-        }
-
-        throw new UnsupportedOperationException("Type not supported: " + type);
     }
 
     private static String appendPath(String base, String element)

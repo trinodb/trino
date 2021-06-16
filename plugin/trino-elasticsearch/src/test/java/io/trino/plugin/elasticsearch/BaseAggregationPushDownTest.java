@@ -15,6 +15,7 @@ package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import org.testng.annotations.Test;
@@ -57,6 +58,12 @@ public abstract class BaseAggregationPushDownTest
 
         // The groups of custKey is more than 50(page size), so the case must trigger AggregationQueryPageSource#getNextPage multiple times
         assertThat(query("SELECT custkey, sum(totalprice) FROM orders GROUP BY custkey")).isFullyPushedDown();
+
+        // Assert that inner aggregation can be still pushed down
+        assertThat(query("SELECT sum(DISTINCT regionkey) FROM nation"))
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
+        assertThat(query("SELECT max(x) FROM (SELECT regionkey, min(nationkey) as x FROM nation GROUP BY regionkey)"))
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
     }
 
     @Test

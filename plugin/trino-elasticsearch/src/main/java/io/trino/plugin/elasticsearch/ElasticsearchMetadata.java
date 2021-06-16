@@ -68,7 +68,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.elasticsearch.ElasticsearchConnector.AGGREGATION_PUSHDOWN_ENABLED;
-import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGG;
+import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGGREGATION;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -138,21 +138,25 @@ public class ElasticsearchMetadata
         }
         Version version = client.getVersion();
         // in order to support null bucket, we need missing_bucket in composite aggregation which was introduced in 6.4.0
-        if (version == null || version.before(ElasticsearchClient.MINIMUM_VERSION_REQUIRE_FOR_AGG_PUSHDOWN)) {
+        if (version.before(ElasticsearchClient.MINIMUM_VERSION_REQUIRE_FOR_AGG_PUSHDOWN)) {
             return Optional.empty();
         }
         // Global aggregation is represented by [[]]
         verify(!groupingSets.isEmpty(), "No grouping sets provided");
-        if (handle.getTermAggregations() != null && !handle.getTermAggregations().isEmpty()) {
-            // applyAggregation may be called multiple times target on the same ElasticsearchTableHandle
-            // for example
-            // SELECT sum(DISTINCT regionkey) FROM nation
-            // will be split into two logic phrase:
-            // 1. table a -> select regionkey from nation group by regionkey
-            // 2. select sum(regionkey) from a
-            // so the first call of applyAggregation will only contains groupby set
-            // and the second call will contains aggregates(sum)
-            // we skip the second one, but the first group by will be still applied
+        if (!handle.getTermAggregations().isEmpty()) {
+            /*
+             applyAggregation may be called multiple times if an aggregation is done over the results of another aggregation
+             for example
+
+              SELECT sum(DISTINCT regionkey) FROM nation
+
+              SELECT max(x)
+                FROM (
+                  SELECT k, sum(v) AS x
+                    FROM t
+                  GROUP BY k)
+             We skip the second one, but the first group by will be still applied
+             */
             return Optional.empty();
         }
 
@@ -187,7 +191,7 @@ public class ElasticsearchMetadata
         List<MetricAggregation> aggregationList = metricAggregations.build();
         List<TermAggregation> termAggregationList = termAggregations.build();
         ElasticsearchTableHandle tableHandle = new ElasticsearchTableHandle(
-                AGG,
+                AGGREGATION,
                 handle.getSchema(),
                 handle.getIndex(),
                 handle.getConstraint(),

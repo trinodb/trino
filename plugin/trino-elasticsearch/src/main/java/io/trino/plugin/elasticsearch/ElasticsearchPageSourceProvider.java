@@ -28,7 +28,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGG;
+import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGGREGATION;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static java.util.Objects.requireNonNull;
 
@@ -65,7 +65,7 @@ public class ElasticsearchPageSourceProvider
             return new PassthroughQueryPageSource(client, elasticsearchTable);
         }
 
-        if (elasticsearchTable.getType().equals(AGG)) {
+        if (elasticsearchTable.getType().equals(AGGREGATION)) {
             return new AggregationQueryPageSource(
                     client,
                     elasticsearchTable,

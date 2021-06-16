@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -34,7 +35,14 @@ public final class ElasticsearchTableHandle
 {
     public enum Type
     {
-        SCAN, QUERY, AGG
+        // constraint/limit may be applied in SCAN mode
+        SCAN,
+        // only query should be applied in QUERY mode
+        QUERY,
+        // constraint/limit/termAggregations/metricAggregations may be applied in AGGREGATION mode.
+        // The order of parameters used for target index should be:
+        //  constraint -> termAggregations/metricAggregations -> limit
+        AGGREGATION
     }
 
     private final Type type;
@@ -141,17 +149,19 @@ public final class ElasticsearchTableHandle
         }
         ElasticsearchTableHandle that = (ElasticsearchTableHandle) o;
         return type == that.type &&
-                schema.equals(that.schema) &&
-                index.equals(that.index) &&
-                constraint.equals(that.constraint) &&
-                query.equals(that.query) &&
-                limit.equals(that.limit);
+                Objects.equals(schema, that.schema) &&
+                Objects.equals(index, that.index) &&
+                Objects.equals(constraint, that.constraint) &&
+                Objects.equals(query, that.query) &&
+                Objects.equals(limit, that.limit) &&
+                Objects.equals(termAggregations, that.termAggregations) &&
+                Objects.equals(metricAggregations, that.metricAggregations);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, schema, index, constraint, query, limit);
+        return Objects.hash(type, schema, index, constraint, query, limit, termAggregations, metricAggregations);
     }
 
     @Override
@@ -163,6 +173,16 @@ public final class ElasticsearchTableHandle
         StringBuilder attributes = new StringBuilder();
         limit.ifPresent(value -> attributes.append("limit=" + value));
         query.ifPresent(value -> attributes.append("query" + value));
+        if (termAggregations != null) {
+            attributes.append("termAggregations[");
+            attributes.append(termAggregations.stream().map(TermAggregation::toString).collect(Collectors.joining(",")));
+            attributes.append("]");
+        }
+        if (metricAggregations != null) {
+            attributes.append("metricAggregations[");
+            attributes.append(metricAggregations.stream().map(MetricAggregation::toString).collect(Collectors.joining(",")));
+            attributes.append("]");
+        }
 
         if (attributes.length() > 0) {
             builder.append("(");

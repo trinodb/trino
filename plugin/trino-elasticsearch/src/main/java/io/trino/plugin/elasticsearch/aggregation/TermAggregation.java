@@ -19,6 +19,7 @@ import io.trino.plugin.elasticsearch.ElasticsearchColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
+import java.util.Objects;
 import java.util.Optional;
 
 public class TermAggregation
@@ -56,5 +57,31 @@ public class TermAggregation
         else {
             return Optional.empty();
         }
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        TermAggregation that = (TermAggregation) o;
+        return Objects.equals(term, that.term) &&
+                Objects.equals(type, that.type);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(term, type);
+    }
+
+    @Override
+    public String toString()
+    {
+        return term;
     }
 }

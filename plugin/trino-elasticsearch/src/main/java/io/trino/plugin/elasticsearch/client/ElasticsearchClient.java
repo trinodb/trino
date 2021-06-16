@@ -454,7 +454,7 @@ public class ElasticsearchClient
 
     private void fetchVersion()
     {
-        this.version = doRequest("/", body -> {
+        version = doRequest("/", body -> {
             try {
                 JsonNode root = OBJECT_MAPPER.readTree(body);
                 String versionString = root.get("version").get("number").asText();
@@ -468,7 +468,7 @@ public class ElasticsearchClient
 
     public Version getVersion()
     {
-        return this.version;
+        return version;
     }
 
     public boolean indexExists(String index)
@@ -674,12 +674,19 @@ public class ElasticsearchClient
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
                 .query(query);
 
-        if (limit.isPresent() && limit.getAsLong() < scrollSize) {
-            // Safe to cast it to int because scrollSize is int.
-            sourceBuilder.size(toIntExact(limit.getAsLong()));
+        // apply aggregation to sourceBuilder if the query includes aggregation
+        if (aggregations.isPresent()) {
+            aggregations.get().forEach(sourceBuilder::aggregation);
+            sourceBuilder.size(0);
         }
         else {
-            sourceBuilder.size(scrollSize);
+            if (limit.isPresent() && limit.getAsLong() < scrollSize) {
+                // Safe to cast it to int because scrollSize is int.
+                sourceBuilder.size(toIntExact(limit.getAsLong()));
+            }
+            else {
+                sourceBuilder.size(scrollSize);
+            }
         }
 
         sort.ifPresent(sourceBuilder::sort);
@@ -694,22 +701,17 @@ public class ElasticsearchClient
         });
         documentFields.forEach(sourceBuilder::docValueField);
 
+        LOG.debug("Begin search: %s:%s, query: %s", index, shard, sourceBuilder);
+
         SearchRequest request = new SearchRequest(index)
                 .searchType(QUERY_THEN_FETCH)
                 .source(sourceBuilder);
 
-        // apply aggregation to sourceBuilder if the query includes aggregation
-        // also must not use _shards and scroll in this case
-        if (aggregations.isPresent()) {
-            aggregations.get().forEach(sourceBuilder::aggregation);
-            sourceBuilder.size(0);
-        }
-        else {
+        // must not set _shards and scroll when apply aggregation
+        if (aggregations.isEmpty()) {
             request.preference("_shards:" + shard)
                     .scroll(new TimeValue(scrollTimeout.toMillis()));
         }
-
-        LOG.debug("Begin search: %s:%s, query: %s", index, shard, sourceBuilder);
 
         long start = System.nanoTime();
         try {
