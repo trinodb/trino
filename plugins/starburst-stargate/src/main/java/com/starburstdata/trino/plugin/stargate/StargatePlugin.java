@@ -24,7 +24,7 @@ import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
-import static com.starburstdata.presto.license.StarburstFeature.STARBURST_CONNECTOR;
+import static com.starburstdata.presto.license.StarburstFeature.STARGATE;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
@@ -42,7 +42,7 @@ public class StargatePlugin
     @VisibleForTesting
     Iterable<ConnectorFactory> getConnectorFactories(LicenseManager licenseManager, boolean enableWrites)
     {
-        ConnectorFactory connectorFactory = new LicenceCheckingConnectorFactory(STARBURST_CONNECTOR, getConnectorFactory(licenseManager, enableWrites), licenseManager);
+        ConnectorFactory connectorFactory = new LicenceCheckingConnectorFactory(STARGATE, getConnectorFactory(licenseManager, enableWrites), licenseManager);
         return ImmutableList.of(connectorFactory, new LegacyConnectorFactory(connectorFactory));
     }
 
