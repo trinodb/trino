@@ -778,11 +778,6 @@ public class IcebergMetadata
         return false;
     }
 
-    public HiveMetastore getMetastore()
-    {
-        return metastore;
-    }
-
     public void rollback()
     {
         // TODO: cleanup open transaction
