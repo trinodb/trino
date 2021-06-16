@@ -230,7 +230,7 @@ public final class PropertyDerivations
             }
 
             return ActualProperties.builderFrom(properties)
-                    .global(partitionedOn(ARBITRARY_DISTRIBUTION, ImmutableList.of(node.getIdColumn()), Optional.empty()))
+                    .global(partitionedOn(ARBITRARY_DISTRIBUTION, ImmutableList.of(node.getIdColumn()), Optional.of(ImmutableList.of(node.getIdColumn()))))
                     .local(newLocalProperties.build())
                     .build();
         }
