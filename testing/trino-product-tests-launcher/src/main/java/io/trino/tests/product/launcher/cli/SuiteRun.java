@@ -227,9 +227,10 @@ public class SuiteRun
             Joiner joiner = Joiner.on("\n");
 
             ConsoleTable table = new ConsoleTable();
-            table.addHeader("environment", "groups", "excluded groups", "tests", "excluded tests");
+            table.addHeader("environment", "options", "groups", "excluded groups", "tests", "excluded tests");
             suiteTestRuns.forEach(testRun -> table.addRow(
                     testRun.getEnvironmentName(),
+                    testRun.getExtraOptions(),
                     joiner.join(testRun.getGroups()),
                     joiner.join(testRun.getExcludedGroups()),
                     joiner.join(testRun.getTests()),
@@ -305,6 +306,7 @@ public class SuiteRun
         {
             TestRun.TestRunOptions testRunOptions = new TestRun.TestRunOptions();
             testRunOptions.environment = suiteTestRun.getEnvironmentName();
+            testRunOptions.extraOptions = suiteTestRun.getExtraOptions();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments();
             testRunOptions.testJar = suiteRunOptions.testJar;
             testRunOptions.cliJar = suiteRunOptions.cliJar;
@@ -349,7 +351,7 @@ public class SuiteRun
     static class TestRunResult
     {
         public static final Object[] HEADER = {
-                "id", "suite", "environment", "config", "status", "elapsed", "error"
+                "id", "suite", "environment", "config", "options", "status", "elapsed", "error"
         };
 
         private final String runId;
@@ -394,6 +396,7 @@ public class SuiteRun
                     suiteName,
                     suiteRun.getEnvironmentName(),
                     environmentConfig.getConfigName(),
+                    suiteRun.getExtraOptions(),
                     hasFailed() ? "FAILED" : "SUCCESS",
                     duration,
                     throwable.map(Throwable::getMessage).orElse("-")};
