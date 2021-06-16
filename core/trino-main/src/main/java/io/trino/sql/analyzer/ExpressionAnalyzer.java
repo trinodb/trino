@@ -1810,7 +1810,7 @@ public class ExpressionAnalyzer
                 type = metadata.getType(toTypeSignature(node.getType()));
             }
             catch (TypeNotFoundException e) {
-                throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getType());
+                throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s, %s", node.getType(), e.getMessage());
             }
 
             if (type.equals(UNKNOWN)) {

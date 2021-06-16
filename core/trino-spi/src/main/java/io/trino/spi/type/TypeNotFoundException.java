@@ -30,7 +30,7 @@ public class TypeNotFoundException
 
     public TypeNotFoundException(TypeSignature type, Throwable cause)
     {
-        super(TYPE_NOT_FOUND, "Unknown type: " + type, cause);
+        super(TYPE_NOT_FOUND, cause == null ? ("Unknown type: " + type) : cause.getMessage(), cause);
         this.type = requireNonNull(type, "type is null");
     }
 
