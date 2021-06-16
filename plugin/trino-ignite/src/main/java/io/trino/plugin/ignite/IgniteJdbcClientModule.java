@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.ignite;
 
+import com.google.common.base.Preconditions;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -24,10 +25,13 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import org.apache.ignite.IgniteJdbcDriver;
 import org.apache.ignite.IgniteJdbcThinDriver;
 
+import java.sql.SQLException;
 import java.util.Properties;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
 public class IgniteJdbcClientModule
@@ -44,10 +48,13 @@ public class IgniteJdbcClientModule
     @Singleton
     @ForBaseJdbc
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+            throws SQLException
     {
+        IgniteJdbcThinDriver driver = new IgniteJdbcThinDriver();
+        checkArgument(driver.acceptsURL(config.getConnectionUrl()), "Presto only support Ignite thin client");
         Properties connectionProperties = new Properties();
         return new DriverConnectionFactory(
-                new IgniteJdbcThinDriver(),
+                driver,
                 config.getConnectionUrl(),
                 connectionProperties,
                 credentialProvider);

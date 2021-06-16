@@ -28,14 +28,11 @@ public class TestIgniteContainer
      * @deprecated
      */
     @Deprecated
-    public static final String IMAGE;
-    /**
-     * @deprecated
-     */
-    @Deprecated
+    public static final String IMAGE = DEFAULT_IMAGE_NAME.getUnversionedPart();
+
     public static final String DEFAULT_TAG = "2.10.0";
-    public static final Integer HTTP_PORT;
-    public static final Integer NATIVE_PORT;
+    public static final Integer HTTP_PORT = 10800;
+    public static final Integer NATIVE_PORT = 18000;
     private static final String DRIVER_CLASS_NAME = "org.apache.ignite.IgniteJdbcThinDriver";
     private static final String JDBC_URL_PREFIX = "jdbc:ignite:thin://";
     private static final String TEST_QUERY = "SELECT 1";
@@ -49,7 +46,7 @@ public class TestIgniteContainer
     @Deprecated
     public TestIgniteContainer()
     {
-        this(DEFAULT_IMAGE_NAME.withTag("2.10.0"));
+        this(DEFAULT_IMAGE_NAME.withTag(DEFAULT_TAG));
     }
 
     public TestIgniteContainer(String dockerImageName)
@@ -65,24 +62,17 @@ public class TestIgniteContainer
         this.password = "";
         dockerImageName.assertCompatibleWith(new DockerImageName[] {DEFAULT_IMAGE_NAME});
         this.withExposedPorts(new Integer[] {HTTP_PORT, NATIVE_PORT});
-        this.waitingFor((new HttpWaitStrategy()).forStatusCode(200).forResponsePredicate((responseBody) -> {
-            return "Ok.".equals(responseBody);
-        }).withStartupTimeout(Duration.ofMinutes(1L)));
-    }
-
-    protected Integer getLivenessCheckPort()
-    {
-        return this.getMappedPort(HTTP_PORT);
+        this.waitingFor((new HttpWaitStrategy()).forStatusCode(200).forResponsePredicate("Ok."::equals).withStartupTimeout(Duration.ofMinutes(1L)));
     }
 
     public String getDriverClassName()
     {
-        return "org.apache.ignite.IgniteJdbcThinDriver";
+        return DRIVER_CLASS_NAME;
     }
 
     public String getJdbcUrl()
     {
-        return "jdbc:ignite:thin://" + this.getHost() + ":" + this.getMappedPort(HTTP_PORT) + "/" + this.databaseName;
+        return JDBC_URL_PREFIX + this.getHost() + ":" + this.getMappedPort(HTTP_PORT) + "/" + this.databaseName;
     }
 
     public String getUsername()
@@ -97,17 +87,11 @@ public class TestIgniteContainer
 
     public String getTestQueryString()
     {
-        return "SELECT 1";
+        return TEST_QUERY;
     }
 
     public TestIgniteContainer withUrlParam(String paramName, String paramValue)
     {
-        throw new UnsupportedOperationException("The ignite does not support this");
-    }
-
-    static {
-        IMAGE = DEFAULT_IMAGE_NAME.getUnversionedPart();
-        HTTP_PORT = 18000;
-        NATIVE_PORT = 9000;
+        throw new UnsupportedOperationException("The " + NAME + " does not support this");
     }
 }

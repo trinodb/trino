@@ -22,19 +22,67 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.intellij.lang.annotations.Language;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalLong;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.QueryAssertions.assertUpdate;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class IgniteQueryRunner
 {
-    private static final String IGNITE_SCHEMA = "PUBLIC";
+    private static final Logger log = Logger.get(IgniteQueryRunner.class);
 
-    public static final String CREATE_CUSTOM = "CREATE TABLE ";
+    private static final String IGNITE_SCHEMA = "public";
+
+    public static final String CREATE_CUSTOM = "CREATE TABLE customer (" +
+            "custkey bigint NOT NULL," +
+            "name varchar(25) NOT NULL," +
+            "address varchar(40) NOT NULL," +
+            "nationkey bigint NOT NULL," +
+            "phone varchar(15) NOT NULL," +
+            "acctbal double NOT NULL," +
+            "mktsegment varchar(10) NOT NULL," +
+            "comment varchar(117) NOT NULL )" +
+            "WITH (" +
+            "primary_key = ARRAY['custkey'])";
+
+    public static final String CREATE_NATION = "CREATE TABLE nation (" +
+            "nationkey bigint NOT NULL," +
+            "name varchar(25) NOT NULL," +
+            "regionkey bigint NOT NULL," +
+            "comment varchar(152) NOT NULL )" +
+            "WITH (" +
+            "primary_key = ARRAY['nationkey'])";
+
+    public static final String CREATE_ORDERS = " CREATE TABLE orders (" +
+            "orderkey bigint NOT NULL," +
+            "custkey bigint NOT NULL," +
+            "orderstatus varchar(1) NOT NULL," +
+            "totalprice double NOT NULL," +
+            "orderdate date NOT NULL," +
+            "orderpriority varchar(15) NOT NULL," +
+            "clerk varchar(15) NOT NULL," +
+            "shippriority integer NOT NULL," +
+            "comment varchar(79) NOT NULL) " +
+            " WITH ( " +
+            "primary_key = ARRAY['orderkey'])";
+
+    public static final String CREATE_REGION = " CREATE TABLE region (" +
+            "regionkey bigint NOT NULL," +
+            "name varchar(25) NOT NULL," +
+            "comment varchar(152) NOT NULL)" +
+            "WITH ( " +
+            "primary_key = ARRAY['regionkey'])";
 
     private IgniteQueryRunner() {}
 
@@ -65,7 +113,6 @@ public final class IgniteQueryRunner
 
             queryRunner.installPlugin(new IgniteJdbcPlugin());
             queryRunner.createCatalog("ignite", "ignite", connectorProperties);
-
             copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
             return queryRunner;
         }
@@ -82,11 +129,26 @@ public final class IgniteQueryRunner
             Session session,
             Iterable<TpchTable<?>> tables)
     {
-        // TODO create table then copy data.
-        long startTime = System.nanoTime();
+        assertUpdate(queryRunner, session, CREATE_CUSTOM, OptionalLong.empty(), Optional.empty());
+        assertUpdate(queryRunner, session, CREATE_NATION, OptionalLong.empty(), Optional.empty());
+        assertUpdate(queryRunner, session, CREATE_REGION, OptionalLong.empty(), Optional.empty());
+        assertUpdate(queryRunner, session, CREATE_ORDERS, OptionalLong.empty(), Optional.empty());
         for (TpchTable<?> table : tables) {
-
+            copyTable(queryRunner, sourceCatalog + "." + sourceSchema + "." + table.getTableName(), table.getTableName(), session);
         }
+    }
+
+    private static void copyTable(QueryRunner queryRunner, String remoteTable, String targetTableName, Session session)
+    {
+        long start = System.nanoTime();
+        log.info("Running import for %s", remoteTable);
+        @Language("SQL") String sql = format("INSERT INTO %s SELECT * FROM %s", targetTableName, remoteTable);
+        long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
+        log.info("Imported %s rows for %s in %s", rows, remoteTable, nanosSince(start).convertToMostSuccinctTimeUnit());
+
+        assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + targetTableName).getOnlyValue())
+                .as("Table is not loaded properly: %s", targetTableName)
+                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + remoteTable).getOnlyValue());
     }
 
     public static Session createSession()
@@ -106,7 +168,9 @@ public final class IgniteQueryRunner
                 new TestingIgniteServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
-                TpchTable.getTables());
+                ImmutableList.of("customer", "orders", "region", "nation").stream()
+                        .map(TpchTable::getTable)
+                        .collect(toImmutableList()));
 
         Logger log = Logger.get(IgniteQueryRunner.class);
         log.info("======== SERVER STARTED ========");

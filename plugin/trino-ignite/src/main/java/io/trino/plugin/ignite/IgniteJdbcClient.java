@@ -33,6 +33,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -51,17 +52,14 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
-import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 
 public class IgniteJdbcClient
         extends BaseJdbcClient
@@ -102,7 +100,10 @@ public class IgniteJdbcClient
         // TODO complete type mapping
         switch (typeHandle.getJdbcType()) {
             case Types.VARCHAR:
-                return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), false));
+                return Optional.of(varcharColumnMapping(
+                        typeHandle.getColumnSize()
+                                .map(VarcharType::createVarcharType)
+                                .orElse(createUnboundedVarcharType()), false));
         }
         return legacyColumnMapping(session, connection, typeHandle);
     }
@@ -144,31 +145,20 @@ public class IgniteJdbcClient
     @Override
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
+    }
 
-        JdbcTableHandle tableHandle = getTableHandle(session, new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()))
-                .orElseThrow(() -> new TrinoException(INVALID_TABLE_PROPERTY, "Source table does not exists"));
-
-        Map<String, Object> properties = getTableProperties(session, new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
-        List<String> columnList = tableHandle.getColumns().get().stream()
-                .map(column -> getColumnDefinitionSql(session, column, column.getColumnName()))
-                .collect(toImmutableList());
-
-        String sql = createTableSql(new RemoteTableName(Optional.empty(), Optional.ofNullable(handle.getSchemaName()), handle.getTableName()), columnList, properties);
-
-        String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
-        String columnNames = handle.getColumnNames().stream()
-                .map(this::quoted)
-                .collect(joining(", "));
-        String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s", targetTable, columnNames, columnNames, temporaryTable);
-
-        try (Connection connection = getConnection(session, handle)) {
-            execute(connection, sql);
-            execute(connection, insertSql);
+    @Override
+    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    {
+        // avoid delete source table in Ignite
+        if (handle.getTableName().equals(handle.getTemporaryTableName())) {
+            return;
         }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
+        dropTable(session, new JdbcTableHandle(
+                new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
+                handle.getCatalogName(),
+                handle.getSchemaName(),
+                handle.getTemporaryTableName()));
     }
 
     @Override
