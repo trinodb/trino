@@ -579,14 +579,15 @@ public class ElasticsearchClient
                         // expose it in the document. Here we skip it if it's present.
                         mappings = mappings.elements().next();
                         if (!mappings.has("properties")) {
-                            return new IndexMetadata(outputSchema);
+                            continue;
                         }
                     }
 
                     JsonNode metaNode = nullSafeNode(mappings, "_meta");
                     IndexMetadata.ObjectType schema = parseType(mappings.get("properties"), nullSafeNode(metaNode, "presto"));
                     outputSchema = merge(index, "", outputSchema, schema);
-                } while (unionSchemaIndicesForAlias && indicesIterator.hasNext());
+                }
+                while (unionSchemaIndicesForAlias && indicesIterator.hasNext());
 
                 return new IndexMetadata(outputSchema);
             }
@@ -601,10 +602,10 @@ public class ElasticsearchClient
 
     private IndexMetadata.ObjectType merge(String index, String parentPrefix, IndexMetadata.ObjectType schema1, IndexMetadata.ObjectType schema2)
     {
-        if (schema2 == null || schema2.getFields().isEmpty()) {
+        if (schema2.getFields().isEmpty()) {
             return schema1;
         }
-        if (schema1 == null || schema1.getFields().isEmpty()) {
+        if (schema1.getFields().isEmpty()) {
             return schema2;
         }
         List<IndexMetadata.Field> fields = merge(index, parentPrefix, schema1.getFields(), schema2.getFields());
@@ -633,8 +634,7 @@ public class ElasticsearchClient
         return new ArrayList<>(fields);
     }
 
-    private IndexMetadata.Field mergeNestedFields(String fieldName, List<IndexMetadata.Field> fields,
-                                                  String index, String parentPrefix)
+    private IndexMetadata.Field mergeNestedFields(String fieldName, List<IndexMetadata.Field> fields, String index, String parentPrefix)
     {
         String prefix = Strings.isNullOrEmpty(parentPrefix) ? fieldName : getFlattenedKey(parentPrefix, fieldName);
         IndexMetadata.ObjectType type = fields.stream()

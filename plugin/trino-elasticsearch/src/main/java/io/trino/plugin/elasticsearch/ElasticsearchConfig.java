@@ -138,7 +138,7 @@ public class ElasticsearchConfig
         return this;
     }
 
-    @Min(1)
+    @Min(0)
     public long getIndexMetaDataCacheMaximumSize()
     {
         return indexMetaDataCacheMaximumSize;
