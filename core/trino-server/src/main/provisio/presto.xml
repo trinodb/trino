@@ -62,6 +62,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/cockroachdb">
+        <artifact id="${project.groupId}:trino-cockroachdb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/example-http">
         <artifact id="${project.groupId}:trino-example-http:zip:${project.version}">
             <unpack />
