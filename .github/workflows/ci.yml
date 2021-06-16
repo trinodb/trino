@@ -383,6 +383,9 @@ jobs:
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-oauth2
+          # this suite is not meant to be run with different configs
+          - config: default
+            suite: suite-compatibility
     # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
     timeout-minutes: 140
     steps:
