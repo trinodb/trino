@@ -14,7 +14,7 @@
 package io.trino.plugin.mysql;
 
 import com.google.common.collect.ImmutableSet;
-import com.mysql.jdbc.Statement;
+import com.mysql.cj.jdbc.JdbcStatement;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -25,6 +25,7 @@ import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
@@ -53,6 +54,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -66,6 +68,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -73,10 +76,11 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.mysql.jdbc.SQLError.SQL_STATE_ER_TABLE_EXISTS_ERROR;
-import static com.mysql.jdbc.SQLError.SQL_STATE_SYNTAX_ERROR;
+import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_ER_TABLE_EXISTS_ERROR;
+import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_SYNTAX_ERROR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
@@ -104,7 +108,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunctionUsingSqlTimestamp;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryReadFunction;
@@ -122,11 +126,16 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.stream.Collectors.joining;
 
 public class MySqlClient
@@ -215,8 +224,8 @@ public class MySqlClient
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
-        if (statement.isWrapperFor(Statement.class)) {
-            statement.unwrap(Statement.class).enableStreamingResults();
+        if (statement.isWrapperFor(JdbcStatement.class)) {
+            statement.unwrap(JdbcStatement.class).enableStreamingResults();
         }
         return statement;
     }
@@ -314,11 +323,35 @@ public class MySqlClient
 
             case Types.TIMESTAMP:
                 // TODO support higher precisions (https://github.com/trinodb/trino/issues/6910)
-                break; // currently handled by the default mappings
+                return Optional.of(ColumnMapping.longMapping(
+                        TIMESTAMP_MILLIS,
+                        timestampReadFunction(TIMESTAMP_MILLIS),
+                        timestampWriteFunction(TIMESTAMP_MILLIS),
+                        DISABLE_PUSHDOWN));
         }
 
         // TODO add explicit mappings
         return legacyColumnMapping(session, connection, typeHandle);
+    }
+
+    public static LongReadFunction timestampReadFunction(TimestampType timestampType)
+    {
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return (resultSet, columnIndex) -> toTrinoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class));
+    }
+
+    public static long toTrinoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
+    {
+        long precision = timestampType.getPrecision();
+        checkArgument(precision <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
+        long epochMicros = localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
+                + Math.round(localDateTime.getNano() * 1.0 / NANOSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND;
+        verify(
+                epochMicros == round(epochMicros, TimestampType.MAX_SHORT_PRECISION - timestampType.getPrecision()),
+                "Invalid value of epochMicros for precision %s: %s",
+                precision,
+                epochMicros);
+        return epochMicros;
     }
 
     @Override
@@ -361,7 +394,7 @@ public class MySqlClient
         }
         if (TIMESTAMP_MILLIS.equals(type)) {
             // TODO use `timestampWriteFunction` (https://github.com/trinodb/trino/issues/6910)
-            return WriteMapping.longMapping("datetime(3)", timestampWriteFunctionUsingSqlTimestamp(TIMESTAMP_MILLIS));
+            return WriteMapping.longMapping("datetime(3)", timestampWriteFunction(TIMESTAMP_MILLIS));
         }
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("mediumblob", varbinaryWriteFunction());
