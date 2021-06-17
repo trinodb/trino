@@ -509,11 +509,15 @@ public class TaskContext
         long userMemory = taskMemoryContext.getUserMemory();
 
         synchronized (cumulativeMemoryLock) {
-            double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
+            if (lastTaskStatCallNanos == 0) {
+                lastTaskStatCallNanos = startNanos;
+            }
+            long thisTaskStatCallNanos = System.nanoTime();
+            double sinceLastPeriodMillis = (thisTaskStatCallNanos - lastTaskStatCallNanos) / 1_000_000.0;
             long averageMemoryForLastPeriod = (userMemory + lastUserMemoryReservation) / 2;
             cumulativeUserMemory.addAndGet(averageMemoryForLastPeriod * sinceLastPeriodMillis);
 
-            lastTaskStatCallNanos = System.nanoTime();
+            lastTaskStatCallNanos = thisTaskStatCallNanos;
             lastUserMemoryReservation = userMemory;
         }
 

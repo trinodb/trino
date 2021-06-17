@@ -71,7 +71,7 @@ public class BasicStageStats
     private final long internalNetworkInputPositions;
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
-    private final long cumulativeUserMemory;
+    private final double cumulativeUserMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final Duration totalCpuTime;
@@ -98,7 +98,7 @@ public class BasicStageStats
             DataSize rawInputDataSize,
             long rawInputPositions,
 
-            long cumulativeUserMemory,
+            double cumulativeUserMemory,
             DataSize userMemoryReservation,
             DataSize totalMemoryReservation,
 
@@ -192,7 +192,7 @@ public class BasicStageStats
         return physicalInputReadTime;
     }
 
-    public long getCumulativeUserMemory()
+    public double getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
     }
@@ -239,7 +239,7 @@ public class BasicStageStats
         int runningDrivers = 0;
         int completedDrivers = 0;
 
-        long cumulativeUserMemory = 0;
+        double cumulativeUserMemory = 0;
         long userMemoryReservation = 0;
         long totalMemoryReservation = 0;
 

@@ -443,7 +443,7 @@ public class StageStats
                 internalNetworkInputPositions,
                 rawInputDataSize,
                 rawInputPositions,
-                (long) cumulativeUserMemory,
+                cumulativeUserMemory,
                 userMemoryReservation,
                 totalMemoryReservation,
                 totalCpuTime,

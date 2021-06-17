@@ -47,6 +47,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -348,6 +349,23 @@ public class TestMemoryTracking
         assertEquals(operatorContext.getOperatorMemoryContext().getUserMemory(), 400_000);
         operatorContext.destroy();
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 0, 0);
+    }
+
+    @Test
+    public void testCumulativeUserMemoryEstimation()
+            throws InterruptedException
+    {
+        LocalMemoryContext userMemory = operatorContext.localUserMemoryContext();
+        long userMemoryBytes = 100_000_000;
+        userMemory.setBytes(userMemoryBytes);
+        long startTime = System.nanoTime();
+        Thread.sleep(100);
+        double cumulativeUserMemory = taskContext.getTaskStats().getCumulativeUserMemory();
+        long endTime = System.nanoTime();
+        double elapsedTimeInMillis = (endTime - startTime) / 1_000_000.0;
+        long averageMemoryForLastPeriod = userMemoryBytes / 2;
+
+        assertThat(cumulativeUserMemory).isLessThan(elapsedTimeInMillis * averageMemoryForLastPeriod);
     }
 
     private void assertStats(
