@@ -21,17 +21,34 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
+import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
+import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
+import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
+import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
+import io.trino.plugin.jdbc.expression.ImplementCount;
+import io.trino.plugin.jdbc.expression.ImplementCountAll;
+import io.trino.plugin.jdbc.expression.ImplementMinMax;
+import io.trino.plugin.jdbc.expression.ImplementSum;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -40,26 +57,37 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class IgniteJdbcClient
         extends BaseJdbcClient
@@ -70,11 +98,25 @@ public class IgniteJdbcClient
      */
     private static final String IGNITE_SYS_SCHEMA = "SYS";
     private static final String IGNITE_SCHEMA = "PUBLIC";
+    private final AggregateFunctionRewriter aggregateFunctionRewriter;
 
     @Inject
     public IgniteJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
     {
         super(config, "`", connectionFactory, identifierMapping);
+
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
+                this::quoted,
+                ImmutableSet.<AggregateFunctionRule>builder()
+                        .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementMinMax())
+                        .add(new ImplementSum(IgniteJdbcClient::toTypeHandle))
+                        .add(new ImplementAvgFloatingPoint())
+                        .add(new ImplementAvgDecimal())
+                        .add(new ImplementAvgBigint())
+                        .build());
     }
 
     @Override
@@ -102,10 +144,122 @@ public class IgniteJdbcClient
             case Types.VARCHAR:
                 return Optional.of(varcharColumnMapping(
                         typeHandle.getColumnSize()
+                                // default added column in Ignite will has Integer.MAX_VALUE length which not allow in Trino, will consider the column as varchar
+                                .filter(e -> e != Integer.MAX_VALUE)
                                 .map(VarcharType::createVarcharType)
                                 .orElse(createUnboundedVarcharType()), false));
+            case Types.DATE:
+                return Optional.of(ColumnMapping.longMapping(
+                        DATE,
+                        dateReadFunction(),
+                        dateWriteFunction()));
         }
         return legacyColumnMapping(session, connection, typeHandle);
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(new JdbcTypeHandle(Types.DECIMAL, Optional.of("Decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+    }
+
+    // https://issues.apache.org/jira/browse/IGNITE-12824, user do not need to convert between UTC <-> Local time
+    public static LongReadFunction dateReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            long localMillis = resultSet.getDate(columnIndex).getTime();
+            return MILLISECONDS.toDays(localMillis);
+        };
+    }
+
+    public static LongWriteFunction dateWriteFunction()
+    {
+        return (statement, index, value) -> {
+            long millis = DAYS.toMillis(value);
+            statement.setDate(index, new Date(millis));
+        };
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        if (tableHandle.getColumns().isPresent()) {
+            return tableHandle.getColumns().get();
+        }
+        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
+        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
+
+        try (Connection connection = connectionFactory.openConnection(session);
+                ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+            int allColumns = 0;
+            List<JdbcColumnHandle> columns = new ArrayList<>();
+            while (resultSet.next()) {
+                // skip if table doesn't match expected
+                if (!(Objects.equals(remoteTableName, getRemoteTable(resultSet)))) {
+                    continue;
+                }
+                allColumns++;
+                String columnName = resultSet.getString("COLUMN_NAME");
+                Optional<Integer> columnSize = getInteger(resultSet, "COLUMN_SIZE");
+                if (columnSize.isPresent() && columnSize.get() == Integer.MAX_VALUE) {
+                    columnSize = Optional.empty();
+                }
+
+                JdbcTypeHandle typeHandle = new JdbcTypeHandle(
+                        getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
+                        Optional.ofNullable(resultSet.getString("TYPE_NAME")),
+                        columnSize,
+                        getInteger(resultSet, "DECIMAL_DIGITS"),
+                        Optional.empty(),
+                        Optional.empty());
+                Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
+
+                // skip unsupported column types
+                boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
+                Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
+                columnMapping.ifPresent(mapping -> columns.add(JdbcColumnHandle.builder()
+                        .setColumnName(columnName)
+                        .setJdbcTypeHandle(typeHandle)
+                        .setColumnType(mapping.getType())
+                        .setNullable(nullable)
+                        .setComment(comment)
+                        .build()));
+                if (columnMapping.isEmpty()) {
+                    UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
+                    verify(
+                            unsupportedTypeHandling == IGNORE,
+                            "Unsupported type handling is set to %s, but toTrinoType() returned empty for %s",
+                            unsupportedTypeHandling,
+                            typeHandle);
+                }
+            }
+            if (columns.isEmpty()) {
+                // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.
+                throw new TableNotFoundException(
+                        schemaTableName,
+                        format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
+            }
+            return ImmutableList.copyOf(columns);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    private static RemoteTableName getRemoteTable(ResultSet resultSet)
+            throws SQLException
+    {
+        return new RemoteTableName(
+                Optional.ofNullable(resultSet.getString("TABLE_CAT")),
+                Optional.ofNullable(resultSet.getString("TABLE_SCHEM")),
+                resultSet.getString("TABLE_NAME"));
     }
 
     @Override
@@ -255,7 +409,7 @@ public class IgniteJdbcClient
     private Map<String, Object> getTableProperties(ConnectorSession session, SchemaTableName schemaTableName)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        checkArgument(schemaTableName != null && schemaTableName.getSchemaName().equalsIgnoreCase("public"), "Ignite only support public schema");
+//        checkArgument(schemaTableName != null && schemaTableName.getSchemaName().equalsIgnoreCase("public"), "Ignite only support public schema");
         String tableName = requireNonNull(schemaTableName.getTableName(), "Ignite table name can not be null").toUpperCase(ENGLISH);
         String sql = format("SELECT idx.CACHE_ID, " +
                 "che.CACHE_MODE as TEMPLATE, " +
@@ -352,6 +506,10 @@ public class IgniteJdbcClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
+        if (type instanceof DateType) {
+            return WriteMapping.longMapping("date", dateWriteFunction());
+        }
+        // TODO
         return legacyToWriteMapping(session, type);
     }
 

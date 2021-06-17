@@ -14,6 +14,9 @@
 package io.trino.plugin.ignite;
 
 import java.io.Closeable;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 
 import static io.trino.plugin.ignite.TestIgniteContainer.HTTP_PORT;
 import static java.lang.String.format;
@@ -31,6 +34,17 @@ public class TestingIgniteServer
                 .withStartupAttempts(10);
 
         dockerContainer.start();
+    }
+
+    public void execute(String sql)
+    {
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl());
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to execute statement: " + sql, e);
+        }
     }
 
     public String getJdbcUrl()

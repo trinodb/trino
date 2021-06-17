@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -110,6 +111,7 @@ public final class IgniteQueryRunner
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
+            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new IgniteJdbcPlugin());
             queryRunner.createCatalog("ignite", "ignite", connectorProperties);
