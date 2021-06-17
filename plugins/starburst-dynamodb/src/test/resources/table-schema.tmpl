@@ -1,0 +1,34 @@
+<api:script xmlns:api="http://apiscript.com/ns?v1">
+  <api:info title="{{ tablename }}">
+    {% for column in columns -%}
+    <attr name="{{column.name}}" xs:type="{{column.type}}" {% if column.isKey %}key="true" {% endif %}{% if column.columnSize is not none %}columnsize="{{ column.columnSize }}" {% endif %}readonly="false" {% if column.description is not none %}description="{{ column.description }}" {% endif %}{% if column.keyType is not none %}other:keytype="{{ column.keyType }}" {% endif %}other:path="{{ column.path }}" other:internaltype="{{ column.internalType }}" />
+    {% endfor -%}
+    <input name="rows@next" desc="Required internal attribute" />
+  </api:info>
+
+  <api:set attr="tablename" value="{{ tablename }}" />
+
+  <api:script method="GET">
+    <api:call op="dynamodbadoMultiThreadSelect">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="POST">
+    <api:call op="dynamodbadoAdd">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="MERGE">
+    <api:call op="dynamodbadoUpdate">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="DELETE">
+    <api:call op="dynamodbadoDelete">
+      <api:push/>
+    </api:call>
+  </api:script>
+</api:script>

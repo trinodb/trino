@@ -1,0 +1,209 @@
+/*
+ * Copyright Starburst Data, Inc. All rights reserved.
+ *
+ * THIS IS UNPUBLISHED PROPRIETARY SOURCE CODE OF STARBURST DATA.
+ * The copyright notice above does not evidence any
+ * actual or intended publication of such source code.
+ *
+ * Redistribution of this material is strictly prohibited.
+ */
+package com.starburstdata.presto.plugin.dynamodb.testing;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Resources;
+import com.hubspot.jinjava.Jinjava;
+import com.starburstdata.presto.plugin.dynamodb.DynamoDbConfig;
+import com.starburstdata.presto.plugin.dynamodb.DynamoDbJdbcClient;
+import io.trino.spi.TrinoException;
+import io.trino.testing.datatype.ColumnSetup;
+import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
+import software.amazon.awssdk.services.dynamodb.model.DeleteTableRequest;
+
+import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.Character.MAX_RADIX;
+import static java.lang.Math.abs;
+import static java.lang.Math.min;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+
+@SuppressWarnings("OptionalGetWithoutIsPresent")
+public class DynamoDbTestTable
+        extends TestTable
+{
+    private static final SecureRandom random = new SecureRandom();
+    private static final int RANDOM_SUFFIX_LENGTH = 5;
+
+    private final DynamoDbConfig config;
+    private final SqlExecutor sqlExecutor;
+    private final String name;
+    private final List<ColumnSetup> columns;
+
+    public DynamoDbTestTable(DynamoDbConfig config, SqlExecutor sqlExecutor, String namePrefix, List<ColumnSetup> columns)
+    {
+        // Pass in a no-op SqlExecutor as the base class attempts to create the table, but the driver does not support CREATE TABLE
+        super(sql -> {}, namePrefix, "");
+
+        this.config = requireNonNull(config, "config is null");
+        this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
+        this.name = requireNonNull(namePrefix, "namePrefix is null") + "_" + randomTableSuffix();
+        this.columns = requireNonNull(columns, "columns is null");
+
+        String createTableSql = buildCreateTableSql();
+        sqlExecutor.execute(createTableSql);
+        generateSchemaFile();
+
+        sqlExecutor.execute("RESET SCHEMA CACHE");
+    }
+
+    @Override
+    public String getName()
+    {
+        return name;
+    }
+
+    private String buildCreateTableSql()
+    {
+        return "EXEC CreateTable TableName = '" + name + "',\n" +
+                "KeySchema_AttributeName#1 = 'col_0',\n" +
+                "KeySchema_KeyType#1 = 'HASH',\n" +
+                "AttributeDefinitions_AttributeName#1 = 'col_0',\n" +
+                "AttributeDefinitions_AttributeType#1 = '" + getDynamoDbTypeFromSql(columns.get(0).getDeclaredType().get()) + "',\n" +
+                "ProvisionedThroughput_ReadCapacityUnits = '1',\n" +
+                "ProvisionedThroughput_WriteCapacityUnits = '1'";
+    }
+
+    private static String getColumnSize(String declaredType)
+    {
+        Pattern columnSizePattern = Pattern.compile(".+\\(([0-9]+)\\)");
+        Matcher matcher = columnSizePattern.matcher(declaredType);
+        if (matcher.matches()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
+
+    private void generateSchemaFile()
+    {
+        Jinjava jinjava = new Jinjava();
+        Map<String, Object> context = new HashMap<>();
+        context.put("tablename", name);
+
+        List<DynamoDbJdbcClient.RsdColumnDefinition> templateColumns = new ArrayList<>();
+        templateColumns.add(new DynamoDbJdbcClient.RsdColumnDefinition(
+                "col_0",
+                columns.get(0).getDeclaredType().get().contains("varchar") ? "string" : columns.get(0).getDeclaredType().get(),
+                true,
+                getColumnSize(columns.get(0).getDeclaredType().get()),
+                null,
+                "HASH",
+                getDynamoDbTypeFromSql(columns.get(0).getDeclaredType().get())));
+
+        int i = 1;
+        for (ColumnSetup metadata : columns.subList(1, columns.size())) {
+            templateColumns.add(new DynamoDbJdbcClient.RsdColumnDefinition(
+                    "col_" + i++,
+                    metadata.getDeclaredType().get().contains("varchar") ? "string" : metadata.getDeclaredType().get(),
+                    false,
+                    getColumnSize(metadata.getDeclaredType().get()),
+                    null,
+                    null,
+                    getDynamoDbTypeFromSql(metadata.getDeclaredType().get())));
+        }
+
+        context.put("columns", ImmutableList.copyOf(templateColumns.stream().map(DynamoDbJdbcClient.RsdColumnDefinition::asMap).collect(toImmutableList())));
+
+        String template;
+        try {
+            template = Resources.toString(Resources.getResource("table-schema.tmpl"), StandardCharsets.UTF_8);
+        }
+        catch (IOException e) {
+            throw new RuntimeException("Failed to find table-schema.tmpl on the classpath");
+        }
+
+        String renderedTemplate = jinjava.render(template, context);
+
+        Path outputFile = Paths.get(config.getSchemaDirectory(), name + ".rsd");
+        try {
+            Files.writeString(outputFile, renderedTemplate, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(format("Failed to write schema to file %s", outputFile), e);
+        }
+    }
+
+    // We use a separate function from what is in DynamoDbJdbcClient to map all specific unsupported types to a DynamoDB String
+    // This let's us see what JDBC types the driver does not support
+    public static String getDynamoDbTypeFromSql(String type)
+    {
+        // Map Booleans to Boolean type
+        if (type.equals("boolean")) {
+            return "BOOL";
+        }
+
+        if (type.contains("varbinary")) {
+            return "B";
+        }
+
+        // Map numeric types
+        if (ImmutableSet.of("tinyint", "smallint", "bigint", "integer", "real", "double").contains(type)) {
+            return "N";
+        }
+
+        return "S";
+    }
+
+    @Override
+    public void close()
+    {
+        DynamoDbClientBuilder builder = DynamoDbClient.builder()
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(config.getAwsAccessKey(), config.getAwsAccessKey())))
+                .region(Region.US_EAST_2)
+                .endpointOverride(URI.create(config.getEndpointUrl().get()));
+
+        DynamoDbClient client = builder.build();
+
+        client.deleteTable(DeleteTableRequest.builder()
+                .tableName(name)
+                .build());
+
+        Path schemaFile = Paths.get(config.getSchemaDirectory(), name + ".rsd");
+        try {
+            Files.deleteIfExists(schemaFile);
+        }
+        catch (IOException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Failed to delete schema file for table %s after dropping", schemaFile.toFile().getAbsolutePath()), e);
+        }
+
+        sqlExecutor.execute("RESET SCHEMA CACHE");
+    }
+
+    public static String randomTableSuffix()
+    {
+        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
+        return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
+    }
+}
