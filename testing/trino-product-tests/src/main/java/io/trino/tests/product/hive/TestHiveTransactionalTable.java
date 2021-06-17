@@ -1401,8 +1401,7 @@ public class TestHiveTransactionalTable
         // TODO support UPDATE with correlated subquery in assignment
         withTemporaryTable("test_update_subquery", true, false, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 varchar) WITH (transactional = true)", tableName));
-            onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 'x')", tableName));
-            onTrino().executeQuery(format("INSERT INTO %s VALUES (2, 'y')", tableName));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 'x'), (2, 'y')", tableName));
 
             // SET with uncorrelated subquery
             onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT max(name) FROM tpch.tiny.region)", tableName));
@@ -1413,8 +1412,10 @@ public class TestHiveTransactionalTable
 
                 // UPDATE while reading from another transactional table. Multiple transactional could interfere with ConnectorMetadata.beginQuery
                 onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT min(name) FROM %s)", tableName, secondTable));
-                // TODO (https://github.com/trinodb/trino/issues/8268) verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AFRICA"));
-                verifySelect("onTrino", onTrino(), "SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AFRICA"));
+                // TODO (https://github.com/trinodb/trino/issues/8268)
+                //  1. Insert each row in a new query
+                //  2. verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AFRICA"));
+                verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(1, "AFRICA"), row(2, "AFRICA"));
             });
 
             // SET with correlated subquery
