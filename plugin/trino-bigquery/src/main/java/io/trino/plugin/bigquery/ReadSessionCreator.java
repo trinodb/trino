@@ -20,17 +20,11 @@ import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
 import com.google.cloud.bigquery.storage.v1beta1.ReadOptions;
 import com.google.cloud.bigquery.storage.v1beta1.Storage;
 import com.google.cloud.bigquery.storage.v1beta1.TableReferenceProto;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import io.airlift.log.Logger;
 import io.trino.spi.TrinoException;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
-import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -38,14 +32,6 @@ import static java.util.stream.Collectors.toList;
 // A helper class, also handles view materialization
 public class ReadSessionCreator
 {
-    private static final Logger log = Logger.get(ReadSessionCreator.class);
-
-    private static final Cache<String, TableInfo> destinationTableCache =
-            CacheBuilder.newBuilder()
-                    .expireAfterWrite(15, TimeUnit.MINUTES)
-                    .maximumSize(1000)
-                    .build();
-
     private final ReadSessionCreatorConfig config;
     private final BigQueryClient bigQueryClient;
     private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
@@ -118,14 +104,7 @@ public class ReadSessionCreator
                         BigQueryConfig.VIEWS_ENABLED));
             }
             // get it from the view
-            String query = bigQueryClient.selectSql(table.getTableId(), requiredColumns);
-            log.debug("query is %s", query);
-            try {
-                return destinationTableCache.get(query, new BigQueryClient.DestinationTableBuilder(bigQueryClient, config, query, table.getTableId()));
-            }
-            catch (ExecutionException e) {
-                throw new TrinoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
-            }
+            return bigQueryClient.getCachedTable(config, table.getTableId(), requiredColumns);
         }
         else {
             // not regular table or a view
