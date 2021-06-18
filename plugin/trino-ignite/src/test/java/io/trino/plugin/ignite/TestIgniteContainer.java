@@ -36,9 +36,9 @@ public class TestIgniteContainer
     private static final String DRIVER_CLASS_NAME = "org.apache.ignite.IgniteJdbcThinDriver";
     private static final String JDBC_URL_PREFIX = "jdbc:ignite:thin://";
     private static final String TEST_QUERY = "SELECT 1";
-    private String databaseName;
-    private String username;
-    private String password;
+    private final String databaseName;
+    private final String username;
+    private final String password;
 
     /**
      * @deprecated

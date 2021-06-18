@@ -48,7 +48,6 @@ public class IgniteTableProperties
     public static final String CACHE_NAME_PROPERTY = "cache_name";
     public static final String DATA_REGION_PROPERTY = "data_region";
 
-
     /**
      * The properties are in the Ignite WITH clause
      */
@@ -111,8 +110,7 @@ public class IgniteTableProperties
                         DATA_REGION_PROPERTY,
                         "name of the data region where table entries should be stored",
                         null,
-                        false)
-        );
+                        false));
     }
 
     @Override

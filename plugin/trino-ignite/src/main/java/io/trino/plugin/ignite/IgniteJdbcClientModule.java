@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.ignite;
 
-import com.google.common.base.Preconditions;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -25,7 +24,6 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
-import org.apache.ignite.IgniteJdbcDriver;
 import org.apache.ignite.IgniteJdbcThinDriver;
 
 import java.sql.SQLException;

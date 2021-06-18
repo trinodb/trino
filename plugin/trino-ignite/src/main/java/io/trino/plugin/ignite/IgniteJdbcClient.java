@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -47,6 +48,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
@@ -326,18 +328,6 @@ public class IgniteJdbcClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support rename table");
     }
 
-    private String getColumnDefinitionSql(ConnectorSession session, JdbcColumnHandle columnHandle, String columnName)
-    {
-        StringBuilder sb = new StringBuilder()
-                .append(quoted(columnName))
-                .append(" ")
-                .append(toWriteMapping(session, columnHandle.getColumnType()).getDataType());
-        if (!columnHandle.isNullable()) {
-            sb.append(" NOT NULL");
-        }
-        return sb.toString();
-    }
-
     @Override
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
@@ -406,10 +396,35 @@ public class IgniteJdbcClient
         return true;
     }
 
-    private Map<String, Object> getTableProperties(ConnectorSession session, SchemaTableName schemaTableName)
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        for (JdbcSortItem sortItem : sortOrder) {
+            Type sortItemType = sortItem.getColumn().getColumnType();
+            if (sortItemType instanceof CharType || sortItemType instanceof VarcharType) {
+                // Remote database can be case insensitive.
+                return false;
+            }
+        }
+        return true;
+    }
+
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of(TopNFunction.sqlStandard(this::quoted));
+    }
+
+    @Override
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-//        checkArgument(schemaTableName != null && schemaTableName.getSchemaName().equalsIgnoreCase("public"), "Ignite only support public schema");
+        SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
         String tableName = requireNonNull(schemaTableName.getTableName(), "Ignite table name can not be null").toUpperCase(ENGLISH);
         String sql = format("SELECT idx.CACHE_ID, " +
                 "che.CACHE_MODE as TEMPLATE, " +
@@ -482,13 +497,7 @@ public class IgniteJdbcClient
         return properties.build();
     }
 
-    @Override
-    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
-    {
-        return getTableProperties(session, tableHandle.asPlainTable().getSchemaTableName());
-    }
-
-    // extract result from : "ID" ASC, "CITY_ID" ASC
+    // extract result from format: "ID" ASC, "CITY_ID" ASC
     private List<String> extract(String row)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
