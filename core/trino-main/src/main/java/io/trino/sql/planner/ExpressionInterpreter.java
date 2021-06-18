@@ -300,10 +300,8 @@ public class ExpressionInterpreter
                     // expression from the plan.
                     return expression;
                 }
-                else {
-                    // Do not suppress exceptions during expression execution.
-                    throw e;
-                }
+                // Do not suppress exceptions during expression execution.
+                throw e;
             }
         }
 
@@ -456,12 +454,10 @@ public class ExpressionInterpreter
                         toExpression(trueValue, type(node.getTrueValue())),
                         (falseValue == null) ? null : toExpression(falseValue, type(node.getFalseValue().get())));
             }
-            else if (Boolean.TRUE.equals(condition)) {
+            if (Boolean.TRUE.equals(condition)) {
                 return processWithExceptionHandling(node.getTrueValue(), context);
             }
-            else {
-                return processWithExceptionHandling(node.getFalseValue().orElse(null), context);
-            }
+            return processWithExceptionHandling(node.getFalseValue().orElse(null), context);
         }
 
         @Override
@@ -928,9 +924,7 @@ public class ExpressionInterpreter
             if (equal) {
                 return null;
             }
-            else {
-                return first;
-            }
+            return first;
         }
 
         @Override
@@ -1297,15 +1291,13 @@ public class ExpressionInterpreter
             if (hasUnresolvedValue(values)) {
                 return new Row(toExpressions(values, parameterTypes));
             }
-            else {
-                BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
-                BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
-                for (int i = 0; i < cardinality; ++i) {
-                    writeNativeValue(parameterTypes.get(i), singleRowBlockWriter, values.get(i));
-                }
-                blockBuilder.closeEntry();
-                return rowType.getObject(blockBuilder, 0);
+            BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
+            BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
+            for (int i = 0; i < cardinality; ++i) {
+                writeNativeValue(parameterTypes.get(i), singleRowBlockWriter, values.get(i));
             }
+            blockBuilder.closeEntry();
+            return rowType.getObject(blockBuilder, 0);
         }
 
         @Override
