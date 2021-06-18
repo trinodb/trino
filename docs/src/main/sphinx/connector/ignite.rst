@@ -24,8 +24,9 @@ appropriate for your setup:
     connection-password=examplepassword
 
 .. note::
-Currently, Trino only use Ignite JDBC Thin Driver to communicate with Ignite
-database, make sure the connection-url starts with ``jdbc:ignite:thin``.
+
+    Currently, Trino only use Ignite JDBC Thin Driver to communicate with Ignite
+    database, make sure the connection-url starts with ``jdbc:ignite:thin``.
 
 Multiple Ignite servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

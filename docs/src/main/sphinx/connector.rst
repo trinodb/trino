@@ -17,6 +17,7 @@ from different data sources.
     Elasticsearch   <connector/elasticsearch>
     Google Sheets   <connector/googlesheets>
     Iceberg         <connector/iceberg>
+    Ignite          <connector/ignite>
     Hive            <connector/hive>
     JMX             <connector/jmx>
     Kafka           <connector/kafka>
