@@ -886,11 +886,10 @@ public class ExpressionAnalyzer
             }
 
             Type patternType = process(node.getPattern(), context);
-            if (!(valueType instanceof VarcharType)) {
+            if (!(patternType instanceof VarcharType)) {
                 // TODO can pattern be of char type?
                 coerceType(context, node.getPattern(), VARCHAR, "Pattern for LIKE expression");
             }
-            coerceType(context, node.getPattern(), patternType, "Pattern for LIKE expression");
             if (node.getEscape().isPresent()) {
                 Expression escape = node.getEscape().get();
                 Type escapeType = process(escape, context);
