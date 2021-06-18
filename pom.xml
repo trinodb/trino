@@ -969,13 +969,6 @@
                 <version>3.18.1</version>
             </dependency>
 
-            <!-- TODO: move this to Airbase -->
-            <dependency>
-                <groupId>com.fasterxml.jackson.dataformat</groupId>
-                <artifactId>jackson-dataformat-cbor</artifactId>
-                <version>${dep.jackson.version}</version>
-            </dependency>
-
             <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
