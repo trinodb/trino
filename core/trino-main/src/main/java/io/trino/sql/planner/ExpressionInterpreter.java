@@ -292,7 +292,7 @@ public class ExpressionInterpreter
             try {
                 return process(expression, context);
             }
-            catch (RuntimeException e) {
+            catch (TrinoException e) {
                 if (optimize) {
                     // Certain operations like 0 / 0 or likeExpression may throw exceptions.
                     // When optimizing, do not throw the exception, but delay it until the expression is actually executed.
