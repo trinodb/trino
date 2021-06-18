@@ -610,11 +610,7 @@ public class ExpressionInterpreter
                 return set.contains(value);
             }
 
-            boolean hasUnresolvedValue = false;
-            if (value instanceof Expression) {
-                hasUnresolvedValue = true;
-            }
-
+            boolean hasUnresolvedValue = value instanceof Expression;
             boolean hasNullValue = false;
             boolean found = false;
             List<Object> values = new ArrayList<>(valueList.getValues().size());
