@@ -23,6 +23,7 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -347,6 +348,12 @@ public class TestIgniteConnectorTest
         else {
             queryAssert.isNotFullyPushedDown(otherwiseExpected);
         }
+    }
+
+    @Override
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return igniteServer::execute;
     }
 
     @Test
