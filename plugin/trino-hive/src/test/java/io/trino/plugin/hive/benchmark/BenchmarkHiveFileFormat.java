@@ -40,6 +40,7 @@ import org.openjdk.jmh.results.RunResult;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -50,6 +51,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.plugin.hive.HiveCompressionCodec.NONE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
@@ -132,8 +134,14 @@ public class BenchmarkHiveFileFormat
     public void setup()
             throws IOException
     {
+        setup(MIN_DATA_SIZE);
+    }
+
+    public void setup(long dataLength)
+            throws IOException
+    {
         fileFormat = benchmarkFileFormat.getFormat();
-        data = dataSet.createTestData(fileFormat, nullChance);
+        data = dataSet.createTestData(fileFormat, nullChance, dataLength);
 
         targetDir.mkdirs();
         dataFile = new File(targetDir, UUID.randomUUID().toString());
@@ -213,44 +221,44 @@ public class BenchmarkHiveFileFormat
     {
         LINEITEM {
             @Override
-            public TestData createTestData(FileFormat format, double nullChance)
+            public TestData createTestData(FileFormat format, double nullChance, long dataLength)
             {
-                return createTpchDataSet(format, nullChance, LINE_ITEM, LINE_ITEM.getColumns());
+                return createTpchDataSet(format, nullChance, dataLength, LINE_ITEM, LINE_ITEM.getColumns());
             }
         },
         BIGINT_SEQUENTIAL {
             @Override
-            public TestData createTestData(FileFormat format, double nullChance)
+            public TestData createTestData(FileFormat format, double nullChance, long dataLength)
             {
-                return createTpchDataSet(format, nullChance, ORDERS, OrderColumn.ORDER_KEY);
+                return createTpchDataSet(format, nullChance, dataLength, ORDERS, OrderColumn.ORDER_KEY);
             }
         },
         BIGINT_RANDOM {
             @Override
-            public TestData createTestData(FileFormat format, double nullChance)
+            public TestData createTestData(FileFormat format, double nullChance, long dataLength)
             {
-                return createTpchDataSet(format, nullChance, ORDERS, OrderColumn.CUSTOMER_KEY);
+                return createTpchDataSet(format, nullChance, dataLength, ORDERS, OrderColumn.CUSTOMER_KEY);
             }
         },
         VARCHAR_SMALL {
             @Override
-            public TestData createTestData(FileFormat format, double nullChance)
+            public TestData createTestData(FileFormat format, double nullChance, long dataLength)
             {
-                return createTpchDataSet(format, nullChance, ORDERS, OrderColumn.CLERK);
+                return createTpchDataSet(format, nullChance, dataLength, ORDERS, OrderColumn.CLERK);
             }
         },
         VARCHAR_LARGE {
             @Override
-            public TestData createTestData(FileFormat format, double nullChance)
+            public TestData createTestData(FileFormat format, double nullChance, long dataLength)
             {
-                return createTpchDataSet(format, nullChance, ORDERS, OrderColumn.CLERK);
+                return createTpchDataSet(format, nullChance, dataLength, ORDERS, OrderColumn.CLERK);
             }
         },
         VARCHAR_DICTIONARY {
             @Override
-            public TestData createTestData(FileFormat format, double nullChance)
+            public TestData createTestData(FileFormat format, double nullChance, long dataLength)
             {
-                return createTpchDataSet(format, nullChance, ORDERS, OrderColumn.ORDER_PRIORITY);
+                return createTpchDataSet(format, nullChance, dataLength, ORDERS, OrderColumn.ORDER_PRIORITY);
             }
         },
         MAP_VARCHAR_DOUBLE {
@@ -258,7 +266,7 @@ public class BenchmarkHiveFileFormat
             private static final int MAX_ENTRIES = 5;
 
             @Override
-            public TestData createTestData(FileFormat format, double nullChance)
+            public TestData createTestData(FileFormat format, double nullChance, long dataLength)
             {
                 Type type = mapType(createUnboundedVarcharType(), DOUBLE);
                 Random random = new Random(1234);
@@ -269,7 +277,7 @@ public class BenchmarkHiveFileFormat
                 int[] keys = {1, 2, 3, 4, 5};
 
                 long dataSize = 0;
-                while (dataSize < MIN_DATA_SIZE) {
+                while (dataSize < dataLength) {
                     pageBuilder.declarePosition();
 
                     BlockBuilder builder = pageBuilder.getBlockBuilder(0);
@@ -302,7 +310,7 @@ public class BenchmarkHiveFileFormat
             private static final int MAX_ENTRIES = 15_000;
 
             @Override
-            public TestData createTestData(FileFormat format, double nullChance)
+            public TestData createTestData(FileFormat format, double nullChance, long dataLength)
             {
                 Type type = mapType(createUnboundedVarcharType(), DOUBLE);
                 Random random = new Random(1234);
@@ -310,7 +318,7 @@ public class BenchmarkHiveFileFormat
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
                 ImmutableList.Builder<Page> pages = ImmutableList.builder();
                 long dataSize = 0;
-                while (dataSize < MIN_DATA_SIZE) {
+                while (dataSize < dataLength) {
                     pageBuilder.declarePosition();
 
                     BlockBuilder builder = pageBuilder.getBlockBuilder(0);
@@ -342,7 +350,7 @@ public class BenchmarkHiveFileFormat
             private static final int MAX_ENTRIES = 5;
 
             @Override
-            public TestData createTestData(FileFormat format, double nullChance)
+            public TestData createTestData(FileFormat format, double nullChance, long dataLength)
             {
                 Type type = mapType(INTEGER, DOUBLE);
                 Random random = new Random(1234);
@@ -353,7 +361,7 @@ public class BenchmarkHiveFileFormat
                 int[] keys = {1, 2, 3, 4, 5};
 
                 long dataSize = 0;
-                while (dataSize < MIN_DATA_SIZE) {
+                while (dataSize < dataLength) {
                     pageBuilder.declarePosition();
 
                     BlockBuilder builder = pageBuilder.getBlockBuilder(0);
@@ -386,7 +394,7 @@ public class BenchmarkHiveFileFormat
             private static final int MAX_ENTRIES = 15_0000;
 
             @Override
-            public TestData createTestData(FileFormat format, double nullChance)
+            public TestData createTestData(FileFormat format, double nullChance, long dataLength)
             {
                 Type type = mapType(INTEGER, DOUBLE);
                 Random random = new Random(1234);
@@ -394,7 +402,7 @@ public class BenchmarkHiveFileFormat
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
                 ImmutableList.Builder<Page> pages = ImmutableList.builder();
                 long dataSize = 0;
-                while (dataSize < MIN_DATA_SIZE) {
+                while (dataSize < dataLength) {
                     pageBuilder.declarePosition();
 
                     BlockBuilder builder = pageBuilder.getBlockBuilder(0);
@@ -426,7 +434,7 @@ public class BenchmarkHiveFileFormat
             private static final int MAX_ENTRIES = 15_0000;
 
             @Override
-            public TestData createTestData(FileFormat format, double nullChance)
+            public TestData createTestData(FileFormat format, double nullChance, long dataLength)
             {
                 Type type = new ArrayType(createUnboundedVarcharType());
                 Random random = new Random(1234);
@@ -434,7 +442,7 @@ public class BenchmarkHiveFileFormat
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
                 ImmutableList.Builder<Page> pages = ImmutableList.builder();
                 long dataSize = 0;
-                while (dataSize < MIN_DATA_SIZE) {
+                while (dataSize < dataLength) {
                     pageBuilder.declarePosition();
 
                     BlockBuilder builder = pageBuilder.getBlockBuilder(0);
@@ -461,7 +469,24 @@ public class BenchmarkHiveFileFormat
             }
         };
 
-        public abstract TestData createTestData(FileFormat format, double nullChance);
+        public abstract TestData createTestData(FileFormat format, double nullChance, long dataLength);
+    }
+
+    static {
+        // Pollute the JVM profile
+        try {
+            for (DataSet dataSet : DataSet.values()) {
+                for (BenchmarkFileFormat fileFormat : BenchmarkFileFormat.values()) {
+                    BenchmarkHiveFileFormat benchmark = new BenchmarkHiveFileFormat(dataSet, NONE, fileFormat);
+                    benchmark.setup(10_000); // Smaller data set allows to run more param combinations
+                    benchmark.read(new CompressionCounter());
+                    benchmark.write(new CompressionCounter());
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public static void main(String[] args)

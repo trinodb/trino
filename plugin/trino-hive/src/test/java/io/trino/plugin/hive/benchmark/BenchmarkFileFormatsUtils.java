@@ -52,12 +52,12 @@ public final class BenchmarkFileFormatsUtils
     }
 
     @SafeVarargs
-    public static <E extends TpchEntity> TestData createTpchDataSet(FileFormat format, double nullChance, TpchTable<E> tpchTable, TpchColumn<E>... columns)
+    public static <E extends TpchEntity> TestData createTpchDataSet(FileFormat format, double nullChance, long dataLength, TpchTable<E> tpchTable, TpchColumn<E>... columns)
     {
-        return createTpchDataSet(format, nullChance, tpchTable, ImmutableList.copyOf(columns));
+        return createTpchDataSet(format, nullChance, dataLength, tpchTable, ImmutableList.copyOf(columns));
     }
 
-    public static <E extends TpchEntity> TestData createTpchDataSet(FileFormat format, double nullChance, TpchTable<E> tpchTable, List<TpchColumn<E>> columns)
+    public static <E extends TpchEntity> TestData createTpchDataSet(FileFormat format, double nullChance, long dataLength, TpchTable<E> tpchTable, List<TpchColumn<E>> columns)
     {
         List<String> columnNames = columns.stream().map(TpchColumn::getColumnName).collect(toList());
         List<Type> columnTypes = columns.stream().map(BenchmarkFileFormatsUtils::getColumnType)
@@ -109,7 +109,7 @@ public final class BenchmarkFileFormatsUtils
                 pageBuilder.reset();
                 dataSize += page.getSizeInBytes();
 
-                if (dataSize >= MIN_DATA_SIZE) {
+                if (dataSize >= dataLength) {
                     break;
                 }
             }
