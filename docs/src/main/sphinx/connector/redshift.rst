@@ -7,6 +7,14 @@ external `Amazon Redshift <https://aws.amazon.com/redshift/>`_ cluster. This can
 different systems like Redshift and Hive, or between two different
 Redshift clusters.
 
+Requirements
+------------
+
+To connect to Redshift, you need:
+
+* Network access from the Trino coordinator and workers to Redshift.
+  Port 5439 is the default port.
+
 Configuration
 -------------
 

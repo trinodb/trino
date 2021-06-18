@@ -12,7 +12,7 @@ Requirements
 
 To connect to SingleStore, you need:
 
-* SingleStore version 3.0.0 or higher.
+* SingleStore version 7.3 or higher.
 * Network access from the Trino coordinator and workers to SingleStore. Port
   3306 is the default port.
 
