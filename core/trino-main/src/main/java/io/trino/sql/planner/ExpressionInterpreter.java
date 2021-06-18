@@ -1133,14 +1133,13 @@ public class ExpressionInterpreter
                 Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape));
                 Type valueType = type(node.getValue());
                 Type patternType = createVarcharType(unescapedPattern.length());
-                Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(valueType, patternType);
-                checkArgument(commonSuperType.isPresent(), "Missing super type when optimizing %s", node);
+                Type superType = typeCoercion.getCommonSuperType(valueType, patternType)
+                        .orElseThrow(() -> new IllegalArgumentException("Missing super type when optimizing " + node));
                 Expression valueExpression = toExpression(value, valueType);
-                Expression patternExpression = toExpression(unescapedPattern, patternType);
-                Type superType = commonSuperType.get();
                 if (!valueType.equals(superType)) {
                     valueExpression = new Cast(valueExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
                 }
+                Expression patternExpression = toExpression(unescapedPattern, patternType);
                 if (!patternType.equals(superType)) {
                     patternExpression = new Cast(patternExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(patternType, superType));
                 }
