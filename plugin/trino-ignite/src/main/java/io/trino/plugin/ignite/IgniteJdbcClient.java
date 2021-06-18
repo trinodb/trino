@@ -525,6 +525,7 @@ public class IgniteJdbcClient
     @Override
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
     }
 
     @Override
