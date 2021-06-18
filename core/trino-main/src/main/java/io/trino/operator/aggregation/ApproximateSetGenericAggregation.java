@@ -15,16 +15,28 @@ package io.trino.operator.aggregation;
 
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.trino.operator.aggregation.state.HyperLogLogState;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Convention;
 import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 
+import java.lang.invoke.MethodHandle;
+
 import static io.trino.operator.aggregation.ApproximateSetAggregationUtils.getOrCreateHyperLogLog;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.util.Failures.internalError;
 
 @AggregationFunction("approx_set")
 public final class ApproximateSetGenericAggregation
@@ -32,7 +44,24 @@ public final class ApproximateSetGenericAggregation
     private ApproximateSetGenericAggregation() {}
 
     @InputFunction
-    public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value)
+    public static void input(
+            @AggregationState HyperLogLogState state,
+            @BlockPosition @SqlType("unknown") Block block,
+            @BlockIndex int index)
+    {
+        // do nothing -- unknown type is always NULL
+    }
+
+    @InputFunction
+    @TypeParameter("T")
+    public static void input(
+            @OperatorDependency(
+                    operator = XX_HASH_64,
+                    argumentTypes = "T",
+                    convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
+                    MethodHandle methodHandle, // ignored but engine requires all matching input methods signatures if @TypeParameter is used
+            @AggregationState HyperLogLogState state,
+            @SqlType("T") double value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -41,11 +70,52 @@ public final class ApproximateSetGenericAggregation
     }
 
     @InputFunction
-    public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value)
+    @TypeParameter("T")
+    public static void input(
+            @OperatorDependency(
+                    operator = XX_HASH_64,
+                    argumentTypes = "T",
+                    convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
+                    MethodHandle methodHandle, // engine requires that signatures must match if @TypeParameter("T") is used
+            @AggregationState HyperLogLogState state,
+            @SqlType("T") long value)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
         hll.add(value);
+        state.addMemoryUsage(hll.estimatedInMemorySize());
+    }
+
+    @InputFunction
+    public static void input(@AggregationState HyperLogLogState state, @SqlType("BOOLEAN") boolean value)
+    {
+        HyperLogLog hll = getOrCreateHyperLogLog(state);
+        state.addMemoryUsage(-hll.estimatedInMemorySize());
+        hll.add(value ? 1 : 2);
+        state.addMemoryUsage(hll.estimatedInMemorySize());
+    }
+
+    @InputFunction
+    @TypeParameter("T")
+    public static void input(
+            @OperatorDependency(
+                    operator = XX_HASH_64,
+                    argumentTypes = "T",
+                    convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
+                    MethodHandle methodHandle,
+            @AggregationState HyperLogLogState state,
+            @SqlType("T") Object value)
+    {
+        HyperLogLog hll = getOrCreateHyperLogLog(state);
+        state.addMemoryUsage(-hll.estimatedInMemorySize());
+        long hash;
+        try {
+            hash = (long) methodHandle.invoke(value);
+        }
+        catch (Throwable t) {
+            throw internalError(t);
+        }
+        hll.addHash(hash);
         state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
