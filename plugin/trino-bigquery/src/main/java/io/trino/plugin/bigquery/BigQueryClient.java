@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -54,6 +55,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_AMBIGUOUS_OBJECT_NAME;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
 import static io.trino.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -72,6 +74,7 @@ class BigQueryClient
     private final boolean caseInsensitiveNameMatching;
     private final Cache<String, Optional<RemoteDatabaseObject>> remoteDatasets;
     private final Cache<TableId, Optional<RemoteDatabaseObject>> remoteTables;
+    private final Cache<String, TableInfo> destinationTableCache;
 
     BigQueryClient(BigQuery bigQuery, BigQueryConfig config)
     {
@@ -85,6 +88,10 @@ class BigQueryClient
                 .expireAfterWrite(caseInsensitiveNameMatchingCacheTtl.toMillis(), MILLISECONDS);
         this.remoteDatasets = remoteNamesCacheBuilder.build();
         this.remoteTables = remoteNamesCacheBuilder.build();
+        this.destinationTableCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(config.getViewsCacheTtl().toMillis(), MILLISECONDS)
+                .maximumSize(1000)
+                .build();
     }
 
     Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
@@ -180,6 +187,19 @@ class BigQueryClient
     {
         // TODO: Return Optional and make callers handle missing value
         return bigQuery.getTable(remoteTableId);
+    }
+
+    TableInfo getCachedTable(ReadSessionCreatorConfig config, TableId tableId, List<String> requiredColumns)
+    {
+        String query = selectSql(tableId, requiredColumns);
+        log.debug("query is %s", query);
+        try {
+            return destinationTableCache.get(query,
+                    new DestinationTableBuilder(this, config, query, tableId));
+        }
+        catch (ExecutionException e) {
+            throw new TrinoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
+        }
     }
 
     String getProjectId()
