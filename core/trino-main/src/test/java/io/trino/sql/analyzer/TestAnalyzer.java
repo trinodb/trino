@@ -2719,6 +2719,12 @@ public class TestAnalyzer
                 .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT 'a' LIKE 'b' ESCAPE 1 FROM t1")
                 .hasErrorCode(TYPE_MISMATCH);
+        assertFails("SELECT 'abc' LIKE CHAR 'abc' FROM t1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:19: Pattern for LIKE expression must evaluate to a varchar (actual: char(3))");
+        assertFails("SELECT 'abc' LIKE 'abc' ESCAPE CHAR '#' FROM t1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:32: Escape for LIKE expression must evaluate to a varchar (actual: char(1))");
 
         // extract
         assertFails("SELECT EXTRACt(DAY FROM 'a') FROM t1")
