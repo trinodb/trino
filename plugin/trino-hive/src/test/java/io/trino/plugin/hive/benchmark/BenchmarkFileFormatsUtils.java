@@ -52,18 +52,19 @@ public final class BenchmarkFileFormatsUtils
     }
 
     @SafeVarargs
-    public static <E extends TpchEntity> TestData createTpchDataSet(FileFormat format, TpchTable<E> tpchTable, TpchColumn<E>... columns)
+    public static <E extends TpchEntity> TestData createTpchDataSet(FileFormat format, double nullChance, TpchTable<E> tpchTable, TpchColumn<E>... columns)
     {
-        return createTpchDataSet(format, tpchTable, ImmutableList.copyOf(columns));
+        return createTpchDataSet(format, nullChance, tpchTable, ImmutableList.copyOf(columns));
     }
 
-    public static <E extends TpchEntity> TestData createTpchDataSet(FileFormat format, TpchTable<E> tpchTable, List<TpchColumn<E>> columns)
+    public static <E extends TpchEntity> TestData createTpchDataSet(FileFormat format, double nullChance, TpchTable<E> tpchTable, List<TpchColumn<E>> columns)
     {
         List<String> columnNames = columns.stream().map(TpchColumn::getColumnName).collect(toList());
         List<Type> columnTypes = columns.stream().map(BenchmarkFileFormatsUtils::getColumnType)
                 .map(type -> format.supportsDate() || !DATE.equals(type) ? type : createUnboundedVarcharType())
                 .collect(toList());
 
+        Random random = new Random(0);
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         long dataSize = 0;
@@ -72,29 +73,34 @@ public final class BenchmarkFileFormatsUtils
             for (int i = 0; i < columns.size(); i++) {
                 TpchColumn<E> column = columns.get(i);
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-                switch (column.getType().getBase()) {
-                    case IDENTIFIER:
-                        BIGINT.writeLong(blockBuilder, column.getIdentifier(row));
-                        break;
-                    case INTEGER:
-                        INTEGER.writeLong(blockBuilder, column.getInteger(row));
-                        break;
-                    case DATE:
-                        if (format.supportsDate()) {
-                            DATE.writeLong(blockBuilder, column.getDate(row));
-                        }
-                        else {
-                            createUnboundedVarcharType().writeString(blockBuilder, column.getString(row));
-                        }
-                        break;
-                    case DOUBLE:
-                        DOUBLE.writeDouble(blockBuilder, column.getDouble(row));
-                        break;
-                    case VARCHAR:
-                        createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(row)));
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unsupported type " + column.getType());
+                if (isNull(random, nullChance)) {
+                    blockBuilder.appendNull();
+                }
+                else {
+                    switch (column.getType().getBase()) {
+                        case IDENTIFIER:
+                            BIGINT.writeLong(blockBuilder, column.getIdentifier(row));
+                            break;
+                        case INTEGER:
+                            INTEGER.writeLong(blockBuilder, column.getInteger(row));
+                            break;
+                        case DATE:
+                            if (format.supportsDate()) {
+                                DATE.writeLong(blockBuilder, column.getDate(row));
+                            }
+                            else {
+                                createUnboundedVarcharType().writeString(blockBuilder, column.getString(row));
+                            }
+                            break;
+                        case DOUBLE:
+                            DOUBLE.writeDouble(blockBuilder, column.getDouble(row));
+                            break;
+                        case VARCHAR:
+                            createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(row)));
+                            break;
+                        default:
+                            throw new IllegalArgumentException("Unsupported type " + column.getType());
+                    }
                 }
             }
             if (pageBuilder.isFull()) {
@@ -137,11 +143,13 @@ public final class BenchmarkFileFormatsUtils
             String compression = result.getParams().getParam("compression");
             String fileFormat = result.getParams().getParam("benchmarkFileFormat");
             String dataSet = result.getParams().getParam("dataSet");
-            System.out.printf("  %-10s  %-30s  %-10s  %-25s  %2.2f  %10s ± %11s (%5.2f%%) (N = %d, \u03B1 = 99.9%%)\n",
+            String nullChance = result.getParams().getParam("nullChance");
+            System.out.printf("  %-10s  %-30s  %-10s  %-25s  %-5s %2.2f  %10s ± %11s (%5.2f%%) (N = %d, \u03B1 = 99.9%%)\n",
                     result.getPrimaryResult().getLabel(),
                     dataSet,
                     compression,
                     fileFormat,
+                    nullChance,
                     compressionRatio,
                     toHumanReadableSpeed((long) inputSizeStats.getMean()),
                     toHumanReadableSpeed((long) inputSizeStats.getMeanErrorAt(0.999)),
@@ -183,5 +191,15 @@ public final class BenchmarkFileFormatsUtils
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    public static boolean isNull(Random random, double nullChance)
+    {
+        double value = 0;
+        // null chance has to be 0 to 1 exclusive.
+        while (value == 0) {
+            value = random.nextDouble();
+        }
+        return value < nullChance;
     }
 }

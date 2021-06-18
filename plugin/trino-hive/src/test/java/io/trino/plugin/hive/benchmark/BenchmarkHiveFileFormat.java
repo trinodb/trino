@@ -56,6 +56,7 @@ import static io.trino.plugin.hive.HiveTestUtils.mapType;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.MIN_DATA_SIZE;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.createTempDir;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.createTpchDataSet;
+import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.isNull;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.nextRandomBetween;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.printResults;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -107,6 +108,9 @@ public class BenchmarkHiveFileFormat
             "HIVE_PARQUET"})
     private BenchmarkFileFormat benchmarkFileFormat;
 
+    @Param({"0", ".1", ".5", ".9"})
+    private double nullChance;
+
     private FileFormat fileFormat;
     private TestData data;
     private File dataFile;
@@ -129,7 +133,7 @@ public class BenchmarkHiveFileFormat
             throws IOException
     {
         fileFormat = benchmarkFileFormat.getFormat();
-        data = dataSet.createTestData(fileFormat);
+        data = dataSet.createTestData(fileFormat, nullChance);
 
         targetDir.mkdirs();
         dataFile = new File(targetDir, UUID.randomUUID().toString());
@@ -209,44 +213,44 @@ public class BenchmarkHiveFileFormat
     {
         LINEITEM {
             @Override
-            public TestData createTestData(FileFormat format)
+            public TestData createTestData(FileFormat format, double nullChance)
             {
-                return createTpchDataSet(format, LINE_ITEM, LINE_ITEM.getColumns());
+                return createTpchDataSet(format, nullChance, LINE_ITEM, LINE_ITEM.getColumns());
             }
         },
         BIGINT_SEQUENTIAL {
             @Override
-            public TestData createTestData(FileFormat format)
+            public TestData createTestData(FileFormat format, double nullChance)
             {
-                return createTpchDataSet(format, ORDERS, OrderColumn.ORDER_KEY);
+                return createTpchDataSet(format, nullChance, ORDERS, OrderColumn.ORDER_KEY);
             }
         },
         BIGINT_RANDOM {
             @Override
-            public TestData createTestData(FileFormat format)
+            public TestData createTestData(FileFormat format, double nullChance)
             {
-                return createTpchDataSet(format, ORDERS, OrderColumn.CUSTOMER_KEY);
+                return createTpchDataSet(format, nullChance, ORDERS, OrderColumn.CUSTOMER_KEY);
             }
         },
         VARCHAR_SMALL {
             @Override
-            public TestData createTestData(FileFormat format)
+            public TestData createTestData(FileFormat format, double nullChance)
             {
-                return createTpchDataSet(format, ORDERS, OrderColumn.CLERK);
+                return createTpchDataSet(format, nullChance, ORDERS, OrderColumn.CLERK);
             }
         },
         VARCHAR_LARGE {
             @Override
-            public TestData createTestData(FileFormat format)
+            public TestData createTestData(FileFormat format, double nullChance)
             {
-                return createTpchDataSet(format, ORDERS, OrderColumn.CLERK);
+                return createTpchDataSet(format, nullChance, ORDERS, OrderColumn.CLERK);
             }
         },
         VARCHAR_DICTIONARY {
             @Override
-            public TestData createTestData(FileFormat format)
+            public TestData createTestData(FileFormat format, double nullChance)
             {
-                return createTpchDataSet(format, ORDERS, OrderColumn.ORDER_PRIORITY);
+                return createTpchDataSet(format, nullChance, ORDERS, OrderColumn.ORDER_PRIORITY);
             }
         },
         MAP_VARCHAR_DOUBLE {
@@ -254,7 +258,7 @@ public class BenchmarkHiveFileFormat
             private static final int MAX_ENTRIES = 5;
 
             @Override
-            public TestData createTestData(FileFormat format)
+            public TestData createTestData(FileFormat format, double nullChance)
             {
                 Type type = mapType(createUnboundedVarcharType(), DOUBLE);
                 Random random = new Random(1234);
@@ -274,7 +278,12 @@ public class BenchmarkHiveFileFormat
                     IntArrays.shuffle(keys, random);
                     for (int entryId = 0; entryId < entries; entryId++) {
                         createUnboundedVarcharType().writeSlice(mapBuilder, Slices.utf8Slice("key" + keys[entryId]));
-                        DOUBLE.writeDouble(mapBuilder, random.nextDouble());
+                        if (isNull(random, nullChance)) {
+                            mapBuilder.appendNull();
+                        }
+                        else {
+                            DOUBLE.writeDouble(mapBuilder, random.nextDouble());
+                        }
                     }
                     builder.closeEntry();
 
@@ -293,7 +302,7 @@ public class BenchmarkHiveFileFormat
             private static final int MAX_ENTRIES = 15_000;
 
             @Override
-            public TestData createTestData(FileFormat format)
+            public TestData createTestData(FileFormat format, double nullChance)
             {
                 Type type = mapType(createUnboundedVarcharType(), DOUBLE);
                 Random random = new Random(1234);
@@ -309,7 +318,12 @@ public class BenchmarkHiveFileFormat
                     int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
                     for (int entryId = 0; entryId < entries; entryId++) {
                         createUnboundedVarcharType().writeSlice(mapBuilder, Slices.utf8Slice("key" + random.nextInt(10_000_000)));
-                        DOUBLE.writeDouble(mapBuilder, random.nextDouble());
+                        if (isNull(random, nullChance)) {
+                            mapBuilder.appendNull();
+                        }
+                        else {
+                            DOUBLE.writeDouble(mapBuilder, random.nextDouble());
+                        }
                     }
                     builder.closeEntry();
 
@@ -328,7 +342,7 @@ public class BenchmarkHiveFileFormat
             private static final int MAX_ENTRIES = 5;
 
             @Override
-            public TestData createTestData(FileFormat format)
+            public TestData createTestData(FileFormat format, double nullChance)
             {
                 Type type = mapType(INTEGER, DOUBLE);
                 Random random = new Random(1234);
@@ -348,7 +362,12 @@ public class BenchmarkHiveFileFormat
                     IntArrays.shuffle(keys, random);
                     for (int entryId = 0; entryId < entries; entryId++) {
                         INTEGER.writeLong(mapBuilder, keys[entryId]);
-                        DOUBLE.writeDouble(mapBuilder, random.nextDouble());
+                        if (isNull(random, nullChance)) {
+                            mapBuilder.appendNull();
+                        }
+                        else {
+                            DOUBLE.writeDouble(mapBuilder, random.nextDouble());
+                        }
                     }
                     builder.closeEntry();
 
@@ -367,7 +386,7 @@ public class BenchmarkHiveFileFormat
             private static final int MAX_ENTRIES = 15_0000;
 
             @Override
-            public TestData createTestData(FileFormat format)
+            public TestData createTestData(FileFormat format, double nullChance)
             {
                 Type type = mapType(INTEGER, DOUBLE);
                 Random random = new Random(1234);
@@ -383,7 +402,12 @@ public class BenchmarkHiveFileFormat
                     int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
                     for (int entryId = 0; entryId < entries; entryId++) {
                         INTEGER.writeLong(mapBuilder, random.nextInt(10_000_000));
-                        DOUBLE.writeDouble(mapBuilder, random.nextDouble());
+                        if (isNull(random, nullChance)) {
+                            mapBuilder.appendNull();
+                        }
+                        else {
+                            DOUBLE.writeDouble(mapBuilder, random.nextDouble());
+                        }
                     }
                     builder.closeEntry();
 
@@ -402,7 +426,7 @@ public class BenchmarkHiveFileFormat
             private static final int MAX_ENTRIES = 15_0000;
 
             @Override
-            public TestData createTestData(FileFormat format)
+            public TestData createTestData(FileFormat format, double nullChance)
             {
                 Type type = new ArrayType(createUnboundedVarcharType());
                 Random random = new Random(1234);
@@ -417,7 +441,12 @@ public class BenchmarkHiveFileFormat
                     BlockBuilder mapBuilder = builder.beginBlockEntry();
                     int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
                     for (int entryId = 0; entryId < entries; entryId++) {
-                        createUnboundedVarcharType().writeSlice(mapBuilder, Slices.utf8Slice("key" + random.nextInt(10_000_000)));
+                        if (isNull(random, nullChance)) {
+                            mapBuilder.appendNull();
+                        }
+                        else {
+                            createUnboundedVarcharType().writeSlice(mapBuilder, Slices.utf8Slice("key" + random.nextInt(10_000_000)));
+                        }
                     }
                     builder.closeEntry();
 
@@ -432,7 +461,7 @@ public class BenchmarkHiveFileFormat
             }
         };
 
-        public abstract TestData createTestData(FileFormat format);
+        public abstract TestData createTestData(FileFormat format, double nullChance);
     }
 
     public static void main(String[] args)
