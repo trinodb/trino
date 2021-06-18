@@ -14,14 +14,27 @@
 package io.trino.plugin.ignite;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.ignite.IgniteQueryRunner.createIgniteQueryRunner;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -270,5 +283,99 @@ public class TestIgniteConnectorTest
                         ")\n" +
                         "WITH (\n" +
                         "   primary_key = ARRAY['orderkey']\n)");
+    }
+
+    @Test
+    public void testCaseSensitiveTopNPushdown()
+    {
+        // topN over varchar/char columns should only be pushed down if the remote systems's sort order matches Trino
+        boolean expectTopNPushdown = hasBehavior(SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR);
+        PlanMatchPattern topNOverTableScan = node(TopNNode.class, anyTree(node(TableScanNode.class)));
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_case_sensitive_topn_pushdown",
+                "(a_string varchar(10), a_char char(10), a_bigint bigint) with ( primary_key = ARRAY['a_bigint'])",
+                List.of(
+                        "'A', 'A', 1",
+                        "'B', 'B', 2",
+                        "'a', 'a', 3",
+                        "'b', 'b', 4"))) {
+            assertConditionallyOrderedPushedDown(
+                    getSession(),
+                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_string ASC LIMIT 2",
+                    expectTopNPushdown,
+                    topNOverTableScan);
+            assertConditionallyOrderedPushedDown(
+                    getSession(),
+                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_string DESC LIMIT 2",
+                    expectTopNPushdown,
+                    topNOverTableScan);
+            assertConditionallyOrderedPushedDown(
+                    getSession(),
+                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_char ASC LIMIT 2",
+                    expectTopNPushdown,
+                    topNOverTableScan);
+            assertConditionallyOrderedPushedDown(
+                    getSession(),
+                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_char DESC LIMIT 2",
+                    expectTopNPushdown,
+                    topNOverTableScan);
+
+            // multiple sort columns with at-least one case-sensitive column
+            assertConditionallyOrderedPushedDown(
+                    getSession(),
+                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint, a_char LIMIT 2",
+                    expectTopNPushdown,
+                    topNOverTableScan);
+            assertConditionallyOrderedPushedDown(
+                    getSession(),
+                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint, a_string DESC LIMIT 2",
+                    expectTopNPushdown,
+                    topNOverTableScan);
+        }
+    }
+
+    private void assertConditionallyOrderedPushedDown(
+            Session session,
+            @Language("SQL") String query,
+            boolean condition,
+            PlanMatchPattern otherwiseExpected)
+    {
+        QueryAssertions.QueryAssert queryAssert = assertThat(query(session, query)).ordered();
+        if (condition) {
+            queryAssert.isFullyPushedDown();
+        }
+        else {
+            queryAssert.isNotFullyPushedDown(otherwiseExpected);
+        }
+    }
+
+    @Test
+    public void testNullSensitiveTopNPushdown()
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_null_sensitive_topn_pushdown",
+                "(name varchar(10), a bigint, ignored bigint) with (primary_key = ARRAY['ignored'])",
+                List.of(
+                        "'small', 42, 1",
+                        "'big', 134134, 2",
+                        "'negative', -15, 3",
+                        "'null', NULL, 4"))) {
+            verify(SortOrder.values().length == 4, "The test needs to be updated when new options are added");
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a ASC NULLS FIRST LIMIT 5"))
+                    .ordered()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a ASC NULLS LAST LIMIT 5"))
+                    .ordered()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a DESC NULLS FIRST LIMIT 5"))
+                    .ordered()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a DESC NULLS LAST LIMIT 5"))
+                    .ordered()
+                    .isFullyPushedDown();
+        }
     }
 }
