@@ -26,7 +26,7 @@ appropriate for your setup:
 .. note::
 
     Currently, Trino only use Ignite JDBC Thin Driver to communicate with Ignite
-    database, make sure the connection-url starts with ``jdbc:ignite:thin``.
+    database, make sure the ``connection-url`` starts with ``jdbc:ignite:thin``.
 
 Multiple Ignite servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -88,7 +88,7 @@ Table property usage example::
       write_synchronization_mode = 'FULL_ASYNC'
     );
 
-The following are supported ClickHouse table properties from `<https://https://ignite.apache.org/docs/latest/sql-reference/ddl>`_
+The following are supported Ignite table properties from `<https://https://ignite.apache.org/docs/latest/sql-reference/ddl>`_
 
 =============================== ==============================================================================================================
 Property Name                   Description
