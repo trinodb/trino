@@ -62,8 +62,9 @@ public class TestIgniteConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
-                return false;
+//            case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY:
+//            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
+//                return false;
 
             // TODO: SUPPORTS
             case SUPPORTS_DELETE:
@@ -382,5 +383,21 @@ public class TestIgniteConnectorTest
                     .ordered()
                     .isFullyPushedDown();
         }
+    }
+
+    protected TestTable createAggregationTestTable(String name, List<String> rows)
+    {
+        return new TestTable(onRemoteDatabase(),
+                name,
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), t_double double, a_bigint bigint primary key)",
+                rows);
+    }
+
+    protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
+    {
+        return new TestTable(onRemoteDatabase(),
+                name,
+                "(t_double double, u_double double, v_real real, w_real real primary key)",
+                rows);
     }
 }

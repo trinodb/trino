@@ -149,7 +149,7 @@ public class IgniteJdbcClient
                                 // default added column in Ignite will has Integer.MAX_VALUE length which not allow in Trino, will consider the column as varchar
                                 .filter(e -> e != Integer.MAX_VALUE)
                                 .map(VarcharType::createVarcharType)
-                                .orElse(createUnboundedVarcharType()), false));
+                                .orElse(createUnboundedVarcharType()), true));
             case Types.DATE:
                 return Optional.of(ColumnMapping.longMapping(
                         DATE,
@@ -399,13 +399,6 @@ public class IgniteJdbcClient
     @Override
     public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
-        for (JdbcSortItem sortItem : sortOrder) {
-            Type sortItemType = sortItem.getColumn().getColumnType();
-            if (sortItemType instanceof CharType || sortItemType instanceof VarcharType) {
-                // Remote database can be case insensitive.
-                return false;
-            }
-        }
         return true;
     }
 
