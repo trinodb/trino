@@ -64,6 +64,7 @@ public class ImplementAvgDecimal
 
         String column = context.getIdentifierQuote().apply(columnHandle.getColumnName());
 
+        // wait https://issues.apache.org/jira/browse/IGNITE-14948 to be solved.
         return Optional.of(new JdbcExpression(
                 format("CAST(sum(%s) / count(%s) AS decimal(%s, %s))", column, column, type.getPrecision() + 1, type.getScale()),
                 columnHandle.getJdbcTypeHandle()));
