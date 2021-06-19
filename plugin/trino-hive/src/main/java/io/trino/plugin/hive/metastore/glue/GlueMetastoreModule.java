@@ -86,7 +86,7 @@ public class GlueMetastoreModule
     @ForGlueHiveMetastore
     public Executor createExecutor(CatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
     {
-        return createExecutor("hive-glue-partitions-%s", hiveConfig.getWriteStatisticsThreads());
+        return createExecutor("hive-glue-partitions-%s", hiveConfig.getGetPartitionThreads());
     }
 
     @Provides
