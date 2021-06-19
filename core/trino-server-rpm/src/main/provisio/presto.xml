@@ -1,0 +1,10 @@
+<runtime>
+
+    <!-- Bring server tar.gz over for the RPM -->
+    <artifactSet to="/">
+        <artifact id="${project.groupId}:trino-server:tar.gz:${project.version}">
+            <unpack useRoot="true" />
+        </artifact>
+    </artifactSet>
+
+</runtime>

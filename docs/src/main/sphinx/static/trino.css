@@ -1,0 +1,79 @@
+html {
+    scroll-behavior: smooth;
+}
+
+div.highlight {
+    background-color: #f5f5f5;
+}
+
+.md-header, .md-hero, .md-tabs {
+    background-color: #0B1367;
+}
+
+.md-typeset a {
+    color: #DD00A1;
+}
+
+.md-typeset a:active, .md-typeset a:hover {
+    color: #F57C00;
+}
+
+.md-typeset span[id]:target:before {
+    display:block;
+    margin-top:-40px;
+    padding-top:40px;
+    content:"";
+}
+
+.md-typeset dl[id]:target:before {
+    display:block;
+    margin-top:-82px;
+    padding-top:82px;
+    content:"";
+}
+
+.md-nav__button img {
+    height: 48px;
+}
+
+.md-typeset h1 {
+    color: rgba(0, 0, 0, .80);
+}
+
+.sig-name, .sig-paren {
+    font-weight: bold;
+}
+
+.md-typeset code {
+    padding: 0 0.3em;
+}
+
+pre.literal-block {
+    padding: .525rem .6rem;
+}
+
+.md-nav code {
+    font-size: smaller;
+}
+
+.md-typeset .admonition, .md-typeset .admonition-title {
+    font-size: 0.8rem
+}
+
+@media only screen and (min-width: 88.25em) {
+    .md-grid {
+        max-width: 61rem;
+    }
+
+    .md-sidebar--secondary {
+        margin-left: 61rem;
+    }
+}
+
+.o-tooltip--left:after {
+    font-size: 0.6rem;
+}
+
+.copybtn:hover {
+    cursor: copy;
+}

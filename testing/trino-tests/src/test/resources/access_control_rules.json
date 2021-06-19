@@ -1,0 +1,19 @@
+{
+    "catalogs": [
+        {
+            "user": "alice",
+            "catalog": "tpch",
+            "allow": "all"
+        },
+        {
+            "user": "bob",
+            "catalog": "tpch",
+            "allow": "none"
+        },
+        {
+            "user": "charlie",
+            "catalog": "tpch",
+            "allow": "read-only"
+        }
+    ]
+}

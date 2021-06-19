@@ -1,7 +1,0 @@
-io.prestosql.testng.services.ReportOrphanedExecutors
-io.prestosql.testng.services.ReportUnannotatedMethods
-io.prestosql.testng.services.ReportIllNamedTest
-io.prestosql.testng.services.ReportMultiThreadedBeforeOrAfterMethod
-io.prestosql.testng.services.LogTestDurationListener
-io.prestosql.testng.services.RetryAnnotationTransformer
-io.prestosql.testng.services.FlakyAnnotationVerifier

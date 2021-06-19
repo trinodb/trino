@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -xeuo pipefail
+
+set +e
+grep -s -q 'node.id' /etc/trino/node.properties
+NODE_ID_EXISTS=$?
+set -e
+
+NODE_ID=""
+if [[ ${NODE_ID_EXISTS} != 0 ]] ; then
+    NODE_ID="-Dnode.id=${HOSTNAME}"
+fi
+
+exec /usr/lib/trino/bin/launcher run --etc-dir /etc/trino ${NODE_ID} "$@"

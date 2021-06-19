@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
+        <version>359-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>trino-server</artifactId>
+    <name>trino-server</name>
+    <packaging>provisio</packaging>
+
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+
+        <air.check.skip-enforcer>false</air.check.skip-enforcer>
+        <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
+        <air.check.skip-findbugs>true</air.check.skip-findbugs>
+        <air.check.skip-dependency>true</air.check.skip-dependency>
+
+        <!-- Launcher properties -->
+        <main-class>io.trino.server.TrinoServer</main-class>
+        <process-name>${project.artifactId}</process-name>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules combine.self="override">
+                        <requireFilesSize>
+                            <!-- Maven Central has a 1GB limit -->
+                            <maxsize>1073741824</maxsize>
+                            <files>
+                                <file>${project.build.directory}/${project.artifactId}-${project.version}.tar.gz</file>
+                            </files>
+                        </requireFilesSize>
+                    </rules>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
