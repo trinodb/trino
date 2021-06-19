@@ -14,7 +14,6 @@
 package io.trino.cli;
 
 import com.google.common.net.HostAndPort;
-import io.airlift.log.Logger;
 import io.trino.client.ClientSession;
 import io.trino.client.OkHttpUtil;
 import io.trino.client.StatementClient;
@@ -31,10 +30,12 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.client.ClientSession.stripTransactionId;
 import static io.trino.client.OkHttpUtil.basicAuth;
+import static io.trino.client.OkHttpUtil.interceptRequest;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
 import static io.trino.client.OkHttpUtil.setupHttpProxy;
 import static io.trino.client.OkHttpUtil.setupKerberos;
@@ -43,14 +44,16 @@ import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.OkHttpUtil.setupTimeouts;
 import static io.trino.client.OkHttpUtil.tokenAuth;
 import static io.trino.client.StatementClientFactory.newStatementClient;
+import static java.lang.String.format;
 import static java.lang.System.out;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.logging.Level.FINE;
 
 public class QueryRunner
         implements Closeable
 {
-    private static final Logger log = Logger.get(QueryRunner.class);
+    private static final Logger log = Logger.getLogger(QueryRunner.class.getName());
 
     private final AtomicReference<ClientSession> session;
     private final boolean debug;
@@ -215,8 +218,7 @@ public class QueryRunner
 
     private static void setupNetworkLogging(OkHttpClient.Builder clientBuilder)
     {
-        clientBuilder.addNetworkInterceptor(OkHttpUtil.interceptRequest(request -> {
-            log.debug("Sending %s request to %s", request.method(), request.url().uri());
-        }));
+        clientBuilder.addNetworkInterceptor(interceptRequest(request ->
+                log.log(FINE, () -> format("Sending %s request to %s", request.method(), request.url()))));
     }
 }
