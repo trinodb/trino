@@ -62,11 +62,6 @@ public class TestIgniteConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-//            case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY:
-//            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
-//                return false;
-
-            // TODO: SUPPORTS
             case SUPPORTS_DELETE:
                 return false;
 
