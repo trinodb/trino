@@ -119,24 +119,11 @@ public class IgniteTableProperties
         return tableProperties;
     }
 
-    public static IgniteTemplateType getTemplate(Map<String, Object> tableProperties)
-    {
-        requireNonNull(tableProperties, "tableProperties is null");
-        return (IgniteTemplateType) tableProperties.get(TEMPLATE_PROPERTY);
-    }
-
     @SuppressWarnings("unchecked")
     public static List<String> getPrimaryKey(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties, "tableProperties is null");
         return (List<String>) tableProperties.get(PRIMARY_KEY_PROPERTY);
-    }
-
-    @SuppressWarnings("unchecked")
-    public static Integer getBackups(Map<String, Object> tableProperties)
-    {
-        requireNonNull(tableProperties, "tableProperties is null");
-        return (Integer) tableProperties.get(BACK_UPS_PROPERTY);
     }
 
     @SuppressWarnings("unchecked")

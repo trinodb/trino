@@ -58,8 +58,6 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.math.MathContext;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Date;
@@ -67,7 +65,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -81,17 +78,12 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.decodeUnscaledValue;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
-import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -536,7 +528,8 @@ public class IgniteJdbcClient
     public static SliceWriteFunction longDecimalWriteFunction(int precision, int scale)
     {
         String bindExpression = format("CAST(? AS decimal(%s, %s))", precision, scale);
-        return new SliceWriteFunction() {
+        return new SliceWriteFunction()
+        {
             @Override
             public String getBindExpression()
             {
