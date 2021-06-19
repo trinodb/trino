@@ -131,9 +131,6 @@ public class ClientOptions
     @Option(names = "--progress", paramLabel = "<progress>", description = "Show query progress in batch mode")
     public boolean progress;
 
-    @Option(names = "--log-levels-file", paramLabel = "<file>", description = "Configure log levels for debugging using this file")
-    public String logLevelsFile;
-
     @Option(names = "--execute", paramLabel = "<execute>", description = "Execute specified statements and exit")
     public String execute;
 
