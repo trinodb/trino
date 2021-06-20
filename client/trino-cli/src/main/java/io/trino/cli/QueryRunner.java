@@ -23,6 +23,7 @@ import io.trino.client.auth.external.KnownToken;
 import io.trino.client.auth.external.RedirectHandler;
 import io.trino.client.auth.external.TokenPoller;
 import okhttp3.OkHttpClient;
+import okhttp3.logging.HttpLoggingInterceptor;
 
 import java.io.Closeable;
 import java.io.File;
@@ -30,12 +31,10 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.client.ClientSession.stripTransactionId;
 import static io.trino.client.OkHttpUtil.basicAuth;
-import static io.trino.client.OkHttpUtil.interceptRequest;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
 import static io.trino.client.OkHttpUtil.setupHttpProxy;
 import static io.trino.client.OkHttpUtil.setupKerberos;
@@ -44,17 +43,13 @@ import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.OkHttpUtil.setupTimeouts;
 import static io.trino.client.OkHttpUtil.tokenAuth;
 import static io.trino.client.StatementClientFactory.newStatementClient;
-import static java.lang.String.format;
 import static java.lang.System.out;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.logging.Level.FINE;
 
 public class QueryRunner
         implements Closeable
 {
-    private static final Logger log = Logger.getLogger(QueryRunner.class.getName());
-
     private final AtomicReference<ClientSession> session;
     private final boolean debug;
     private final OkHttpClient httpClient;
@@ -63,6 +58,7 @@ public class QueryRunner
     public QueryRunner(
             ClientSession session,
             boolean debug,
+            HttpLoggingInterceptor.Level networkLogging,
             Optional<HostAndPort> socksProxy,
             Optional<HostAndPort> httpProxy,
             Optional<String> keystorePath,
@@ -103,7 +99,8 @@ public class QueryRunner
         setupBasicAuth(builder, session, user, password);
         setupTokenAuth(builder, session, accessToken);
         setupExternalAuth(builder, session, externalAuthentication, sslSetup);
-        setupNetworkLogging(builder);
+
+        builder.addNetworkInterceptor(new HttpLoggingInterceptor(System.err::println).setLevel(networkLogging));
 
         if (kerberosRemoteServiceName.isPresent()) {
             checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
@@ -214,11 +211,5 @@ public class QueryRunner
                     "Authentication using an access token requires HTTPS to be enabled");
             clientBuilder.addInterceptor(tokenAuth(accessToken.get()));
         }
-    }
-
-    private static void setupNetworkLogging(OkHttpClient.Builder clientBuilder)
-    {
-        clientBuilder.addNetworkInterceptor(interceptRequest(request ->
-                log.log(FINE, () -> format("Sending %s request to %s", request.method(), request.url()))));
     }
 }
