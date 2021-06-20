@@ -157,6 +157,7 @@ public class Console
         try (QueryRunner queryRunner = new QueryRunner(
                 session,
                 clientOptions.debug,
+                clientOptions.networkLogging,
                 clientOptions.socksProxy,
                 clientOptions.httpProxy,
                 clientOptions.keystorePath,
