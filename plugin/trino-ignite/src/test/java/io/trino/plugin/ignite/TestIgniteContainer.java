@@ -65,31 +65,37 @@ public class TestIgniteContainer
         this.waitingFor((new HttpWaitStrategy()).forStatusCode(200).forResponsePredicate("Ok."::equals).withStartupTimeout(Duration.ofMinutes(1L)));
     }
 
+    @Override
     public String getDriverClassName()
     {
         return DRIVER_CLASS_NAME;
     }
 
+    @Override
     public String getJdbcUrl()
     {
         return JDBC_URL_PREFIX + this.getHost() + ":" + this.getMappedPort(HTTP_PORT) + "/" + this.databaseName;
     }
 
+    @Override
     public String getUsername()
     {
         return this.username;
     }
 
+    @Override
     public String getPassword()
     {
         return this.password;
     }
 
+    @Override
     public String getTestQueryString()
     {
         return TEST_QUERY;
     }
 
+    @Override
     public TestIgniteContainer withUrlParam(String paramName, String paramValue)
     {
         throw new UnsupportedOperationException("The " + NAME + " does not support this");

@@ -80,7 +80,7 @@ public class TestIgniteConnectorTest
         }
     }
 
-    @Test
+    @Override
     public void testInsert()
     {
         String tableName = "test_insert_" + randomTableSuffix();
@@ -167,7 +167,7 @@ public class TestIgniteConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
     }
 
-    @Test
+    @Override
     public void testAddColumn()
     {
         String tableName = "test_add_column_" + randomTableSuffix();
@@ -204,7 +204,7 @@ public class TestIgniteConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
-    @Test
+    @Override
     public void testInsertForDefaultColumn()
     {
         try (TestTable testTable = createTableWithDefaultColumns()) {
@@ -230,7 +230,7 @@ public class TestIgniteConnectorTest
                         "col_required2 bigint NOT NULL)");
     }
 
-    @Test
+    @Override
     public void testInsertUnicode()
     {
         String tableName = "test_insert_unicode_" + randomTableSuffix();
@@ -260,7 +260,7 @@ public class TestIgniteConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @Override
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
@@ -280,7 +280,7 @@ public class TestIgniteConnectorTest
                         "   primary_key = ARRAY['orderkey']\n)");
     }
 
-    @Test
+    @Override
     public void testCaseSensitiveTopNPushdown()
     {
         // topN over varchar/char columns should only be pushed down if the remote systems's sort order matches Trino
@@ -352,7 +352,7 @@ public class TestIgniteConnectorTest
         return igniteServer::execute;
     }
 
-    @Test
+    @Override
     public void testNullSensitiveTopNPushdown()
     {
         try (TestTable testTable = new TestTable(
@@ -380,6 +380,7 @@ public class TestIgniteConnectorTest
         }
     }
 
+    @Override
     protected TestTable createAggregationTestTable(String name, List<String> rows)
     {
         return new TestTable(onRemoteDatabase(),
@@ -388,6 +389,7 @@ public class TestIgniteConnectorTest
                 rows);
     }
 
+    @Override
     protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
     {
         return new TestTable(onRemoteDatabase(),
