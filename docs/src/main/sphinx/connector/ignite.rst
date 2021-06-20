@@ -43,10 +43,10 @@ configured connector to create a catalog named ``sales``.
 Querying Ignite
 -------------------
 
-The Ignite connector default has two schemas: sys and public. The SYS schema,
-which contains a number of system views with information about cluster nodes, user
-can not create or modify any data among this schema. The PUBLIC schema, which is
-used by default whenever a schema is not specified.
+The Ignite connector default has two schemas: ``sys`` and ``public``. The ``sys``
+schema, which contains a number of system views with information about cluster nodes,
+user can not create or modify any data among this schema. The ``public`` schema,
+which is used by default whenever a schema is not specified.
 Run ``SHOW SCHEMAS`` to see the available Ignite catalog ``myignite``::
 
     SHOW SCHEMAS FROM myignte;
