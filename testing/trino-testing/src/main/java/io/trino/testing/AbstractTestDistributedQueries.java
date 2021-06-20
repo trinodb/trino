@@ -316,6 +316,8 @@ public abstract class AbstractTestDistributedQueries
             return;
         }
 
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
         String tableName = "test_comment_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 
@@ -323,6 +325,12 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'new comment'");
         assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("COMMENT 'new comment'");
         assertThat(getTableComment(tableName)).isEqualTo("new comment");
+        assertThat(query(
+                "SELECT table_name, comment FROM system.metadata.table_comments " +
+                        "WHERE catalog_name = '" + catalogName + "' AND " +
+                        "schema_name = '" + schemaName + "'"))
+                .skippingTypesCheck()
+                .containsAll("VALUES ('" + tableName + "', 'new comment')");
 
         // comment updated
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'updated comment'");
@@ -738,6 +746,8 @@ public abstract class AbstractTestDistributedQueries
 
         @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
 
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
         String testView = "test_view_" + randomTableSuffix();
         String testViewWithComment = "test_view_with_comment_" + randomTableSuffix();
         assertUpdate("CREATE VIEW " + testView + " AS SELECT 123 x");
@@ -748,6 +758,12 @@ public abstract class AbstractTestDistributedQueries
 
         MaterializedResult materializedRows = computeActual("SHOW CREATE VIEW " + testViewWithComment);
         assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'orders'");
+        assertThat(query(
+                "SELECT table_name, comment FROM system.metadata.table_comments " +
+                        "WHERE catalog_name = '" + catalogName + "' AND " +
+                        "schema_name = '" + schemaName + "'"))
+                .skippingTypesCheck()
+                .containsAll("VALUES ('" + testView + "', null), ('" + testViewWithComment + "', 'orders')");
 
         assertQuery("SELECT * FROM " + testView, query);
         assertQuery("SELECT * FROM " + testViewWithComment, query);
@@ -758,7 +774,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertQuery("WITH orders AS (SELECT * FROM orders LIMIT 0) SELECT * FROM " + testView, query);
 
-        String name = format("%s.%s." + testView, getSession().getCatalog().get(), getSession().getSchema().get());
+        String name = format("%s.%s." + testView, catalogName, schemaName);
         assertQuery("SELECT * FROM " + name, query);
 
         assertUpdate("DROP VIEW " + testView);
