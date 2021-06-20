@@ -13,7 +13,12 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.Host;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
+import com.datastax.oss.driver.internal.core.metadata.token.Murmur3Token;
+import com.datastax.oss.driver.internal.core.metadata.token.Murmur3TokenRange;
+import com.datastax.oss.driver.internal.core.metadata.token.RandomToken;
+import com.datastax.oss.driver.internal.core.metadata.token.RandomTokenRange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
@@ -130,7 +135,7 @@ public class CassandraSplitManager
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
         List<CassandraTokenSplitManager.TokenSplit> tokenSplits = tokenSplitMgr.getSplits(schema, tableName, sessionSplitsPerNode);
         for (CassandraTokenSplitManager.TokenSplit tokenSplit : tokenSplits) {
-            String condition = buildTokenCondition(tokenExpression, tokenSplit.getStartToken(), tokenSplit.getEndToken());
+            String condition = buildTokenCondition(tokenExpression, tokenSplit.getTokenRange());
             List<HostAddress> addresses = new HostAddressFactory().hostAddressNamesToHostAddressList(tokenSplit.getHosts());
             CassandraSplit split = new CassandraSplit(partitionId, condition, addresses);
             builder.add(split);
@@ -139,9 +144,24 @@ public class CassandraSplitManager
         return builder.build();
     }
 
-    private static String buildTokenCondition(String tokenExpression, String startToken, String endToken)
+    private static String buildTokenCondition(String tokenExpression, TokenRange tokenRange)
     {
-        return tokenExpression + " > " + startToken + " AND " + tokenExpression + " <= " + endToken;
+        Number startTokenValue;
+        Number endTokenValue;
+        if (tokenRange instanceof Murmur3TokenRange) {
+            Murmur3TokenRange murmur3TokenRange = (Murmur3TokenRange) tokenRange;
+            startTokenValue = ((Murmur3Token) murmur3TokenRange.getStart()).getValue();
+            endTokenValue = ((Murmur3Token) murmur3TokenRange.getEnd()).getValue();
+        }
+        else if (tokenRange instanceof RandomTokenRange) {
+            RandomTokenRange randomTokenRange = (RandomTokenRange) tokenRange;
+            startTokenValue = ((RandomToken) randomTokenRange.getStart()).getValue();
+            endTokenValue = ((RandomToken) randomTokenRange.getEnd()).getValue();
+        }
+        else {
+            throw new IllegalStateException(format("Unsupported token range class %s", tokenRange.getClass().getName()));
+        }
+        return tokenExpression + " > " + startTokenValue + " AND " + tokenExpression + " <= " + endTokenValue;
     }
 
     private List<ConnectorSplit> getSplitsForPartitions(CassandraTableHandle cassTableHandle, List<CassandraPartition> partitions, String clusteringPredicates)
@@ -167,8 +187,8 @@ public class CassandraSplitManager
         Map<Set<String>, List<HostAddress>> hostMap = new HashMap<>();
 
         for (CassandraPartition cassandraPartition : partitions) {
-            Set<Host> hosts = cassandraSession.getReplicas(schema, cassandraPartition.getKeyAsByteBuffer());
-            List<HostAddress> addresses = hostAddressFactory.toHostAddressList(hosts);
+            Set<Node> nodes = cassandraSession.getReplicas(schema, cassandraPartition.getKeyAsByteBuffer());
+            List<HostAddress> addresses = hostAddressFactory.toHostAddressList(nodes);
             if (singlePartitionKeyColumn) {
                 // host ip addresses
                 ImmutableSet.Builder<String> sb = ImmutableSet.builder();

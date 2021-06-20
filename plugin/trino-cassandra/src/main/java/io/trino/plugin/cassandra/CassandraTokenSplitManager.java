@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.Host;
-import com.datastax.driver.core.TokenRange;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.TrinoException;
@@ -92,7 +92,7 @@ public class CassandraTokenSplitManager
                 continue;
             }
 
-            double tokenRangeRingFraction = tokenRing.get().getRingFraction(tokenRange.getStart().toString(), tokenRange.getEnd().toString());
+            double tokenRangeRingFraction = tokenRing.get().getRingFraction(tokenRange.getStart(), tokenRange.getEnd());
             long partitionsCountEstimate = round(totalPartitionsCount * tokenRangeRingFraction);
             checkState(partitionsCountEstimate >= 0, "unexpected partitions count estimate: %s", partitionsCountEstimate);
             int subSplitCount = max(toIntExact(partitionsCountEstimate / splitSize), 1);
@@ -135,41 +135,35 @@ public class CassandraTokenSplitManager
 
     private List<String> getEndpoints(String keyspace, TokenRange tokenRange)
     {
-        Set<Host> endpoints = session.getReplicas(keyspace, tokenRange);
+        Set<Node> endpoints = session.getReplicas(keyspace, tokenRange);
+
         return unmodifiableList(endpoints.stream()
-                .map(Host::toString)
+                .map(endpoint -> endpoint.getEndPoint().resolve().toString())
                 .collect(toList()));
     }
 
     private static TokenSplit createSplit(TokenRange range, List<String> endpoints)
     {
         checkArgument(!range.isEmpty(), "tokenRange must not be empty");
-        String startToken = range.getStart().toString();
-        String endToken = range.getEnd().toString();
-        return new TokenSplit(startToken, endToken, endpoints);
+        requireNonNull(range.getStart(), "tokenRange.start is null");
+        requireNonNull(range.getEnd(), "tokenRange.end is null");
+        return new TokenSplit(range, endpoints);
     }
 
     public static class TokenSplit
     {
-        private String startToken;
-        private String endToken;
+        private TokenRange tokenRange;
         private List<String> hosts;
 
-        public TokenSplit(String startToken, String endToken, List<String> hosts)
+        public TokenSplit(TokenRange tokenRange, List<String> hosts)
         {
-            this.startToken = requireNonNull(startToken, "startToken is null");
-            this.endToken = requireNonNull(endToken, "endToken is null");
+            this.tokenRange = requireNonNull(tokenRange, "tokenRange is null");
             this.hosts = ImmutableList.copyOf(requireNonNull(hosts, "hosts is null"));
         }
 
-        public String getStartToken()
+        public TokenRange getTokenRange()
         {
-            return startToken;
-        }
-
-        public String getEndToken()
-        {
-            return endToken;
+            return tokenRange;
         }
 
         public List<String> getHosts()
@@ -181,8 +175,8 @@ public class CassandraTokenSplitManager
         public String toString()
         {
             return toStringHelper(this)
-                    .add("startToken", startToken)
-                    .add("endToken", endToken)
+                    .add("startToken", tokenRange.getStart())
+                    .add("endToken", tokenRange.getEnd())
                     .add("hosts", hosts)
                     .toString();
         }

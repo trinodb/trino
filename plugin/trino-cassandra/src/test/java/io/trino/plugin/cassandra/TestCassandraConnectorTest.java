@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.datastax.driver.core.utils.Bytes.toRawHexString;
+import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraSession;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
@@ -249,7 +249,7 @@ public class TestCassandraConnectorTest
                 " AND typeuuid = '00000000-0000-0000-0000-000000000007'" +
                 " AND typeinteger = 7" +
                 " AND typelong = 1007" +
-                " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(Ints.toByteArray(7))) + "')" +
+                " AND typebytes = from_hex('" + base16().encode(Ints.toByteArray(7)) + "')" +
                 " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05Z'" +
                 " AND typeansi = 'ansi 7'" +
                 " AND typeboolean = false" +
@@ -617,7 +617,7 @@ public class TestCassandraConnectorTest
 
         assertQueryFailsEventually(
                 "SHOW COLUMNS FROM cassandra.keyspace_6.table_6",
-                "Unsupported partition key type: tuple",
+                "Unsupported partition key type: tuple<bigint>",
                 new Duration(1, MINUTES));
 
         session.execute("DROP KEYSPACE keyspace_6");

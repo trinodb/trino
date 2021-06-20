@@ -56,6 +56,8 @@ public final class CassandraQueryRunner
         queryRunner.createCatalog("cassandra", "cassandra", ImmutableMap.of(
                 "cassandra.contact-points", server.getHost(),
                 "cassandra.native-protocol-port", Integer.toString(server.getPort()),
+                "cassandra.load-policy.use-dc-aware", "true",
+                "cassandra.load-policy.dc-aware.local-dc", "datacenter1",
                 "cassandra.allow-drop-table", "true"));
 
         createKeyspace(server.getSession(), "tpch");

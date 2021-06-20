@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.datastax.oss.driver.api.core.metadata.token.Token;
+import com.datastax.oss.driver.internal.core.metadata.token.RandomToken;
+
 import java.math.BigInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -30,17 +33,17 @@ public final class RandomPartitionerTokenRing
     private RandomPartitionerTokenRing() {}
 
     @Override
-    public double getRingFraction(String start, String end)
+    public double getRingFraction(Token start, Token end)
     {
         return getTokenCountInRange(start, end).doubleValue() / TOTAL_TOKEN_COUNT.doubleValue();
     }
 
     @Override
-    public BigInteger getTokenCountInRange(String startToken, String endToken)
+    public BigInteger getTokenCountInRange(Token startToken, Token endToken)
     {
-        BigInteger start = new BigInteger(startToken);
+        BigInteger start = ((RandomToken) startToken).getValue();
         checkTokenBounds(start);
-        BigInteger end = new BigInteger(endToken);
+        BigInteger end = ((RandomToken) endToken).getValue();
         checkTokenBounds(end);
 
         if (start.equals(end)) {
