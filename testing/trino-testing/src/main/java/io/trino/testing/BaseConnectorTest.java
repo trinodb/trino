@@ -416,10 +416,25 @@ public abstract class BaseConnectorTest
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
         String viewName = "test_materialized_view_" + randomTableSuffix();
+        String viewNameWithComment = "test_materialized_view_with_comment_" + randomTableSuffix();
         assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewNameWithComment + " COMMENT 'mv_comment' AS SELECT * FROM nation");
+
+        // verify comment
+        MaterializedResult materializedRows = computeActual("SHOW CREATE MATERIALIZED VIEW " + viewNameWithComment);
+        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'mv_comment'");
+        assertThat(query(
+                "SELECT table_name, comment FROM system.metadata.table_comments " +
+                        "WHERE catalog_name = '" + catalogName + "' AND " +
+                        "schema_name = '" + schemaName + "'"))
+                .skippingTypesCheck()
+                .containsAll("VALUES ('" + viewName + "', null), ('" + viewNameWithComment + "', 'mv_comment')");
 
         // reading
         assertThat(query("SELECT * FROM " + viewName))
+                .skippingTypesCheck()
+                .matches("SELECT * FROM nation");
+        assertThat(query("SELECT * FROM " + viewNameWithComment))
                 .skippingTypesCheck()
                 .matches("SELECT * FROM nation");
 
@@ -509,6 +524,7 @@ public abstract class BaseConnectorTest
                         "  nation");
 
         assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+        assertUpdate("DROP MATERIALIZED VIEW " + viewNameWithComment);
     }
 
     // TODO inline when all implementations fixed
