@@ -519,6 +519,31 @@ These rules govern the privileges granted on specific tables.
 
 * ``filter_environment`` (optional): environment use during filter evaluation.
 
+.. note::
+
+    ``OWNERSHIP`` privilege is required for performing the following operations::
+
+        CREATE SCHEMA
+        DROP SCHEMA
+        RENAME SCHEMA
+        SET SCHEMA AUTHORIZATION
+        SHOW CREATE SCHEMA
+        SHOW CREATE TABLE
+
+        CREATE TABLE
+        DROP TABLE
+        RENAME TABLE
+        SET TABLE COMMENT
+        ADD COLUMN
+        DROP COLUMN
+        RENAME COLUMN
+        CREATE VIEW
+        RENAME VIEW
+        SET VIEW AUTHORIZATION
+        DROP VIEW
+        CREATE MATERIALIZED VIEW
+        DROP MATERIALIZED VIEW
+
 Column constraint
 ^^^^^^^^^^^^^^^^^
 
