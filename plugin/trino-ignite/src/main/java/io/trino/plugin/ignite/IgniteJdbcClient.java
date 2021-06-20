@@ -404,6 +404,7 @@ public class IgniteJdbcClient
         return true;
     }
 
+    @Override
     protected Optional<TopNFunction> topNFunction()
     {
         return Optional.of(TopNFunction.sqlStandard(this::quoted));
