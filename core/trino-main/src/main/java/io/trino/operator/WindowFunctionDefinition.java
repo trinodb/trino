@@ -22,6 +22,7 @@ import io.trino.spi.type.Type;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,14 +30,14 @@ public class WindowFunctionDefinition
 {
     private final WindowFunctionSupplier functionSupplier;
     private final Type type;
-    private final FrameInfo frameInfo;
+    private final Optional<FrameInfo> frameInfo;
     private final List<Integer> argumentChannels;
     private final boolean ignoreNulls;
     private final List<LambdaProvider> lambdaProviders;
 
     public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, boolean ignoreNulls, List<LambdaProvider> lambdaProviders, List<Integer> inputs)
     {
-        return new WindowFunctionDefinition(functionSupplier, type, frameInfo, ignoreNulls, lambdaProviders, inputs);
+        return new WindowFunctionDefinition(functionSupplier, type, Optional.of(frameInfo), ignoreNulls, lambdaProviders, inputs);
     }
 
     public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, boolean ignoreNulls, List<LambdaProvider> lambdaProviders, Integer... inputs)
@@ -44,7 +45,18 @@ public class WindowFunctionDefinition
         return window(functionSupplier, type, frameInfo, ignoreNulls, lambdaProviders, Arrays.asList(inputs));
     }
 
-    WindowFunctionDefinition(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, boolean ignoreNulls, List<LambdaProvider> lambdaProviders, List<Integer> argumentChannels)
+    /**
+     * Create a WindowFunctionDefinition without the FrameInfo.
+     * This method is used for window functions in pattern recognition context.
+     * The corresponding FrameInfo is common to all window functions, and it is
+     * a property of PatternRecognitionPartition.
+     */
+    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, boolean ignoreNulls, List<LambdaProvider> lambdaProviders, List<Integer> inputs)
+    {
+        return new WindowFunctionDefinition(functionSupplier, type, Optional.empty(), ignoreNulls, lambdaProviders, inputs);
+    }
+
+    WindowFunctionDefinition(WindowFunctionSupplier functionSupplier, Type type, Optional<FrameInfo> frameInfo, boolean ignoreNulls, List<LambdaProvider> lambdaProviders, List<Integer> argumentChannels)
     {
         requireNonNull(functionSupplier, "functionSupplier is null");
         requireNonNull(type, "type is null");
@@ -60,7 +72,7 @@ public class WindowFunctionDefinition
         this.argumentChannels = ImmutableList.copyOf(argumentChannels);
     }
 
-    public FrameInfo getFrameInfo()
+    public Optional<FrameInfo> getFrameInfo()
     {
         return frameInfo;
     }
