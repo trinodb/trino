@@ -11,7 +11,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>trino-fission</artifactId>
+    <artifactId>trino-fission-functions</artifactId>
     <description>Trino - Custom fission funcion plugin for the CCCS</description>
     <packaging>trino-plugin</packaging>
 
