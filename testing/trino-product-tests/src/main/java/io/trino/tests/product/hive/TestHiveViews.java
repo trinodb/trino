@@ -173,4 +173,3 @@ public class TestHiveViews
                 queryAssert -> queryAssert.containsOnly(row(3, "Mateusz", "Gajewski", "true", "1000", null, null)));
     }
 }
-/**/
