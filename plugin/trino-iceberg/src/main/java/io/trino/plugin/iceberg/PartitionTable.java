@@ -292,10 +292,18 @@ public class PartitionTable
             return ((ByteBuffer) value).array();
         }
         if (type instanceof Types.IntegerType || type instanceof Types.DateType) {
-            return Long.parseLong(value.toString());
+            // The transform applied on the partition column
+            if (value instanceof Integer) {
+                int actual = (int) value;
+                return (long) actual;
+            }
+            if (value instanceof Long) {
+                return value;
+            }
+            throw new IllegalArgumentException("Unexpected type : " + type);
         }
         if (type instanceof Types.TimestampType) {
-            long epochMicros = Long.parseLong(value.toString());
+            long epochMicros = (long) value;
             if (((Types.TimestampType) type).shouldAdjustToUTC()) {
                 return timestampTzFromMicros(epochMicros, TimeZoneKey.UTC_KEY);
             }
