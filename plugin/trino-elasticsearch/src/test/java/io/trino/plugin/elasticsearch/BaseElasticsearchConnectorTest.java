@@ -1083,6 +1083,18 @@ public abstract class BaseElasticsearchConnectorTest
                 "SELECT count(*) FROM orders");
     }
 
+    @Test
+    public void testSelectInformationSchemaForMultiIndexAlias()
+            throws IOException
+    {
+        addAlias("nation", "multi_alias");
+        addAlias("region", "multi_alias");
+
+        // No duplicate entries should be found in information_schema.tables or information_schema.columns.
+        testSelectInformationSchemaTables();
+        testSelectInformationSchemaColumns();
+    }
+
     @Test(enabled = false) // TODO (https://github.com/trinodb/trino/issues/2428)
     public void testMultiIndexAlias()
             throws IOException
