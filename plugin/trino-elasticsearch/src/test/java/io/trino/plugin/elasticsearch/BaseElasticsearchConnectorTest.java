@@ -1364,7 +1364,6 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("elasticsearch.request-timeout", "2m")
                 .put("elasticsearch.union-schema-indices-for-alias", "true")
                 .put("elasticsearch.fail-on-alias-schema-mismatch", "false")
-                .put("elasticsearch.default-datatype-for-alias-schema-mismatch", "long")
                 .build();
 
         String catalogName = format("elasticsearch_%s", Math.abs(UUID.randomUUID().hashCode()));
@@ -1399,8 +1398,8 @@ public abstract class BaseElasticsearchConnectorTest
 
         Session session = testSessionBuilder().setCatalog(catalogName).setSchema("tpch").build();
         MaterializedResult expectedColumns = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("name", "varchar", "", "")
                 .row("rackid", "varchar", "", "")
-                .row("name", "bigint", "", "")
                 .row("bookid", "bigint", "", "")
                 .build();
         MaterializedResult actualColumns = computeActual(session, "DESCRIBE " + aliasName);

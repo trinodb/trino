@@ -196,6 +196,7 @@ public class ElasticsearchConfig
         return defaultDataTypeForAliasSchemaMismatch;
     }
 
+    /*
     @Config("elasticsearch.default-datatype-for-alias-schema-mismatch")
     @ConfigDescription("Default datatype for alias schema mismatch")
     public ElasticsearchConfig setDefaultDataTypeForAliasSchemaMismatch(String defaultDataTypeForAliasSchemaMismatch)
@@ -203,6 +204,7 @@ public class ElasticsearchConfig
         this.defaultDataTypeForAliasSchemaMismatch = defaultDataTypeForAliasSchemaMismatch;
         return this;
     }
+    */
 
     @NotNull
     @Min(1)
