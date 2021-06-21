@@ -28,6 +28,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowIndex;
 import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.SkipTo;
@@ -47,7 +48,7 @@ public final class PatternRecognitionPartition
     private final int partitionStart;
     private final int partitionEnd;
     private final int[] outputChannels;
-    private final List<FramedWindowFunction> windowFunctions;
+    private final List<WindowFunction> windowFunctions;
     private final PagesHashStrategy peerGroupHashStrategy;
 
     private int peerGroupStart;
@@ -74,7 +75,7 @@ public final class PatternRecognitionPartition
             int partitionStart,
             int partitionEnd,
             int[] outputChannels,
-            List<FramedWindowFunction> windowFunctions,
+            List<WindowFunction> windowFunctions,
             PagesHashStrategy peerGroupHashStrategy,
             List<MeasureComputation> measures,
             Optional<FrameInfo> commonBaseFrame,
@@ -106,8 +107,8 @@ public final class PatternRecognitionPartition
 
         // reset functions for new partition
         this.windowIndex = new PagesWindowIndex(pagesIndex, partitionStart, partitionEnd);
-        for (FramedWindowFunction framedWindowFunction : windowFunctions) {
-            framedWindowFunction.getFunction().reset(windowIndex);
+        for (WindowFunction windowFunction : windowFunctions) {
+            windowFunction.reset(windowIndex);
         }
 
         currentPosition = partitionStart;
@@ -228,9 +229,9 @@ public final class PatternRecognitionPartition
             channel++;
         }
         // window functions have empty frame
-        for (FramedWindowFunction framedFunction : windowFunctions) {
+        for (WindowFunction function : windowFunctions) {
             Range range = new Range(-1, -1);
-            framedFunction.getFunction().processRow(
+            function.processRow(
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
@@ -257,9 +258,9 @@ public final class PatternRecognitionPartition
             channel++;
         }
         // window functions have empty frame
-        for (FramedWindowFunction framedFunction : windowFunctions) {
+        for (WindowFunction function : windowFunctions) {
             Range range = new Range(-1, -1);
-            framedFunction.getFunction().processRow(
+            function.processRow(
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
@@ -286,8 +287,8 @@ public final class PatternRecognitionPartition
             channel++;
         }
         // window functions have frame consisting of all rows of the match
-        for (FramedWindowFunction framedFunction : windowFunctions) {
-            framedFunction.getFunction().processRow(
+        for (WindowFunction function : windowFunctions) {
+            function.processRow(
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,

@@ -316,7 +316,6 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.SkipTo.Position.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
@@ -1180,9 +1179,6 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), nextOutputChannel);
                 nextOutputChannel++;
 
-                // the common base frame applies to all window functions. This frameInfo will be ignored.
-                FrameInfo ignoredFrame = new FrameInfo(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-
                 WindowNode.Function function = entry.getValue();
                 ResolvedFunction resolvedFunction = function.getResolvedFunction();
                 ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
@@ -1205,7 +1201,7 @@ public class LocalExecutionPlanner
                         .collect(toImmutableList());
 
                 List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, windowFunctionSupplier.getLambdaInterfaces(), functionTypes);
-                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, ignoredFrame, function.isIgnoreNulls(), lambdaProviders, arguments.build()));
+                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, function.isIgnoreNulls(), lambdaProviders, arguments.build()));
             }
 
             // prepare structures specific to PatternRecognitionNode
