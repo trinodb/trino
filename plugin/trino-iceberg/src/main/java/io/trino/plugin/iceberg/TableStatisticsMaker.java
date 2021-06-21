@@ -43,7 +43,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
@@ -88,9 +87,7 @@ public class TableStatisticsMaker
 
         List<Types.NestedField> columns = icebergTable.schema().columns();
 
-        Map<Integer, Type.PrimitiveType> idToTypeMapping = columns.stream()
-                .filter(column -> column.type().isPrimitiveType())
-                .collect(Collectors.toMap(Types.NestedField::fieldId, column -> column.type().asPrimitiveType()));
+        Map<Integer, Type.PrimitiveType> idToTypeMapping = buildIdPrimitiveTypeMapping(columns);
         List<PartitionField> partitionFields = icebergTable.spec().fields();
 
         Set<Integer> identityPartitionIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()
@@ -131,7 +128,7 @@ public class TableStatisticsMaker
                 if (!dataFileMatches(
                         dataFile,
                         constraint,
-                        idToTypeMapping,
+                        icebergPartitionTypes,
                         partitionFields,
                         idToDetails)) {
                     continue;
@@ -196,7 +193,7 @@ public class TableStatisticsMaker
     private boolean dataFileMatches(
             DataFile dataFile,
             Constraint constraint,
-            Map<Integer, Type.PrimitiveType> idToTypeMapping,
+            List<Type> icebergPartitionTypes,
             List<PartitionField> partitionFields,
             Map<Integer, ColumnFieldDetails> fieldDetails)
     {
@@ -213,7 +210,7 @@ public class TableStatisticsMaker
             int fieldId = field.sourceId();
             ColumnFieldDetails details = fieldDetails.get(fieldId);
             IcebergColumnHandle column = details.getColumnHandle();
-            Object value = PartitionTable.convert(dataFile.partition().get(index, details.getJavaClass()), idToTypeMapping.get(fieldId));
+            Object value = PartitionTable.convert(dataFile.partition().get(index, details.getJavaClass()), icebergPartitionTypes.get(index));
             Domain allowedDomain = domains.get(column);
             if (allowedDomain != null && !allowedDomain.includesNullableValue(value)) {
                 return false;
@@ -242,6 +239,29 @@ public class TableStatisticsMaker
             partitionTypeBuilder.add(type);
         }
         return partitionTypeBuilder.build();
+    }
+
+    private Map<Integer, Type.PrimitiveType> buildIdPrimitiveTypeMapping(List<Types.NestedField> columns)
+    {
+        ImmutableMap.Builder<Integer, Type.PrimitiveType> idToTypeMapping = ImmutableMap.builder();
+        for (Types.NestedField field : columns) {
+            buildIdPrimitiveTypeMapping(field, idToTypeMapping);
+        }
+        return idToTypeMapping.build();
+    }
+
+    private void buildIdPrimitiveTypeMapping(Types.NestedField field, ImmutableMap.Builder<Integer, Type.PrimitiveType> icebergIdToTypeMapping)
+    {
+        Type type = field.type();
+        if (type.isPrimitiveType()) {
+            icebergIdToTypeMapping.put(field.fieldId(), type.asPrimitiveType());
+            return;
+        }
+        if (type instanceof Type.NestedType) {
+            type.asNestedType().fields().forEach(child -> buildIdPrimitiveTypeMapping(child, icebergIdToTypeMapping));
+            return;
+        }
+        throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
     private static class ColumnFieldDetails

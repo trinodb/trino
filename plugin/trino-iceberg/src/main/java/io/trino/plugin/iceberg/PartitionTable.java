@@ -300,7 +300,7 @@ public class PartitionTable
             if (value instanceof Long) {
                 return value;
             }
-            throw new IllegalArgumentException("Unexpected type : " + type);
+            throw new IllegalArgumentException("Unexpected type of value : " + value);
         }
         if (type instanceof Types.TimestampType) {
             long epochMicros = (long) value;
