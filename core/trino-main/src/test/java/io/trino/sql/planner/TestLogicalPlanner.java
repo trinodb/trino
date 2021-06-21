@@ -771,6 +771,25 @@ public class TestLogicalPlanner
                                                                         anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
                                                         anyTree(
                                                                 tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))))));
+
+        assertDistributedPlan("SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation",
+                automaticJoinDistribution(),
+                anyTree(
+                        filter(format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%s, 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
+                                project(
+                                        markDistinct("is_distinct", ImmutableList.of("n_name", "n_regionkey", "unique"), "hash",
+                                                exchange(LOCAL, GATHER,
+                                                        exchange(REMOTE, REPARTITION,
+                                                                project(
+                                                                        ImmutableMap.of(
+                                                                                "hash",
+                                                                                expression("combine_hash(combine_hash(combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(\"n_name\"), 0)), COALESCE(\"$operator$hash_code\"(\"n_regionkey\"), 0)), COALESCE(\"$operator$hash_code\"(\"unique\"), 0))")),
+                                                                        join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
+                                                                                project(
+                                                                                        assignUniqueId("unique",
+                                                                                                tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey", "n_name", "name")))),
+                                                                                anyTree(
+                                                                                        tableScan("region", ImmutableMap.of("r_regionkey", "regionkey"))))))))))));
     }
 
     @Test
