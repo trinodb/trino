@@ -21,9 +21,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
@@ -84,6 +91,7 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -91,14 +99,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -137,10 +149,17 @@ public class ElasticsearchClient
     private final boolean tlsEnabled;
     private final boolean ignorePublishAddress;
 
+    private boolean unionSchemaIndicesForAlias;
+    private int maxNumberOfIndicesForAliasSchema;
+    private boolean failOnAliasSchemaMismatch;
+    private String defaultDataTypeForAliasSchemaMismatch;
+
     private final TimeStat searchStats = new TimeStat(MILLISECONDS);
     private final TimeStat nextPageStats = new TimeStat(MILLISECONDS);
     private final TimeStat countStats = new TimeStat(MILLISECONDS);
     private final TimeStat backpressureStats = new TimeStat(MILLISECONDS);
+
+    private final LoadingCache<String, IndexMetadata> indexMetaDataCache;
 
     @Inject
     public ElasticsearchClient(
@@ -157,6 +176,12 @@ public class ElasticsearchClient
         this.scrollTimeout = config.getScrollTimeout();
         this.refreshInterval = config.getNodeRefreshInterval();
         this.tlsEnabled = config.isTlsEnabled();
+        this.unionSchemaIndicesForAlias = config.isUnionSchemaIndicesForAlias();
+        this.maxNumberOfIndicesForAliasSchema = config.getMaxNumberOfIndicesForAliasSchema();
+        this.failOnAliasSchemaMismatch = config.isFailOnAliasSchemaMismatch();
+        this.defaultDataTypeForAliasSchemaMismatch = config.getDefaultDataTypeForAliasSchemaMismatch();
+        indexMetaDataCache = newCacheBuilder(OptionalLong.of(config.getIndexMetaDataCacheTtl().toMillis()), config.getIndexMetaDataCacheMaximumSize())
+            .build(CacheLoader.asyncReloading(CacheLoader.from(this::loadIndexMetadata), Executors.newSingleThreadExecutor()));
     }
 
     @PostConstruct
@@ -520,36 +545,140 @@ public class ElasticsearchClient
 
     public IndexMetadata getIndexMetadata(String index)
     {
+        try {
+            return indexMetaDataCache.getUnchecked(index);
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            throw e;
+        }
+    }
+
+    private IndexMetadata loadIndexMetadata(String index)
+    {
+        LOG.debug("IndexMetadata for index - '%s' not found in cache. Hence fetching from elasticsearch...", index);
+
         String path = format("/%s/_mappings", index);
 
         return doRequest(path, body -> {
             try {
-                JsonNode mappings = OBJECT_MAPPER.readTree(body)
-                        .elements().next()
-                        .get("mappings");
-
-                if (!mappings.elements().hasNext()) {
-                    return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
+                Iterator<JsonNode> indicesIterator = OBJECT_MAPPER.readTree(body).elements();
+                if (maxNumberOfIndicesForAliasSchema > 0) {
+                    indicesIterator = Iterators.limit(indicesIterator, maxNumberOfIndicesForAliasSchema);
                 }
-                if (!mappings.has("properties")) {
-                    // Older versions of ElasticSearch supported multiple "type" mappings
-                    // for a given index. Newer versions support only one and don't
-                    // expose it in the document. Here we skip it if it's present.
-                    mappings = mappings.elements().next();
+                IndexMetadata.ObjectType outputSchema = new IndexMetadata.ObjectType(ImmutableList.of());
+                do {
+                    JsonNode mappings = indicesIterator.next().get("mappings");
 
-                    if (!mappings.has("properties")) {
-                        return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
+                    if (!mappings.elements().hasNext()) {
+                        return new IndexMetadata(outputSchema);
                     }
+                    if (!mappings.has("properties")) {
+                        // Older versions of ElasticSearch supported multiple "type" mappings
+                        // for a given index. Newer versions support only one and don't
+                        // expose it in the document. Here we skip it if it's present.
+                        mappings = mappings.elements().next();
+                        if (!mappings.has("properties")) {
+                            continue;
+                        }
+                    }
+
+                    JsonNode metaNode = nullSafeNode(mappings, "_meta");
+                    IndexMetadata.ObjectType schema = parseType(mappings.get("properties"), nullSafeNode(metaNode, "presto"));
+                    outputSchema = merge(index, "", outputSchema, schema);
                 }
+                while (unionSchemaIndicesForAlias && indicesIterator.hasNext());
 
-                JsonNode metaNode = nullSafeNode(mappings, "_meta");
-
-                return new IndexMetadata(parseType(mappings.get("properties"), nullSafeNode(metaNode, "presto")));
+                return new IndexMetadata(outputSchema);
             }
             catch (IOException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
+            catch (RuntimeException e) {
+                throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, e);
+            }
         });
+    }
+
+    private IndexMetadata.ObjectType merge(String index, String parentPrefix, IndexMetadata.ObjectType schema1, IndexMetadata.ObjectType schema2)
+    {
+        if (schema2.getFields().isEmpty()) {
+            return schema1;
+        }
+        if (schema1.getFields().isEmpty()) {
+            return schema2;
+        }
+        List<IndexMetadata.Field> fields = merge(index, parentPrefix, schema1.getFields(), schema2.getFields());
+        return new IndexMetadata.ObjectType(fields);
+    }
+
+    private List<IndexMetadata.Field> merge(String index, String parentPrefix, List<IndexMetadata.Field> schemaFields1, List<IndexMetadata.Field> schemaFields2)
+    {
+        // Non object type fields
+        Set<IndexMetadata.Field> fields = Stream.concat(schemaFields1.stream(), schemaFields2.stream())
+                .filter(field -> !(field.getType() instanceof IndexMetadata.ObjectType))
+                .collect(Collectors.toSet());
+
+        // Object Type fields
+        Set<IndexMetadata.Field> objectTypeFields = Stream.concat(schemaFields1.stream(), schemaFields2.stream())
+                .filter(field -> field.getType() instanceof IndexMetadata.ObjectType)
+                .collect(Collectors.groupingBy(field -> field.getName()))
+                .entrySet()
+                .stream()
+                .map(fieldList -> mergeNestedFields(fieldList.getKey(), fieldList.getValue(), index, parentPrefix))
+                .collect(Collectors.toSet());
+
+        fields.addAll(objectTypeFields);
+        fields = checkAndCorrectMismatchFields(index, parentPrefix, fields);
+
+        return new ArrayList<>(fields);
+    }
+
+    private IndexMetadata.Field mergeNestedFields(String fieldName, List<IndexMetadata.Field> fields, String index, String parentPrefix)
+    {
+        String prefix = Strings.isNullOrEmpty(parentPrefix) ? fieldName : getFlattenedKey(parentPrefix, fieldName);
+        IndexMetadata.ObjectType type = fields.stream()
+                .map(field -> (IndexMetadata.ObjectType) field.getType())
+                .reduce((nestedSchema1, nestedSchema2) -> merge(index, prefix, nestedSchema1, nestedSchema2))
+                .get();
+        IndexMetadata.Field indexField = fields.iterator().next();
+        return new IndexMetadata.Field(indexField.isArray(), indexField.getName(), type);
+    }
+
+    private String getFlattenedKey(String parent, String child)
+    {
+        return format("%s.%s", parent, child);
+    }
+
+    private Set<IndexMetadata.Field> checkAndCorrectMismatchFields(String index, String parent, Set<IndexMetadata.Field> fields)
+    {
+        Map<String, List<IndexMetadata.Field>> fieldsMap = fields.stream()
+                .collect(Collectors.groupingBy(IndexMetadata.Field::getName));
+
+        Map<String, List<IndexMetadata.Field>> typeMismatchFields = fieldsMap.entrySet()
+                .stream()
+                .filter(fieldNameToFieldsList -> fieldNameToFieldsList.getValue().size() > 1)
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        if (!typeMismatchFields.isEmpty() && failOnAliasSchemaMismatch) {
+            Set<String> failedColNames = typeMismatchFields.keySet();
+            if (!Strings.isNullOrEmpty(parent)) {
+                failedColNames = failedColNames.stream().map(c -> format("%s.%s", parent, c)).collect(Collectors.toSet());
+            }
+            throw new RuntimeException(format("Table(Alias index) '%s' has columns '%s' having data type mismatch", index, failedColNames));
+        }
+
+        Set<IndexMetadata.Field> correctedFields = typeMismatchFields.entrySet().stream()
+                .map(fieldNameToFieldsList -> {
+                    String column = Strings.isNullOrEmpty(parent) ? fieldNameToFieldsList.getKey() : getFlattenedKey(parent, fieldNameToFieldsList.getKey());
+                    LOG.warn("Column '%s' in index(alias) '%s' has data type mismatch, Setting to default data type - '%s'",
+                            column, index, defaultDataTypeForAliasSchemaMismatch);
+                    return new IndexMetadata.Field(false, fieldNameToFieldsList.getKey(), new IndexMetadata.PrimitiveType(defaultDataTypeForAliasSchemaMismatch));
+                })
+                .collect(Collectors.toSet());
+
+        correctedFields.forEach(field -> fieldsMap.put(field.getName(), Lists.newArrayList(field)));
+        return fieldsMap.values().stream().map(field -> field.iterator().next()).collect(Collectors.toSet());
     }
 
     private IndexMetadata.ObjectType parseType(JsonNode properties, JsonNode metaProperties)
@@ -837,6 +966,16 @@ public class ElasticsearchClient
         }
 
         throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
+    }
+
+    private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, long maximumSize)
+    {
+        CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder().softValues();
+        if (expiresAfterWriteMillis.isPresent()) {
+            cacheBuilder = cacheBuilder.expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS);
+        }
+        cacheBuilder = cacheBuilder.maximumSize(maximumSize);
+        return cacheBuilder;
     }
 
     @VisibleForTesting

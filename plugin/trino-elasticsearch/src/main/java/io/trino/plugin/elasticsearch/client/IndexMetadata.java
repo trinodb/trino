@@ -16,6 +16,9 @@ package io.trino.plugin.elasticsearch.client;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -60,6 +63,27 @@ public class IndexMetadata
         {
             return type;
         }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(isArray, name, type);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Field field = (Field) o;
+            return isArray == field.isArray &&
+                name.equals(field.name) &&
+                type.equals(field.type);
+        }
     }
 
     public interface Type {}
@@ -78,6 +102,25 @@ public class IndexMetadata
         {
             return name;
         }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            PrimitiveType that = (PrimitiveType) o;
+            return name.equals(that.name);
+        }
     }
 
     public static class DateTimeType
@@ -95,6 +138,27 @@ public class IndexMetadata
         public List<String> getFormats()
         {
             return formats;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(formats.stream().sorted().collect(Collectors.toList()));
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            DateTimeType that = (DateTimeType) o;
+            return this.formats.size() == that.formats.size()
+                && this.formats.stream().collect(Collectors.toMap(Function.identity(), s -> 1L, Long::sum))
+                .equals(that.formats.stream().collect(Collectors.toMap(Function.identity(), s -> 1L, Long::sum)));
         }
     }
 
