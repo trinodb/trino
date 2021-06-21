@@ -23,7 +23,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GroupBy;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
@@ -123,7 +123,7 @@ public final class QueryUtil
 
     public static Expression logicalAnd(Expression left, Expression right)
     {
-        return new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND, left, right);
+        return new LogicalExpression(LogicalExpression.Operator.AND, ImmutableList.of(left, right));
     }
 
     public static Expression equal(Expression left, Expression right)

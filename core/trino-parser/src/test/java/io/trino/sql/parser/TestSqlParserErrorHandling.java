@@ -13,11 +13,9 @@
  */
 package io.trino.sql.parser;
 
-import com.google.common.base.Joiner;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -227,7 +225,11 @@ public class TestSqlParserErrorHandling
     public void testStackOverflowExpression()
     {
         for (int size = 3000; size <= 100_000; size *= 2) {
-            SQL_PARSER.createExpression(Joiner.on(" OR ").join(nCopies(size, "x = y")), new ParsingOptions());
+            String expression = "x = y";
+            for (int i = 1; i < size; i++) {
+                expression = "(" + expression + ") OR x = y";
+            }
+            SQL_PARSER.createExpression(expression, new ParsingOptions());
         }
     }
 
@@ -235,7 +237,11 @@ public class TestSqlParserErrorHandling
     public void testStackOverflowStatement()
     {
         for (int size = 6000; size <= 100_000; size *= 2) {
-            SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(size, "x = y")), PARSING_OPTIONS);
+            String expression = "x = y";
+            for (int i = 1; i < size; i++) {
+                expression = "(" + expression + ") OR x = y";
+            }
+            SQL_PARSER.createStatement("SELECT " + expression, PARSING_OPTIONS);
         }
     }
 }

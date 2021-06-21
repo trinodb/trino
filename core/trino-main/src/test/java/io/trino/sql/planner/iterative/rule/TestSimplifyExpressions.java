@@ -25,7 +25,7 @@ import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -40,8 +40,8 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.sql.ExpressionUtils.binaryExpression;
 import static io.trino.sql.ExpressionUtils.extractPredicates;
+import static io.trino.sql.ExpressionUtils.logicalExpression;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
@@ -230,13 +230,13 @@ public class TestSimplifyExpressions
             extends ExpressionRewriter<Void>
     {
         @Override
-        public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteLogicalBinaryExpression(LogicalExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             List<Expression> predicates = extractPredicates(node.getOperator(), node).stream()
                     .map(p -> treeRewriter.rewrite(p, context))
                     .sorted(Comparator.comparing(Expression::toString))
                     .collect(toList());
-            return binaryExpression(node.getOperator(), predicates);
+            return logicalExpression(node.getOperator(), predicates);
         }
     }
 }

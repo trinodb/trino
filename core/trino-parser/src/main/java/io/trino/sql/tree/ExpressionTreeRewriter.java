@@ -236,7 +236,7 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        public Expression visitLogicalBinaryExpression(LogicalBinaryExpression node, Context<C> context)
+        public Expression visitLogicalExpression(LogicalExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
                 Expression result = rewriter.rewriteLogicalBinaryExpression(node, context.get(), ExpressionTreeRewriter.this);
@@ -245,11 +245,14 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            Expression left = rewrite(node.getLeft(), context.get());
-            Expression right = rewrite(node.getRight(), context.get());
+            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+            for (Expression expression : node.getTerms()) {
+                builder.add(rewrite(expression, context.get()));
+            }
 
-            if (left != node.getLeft() || right != node.getRight()) {
-                return new LogicalBinaryExpression(node.getOperator(), left, right);
+            List<Expression> rewrittenTerms = builder.build();
+            if (!sameElements(node.getTerms(), rewrittenTerms)) {
+                return new LogicalExpression(node.getOperator(), rewrittenTerms);
             }
 
             return node;

@@ -45,7 +45,7 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -571,9 +571,14 @@ class AggregationAnalyzer
         }
 
         @Override
-        protected Boolean visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        protected Boolean visitLogicalExpression(LogicalExpression node, Void context)
         {
-            return process(node.getLeft(), context) && process(node.getRight(), context);
+            boolean result = true;
+            for (Expression term : node.getTerms()) {
+                result = result && process(term, context);
+            }
+
+            return result;
         }
 
         @Override

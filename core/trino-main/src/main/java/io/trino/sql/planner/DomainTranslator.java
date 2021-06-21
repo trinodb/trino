@@ -53,7 +53,7 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
@@ -69,6 +69,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -355,23 +356,29 @@ public final class DomainTranslator
         }
 
         @Override
-        protected ExtractionResult visitLogicalBinaryExpression(LogicalBinaryExpression node, Boolean complement)
+        protected ExtractionResult visitLogicalExpression(LogicalExpression node, Boolean complement)
         {
-            ExtractionResult leftResult = process(node.getLeft(), complement);
-            ExtractionResult rightResult = process(node.getRight(), complement);
+            List<ExtractionResult> results = node.getTerms().stream()
+                    .map(term -> process(term, complement))
+                    .collect(toImmutableList());
 
-            TupleDomain<Symbol> leftTupleDomain = leftResult.getTupleDomain();
-            TupleDomain<Symbol> rightTupleDomain = rightResult.getTupleDomain();
+            List<TupleDomain<Symbol>> tupleDomains = results.stream()
+                    .map(ExtractionResult::getTupleDomain)
+                    .collect(toImmutableList());
 
-            LogicalBinaryExpression.Operator operator = complement ? node.getOperator().flip() : node.getOperator();
+            List<Expression> residuals = results.stream()
+                    .map(ExtractionResult::getRemainingExpression)
+                    .collect(toImmutableList());
+
+            LogicalExpression.Operator operator = complement ? node.getOperator().flip() : node.getOperator();
             switch (operator) {
                 case AND:
                     return new ExtractionResult(
-                            leftTupleDomain.intersect(rightTupleDomain),
-                            combineConjuncts(metadata, leftResult.getRemainingExpression(), rightResult.getRemainingExpression()));
+                            TupleDomain.intersect(tupleDomains),
+                            combineConjuncts(metadata, residuals));
 
                 case OR:
-                    TupleDomain<Symbol> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(leftTupleDomain, rightTupleDomain);
+                    TupleDomain<Symbol> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(tupleDomains);
 
                     // In most cases, the columnUnionedTupleDomain is only a superset of the actual strict union
                     // and so we can return the current node as the remainingExpression so that all bounds will be double checked again at execution time.
@@ -381,20 +388,26 @@ public final class DomainTranslator
                     // some of these cases, we won't have to double check the bounds unnecessarily at execution time.
 
                     // We can only make inferences if the remaining expressions on both side are equal and deterministic
-                    if (leftResult.getRemainingExpression().equals(rightResult.getRemainingExpression()) &&
-                            DeterminismEvaluator.isDeterministic(leftResult.getRemainingExpression(), metadata)) {
+                    if (Set.copyOf(residuals).size() == 1 && DeterminismEvaluator.isDeterministic(residuals.get(0), metadata)) {
+                        // NONE are no-op for the purpose of OR
+                        tupleDomains = tupleDomains.stream()
+                                .filter(domain -> !domain.isNone())
+                                .collect(toList());
+
                         // The column-wise union is equivalent to the strict union if
                         // 1) If both TupleDomains consist of the same exact single column (e.g. left TupleDomain => (a > 0), right TupleDomain => (a < 10))
                         // 2) If one TupleDomain is a superset of the other (e.g. left TupleDomain => (a > 0, b > 0 && b < 10), right TupleDomain => (a > 5, b = 5))
-                        boolean matchingSingleSymbolDomains = !leftTupleDomain.isNone()
-                                && !rightTupleDomain.isNone()
-                                && leftTupleDomain.getDomains().get().size() == 1
-                                && rightTupleDomain.getDomains().get().size() == 1
-                                && leftTupleDomain.getDomains().get().keySet().equals(rightTupleDomain.getDomains().get().keySet());
-                        boolean oneSideIsSuperSet = leftTupleDomain.contains(rightTupleDomain) || rightTupleDomain.contains(leftTupleDomain);
+                        boolean matchingSingleSymbolDomains = tupleDomains.stream().allMatch(domain -> domain.getDomains().get().size() == 1);
 
-                        if (oneSideIsSuperSet) {
-                            remainingExpression = leftResult.getRemainingExpression();
+                        matchingSingleSymbolDomains = matchingSingleSymbolDomains && tupleDomains.stream()
+                                .map(tupleDomain -> tupleDomain.getDomains().get().keySet())
+                                .distinct()
+                                .count() == 1;
+
+                        boolean oneTermIsSuperSet = TupleDomain.maximal(tupleDomains).isPresent();
+
+                        if (oneTermIsSuperSet) {
+                            remainingExpression = residuals.get(0);
                         }
                         else if (matchingSingleSymbolDomains) {
                             // Types REAL and DOUBLE require special handling because they include NaN value. In this case, we cannot rely on the union of domains.
@@ -405,9 +418,7 @@ public final class DomainTranslator
                             //          Let left TupleDomain => (a > 0) /false for NaN/, right TupleDomain => (a < 10) /false for NaN/.
                             //          Unioned TupleDomain => "is not null" /true for NaN/
                             // To guard against wrong results, the current node is returned as the remainingExpression.
-                            Domain leftDomain = getOnlyElement(leftTupleDomain.getDomains().get().values());
-                            Domain rightDomain = getOnlyElement(rightTupleDomain.getDomains().get().values());
-                            Type type = leftDomain.getType();
+                            Type type = getOnlyElement(tupleDomains.get(0).getDomains().get().values()).getType();
 
                             // A Domain of a floating point type contains NaN in the following cases:
                             // 1. When it contains all the values of the type and null.
@@ -421,11 +432,10 @@ public final class DomainTranslator
                                     (columnUnionedTupleDomain.getDomains().isPresent() &&
                                             getOnlyElement(columnUnionedTupleDomain.getDomains().get().values()).getValues().isAll());
                             boolean implicitlyAddedNaN = (type instanceof RealType || type instanceof DoubleType) &&
-                                    !leftDomain.getValues().isAll() &&
-                                    !rightDomain.getValues().isAll() &&
+                                    tupleDomains.stream().noneMatch(TupleDomain::isAll) &&
                                     unionedDomainContainsNaN;
                             if (!implicitlyAddedNaN) {
-                                remainingExpression = leftResult.getRemainingExpression();
+                                remainingExpression = residuals.get(0);
                             }
                         }
                     }

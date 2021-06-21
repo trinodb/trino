@@ -32,7 +32,7 @@ import io.trino.sql.tree.GroupingSets;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.OrderBy;
@@ -303,11 +303,11 @@ public class TreePrinter
             }
 
             @Override
-            protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, Integer indentLevel)
+            protected Void visitLogicalExpression(LogicalExpression node, Integer indentLevel)
             {
                 print(indentLevel, node.getOperator().toString());
 
-                super.visitLogicalBinaryExpression(node, indentLevel + 1);
+                super.visitLogicalExpression(node, indentLevel + 1);
 
                 return null;
             }

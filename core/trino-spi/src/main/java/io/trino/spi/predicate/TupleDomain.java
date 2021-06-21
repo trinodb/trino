@@ -234,35 +234,52 @@ public final class TupleDomain<T>
      */
     public TupleDomain<T> intersect(TupleDomain<T> other)
     {
-        requireNonNull(other, "other is null");
+        return intersect(List.of(this, other));
+    }
 
-        if (this.isNone() || other.isNone()) {
+    public static <T> TupleDomain<T> intersect(List<TupleDomain<T>> domains)
+    {
+        if (domains.size() < 2) {
+            throw new IllegalArgumentException("Expected at least 2 elements");
+        }
+
+        if (domains.stream().anyMatch(TupleDomain::isNone)) {
             return none();
         }
-        if (this == other) {
-            return this;
-        }
-        if (this.isAll()) {
-            return other;
-        }
-        if (other.isAll()) {
-            return this;
+
+        if (domains.stream().allMatch(domain -> domain == domains.get(0))) {
+            return domains.get(0);
         }
 
-        Map<T, Domain> intersected = new LinkedHashMap<>(this.getDomains().get());
-        for (Map.Entry<T, Domain> entry : other.getDomains().get().entrySet()) {
-            Domain intersectionDomain = intersected.get(entry.getKey());
-            if (intersectionDomain == null) {
-                intersected.put(entry.getKey(), entry.getValue());
-            }
-            else {
-                Domain intersect = intersectionDomain.intersect(entry.getValue());
-                if (intersect.isNone()) {
-                    return TupleDomain.none();
+        List<TupleDomain<T>> candidates = domains.stream()
+                .filter(domain -> !domain.isAll())
+                .collect(toList());
+
+        if (candidates.isEmpty()) {
+            return all();
+        }
+
+        if (candidates.size() == 1) {
+            return candidates.get(0);
+        }
+
+        Map<T, Domain> intersected = new LinkedHashMap<>(candidates.get(0).getDomains().get());
+        for (int i = 1; i < candidates.size(); i++) {
+            for (Map.Entry<T, Domain> entry : candidates.get(i).getDomains().get().entrySet()) {
+                Domain intersectionDomain = intersected.get(entry.getKey());
+                if (intersectionDomain == null) {
+                    intersected.put(entry.getKey(), entry.getValue());
                 }
-                intersected.put(entry.getKey(), intersect);
+                else {
+                    Domain intersect = intersectionDomain.intersect(entry.getValue());
+                    if (intersect.isNone()) {
+                        return TupleDomain.none();
+                    }
+                    intersected.put(entry.getKey(), intersect);
+                }
             }
         }
+
         return withColumnDomains(intersected);
     }
 
@@ -275,6 +292,31 @@ public final class TupleDomain<T>
         domains.addAll(Arrays.asList(rest));
 
         return columnWiseUnion(domains);
+    }
+
+    /**
+     * Returns the tuple domain that contains all other tuple domains, or {@code Optional.empty()} if they
+     * are not supersets of each other.
+     */
+    public static <T> Optional<TupleDomain<T>> maximal(List<TupleDomain<T>> domains)
+    {
+        if (domains.isEmpty()) {
+            return Optional.empty();
+        }
+
+        TupleDomain<T> largest = domains.get(0);
+        for (int i = 1; i < domains.size(); i++) {
+            TupleDomain<T> current = domains.get(i);
+
+            if (current.contains(largest)) {
+                largest = current;
+            }
+            else if (!largest.contains(current)) {
+                return Optional.empty();
+            }
+        }
+
+        return Optional.of(largest);
     }
 
     /**

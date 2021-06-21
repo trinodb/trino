@@ -1189,7 +1189,7 @@ public class TestLogicalPlanner
                                                         join(
                                                                 LEFT,
                                                                 ImmutableList.of(),
-                                                                Optional.of("((((region_regionkey IS NULL) OR (region_regionkey = nation_regionkey)) OR (nation_regionkey IS NULL)) AND (nation_name < region_name))"),
+                                                                Optional.of("(region_regionkey IS NULL OR region_regionkey = nation_regionkey OR nation_regionkey IS NULL) AND nation_name < region_name"),
                                                                 assignUniqueId(
                                                                         "unique",
                                                                         tableScan("region", ImmutableMap.of(
