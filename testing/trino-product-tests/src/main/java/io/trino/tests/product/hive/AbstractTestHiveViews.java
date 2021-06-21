@@ -310,8 +310,8 @@ public abstract class AbstractTestHiveViews
 
         assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
         assertThatThrownBy(
-                // TODO(https://github.com/prestosql/presto/issues/6295) column types from stored view definition should be altered
-                // based on read-time timestamp_precision value
+                // TODO(https://github.com/prestosql/presto/issues/6295) column types from stored view definition should
+                //   be altered based on read-time timestamp_precision value
                 () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
         ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
 
@@ -325,8 +325,8 @@ public abstract class AbstractTestHiveViews
         setSessionProperty("hive_timestamp_nanos.timestamp_precision", "'NANOSECONDS'");
 
         // TODO(https://github.com/prestosql/presto/issues/6295) column types from stored view definition should be altered
-        // based on read-time timestamp_precision value
-        // should be: assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
+        //   based on read-time timestamp_precision value
+        //   should be: assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
         assertThatThrownBy(() -> query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view"))
                 .hasMessageContaining("is stale or in invalid state: column [ts] of type timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
         assertThatThrownBy(

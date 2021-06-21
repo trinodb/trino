@@ -559,7 +559,7 @@ public final class Session
         private Instant start = Instant.now();
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<CatalogName, Map<String, String>> connectorProperties = new HashMap<>();
-        private final Map<String, Map<String, String>> unprocessedCatalogSessionProperties = new HashMap<>();
+        private final Map<String, Map<String, String>> unprocessedCatalogProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
         private ProtocolHeaders protocolHeaders = TRINO_HEADERS;
@@ -594,7 +594,7 @@ public final class Session
             session.connectorProperties
                     .forEach((catalogName, properties) -> connectorProperties.put(catalogName, new HashMap<>(properties)));
             session.unprocessedCatalogProperties
-                    .forEach((catalog, properties) -> unprocessedCatalogSessionProperties.put(catalog, new HashMap<>(properties)));
+                    .forEach((catalog, properties) -> unprocessedCatalogProperties.put(catalog, new HashMap<>(properties)));
             this.preparedStatements.putAll(session.preparedStatements);
             this.protocolHeaders = session.protocolHeaders;
         }
@@ -607,7 +607,7 @@ public final class Session
 
         public SessionBuilder setTransactionId(TransactionId transactionId)
         {
-            checkArgument(unprocessedCatalogSessionProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
+            checkArgument(unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
             this.transactionId = transactionId;
             return this;
         }
@@ -731,6 +731,7 @@ public final class Session
 
         /**
          * Extracts processed connector properties from provided session and sets them in the builder.
+         * <p>
          * An explicit set method is not added for this field to prevent SessionBuilder callers
          * from doing so without proper validation. Any previously set connectorProperties are discarded.
          */
@@ -738,6 +739,8 @@ public final class Session
         {
             requireNonNull(session, "session is null");
             this.connectorProperties.clear();
+            // It is not required to create an immutable copy of per-catalog session property maps, since they are made
+            // immutable during session creation.
             this.connectorProperties.putAll(session.getConnectorProperties());
             return this;
         }
@@ -749,7 +752,7 @@ public final class Session
         public SessionBuilder setCatalogSessionProperty(String catalogName, String propertyName, String propertyValue)
         {
             checkArgument(transactionId == null, "Catalog session properties cannot be set if there is an open transaction");
-            unprocessedCatalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
+            unprocessedCatalogProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
             return this;
         }
 
@@ -788,7 +791,7 @@ public final class Session
                     start,
                     systemProperties,
                     connectorProperties,
-                    unprocessedCatalogSessionProperties,
+                    unprocessedCatalogProperties,
                     sessionPropertyManager,
                     preparedStatements,
                     protocolHeaders);
