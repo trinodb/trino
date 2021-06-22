@@ -16,9 +16,7 @@ package io.trino.operator.aggregation;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.trino.operator.aggregation.state.HyperLogLogState;
-import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
@@ -28,18 +26,12 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import static io.trino.operator.aggregation.ApproximateSetAggregationUtils.getOrCreateHyperLogLog;
+
 @AggregationFunction("approx_set")
 public final class ApproximateSetAggregation
 {
-    private static final int NUMBER_OF_BUCKETS = 4096;
-    private static final AccumulatorStateSerializer<HyperLogLogState> SERIALIZER = StateCompiler.generateStateSerializer(HyperLogLogState.class);
-
     private ApproximateSetAggregation() {}
-
-    public static HyperLogLog newHyperLogLog()
-    {
-        return HyperLogLog.newInstance(NUMBER_OF_BUCKETS);
-    }
 
     @InputFunction
     public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value)
@@ -69,37 +61,15 @@ public final class ApproximateSetAggregation
         state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
-    private static HyperLogLog getOrCreateHyperLogLog(@AggregationState HyperLogLogState state)
-    {
-        HyperLogLog hll = state.getHyperLogLog();
-        if (hll == null) {
-            hll = newHyperLogLog();
-            state.setHyperLogLog(hll);
-            state.addMemoryUsage(hll.estimatedInMemorySize());
-        }
-        return hll;
-    }
-
     @CombineFunction
     public static void combineState(@AggregationState HyperLogLogState state, @AggregationState HyperLogLogState otherState)
     {
-        HyperLogLog input = otherState.getHyperLogLog();
-
-        HyperLogLog previous = state.getHyperLogLog();
-        if (previous == null) {
-            state.setHyperLogLog(input);
-            state.addMemoryUsage(input.estimatedInMemorySize());
-        }
-        else {
-            state.addMemoryUsage(-previous.estimatedInMemorySize());
-            previous.mergeWith(input);
-            state.addMemoryUsage(previous.estimatedInMemorySize());
-        }
+        ApproximateSetAggregationUtils.combineState(state, otherState);
     }
 
     @OutputFunction(StandardTypes.HYPER_LOG_LOG)
     public static void evaluateFinal(@AggregationState HyperLogLogState state, BlockBuilder out)
     {
-        SERIALIZER.serialize(state, out);
+        ApproximateSetAggregationUtils.evaluateFinal(state, out);
     }
 }

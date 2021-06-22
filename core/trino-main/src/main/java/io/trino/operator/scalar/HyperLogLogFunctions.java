@@ -15,11 +15,12 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
-import io.trino.operator.aggregation.ApproximateSetAggregation;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+
+import static io.trino.operator.aggregation.ApproximateSetAggregationUtils.newHyperLogLog;
 
 public final class HyperLogLogFunctions
 {
@@ -38,6 +39,6 @@ public final class HyperLogLogFunctions
     @SqlType(StandardTypes.HYPER_LOG_LOG)
     public static Slice emptyApproxSet()
     {
-        return ApproximateSetAggregation.newHyperLogLog().serialize();
+        return newHyperLogLog().serialize();
     }
 }
