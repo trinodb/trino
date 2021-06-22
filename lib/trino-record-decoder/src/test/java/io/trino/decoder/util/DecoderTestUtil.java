@@ -19,6 +19,8 @@ import io.trino.decoder.FieldValueProvider;
 
 import java.util.Map;
 
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -53,6 +55,13 @@ public final class DecoderTestUtil
         FieldValueProvider provider = decodedRow.get(handle);
         assertNotNull(provider);
         assertEquals(provider.getDouble(), value, 0.0001);
+    }
+
+    public static void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, float value)
+    {
+        FieldValueProvider provider = decodedRow.get(handle);
+        assertNotNull(provider);
+        assertEquals(intBitsToFloat(toIntExact(provider.getLong())), value, 0.0001);
     }
 
     public static void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, boolean value)

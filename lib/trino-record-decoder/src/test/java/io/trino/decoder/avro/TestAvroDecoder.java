@@ -417,21 +417,12 @@ public class TestAvroDecoder
     }
 
     @Test
-    public void testFloatDecodedAsDouble()
-    {
-        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", DOUBLE, "float_field", null, null, false, false, false);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "float_field", "\"float\"", 10.2f);
-
-        checkValue(decodedRow, row, 10.2);
-    }
-
-    @Test
     public void testFloatDecodedAsReal()
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", REAL, "float_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "float_field", "\"float\"", 10.2f);
 
-        checkValue(decodedRow, row, 10.2);
+        checkValue(decodedRow, row, 10.2f);
     }
 
     @Test
