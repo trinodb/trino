@@ -28,7 +28,7 @@ import io.trino.operator.aggregation.ApproximateLongPercentileAggregations;
 import io.trino.operator.aggregation.ApproximateLongPercentileArrayAggregations;
 import io.trino.operator.aggregation.ApproximateRealPercentileAggregations;
 import io.trino.operator.aggregation.ApproximateRealPercentileArrayAggregations;
-import io.trino.operator.aggregation.ApproximateSetAggregation;
+import io.trino.operator.aggregation.ApproximateSetGenericAggregation;
 import io.trino.operator.aggregation.ApproximateSetVarcharAggregation;
 import io.trino.operator.aggregation.AverageAggregations;
 import io.trino.operator.aggregation.BigintApproximateMostFrequent;
@@ -444,7 +444,7 @@ public class FunctionRegistry
                 .aggregates(GeometricMeanAggregations.class)
                 .aggregates(RealGeometricMeanAggregations.class)
                 .aggregates(MergeHyperLogLogAggregation.class)
-                .aggregate(ApproximateSetAggregation.class)
+                .aggregate(ApproximateSetGenericAggregation.class)
                 .aggregate(ApproximateSetVarcharAggregation.class)
                 .aggregates(TDigestAggregationFunction.class)
                 .functions(QDIGEST_AGG, QDIGEST_AGG_WITH_WEIGHT, QDIGEST_AGG_WITH_WEIGHT_AND_ERROR)

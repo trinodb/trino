@@ -27,9 +27,9 @@ import io.trino.spi.type.StandardTypes;
 import static io.trino.operator.aggregation.ApproximateSetAggregationUtils.getOrCreateHyperLogLog;
 
 @AggregationFunction("approx_set")
-public final class ApproximateSetAggregation
+public final class ApproximateSetGenericAggregation
 {
-    private ApproximateSetAggregation() {}
+    private ApproximateSetGenericAggregation() {}
 
     @InputFunction
     public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value)
