@@ -19,6 +19,7 @@ import io.trino.spi.type.Type;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TestApproximateCountDistinctVarchar
         extends AbstractTestApproximateCountDistinct
@@ -33,8 +34,12 @@ public class TestApproximateCountDistinctVarchar
     protected Object randomValue()
     {
         int length = ThreadLocalRandom.current().nextInt(100);
-        byte[] bytes = new byte[length];
-        ThreadLocalRandom.current().nextBytes(bytes);
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append(Character.toString(ThreadLocalRandom.current().nextInt(1000)));
+        }
+        byte[] bytes = sb.toString().getBytes(UTF_8);
 
         return Slices.wrappedBuffer(bytes);
     }
