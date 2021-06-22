@@ -28,7 +28,6 @@ import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
 
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.util.Objects.requireNonNull;
@@ -83,7 +82,7 @@ public final class DesugarLikeRewriter
             else {
                 patternCall = new FunctionCallBuilder(metadata)
                         .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
-                        .addArgument(VARCHAR, rewritten.getPattern())
+                        .addArgument(getType(node.getPattern()), rewritten.getPattern())
                         .build();
             }
 
