@@ -79,10 +79,6 @@ public class TestLikeFunctions
         JoniRegexp regex = LikeFunctions.compileLikePattern(utf8Slice("ala  "));
         assertTrue(likeVarchar(utf8Slice("ala  "), regex));
         assertFalse(likeVarchar(utf8Slice("ala"), regex));
-
-        regex = LikeFunctions.likePattern(5L, utf8Slice("ala"));
-        assertTrue(likeVarchar(utf8Slice("ala  "), regex));
-        assertFalse(likeVarchar(utf8Slice("ala"), regex));
     }
 
     @Test
