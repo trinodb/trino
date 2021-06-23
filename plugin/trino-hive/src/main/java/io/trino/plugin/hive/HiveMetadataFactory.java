@@ -20,7 +20,9 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
+import io.trino.plugin.hive.statistics.HiveStatisticsProvider;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
 import io.trino.spi.type.TypeManager;
 
@@ -182,7 +184,7 @@ public class HiveMetadataFactory
                 hiveTransactionHeartbeatInterval,
                 heartbeatService);
 
-        return new HiveMetadata(
+        return create(
                 catalogName,
                 metastore,
                 hdfsEnvironment,
@@ -199,5 +201,42 @@ public class HiveMetadataFactory
                 hiveRedirectionsProvider,
                 hiveMaterializedViewMetadataFactory.create(hiveMetastoreClosure),
                 accessControlMetadataFactory.create(metastore));
+    }
+
+    protected TransactionalMetadata create(
+            CatalogName catalogName,
+            SemiTransactionalHiveMetastore metastore,
+            HdfsEnvironment hdfsEnvironment,
+            HivePartitionManager partitionManager,
+            boolean writesToNonManagedTablesEnabled,
+            boolean createsOfNonManagedTablesEnabled,
+            boolean translateHiveViews,
+            boolean hideDeltaLakeTables,
+            TypeManager typeManager,
+            LocationService locationService,
+            JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            String trinoVersion,
+            HiveStatisticsProvider hiveStatisticsProvider,
+            HiveRedirectionsProvider hiveRedirectionsProvider,
+            HiveMaterializedViewMetadata hiveMaterializedViewMetadata,
+            AccessControlMetadata accessControlMetadata)
+    {
+        return new HiveMetadata(
+                catalogName,
+                metastore,
+                hdfsEnvironment,
+                partitionManager,
+                writesToNonManagedTablesEnabled,
+                createsOfNonManagedTablesEnabled,
+                translateHiveViews,
+                hideDeltaLakeTables,
+                typeManager,
+                locationService,
+                partitionUpdateCodec,
+                trinoVersion,
+                hiveStatisticsProvider,
+                hiveRedirectionsProvider,
+                hiveMaterializedViewMetadata,
+                accessControlMetadata);
     }
 }
