@@ -59,10 +59,9 @@ public class SalesforceConfig
         return this;
     }
 
-    @NotNull
-    public String getSecurityToken()
+    public Optional<String> getSecurityToken()
     {
-        return securityToken;
+        return Optional.ofNullable(securityToken);
     }
 
     @Config("salesforce.security-token")

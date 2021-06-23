@@ -38,9 +38,10 @@ public class SalesforceConnectionFactory
         StringBuilder builder = new StringBuilder("jdbc:salesforce:")
                 .append("User=\"").append(salesforceConfig.getUser()).append("\";")
                 .append("Password=\"").append(salesforceConfig.getPassword()).append("\";")
-                .append("SecurityToken=\"").append(salesforceConfig.getSecurityToken()).append("\";")
                 .append("UseSandbox=\"").append(salesforceConfig.isSandboxEnabled()).append("\";")
                 .append("OEMKey=\"").append(CDATA_OEM_KEY).append("\";");
+
+        salesforceConfig.getSecurityToken().ifPresent(token -> builder.append("SecurityToken=\"").append(token).append("\";"));
 
         if (salesforceConfig.isDriverLoggingEnabled()) {
             builder.append("LogFile=\"").append(salesforceConfig.getDriverLoggingLocation()).append("\";")
