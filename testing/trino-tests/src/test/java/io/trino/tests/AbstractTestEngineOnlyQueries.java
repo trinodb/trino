@@ -1571,7 +1571,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testInvalidType()
     {
-        assertQueryFails("SELECT CAST(null AS array(foo))", "\\Qline 1:8: Unknown type: array(foo)\\E");
+        assertQueryFails("SELECT CAST(null AS array(foo))", "\\Qline 1:8: Unknown type: array(foo), Unknown type: foo\\E");
     }
 
     @Test
