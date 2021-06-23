@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Booleans;
 import io.trino.spi.type.Type;
@@ -68,5 +69,19 @@ public class TestApproximateSetGenericBoolean
     protected int getUniqueValuesCount()
     {
         return 2;
+    }
+
+    @Override
+    protected List<Object> getResultStabilityTestSample()
+    {
+        return ImmutableList.of(true, false);
+    }
+
+    @Override
+    protected String getResultStabilityExpected()
+    {
+        // This value should not be changed; it is used to test result stability for $approx_set
+        // Result stability is important because a produced value can be persisted by a connector.
+        return "020C020080034400802008DE";
     }
 }
