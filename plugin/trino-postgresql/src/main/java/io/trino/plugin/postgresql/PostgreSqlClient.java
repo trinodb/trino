@@ -512,7 +512,7 @@ public class PostgreSqlClient
                         PostgreSqlClient::shortTimestampWriteFunction));
 
             case Types.ARRAY:
-                Optional<ColumnMapping> columnMapping = arrayToPrestoType(session, connection, typeHandle);
+                Optional<ColumnMapping> columnMapping = arrayToTrinoType(session, connection, typeHandle);
                 if (columnMapping.isPresent()) {
                     return columnMapping;
                 }
@@ -526,7 +526,7 @@ public class PostgreSqlClient
         return Optional.empty();
     }
 
-    private Optional<ColumnMapping> arrayToPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    private Optional<ColumnMapping> arrayToTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         checkArgument(typeHandle.getJdbcType() == Types.ARRAY, "Not array type");
 
