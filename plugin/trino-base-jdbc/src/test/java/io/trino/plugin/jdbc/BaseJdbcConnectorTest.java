@@ -87,6 +87,8 @@ public abstract class BaseJdbcConnectorTest
 {
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
 
+    protected abstract SqlExecutor onRemoteDatabase();
+
     @AfterClass(alwaysRun = true)
     public void afterClass()
     {
@@ -1144,6 +1146,4 @@ public abstract class BaseJdbcConnectorTest
     {
         throw new UnsupportedOperationException();
     }
-
-    protected abstract SqlExecutor onRemoteDatabase();
 }
