@@ -43,6 +43,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1076,10 +1077,11 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAlias()
             throws IOException
     {
-        addAlias("orders", "orders_alias");
+        String aliasName = format("alias_%s", randomTableSuffix());
+        addAlias("orders", aliasName);
 
         assertQuery(
-                "SELECT count(*) FROM orders_alias",
+                "SELECT count(*) FROM " + aliasName,
                 "SELECT count(*) FROM orders");
     }
 
