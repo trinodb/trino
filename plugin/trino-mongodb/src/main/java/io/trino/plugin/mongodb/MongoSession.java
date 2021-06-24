@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -73,9 +74,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.toIntExact;
@@ -404,6 +408,18 @@ public class MongoSession
 
         if (type == BIGINT) {
             return Optional.of(trinoNativeValue);
+        }
+
+        if (type == DATE) {
+            return Optional.of(new Date(TimeUnit.DAYS.toMillis((Long) trinoNativeValue)));
+        }
+
+        if (type == TIMESTAMP_MILLIS) {
+            return Optional.of(new Date(TimeUnit.MILLISECONDS.convert((Long) trinoNativeValue, TimeUnit.MICROSECONDS)));
+        }
+
+        if (type == TIMESTAMP_TZ_MILLIS) {
+            return Optional.of(new Date(unpackMillisUtc((Long) trinoNativeValue)));
         }
 
         if (type instanceof ObjectIdType) {
