@@ -41,7 +41,7 @@ public class TestOracleCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
 {
     private TestingOracleServer oracleServer;
-    private Path mappingfile;
+    private Path mappingFile;
 
     @Override
     protected SqlExecutor onRemoteDatabase() {
@@ -50,7 +50,7 @@ public class TestOracleCaseInsensitiveMapping
 
     @Override
     protected Path getMappingFile() {
-        return mappingfile;
+        return mappingFile;
     }
 
     @Override
@@ -58,7 +58,7 @@ public class TestOracleCaseInsensitiveMapping
             throws Exception
     {
         this.oracleServer = closeAfterClass(new TestingOracleServer());
-        this.mappingfile = createRuleBasedIdentifierMappingFile();
+        this.mappingFile = createRuleBasedIdentifierMappingFile();
         return createOracleQueryRunner(
                 oracleServer,
                 ImmutableMap.of(),

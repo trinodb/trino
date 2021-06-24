@@ -42,7 +42,7 @@ public class TestMemSqlCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
 {
     protected TestingMemSqlServer memSqlServer;
-    protected Path mappingfile;
+    protected Path mappingFile;
 
     @Override
     protected SqlExecutor onRemoteDatabase() {
@@ -51,7 +51,7 @@ public class TestMemSqlCaseInsensitiveMapping
 
     @Override
     protected Path getMappingFile() {
-        return mappingfile;
+        return mappingFile;
     }
 
     @Override
@@ -59,7 +59,7 @@ public class TestMemSqlCaseInsensitiveMapping
             throws Exception
     {
         this.memSqlServer = new TestingMemSqlServer();
-        this.mappingfile = createRuleBasedIdentifierMappingFile();
+        this.mappingFile = createRuleBasedIdentifierMappingFile();
         return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
     }
 
