@@ -16,17 +16,21 @@ package io.trino.plugin.bigquery;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
-import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
+import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
@@ -35,15 +39,27 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestBigQueryCaseInsensitiveMapping
         // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
-        extends AbstractTestQueryFramework
+        extends BaseCaseInsensitiveMappingTest
 {
     private BigQuerySqlExecutor bigQuerySqlExecutor;
+    private Path Mappingfile;
+
+    @Override
+    protected SqlExecutor onRemoteDatabase() {
+        return requireNonNull(bigQuerySqlExecutor,"bigQuerySqlExecutor is null");
+    }
+
+    @Override
+    protected Path getMappingFile() {
+        return requireNonNull(Mappingfile,"Mappingfile is null");
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
+        this.Mappingfile = createRuleBasedIdentifierMappingFile();
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of("bigquery.case-insensitive-name-matching", "true"));
