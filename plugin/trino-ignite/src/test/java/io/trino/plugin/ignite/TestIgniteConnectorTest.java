@@ -61,9 +61,6 @@ public class TestIgniteConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
-                return false;
-
             case SUPPORTS_CREATE_SCHEMA:
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_CREATE_TABLE_WITH_DATA:
@@ -164,6 +161,16 @@ public class TestIgniteConnectorTest
 
         assertUpdate("DROP TABLE " + tableNameLike);
         assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
+
+        String tableWithAllProperties = "test_create_with_all_properties";
+        assertUpdate("CREATE TABLE " + tableWithAllProperties + " (a bigint, b double, c varchar, d date) WITH (" +
+                "primary_key = ARRAY['a', 'b']," +
+                "affinity_key = 'a'," +
+                "template = 'PARTITIONED'," +
+                "write_synchronization_mode = 'FULL_ASYNC'," +
+                "cache_group = 'test_group'," +
+                "cache_name = 'test_name'," +
+                "data_region = 'default')");
     }
 
     @Override

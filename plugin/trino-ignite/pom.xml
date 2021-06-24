@@ -107,6 +107,7 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>

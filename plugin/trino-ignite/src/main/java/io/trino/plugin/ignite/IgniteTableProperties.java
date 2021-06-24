@@ -40,7 +40,7 @@ public class IgniteTableProperties
     private final List<PropertyMetadata<?>> tableProperties;
 
     public static final String PRIMARY_KEY_PROPERTY = "primary_key";
-    public static final String BACK_UPS_PROPERTY = "backups";
+    public static final String BACKUPS_PROPERTY = "backups";
     public static final String AFFINITY_KEY_PROPERTY = "affinity_key";
     public static final String TEMPLATE_PROPERTY = "template";
     public static final String WRITE_SYNCHRONIZATION_MODE_PROPERTY = "write_synchronization_mode";
@@ -48,11 +48,8 @@ public class IgniteTableProperties
     public static final String CACHE_NAME_PROPERTY = "cache_name";
     public static final String DATA_REGION_PROPERTY = "data_region";
 
-    /**
-     * The properties are in the Ignite WITH clause
-     */
     public static final Set<String> WITH_PROPERTIES = ImmutableSet.of(
-            BACK_UPS_PROPERTY,
+            BACKUPS_PROPERTY,
             AFFINITY_KEY_PROPERTY,
             TEMPLATE_PROPERTY,
             WRITE_SYNCHRONIZATION_MODE_PROPERTY,
@@ -74,7 +71,7 @@ public class IgniteTableProperties
                         value -> (List<?>) value,
                         value -> value),
                 integerProperty(
-                        BACK_UPS_PROPERTY,
+                        BACKUPS_PROPERTY,
                         "The backup number for the table",
                         1,
                         value -> checkArgument(value > 0, "backups should greater than 0"),

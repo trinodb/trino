@@ -3,7 +3,7 @@ Ignite connector
 ====================
 
 The Ignite connector allows querying an `Apache Ignite <https://ignite.apache.org/>`_
-database from Trino.
+database from Trino.Support Ignite version 2.10.0.
 
 Configuration
 -------------
@@ -88,7 +88,7 @@ Table property usage example::
       write_synchronization_mode = 'FULL_ASYNC'
     );
 
-The following are supported Ignite table properties from `<https://https://ignite.apache.org/docs/latest/sql-reference/ddl>`_
+The following are supported Ignite table properties from `<https://ignite.apache.org/docs/latest/sql-reference/ddl>`_
 
 =============================== ==============================================================================================================
 Property Name                   Description
@@ -101,7 +101,7 @@ Property Name                   Description
 ``template``                    The storage template about the table. Available values are ``REPLICATED`` and ``PARTITIONED`. Default value is
                                 ``PARTITIONED``. Optional.
 
-``BACKUPS``                     The replication numbers for the table, must greater than 0. Default value is 1. Optional.
+``backups``                     The replication numbers for the table, must greater than 0. Default value is 1. Optional.
 
 ``cache_group``                 Specifies the group name the underlying cache belongs to. Default value is prefix ``SQL_PUBLIC_`` append with
                                 UPPERCASE of the table name. Optional.

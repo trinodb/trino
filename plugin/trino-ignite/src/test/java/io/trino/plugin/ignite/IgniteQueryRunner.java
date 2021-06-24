@@ -52,7 +52,7 @@ public final class IgniteQueryRunner
             "phone varchar(15) NOT NULL," +
             "acctbal double NOT NULL," +
             "mktsegment varchar(10) NOT NULL," +
-            "comment varchar(117) NOT NULL )" +
+            "comment varchar(117) NOT NULL)" +
             "WITH (" +
             "primary_key = ARRAY['custkey'])";
 
@@ -60,7 +60,7 @@ public final class IgniteQueryRunner
             "nationkey bigint NOT NULL," +
             "name varchar(25) NOT NULL," +
             "regionkey bigint NOT NULL," +
-            "comment varchar(152) NOT NULL )" +
+            "comment varchar(152) NOT NULL)" +
             "WITH (" +
             "primary_key = ARRAY['nationkey'])";
 
@@ -73,15 +73,15 @@ public final class IgniteQueryRunner
             "orderpriority varchar(15) NOT NULL," +
             "clerk varchar(15) NOT NULL," +
             "shippriority integer NOT NULL," +
-            "comment varchar(79) NOT NULL) " +
-            " WITH ( " +
+            "comment varchar(79) NOT NULL)" +
+            " WITH (" +
             "primary_key = ARRAY['orderkey'])";
 
     public static final String CREATE_REGION = " CREATE TABLE region (" +
             "regionkey bigint NOT NULL," +
             "name varchar(25) NOT NULL," +
             "comment varchar(152) NOT NULL)" +
-            "WITH ( " +
+            "WITH (" +
             "primary_key = ARRAY['regionkey'])";
 
     private IgniteQueryRunner() {}
@@ -135,11 +135,11 @@ public final class IgniteQueryRunner
         assertUpdate(queryRunner, session, CREATE_REGION, OptionalLong.empty(), Optional.empty());
         assertUpdate(queryRunner, session, CREATE_ORDERS, OptionalLong.empty(), Optional.empty());
         for (TpchTable<?> table : tables) {
-            copyTable(queryRunner, sourceCatalog + "." + sourceSchema + "." + table.getTableName(), table.getTableName(), session);
+            insertIntoTable(queryRunner, sourceCatalog + "." + sourceSchema + "." + table.getTableName(), table.getTableName(), session);
         }
     }
 
-    private static void copyTable(QueryRunner queryRunner, String remoteTable, String targetTableName, Session session)
+    private static void insertIntoTable(QueryRunner queryRunner, String remoteTable, String targetTableName, Session session)
     {
         long start = System.nanoTime();
         log.info("Running import for %s", remoteTable);
