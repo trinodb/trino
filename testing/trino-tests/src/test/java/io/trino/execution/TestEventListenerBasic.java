@@ -46,6 +46,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.Duration;
@@ -1001,6 +1002,36 @@ public class TestEventListenerBasic
                         new OutputColumnMetadata("test_column", ImmutableSet.of()),
                         new OutputColumnMetadata("test_varchar", ImmutableSet.of()),
                         new OutputColumnMetadata("test_bigint", ImmutableSet.of()));
+    }
+
+    @Test(dataProvider = "setOperator")
+    public void testOutputColumnsForSetOperations(String setOperator)
+            throws Exception
+    {
+        assertColumnLineage(
+                format("SELECT name AS test_varchar, nationkey AS test_bigint FROM nation %s SELECT comment, regionkey FROM sf1.nation", setOperator),
+                new OutputColumnMetadata(
+                        "test_varchar",
+                        ImmutableSet.of(
+                                new ColumnDetail("tpch", "tiny", "nation", "name"),
+                                new ColumnDetail("tpch", "sf1", "nation", "comment"))),
+                new OutputColumnMetadata(
+                        "test_bigint",
+                        ImmutableSet.of(
+                                new ColumnDetail("tpch", "tiny", "nation", "nationkey"),
+                                new ColumnDetail("tpch", "sf1", "nation", "regionkey"))));
+    }
+
+    @DataProvider
+    public Object[][] setOperator()
+    {
+        return new Object[][]{
+                {"UNION"},
+                {"UNION ALL"},
+                {"INTERSECT"},
+                {"INTERSECT ALL"},
+                {"EXCEPT"},
+                {"EXCEPT ALL"}};
     }
 
     private void assertColumnLineage(String baseQuery, OutputColumnMetadata... outputColumnMetadata)
