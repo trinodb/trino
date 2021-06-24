@@ -188,7 +188,6 @@ public class PhoenixClient
         extends BaseJdbcClient
 {
     private static final String ROWKEY = "ROWKEY";
-    private static final long MAX_TOPN_LIMIT = 2000000;
 
     private final Configuration configuration;
 
@@ -293,21 +292,13 @@ public class PhoenixClient
     @Override
     protected Optional<TopNFunction> topNFunction()
     {
-        return Optional.of((query, sortItems, limit) -> {
-            // TODO: Remove when this is fixed in Phoenix.
-            // Phoenix severely over-estimates the memory
-            // required to execute a topN query.
-            // https://issues.apache.org/jira/browse/PHOENIX-6436
-            if (limit > MAX_TOPN_LIMIT) {
-                return query;
-            }
-            return TopNFunction.sqlStandard(this::quoted).apply(query, sortItems, limit);
-        });
+        return Optional.of(TopNFunction.sqlStandard(this::quoted));
     }
 
     @Override
     public boolean isTopNGuaranteed(ConnectorSession session)
     {
+        // There are multiple splits and TopN is not guaranteed across them.
         return false;
     }
 
