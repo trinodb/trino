@@ -345,7 +345,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "      \"_meta\": {" +
-                "        \"presto\": {" +
+                "        \"trino\": {" +
                 "          \"a\": {" +
                 "            \"b\": {" +
                 "              \"y\": {" +
@@ -473,7 +473,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "  \"_meta\": {" +
-                "    \"presto\": {" +
+                "    \"trino\": {" +
                 "      \"es_object\": {" +
                 "        \"array_of_string_arrays\": {" +
                 "          \"asRawJson\": true" +
@@ -723,7 +723,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "  \"_meta\": {" +
-                "    \"presto\": {" +
+                "    \"trino\": {" +
                 "      \"es_binary\": {" +
                 "        \"asRawJson\": true" +
                 "      }," +
@@ -829,7 +829,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "  \"_meta\": {" +
-                "    \"presto\": {" +
+                "    \"trino\": {" +
                 "      \"es_binary\": {" +
                 "        \"asRawJson\": true" +
                 "      }," +
@@ -890,7 +890,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "  \"_meta\": {" +
-                "    \"presto\": {" +
+                "    \"trino\": {" +
                 "      \"array_raw_field\": {" +
                 "        \"asRawJson\": true," +
                 "        \"isArray\": true" +
@@ -926,7 +926,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "      \"_meta\": {" +
-                "        \"presto\": {" +
+                "        \"trino\": {" +
                 "          \"a\": {" +
                 "                \"isArray\": true" +
                 "          }" +

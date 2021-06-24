@@ -194,7 +194,7 @@ For example, you can have an Elasticsearch index that contains documents with th
 .. code-block:: json
 
     {
-        "array_string_field": ["trino","is","the","besto"],
+        "array_string_field": ["trino","the","lean","machine-ohs"],
         "long_field": 314159265359,
         "id_field": "564e6982-88ee-4498-aa98-df9e3f6b6109",
         "timestamp_field": "1987-09-17T06:22:48.000Z",
@@ -205,7 +205,7 @@ For example, you can have an Elasticsearch index that contains documents with th
     }
 
 The array fields of this structure can be defined by using the following command to add the field
-property definition to the ``_meta.presto`` property of the target index mapping.
+property definition to the ``_meta.trino`` property of the target index mapping.
 
 .. code-block:: shell
 
@@ -215,7 +215,7 @@ property definition to the ``_meta.presto`` property of the target index mapping
         --data '
     {
         "_meta": {
-            "presto":{
+            "trino":{
                 "array_string_field":{
                     "isArray":true
                 },
