@@ -16,14 +16,17 @@ package io.trino.plugin.bigquery;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
-import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
+import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -35,15 +38,27 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestBigQueryCaseInsensitiveMapping
         // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
-        extends AbstractTestQueryFramework
+        extends BaseCaseInsensitiveMappingTest
 {
     private BigQuerySqlExecutor bigQuerySqlExecutor;
+    private Path mappingFile;
+
+    @Override
+    protected SqlExecutor onRemoteDatabase() {
+        return bigQuerySqlExecutor;
+    }
+
+    @Override
+    protected Path getMappingFile() {
+        return mappingFile;
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
+        this.mappingFile = createRuleBasedIdentifierMappingFile();
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of("bigquery.case-insensitive-name-matching", "true"));
@@ -198,7 +213,7 @@ public class TestBigQueryCaseInsensitiveMapping
         bigQuerySqlExecutor.execute(format("DROP SCHEMA `%s`", schema.toLowerCase(ENGLISH)));
     }
 
-    private AutoCloseable withSchema(String schemaName)
+    protected AutoCloseable withSchema(String schemaName)
     {
         bigQuerySqlExecutor.createDataset(schemaName);
         return () -> bigQuerySqlExecutor.dropDataset(schemaName);
