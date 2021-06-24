@@ -171,6 +171,8 @@ Authorization using Trino LDAP service user
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Trino server can use dedicated LDAP service user for doing user group membership queries.
+You can use this configuration to support multiple domains.
+
 In such case Trino will first issue a group membership query for a Trino user that needs
 to be authenticated. A user distinguished name will be extracted from a group membership
 query result. Trino will then validate user password by creating LDAP context with
@@ -182,7 +184,8 @@ Property                                                Description
 ======================================================= ======================================================
 ``ldap.bind-dn``                                        Bind distinguished name used by Trino when issuing
                                                         group membership queries.
-                                                        Example: ``CN=admin,OU=CITY_OU,OU=STATE_OU,DC=domain``
+                                                        Example values: ``CN=admin,OU=CITY_OU,OU=STATE_OU,DC=domain``
+                                                        or ``trino-service@example.com``
 ``ldap.bind-password``                                  Bind password used by Trino when issuing group
                                                         membership queries.
                                                         Example: ``password1234``
