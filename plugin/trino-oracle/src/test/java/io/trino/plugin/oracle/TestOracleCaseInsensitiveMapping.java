@@ -16,17 +16,21 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
+import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
+import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
@@ -35,15 +39,27 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestOracleCaseInsensitiveMapping
         // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
-        extends AbstractTestQueryFramework
+        extends BaseCaseInsensitiveMappingTest
 {
     private TestingOracleServer oracleServer;
+    private Path Mappingfile;
+
+    @Override
+    protected SqlExecutor onRemoteDatabase() {
+        return requireNonNull(oracleServer,"oracleServer is null")::execute;
+    }
+
+    @Override
+    protected Path getMappingFile() {
+        return requireNonNull(Mappingfile,"Mappingfile is null");
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        oracleServer = closeAfterClass(new TestingOracleServer());
+        this.oracleServer = closeAfterClass(new TestingOracleServer());
+        this.Mappingfile = createRuleBasedIdentifierMappingFile();
         return createOracleQueryRunner(
                 oracleServer,
                 ImmutableMap.of(),
@@ -157,7 +173,7 @@ public class TestOracleCaseInsensitiveMapping
         }
     }
 
-    private AutoCloseable withSchema(String schemaName)
+    protected AutoCloseable withSchema(String schemaName)
     {
         oracleServer.execute(format("CREATE USER %s IDENTIFIED BY SCM", schemaName));
         oracleServer.execute(format("ALTER USER %s QUOTA 100M ON SYSTEM", schemaName));
