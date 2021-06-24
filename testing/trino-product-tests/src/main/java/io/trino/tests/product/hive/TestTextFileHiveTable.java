@@ -135,4 +135,30 @@ public class TestTextFileHiveTable
                 .hasMessageMatching(".* Inserting into Hive table with skip.header.line.count property not supported");
         onHive().executeQuery("DROP TABLE test_textfile_skip_header_footer");
     }
+
+    @Test
+    public void testCreateTextFileTableAsSelectSkipHeaderFooter()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_header");
+        assertThatThrownBy(() -> onTrino().executeQuery(
+                "CREATE TABLE test_create_textfile_skip_header " +
+                        "WITH ( " +
+                        "   format = 'TEXTFILE', " +
+                        "   skip_header_line_count = 1 " +
+                        ") " +
+                        "AS SELECT 1  AS col_header;")
+        ).hasMessageMatching(".* Creating Hive table with data with value of skip.header.line.count property greater than 0 is not supported");
+        onHive().executeQuery("DROP TABLE test_create_textfile_skip_header");
+
+        onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_footer");
+        assertThatThrownBy(() -> onTrino().executeQuery(
+                "CREATE TABLE test_create_textfile_skip_footer " +
+                        "WITH ( " +
+                        "   format = 'TEXTFILE', " +
+                        "   skip_footer_line_count = 1 " +
+                        ") " +
+                        "AS SELECT 1  AS col_header;")
+        ).hasMessageMatching(".* Creating Hive table with data with value of skip.footer.line.count property greater than 0 is not supported");
+        onHive().executeQuery("DROP TABLE test_create_textfile_skip_footer");
+    }
 }
