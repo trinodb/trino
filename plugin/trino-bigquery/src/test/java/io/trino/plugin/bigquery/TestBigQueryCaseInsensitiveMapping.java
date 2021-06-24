@@ -30,7 +30,6 @@ import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.creat
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
@@ -42,16 +41,16 @@ public class TestBigQueryCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
 {
     private BigQuerySqlExecutor bigQuerySqlExecutor;
-    private Path Mappingfile;
+    private Path mappingfile;
 
     @Override
     protected SqlExecutor onRemoteDatabase() {
-        return requireNonNull(bigQuerySqlExecutor,"bigQuerySqlExecutor is null");
+        return bigQuerySqlExecutor;
     }
 
     @Override
     protected Path getMappingFile() {
-        return requireNonNull(Mappingfile,"Mappingfile is null");
+        return mappingfile;
     }
 
     @Override
@@ -59,7 +58,7 @@ public class TestBigQueryCaseInsensitiveMapping
             throws Exception
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
-        this.Mappingfile = createRuleBasedIdentifierMappingFile();
+        this.mappingfile = createRuleBasedIdentifierMappingFile();
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of("bigquery.case-insensitive-name-matching", "true"));

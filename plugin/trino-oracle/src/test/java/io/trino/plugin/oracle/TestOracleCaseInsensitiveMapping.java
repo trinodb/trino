@@ -39,8 +39,6 @@ public class TestOracleCaseInsensitiveMapping
 {
     private TestingOracleServer oracleServer;
 
-
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
