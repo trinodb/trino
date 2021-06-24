@@ -41,7 +41,7 @@ public class TestBigQueryCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
 {
     private BigQuerySqlExecutor bigQuerySqlExecutor;
-    private Path mappingfile;
+    private Path mappingFile;
 
     @Override
     protected SqlExecutor onRemoteDatabase() {
@@ -50,7 +50,7 @@ public class TestBigQueryCaseInsensitiveMapping
 
     @Override
     protected Path getMappingFile() {
-        return mappingfile;
+        return mappingFile;
     }
 
     @Override
@@ -58,7 +58,7 @@ public class TestBigQueryCaseInsensitiveMapping
             throws Exception
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
-        this.mappingfile = createRuleBasedIdentifierMappingFile();
+        this.mappingFile = createRuleBasedIdentifierMappingFile();
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of("bigquery.case-insensitive-name-matching", "true"));
