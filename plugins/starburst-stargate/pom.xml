@@ -176,6 +176,13 @@
                     <groupId>org.apache.commons</groupId>
                     <artifactId>commons-lang3</artifactId>
                 </exclusion>
+                <exclusion>
+                    <!-- mysql:mysql-connector-java:jar:8.0.22 depends on
+                         com.google.protobuf:protobuf-java:jar:3.11.4 which conflicts with
+                         org.alluxio:alluxio-shaded-client:2.4.0 -->
+                    <groupId>mysql</groupId>
+                    <artifactId>mysql-connector-java</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -184,6 +191,15 @@
             <artifactId>starburst-server-main</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- mysql:mysql-connector-java:jar:8.0.22 depends on
+                         com.google.protobuf:protobuf-java:jar:3.11.4 which conflicts with
+                         org.alluxio:alluxio-shaded-client:2.4.0 -->
+                    <groupId>mysql</groupId>
+                    <artifactId>mysql-connector-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
