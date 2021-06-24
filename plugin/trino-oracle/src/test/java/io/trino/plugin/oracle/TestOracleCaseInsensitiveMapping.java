@@ -30,7 +30,6 @@ import static io.trino.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
@@ -42,16 +41,16 @@ public class TestOracleCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
 {
     private TestingOracleServer oracleServer;
-    private Path Mappingfile;
+    private Path mappingfile;
 
     @Override
     protected SqlExecutor onRemoteDatabase() {
-        return requireNonNull(oracleServer,"oracleServer is null")::execute;
+        return oracleServer::execute;
     }
 
     @Override
     protected Path getMappingFile() {
-        return requireNonNull(Mappingfile,"Mappingfile is null");
+        return mappingfile;
     }
 
     @Override
@@ -59,7 +58,7 @@ public class TestOracleCaseInsensitiveMapping
             throws Exception
     {
         this.oracleServer = closeAfterClass(new TestingOracleServer());
-        this.Mappingfile = createRuleBasedIdentifierMappingFile();
+        this.mappingfile = createRuleBasedIdentifierMappingFile();
         return createOracleQueryRunner(
                 oracleServer,
                 ImmutableMap.of(),

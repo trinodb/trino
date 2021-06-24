@@ -32,7 +32,6 @@ import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
@@ -43,16 +42,16 @@ public class TestMemSqlCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
 {
     protected TestingMemSqlServer memSqlServer;
-    protected Path Mappingfile;
+    protected Path mappingfile;
 
     @Override
     protected SqlExecutor onRemoteDatabase() {
-        return requireNonNull(memSqlServer,"memSqlServer is null")::execute;
+        return memSqlServer::execute;
     }
 
     @Override
     protected Path getMappingFile() {
-        return requireNonNull(Mappingfile,"Mappingfile is null");
+        return mappingfile;
     }
 
     @Override
@@ -60,7 +59,7 @@ public class TestMemSqlCaseInsensitiveMapping
             throws Exception
     {
         this.memSqlServer = new TestingMemSqlServer();
-        this.Mappingfile = createRuleBasedIdentifierMappingFile();
+        this.mappingfile = createRuleBasedIdentifierMappingFile();
         return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
     }
 
