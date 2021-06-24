@@ -79,9 +79,9 @@ public abstract class BaseCaseInsensitiveMappingTest
                         "SomeSchema",
                         "NonLowerCaseTable",
                         "(" +
-                                quoted("lower_case_name") + " varchar(1), " +
-                                quoted("Mixed_Case_Name") + " varchar(1), " +
-                                quoted("UPPER_CASE_NAME") + " varchar(1))")) {
+                             quoted("lower_case_name") + " varchar(1), " +
+                             quoted("Mixed_Case_Name") + " varchar(1), " +
+                             quoted("UPPER_CASE_NAME") + " varchar(1))")) {
             onRemoteDatabase().execute("INSERT INTO " + (quoted("SomeSchema") + "." + quoted("NonLowerCaseTable")) + " SELECT 'a', 'b', 'c'");
             assertQuery(
                     "SELECT column_name FROM information_schema.columns WHERE table_schema = 'someschema' AND table_name = 'nonlowercasetable'",
