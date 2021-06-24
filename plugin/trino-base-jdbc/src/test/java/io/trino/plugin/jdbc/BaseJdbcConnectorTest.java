@@ -85,7 +85,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
 {
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
+    protected final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
 
     protected abstract SqlExecutor onRemoteDatabase();
 
