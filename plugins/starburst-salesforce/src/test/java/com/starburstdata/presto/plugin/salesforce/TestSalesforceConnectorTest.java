@@ -225,6 +225,13 @@ public class TestSalesforceConnectorTest
     protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION, LINE_ITEM);
 
     @Test
+    public void testSelectLimitsTable()
+    {
+        // "current" value can change so just assert the limit
+        assertQuery("SELECT type, limit FROM salesforce.system.limits WHERE type = 'API REQUESTS'", "SELECT 'API REQUESTS', 5000000");
+    }
+
+    @Test
     public void testAggregationOverUnknown()
     {
         assertQuery("SELECT clerk__c, min(totalprice__c), max(totalprice__c), min(nullvalue), max(nullvalue) " +

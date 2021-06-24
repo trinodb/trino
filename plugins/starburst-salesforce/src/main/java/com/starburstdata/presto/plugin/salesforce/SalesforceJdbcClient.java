@@ -27,6 +27,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -48,9 +49,11 @@ import java.sql.Types;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -93,6 +96,7 @@ public class SalesforceJdbcClient
 {
     private final TableScanRedirection tableScanRedirection;
     private final boolean enableWrites;
+    private final Set<SystemTableProvider> systemTables;
 
     @Inject
     public SalesforceJdbcClient(
@@ -100,11 +104,13 @@ public class SalesforceJdbcClient
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             @EnableWrites boolean enableWrites,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            Set<SystemTableProvider> systemTables)
     {
         super(baseJdbcConfig, "\"", connectionFactory, identifierMapping);
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.enableWrites = enableWrites;
+        this.systemTables = requireNonNull(systemTables, "systemTables is null");
     }
 
     @Override
@@ -325,6 +331,15 @@ public class SalesforceJdbcClient
         // This function is overridden to ensure we have a class in the com.starburstdata.* package when running queries
         // Without it, the query would fail with a CData licensing error
         return super.getPreparedStatement(connection, sql);
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return systemTables.stream()
+                .filter(systemTable -> systemTable.getSchemaTableName().equals(tableName))
+                .collect(toOptional())
+                .map(SystemTableProvider::create);
     }
 
     private void invalidateDriverCache(ConnectorSession session)
