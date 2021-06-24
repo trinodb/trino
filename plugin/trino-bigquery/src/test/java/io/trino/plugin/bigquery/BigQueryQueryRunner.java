@@ -69,6 +69,7 @@ public final class BigQueryQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
+            // note: additional copy via ImmutableList so that if fails on nulls
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("bigquery.views-enabled", "true");
             connectorProperties.putIfAbsent("bigquery.view-expire-duration", "30m");
