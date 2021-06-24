@@ -42,6 +42,7 @@ public class SheetsQueryRunner
                 .setExtraProperties(extraProperties)
                 .build();
         try {
+            // note: additional copy via ImmutableList so that if fails on nulls
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("credentials-path", getTestCredentialsPath());
             connectorProperties.putIfAbsent("metadata-sheet-id", TEST_METADATA_SHEET_ID);
