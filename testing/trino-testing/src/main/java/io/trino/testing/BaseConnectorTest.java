@@ -37,6 +37,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -724,5 +725,39 @@ public abstract class BaseConnectorTest
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
         assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
+    }
+
+    @Test
+    public void testDeleteAllTable()
+    {
+        if (!hasBehavior(SUPPORTS_DELETE)) {
+            assertQueryFails("DELETE FROM region", "This connector does not support deletes");
+            return;
+        }
+
+        String tableName = "test_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
+        // not using assertUpdate as some connectors provide update count and some not
+        getQueryRunner().execute("DELETE FROM " + tableName);
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testRowLevelDelete()
+    {
+        if (!hasBehavior(SUPPORTS_DELETE)) {
+            assertQueryFails("DELETE FROM region", "This connector does not support deletes");
+            return;
+        }
+        if (!hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
+            assertQueryFails("DELETE FROM nation WHERE nationkey = 2", "This connector does not support deletes");
+            return;
+        }
+        String tableName = "test_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 2", 1);
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 24");
+        assertUpdate("DROP TABLE " + tableName);
     }
 }
