@@ -34,6 +34,7 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
+import static io.trino.tests.product.TestGroups.SKIP_ON_CDH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -365,7 +366,7 @@ public abstract class AbstractTestHiveViews
                         row(4, 1)));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test(groups = {HIVE_VIEWS, SKIP_ON_CDH})
     public void testUnionAllViews()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS union_helper");
@@ -400,7 +401,7 @@ public abstract class AbstractTestHiveViews
                         row(1));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test(groups = {HIVE_VIEWS, SKIP_ON_CDH})
     public void testUnionDistinctViews()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS union_helper");
