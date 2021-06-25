@@ -1327,8 +1327,8 @@ public class HiveMetadata
         }
 
         getHeaderSkipCount(tableMetadata.getProperties()).ifPresent(headerSkipCount -> {
-            if (headerSkipCount > 0) {
-                throw new TrinoException(NOT_SUPPORTED, format("Creating Hive table with data with value of %s property greater than 0 is not supported", SKIP_HEADER_COUNT_KEY));
+            if (headerSkipCount > 1) {
+                throw new TrinoException(NOT_SUPPORTED, format("Creating Hive table with data with value of %s property greater than 1 is not supported", SKIP_HEADER_COUNT_KEY));
             }
         });
 
@@ -1693,9 +1693,11 @@ public class HiveMetadata
                 .collect(toList());
 
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table);
-        if (table.getParameters().containsKey(SKIP_HEADER_COUNT_KEY)) {
-            throw new TrinoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", SKIP_HEADER_COUNT_KEY));
-        }
+        Optional.ofNullable(table.getParameters().get(SKIP_HEADER_COUNT_KEY)).map(Integer::parseInt).ifPresent(headerSkipCount -> {
+            if (headerSkipCount > 1) {
+                throw new TrinoException(NOT_SUPPORTED, format("Inserting into Hive table with value of %s property greater than 1 is not supported", SKIP_HEADER_COUNT_KEY));
+            }
+        });
         if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
             throw new TrinoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", SKIP_FOOTER_COUNT_KEY));
         }
