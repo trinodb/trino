@@ -32,6 +32,7 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
@@ -65,6 +66,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUS
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CANCELLATION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN;
@@ -76,11 +78,13 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHD
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
@@ -93,6 +97,18 @@ public abstract class BaseJdbcConnectorTest
     public void afterClass()
     {
         executor.shutdownNow();
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+                return true;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Test
@@ -1145,5 +1161,121 @@ public abstract class BaseJdbcConnectorTest
     protected TestView createSleepingView(Duration minimalSleepDuration)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Test
+    public void testDeleteWithBigintEqualityPredicate()
+    {
+        if (!hasBehavior(SUPPORTS_DELETE)) {
+            assertQueryFails("DELETE FROM region WHERE regionkey = 1", "This connector does not support deletes");
+            return;
+        }
+        String tableName = "test_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM region", 5);
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 1", 1);
+        assertQuery(
+                "SELECT regionkey, name FROM " + tableName,
+                "VALUES "
+                        + "(0, 'AFRICA'),"
+                        + "(2, 'ASIA'),"
+                        + "(3, 'EUROPE'),"
+                        + "(4, 'MIDDLE EAST')");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDeleteWithVarcharEqualityPredicate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+            if (!hasBehavior(SUPPORTS_DELETE)) {
+                assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+                return;
+            }
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)) {
+                assertQueryFails("DELETE FROM " + table.getName() + " WHERE col = 'A'", "Unsupported delete");
+                return;
+            }
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col = 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', null");
+        }
+    }
+
+    @Test
+    public void testDeleteWithVarcharInequalityPredicate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+            if (!hasBehavior(SUPPORTS_DELETE)) {
+                assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+                return;
+            }
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
+                assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", "Unsupported delete");
+                return;
+            }
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col != 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+        }
+    }
+
+    @Test
+    public void testDeleteWithVarcharGreaterAndLowerPredicate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'0'", "'a'", "'A'", "'b'", "null"))) {
+            if (!hasBehavior(SUPPORTS_DELETE)) {
+                assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+                return;
+            }
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
+                assertQueryFails("DELETE FROM " + table.getName() + " WHERE col < 'A'", "Unsupported delete");
+                assertQueryFails("DELETE FROM " + table.getName() + " WHERE col > 'A'", "Unsupported delete");
+                return;
+            }
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col < 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', 'A', 'b', null");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col > 'A'", 2);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+        }
+    }
+
+    @Override
+    public void testDeleteWithComplexPredicate()
+    {
+        if (!hasBehavior(SUPPORTS_DELETE)) {
+            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
+            return;
+        }
+        assertThatThrownBy(() -> super.testDeleteWithComplexPredicate())
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Override
+    public void testDeleteWithSubquery()
+    {
+        if (!hasBehavior(SUPPORTS_DELETE)) {
+            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
+            return;
+        }
+        assertThatThrownBy(() -> super.testDeleteWithSubquery())
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Override
+    public void testDeleteWithSemiJoin()
+    {
+        if (!hasBehavior(SUPPORTS_DELETE)) {
+            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
+            return;
+        }
+        assertThatThrownBy(() -> super.testDeleteWithSemiJoin())
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Override
+    public void testDeleteWithVarcharPredicate()
+    {
+        throw new SkipException("This is implemented by testDeleteWithVarcharEqualityPredicate");
     }
 }
