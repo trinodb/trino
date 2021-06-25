@@ -53,8 +53,7 @@ public class TestIgniteConnectorTest
         return createIgniteQueryRunner(
                 igniteServer,
                 ImmutableMap.of(),
-                ImmutableMap.of(),
-                REQUIRED_TPCH_TABLES);
+                ImmutableMap.of());
     }
 
     @Override

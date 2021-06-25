@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.ignite;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -29,12 +28,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.assertUpdate;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -86,17 +88,10 @@ public final class IgniteQueryRunner
 
     private IgniteQueryRunner() {}
 
-    public static QueryRunner createIgniteQueryRunner(TestingIgniteServer server, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createIgniteQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.copyOf(tables));
-    }
-
     public static DistributedQueryRunner createIgniteQueryRunner(
             TestingIgniteServer server,
             Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
+            Map<String, String> connectorProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -114,7 +109,10 @@ public final class IgniteQueryRunner
 
             queryRunner.installPlugin(new IgniteJdbcPlugin());
             queryRunner.createCatalog("ignite", "ignite", connectorProperties);
-            copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, CREATE_CUSTOM, createSession(), CUSTOMER);
+            copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, CREATE_NATION, createSession(), NATION);
+            copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, CREATE_ORDERS, createSession(), ORDERS);
+            copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, CREATE_REGION, createSession(), REGION);
             return queryRunner;
         }
         catch (Throwable e) {
@@ -127,16 +125,12 @@ public final class IgniteQueryRunner
             QueryRunner queryRunner,
             String sourceCatalog,
             String sourceSchema,
+            @Language("SQL") String createTableSql,
             Session session,
-            Iterable<TpchTable<?>> tables)
+            TpchTable<?> table)
     {
-        assertUpdate(queryRunner, session, CREATE_CUSTOM, OptionalLong.empty(), Optional.empty());
-        assertUpdate(queryRunner, session, CREATE_NATION, OptionalLong.empty(), Optional.empty());
-        assertUpdate(queryRunner, session, CREATE_REGION, OptionalLong.empty(), Optional.empty());
-        assertUpdate(queryRunner, session, CREATE_ORDERS, OptionalLong.empty(), Optional.empty());
-        for (TpchTable<?> table : tables) {
-            insertIntoTable(queryRunner, sourceCatalog + "." + sourceSchema + "." + table.getTableName(), table.getTableName(), session);
-        }
+        assertUpdate(queryRunner, session, createTableSql, OptionalLong.empty(), Optional.empty());
+        insertIntoTable(queryRunner, sourceCatalog + "." + sourceSchema + "." + table.getTableName(), table.getTableName(), session);
     }
 
     private static void insertIntoTable(QueryRunner queryRunner, String remoteTable, String targetTableName, Session session)
@@ -168,10 +162,7 @@ public final class IgniteQueryRunner
         DistributedQueryRunner queryRunner = createIgniteQueryRunner(
                 new TestingIgniteServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                ImmutableList.of("customer", "orders", "region", "nation").stream()
-                        .map(TpchTable::getTable)
-                        .collect(toImmutableList()));
+                ImmutableMap.of());
 
         Logger log = Logger.get(IgniteQueryRunner.class);
         log.info("======== SERVER STARTED ========");

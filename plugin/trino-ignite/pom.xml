@@ -27,32 +27,27 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-matching</artifactId>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
             <version>3.0.2</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -79,7 +74,6 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <scope>compile</scope>
         </dependency>
 
         <!-- Trino SPI -->

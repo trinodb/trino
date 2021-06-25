@@ -23,11 +23,7 @@ public class TestIgniteContainer
         extends JdbcDatabaseContainer
 {
     private static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse("apacheignite/ignite");
-    /**
-     * @deprecated
-     */
-    @Deprecated
-    public static final String IMAGE = DEFAULT_IMAGE_NAME.getUnversionedPart();
+
     public static final Integer HTTP_PORT = 10800;
 
     private static final String NAME = "ignite";
@@ -39,15 +35,6 @@ public class TestIgniteContainer
     private final String databaseName;
     private final String username;
     private final String password;
-
-    /**
-     * @deprecated
-     */
-    @Deprecated
-    public TestIgniteContainer()
-    {
-        this(DEFAULT_IMAGE_NAME.withTag(DEFAULT_TAG));
-    }
 
     public TestIgniteContainer(String dockerImageName)
     {
