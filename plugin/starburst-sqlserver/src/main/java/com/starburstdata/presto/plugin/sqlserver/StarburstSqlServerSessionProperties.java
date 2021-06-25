@@ -19,7 +19,6 @@ import io.trino.spi.session.PropertyMetadata;
 import java.util.List;
 import java.util.Optional;
 
-import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.BULK_COPY_FOR_WRITE;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -28,7 +27,7 @@ public final class StarburstSqlServerSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String OVERRIDE_CATALOG = "override_catalog";
-    public static final String BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE = BULK_COPY_FOR_WRITE + "_lock_destination_table";
+    public static final String BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE = "bulk_copy_for_write_lock_destination_table";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
