@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.hive.parquet;
 
-import org.testng.annotations.Test;
-
-@Test
 public class TestParquetReader
         extends AbstractTestParquetReader
 {
