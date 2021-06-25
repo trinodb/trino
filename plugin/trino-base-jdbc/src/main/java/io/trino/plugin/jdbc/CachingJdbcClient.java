@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -449,6 +450,14 @@ public class CachingJdbcClient
     public void onDataChanged(JdbcTableHandle handle)
     {
         invalidateCache(statisticsCache, key -> key.tableHandle.equals(handle));
+    }
+
+    @Override
+    public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
+    {
+        OptionalLong deletedRowsCount = delegate.delete(session, handle);
+        onDataChanged(handle.getRequiredNamedRelation().getSchemaTableName());
+        return deletedRowsCount;
     }
 
     private JdbcIdentityCacheKey getIdentityKey(ConnectorSession session)
