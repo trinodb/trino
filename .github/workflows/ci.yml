@@ -54,6 +54,9 @@ jobs:
           $RETRY bash -c './mvnw verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +'
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!:trino-server,!:trino-cli'
+      - uses: docker/setup-qemu-action@v1
+        with:
+          platforms: arm64
       - name: Test Docker Image
         run: core/docker/build-local.sh
 
