@@ -5,7 +5,7 @@ if [[ $# -lt 1 ]]; then
     exit 1
 fi
 
-set -euxo pipefail
+set -euo pipefail
 
 # Retrieve the script directory.
 SCRIPT_DIR="${BASH_SOURCE%/*}"
@@ -27,11 +27,16 @@ chmod +x ${WORK_DIR}/trino-cli-${TRINO_VERSION}-executable.jar
 
 CONTAINER="trino:${TRINO_VERSION}"
 
-docker build ${WORK_DIR} --pull -f Dockerfile -t ${CONTAINER} --build-arg "TRINO_VERSION=${TRINO_VERSION}"
+docker build ${WORK_DIR} --pull --platform linux/amd64 -f amd64.dockerfile -t ${CONTAINER}-amd64 --build-arg "TRINO_VERSION=${TRINO_VERSION}"
+docker build ${WORK_DIR} --pull --platform linux/arm64 -f arm64.dockerfile -t ${CONTAINER}-arm64 --build-arg "TRINO_VERSION=${TRINO_VERSION}"
 
 rm -r ${WORK_DIR}
 
 # Source common testing functions
 . container-test.sh
 
-test_container ${CONTAINER}
+test_container ${CONTAINER}-amd64 linux/amd64
+test_container ${CONTAINER}-arm64 linux/arm64
+
+docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' ${CONTAINER}-amd64
+docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' ${CONTAINER}-arm64
