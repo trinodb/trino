@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.ignite;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -96,6 +97,7 @@ public class IgniteJdbcClient
     private static final String IGNITE_SYS_SCHEMA = "SYS";
     private static final String IGNITE_SCHEMA = "PUBLIC";
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
+    private static final Splitter SPLITTER = Splitter.on(",").omitEmptyStrings().trimResults();
 
     @Inject
     public IgniteJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
@@ -348,14 +350,14 @@ public class IgniteJdbcClient
                 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             ResultSet resultSet = preparedStatement.executeQuery();
             checkArgument(resultSet.next(), "Ignite table: '" + tableName + "' properties is NULL");
-            List<String> primaryKeys = extract(resultSet.getString("PKS"));
+            List<String> primaryKeys = extractColumnNamesFromOrderingScheme(resultSet.getString("PKS"));
             checkArgument(!primaryKeys.isEmpty(), "Ignite table should has at least one primary key");
             properties.put(IgniteTableProperties.PRIMARY_KEY_PROPERTY, primaryKeys);
 
             for (String property : IgniteTableProperties.WITH_PROPERTIES) {
                 switch (property) {
                     case IgniteTableProperties.AFFINITY_KEY_PROPERTY:
-                        List<String> affinityKeys = extract(resultSet.getString("AFK"));
+                        List<String> affinityKeys = extractColumnNamesFromOrderingScheme(resultSet.getString("AFK"));
                         if (!affinityKeys.isEmpty()) {
                             String affinityKey = affinityKeys.get(0);
                             checkArgument(ImmutableSet.copyOf(primaryKeys).contains(affinityKey), "Table affinity key should be one of the primary key");
@@ -402,13 +404,13 @@ public class IgniteJdbcClient
     }
 
     // extract result from format: "ID" ASC, "CITY_ID" ASC
-    private List<String> extract(String row)
+    private List<String> extractColumnNamesFromOrderingScheme(String row)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         if (isNullOrEmpty(row)) {
             return builder.build();
         }
-        for (String key : row.split(",")) {
+        for (String key : SPLITTER.split(row)) {
             int left = key.indexOf("\"") + 1;
             int right = key.lastIndexOf("\"");
             builder.add(key.substring(left, right).toLowerCase(ENGLISH));
@@ -432,6 +434,7 @@ public class IgniteJdbcClient
         }
         // TODO
         return legacyToWriteMapping(session, type);
+//        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     public static SliceWriteFunction longDecimalWriteFunction(int precision, int scale)
@@ -449,7 +452,7 @@ public class IgniteJdbcClient
             public void set(PreparedStatement statement, int index, Slice value)
                     throws SQLException
             {
-                statement.setBigDecimal(index, new BigDecimal(value.toStringUtf8()));
+                statement.setBigDecimal(index, new BigDecimal(value.getLong(0)));
             }
         };
     }
