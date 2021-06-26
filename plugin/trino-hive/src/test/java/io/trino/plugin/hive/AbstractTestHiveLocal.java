@@ -60,6 +60,7 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
+import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static java.nio.file.Files.copy;
@@ -223,7 +224,7 @@ public abstract class AbstractTestHiveLocal
             ConnectorSession session = newSession();
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(session);
             Table oldTable = transaction.getMetastore().getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName()).get();
-            Table.Builder newTable = Table.builder(oldTable).setParameter(HiveMetadata.SPARK_TABLE_PROVIDER_KEY, provider);
+            Table.Builder newTable = Table.builder(oldTable).setParameter(SPARK_TABLE_PROVIDER_KEY, provider);
             transaction.getMetastore().replaceTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName(), newTable.build(), principalPrivileges);
             transaction.commit();
         }

@@ -13,6 +13,7 @@
  */
 package io.trino.dispatcher;
 
+import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
@@ -49,7 +50,6 @@ import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
@@ -142,7 +142,19 @@ public class DispatchManager
         checkArgument(!query.isEmpty(), "query must not be empty string");
         checkArgument(queryTracker.tryGetQuery(queryId).isEmpty(), "query %s already exists", queryId);
 
-        return nonCancellationPropagating(Futures.submit(() -> createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager), dispatchExecutor));
+        // It is important to return a future implementation which ignores cancellation request.
+        // Using NonCancellationPropagatingFuture is not enough; it does not propagate cancel to wrapped future
+        // but it would still return true on call to isCancelled() after cancel() is called on it.
+        DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
+        dispatchExecutor.execute(() -> {
+            try {
+                createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager);
+            }
+            finally {
+                queryCreationFuture.set(null);
+            }
+        });
+        return queryCreationFuture;
     }
 
     /**
@@ -311,5 +323,28 @@ public class DispatchManager
 
         queryTracker.tryGetQuery(queryId)
                 .ifPresent(query -> query.fail(cause));
+    }
+
+    private static class DispatchQueryCreationFuture
+            extends AbstractFuture<Void>
+    {
+        @Override
+        protected boolean set(Void value)
+        {
+            return super.set(value);
+        }
+
+        @Override
+        protected boolean setException(Throwable throwable)
+        {
+            return super.setException(throwable);
+        }
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning)
+        {
+            // query submission cannot be canceled
+            return false;
+        }
     }
 }

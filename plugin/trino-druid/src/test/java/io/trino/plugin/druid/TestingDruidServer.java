@@ -35,6 +35,10 @@ import java.nio.charset.Charset;
 import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Map;
 
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -205,6 +209,17 @@ public class TestingDruidServer
     public String getJdbcUrl()
     {
         return getJdbcUrl(broker.getMappedPort(DRUID_BROKER_PORT));
+    }
+
+    public void execute(String sql)
+    {
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl());
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public int getCoordinatorOverlordPort()

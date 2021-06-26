@@ -29,7 +29,7 @@ The CLI uses the HTTP protocol and the
 :doc:`Trino client REST API </develop/client-protocol>` to communicate
 with Trino.
 
-TLS/HTTPS
+HTTPS/TLS
 ---------
 
 Trino is typically available with an HTTPS URL. This means that all network
@@ -59,16 +59,17 @@ Use ``--help`` to see information about specifying the keystore, truststore, and
 other authentication details as required. If using Kerberos, see :doc:`/security/cli`.
 
 External authentication - SSO
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``--external-authentication`` option is used for browser-based SSO
+Use the ``--external-authentication`` option for browser-based SSO
 authentication, as detailed in :doc:`/security/oauth2`. With this configuration,
 the CLI displays a URL that you must open in a web browser for authentication.
 
 The detailed behavior is as follows:
 
-* Start the CLI with the ``--external-authentication`` option.
-* CLI starts and connects to Trino.
+* Start the CLI with the ``--external-authentication`` option and execute a
+  query.
+* The CLI starts and connects to Trino.
 * A message appears in the CLI directing you to open a browser with a specified
   URL when the first query is submitted.
 * Open the URL in a browser and follow through the authentication process.
@@ -79,6 +80,14 @@ The detailed behavior is as follows:
   authentication token remains valid. Token expiration depends on the external
   authentication system configuration.
 * Expired tokens force you to log in again.
+
+.. _cli-jwt-auth:
+
+JWT authentication
+^^^^^^^^^^^^^^^^^^
+
+To access a Trino cluster configured to use :doc:`/security/jwt`, use the
+``--access-token=<token>`` option to pass a JWT to the server.
 
 Pagination
 ----------

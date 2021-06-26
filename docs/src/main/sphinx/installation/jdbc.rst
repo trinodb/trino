@@ -80,7 +80,7 @@ This example JDBC URL locates a Trino instance running on port ``8080`` on
 ``example.net``, with the catalog ``hive`` and the schema ``sales`` defined.
 
 .. note::
-  
+
   Typically, the JDBC driver classname is configured automatically by your
   client. If it is not, use ``io.trino.jdbc.TrinoDriver`` wherever a driver
   classname is required.
@@ -110,6 +110,8 @@ These methods may be mixed; some parameters may be specified in the URL,
 while others are specified using properties. However, the same parameter
 may not be specified using both methods.
 
+.. _jdbc-parameter-reference:
+
 Parameter reference
 -------------------
 
@@ -131,7 +133,7 @@ Name                                                         Description
                                                              if the ``source`` parameter has not been set. If neither this
                                                              property nor ``ApplicationName`` or ``source`` are set, the source
                                                              name for the query is ``trino-jdbc``.
-``accessToken``                                              Access token for token based authentication.
+``accessToken``                                              :doc:`JWT </security/jwt>` access token for token based authentication.
 ``SSL``                                                      Use HTTPS for connections
 ``SSLVerification``                                          The method of SSL verification. There are three modes: ``FULL``
                                                              (default), ``CA`` and ``NONE``. For ``FULL``, the normal TLS

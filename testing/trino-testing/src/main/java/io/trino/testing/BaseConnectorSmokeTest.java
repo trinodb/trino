@@ -182,11 +182,10 @@ public abstract class BaseConnectorSmokeTest
         String tableName = "test_delete_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM region", 5);
 
-        // delete half the table, then delete the rest
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 2", 1);
         assertThat(query("SELECT regionkey FROM " + tableName))
                 .skippingTypesCheck()
-                .matches("VALUES 1, 3, 4, 5");
+                .matches("VALUES 0, 1, 3, 4");
 
         assertUpdate("DROP TABLE " + tableName);
     }

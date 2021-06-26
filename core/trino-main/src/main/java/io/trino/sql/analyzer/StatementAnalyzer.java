@@ -2107,6 +2107,14 @@ class StatementAnalyzer
                         oldField.getOriginTable(),
                         oldField.getOriginColumnName(),
                         oldField.isAliased());
+
+                int index = i; // Variable used in Lambda should be final
+                analysis.addSourceColumns(
+                        outputDescriptorFields[index],
+                        childrenTypes.stream()
+                                .map(relationType -> relationType.getFieldByIndex(index))
+                                .flatMap(field -> analysis.getSourceColumns(field).stream())
+                                .collect(toImmutableSet()));
             }
 
             for (int i = 0; i < node.getRelations().size(); i++) {
