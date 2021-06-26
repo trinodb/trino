@@ -3,18 +3,27 @@ ClickHouse connector
 ====================
 
 The ClickHouse connector allows querying tables in an external
-`Yandex ClickHouse <https://clickhouse.tech/>`_ instance. This can be used to
-query data in the databases on that instance, or combine it with other data
+`Yandex ClickHouse <https://clickhouse.tech/>`_ server. This can be used to
+query data in the databases on that server, or combine it with other data
 from different catalogs accessing ClickHouse or any other supported data source.
+
+Requirements
+------------
+
+To connect to a ClickHouse server, you need:
+
+* ClickHouse version 20.8 or higher.
+* Network access from the Trino coordinator and workers to the ClickHouse
+  server. Port 8123 is the default port.
 
 Configuration
 -------------
 
-The connector can query a ClickHouse instance. Create a catalog properties file
+The connector can query a ClickHouse server. Create a catalog properties file
 that specifies the ClickHouse connector by setting the ``connector.name`` to
 ``clickhouse``.
 
-For example, to access an instance as ``myclickhouse``, create the file
+For example, to access a server as ``myclickhouse``, create the file
 ``etc/catalog/myclickhouse.properties``. Replace the connection properties as
 appropriate for your setup:
 
@@ -28,8 +37,8 @@ appropriate for your setup:
 Multiple ClickHouse servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you have multiple ClickHouse instances you need to configure one catalog for
-each instance. To add another catalog:
+If you have multiple ClickHouse servers you need to configure one
+catalog for each server. To add another catalog:
 
 * Add another properties file to ``etc/catalog``
 * Save it with a different name that ends in ``.properties``
@@ -50,8 +59,8 @@ tables in this database::
 
     SHOW TABLES FROM myclickhouse.web;
 
-Run ``DESCRIBE`` or ``SHOW COLUMNS`` to list the columns in the ``clicks`` table in the
-``web`` databases::
+Run ``DESCRIBE`` or ``SHOW COLUMNS`` to list the columns in the ``clicks`` table
+in the ``web`` databases::
 
     DESCRIBE myclickhouse.web.clicks;
     SHOW COLUMNS FROM clickhouse.web.clicks;

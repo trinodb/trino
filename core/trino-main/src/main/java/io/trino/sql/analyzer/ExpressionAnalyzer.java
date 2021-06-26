@@ -885,24 +885,21 @@ public class ExpressionAnalyzer
                 coerceType(context, node.getValue(), VARCHAR, "Left side of LIKE expression");
             }
 
-            Type patternType = getVarcharType(node.getPattern(), context);
-            coerceType(context, node.getPattern(), patternType, "Pattern for LIKE expression");
+            Type patternType = process(node.getPattern(), context);
+            if (!(patternType instanceof VarcharType)) {
+                // TODO can pattern be of char type?
+                coerceType(context, node.getPattern(), VARCHAR, "Pattern for LIKE expression");
+            }
             if (node.getEscape().isPresent()) {
                 Expression escape = node.getEscape().get();
-                Type escapeType = getVarcharType(escape, context);
-                coerceType(context, escape, escapeType, "Escape for LIKE expression");
+                Type escapeType = process(escape, context);
+                if (!(escapeType instanceof VarcharType)) {
+                    // TODO can escape be of char type?
+                    coerceType(context, escape, VARCHAR, "Escape for LIKE expression");
+                }
             }
 
             return setExpressionType(node, BOOLEAN);
-        }
-
-        private Type getVarcharType(Expression value, StackableAstVisitorContext<Context> context)
-        {
-            Type type = process(value, context);
-            if (!(type instanceof VarcharType)) {
-                return VARCHAR;
-            }
-            return type;
         }
 
         @Override

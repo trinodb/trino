@@ -37,10 +37,12 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static java.util.Collections.shuffle;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
@@ -126,6 +128,22 @@ public abstract class AbstractTestApproximateSetGeneric
             assertEquals(estimateSetPartial(values).cardinality(), esitmateSetGrouped(values).cardinality());
         }
     }
+
+    @Test
+    public void testResultStability()
+    {
+        for (int i = 0; i < 10; ++i) {
+            List<Object> sample = new ArrayList<>(getResultStabilityTestSample());
+            shuffle(sample);
+            assertEquals(base16().encode(estimateSet(sample).serialize().getBytes()), getResultStabilityExpected());
+            assertEquals(base16().encode(estimateSetPartial(sample).serialize().getBytes()), getResultStabilityExpected());
+            assertEquals(base16().encode(esitmateSetGrouped(sample).serialize().getBytes()), getResultStabilityExpected());
+        }
+    }
+
+    protected abstract List<Object> getResultStabilityTestSample();
+
+    protected abstract String getResultStabilityExpected();
 
     protected void assertCount(List<?> values, long expectedCount)
     {

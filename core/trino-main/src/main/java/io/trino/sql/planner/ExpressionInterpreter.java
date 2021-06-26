@@ -120,6 +120,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
@@ -129,6 +130,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.type.Chars.trimTrailingSpaces;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -1130,22 +1132,30 @@ public class ExpressionInterpreter
 
             // if pattern is a constant without % or _ replace with a comparison
             if (pattern instanceof Slice && (escape == null || escape instanceof Slice) && !isLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape))) {
-                Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape));
                 Type valueType = type(node.getValue());
-                Type patternType = createVarcharType(unescapedPattern.length());
-                Type superType = typeCoercion.getCommonSuperType(valueType, patternType)
-                        .orElseThrow(() -> new IllegalArgumentException("Missing super type when optimizing " + node));
-                Expression valueExpression = toExpression(value, valueType);
-                if (!valueType.equals(superType)) {
-                    valueExpression = new Cast(valueExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
-                }
+                Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape));
+                VarcharType patternType = createVarcharType(countCodePoints(unescapedPattern));
+
+                Expression valueExpression;
                 Expression patternExpression;
-                if (superType instanceof VarcharType) {
+                if (valueType instanceof CharType) {
+                    if (((CharType) valueType).getLength() != patternType.getBoundedLength()) {
+                        return false;
+                    }
+                    valueExpression = toExpression(value, valueType);
+                    patternExpression = toExpression(trimTrailingSpaces(unescapedPattern), valueType);
+                }
+                else if (valueType instanceof VarcharType) {
+                    Type superType = typeCoercion.getCommonSuperType(valueType, patternType)
+                            .orElseThrow(() -> new IllegalArgumentException("Missing super type when optimizing " + node));
+                    valueExpression = toExpression(value, valueType);
+                    if (!valueType.equals(superType)) {
+                        valueExpression = new Cast(valueExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
+                    }
                     patternExpression = toExpression(unescapedPattern, superType);
                 }
                 else {
-                    patternExpression = toExpression(unescapedPattern, patternType);
-                    patternExpression = new Cast(patternExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(patternType, superType));
+                    throw new IllegalStateException("Unsupported valueType for LIKE: " + valueType);
                 }
                 return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, valueExpression, patternExpression);
             }

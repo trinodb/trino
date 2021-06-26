@@ -13,8 +13,10 @@
  */
 package io.trino.operator.aggregation;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -32,5 +34,26 @@ public class TestApproximateSetGenericLong
     protected Object randomValue()
     {
         return ThreadLocalRandom.current().nextLong();
+    }
+
+    @Override
+    protected List<Object> getResultStabilityTestSample()
+    {
+        return ImmutableList.of(
+                Long.MIN_VALUE,
+                -143434343433L,
+                -1L,
+                0L,
+                1L,
+                3213343434343L,
+                Long.MAX_VALUE);
+    }
+
+    @Override
+    protected String getResultStabilityExpected()
+    {
+        // This value should not be changed; it is used to test result stability for $approx_set
+        // Result stability is important because a produced value can be persisted by a connector.
+        return "020C07004041351CC26AC934805E423F40A5D37B8036D18501CB299F40CC70FF";
     }
 }

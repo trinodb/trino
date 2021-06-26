@@ -18,21 +18,23 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.type.BlockTypeOperators;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.operator.GroupByHash.createGroupByHash;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -106,7 +108,7 @@ public class DistinctLimitOperator
 
     private boolean finishing;
 
-    private final List<Integer> outputChannels;
+    private final int[] outputChannels;
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
@@ -118,18 +120,21 @@ public class DistinctLimitOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
-        requireNonNull(distinctChannels, "distinctChannels is null");
         checkArgument(limit >= 0, "limit must be at least zero");
         requireNonNull(hashChannel, "hashChannel is null");
 
-        outputChannels = ImmutableList.<Integer>builder()
-                .addAll(distinctChannels)
-                .addAll(hashChannel.map(ImmutableList::of).orElse(ImmutableList.of()))
-                .build();
+        int[] distinctChannelInts = Ints.toArray(requireNonNull(distinctChannels, "distinctChannels is null"));
+        if (hashChannel.isPresent()) {
+            outputChannels = Arrays.copyOf(distinctChannelInts, distinctChannelInts.length + 1);
+            outputChannels[distinctChannelInts.length] = hashChannel.get();
+        }
+        else {
+            outputChannels = distinctChannelInts.clone(); // defensive copy since this is passed into createGroupByHash
+        }
 
         this.groupByHash = createGroupByHash(
                 distinctTypes,
-                Ints.toArray(distinctChannels),
+                distinctChannelInts,
                 hashChannel,
                 toIntExact(Math.min(limit, 10_000)),
                 isDictionaryAggregationEnabled(operatorContext.getSession()),
@@ -186,39 +191,27 @@ public class DistinctLimitOperator
         }
 
         verifyNotNull(inputPage);
-        int distinctCount = 0;
-        int[] distinctPositions = new int[inputPage.getPositionCount()];
-        for (int position = 0; position < groupByIds.getPositionCount(); position++) {
-            if (groupByIds.getGroupId(position) == nextDistinctId) {
-                distinctPositions[distinctCount] = position;
-                distinctCount++;
 
-                remainingLimit--;
-                nextDistinctId++;
-                if (remainingLimit == 0) {
-                    break;
+        long resultingPositions = min(groupByIds.getGroupCount() - nextDistinctId, remainingLimit);
+        Page result = null;
+        if (resultingPositions > 0) {
+            int[] distinctPositions = new int[toIntExact(resultingPositions)];
+            int distinctCount = 0;
+            for (int position = 0; position < groupByIds.getPositionCount() && distinctCount < distinctPositions.length; position++) {
+                if (groupByIds.getGroupId(position) == nextDistinctId) {
+                    distinctPositions[distinctCount++] = position;
+                    nextDistinctId++;
                 }
             }
+            verify(distinctCount == distinctPositions.length);
+            remainingLimit -= distinctCount;
+            result = inputPage.getColumns(outputChannels).getPositions(distinctPositions, 0, distinctPositions.length);
         }
-        Page result = maskToDistinctOutputPositions(distinctCount, distinctPositions);
 
         groupByIds = null;
         inputPage = null;
 
         updateMemoryReservation();
-        return result;
-    }
-
-    private Page maskToDistinctOutputPositions(int distinctCount, int[] distinctPositions)
-    {
-        Page result = null;
-        if (distinctCount > 0) {
-            Block[] blocks = outputChannels.stream()
-                    .map(inputPage::getBlock)
-                    .map(block -> block.getPositions(distinctPositions, 0, distinctCount))
-                    .toArray(Block[]::new);
-            result = new Page(distinctCount, blocks);
-        }
         return result;
     }
 
