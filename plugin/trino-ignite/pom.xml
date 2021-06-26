@@ -15,7 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <ignite.version>2.10.0</ignite.version>
+        <dep.ignite.version>2.10.0</dep.ignite.version>
     </properties>
 
     <dependencies>
@@ -68,7 +68,7 @@
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-core</artifactId>
-            <version>${ignite.version}</version>
+            <version>${dep.ignite.version}</version>
         </dependency>
 
         <dependency>
