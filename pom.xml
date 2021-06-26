@@ -109,6 +109,7 @@
         <module>plugin/trino-blackhole</module>
         <module>plugin/trino-cassandra</module>
         <module>plugin/trino-clickhouse</module>
+        <module>plugin/trino-cockroachdb</module>
         <module>plugin/trino-druid</module>
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
