@@ -46,46 +46,6 @@ public final class IgniteQueryRunner
 
     private static final String IGNITE_SCHEMA = "public";
 
-    public static final String CREATE_CUSTOM = "CREATE TABLE customer (" +
-            "custkey bigint NOT NULL," +
-            "name varchar(25) NOT NULL," +
-            "address varchar(40) NOT NULL," +
-            "nationkey bigint NOT NULL," +
-            "phone varchar(15) NOT NULL," +
-            "acctbal double NOT NULL," +
-            "mktsegment varchar(10) NOT NULL," +
-            "comment varchar(117) NOT NULL)" +
-            "WITH (" +
-            "primary_key = ARRAY['custkey'])";
-
-    public static final String CREATE_NATION = "CREATE TABLE nation (" +
-            "nationkey bigint NOT NULL," +
-            "name varchar(25) NOT NULL," +
-            "regionkey bigint NOT NULL," +
-            "comment varchar(152) NOT NULL)" +
-            "WITH (" +
-            "primary_key = ARRAY['nationkey'])";
-
-    public static final String CREATE_ORDERS = " CREATE TABLE orders (" +
-            "orderkey bigint NOT NULL," +
-            "custkey bigint NOT NULL," +
-            "orderstatus varchar(1) NOT NULL," +
-            "totalprice double NOT NULL," +
-            "orderdate date NOT NULL," +
-            "orderpriority varchar(15) NOT NULL," +
-            "clerk varchar(15) NOT NULL," +
-            "shippriority integer NOT NULL," +
-            "comment varchar(79) NOT NULL)" +
-            " WITH (" +
-            "primary_key = ARRAY['orderkey'])";
-
-    public static final String CREATE_REGION = " CREATE TABLE region (" +
-            "regionkey bigint NOT NULL," +
-            "name varchar(25) NOT NULL," +
-            "comment varchar(152) NOT NULL)" +
-            "WITH (" +
-            "primary_key = ARRAY['regionkey'])";
-
     private IgniteQueryRunner() {}
 
     public static DistributedQueryRunner createIgniteQueryRunner(
@@ -109,10 +69,7 @@ public final class IgniteQueryRunner
 
             queryRunner.installPlugin(new IgniteJdbcPlugin());
             queryRunner.createCatalog("ignite", "ignite", connectorProperties);
-            copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, CREATE_CUSTOM, createSession(), CUSTOMER);
-            copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, CREATE_NATION, createSession(), NATION);
-            copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, CREATE_ORDERS, createSession(), ORDERS);
-            copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, CREATE_REGION, createSession(), REGION);
+
             return queryRunner;
         }
         catch (Throwable e) {

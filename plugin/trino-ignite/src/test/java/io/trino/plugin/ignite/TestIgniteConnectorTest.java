@@ -21,6 +21,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.query.QueryAssertions;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
@@ -30,11 +31,18 @@ import org.intellij.lang.annotations.Language;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.ignite.IgniteQueryRunner.copyFromTpchTables;
 import static io.trino.plugin.ignite.IgniteQueryRunner.createIgniteQueryRunner;
+import static io.trino.plugin.ignite.IgniteQueryRunner.createSession;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
@@ -43,6 +51,46 @@ import static org.testng.Assert.assertTrue;
 public class TestIgniteConnectorTest
         extends BaseJdbcConnectorTest
 {
+    public static final String CREATE_CUSTOM = "CREATE TABLE customer (" +
+            "custkey bigint NOT NULL," +
+            "name varchar(25) NOT NULL," +
+            "address varchar(40) NOT NULL," +
+            "nationkey bigint NOT NULL," +
+            "phone varchar(15) NOT NULL," +
+            "acctbal double NOT NULL," +
+            "mktsegment varchar(10) NOT NULL," +
+            "comment varchar(117) NOT NULL)" +
+            "WITH (" +
+            "primary_key = ARRAY['custkey'])";
+
+    public static final String CREATE_NATION = "CREATE TABLE nation (" +
+            "nationkey bigint NOT NULL," +
+            "name varchar(25) NOT NULL," +
+            "regionkey bigint NOT NULL," +
+            "comment varchar(152) NOT NULL)" +
+            "WITH (" +
+            "primary_key = ARRAY['nationkey'])";
+
+    public static final String CREATE_ORDERS = " CREATE TABLE orders (" +
+            "orderkey bigint NOT NULL," +
+            "custkey bigint NOT NULL," +
+            "orderstatus varchar(1) NOT NULL," +
+            "totalprice double NOT NULL," +
+            "orderdate date NOT NULL," +
+            "orderpriority varchar(15) NOT NULL," +
+            "clerk varchar(15) NOT NULL," +
+            "shippriority integer NOT NULL," +
+            "comment varchar(79) NOT NULL)" +
+            " WITH (" +
+            "primary_key = ARRAY['orderkey'])";
+
+    public static final String CREATE_REGION = " CREATE TABLE region (" +
+            "regionkey bigint NOT NULL," +
+            "name varchar(25) NOT NULL," +
+            "comment varchar(152) NOT NULL)" +
+            "WITH (" +
+            "primary_key = ARRAY['regionkey'])";
+
     private TestingIgniteServer igniteServer;
 
     @Override
@@ -50,10 +98,15 @@ public class TestIgniteConnectorTest
             throws Exception
     {
         this.igniteServer = closeAfterClass(new TestingIgniteServer());
-        return createIgniteQueryRunner(
+        DistributedQueryRunner queryRunner = createIgniteQueryRunner(
                 igniteServer,
                 ImmutableMap.of(),
                 ImmutableMap.of());
+        copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, CREATE_CUSTOM, createSession(), CUSTOMER);
+        copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, CREATE_NATION, createSession(), NATION);
+        copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, CREATE_ORDERS, createSession(), ORDERS);
+        copyFromTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, CREATE_REGION, createSession(), REGION);
+        return queryRunner;
     }
 
     @Override

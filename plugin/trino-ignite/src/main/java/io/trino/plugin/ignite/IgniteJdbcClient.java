@@ -90,11 +90,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class IgniteJdbcClient
         extends BaseJdbcClient
 {
-    /**
-     * Ignite only support two schemas: sys and public.
-     * The sys schema is a view of all metadata about the database. user tables are all under the schema public.
-     */
-    private static final String IGNITE_SYS_SCHEMA = "SYS";
+    private static final String IGNITE_CATALOG = "IGNITE";
     private static final String IGNITE_SCHEMA = "PUBLIC";
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
     private static final Splitter SPLITTER = Splitter.on(",").omitEmptyStrings().trimResults();
@@ -121,7 +117,7 @@ public class IgniteJdbcClient
     @Override
     public Collection<String> listSchemas(Connection connection)
     {
-        return ImmutableSet.of(IGNITE_SYS_SCHEMA, IGNITE_SCHEMA);
+        return ImmutableSet.of(IGNITE_SCHEMA);
     }
 
     @Override
@@ -130,8 +126,8 @@ public class IgniteJdbcClient
     {
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getTables(
-                null,
-                connection.getSchema(),
+                IGNITE_CATALOG,
+                IGNITE_SCHEMA,
                 tableName.orElse(null),
                 new String[] {"TABLE", "VIEW"});
     }
@@ -228,7 +224,9 @@ public class IgniteJdbcClient
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         // avoid delete source table in Ignite
-        verify(handle.getTableName().equals(handle.getTemporaryTableName()));
+        if (handle.getTableName().equals(handle.getTemporaryTableName())) {
+            return;
+        }
         dropTable(session, new JdbcTableHandle(
                 new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
                 handle.getCatalogName(),
