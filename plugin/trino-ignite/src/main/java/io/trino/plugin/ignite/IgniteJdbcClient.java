@@ -24,7 +24,6 @@ import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -72,7 +71,6 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
@@ -182,59 +180,6 @@ public class IgniteJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
-    {
-        SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
-        JdbcIdentity identity = JdbcIdentity.from(session);
-
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            String remoteSchema = getIdentifierMapping().toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = getIdentifierMapping().toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
-            String catalog = connection.getCatalog();
-
-            ImmutableList.Builder<String> columnNames = ImmutableList.builder();
-            ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-            ImmutableList.Builder<JdbcTypeHandle> jdbcColumnTypes = ImmutableList.builder();
-            for (JdbcColumnHandle column : columns) {
-                columnNames.add(column.getColumnName());
-                columnTypes.add(column.getColumnType());
-                jdbcColumnTypes.add(column.getJdbcTypeHandle());
-            }
-
-            return new JdbcOutputTableHandle(
-                    catalog,
-                    remoteSchema,
-                    remoteTable,
-                    columnNames.build(),
-                    columnTypes.build(),
-                    Optional.of(jdbcColumnTypes.build()),
-                    remoteTable);
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
-    }
-
-    @Override
-    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
-    {
-    }
-
-    @Override
-    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
-    {
-        // avoid delete source table in Ignite
-        if (handle.getTableName().equals(handle.getTemporaryTableName())) {
-            return;
-        }
-        dropTable(session, new JdbcTableHandle(
-                new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
-                handle.getCatalogName(),
-                handle.getSchemaName(),
-                handle.getTemporaryTableName()));
-    }
-
-    @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support rename table");
@@ -243,10 +188,10 @@ public class IgniteJdbcClient
     @Override
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
-        return createTableSql(remoteTableName, columns, tableMetadata.getProperties());
+        return createTableSql(quoted(remoteTableName), columns, tableMetadata.getProperties());
     }
 
-    private String createTableSql(RemoteTableName remoteTableName, List<String> columns, Map<String, Object> tableProperties)
+    private String createTableSql(String remoteTableName, List<String> columns, Map<String, Object> tableProperties)
     {
         ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
         ImmutableList.Builder<String> columnDefinitions = ImmutableList.builder();
@@ -281,8 +226,14 @@ public class IgniteJdbcClient
                     throw new IllegalStateException("Unexpected value: " + propertyKey);
             }
         }
+        List<String> withProperties = tableOptions.build();
 
-        return format("CREATE TABLE %s (%s) WITH \" %s \"", quoted(remoteTableName), join(", ", columnDefinitions.build()), join(", ", tableOptions.build()));
+        String createTableSql = format("CREATE TABLE %s (%s) ", remoteTableName, join(", ", columnDefinitions.build()));
+        // If the table properties all are default value
+        if (withProperties.isEmpty()) {
+            return createTableSql;
+        }
+        return createTableSql + format(" WITH \" %s \"", join(", ", withProperties));
     }
 
     @Override
@@ -329,6 +280,16 @@ public class IgniteJdbcClient
     @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            return getTableProperties(connection, tableHandle);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    public Map<String, Object> getTableProperties(Connection connection, JdbcTableHandle tableHandle)
+    {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
         String tableName = requireNonNull(schemaTableName.getTableName(), "Ignite table name can not be null").toUpperCase(ENGLISH);
@@ -344,8 +305,7 @@ public class IgniteJdbcClient
                 "(SELECT COLUMNS FROM sys.indexes WHERE SCHEMA_NAME = 'PUBLIC' AND TABLE_NAME = '%1$s' AND INDEX_NAME = 'AFFINITY_KEY') AS AFK FROM sys.indexes as idx " +
                 "JOIN sys.caches che ON idx.CACHE_ID = che.CACHE_ID WHERE idx.SCHEMA_NAME = 'PUBLIC' AND idx.TABLE_NAME = '%1$s' LIMIT 1", tableName);
 
-        try (Connection connection = connectionFactory.openConnection(session);
-                PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             ResultSet resultSet = preparedStatement.executeQuery();
             checkArgument(resultSet.next(), "Ignite table: '" + tableName + "' properties is NULL");
             List<String> primaryKeys = extractColumnNamesFromOrderingScheme(resultSet.getString("PKS"));
@@ -456,9 +416,25 @@ public class IgniteJdbcClient
     }
 
     @Override
-    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    protected void copyTableSchema(
+            Connection connection,
+            String catalogName,
+            String schemaName,
+            String tableName,
+            String newTableName,
+            List<String> columnNames,
+            List<JdbcColumnHandle> columns,
+            JdbcTableHandle tableHandle)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
+        ImmutableList.Builder<String> columnList = ImmutableList.builder();
+        for (JdbcColumnHandle column : columns) {
+            columnList.add(getColumnDefinitionSql(null, column.getColumnMetadata(), column.getColumnName()));
+        }
+        // when create temporary table, the table may be only contain primary keys, it's not allow in Ignite.
+        // so we append a dummy column to make create temporary table won't fail because of this.
+        columnList.add("`for_trino_ignore` varchar(1)");
+        String createTableSql = createTableSql(newTableName, columnList.build(), getTableProperties(connection, tableHandle));
+        execute(connection, createTableSql);
     }
 
     @Override

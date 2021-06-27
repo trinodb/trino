@@ -71,7 +71,7 @@ public class TestIgniteConnectorTest
             "WITH (" +
             "primary_key = ARRAY['nationkey'])";
 
-    public static final String CREATE_ORDERS = " CREATE TABLE orders (" +
+    public static final String CREATE_ORDERS = "CREATE TABLE orders (" +
             "orderkey bigint NOT NULL," +
             "custkey bigint NOT NULL," +
             "orderstatus varchar(1) NOT NULL," +
@@ -84,7 +84,7 @@ public class TestIgniteConnectorTest
             " WITH (" +
             "primary_key = ARRAY['orderkey'])";
 
-    public static final String CREATE_REGION = " CREATE TABLE region (" +
+    public static final String CREATE_REGION = "CREATE TABLE region (" +
             "regionkey bigint NOT NULL," +
             "name varchar(25) NOT NULL," +
             "comment varchar(152) NOT NULL)" +
