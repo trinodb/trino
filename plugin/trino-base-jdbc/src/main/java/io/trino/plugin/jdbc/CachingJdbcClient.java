@@ -59,6 +59,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -276,7 +277,7 @@ public class CachingJdbcClient
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.commitCreateTable(session, handle);
-        invalidateTableCaches(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        invalidateTableCaches(new SchemaTableName(handle.getSchemaName().toLowerCase(ENGLISH), handle.getTableName().toLowerCase(ENGLISH)));
     }
 
     @Override
@@ -289,7 +290,7 @@ public class CachingJdbcClient
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.finishInsertTable(session, handle);
-        onDataChanged(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        onDataChanged(new SchemaTableName(handle.getSchemaName().toLowerCase(ENGLISH), handle.getTableName().toLowerCase(ENGLISH)));
     }
 
     @Override
@@ -440,15 +441,10 @@ public class CachingJdbcClient
         invalidateCache(statisticsCache, key -> key.tableHandle.references(table));
     }
 
-    /**
-     * @deprecated {@link JdbcTableHandle}  is not a good representation of the table. For example, we don't want
-     * to distinguish between "a plan table" and "table with selected columns", or "a table with a constraint" here.
-     * Use {@link #onDataChanged(SchemaTableName)}, which avoids these ambiguities.
-     */
-    @Deprecated
-    public void onDataChanged(JdbcTableHandle handle)
+    @Override
+    public String canonicalize(ConnectorSession session, String value, boolean delimited)
     {
-        invalidateCache(statisticsCache, key -> key.tableHandle.equals(handle));
+        return delegate.canonicalize(session, value, delimited);
     }
 
     private JdbcIdentityCacheKey getIdentityKey(ConnectorSession session)

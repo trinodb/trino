@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraTableHandle
@@ -77,7 +78,7 @@ public class CassandraTableHandle
 
     public SchemaTableName getSchemaTableName()
     {
-        return new SchemaTableName(schemaName, tableName);
+        return new SchemaTableName(schemaName.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH));
     }
 
     @Override

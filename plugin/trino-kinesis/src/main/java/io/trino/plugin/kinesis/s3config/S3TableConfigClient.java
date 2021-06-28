@@ -50,6 +50,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -123,7 +124,7 @@ public class S3TableConfigClient
         Collection<KinesisStreamDescription> streamValues = this.descriptors.values();
         ImmutableMap.Builder<SchemaTableName, KinesisStreamDescription> builder = ImmutableMap.builder();
         for (KinesisStreamDescription stream : streamValues) {
-            builder.put(new SchemaTableName(stream.getSchemaName(), stream.getTableName()), stream);
+            builder.put(new SchemaTableName(stream.getSchemaName().toLowerCase(ENGLISH), stream.getTableName().toLowerCase(ENGLISH)), stream);
         }
         return builder.build();
     }

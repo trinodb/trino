@@ -101,6 +101,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Collections.emptyMap;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -167,7 +168,7 @@ public abstract class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             return listSchemas(connection).stream()
-                    .map(remoteSchemaName -> identifierMapping.fromRemoteSchemaName(remoteSchemaName))
+                    .map(schemaName -> canonicalize(session, schemaName, true))
                     .collect(toImmutableSet());
         }
         catch (SQLException e) {
@@ -651,7 +652,7 @@ public abstract class BaseJdbcClient
                 handle.getCatalogName(),
                 handle.getSchemaName(),
                 handle.getTemporaryTableName(),
-                new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+                new SchemaTableName(handle.getSchemaName().toLowerCase(ENGLISH), handle.getTableName().toLowerCase(ENGLISH)));
     }
 
     @Override
@@ -771,7 +772,7 @@ public abstract class BaseJdbcClient
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         dropTable(session, new JdbcTableHandle(
-                new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
+                new SchemaTableName(handle.getSchemaName().toLowerCase(ENGLISH), handle.getTemporaryTableName().toLowerCase(ENGLISH)),
                 handle.getCatalogName(),
                 handle.getSchemaName(),
                 handle.getTemporaryTableName()));
@@ -1001,6 +1002,12 @@ public abstract class BaseJdbcClient
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return emptyMap();
+    }
+
+    @Override
+    public String canonicalize(ConnectorSession session, String value, boolean delimited)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     protected String quoted(@Nullable String catalog, @Nullable String schema, String table)

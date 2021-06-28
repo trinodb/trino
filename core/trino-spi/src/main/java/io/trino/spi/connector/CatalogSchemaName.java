@@ -15,7 +15,6 @@ package io.trino.spi.connector;
 
 import java.util.Objects;
 
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class CatalogSchemaName
@@ -25,8 +24,8 @@ public final class CatalogSchemaName
 
     public CatalogSchemaName(String catalogName, String schemaName)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null").toLowerCase(ENGLISH);
-        this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(ENGLISH);
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
     }
 
     public String getCatalogName()

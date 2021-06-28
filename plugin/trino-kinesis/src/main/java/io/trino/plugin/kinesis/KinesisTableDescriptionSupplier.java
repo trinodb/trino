@@ -36,6 +36,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -79,9 +80,9 @@ public class KinesisTableDescriptionSupplier
             for (Path file : listFiles(Paths.get(kinesisConfig.getTableDescriptionLocation()))) {
                 if (Files.isRegularFile(file) && file.getFileName().toString().endsWith("json")) {
                     KinesisStreamDescription table = streamDescriptionCodec.fromJson(Files.readAllBytes(file));
-                    String schemaName = firstNonNull(table.getSchemaName(), kinesisConfig.getDefaultSchema());
+                    String schemaName = firstNonNull(table.getSchemaName(), kinesisConfig.getDefaultSchema()).toLowerCase(ENGLISH);
                     log.debug("Kinesis table %s %s %s", schemaName, table.getTableName(), table);
-                    builder.put(new SchemaTableName(schemaName, table.getTableName()), table);
+                    builder.put(new SchemaTableName(schemaName, table.getTableName().toLowerCase(ENGLISH)), table);
                 }
             }
 

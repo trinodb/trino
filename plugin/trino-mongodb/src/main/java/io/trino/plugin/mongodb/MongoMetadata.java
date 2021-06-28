@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -72,7 +73,9 @@ public class MongoMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return mongoSession.getAllSchemas();
+        return mongoSession.getAllSchemas().stream()
+                .map(MongoMetadata::toLowerCase)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -99,12 +102,14 @@ public class MongoMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
     {
-        List<String> schemaNames = optionalSchemaName.map(ImmutableList::of)
+        List<String> schemaNames = optionalSchemaName
+                .map(MongoMetadata::toLowerCase)
+                .map(ImmutableList::of)
                 .orElseGet(() -> (ImmutableList<String>) listSchemaNames(session));
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : schemaNames) {
             for (String tableName : mongoSession.getAllTables(schemaName)) {
-                tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+                tableNames.add(new SchemaTableName(schemaName.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH)));
             }
         }
         return tableNames.build();
@@ -335,5 +340,10 @@ public class MongoMetadata
         return tableMetadata.getColumns().stream()
                 .map(m -> new MongoColumnHandle(m.getName(), m.getType(), m.isHidden()))
                 .collect(toList());
+    }
+
+    private static String toLowerCase(String name)
+    {
+        return name.toLowerCase(ENGLISH);
     }
 }

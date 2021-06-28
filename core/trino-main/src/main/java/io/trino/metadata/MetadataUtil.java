@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.trino.Session;
 import io.trino.spi.TrinoException;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.metadata.NameCanonicalizer.LEGACY_NAME_CANONICALIZER;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -53,7 +55,6 @@ public final class MetadataUtil
     public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         checkCatalogName(catalogName);
-        schemaName.ifPresent(name -> checkLowerCase(name, "schemaName"));
         tableName.ifPresent(name -> checkLowerCase(name, "tableName"));
 
         checkArgument(schemaName.isPresent() || tableName.isEmpty(), "tableName specified but schemaName is missing");
@@ -66,7 +67,7 @@ public final class MetadataUtil
 
     public static String checkSchemaName(String schemaName)
     {
-        return checkLowerCase(schemaName, "schemaName");
+        return requireNonNull(schemaName, "schemaName is null");
     }
 
     public static String checkTableName(String tableName)
@@ -77,8 +78,8 @@ public final class MetadataUtil
     public static void checkObjectName(String catalogName, String schemaName, String objectName)
     {
         checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(objectName, "objectName");
+        requireNonNull(schemaName, "schemaName");
+        requireNonNull(objectName, "objectName");
     }
 
     public static String checkLowerCase(String value, String name)
@@ -112,30 +113,34 @@ public final class MetadataUtil
         return catalog;
     }
 
-    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, Metadata metadata)
     {
-        String catalogName = session.getCatalog().orElse(null);
-        String schemaName = session.getSchema().orElse(null);
+        Identifier catalogIdentifer = session.getCatalog().map(name -> new Identifier(name, true)).orElse(null);
+        Identifier schemaIdentifer = session.getSchema().map(name -> new Identifier(name, true)).orElse(null);
 
         if (schema.isPresent()) {
-            List<String> parts = schema.get().getParts();
+            List<Identifier> parts = schema.get().getOriginalParts();
             if (parts.size() > 2) {
                 throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", schema.get());
             }
             if (parts.size() == 2) {
-                catalogName = parts.get(0);
+                catalogIdentifer = parts.get(0);
             }
-            schemaName = schema.get().getSuffix();
+            schemaIdentifer = Iterables.getLast(parts);
         }
 
-        if (catalogName == null) {
+        if (catalogIdentifer == null) {
             throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
         }
-        if (schemaName == null) {
+        if (schemaIdentifer == null) {
             throw semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set");
         }
 
-        return new CatalogSchemaName(catalogName, schemaName);
+        String catalogName = LEGACY_NAME_CANONICALIZER.canonicalize(catalogIdentifer.getValue(), catalogIdentifer.isDelimited());
+
+        NameCanonicalizer nameCanonicalizer = metadata.getNameCanonicalizer(session, catalogName);
+
+        return new CatalogSchemaName(catalogName, nameCanonicalizer.canonicalize(schemaIdentifer.getValue(), schemaIdentifer.isDelimited()));
     }
 
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)

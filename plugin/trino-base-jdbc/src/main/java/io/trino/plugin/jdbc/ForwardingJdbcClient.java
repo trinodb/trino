@@ -332,4 +332,10 @@ public abstract class ForwardingJdbcClient
     {
         return delegate().getTableScanRedirection(session, tableHandle);
     }
+
+    @Override
+    public String canonicalize(ConnectorSession session, String value, boolean delimited)
+    {
+        return delegate().canonicalize(session, value, delimited);
+    }
 }

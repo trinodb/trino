@@ -78,7 +78,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
     {
         TableDescriptionSupplier tableDescriptionSupplier = createTableDescriptionSupplier();
         String topicName = "camelCase_Topic";
-        SchemaTableName schemaTableName = new SchemaTableName(DEFAULT_NAME, topicName);
+        SchemaTableName schemaTableName = new SchemaTableName(DEFAULT_NAME, topicName.toLowerCase(ENGLISH));
         String subject = topicName + "-key";
 
         SCHEMA_REGISTRY_CLIENT.register(subject, getAvroSchema(schemaTableName.getTableName(), ""));
@@ -126,7 +126,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
     {
         TableDescriptionSupplier tableDescriptionSupplier = createTableDescriptionSupplier();
         String topicName = "base_Topic";
-        SchemaTableName schemaTableName = new SchemaTableName(DEFAULT_NAME, topicName);
+        SchemaTableName schemaTableName = new SchemaTableName(DEFAULT_NAME, topicName.toLowerCase(ENGLISH));
         String subject = topicName + "-value";
         SCHEMA_REGISTRY_CLIENT.register(subject, getAvroSchema(schemaTableName.getTableName(), ""));
         String overriddenSubject = "overriddenSubject";
@@ -147,7 +147,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
 
         assertThat(getKafkaTopicDescription(
                 tableDescriptionSupplier,
-                new SchemaTableName(DEFAULT_NAME, format("%s&value-subject=%s", topicName, overriddenSubject))))
+                new SchemaTableName(DEFAULT_NAME, format("%s&value-subject=%s", topicName, overriddenSubject.toLowerCase(ENGLISH)))))
                 .isEqualTo(
                         new KafkaTopicDescription(
                                 schemaTableName.getTableName(),
@@ -165,7 +165,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
     {
         TableDescriptionSupplier tableDescriptionSupplier = createTableDescriptionSupplier();
         String topicName = "base_Topic";
-        SchemaTableName schemaTableName = new SchemaTableName(DEFAULT_NAME, topicName);
+        SchemaTableName schemaTableName = new SchemaTableName(DEFAULT_NAME, topicName.toLowerCase(ENGLISH));
         String overriddenSubject = "ambiguousOverriddenSubject";
         SCHEMA_REGISTRY_CLIENT.register(overriddenSubject, getAvroSchema(schemaTableName.getTableName(), "overridden_"));
         SCHEMA_REGISTRY_CLIENT.register(overriddenSubject.toUpperCase(ENGLISH), getAvroSchema(schemaTableName.getTableName(), "overridden_"));
@@ -175,7 +175,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
                         TestingConnectorSession.builder()
                                 .setPropertyMetadata(new ConfluentSessionProperties(new ConfluentSchemaRegistryConfig()).getSessionProperties())
                                 .build(),
-                        new SchemaTableName(DEFAULT_NAME, format("%s&value-subject=%s", topicName, overriddenSubject))))
+                        new SchemaTableName(DEFAULT_NAME, format("%s&value-subject=%s", topicName, overriddenSubject).toLowerCase(ENGLISH))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Subject 'ambiguousoverriddensubject' is ambiguous, and may refer to one of the following: ambiguousOverriddenSubject, AMBIGUOUSOVERRIDDENSUBJECT");
     }

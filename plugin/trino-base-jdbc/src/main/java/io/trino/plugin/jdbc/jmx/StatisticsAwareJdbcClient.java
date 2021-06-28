@@ -351,4 +351,10 @@ public final class StatisticsAwareJdbcClient
     {
         return stats.getGetTableScanRedirection().wrap(() -> delegate().getTableScanRedirection(session, tableHandle));
     }
+
+    @Override
+    public String canonicalize(ConnectorSession session, String value, boolean delimited)
+    {
+        return delegate().canonicalize(session, value, delimited);
+    }
 }

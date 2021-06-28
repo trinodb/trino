@@ -943,4 +943,12 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.redirectTable(session, tableName);
         }
     }
+
+    @Override
+    public String canonicalize(ConnectorSession session, String identifier, boolean delimited)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canonicalize(session, identifier, delimited);
+        }
+    }
 }

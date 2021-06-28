@@ -199,7 +199,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowTables(ShowTables showTables, Void context)
         {
-            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
+            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema(), metadata);
 
             accessControl.checkCanShowTables(session.toSecurityContext(), schema);
 
@@ -597,7 +597,7 @@ final class ShowQueriesRewrite
             }
 
             if (node.getType() == SCHEMA) {
-                CatalogSchemaName schemaName = createCatalogSchemaName(session, node, Optional.of(node.getName()));
+                CatalogSchemaName schemaName = createCatalogSchemaName(session, node, Optional.of(node.getName()), metadata);
 
                 if (!metadata.schemaExists(session, schemaName)) {
                     throw semanticException(SCHEMA_NOT_FOUND, node, "Schema '%s' does not exist", schemaName);

@@ -202,6 +202,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -881,6 +882,15 @@ public class PostgreSqlClient
                 quoted(column.getColumnName()),
                 comment.isPresent() ? format("'%s'", comment.get()) : "NULL");
         execute(session, sql);
+    }
+
+    @Override
+    public String canonicalize(ConnectorSession session, String value, boolean delimited)
+    {
+        if (delimited) {
+            return value;
+        }
+        return value.toLowerCase(ENGLISH);
     }
 
     private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)

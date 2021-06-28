@@ -62,7 +62,7 @@ public class TestShowQueries
                                                 .setType(BIGINT)
                                                 .build()))
                         .withListSchemaNames(session -> ImmutableList.of("mockschema"))
-                        .withListTables((session, schemaName) -> ImmutableList.of(new SchemaTableName("mockSchema", "mockTable")))
+                        .withListTables((session, schemaName) -> ImmutableList.of(new SchemaTableName("mockschema", "mocktable")))
                         .build(),
                 ImmutableMap.of());
         queryRunner.getCatalogManager().registerCatalog(createBogusTestingCatalog("testing_catalog"));
