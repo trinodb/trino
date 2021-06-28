@@ -87,6 +87,23 @@ Maintain the same quality for production and test code.
 
 When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
 
+### Git merge strategy
+
+PRs are usually merged into `master` using the  `rebase and merge` strategy.
+
+It is important to keep commits on feature branches neat, squashing the feature branch as necessary.
+Commit messages and  history are also important, as they are used by other developers to keep track of
+the motivation behind changes. Keep logical diffs grouped together in separate commits, and order commits
+in a way that explains the progress of the changes. Rewriting and reordering commits may be a
+necessary part of the PR review process as the code changes.
+
+A typical PR should strive to just contain one commit - logically unrelated changes should generally be extracted
+into their own PRs.
+
+If a PR does consist of multiple commits, it is expected that every prefix of it is correct. That is,
+there might be preparatory commits at the bottom of the stack that don't bring any value by themselves,
+but none of the commits should introduce an error that is fixed by some future commit.
+
 ### Avoid abbreviations
 
 Please avoid abbreviations, slang or inside jokes as this makes harder for
