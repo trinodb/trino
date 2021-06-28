@@ -167,7 +167,7 @@ public class TestMemSqlCaseInsensitiveMapping
         execute(format("CREATE TABLE %s %s", tableName, tableDefinition));
         return () -> execute(format("DROP TABLE %s", tableName));
     }
-
+    
     private void execute(String sql)
     {
         memSqlServer.execute(sql);
