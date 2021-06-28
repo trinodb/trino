@@ -47,7 +47,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -57,6 +56,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import javax.annotation.Nullable;
@@ -87,9 +87,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
@@ -107,6 +105,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -241,9 +240,6 @@ public class IgniteJdbcClient
                     return Optional.empty();
                 }
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
-
-            case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case Types.BINARY:
                 return Optional.of(varbinaryColumnMapping());
@@ -515,9 +511,6 @@ public class IgniteJdbcClient
             }
             return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType.getPrecision(), decimalType.getScale()));
         }
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
-        }
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
             String dataType;
@@ -534,6 +527,9 @@ public class IgniteJdbcClient
         }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
+        }
+        if (type instanceof VarbinaryType) {
+            return WriteMapping.sliceMapping("binary", varbinaryWriteFunction());
         }
         if (type instanceof TimeType) {
             TimeType timeType = (TimeType) type;

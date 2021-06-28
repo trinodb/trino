@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -553,14 +554,26 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    protected String createTableWithRandomSuffix(String prefix, @Language("SQL") String createTableSql, OptionalLong expectedCount) {
+        String tableName = prefix + randomTableSuffix();
+        if (expectedCount.isPresent()) {
+            assertUpdate(format(createTableSql, tableName, expectedCount.getAsLong()));
+        } else {
+            assertUpdate(format(createTableSql, tableName));
+        }
+        return tableName;
+    }
+
+    protected void testInsertNull(String tableName) {
+        assertUpdate("INSERT INTO " + tableName + " (custkey) VALUES (null)", 1);
+    }
+
     @Test
     public void testInsertUnicode()
     {
         skipTestUnless(supportsInsert());
 
-        String tableName = "test_insert_unicode_" + randomTableSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + "(test varchar)");
+        String tableName = createTableWithRandomSuffix("test_insert_unicode_", "CREATE TABLE %s (test varchar)", OptionalLong.empty());
         assertUpdate("INSERT INTO " + tableName + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
         assertThat(computeActual("SELECT test FROM " + tableName).getOnlyColumnAsSet())
                 .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
