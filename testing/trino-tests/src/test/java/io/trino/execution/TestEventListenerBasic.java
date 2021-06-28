@@ -75,6 +75,9 @@ public class TestEventListenerBasic
         extends AbstractTestQueryFramework
 {
     private static final String IGNORE_EVENT_MARKER = " -- ignore_generated_event";
+    private static final String VARCHAR_TYPE = "varchar(15)";
+    private static final String BIGINT_TYPE = BIGINT.getDisplayName();
+
     private final EventsCollector generatedEvents = new EventsCollector(buildEventFilters());
     private EventsAwaitingQueries queries;
 
@@ -410,10 +413,10 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_view");
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new OutputColumnMetadata("nationkey", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
-                        new OutputColumnMetadata("name", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
-                        new OutputColumnMetadata("regionkey", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
-                        new OutputColumnMetadata("comment", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
+                        new OutputColumnMetadata("nationkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
+                        new OutputColumnMetadata("name", "varchar(25)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("regionkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
+                        new OutputColumnMetadata("comment", "varchar(152)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(1);
@@ -441,10 +444,10 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_view");
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new OutputColumnMetadata("nationkey", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
-                        new OutputColumnMetadata("name", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
-                        new OutputColumnMetadata("regionkey", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
-                        new OutputColumnMetadata("comment", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
+                        new OutputColumnMetadata("nationkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
+                        new OutputColumnMetadata("name", "varchar(25)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("regionkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
+                        new OutputColumnMetadata("comment", "varchar(152)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(1);
@@ -510,8 +513,8 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_table_with_referring_mask");
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("mock", "default", "test_table_with_column_mask", "test_varchar"))),
-                        new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("mock", "default", "test_table_with_column_mask", "test_bigint"))));
+                        new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "test_table_with_column_mask", "test_varchar"))),
+                        new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "test_table_with_column_mask", "test_bigint"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(2);
@@ -698,8 +701,8 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT clerk AS test_varchar, orderkey AS test_bigint FROM orders",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
 
     @Test
@@ -708,8 +711,8 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT '4-NOT SPECIFIED' AS test_varchar, orderkey AS test_bigint FROM orders",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of()),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of()),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
 
     @Test
@@ -720,10 +723,10 @@ public class TestEventListenerBasic
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new OutputColumnMetadata("nationkey", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
-                        new OutputColumnMetadata("name", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
-                        new OutputColumnMetadata("regionkey", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
-                        new OutputColumnMetadata("comment", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
+                        new OutputColumnMetadata("nationkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
+                        new OutputColumnMetadata("name", "varchar(25)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("regionkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
+                        new OutputColumnMetadata("comment", "varchar(152)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
     }
 
     @Test
@@ -734,7 +737,7 @@ public class TestEventListenerBasic
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new OutputColumnMetadata("test_column", ImmutableSet.of(new ColumnDetail("mock", "default", "test_view", "test_column"))));
+                        new OutputColumnMetadata("test_column", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "test_view", "test_column"))));
     }
 
     @Test
@@ -745,7 +748,7 @@ public class TestEventListenerBasic
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new OutputColumnMetadata("test_column", ImmutableSet.of(new ColumnDetail("mock", "default", "test_materialized_view", "test_column"))));
+                        new OutputColumnMetadata("test_column", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "test_materialized_view", "test_column"))));
     }
 
     @Test
@@ -756,8 +759,8 @@ public class TestEventListenerBasic
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new OutputColumnMetadata("aliased_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
-                        new OutputColumnMetadata("aliased_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"), new ColumnDetail("tpch", "tiny", "nation", "comment"))));
+                        new OutputColumnMetadata("aliased_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
+                        new OutputColumnMetadata("aliased_varchar", "varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"), new ColumnDetail("tpch", "tiny", "nation", "comment"))));
     }
 
     @Test
@@ -766,8 +769,8 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "WITH w AS (SELECT * FROM orders) SELECT clerk AS test_varchar, orderkey AS test_bigint FROM w",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
 
     @Test
@@ -776,8 +779,8 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT orderpriority AS test_varchar, orderkey AS test_bigint FROM orders WHERE orderdate > DATE '1995-10-03'",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
 
     @Test
@@ -788,11 +791,12 @@ public class TestEventListenerBasic
                 "SELECT IF (orderstatus = 'O', orderpriority, clerk) AS test_varchar, orderkey AS test_bigint FROM orders",
                 new OutputColumnMetadata(
                         "test_varchar",
+                        VARCHAR_TYPE,
                         ImmutableSet.of(
                                 new ColumnDetail("tpch", "tiny", "orders", "orderstatus"),
                                 new ColumnDetail("tpch", "tiny", "orders", "orderpriority"),
                                 new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
 
     @Test
@@ -803,12 +807,13 @@ public class TestEventListenerBasic
                 "SELECT CASE WHEN custkey = 100 THEN clerk WHEN custkey = 1000 then orderpriority ELSE orderstatus END AS test_varchar, orderkey AS test_bigint FROM orders",
                 new OutputColumnMetadata(
                         "test_varchar",
+                        VARCHAR_TYPE,
                         ImmutableSet.of(
                                 new ColumnDetail("tpch", "tiny", "orders", "orderstatus"),
                                 new ColumnDetail("tpch", "tiny", "orders", "orderpriority"),
                                 new ColumnDetail("tpch", "tiny", "orders", "clerk"),
                                 new ColumnDetail("tpch", "tiny", "orders", "custkey"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
 
     @Test
@@ -817,8 +822,8 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT orderpriority AS test_varchar, orderkey AS test_bigint FROM orders LIMIT 100",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
 
     @Test
@@ -827,8 +832,8 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT clerk AS test_varchar, orderkey AS test_bigint FROM orders ORDER BY orderdate",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
 
     @Test
@@ -837,8 +842,8 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT max(orderpriority) AS test_varchar, min(custkey) AS test_bigint FROM orders GROUP BY orderstatus",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "custkey"))));
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "custkey"))));
     }
 
     @Test
@@ -849,10 +854,11 @@ public class TestEventListenerBasic
                 "SELECT max(orderpriority) FILTER(WHERE orderdate > DATE '2000-01-01') AS test_varchar, max(custkey) AS test_bigint FROM orders GROUP BY orderstatus",
                 new OutputColumnMetadata(
                         "test_varchar",
+                        VARCHAR_TYPE,
                         ImmutableSet.of(
                                 new ColumnDetail("tpch", "tiny", "orders", "orderpriority"),
                                 new ColumnDetail("tpch", "tiny", "orders", "orderdate"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "custkey"))));
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "custkey"))));
     }
 
     @Test
@@ -861,8 +867,8 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT min(orderpriority) AS test_varchar, max(custkey) AS test_bigint FROM orders GROUP BY orderstatus HAVING min(orderdate) > DATE '2000-01-01'",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "custkey"))));
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "custkey"))));
     }
 
     @Test
@@ -871,8 +877,8 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT clerk AS test_varchar, count(*) AS test_bigint FROM orders GROUP BY clerk",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of()));
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of()));
     }
 
     @Test
@@ -881,9 +887,10 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT clerk AS test_varchar, min(orderkey) OVER (PARTITION BY custkey ORDER BY orderdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS test_bigint FROM orders",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
                 new OutputColumnMetadata(
                         "test_bigint",
+                        BIGINT_TYPE,
                         ImmutableSet.of(
                                 new ColumnDetail("tpch", "tiny", "orders", "orderkey"),
                                 new ColumnDetail("tpch", "tiny", "orders", "custkey"),
@@ -896,9 +903,10 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT clerk AS test_varchar, max(orderkey) OVER (w ORDER BY orderdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS test_bigint FROM orders WINDOW w AS (PARTITION BY custkey)",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
                 new OutputColumnMetadata(
                         "test_bigint",
+                        BIGINT_TYPE,
                         ImmutableSet.of(
                                 new ColumnDetail("tpch", "tiny", "orders", "orderkey"),
                                 new ColumnDetail("tpch", "tiny", "orders", "orderdate"))));
@@ -910,8 +918,8 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT clerk AS test_varchar, min(orderkey) OVER w AS test_bigint FROM orders WINDOW w AS (PARTITION BY custkey ORDER BY orderdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
     }
 
     @Test
@@ -920,8 +928,8 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT clerk AS test_varchar, (SELECT nationkey FROM nation LIMIT 1) AS test_bigint FROM orders",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
     }
 
     @Test
@@ -930,8 +938,8 @@ public class TestEventListenerBasic
     {
         assertColumnLineage(
                 "SELECT orderpriority AS test_varchar, (SELECT min(nationkey) FROM customer WHERE customer.custkey = orders.custkey) AS test_bigint FROM orders",
-                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
-                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "customer", "nationkey"))));
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderpriority"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "customer", "nationkey"))));
     }
 
     @Test
@@ -941,7 +949,8 @@ public class TestEventListenerBasic
         runQueryAndWaitForEvents("INSERT INTO mock.default.table_for_output(test_bigint) SELECT nationkey + 1 AS test_bigint FROM nation", 2);
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly(new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+                .containsExactly(
+                        new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
     }
 
     @Test
@@ -952,8 +961,8 @@ public class TestEventListenerBasic
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
-                        new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+                        new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
     }
 
     @Test
@@ -963,7 +972,9 @@ public class TestEventListenerBasic
         runQueryAndWaitForEvents("UPDATE mock.default.table_for_output SET test_varchar = 'reset', test_bigint = 1", 2);
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly(new OutputColumnMetadata("test_varchar", ImmutableSet.of()), new OutputColumnMetadata("test_bigint", ImmutableSet.of()));
+                .containsExactly(
+                        new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of()),
+                        new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of()));
     }
 
     @Test
@@ -973,7 +984,7 @@ public class TestEventListenerBasic
         runQueryAndWaitForEvents("UPDATE mock.default.table_for_output SET test_varchar = 're-reset' WHERE test_bigint = 1", 2);
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly(new OutputColumnMetadata("test_varchar", ImmutableSet.of()));
+                .containsExactly(new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of()));
     }
 
     @Test
@@ -986,7 +997,7 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_simple_table");
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly(new OutputColumnMetadata("test_column", ImmutableSet.of()));
+                .containsExactly(new OutputColumnMetadata("test_column", BIGINT_TYPE, ImmutableSet.of()));
     }
 
     @Test
@@ -1000,9 +1011,9 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_simple_table");
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new OutputColumnMetadata("test_column", ImmutableSet.of()),
-                        new OutputColumnMetadata("test_varchar", ImmutableSet.of()),
-                        new OutputColumnMetadata("test_bigint", ImmutableSet.of()));
+                        new OutputColumnMetadata("test_column", BIGINT_TYPE, ImmutableSet.of()),
+                        new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of()),
+                        new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of()));
     }
 
     @Test(dataProvider = "setOperator")
@@ -1013,11 +1024,13 @@ public class TestEventListenerBasic
                 format("SELECT orderpriority AS test_varchar, orderkey AS test_bigint FROM orders %s SELECT clerk, custkey FROM sf1.orders", setOperator),
                 new OutputColumnMetadata(
                         "test_varchar",
+                        VARCHAR_TYPE,
                         ImmutableSet.of(
                                 new ColumnDetail("tpch", "tiny", "orders", "orderpriority"),
                                 new ColumnDetail("tpch", "sf1", "orders", "clerk"))),
                 new OutputColumnMetadata(
                         "test_bigint",
+                        BIGINT_TYPE,
                         ImmutableSet.of(
                                 new ColumnDetail("tpch", "tiny", "orders", "orderkey"),
                                 new ColumnDetail("tpch", "sf1", "orders", "custkey"))));
