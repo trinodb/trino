@@ -110,6 +110,12 @@ public class TestIgniteConnectorTest
     }
 
     @Override
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return igniteServer::execute;
+    }
+
+    @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
@@ -402,12 +408,6 @@ public class TestIgniteConnectorTest
         else {
             queryAssert.isNotFullyPushedDown(otherwiseExpected);
         }
-    }
-
-    @Override
-    protected SqlExecutor onRemoteDatabase()
-    {
-        return igniteServer::execute;
     }
 
     @Override
