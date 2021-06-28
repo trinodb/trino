@@ -371,6 +371,7 @@ public class QueryMonitor
                     .map(columns -> columns.stream()
                             .map(column -> new OutputColumnMetadata(
                                     column.getColumn().getName(),
+                                    column.getColumn().getType(),
                                     column.getSourceColumns().stream()
                                             .map(Analysis.SourceColumn::getColumnDetail)
                                             .collect(toImmutableSet())))
