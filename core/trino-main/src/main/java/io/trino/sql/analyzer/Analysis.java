@@ -38,7 +38,6 @@ import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.tree.AllColumns;
@@ -589,8 +588,6 @@ public class Analysis
             Table table,
             Optional<TableHandle> handle,
             QualifiedObjectName name,
-            List<ViewExpression> filters,
-            Map<Field, List<ViewExpression>> columnMasks,
             String authorization,
             Scope accessControlScope)
     {
@@ -599,8 +596,6 @@ public class Analysis
                 new TableEntry(
                         handle,
                         name,
-                        filters,
-                        columnMasks,
                         authorization,
                         accessControlScope,
                         tablesForView.isEmpty() &&
@@ -1627,8 +1622,6 @@ public class Analysis
     {
         private final Optional<TableHandle> handle;
         private final QualifiedObjectName name;
-        private final List<ViewExpression> filters;
-        private final Map<Field, List<ViewExpression>> columnMasks;
         private final String authorization;
         private final Scope accessControlScope; // synthetic scope for analysis of row filters and masks
         private final boolean directlyReferenced;
@@ -1636,16 +1629,12 @@ public class Analysis
         public TableEntry(
                 Optional<TableHandle> handle,
                 QualifiedObjectName name,
-                List<ViewExpression> filters,
-                Map<Field, List<ViewExpression>> columnMasks,
                 String authorization,
                 Scope accessControlScope,
                 boolean directlyReferenced)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.name = requireNonNull(name, "name is null");
-            this.filters = requireNonNull(filters, "filters is null");
-            this.columnMasks = requireNonNull(columnMasks, "columnMasks is null");
             this.authorization = requireNonNull(authorization, "authorization is null");
             this.accessControlScope = requireNonNull(accessControlScope, "accessControlScope is null");
             this.directlyReferenced = directlyReferenced;
@@ -1664,16 +1653,6 @@ public class Analysis
         public boolean isDirectlyReferenced()
         {
             return directlyReferenced;
-        }
-
-        public List<ViewExpression> getFilters()
-        {
-            return filters;
-        }
-
-        public Map<Field, List<ViewExpression>> getColumnMasks()
-        {
-            return columnMasks;
         }
 
         public String getAuthorization()
