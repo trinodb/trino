@@ -47,9 +47,16 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 
 import javax.annotation.Nullable;
@@ -67,23 +74,63 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMappingUsingSqlTime;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.Long.reverseBytes;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.joining;
 
 public class IgniteJdbcClient
         extends BaseJdbcClient
@@ -93,10 +140,18 @@ public class IgniteJdbcClient
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
     private static final Splitter SPLITTER = Splitter.on(",").omitEmptyStrings().trimResults();
 
+    private final Type uuidType;
+    private static final int IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION = 9;
+
     @Inject
-    public IgniteJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
+    public IgniteJdbcClient(
+            BaseJdbcConfig config,
+            ConnectionFactory connectionFactory,
+            IdentifierMapping identifierMapping,
+            TypeManager typeManager)
     {
         super(config, "`", connectionFactory, identifierMapping);
+        this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
@@ -133,7 +188,18 @@ public class IgniteJdbcClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        // TODO complete type mapping
+        String jdbcTypeName = typeHandle.getJdbcTypeName()
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+
+        Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
+        if (mapping.isPresent()) {
+            return mapping;
+        }
+        switch (jdbcTypeName) {
+            case "UUID":
+                return Optional.of(uuidColumnMapping());
+        }
+
         switch (typeHandle.getJdbcType()) {
             case Types.VARCHAR:
                 return Optional.of(varcharColumnMapping(
@@ -147,8 +213,48 @@ public class IgniteJdbcClient
                         DATE,
                         dateReadFunction(),
                         dateWriteFunction()));
+            case Types.BOOLEAN:
+                return Optional.of(booleanColumnMapping());
+
+            case Types.TINYINT:
+                return Optional.of(tinyintColumnMapping());
+
+            case Types.SMALLINT:
+                return Optional.of(smallintColumnMapping());
+
+            case Types.INTEGER:
+                return Optional.of(integerColumnMapping());
+
+            case Types.BIGINT:
+                return Optional.of(bigintColumnMapping());
+
+            case Types.FLOAT:
+                return Optional.of(realColumnMapping());
+
+            case Types.DOUBLE:
+                return Optional.of(doubleColumnMapping());
+
+            case Types.DECIMAL:
+                int decimalDigits = typeHandle.getRequiredDecimalDigits();
+                int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                if (precision > Decimals.MAX_PRECISION) {
+                    return Optional.empty();
+                }
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+
+            case Types.CHAR:
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+
+            case Types.BINARY:
+                return Optional.of(varbinaryColumnMapping());
+
+            case Types.TIME:
+                return Optional.of(timeColumnMappingUsingSqlTime());
+
+            case Types.TIMESTAMP:
+                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
         }
-        return legacyColumnMapping(session, connection, typeHandle);
+        return Optional.empty();
     }
 
     @Override
@@ -200,7 +306,7 @@ public class IgniteJdbcClient
         List<String> primaryKeys = IgniteTableProperties.getPrimaryKey(tableProperties);
         checkArgument(primaryKeys != null && !primaryKeys.isEmpty(), "No primary key defined for create table");
         checkArgument(primaryKeys.size() < columns.size(), "Ignite table must have at least one non PRIMARY KEY column.");
-        columnDefinitions.add("PRIMARY KEY (" + join(", ", primaryKeys) + ")");
+        columnDefinitions.add("PRIMARY KEY (" + join(", ", primaryKeys.stream().map(this::quoted).collect(joining(", "))) + ")");
 
         for (Map.Entry<String, Object> propertyEntry : tableProperties.entrySet()) {
             String propertyKey = propertyEntry.getKey();
@@ -379,9 +485,28 @@ public class IgniteJdbcClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        if (type instanceof DateType) {
-            return WriteMapping.longMapping("date", dateWriteFunction());
+        if (type == BOOLEAN) {
+            return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
         }
+        if (type == TINYINT) {
+            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
+        }
+        if (type == SMALLINT) {
+            return WriteMapping.longMapping("smallint", smallintWriteFunction());
+        }
+        if (type == INTEGER) {
+            return WriteMapping.longMapping("int", integerWriteFunction());
+        }
+        if (type == BIGINT) {
+            return WriteMapping.longMapping("bigint", bigintWriteFunction());
+        }
+        if (type == REAL) {
+            return WriteMapping.longMapping("real", realWriteFunction());
+        }
+        if (type == DOUBLE) {
+            return WriteMapping.doubleMapping("double", doubleWriteFunction());
+        }
+
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
@@ -390,9 +515,68 @@ public class IgniteJdbcClient
             }
             return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType.getPrecision(), decimalType.getScale()));
         }
-        // TODO
-        return legacyToWriteMapping(session, type);
-//        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+        if (type instanceof CharType) {
+            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        }
+        if (type instanceof VarcharType) {
+            VarcharType varcharType = (VarcharType) type;
+            String dataType;
+            if (varcharType.isUnbounded()) {
+                dataType = "varchar";
+            }
+            else {
+                dataType = "varchar(" + varcharType.getBoundedLength() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
+        }
+        if (type instanceof DateType) {
+            return WriteMapping.longMapping("date", dateWriteFunction());
+        }
+        if (type.equals(uuidType)) {
+            return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
+        }
+        if (type instanceof TimeType) {
+            TimeType timeType = (TimeType) type;
+            if (timeType.getPrecision() <= IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+                return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
+            }
+            return WriteMapping.longMapping(format("time(%s)", IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION), timeWriteFunction(IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+        }
+        if (type instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) type;
+            if (timestampType.getPrecision() <= IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+                verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
+                return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
+            }
+            verify(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION);
+            return WriteMapping.objectMapping(format("timestamp(%s)", IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWriteFunction(timestampType));
+        }
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    private static SliceWriteFunction uuidWriteFunction()
+    {
+        return (statement, index, value) -> {
+            long high = reverseBytes(value.getLong(0));
+            long low = reverseBytes(value.getLong(SIZE_OF_LONG));
+            UUID uuid = new UUID(high, low);
+            statement.setObject(index, uuid, Types.OTHER);
+        };
+    }
+
+    private static Slice uuidSlice(UUID uuid)
+    {
+        return wrappedLongArray(
+                reverseBytes(uuid.getMostSignificantBits()),
+                reverseBytes(uuid.getLeastSignificantBits()));
+    }
+
+    private ColumnMapping uuidColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                uuidType,
+                (resultSet, columnIndex) -> uuidSlice((UUID) resultSet.getObject(columnIndex)),
+                uuidWriteFunction());
     }
 
     public static SliceWriteFunction longDecimalWriteFunction(int precision, int scale)
