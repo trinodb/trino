@@ -1572,7 +1572,6 @@ class StatementAnalyzer
             analyzeFiltersAndMasks(table, name, storageTable, outputFields, session.getIdentity().getUser());
             outputFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
             analysis.registerNamedQuery(table, query);
-            analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
             return createAndAssignScope(table, scope, outputFields);
         }
 
