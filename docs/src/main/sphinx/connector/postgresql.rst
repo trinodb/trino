@@ -119,6 +119,43 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``postgresql`` in the above examples.
 
+.. _postgresql-sql-support:
+
+SQL support
+-----------
+
+The connector provides **read access and limited write access** to data and
+metadata in PostgreSQL. The following section lists all supported SQL statements
+and provides further details.
+
+.. important::
+
+    No other SQL statements are supported.
+
+Read access:
+
+* :doc:`/sql/select` including:
+
+  * :doc:`/sql/match-recognize`
+  * :doc:`/sql/values`
+
+* :doc:`/sql/show-catalogs`
+* :doc:`/sql/show-columns`
+* :doc:`/sql/show-schemas`
+* :doc:`/sql/show-tables`
+* :doc:`/sql/describe`
+
+Write access:
+
+* :doc:`/sql/alter-table`
+* :doc:`/sql/delete`
+* :doc:`/sql/drop-schema`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/insert`
+* :doc:`/sql/show-create-table`
+
+.. include:: sql-support-others.fragment
+
 .. _postgresql-pushdown:
 
 Pushdown
@@ -148,15 +185,3 @@ The connector supports pushdown for a number of operations:
 * :func:`corr`
 * :func:`regr_intercept`
 * :func:`regr_slope`
-
-Limitations
------------
-
-The following SQL statements are not yet supported:
-
-* :doc:`/sql/delete`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
-* :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
-* :doc:`/sql/show-role-grants`
