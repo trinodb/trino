@@ -187,16 +187,9 @@ public class IgniteJdbcClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        String jdbcTypeName = typeHandle.getJdbcTypeName()
-                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
-
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
         if (mapping.isPresent()) {
             return mapping;
-        }
-        switch (jdbcTypeName) {
-            case "UUID":
-                return Optional.of(uuidColumnMapping());
         }
 
         switch (typeHandle.getJdbcType()) {
@@ -249,6 +242,8 @@ public class IgniteJdbcClient
 
             case Types.TIMESTAMP:
                 return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
+            case Types.OTHER:
+                return Optional.of(uuidColumnMapping());
         }
         return Optional.empty();
     }
@@ -264,7 +259,6 @@ public class IgniteJdbcClient
         return Optional.of(new JdbcTypeHandle(Types.DECIMAL, Optional.of("Decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
-    // https://issues.apache.org/jira/browse/IGNITE-12824, user do not need to convert between UTC <-> Local time
     public static LongReadFunction dateReadFunction()
     {
         return (resultSet, columnIndex) -> {

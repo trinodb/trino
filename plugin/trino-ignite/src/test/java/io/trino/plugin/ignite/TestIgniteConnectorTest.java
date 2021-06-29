@@ -328,7 +328,6 @@ public class TestIgniteConnectorTest
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
                 .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
                         "   orderkey bigint NOT NULL,\n" +
                         "   custkey bigint NOT NULL,\n" +

@@ -30,13 +30,8 @@ import java.util.OptionalLong;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.assertUpdate;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 

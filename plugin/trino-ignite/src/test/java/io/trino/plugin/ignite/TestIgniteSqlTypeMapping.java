@@ -1,15 +1,25 @@
 package io.trino.plugin.ignite;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.DataSetup;
+import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import io.trino.type.UuidType;
 import org.testng.annotations.Test;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.ignite.IgniteQueryRunner.createIgniteQueryRunner;
 import static io.trino.plugin.ignite.IgniteQueryRunner.createSession;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -19,8 +29,12 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.testing.datatype.DataType.bigintDataType;
+import static io.trino.testing.datatype.DataType.dateDataType;
+import static io.trino.type.UuidType.UUID;
 
 public class TestIgniteSqlTypeMapping
         extends AbstractTestQueryFramework
@@ -145,6 +159,51 @@ public class TestIgniteSqlTypeMapping
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_varbinary"));
     }
 
+    @Test
+    public void testUuid()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("uuid","CAST ('114514ea-0601-1981-1142-e9b55b0abd6d' as uuid)", UUID,"CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS uuid)")
+                .addRoundTrip("uuid","CAST ('114514ea-0601-1981-1142-e9b55b0abd6e' as uuid)", UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6e' AS uuid)")
+                .addRoundTrip("uuid", "CAST(NULL AS uuid)", UUID, "cast(NULL as uuid)")
+                .execute(getQueryRunner(), igniteCreateAndInsert("test_uuid"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_uuid"));
+    }
+
+    @Test
+    public void testDate()
+    {
+        ZoneId jvmZone = ZoneId.systemDefault();
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+
+        ZoneId someZone = ZoneId.of("Europe/Vilnius");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
+
+        DataTypeTest testCases = DataTypeTest.create(true)
+                .addRoundTrip(bigintDataType(), 123L)
+                .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
+                .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
+                .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
+                .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1)) // summer on northern hemisphere (possible DST)
+                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1)) // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
+                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
+                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
+
+        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
+                    .build();
+            testCases.execute(getQueryRunner(), session, igniteCreateAndInsert("test_date"));
+            testCases.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
+        }
+    }
+
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
     {
         return new TrinoCreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), createSession()), tableNamePrefix);
@@ -158,5 +217,20 @@ public class TestIgniteSqlTypeMapping
     private DataSetup igniteCreateAndInsert(String tableNamePrefix)
     {
         return new IgniteCreateAndInsertDataSetup(new JdbcSqlExecutor(igniteServer.getJdbcUrl()), tableNamePrefix);
+    }
+
+    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
+    }
+
+    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        return zone.getRules().getValidOffsets(dateTime).isEmpty();
+    }
+
+    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 }
