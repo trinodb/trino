@@ -29,6 +29,7 @@ import java.time.LocalDate;
 import java.util.function.Consumer;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
@@ -114,8 +115,8 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_unsupported_coercion");
         onHive().executeQuery("CREATE VIEW view_with_unsupported_coercion AS SELECT length(n_comment) FROM nation");
 
-        assertThat(() -> query("SELECT COUNT(*) FROM view_with_unsupported_coercion"))
-                .failsWithMessage("View 'hive.default.view_with_unsupported_coercion' is stale or in invalid state: a column of type bigint projected from query view at position 0 has no name");
+        assertQueryFailure(() -> query("SELECT COUNT(*) FROM view_with_unsupported_coercion"))
+                .hasMessageContaining("View 'hive.default.view_with_unsupported_coercion' is stale or in invalid state: a column of type bigint projected from query view at position 0 has no name");
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -125,8 +126,8 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_repeat_function");
         onHive().executeQuery("CREATE VIEW view_with_repeat_function AS SELECT REPEAT(n_comment,2) FROM nation");
 
-        assertThat(() -> query("SELECT COUNT(*) FROM view_with_repeat_function"))
-                .failsWithMessage("View 'hive.default.view_with_repeat_function' is stale or in invalid state: a column of type array(varchar(152)) projected from query view at position 0 has no name");
+        assertQueryFailure(() -> query("SELECT COUNT(*) FROM view_with_repeat_function"))
+                .hasMessageContaining("View 'hive.default.view_with_repeat_function' is stale or in invalid state: a column of type array(varchar(152)) projected from query view at position 0 has no name");
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -135,8 +136,8 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW IF EXISTS hive_duplicate_view");
         onHive().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation");
 
-        assertThat(() -> query("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation"))
-                .failsWithMessage("View already exists");
+        assertQueryFailure(() -> query("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation"))
+                .hasMessageContaining("View already exists");
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -289,8 +290,8 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("CREATE VIEW no_catalog_schema_view AS SELECT * FROM nation WHERE n_nationkey = 1");
 
         QueryExecutor executor = connectToPresto("presto_no_default_catalog");
-        assertThat(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
-                .failsWithMessageMatching(".*Schema must be specified when session schema is not set.*");
+        assertQueryFailure(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
+                .hasMessageMatching(".*Schema must be specified when session schema is not set.*");
         assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
                 .containsOnly(row(1L));
     }

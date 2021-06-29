@@ -21,6 +21,7 @@ import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequiremen
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.ALTER_TABLE;
@@ -67,10 +68,10 @@ public class TestAlterTable
                 .hasRowsCount(1);
         assertThat(query(format("SELECT count(nationkey) FROM %s", TABLE_NAME)))
                 .containsExactly(row(25));
-        assertThat(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO nATIoNkEy", TABLE_NAME)))
-                .failsWithMessage("Column 'nationkey' already exists");
-        assertThat(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_regionkeY", TABLE_NAME)))
-                .failsWithMessage("Column 'n_regionkey' already exists");
+        assertQueryFailure(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO nATIoNkEy", TABLE_NAME)))
+                .hasMessageContaining("Column 'nationkey' already exists");
+        assertQueryFailure(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_regionkeY", TABLE_NAME)))
+                .hasMessageContaining("Column 'n_regionkey' already exists");
 
         assertThat(query(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_nationkey", TABLE_NAME)));
     }
@@ -84,10 +85,10 @@ public class TestAlterTable
                 .containsExactly(row(25));
         assertThat(query(format("ALTER TABLE %s ADD COLUMN some_new_column BIGINT", TABLE_NAME)))
                 .hasRowsCount(1);
-        assertThat(() -> query(format("ALTER TABLE %s ADD COLUMN n_nationkey BIGINT", TABLE_NAME)))
-                .failsWithMessage("Column 'n_nationkey' already exists");
-        assertThat(() -> query(format("ALTER TABLE %s ADD COLUMN n_naTioNkEy BIGINT", TABLE_NAME)))
-                .failsWithMessage("Column 'n_naTioNkEy' already exists");
+        assertQueryFailure(() -> query(format("ALTER TABLE %s ADD COLUMN n_nationkey BIGINT", TABLE_NAME)))
+                .hasMessageContaining("Column 'n_nationkey' already exists");
+        assertQueryFailure(() -> query(format("ALTER TABLE %s ADD COLUMN n_naTioNkEy BIGINT", TABLE_NAME)))
+                .hasMessageContaining("Column 'n_naTioNkEy' already exists");
     }
 
     @Test(groups = {ALTER_TABLE, SMOKE})
@@ -101,8 +102,8 @@ public class TestAlterTable
                 .hasRowsCount(1);
         assertThat(query(format("ALTER TABLE %s DROP COLUMN n_nationkey", TABLE_NAME)))
                 .hasRowsCount(1);
-        assertThat(() -> query(format("ALTER TABLE %s DROP COLUMN n_regionkey", TABLE_NAME)))
-                .failsWithMessage("Cannot drop the only column in a table");
+        assertQueryFailure(() -> query(format("ALTER TABLE %s DROP COLUMN n_regionkey", TABLE_NAME)))
+                .hasMessageContaining("Cannot drop the only column in a table");
         query(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
     }
 }
