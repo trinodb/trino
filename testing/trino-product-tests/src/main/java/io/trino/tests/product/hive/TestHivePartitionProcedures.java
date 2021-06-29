@@ -78,8 +78,8 @@ public class TestHivePartitionProcedures
         createPartitionedTable(FIRST_TABLE);
         createView(VIEW_TABLE, FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> dropPartition(VIEW_TABLE, "col", "a"))
-                .failsWithMessage("Table is a view: default." + VIEW_TABLE);
+        QueryAssert.assertQueryFailure(() -> dropPartition(VIEW_TABLE, "col", "a"))
+                .hasMessageContaining("Table is a view: default." + VIEW_TABLE);
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -88,8 +88,8 @@ public class TestHivePartitionProcedures
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> dropPartition("missing_table", "col", "f"))
-                .failsWithMessage("Table 'default.missing_table' not found");
+        QueryAssert.assertQueryFailure(() -> dropPartition("missing_table", "col", "f"))
+                .hasMessageContaining("Table 'default.missing_table' not found");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -98,8 +98,8 @@ public class TestHivePartitionProcedures
     {
         createUnpartitionedTable(SECOND_TABLE);
 
-        QueryAssert.assertThat(() -> dropPartition(SECOND_TABLE, "col", "a"))
-                .failsWithMessage("Table is not partitioned: default." + SECOND_TABLE);
+        QueryAssert.assertQueryFailure(() -> dropPartition(SECOND_TABLE, "col", "a"))
+                .hasMessageContaining("Table is not partitioned: default." + SECOND_TABLE);
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -108,8 +108,8 @@ public class TestHivePartitionProcedures
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> dropPartition(FIRST_TABLE, "not_existing_partition_col", "a"))
-                .failsWithMessage("Provided partition column names do not match actual partition column names: [col]");
+        QueryAssert.assertQueryFailure(() -> dropPartition(FIRST_TABLE, "not_existing_partition_col", "a"))
+                .hasMessageContaining("Provided partition column names do not match actual partition column names: [col]");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -118,16 +118,16 @@ public class TestHivePartitionProcedures
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> dropPartition(FIRST_TABLE, "col", "f"))
-                .failsWithMessage("Partition 'col=f' does not exist");
+        QueryAssert.assertQueryFailure(() -> dropPartition(FIRST_TABLE, "col", "f"))
+                .hasMessageContaining("Partition 'col=f' does not exist");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testRegisterPartitionMissingTableShouldFail()
     {
-        QueryAssert.assertThat(() -> addPartition("missing_table", "col", "f", "/"))
-                .failsWithMessage("Table 'default.missing_table' not found");
+        QueryAssert.assertQueryFailure(() -> addPartition("missing_table", "col", "f", "/"))
+                .hasMessageContaining("Table 'default.missing_table' not found");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -136,8 +136,8 @@ public class TestHivePartitionProcedures
     {
         createUnpartitionedTable(SECOND_TABLE);
 
-        QueryAssert.assertThat(() -> addPartition(SECOND_TABLE, "col", "a", "/"))
-                .failsWithMessage("Table is not partitioned: default." + SECOND_TABLE);
+        QueryAssert.assertQueryFailure(() -> addPartition(SECOND_TABLE, "col", "a", "/"))
+                .hasMessageContaining("Table is not partitioned: default." + SECOND_TABLE);
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -147,8 +147,8 @@ public class TestHivePartitionProcedures
         createPartitionedTable(FIRST_TABLE);
         createView(VIEW_TABLE, FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> addPartition(VIEW_TABLE, "col", "a", "/"))
-                .failsWithMessage("Table is a view: default." + VIEW_TABLE);
+        QueryAssert.assertQueryFailure(() -> addPartition(VIEW_TABLE, "col", "a", "/"))
+                .hasMessageContaining("Table is a view: default." + VIEW_TABLE);
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -157,8 +157,8 @@ public class TestHivePartitionProcedures
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> addPartition(FIRST_TABLE, "col", "a", "/"))
-                .failsWithMessage("Partition [col=a] is already registered");
+        QueryAssert.assertQueryFailure(() -> addPartition(FIRST_TABLE, "col", "a", "/"))
+                .hasMessageContaining("Partition [col=a] is already registered");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -167,8 +167,8 @@ public class TestHivePartitionProcedures
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> addPartition(FIRST_TABLE, "not_existing_partition_col", "a", "/"))
-                .failsWithMessage("Provided partition column names do not match actual partition column names: [col]");
+        QueryAssert.assertQueryFailure(() -> addPartition(FIRST_TABLE, "not_existing_partition_col", "a", "/"))
+                .hasMessageContaining("Provided partition column names do not match actual partition column names: [col]");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -177,8 +177,8 @@ public class TestHivePartitionProcedures
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertThat(() -> addPartition(FIRST_TABLE, "col", "f", "/some/non/existing/path"))
-                .failsWithMessage("Partition location does not exist: /some/non/existing/path");
+        QueryAssert.assertQueryFailure(() -> addPartition(FIRST_TABLE, "col", "f", "/some/non/existing/path"))
+                .hasMessageContaining("Partition location does not exist: /some/non/existing/path");
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
