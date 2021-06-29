@@ -355,9 +355,9 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
 
         DynamicFilterService.DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
-                range(BIGINT, 1L, true, 100L, true)), false)
-                .toString(withPartitionedJoin().toConnectorSession()));
+
+        assertThat(domainStats.getSimplifiedDomain())
+                .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
     }
 
     private DynamicFilterService.DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)

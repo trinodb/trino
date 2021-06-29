@@ -54,6 +54,9 @@ jobs:
           $RETRY bash -c './mvnw verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +'
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!:trino-server,!:trino-cli'
+      - uses: docker/setup-qemu-action@v1
+        with:
+          platforms: arm64
       - name: Test Docker Image
         run: core/docker/build-local.sh
 
@@ -251,7 +254,8 @@ jobs:
           - ":trino-cassandra"
           - ":trino-hive,:trino-orc"
           - ":trino-hive,:trino-parquet -P test-parquet"
-          - ":trino-mongodb,:trino-kafka,:trino-elasticsearch,:trino-elasticsearch -P test-stats"
+          - ":trino-mongodb,:trino-kafka,:trino-elasticsearch"
+          - ":trino-elasticsearch -P test-stats"
           - ":trino-redis"
           - ":trino-sqlserver,:trino-postgresql,:trino-mysql"
           - ":trino-oracle"

@@ -32,7 +32,6 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
@@ -65,6 +64,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUS
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CANCELLATION;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN;
@@ -87,27 +87,12 @@ public abstract class BaseJdbcConnectorTest
 {
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
 
+    protected abstract SqlExecutor onRemoteDatabase();
+
     @AfterClass(alwaysRun = true)
     public void afterClass()
     {
         executor.shutdownNow();
-    }
-
-    @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        switch (connectorBehavior) {
-            case SUPPORTS_CREATE_VIEW:
-                // Not supported by JdbcMetadata
-                return false;
-
-            case SUPPORTS_DELETE:
-                // Not supported by JdbcMetadata
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
     }
 
     @Test
@@ -343,6 +328,10 @@ public abstract class BaseJdbcConnectorTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV)) {
+            if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+                throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
+            }
+
             try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_stddev_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
@@ -390,6 +379,10 @@ public abstract class BaseJdbcConnectorTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE)) {
+            if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+                throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
+            }
+
             try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_variance_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
@@ -430,6 +423,10 @@ public abstract class BaseJdbcConnectorTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE)) {
+            if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+                throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
+            }
+
             try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_covariance_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT covar_pop(t_double, u_double), covar_pop(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT covar_samp(t_double, u_double), covar_samp(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
@@ -463,6 +460,10 @@ public abstract class BaseJdbcConnectorTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION)) {
+            if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+                throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
+            }
+
             try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_corr_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT corr(t_double, u_double), corr(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 return;
@@ -492,6 +493,10 @@ public abstract class BaseJdbcConnectorTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION)) {
+            if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+                throw new SkipException("Unable to CREATE TABLE to test aggregation pushdown");
+            }
+
             try (TestTable testTable = createTableWithDoubleAndRealColumns(schemaName + ".test_regr_pushdown", ImmutableList.of())) {
                 assertThat(query("SELECT regr_intercept(t_double, u_double), regr_intercept(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query("SELECT regr_slope(t_double, u_double), regr_slope(v_real, w_real) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
@@ -1141,6 +1146,4 @@ public abstract class BaseJdbcConnectorTest
     {
         throw new UnsupportedOperationException();
     }
-
-    protected abstract SqlExecutor onRemoteDatabase();
 }

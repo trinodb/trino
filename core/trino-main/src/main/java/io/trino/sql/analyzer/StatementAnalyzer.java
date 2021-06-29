@@ -1400,23 +1400,20 @@ class StatementAnalyzer
                     .withRelationType(RelationId.anonymous(), new RelationType(fields))
                     .build();
 
-            ImmutableMap.Builder<Field, List<ViewExpression>> columnMasks = ImmutableMap.builder();
             for (Field field : fields) {
                 if (field.getName().isPresent()) {
                     List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType());
 
                     if (!masks.isEmpty() && checkCanSelectFromColumn(name, field.getName().orElseThrow())) {
-                        columnMasks.put(field, masks);
-
                         masks.forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
                     }
                 }
             }
 
-            List<ViewExpression> filters = accessControl.getRowFilters(session.toSecurityContext(), name);
-            filters.forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
+            accessControl.getRowFilters(session.toSecurityContext(), name)
+                    .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
 
-            analysis.registerTable(table, tableHandle, name, filters, columnMasks.build(), authorization, accessControlScope);
+            analysis.registerTable(table, tableHandle, name, authorization, accessControlScope);
         }
 
         private boolean checkCanSelectFromColumn(QualifiedObjectName name, String column)
@@ -1575,7 +1572,6 @@ class StatementAnalyzer
             analyzeFiltersAndMasks(table, name, storageTable, outputFields, session.getIdentity().getUser());
             outputFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
             analysis.registerNamedQuery(table, query);
-            analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
             return createAndAssignScope(table, scope, outputFields);
         }
 
@@ -2107,6 +2103,14 @@ class StatementAnalyzer
                         oldField.getOriginTable(),
                         oldField.getOriginColumnName(),
                         oldField.isAliased());
+
+                int index = i; // Variable used in Lambda should be final
+                analysis.addSourceColumns(
+                        outputDescriptorFields[index],
+                        childrenTypes.stream()
+                                .map(relationType -> relationType.getFieldByIndex(index))
+                                .flatMap(field -> analysis.getSourceColumns(field).stream())
+                                .collect(toImmutableSet()));
             }
 
             for (int i = 0; i < node.getRelations().size(); i++) {
