@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
+import org.apache.hadoop.hive.ql.io.BucketCodec;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -35,6 +36,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
@@ -44,13 +46,16 @@ import static io.trino.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
 public class OrcDeletedRows
 {
     private static final int ORIGINAL_TRANSACTION_INDEX = 0;
-    private static final int ROW_ID_INDEX = 1;
+    private static final int BUCKET_ID_INDEX = 1;
+    private static final int ROW_ID_INDEX = 2;
 
     private final String sourceFileName;
     private final OrcDeleteDeltaPageSourceFactory pageSourceFactory;
@@ -58,6 +63,7 @@ public class OrcDeletedRows
     private final Configuration configuration;
     private final HdfsEnvironment hdfsEnvironment;
     private final AcidInfo acidInfo;
+    private final OptionalInt bucketNumber;
 
     @Nullable
     private Set<RowId> deletedRows;
@@ -68,7 +74,8 @@ public class OrcDeletedRows
             String sessionUser,
             Configuration configuration,
             HdfsEnvironment hdfsEnvironment,
-            AcidInfo acidInfo)
+            AcidInfo acidInfo,
+            OptionalInt bucketNumber)
     {
         this.sourceFileName = requireNonNull(sourceFileName, "sourceFileName is null");
         this.pageSourceFactory = requireNonNull(pageSourceFactory, "pageSourceFactory is null");
@@ -76,6 +83,7 @@ public class OrcDeletedRows
         this.configuration = requireNonNull(configuration, "configuration is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.acidInfo = requireNonNull(acidInfo, "acidInfo is null");
+        this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
     }
 
     public MaskDeletedRowsFunction getMaskDeletedRowsFunction(Page sourcePage, OptionalLong startRowId)
@@ -183,17 +191,28 @@ public class OrcDeletedRows
         {
             long originalTransaction;
             long row;
+            int bucket;
+            int statementId;
             if (startRowId.isPresent()) {
                 // original transaction ID is always 0 for original file row delete delta.
                 originalTransaction = 0;
+                // For original files set the bucket number to original bucket number if table was bucketed or to 0 if it was not.
+                // Set statement Id to 0.
+                // Verified manually that this is consistent with Hive 3.1 behavior.
+                bucket = bucketNumber.orElse(0);
+                statementId = 0;
                 // In case of original files, calculate row ID is start row ID of the page + current position in the page
                 row = startRowId.getAsLong() + position;
             }
             else {
                 originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
+                int encodedBucketValue = toIntExact(INTEGER.getLong(sourcePage.getBlock(BUCKET_ID_INDEX), position));
+                BucketCodec bucketCodec = BucketCodec.determineVersion(encodedBucketValue);
+                bucket = bucketCodec.decodeWriterId(encodedBucketValue);
+                statementId = bucketCodec.decodeStatementId(encodedBucketValue);
                 row = BIGINT.getLong(sourcePage.getBlock(ROW_ID_INDEX), position);
             }
-            return new RowId(originalTransaction, row);
+            return new RowId(originalTransaction, bucket, statementId, row);
         }
     }
 
@@ -217,8 +236,13 @@ public class OrcDeletedRows
                         if (page != null) {
                             for (int i = 0; i < page.getPositionCount(); i++) {
                                 long originalTransaction = BIGINT.getLong(page.getBlock(ORIGINAL_TRANSACTION_INDEX), i);
+                                int encodedBucketValue = toIntExact(INTEGER.getLong(page.getBlock(BUCKET_ID_INDEX), i));
+                                BucketCodec bucketCodec = BucketCodec.determineVersion(encodedBucketValue);
+                                int bucket = bucketCodec.decodeWriterId(encodedBucketValue);
+                                int statement = bucketCodec.decodeStatementId(encodedBucketValue);
                                 long row = BIGINT.getLong(page.getBlock(ROW_ID_INDEX), i);
-                                deletedRowsBuilder.add(new RowId(originalTransaction, row));
+                                RowId rowId = new RowId(originalTransaction, bucket, statement, row);
+                                deletedRowsBuilder.add(rowId);
                             }
                         }
                     }
@@ -261,11 +285,15 @@ public class OrcDeletedRows
     private static class RowId
     {
         private final long originalTransaction;
+        private final int bucket;
+        private final int statementId;
         private final long rowId;
 
-        public RowId(long originalTransaction, long rowId)
+        public RowId(long originalTransaction, int bucket, int statementId, long rowId)
         {
             this.originalTransaction = originalTransaction;
+            this.bucket = bucket;
+            this.statementId = statementId;
             this.rowId = rowId;
         }
 
@@ -282,13 +310,15 @@ public class OrcDeletedRows
 
             RowId other = (RowId) o;
             return originalTransaction == other.originalTransaction &&
+                    bucket == other.bucket &&
+                    statementId == other.statementId &&
                     rowId == other.rowId;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(originalTransaction, rowId);
+            return Objects.hash(originalTransaction, bucket, statementId, rowId);
         }
 
         @Override
@@ -296,6 +326,8 @@ public class OrcDeletedRows
         {
             return toStringHelper(this)
                     .add("originalTransaction", originalTransaction)
+                    .add("bucket", bucket)
+                    .add("statementId", statementId)
                     .add("rowId", rowId)
                     .toString();
         }

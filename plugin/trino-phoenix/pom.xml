@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>356</version>
+        <version>359-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -47,11 +47,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
@@ -99,11 +94,6 @@
             <artifactId>phoenix-client</artifactId>
             <version>4.14.1-HBase-1.4</version>
             <classifier>embedded</classifier>
-        </dependency>
-
-        <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
         </dependency>
 
         <!-- used by tests but also needed transitively -->
@@ -156,8 +146,8 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
-            <scope>test</scope>
             <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -209,8 +199,8 @@
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-hdfs</artifactId>
-            <version>2.7.5</version>
             <type>test-jar</type>
+            <version>2.7.5</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -223,8 +213,8 @@
         <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-common</artifactId>
-            <version>${dep.hbase.version}</version>
             <type>test-jar</type>
+            <version>${dep.hbase.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -237,8 +227,8 @@
         <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-hadoop-compat</artifactId>
-            <version>${dep.hbase.version}</version>
             <type>test-jar</type>
+            <version>${dep.hbase.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -251,8 +241,8 @@
         <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-hadoop2-compat</artifactId>
-            <version>${dep.hbase.version}</version>
             <type>test-jar</type>
+            <version>${dep.hbase.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -265,8 +255,8 @@
         <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-server</artifactId>
-            <version>${dep.hbase.version}</version>
             <type>test-jar</type>
+            <version>${dep.hbase.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -279,6 +269,7 @@
         <dependency>
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper</artifactId>
+            <scope>test</scope>
             <exclusions>
                 <exclusion>
                     <groupId>com.github.spotbugs</groupId>
@@ -293,7 +284,6 @@
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
             </exclusions>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

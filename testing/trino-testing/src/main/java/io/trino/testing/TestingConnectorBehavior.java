@@ -29,6 +29,12 @@ public enum TestingConnectorBehavior
     SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR(fallback -> fallback.test(SUPPORTS_TOPN_PUSHDOWN) && fallback.test(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)),
 
     SUPPORTS_AGGREGATION_PUSHDOWN,
+    // Most connectors don't support aggregation pushdown for statistical functions
+    SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV(false),
+    SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE(false),
+    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE(false),
+    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION(false),
+    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION(false),
 
     SUPPORTS_JOIN_PUSHDOWN(
             // Currently no connector supports Join pushdown by default. JDBC connectors may support Join pushdown and BaseJdbcConnectorTest
@@ -49,6 +55,8 @@ public enum TestingConnectorBehavior
     SUPPORTS_COMMENT_ON_COLUMN,
 
     SUPPORTS_CREATE_VIEW(false),
+
+    SUPPORTS_CREATE_MATERIALIZED_VIEW(false),
 
     SUPPORTS_INSERT,
 

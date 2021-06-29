@@ -37,7 +37,7 @@ import java.util.Optional;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
-import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
@@ -104,7 +104,7 @@ public class Analyzer
     {
         List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), metadata);
 
-        List<FunctionCall> windowExpressions = extractWindowFunctions(ImmutableList.of(predicate));
+        List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate));
 
         List<GroupingOperation> groupingOperations = extractExpressions(ImmutableList.of(predicate), GroupingOperation.class);
 

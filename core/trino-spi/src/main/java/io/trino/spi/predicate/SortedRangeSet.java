@@ -833,20 +833,42 @@ public final class SortedRangeSet
     @Override
     public String toString(ConnectorSession session)
     {
+        return toString(session, 10);
+    }
+
+    @Override
+    public String toString(ConnectorSession session, int limit)
+    {
         return new StringJoiner(", ", SortedRangeSet.class.getSimpleName() + "[", "]")
                 .add("type=" + type)
                 .add("ranges=" + getRangeCount())
-                .add(formatRanges(session, 10))
+                .add(formatRanges(session, limit))
                 .toString();
     }
 
     private String formatRanges(ConnectorSession session, int limit)
     {
-        return Stream.concat(
-                IntStream.range(0, min(getRangeCount(), limit))
+        if (isNone()) {
+            return "{}";
+        }
+        if (getRangeCount() == 1) {
+            return "{" + getRangeView(0).formatRange(session) + "}";
+        }
+        if (limit < 2) {
+            return format("{%s, ...}", getRangeView(0).formatRange(session));
+        }
+        // Print first (limit - 1) elements, followed by last element
+        // to provide a readable summary of the contents
+        Stream<String> prefix = Stream.concat(
+                IntStream.range(0, min(getRangeCount(), limit) - 1)
                         .mapToObj(this::getRangeView)
                         .map(rangeView -> rangeView.formatRange(session)),
-                limit < getRangeCount() ? Stream.of("...") : Stream.of())
+                limit < getRangeCount() ? Stream.of("...") : Stream.of());
+
+        Stream<String> suffix = Stream.of(
+                getRangeView(getRangeCount() - 1).formatRange(session));
+
+        return Stream.concat(prefix, suffix)
                 .collect(joining(", ", "{", "}"));
     }
 
@@ -1151,11 +1173,23 @@ public final class SortedRangeSet
 
         public String formatRange(ConnectorSession session)
         {
+            Optional<Object> singleValue = getSingleValue();
+            if (singleValue.isPresent()) {
+                return format("[%s]", singleValue.get());
+            }
+
+            Object lowValue = isLowUnbounded()
+                    ? "<min>"
+                    : type.getObjectValue(session, lowValueBlock, lowValuePosition);
+            Object highValue = isHighUnbounded()
+                    ? "<max>"
+                    : type.getObjectValue(session, highValueBlock, highValuePosition);
+
             return format(
                     "%s%s,%s%s",
                     lowInclusive ? "[" : "(",
-                    type.getObjectValue(session, lowValueBlock, lowValuePosition),
-                    type.getObjectValue(session, highValueBlock, highValuePosition),
+                    lowValue,
+                    highValue,
                     highInclusive ? "]" : ")");
         }
     }

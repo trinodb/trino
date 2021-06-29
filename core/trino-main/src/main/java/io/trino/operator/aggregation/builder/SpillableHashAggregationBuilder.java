@@ -39,7 +39,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.lang.Math.max;
@@ -63,7 +63,7 @@ public class SpillableHashAggregationBuilder
     private Optional<Spiller> spiller = Optional.empty();
     private Optional<MergingHashAggregationBuilder> merger = Optional.empty();
     private Optional<MergeHashSort> mergeHashSort = Optional.empty();
-    private ListenableFuture<?> spillInProgress = immediateFuture(null);
+    private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
     private final JoinCompiler joinCompiler;
     private final BlockTypeOperators blockTypeOperators;
 
@@ -158,7 +158,7 @@ public class SpillableHashAggregationBuilder
     }
 
     @Override
-    public ListenableFuture<?> startMemoryRevoke()
+    public ListenableFuture<Void> startMemoryRevoke()
     {
         if (producingOutput) {
             // all revocable memory has been released in buildResult method
@@ -244,7 +244,7 @@ public class SpillableHashAggregationBuilder
         }
     }
 
-    private ListenableFuture<?> spillToDisk()
+    private ListenableFuture<Void> spillToDisk()
     {
         checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
         hashAggregationBuilder.setOutputPartial();

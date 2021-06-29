@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.RowType;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.ResolvedField;
@@ -31,9 +32,11 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.RowDataType;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.util.AstUtils;
 
@@ -47,7 +50,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -211,9 +213,14 @@ class TranslationMap
             public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 if (analysis.isPatternRecognitionFunction(node)) {
-                    List<Expression> rewrittenArguments = node.getArguments().stream()
-                            .map(argument -> treeRewriter.rewrite(argument, null))
-                            .collect(toImmutableList());
+                    ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
+                    if (!node.getArguments().isEmpty()) {
+                        rewrittenArguments.add(treeRewriter.rewrite(node.getArguments().get(0), null));
+                        if (node.getArguments().size() > 1) {
+                            // do not rewrite the offset literal
+                            rewrittenArguments.add(node.getArguments().get(1));
+                        }
+                    }
                     // Pattern recognition functions are special constructs, passed using the form of FunctionCall.
                     // They are not resolved like regular function calls. They are processed in LogicalIndexExtractor.
                     return coerceIfNecessary(node, new FunctionCall(
@@ -225,7 +232,7 @@ class TranslationMap
                             false,
                             Optional.empty(),
                             node.getProcessingMode(),
-                            rewrittenArguments));
+                            rewrittenArguments.build()));
                 }
 
                 // TODO handle aggregation in pattern recognition context (and handle its processingMode)
@@ -275,7 +282,26 @@ class TranslationMap
                                     .orElseThrow(() -> new IllegalStateException(format("No mapping for %s", node))));
                 }
 
-                return rewriteExpression(node, context, treeRewriter);
+                RowType rowType = (RowType) analysis.getType(node.getBase());
+                String fieldName = node.getField().getValue();
+
+                List<RowType.Field> fields = rowType.getFields();
+                int index = -1;
+                for (int i = 0; i < fields.size(); i++) {
+                    RowType.Field field = fields.get(i);
+                    if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
+                        checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
+                        index = i;
+                    }
+                }
+
+                checkState(index >= 0, "could not find field name: %s", node.getField());
+
+                return coerceIfNecessary(
+                        node,
+                        new SubscriptExpression(
+                                treeRewriter.rewrite(node.getBase(), context),
+                                new LongLiteral(Long.toString(index + 1))));
             }
 
             @Override

@@ -14,6 +14,7 @@
 package io.trino.plugin.elasticsearch;
 
 import com.google.common.net.HostAndPort;
+import org.testcontainers.containers.Network;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -36,8 +37,16 @@ public class ElasticsearchServer
     public ElasticsearchServer(String image, Map<String, String> configurationFiles)
             throws IOException
     {
+        this(Network.SHARED, image, configurationFiles);
+    }
+
+    public ElasticsearchServer(Network network, String image, Map<String, String> configurationFiles)
+            throws IOException
+    {
         DockerImageName dockerImageName = DockerImageName.parse(image).asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch");
         container = new ElasticsearchContainer(dockerImageName);
+        container.withNetwork(network);
+        container.withNetworkAliases("elasticsearch-server");
 
         configurationPath = createTempDir().toPath();
         for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {

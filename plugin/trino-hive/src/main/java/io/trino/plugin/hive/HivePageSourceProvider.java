@@ -161,7 +161,7 @@ public class HivePageSourceProvider
 
         TupleDomain<HiveColumnHandle> simplifiedDynamicFilter = dynamicFilter
                 .getCurrentPredicate()
-                .transform(HiveColumnHandle.class::cast).simplify(domainCompactionThreshold);
+                .transformKeys(HiveColumnHandle.class::cast).simplify(domainCompactionThreshold);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 pageSourceFactories,
                 cursorProviders,

@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -49,7 +50,8 @@ public final class ElasticsearchQueryRunner
             HostAndPort address,
             Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
-            Map<String, String> extraConnectorProperties)
+            Map<String, String> extraConnectorProperties,
+            int nodeCount)
             throws Exception
     {
         RestHighLevelClient client = null;
@@ -57,12 +59,16 @@ public final class ElasticsearchQueryRunner
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
+                    .setNodeCount(nodeCount)
                     .build();
+
+            queryRunner.installPlugin(new JmxPlugin());
+            queryRunner.createCatalog("jmx", "jmx");
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            TestingElasticsearchConnectorFactory testFactory = new TestingElasticsearchConnectorFactory();
+            ElasticsearchConnectorFactory testFactory = new ElasticsearchConnectorFactory();
 
             installElasticsearchPlugin(address, queryRunner, testFactory, extraConnectorProperties);
 
@@ -85,7 +91,7 @@ public final class ElasticsearchQueryRunner
         }
     }
 
-    private static void installElasticsearchPlugin(HostAndPort address, QueryRunner queryRunner, TestingElasticsearchConnectorFactory factory, Map<String, String> extraConnectorProperties)
+    private static void installElasticsearchPlugin(HostAndPort address, QueryRunner queryRunner, ElasticsearchConnectorFactory factory, Map<String, String> extraConnectorProperties)
     {
         queryRunner.installPlugin(new ElasticsearchPlugin(factory));
         Map<String, String> config = ImmutableMap.<String, String>builder()
@@ -130,7 +136,8 @@ public final class ElasticsearchQueryRunner
                 HostAndPort.fromParts("localhost", 9200),
                 TpchTable.getTables(),
                 ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                3);
 
         Logger log = Logger.get(ElasticsearchQueryRunner.class);
         log.info("======== SERVER STARTED ========");

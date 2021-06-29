@@ -37,11 +37,14 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
 import org.apache.pinot.spi.data.Schema;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -245,7 +248,8 @@ public class PinotMetadata
                 handle.getConstraint(),
                 OptionalLong.of(limit),
                 dynamicTable);
-        return Optional.of(new LimitApplicationResult<>(handle, false));
+        boolean singleSplit = dynamicTable.isPresent();
+        return Optional.of(new LimitApplicationResult<>(handle, singleSplit, false));
     }
 
     @Override
@@ -253,7 +257,30 @@ public class PinotMetadata
     {
         PinotTableHandle handle = (PinotTableHandle) table;
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        TupleDomain<ColumnHandle> remainingFilter;
+        if (newDomain.isNone()) {
+            remainingFilter = TupleDomain.all();
+        }
+        else {
+            Map<ColumnHandle, Domain> domains = newDomain.getDomains().orElseThrow();
+
+            Map<ColumnHandle, Domain> supported = new HashMap<>();
+            Map<ColumnHandle, Domain> unsupported = new HashMap<>();
+            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+                // Pinot does not support array literals
+                if (((PinotColumnHandle) entry.getKey()).getDataType() instanceof ArrayType) {
+                    unsupported.put(entry.getKey(), entry.getValue());
+                }
+                else {
+                    supported.put(entry.getKey(), entry.getValue());
+                }
+            }
+            newDomain = TupleDomain.withColumnDomains(supported);
+            remainingFilter = TupleDomain.withColumnDomains(unsupported);
+        }
+
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }
@@ -264,7 +291,7 @@ public class PinotMetadata
                 newDomain,
                 handle.getLimit(),
                 handle.getQuery());
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, false));
     }
 
     @Override

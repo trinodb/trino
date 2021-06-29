@@ -89,6 +89,7 @@ public class FeaturesConfig
     private boolean pushTableWriteThroughUnion = true;
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     private boolean exchangeCompressionEnabled;
+    private boolean legacyRowToJsonCast;
     private boolean optimizeMixedDistinctAggregations;
     private boolean unwrapCasts = true;
     private boolean forceSingleNodeOutput = true;
@@ -110,6 +111,7 @@ public class FeaturesConfig
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean enableStatsCalculator = true;
+    private boolean statisticsPrecalculationForPushdownEnabled;
     private boolean collectPlanStatisticsForAllQueries;
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean defaultFilterFactorEnabled;
@@ -132,6 +134,7 @@ public class FeaturesConfig
     private boolean useLegacyWindowFilterPushdown;
     private boolean useTableScanNodePartitioning = true;
     private double tableScanNodePartitioningMinBucketToTaskRatio = 0.5;
+    private boolean mergeProjectWithValues = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
@@ -228,6 +231,18 @@ public class FeaturesConfig
     public FeaturesConfig setOmitDateTimeTypePrecision(boolean value)
     {
         this.omitDateTimeTypePrecision = value;
+        return this;
+    }
+
+    public boolean isLegacyRowToJsonCast()
+    {
+        return legacyRowToJsonCast;
+    }
+
+    @Config("deprecated.legacy-row-to-json-cast")
+    public FeaturesConfig setLegacyRowToJsonCast(boolean legacyRowToJsonCast)
+    {
+        this.legacyRowToJsonCast = legacyRowToJsonCast;
         return this;
     }
 
@@ -600,6 +615,18 @@ public class FeaturesConfig
     public FeaturesConfig setEnableStatsCalculator(boolean enableStatsCalculator)
     {
         this.enableStatsCalculator = enableStatsCalculator;
+        return this;
+    }
+
+    public boolean isStatisticsPrecalculationForPushdownEnabled()
+    {
+        return statisticsPrecalculationForPushdownEnabled;
+    }
+
+    @Config("statistics-precalculation-for-pushdown.enabled")
+    public FeaturesConfig setStatisticsPrecalculationForPushdownEnabled(boolean statisticsPrecalculationForPushdownEnabled)
+    {
+        this.statisticsPrecalculationForPushdownEnabled = statisticsPrecalculationForPushdownEnabled;
         return this;
     }
 
@@ -1047,6 +1074,18 @@ public class FeaturesConfig
     public FeaturesConfig setTableScanNodePartitioningMinBucketToTaskRatio(double tableScanNodePartitioningMinBucketToTaskRatio)
     {
         this.tableScanNodePartitioningMinBucketToTaskRatio = tableScanNodePartitioningMinBucketToTaskRatio;
+        return this;
+    }
+
+    public boolean isMergeProjectWithValues()
+    {
+        return mergeProjectWithValues;
+    }
+
+    @Config("optimizer.merge-project-with-values")
+    public FeaturesConfig setMergeProjectWithValues(boolean mergeProjectWithValues)
+    {
+        this.mergeProjectWithValues = mergeProjectWithValues;
         return this;
     }
 }

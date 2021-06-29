@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -21,6 +22,8 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanNode;
+
+import java.util.Optional;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
@@ -76,19 +79,25 @@ public class PushLimitThroughOuterJoin
         PlanNode right = joinNode.getRight();
 
         if (joinNode.getType() == LEFT && !isAtMost(left, context.getLookup(), parent.getCount())) {
+            if (!ImmutableSet.copyOf(left.getOutputSymbols()).containsAll(parent.getPreSortedInputs())) {
+                return Result.empty();
+            }
             return Result.ofPlanNode(
                     parent.replaceChildren(ImmutableList.of(
                             joinNode.replaceChildren(ImmutableList.of(
-                                    new LimitNode(context.getIdAllocator().getNextId(), left, parent.getCount(), true),
+                                    new LimitNode(context.getIdAllocator().getNextId(), left, parent.getCount(), Optional.empty(), true, parent.getPreSortedInputs()),
                                     right)))));
         }
 
         if (joinNode.getType() == RIGHT && !isAtMost(right, context.getLookup(), parent.getCount())) {
+            if (!ImmutableSet.copyOf(right.getOutputSymbols()).containsAll(parent.getPreSortedInputs())) {
+                return Result.empty();
+            }
             return Result.ofPlanNode(
                     parent.replaceChildren(ImmutableList.of(
                             joinNode.replaceChildren(ImmutableList.of(
                                     left,
-                                    new LimitNode(context.getIdAllocator().getNextId(), right, parent.getCount(), true))))));
+                                    new LimitNode(context.getIdAllocator().getNextId(), right, parent.getCount(), Optional.empty(), true, parent.getPreSortedInputs()))))));
         }
 
         return Result.empty();

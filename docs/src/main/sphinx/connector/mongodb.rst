@@ -4,9 +4,15 @@ MongoDB connector
 
 The ``mongodb`` connector allows the use of `MongoDB <https://www.mongodb.com/>`_ collections as tables in Trino.
 
-.. note::
 
-    The connector is tested against MongoDB 3.4 and 4.4, but any intermediate or newer versions are expected to work.
+Requirements
+------------
+
+To connect to MongoDB, you need:
+
+* MongoDB 3.4 or higher.
+* Network access from the Trino coordinator and workers to MongoDB.
+  Port 27017 is the default port.
 
 Configuration
 -------------

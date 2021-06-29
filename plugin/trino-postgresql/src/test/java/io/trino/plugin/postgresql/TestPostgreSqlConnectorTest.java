@@ -13,17 +13,12 @@
  */
 package io.trino.plugin.postgresql;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
-import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.planner.plan.MarkDistinctNode;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.QueryRunner;
@@ -44,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -88,6 +82,13 @@ public class TestPostgreSqlConnectorTest
 
             case SUPPORTS_TOPN_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR:
+                return true;
+
+            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
                 return true;
 
             case SUPPORTS_JOIN_PUSHDOWN:
@@ -154,7 +155,7 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
-    public void testMaterializedView()
+    public void testPostgreSqlMaterializedView()
             throws Exception
     {
         execute("CREATE MATERIALIZED VIEW test_mv as SELECT * FROM orders");
@@ -440,116 +441,6 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
-    public void testAggregationPushdown()
-    {
-        // TODO support aggregation pushdown with GROUPING SETS
-        // TODO support aggregation over expressions
-
-        // SELECT DISTINCT
-        assertThat(query("SELECT DISTINCT regionkey FROM nation")).isFullyPushedDown();
-
-        // count()
-        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
-
-        // GROUP BY
-        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-
-        Session withMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(USE_MARK_DISTINCT, "true")
-                .build();
-
-        // distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
-        // distinct aggregation with GROUP BY
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        // distinct aggregation with varchar
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
-        // two distinct aggregations
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
-                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
-        // distinct aggregation and a non-distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
-                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
-
-        Session withoutMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(USE_MARK_DISTINCT, "false")
-                .build();
-
-        // distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
-        // distinct aggregation with GROUP BY
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        // distinct aggregation with varchar
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
-        // two distinct aggregations
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
-        // distinct aggregation and a non-distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
-
-        // GROUP BY and WHERE on bigint column
-        // GROUP BY and WHERE on aggregation key
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
-
-        // GROUP BY and WHERE on varchar column
-        // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isNotFullyPushedDown(FilterNode.class);
-
-        // GROUP BY above WHERE and LIMIT
-        assertThat(query("" +
-                "SELECT regionkey, sum(nationkey) " +
-                "FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) " +
-                "GROUP BY regionkey"))
-                .isFullyPushedDown();
-
-        // GROUP BY above TopN
-        assertThat(query("" +
-                "SELECT clerk, sum(totalprice) " +
-                "FROM (SELECT clerk, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) " +
-                "GROUP BY clerk"))
-                .isFullyPushedDown();
-
-        // GROUP BY with JOIN
-        assertThat(query(joinPushdownEnabled(getSession()), "" +
-                "SELECT n.regionkey, sum(c.acctbal) acctbals " +
-                "FROM nation n " +
-                "LEFT JOIN customer c USING (nationkey) " +
-                "GROUP BY 1"))
-                .isFullyPushedDown();
-
-        // decimals
-        String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = new TestTable(postgreSqlServer::execute,
-                schemaName + ".test_aggregation_pushdown",
-                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))",
-                ImmutableList.of("100.000, 100000000.000000000", "123.321, 123456789.987654321"))) {
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        // TODO array_agg returns array, so it could be supported
-        assertThat(query("SELECT array_agg(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        // histogram returns map, which is not supported
-        assertThat(query("SELECT histogram(regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        // multimap_agg returns multimap, which is not supported
-        assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        // approx_set returns HyperLogLog, which is not supported
-        assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-    }
-
-    @Test
     public void testTopNWithEnum()
     {
         // Create an enum with non-lexicographically sorted entries
@@ -577,210 +468,6 @@ public class TestPostgreSqlConnectorTest
         finally {
             postgreSqlServer.execute("DROP TYPE " + enumType);
         }
-    }
-
-    @Test
-    public void testStddevAggregationPushdown()
-    {
-        String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = new TestTable(postgreSqlServer::execute, schemaName + ".test_stddev_pushdown",
-                "(t_double DOUBLE PRECISION)")) {
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            // with non-lowercase name on input
-            assertThat(query("SELECT StdDEv(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT StdDEv_SaMP(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            // with delimited, non-lowercase name on input
-            assertThat(query("SELECT \"StdDEv\"(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT \"StdDEv_SaMP\"(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
-
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        try (TestTable testTable = new TestTable(postgreSqlServer::execute, schemaName + ".test_stddev_pushdown",
-                "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "4", "5"))) {
-            // Test non-whole number results
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-    }
-
-    @Test
-    public void testVarianceAggregationPushdown()
-    {
-        String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = new TestTable(postgreSqlServer::execute, schemaName + ".test_variance_pushdown",
-                "(t_double DOUBLE PRECISION)")) {
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
-
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        try (TestTable testTable = new TestTable(postgreSqlServer::execute, schemaName + ".test_variance_pushdown",
-                "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "3", "4", "5"))) {
-            // Test non-whole number results
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-    }
-
-    @Test
-    public void testCovarianceAggregationPushdown()
-    {
-        // empty table
-        try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
-                "test_covariance_pushdown",
-                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)")) {
-            assertThat(query("SELECT covar_pop(t_double1, t_double2), covar_pop(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT covar_samp(t_double1, t_double2), covar_samp(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        // test some values for which the aggregate functions return whole numbers
-        try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
-                "test_covariance_pushdown",
-                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
-                ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
-            assertThat(query("SELECT covar_pop(t_double1, t_double2), covar_pop(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT covar_samp(t_double1, t_double2), covar_samp(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        // non-whole number results
-        try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
-                "test_covariance_pushdown",
-                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
-                ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
-            assertThat(query("SELECT covar_pop(t_double1, t_double2), covar_pop(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT covar_samp(t_double1, t_double2), covar_samp(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-    }
-
-    @Test
-    public void testCorrAggregationPushdown()
-    {
-        // empty table
-        try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
-                "test_corr_pushdown",
-                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)")) {
-            assertThat(query("SELECT corr(t_double1, t_double2), corr(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        // test some values for which the aggregate functions return whole numbers
-        try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
-                "test_corr_pushdown",
-                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
-                ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
-            assertThat(query("SELECT corr(t_double1, t_double2), corr(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        // non-whole number results
-        try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
-                "test_corr_pushdown",
-                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
-                ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
-            assertThat(query("SELECT corr(t_double1, t_double2), corr(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-    }
-
-    @Test
-    public void testRegrAggregationPushdown()
-    {
-        // empty table
-        try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
-                "test_regr_pushdown",
-                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)")) {
-            assertThat(query("SELECT regr_intercept(t_double1, t_double2), regr_intercept(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT regr_slope(t_double1, t_double2), regr_slope(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        // test some values for which the aggregate functions return whole numbers
-        try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
-                "test_regr_pushdown",
-                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
-                ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
-            assertThat(query("SELECT regr_intercept(t_double1, t_double2), regr_intercept(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT regr_slope(t_double1, t_double2), regr_slope(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        // non-whole number results
-        try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
-                "test_regr_pushdown",
-                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
-                ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
-            assertThat(query("SELECT regr_intercept(t_double1, t_double2), regr_intercept(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT regr_slope(t_double1, t_double2), regr_slope(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-    }
-
-    @Test
-    public void testLimitPushdown()
-    {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
-
-        // with filter over numeric column
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
-
-        // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(FilterNode.class);
-
-        // with aggregation
-        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
-        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isFullyPushedDown();
-        assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
-
-        // with filter and aggregation
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(FilterNode.class);
-
-        // with TopN over numeric column
-        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
-        // with TopN over varchar column
-        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
-
-        // LIMIT with JOIN
-        assertThat(query(joinPushdownEnabled(getSession()), "" +
-                "SELECT n.name, r.name " +
-                "FROM nation n " +
-                "LEFT JOIN region r USING (regionkey) " +
-                "LIMIT 30"))
-                .isFullyPushedDown();
     }
 
     /**
@@ -869,6 +556,7 @@ public class TestPostgreSqlConnectorTest
         };
     }
 
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return sql -> {

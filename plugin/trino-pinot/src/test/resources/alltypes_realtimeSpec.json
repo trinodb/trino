@@ -1,0 +1,72 @@
+{
+    "tableName": "alltypes",
+    "tableType": "REALTIME",
+    "segmentsConfig": {
+        "timeColumnName": "updated_at_seconds",
+        "timeType": "SECONDS",
+        "retentionTimeUnit": "DAYS",
+        "retentionTimeValue": "365",
+        "segmentPushType": "APPEND",
+        "segmentPushFrequency": "daily",
+        "segmentAssignmentStrategy": "BalanceNumSegmentAssignmentStrategy",
+        "schemaName": "alltypes",
+        "replicasPerPartition": "1"
+    },
+    "tenants": {
+        "broker": "DefaultTenant",
+        "server": "DefaultTenant"
+    },
+    "tableIndexConfig": {
+        "loadMode": "MMAP",
+        "invertedIndexColumns": ["string_col"],
+        "noDictionaryColumns": ["int_col", "int_array_col"],
+        "sortedColumn": ["updated_at_seconds"],
+        "starTreeIndexConfigs": [
+            {
+                "dimensionsSplitOrder": ["string_col"],
+                "functionColumnPairs": [
+                    "COUNT__int_col",
+                    "COUNT__float_col",
+                    "COUNT__double_col",
+                    "COUNT__long_col",
+                    "MIN__int_col",
+                    "MIN__float_col",
+                    "MIN__double_col",
+                    "MIN__long_col",
+                    "MAX__int_col",
+                    "MAX__float_col",
+                    "MAX__double_col",
+                    "MAX__long_col",
+                    "AVG__int_col",
+                    "AVG__float_col",
+                    "AVG__double_col",
+                    "AVG__long_col",
+                    "SUM__int_col",
+                    "SUM__float_col",
+                    "SUM__double_col",
+                    "SUM__long_col"
+                ]
+            }
+        ],
+        "nullHandlingEnabled": "true",
+        "streamConfigs": {
+            "streamType": "kafka",
+            "stream.kafka.consumer.type": "LowLevel",
+            "stream.kafka.topic.name": "alltypes",
+            "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.inputformat.avro.confluent.KafkaConfluentSchemaRegistryAvroMessageDecoder",
+            "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
+            "stream.kafka.decoder.prop.schema.registry.rest.url": "http://schema-registry:8081",
+            "stream.kafka.zk.broker.url": "zookeeper:2181/",
+            "stream.kafka.broker.list": "kafka:9092",
+            "realtime.segment.flush.threshold.time": "1m",
+            "realtime.segment.flush.threshold.size": "0",
+            "realtime.segment.flush.desired.size": "1M",
+            "isolation.level": "read_committed",
+            "stream.kafka.consumer.prop.auto.offset.reset": "smallest",
+            "stream.kafka.consumer.prop.group.id": "pinot_alltypes"
+        }
+    },
+    "metadata": {
+        "customConfigs": {}
+    }
+}

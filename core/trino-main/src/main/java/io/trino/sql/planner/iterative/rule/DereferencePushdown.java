@@ -14,11 +14,15 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
+import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
-import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
@@ -37,55 +41,55 @@ class DereferencePushdown
 {
     private DereferencePushdown() {}
 
-    public static Set<DereferenceExpression> extractDereferences(Collection<Expression> expressions, boolean allowOverlap)
+    public static Set<SubscriptExpression> extractRowSubscripts(Collection<Expression> expressions, boolean allowOverlap, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
-        Set<Expression> symbolReferencesAndDereferences = expressions.stream()
-                .flatMap(expression -> getSymbolReferencesAndDereferences(expression).stream())
+        Set<Expression> symbolReferencesAndRowSubscripts = expressions.stream()
+                .flatMap(expression -> getSymbolReferencesAndRowSubscripts(expression, session, typeAnalyzer, types).stream())
                 .collect(Collectors.toSet());
 
         // Remove overlap if required
-        Set<Expression> candidateExpressions = symbolReferencesAndDereferences;
+        Set<Expression> candidateExpressions = symbolReferencesAndRowSubscripts;
         if (!allowOverlap) {
-            candidateExpressions = symbolReferencesAndDereferences.stream()
-                    .filter(expression -> !prefixExists(expression, symbolReferencesAndDereferences))
+            candidateExpressions = symbolReferencesAndRowSubscripts.stream()
+                    .filter(expression -> !prefixExists(expression, symbolReferencesAndRowSubscripts))
                     .collect(Collectors.toSet());
         }
 
-        // Retain dereference expressions
+        // Retain row subscript expressions
         return candidateExpressions.stream()
-                .filter(DereferenceExpression.class::isInstance)
-                .map(DereferenceExpression.class::cast)
+                .filter(SubscriptExpression.class::isInstance)
+                .map(SubscriptExpression.class::cast)
                 .collect(Collectors.toSet());
     }
 
-    public static boolean exclusiveDereferences(Set<Expression> projections)
+    public static boolean exclusiveDereferences(Set<Expression> projections, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         return projections.stream()
                 .allMatch(expression -> expression instanceof SymbolReference ||
-                        (expression instanceof DereferenceExpression &&
-                                isDereferenceChain((DereferenceExpression) expression) &&
+                        (expression instanceof SubscriptExpression &&
+                                isRowSubscriptChain((SubscriptExpression) expression, session, typeAnalyzer, types) &&
                                 !prefixExists(expression, projections)));
     }
 
-    public static Symbol getBase(DereferenceExpression expression)
+    public static Symbol getBase(SubscriptExpression expression)
     {
         return getOnlyElement(extractAll(expression));
     }
 
     /**
-     * Extract the sub-expressions of type {@link DereferenceExpression} or {@link SymbolReference} from the {@param expression}
-     * in a top-down manner. The expressions within the base of a valid {@link DereferenceExpression} sequence are not extracted.
+     * Extract the sub-expressions of type {@link SubscriptExpression} or {@link SymbolReference} from the {@param expression}
+     * in a top-down manner. The expressions within the base of a valid {@link SubscriptExpression} sequence are not extracted.
      */
-    private static List<Expression> getSymbolReferencesAndDereferences(Expression expression)
+    private static List<Expression> getSymbolReferencesAndRowSubscripts(Expression expression, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         ImmutableList.Builder<Expression> builder = ImmutableList.builder();
 
         new DefaultExpressionTraversalVisitor<ImmutableList.Builder<Expression>>()
         {
             @Override
-            protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableList.Builder<Expression> context)
+            protected Void visitSubscriptExpression(SubscriptExpression node, ImmutableList.Builder<Expression> context)
             {
-                if (isDereferenceChain(node)) {
+                if (isRowSubscriptChain(node, session, typeAnalyzer, types)) {
                     context.add(node);
                 }
                 return null;
@@ -108,17 +112,21 @@ class DereferencePushdown
         return builder.build();
     }
 
-    private static boolean isDereferenceChain(DereferenceExpression expression)
+    private static boolean isRowSubscriptChain(SubscriptExpression expression, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
+        if (!(typeAnalyzer.getType(session, types, expression.getBase()) instanceof RowType)) {
+            return false;
+        }
+
         return (expression.getBase() instanceof SymbolReference) ||
-                ((expression.getBase() instanceof DereferenceExpression) && isDereferenceChain((DereferenceExpression) (expression.getBase())));
+                ((expression.getBase() instanceof SubscriptExpression) && isRowSubscriptChain((SubscriptExpression) (expression.getBase()), session, typeAnalyzer, types));
     }
 
     private static boolean prefixExists(Expression expression, Set<Expression> expressions)
     {
         Expression current = expression;
-        while (current instanceof DereferenceExpression) {
-            current = ((DereferenceExpression) current).getBase();
+        while (current instanceof SubscriptExpression) {
+            current = ((SubscriptExpression) current).getBase();
             if (expressions.contains(current)) {
                 return true;
             }

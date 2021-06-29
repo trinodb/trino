@@ -105,6 +105,11 @@ public class ExpressionRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
+    public Expression rewriteWindowOperation(WindowOperation node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
     public Expression rewriteLambdaExpression(LambdaExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
@@ -181,6 +186,16 @@ public class ExpressionRewriter<C>
     }
 
     public Expression rewriteAtTimeZone(AtTimeZone node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Expression rewriteCurrentCatalog(CurrentCatalog node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Expression rewriteCurrentSchema(CurrentSchema node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }

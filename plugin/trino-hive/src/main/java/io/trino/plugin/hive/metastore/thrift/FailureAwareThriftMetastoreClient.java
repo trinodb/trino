@@ -385,10 +385,10 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public String get_config_value(String name, String defaultValue)
+    public String getConfigValue(String name, String defaultValue)
             throws TException
     {
-        return runWithHandle(() -> delegate.get_config_value(name, defaultValue));
+        return runWithHandle(() -> delegate.getConfigValue(name, defaultValue));
     }
 
     @Override

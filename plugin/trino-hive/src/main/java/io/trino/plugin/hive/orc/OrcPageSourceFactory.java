@@ -283,12 +283,12 @@ public class OrcPageSourceFactory
                 fileReadTypes.add(BIGINT);
                 fileReadLayouts.add(fullyProjectedLayout());
 
-                fileReadColumns.add(acidColumnsByName.get(AcidSchema.ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
-                fileReadTypes.add(BIGINT);
-                fileReadLayouts.add(fullyProjectedLayout());
-
                 fileReadColumns.add(acidColumnsByName.get(AcidSchema.ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)));
                 fileReadTypes.add(INTEGER);
+                fileReadLayouts.add(fullyProjectedLayout());
+
+                fileReadColumns.add(acidColumnsByName.get(AcidSchema.ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
+                fileReadTypes.add(BIGINT);
                 fileReadLayouts.add(fullyProjectedLayout());
             }
 
@@ -388,7 +388,8 @@ public class OrcPageSourceFactory
                             sessionUser,
                             configuration,
                             hdfsEnvironment,
-                            info));
+                            info,
+                            bucketNumber));
 
             Optional<Long> originalFileRowId = acidInfo
                     .filter(OrcPageSourceFactory::hasOriginalFilesAndDeleteDeltas)

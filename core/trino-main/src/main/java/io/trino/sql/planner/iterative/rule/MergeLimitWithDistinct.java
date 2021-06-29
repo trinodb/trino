@@ -22,6 +22,7 @@ import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.LimitNode;
 
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.plan.Patterns.Limit.requiresPreSortedInputs;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -33,6 +34,7 @@ public class MergeLimitWithDistinct
 
     private static final Pattern<LimitNode> PATTERN = limit()
             .matching(limit -> !limit.isWithTies())
+            .with(requiresPreSortedInputs().equalTo(false))
             .with(source().matching(aggregation().capturedAs(CHILD).matching(AggregationNode::producesDistinctRows)));
 
     @Override

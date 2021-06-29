@@ -154,7 +154,8 @@ public class TestPushDistinctLimitIntoTableScan
                     new MockConnectorTableHandle(new SchemaTableName("mock_schema", "mock_nation_aggregated")),
                     List.of(),
                     List.of(),
-                    Map.of()));
+                    Map.of(),
+                    false));
         };
 
         MockConnectorColumnHandle regionkeyHandle = new MockConnectorColumnHandle("regionkey", BIGINT);

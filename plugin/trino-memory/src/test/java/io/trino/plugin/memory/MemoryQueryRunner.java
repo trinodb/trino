@@ -34,13 +34,9 @@ public final class MemoryQueryRunner
 
     private MemoryQueryRunner() {}
 
-    public static DistributedQueryRunner createQueryRunner()
-            throws Exception
-    {
-        return createQueryRunner(ImmutableMap.of());
-    }
-
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
+    public static DistributedQueryRunner createMemoryQueryRunner(
+            Map<String, String> extraProperties,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -59,7 +55,7 @@ public final class MemoryQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, tables);
 
             return queryRunner;
         }
@@ -73,7 +69,9 @@ public final class MemoryQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        DistributedQueryRunner queryRunner = createMemoryQueryRunner(
+                ImmutableMap.of("http-server.http.port", "8080"),
+                TpchTable.getTables());
         Thread.sleep(10);
         Logger log = Logger.get(MemoryQueryRunner.class);
         log.info("======== SERVER STARTED ========");

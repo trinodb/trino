@@ -58,7 +58,6 @@ import io.trino.split.SplitManager;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.InternalTypeManager;
-import io.trino.version.EmbedVersion;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -129,7 +128,7 @@ public class ConnectorManager
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
             NodeInfo nodeInfo,
-            EmbedVersion embedVersion,
+            VersionEmbedder versionEmbedder,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
@@ -150,7 +149,7 @@ public class ConnectorManager
         this.pageSorter = pageSorter;
         this.pageIndexerFactory = pageIndexerFactory;
         this.nodeInfo = nodeInfo;
-        this.versionEmbedder = embedVersion;
+        this.versionEmbedder = versionEmbedder;
         this.transactionManager = transactionManager;
         this.eventListenerManager = eventListenerManager;
         this.typeOperators = typeOperators;

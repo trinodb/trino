@@ -54,6 +54,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.StandardTypes;
@@ -147,7 +148,7 @@ public class IcebergPageSourceProvider
             ConnectorSplit connectorSplit,
             ConnectorTableHandle connectorTable,
             List<ColumnHandle> columns,
-            TupleDomain<ColumnHandle> dynamicFilter)
+            DynamicFilter dynamicFilter)
     {
         IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableHandle table = (IcebergTableHandle) connectorTable;

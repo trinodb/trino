@@ -111,6 +111,11 @@ public abstract class AbstractTestDistributedQueries
         return true;
     }
 
+    protected boolean supportsRenameTable()
+    {
+        return true;
+    }
+
     /**
      * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
      * shortcuts, not exercising certain aspects.
@@ -271,11 +276,15 @@ public abstract class AbstractTestDistributedQueries
     public void testRenameTable()
     {
         skipTestUnless(supportsCreateTable());
-
         String tableName = "test_rename_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
 
         String renamedTable = "test_rename_new_" + randomTableSuffix();
+        if (!supportsRenameTable()) {
+            assertQueryFails("ALTER TABLE " + tableName + " RENAME TO " + renamedTable, "This connector does not support renaming tables");
+            return;
+        }
+
         assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
         assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
 
@@ -307,6 +316,8 @@ public abstract class AbstractTestDistributedQueries
             return;
         }
 
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
         String tableName = "test_comment_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 
@@ -314,6 +325,12 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'new comment'");
         assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("COMMENT 'new comment'");
         assertThat(getTableComment(tableName)).isEqualTo("new comment");
+        assertThat(query(
+                "SELECT table_name, comment FROM system.metadata.table_comments " +
+                        "WHERE catalog_name = '" + catalogName + "' AND " +
+                        "schema_name = '" + schemaName + "'"))
+                .skippingTypesCheck()
+                .containsAll("VALUES ('" + tableName + "', 'new comment')");
 
         // comment updated
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'updated comment'");
@@ -459,7 +476,7 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnless(supportsCreateTable());
 
         String tableName = "test_add_column_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT CAST('first' AS varchar) x", 1);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT VARCHAR 'first' x", 1);
 
         assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN x bigint", ".* Column 'x' already exists");
         assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN X bigint", ".* Column 'X' already exists");
@@ -649,33 +666,29 @@ public abstract class AbstractTestDistributedQueries
 
         // delete using a subquery
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM lineitem", "SELECT count(*) FROM lineitem");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
 
-        assertUpdate(
-                "DELETE FROM " + tableName + " WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')",
-                "SELECT count(*) FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')");
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%')", 15);
         assertQuery(
                 "SELECT * FROM " + tableName,
-                "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus <> 'F')");
+                "SELECT * FROM nation WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%')");
 
         assertUpdate("DROP TABLE " + tableName);
 
         // delete with multiple SemiJoin
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM lineitem", "SELECT count(*) FROM lineitem");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
 
         assertUpdate(
-                "DELETE FROM " + tableName + "\n" +
-                        "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')\n" +
-                        "  AND orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)\n",
-                "SELECT count(*) FROM lineitem\n" +
-                        "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')\n" +
-                        "  AND orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)");
+                "DELETE FROM " + tableName + " " +
+                        "WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%') " +
+                        "  AND regionkey IN (SELECT regionkey FROM region WHERE length(comment) < 50)",
+                10);
         assertQuery(
                 "SELECT * FROM " + tableName,
-                "SELECT * FROM lineitem\n" +
-                        "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus <> 'F')\n" +
-                        "  OR orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 <> 0)");
+                "SELECT * FROM nation " +
+                        "WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%') " +
+                        "  OR regionkey IN (SELECT regionkey FROM region WHERE length(comment) >= 50)");
 
         assertUpdate("DROP TABLE " + tableName);
 
@@ -685,7 +698,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate(
                 "DELETE FROM " + tableName + "\n" +
-                        "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NULL\n",
+                        "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM tpch.tiny.lineitem)) IS NULL\n",
                 "SELECT count(*) FROM orders\n" +
                         "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NULL\n");
         assertQuery(
@@ -726,10 +739,15 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testView()
     {
-        skipTestUnless(supportsViews());
+        if (!supportsViews()) {
+            assertQueryFails("CREATE VIEW nation_v AS SELECT * FROM nation", "This connector does not support creating views");
+            return;
+        }
 
         @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
 
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
         String testView = "test_view_" + randomTableSuffix();
         String testViewWithComment = "test_view_with_comment_" + randomTableSuffix();
         assertUpdate("CREATE VIEW " + testView + " AS SELECT 123 x");
@@ -740,6 +758,12 @@ public abstract class AbstractTestDistributedQueries
 
         MaterializedResult materializedRows = computeActual("SHOW CREATE VIEW " + testViewWithComment);
         assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'orders'");
+        assertThat(query(
+                "SELECT table_name, comment FROM system.metadata.table_comments " +
+                        "WHERE catalog_name = '" + catalogName + "' AND " +
+                        "schema_name = '" + schemaName + "'"))
+                .skippingTypesCheck()
+                .containsAll("VALUES ('" + testView + "', null), ('" + testViewWithComment + "', 'orders')");
 
         assertQuery("SELECT * FROM " + testView, query);
         assertQuery("SELECT * FROM " + testViewWithComment, query);
@@ -750,7 +774,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertQuery("WITH orders AS (SELECT * FROM orders LIMIT 0) SELECT * FROM " + testView, query);
 
-        String name = format("%s.%s." + testView, getSession().getCatalog().get(), getSession().getSchema().get());
+        String name = format("%s.%s." + testView, catalogName, schemaName);
         assertQuery("SELECT * FROM " + name, query);
 
         assertUpdate("DROP VIEW " + testView);
@@ -837,7 +861,6 @@ public abstract class AbstractTestDistributedQueries
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("customer", "BASE TABLE")
-                .row("lineitem", "BASE TABLE")
                 .row(viewName, "VIEW")
                 .row("nation", "BASE TABLE")
                 .row("orders", "BASE TABLE")

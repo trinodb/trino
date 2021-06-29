@@ -15,9 +15,11 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -101,7 +103,7 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(a1),
                 ImmutableList.of(b1),
                 Optional.empty());
-        toMultiJoinNode(queryRunner.getMetadata(), outerJoin, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false);
+        toMultiJoinNode(queryRunner.getMetadata(), outerJoin, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes());
     }
 
     @Test
@@ -134,7 +136,9 @@ public class TestJoinNodeFlattener
                 .setSources(leftJoin, valuesC).setFilter(createEqualsExpression(a1, c1))
                 .setOutputSymbols(a1, b1, c1)
                 .build();
-        assertEquals(toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false), expected);
+        assertEquals(
+                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes()),
+                expected);
     }
 
     @Test
@@ -160,7 +164,7 @@ public class TestJoinNodeFlattener
                                 equiJoinClause(a, b))),
                 valuesC,
                 equiJoinClause(d, c));
-        MultiJoinNode actual = toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true);
+        MultiJoinNode actual = toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes());
         assertEquals(actual.getOutputSymbols(), ImmutableList.of(d, c));
         assertEquals(actual.getFilter(), and(createEqualsExpression(a, b), createEqualsExpression(d, c)));
         assertTrue(actual.isPushedProjectionThroughJoin());
@@ -206,7 +210,7 @@ public class TestJoinNodeFlattener
                                 equiJoinClause(a, b))),
                 valuesC,
                 equiJoinClause(d, c));
-        MultiJoinNode actual = toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true);
+        MultiJoinNode actual = toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes());
         assertEquals(actual.getOutputSymbols(), ImmutableList.of(d, c));
         assertEquals(actual.getFilter(), createEqualsExpression(d, c));
         assertFalse(actual.isPushedProjectionThroughJoin());
@@ -257,7 +261,9 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(b1, c1), createEqualsExpression(a1, b1)))
                 .setOutputSymbols(a1, b1)
                 .build();
-        assertEquals(toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false), expected);
+        assertEquals(
+                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes()),
+                expected);
     }
 
     @Test
@@ -301,7 +307,9 @@ public class TestJoinNodeFlattener
                 and(new ComparisonExpression(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new ComparisonExpression(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
                 ImmutableList.of(a1, b1, b2, c1, c2),
                 false);
-        assertEquals(toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false), expected);
+        assertEquals(
+                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes()),
+                expected);
     }
 
     @Test
@@ -357,7 +365,9 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(a1, b1), createEqualsExpression(a1, c1), createEqualsExpression(d1, e1), createEqualsExpression(d2, e2), createEqualsExpression(b1, e1)))
                 .setOutputSymbols(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertEquals(toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, 5, false), expected);
+        assertEquals(
+                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, 5, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes()),
+                expected);
     }
 
     @Test
@@ -415,7 +425,9 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(a1, c1), createEqualsExpression(b1, e1)))
                 .setOutputSymbols(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertEquals(toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, 2, false), expected);
+        assertEquals(
+                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, 2, false, testSessionBuilder().build(), new TypeAnalyzer(new SqlParser(), queryRunner.getMetadata()), p.getTypes()),
+                expected);
     }
 
     private ComparisonExpression createEqualsExpression(Symbol left, Symbol right)

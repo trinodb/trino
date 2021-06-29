@@ -21,7 +21,6 @@ import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static java.math.BigDecimal.ONE;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test
 public class TestBigQueryType
 {
     @Test
@@ -54,6 +53,10 @@ public class TestBigQueryType
         assertThat(BigQueryType.stringToStringConverter(
                 utf8Slice("test")))
                 .isEqualTo("'test'");
+
+        assertThat(BigQueryType.stringToStringConverter(
+                utf8Slice("test's test")))
+                .isEqualTo("'test\\'s test'");
     }
 
     @Test

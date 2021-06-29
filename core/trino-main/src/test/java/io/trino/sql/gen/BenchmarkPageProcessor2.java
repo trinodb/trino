@@ -46,11 +46,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.HashMap;
 import java.util.List;
@@ -58,6 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -193,11 +190,6 @@ public class BenchmarkPageProcessor2
     public static void main(String[] args)
             throws RunnerException
     {
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkPageProcessor2.class.getSimpleName() + ".*")
-                .build();
-
-        new Runner(options).run();
+        benchmark(BenchmarkPageProcessor2.class).run();
     }
 }

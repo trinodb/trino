@@ -21,13 +21,13 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.Type;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TransactionId;
 import org.testng.annotations.Test;
@@ -67,8 +67,8 @@ public class TestPartialTranslator
     public void testPartialTranslator()
     {
         Expression rowSymbolReference = new SymbolReference("row_symbol_1");
-        Expression dereferenceExpression1 = new DereferenceExpression(rowSymbolReference, new Identifier("int_symbol_1"));
-        Expression dereferenceExpression2 = new DereferenceExpression(rowSymbolReference, new Identifier("varchar_symbol_1"));
+        Expression dereferenceExpression1 = new SubscriptExpression(rowSymbolReference, new LongLiteral("1"));
+        Expression dereferenceExpression2 = new SubscriptExpression(rowSymbolReference, new LongLiteral("2"));
         Expression stringLiteral = new StringLiteral("abcd");
         Expression symbolReference1 = new SymbolReference("double_symbol_1");
 

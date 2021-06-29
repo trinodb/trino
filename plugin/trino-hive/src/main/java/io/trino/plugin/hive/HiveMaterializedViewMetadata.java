@@ -17,20 +17,27 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.session.PropertyMetadata;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 public interface HiveMaterializedViewMetadata
 {
-    List<PropertyMetadata<?>> getMaterializedViewProperties();
-
     void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
 
     void dropMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
+    List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName);
+
+    Map<SchemaTableName, ConnectorMaterializedViewDefinition> getMaterializedViews(ConnectorSession session, Optional<String> schemaName);
+
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
     MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name);
+
+    boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName);
+
+    CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName);
 }

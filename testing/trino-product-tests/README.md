@@ -175,7 +175,7 @@ groups.
 Below is a list of commands that explain how to run these profile specific tests
 and also the entire test suite:
 
-Note: SQL Server product-tests use `microsoft/mssql-server-linux` docker container.
+Note: SQL Server product-tests use `mcr.microsoft.com/mssql/server` docker container.
 By running SQL Server product tests you accept the license [ACCEPT_EULA](https://go.microsoft.com/fwlink/?LinkId=746388)
 
 ### Running test suites

@@ -22,6 +22,8 @@ public final class Help
         return "" +
                 "Supported commands:\n" +
                 "QUIT\n" +
+                "EXIT\n" +
+                "CLEAR\n" +
                 "EXPLAIN [ ( option [, ...] ) ] <query>\n" +
                 "    options: FORMAT { TEXT | GRAPHVIZ | JSON }\n" +
                 "             TYPE { LOGICAL | DISTRIBUTED | VALIDATE | IO }\n" +

@@ -14,6 +14,7 @@
 package io.trino.server.security.oauth2;
 
 import com.github.scribejava.core.model.OAuth2AccessToken;
+import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
@@ -50,14 +51,15 @@ public class TestDynamicCallbackOAuth2Service
 
     @BeforeClass
     public void setUp()
+            throws Exception
     {
         hydraIdP.start();
-        hydraUrl = "https://localhost:" + hydraIdP.getHydraPort();
+        hydraUrl = "https://localhost:" + hydraIdP.getAuthPort();
         hydraIdP.createClient(
                 CLIENT_ID,
                 CLIENT_SECRET,
                 CLIENT_SECRET_BASIC,
-                "https://localhost:8080",
+                ImmutableList.of("https://localhost:8080"),
                 "https://localhost:8080/oauth2/callback");
         signingKeyResolver = new JwkSigningKeyResolver(new JwkService(
                 URI.create(hydraUrl + "/.well-known/jwks.json"),

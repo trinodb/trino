@@ -19,6 +19,8 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
@@ -74,10 +76,40 @@ public class TestColumnMask
                 Optional.of(VIEW_OWNER),
                 false);
 
+        ConnectorMaterializedViewDefinition materializedView = new ConnectorMaterializedViewDefinition(
+                "SELECT * FROM local.tiny.nation",
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(
+                        new ConnectorMaterializedViewDefinition.Column("nationkey", BigintType.BIGINT.getTypeId()),
+                        new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(25).getTypeId()),
+                        new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
+                        new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                Optional.empty(),
+                VIEW_OWNER,
+                ImmutableMap.of());
+
+        ConnectorMaterializedViewDefinition freshMaterializedView = new ConnectorMaterializedViewDefinition(
+                "SELECT * FROM local.tiny.nation",
+                Optional.of(new CatalogSchemaTableName("local", "tiny", "nation")),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(
+                        new ConnectorMaterializedViewDefinition.Column("nationkey", BigintType.BIGINT.getTypeId()),
+                        new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(25).getTypeId()),
+                        new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
+                        new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                Optional.empty(),
+                VIEW_OWNER,
+                ImmutableMap.of());
+
         MockConnectorFactory mock = MockConnectorFactory.builder()
-                .withGetViews((s, prefix) -> ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
-                        .put(new SchemaTableName("default", "nation_view"), view)
-                        .build())
+                .withGetViews((s, prefix) -> ImmutableMap.of(
+                        new SchemaTableName("default", "nation_view"), view))
+                .withGetMaterializedViews((s, prefix) -> ImmutableMap.of(
+                        new SchemaTableName("default", "nation_materialized_view"), materializedView,
+                        new SchemaTableName("default", "nation_fresh_materialized_view"), freshMaterializedView))
                 .build();
 
         runner.createCatalog(MOCK_CATALOG, mock, ImmutableMap.of());
@@ -203,6 +235,37 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "(SELECT cast(max(name) AS VARCHAR(15)) FROM nation WHERE nationkey = orderkey)"));
         assertThat(assertions.query("SELECT clerk FROM orders WHERE orderkey = 1")).matches("VALUES CAST('ARGENTINA' AS VARCHAR(15))");
+    }
+
+    @Test
+    public void testMaterializedView()
+    {
+        // mask materialized view columns
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "default", "nation_fresh_materialized_view"),
+                "name",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "reverse(name)"));
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "default", "nation_materialized_view"),
+                "name",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "reverse(name)"));
+
+        assertThat(assertions.query(
+                Session.builder(SESSION)
+                        .setIdentity(Identity.forUser(USER).build())
+                        .build(),
+                "SELECT name FROM mock.default.nation_fresh_materialized_view WHERE nationkey = 1"))
+                .matches("VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
+
+        assertThat(assertions.query(
+                Session.builder(SESSION)
+                        .setIdentity(Identity.forUser(USER).build())
+                        .build(),
+                "SELECT name FROM mock.default.nation_materialized_view WHERE nationkey = 1"))
+                .matches("VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
     }
 
     @Test
@@ -459,16 +522,16 @@ public class TestColumnMask
 
         assertThat(assertions.query("SHOW STATS FOR (SELECT * FROM orders)"))
                 .containsAll("VALUES " +
-                        "(CAST('orderkey' AS varchar), CAST(NULL AS double), 1e0, 0e1, NULL, '7', '7')," +
-                        "(CAST('clerk' AS varchar), 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
+                        "(VARCHAR 'orderkey', CAST(NULL AS double), 1e0, 0e1, NULL, '7', '7')," +
+                        "(VARCHAR 'clerk', 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
                         "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
         assertThat(assertions.query("SHOW STATS FOR (SELECT orderkey FROM orders)"))
                 .matches("VALUES " +
-                        "(CAST('orderkey' AS varchar), CAST(NULL AS double), 1e0, 0e1, NULL, CAST('7' AS varchar), CAST('7' AS varchar))," +
+                        "(VARCHAR 'orderkey', CAST(NULL AS double), 1e0, 0e1, NULL, VARCHAR '7', VARCHAR '7')," +
                         "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
         assertThat(assertions.query("SHOW STATS FOR (SELECT clerk FROM orders)"))
                 .matches("VALUES " +
-                        "(CAST('clerk' AS varchar), 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
+                        "(VARCHAR 'clerk', 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
                         "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
     }
 

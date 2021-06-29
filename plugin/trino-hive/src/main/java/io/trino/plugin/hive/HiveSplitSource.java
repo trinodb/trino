@@ -46,7 +46,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
@@ -136,7 +136,7 @@ class HiveSplitSource
                     private final AsyncQueue<InternalHiveSplit> queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
 
                     @Override
-                    public ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit connectorSplit)
+                    public ListenableFuture<Void> offer(OptionalInt bucketNumber, InternalHiveSplit connectorSplit)
                     {
                         // bucketNumber can be non-empty because BackgroundHiveSplitLoader does not have knowledge of execution plan
                         return queue.offer(connectorSplit);
@@ -192,13 +192,13 @@ class HiveSplitSource
                     private final AtomicBoolean finished = new AtomicBoolean();
 
                     @Override
-                    public ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit connectorSplit)
+                    public ListenableFuture<Void> offer(OptionalInt bucketNumber, InternalHiveSplit connectorSplit)
                     {
                         AsyncQueue<InternalHiveSplit> queue = queueFor(bucketNumber);
                         queue.offer(connectorSplit);
                         // Do not block "offer" when running split discovery in bucketed mode.
                         // A limit is enforced on estimatedSplitSizeInBytes.
-                        return immediateFuture(null);
+                        return immediateVoidFuture();
                     }
 
                     @Override
@@ -254,19 +254,19 @@ class HiveSplitSource
         return bufferedInternalSplitCount.get();
     }
 
-    ListenableFuture<?> addToQueue(List<? extends InternalHiveSplit> splits)
+    ListenableFuture<Void> addToQueue(List<? extends InternalHiveSplit> splits)
     {
-        ListenableFuture<?> lastResult = immediateFuture(null);
+        ListenableFuture<Void> lastResult = immediateVoidFuture();
         for (InternalHiveSplit split : splits) {
             lastResult = addToQueue(split);
         }
         return lastResult;
     }
 
-    ListenableFuture<?> addToQueue(InternalHiveSplit split)
+    ListenableFuture<Void> addToQueue(InternalHiveSplit split)
     {
         if (stateReference.get().getKind() != INITIAL) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
         if (estimatedSplitSizeInBytes.addAndGet(split.getEstimatedSizeInBytes()) > maxOutstandingSplitsBytes) {
             // TODO: investigate alternative split discovery strategies when this error is hit.
@@ -489,7 +489,7 @@ class HiveSplitSource
 
     interface PerBucket
     {
-        ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit split);
+        ListenableFuture<Void> offer(OptionalInt bucketNumber, InternalHiveSplit split);
 
         <O> ListenableFuture<O> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, O>> function);
 

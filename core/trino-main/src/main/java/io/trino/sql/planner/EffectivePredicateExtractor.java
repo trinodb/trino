@@ -253,7 +253,9 @@ public class EffectivePredicateExtractor
             }
 
             // TODO: replace with metadata.getTableProperties() when table layouts are fully removed
-            return domainTranslator.toPredicate(predicate.simplify().transform(assignments::get));
+            return domainTranslator.toPredicate(predicate.simplify()
+                    .filter((columnHandle, domain) -> assignments.containsKey(columnHandle))
+                    .transformKeys(assignments::get));
         }
 
         @Override

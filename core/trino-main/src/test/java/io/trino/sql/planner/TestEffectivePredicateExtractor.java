@@ -515,6 +515,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.none(),
+                Optional.empty(),
                 false,
                 Optional.empty());
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
@@ -527,6 +528,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 predicate,
+                Optional.empty(),
                 false,
                 Optional.empty());
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
@@ -541,6 +543,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 predicate,
+                Optional.empty(),
                 false,
                 Optional.empty());
         effectivePredicate = effectivePredicateExtractorWithoutTableProperties.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
@@ -552,6 +555,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
@@ -565,6 +569,7 @@ public class TestEffectivePredicateExtractor
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         scanAssignments.get(A), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L)),
                         scanAssignments.get(B), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L)))),
+                Optional.empty(),
                 false,
                 Optional.empty());
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
@@ -576,6 +581,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
@@ -1145,6 +1151,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(scanAssignments.keySet()),
                 scanAssignments,
                 TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
     }

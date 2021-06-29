@@ -352,8 +352,8 @@ public final class WorkProcessorUtils
     {
         @Nullable
         WorkProcessor.Process<T> process;
-        @Nullable
-        ProcessState<T> state;
+        // set initial state to yield as it will cause processor computations to progress
+        ProcessState<T> state = ProcessState.yield();
 
         ProcessWorkProcessor(WorkProcessor.Process<T> process)
         {
@@ -382,26 +382,26 @@ public final class WorkProcessorUtils
         @Override
         public boolean isBlocked()
         {
-            return state != null && state.getType() == ProcessState.Type.BLOCKED && !state.getBlocked().isDone();
+            return state.getType() == ProcessState.Type.BLOCKED && !state.getBlocked().isDone();
         }
 
         @Override
-        public ListenableFuture<?> getBlockedFuture()
+        public ListenableFuture<Void> getBlockedFuture()
         {
-            checkState(state != null && state.getType() == ProcessState.Type.BLOCKED, "Must be blocked to get blocked future");
+            checkState(state.getType() == ProcessState.Type.BLOCKED, "Must be blocked to get blocked future");
             return state.getBlocked();
         }
 
         @Override
         public boolean isFinished()
         {
-            return state != null && state.getType() == ProcessState.Type.FINISHED;
+            return state.getType() == ProcessState.Type.FINISHED;
         }
 
         @Override
         public T getResult()
         {
-            checkState(state != null && state.getType() == ProcessState.Type.RESULT, "process() must return true and must not be finished");
+            checkState(state.getType() == ProcessState.Type.RESULT, "process() must return true and must not be finished");
             return state.getResult();
         }
     }

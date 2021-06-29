@@ -44,6 +44,13 @@ public class TestingMemSqlServer
     {
         super(DockerImageName.parse(dockerImageName));
         addEnv("ROOT_PASSWORD", "memsql_root_password");
+        withCommand("sh", "-xeuc",
+                "/startup && " +
+                // Lower the size of pre-allocated log files to 1MB (minimum allowed) to reduce disk footprint
+                "memsql-admin update-config --yes --all --set-global --key \"log_file_size_partitions\" --value \"1048576\" && " +
+                "memsql-admin update-config --yes --all --set-global --key \"log_file_size_ref_dbs\" --value \"1048576\" && " +
+                // re-execute startup to actually start the nodes (first run performs setup but doesn't start the nodes)
+                "exec /startup");
         start();
     }
 
@@ -58,7 +65,6 @@ public class TestingMemSqlServer
     {
         addExposedPort(MEMSQL_PORT);
         addEnv("LICENSE_KEY", MEM_SQL_LICENSE);
-        addEnv("START_AFTER_INIT", "true");
         setStartupAttempts(3);
     }
 

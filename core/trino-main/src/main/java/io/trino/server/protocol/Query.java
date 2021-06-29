@@ -70,7 +70,6 @@ import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.TypeParameter;
 import io.trino.transaction.TransactionId;
-import io.trino.util.Failures;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -95,6 +94,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
@@ -340,7 +340,7 @@ class Query
         }
 
         // wait for a results data or query to finish, up to the wait timeout
-        ListenableFuture<?> futureStateChange = addTimeout(
+        ListenableFuture<Void> futureStateChange = addTimeout(
                 getFutureStateChange(),
                 () -> null,
                 wait,
@@ -350,7 +350,7 @@ class Query
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
-    private synchronized ListenableFuture<?> getFutureStateChange()
+    private synchronized ListenableFuture<Void> getFutureStateChange()
     {
         // if the exchange client is open, wait for data
         if (!exchangeClient.isClosed()) {
@@ -363,7 +363,7 @@ class Query
             return queryDoneFuture(queryManager.getQueryState(queryId));
         }
         catch (NoSuchElementException e) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
     }
 
@@ -447,9 +447,10 @@ class Query
         URI nextResultsUri = null;
         URI partialCancelUri = null;
         if (nextToken.isPresent()) {
-            nextResultsUri = createNextResultsUri(uriInfo, nextToken.getAsLong());
+            long nextToken = this.nextToken.getAsLong();
+            nextResultsUri = createNextResultsUri(uriInfo, nextToken);
             partialCancelUri = findCancelableLeafStage(queryInfo)
-                    .map(stage -> this.createPartialCancelUri(stage, uriInfo, nextToken.getAsLong()))
+                    .map(stage -> createPartialCancelUri(stage, uriInfo, nextToken))
                     .orElse(null);
         }
 
@@ -545,14 +546,14 @@ class Query
         }
     }
 
-    private void handleSerializationException(Throwable exception)
+    private synchronized void handleSerializationException(Throwable exception)
     {
         // failQuery can throw exception if query has already finished.
         try {
             queryManager.failQuery(queryId, exception);
         }
         catch (RuntimeException e) {
-            log.debug("Could not fail query", e);
+            log.debug(e, "Could not fail query");
         }
 
         if (typeSerializationException.isEmpty()) {
@@ -584,10 +585,10 @@ class Query
         }
     }
 
-    private ListenableFuture<?> queryDoneFuture(QueryState currentState)
+    private ListenableFuture<Void> queryDoneFuture(QueryState currentState)
     {
         if (currentState.isDone()) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }
@@ -633,23 +634,23 @@ class Query
                 if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !dataTimeType.isWithTimeZone()) {
                     return TIMESTAMP;
                 }
-                else if (dataTimeType.getType() == DateTimeDataType.Type.TIME && !dataTimeType.isWithTimeZone()) {
+                if (dataTimeType.getType() == DateTimeDataType.Type.TIME && !dataTimeType.isWithTimeZone()) {
                     return TIME;
                 }
-                else if (dataTimeType.getType() == DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
+                if (dataTimeType.getType() == DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
                     return TIMESTAMP_WITH_TIME_ZONE;
                 }
             }
 
             return ExpressionFormatter.formatExpression(type);
         }
-        else if (type instanceof RowDataType) {
+        if (type instanceof RowDataType) {
             RowDataType rowDataType = (RowDataType) type;
             return rowDataType.getFields().stream()
                     .map(field -> field.getName().map(name -> name + " ").orElse("") + formatType(field.getType()))
                     .collect(Collectors.joining(", ", ROW + "(", ")"));
         }
-        else if (type instanceof GenericDataType) {
+        if (type instanceof GenericDataType) {
             GenericDataType dataType = (GenericDataType) type;
             if (dataType.getArguments().isEmpty()) {
                 return dataType.getName().getValue();
@@ -660,14 +661,14 @@ class Query
                         if (parameter instanceof NumericParameter) {
                             return ((NumericParameter) parameter).getValue();
                         }
-                        else if (parameter instanceof TypeParameter) {
+                        if (parameter instanceof TypeParameter) {
                             return formatType(((TypeParameter) parameter).getValue());
                         }
                         throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
                     })
                     .collect(Collectors.joining(", ", dataType.getName().getValue() + "(", ")"));
         }
-        else if (type instanceof IntervalDayTimeDataType) {
+        if (type instanceof IntervalDayTimeDataType) {
             return ExpressionFormatter.formatExpression(type);
         }
 
@@ -680,13 +681,13 @@ class Query
             if (signature.getBase().equalsIgnoreCase(TIMESTAMP)) {
                 return new ClientTypeSignature(TIMESTAMP);
             }
-            else if (signature.getBase().equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
+            if (signature.getBase().equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
                 return new ClientTypeSignature(TIMESTAMP_WITH_TIME_ZONE);
             }
-            else if (signature.getBase().equalsIgnoreCase(TIME)) {
+            if (signature.getBase().equalsIgnoreCase(TIME)) {
                 return new ClientTypeSignature(TIME);
             }
-            else if (signature.getBase().equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
+            if (signature.getBase().equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
                 return new ClientTypeSignature(TIME_WITH_TIME_ZONE);
             }
         }
@@ -835,7 +836,7 @@ class Query
             executionFailure = queryInfo.getFailureInfo();
         }
         else if (exception.isPresent()) {
-            executionFailure = Failures.toFailure(exception.get());
+            executionFailure = toFailure(exception.get());
         }
         else {
             log.warn("Query %s in state %s has no failure info", queryInfo.getQueryId(), state);

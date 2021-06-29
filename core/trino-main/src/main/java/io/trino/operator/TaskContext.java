@@ -290,7 +290,7 @@ public class TaskContext
         return pipelineContexts;
     }
 
-    public synchronized ListenableFuture<?> reserveSpill(long bytes)
+    public synchronized ListenableFuture<Void> reserveSpill(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
         return queryContext.reserveSpill(bytes);

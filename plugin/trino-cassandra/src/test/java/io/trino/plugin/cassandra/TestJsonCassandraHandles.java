@@ -31,7 +31,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public class TestJsonCassandraHandles
 {
     private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.of(

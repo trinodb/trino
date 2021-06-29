@@ -34,7 +34,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.type.FunctionType.NAME;
 import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
@@ -94,7 +93,7 @@ public class InterpretedFunctionInvoker
                 return null;
             }
 
-            if (functionMetadata.getSignature().getArgumentTypes().get(i).getBase().equals(NAME)) {
+            if (functionMetadata.getSignature().getArgumentTypes().get(i).getBase().equals(FunctionType.NAME)) {
                 argument = asInterfaceInstance(invoker.getLambdaInterfaces().get(lambdaArgumentIndex), (MethodHandle) argument);
                 lambdaArgumentIndex++;
             }

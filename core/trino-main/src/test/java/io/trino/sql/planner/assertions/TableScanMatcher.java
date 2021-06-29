@@ -29,7 +29,6 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static java.util.Objects.requireNonNull;
 
@@ -87,11 +86,7 @@ public final class TableScanMatcher
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         TupleDomain<ColumnHandle> expected = TupleDomain.withColumnDomains(expectedDomains.get())
-                .transform(key -> {
-                    ColumnHandle columnHandle = columnHandles.get(key);
-                    verify(columnHandle != null, "No column handle for: %s", key);
-                    return columnHandle;
-                });
+                .transformKeys(columnHandles::get);
 
         return expected.equals(actualConstraint);
     }

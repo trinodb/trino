@@ -26,12 +26,18 @@ public class AggregationApplicationResult<T>
     private final List<ConnectorExpression> projections;
     private final List<Assignment> assignments;
     private final Map<ColumnHandle, ColumnHandle> groupingColumnMapping;
+    private final boolean precalculateStatistics;
 
+    /**
+     * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
+     * as the connector may be unable to provide good table statistics for {@code handle}.
+     */
     public AggregationApplicationResult(
             T handle,
             List<ConnectorExpression> projections,
             List<Assignment> assignments,
-            Map<ColumnHandle, ColumnHandle> groupingColumnMapping)
+            Map<ColumnHandle, ColumnHandle> groupingColumnMapping,
+            boolean precalculateStatistics)
     {
         this.handle = requireNonNull(handle, "handle is null");
         requireNonNull(groupingColumnMapping, "groupingColumnMapping is null");
@@ -40,6 +46,7 @@ public class AggregationApplicationResult<T>
         this.groupingColumnMapping = Map.copyOf(groupingColumnMapping);
         this.projections = List.copyOf(projections);
         this.assignments = List.copyOf(assignments);
+        this.precalculateStatistics = precalculateStatistics;
     }
 
     public T getHandle()
@@ -60,5 +67,10 @@ public class AggregationApplicationResult<T>
     public Map<ColumnHandle, ColumnHandle> getGroupingColumnMapping()
     {
         return groupingColumnMapping;
+    }
+
+    public boolean isPrecalculateStatistics()
+    {
+        return precalculateStatistics;
     }
 }

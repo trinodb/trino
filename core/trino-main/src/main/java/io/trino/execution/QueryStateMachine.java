@@ -837,11 +837,11 @@ public class QueryStateMachine
 
         Optional<TransactionId> transactionId = session.getTransactionId();
         if (transactionId.isPresent() && transactionManager.transactionExists(transactionId.get()) && transactionManager.isAutoCommit(transactionId.get())) {
-            ListenableFuture<?> commitFuture = transactionManager.asyncCommit(transactionId.get());
-            Futures.addCallback(commitFuture, new FutureCallback<Object>()
+            ListenableFuture<Void> commitFuture = transactionManager.asyncCommit(transactionId.get());
+            Futures.addCallback(commitFuture, new FutureCallback<>()
             {
                 @Override
-                public void onSuccess(@Nullable Object result)
+                public void onSuccess(@Nullable Void result)
                 {
                     transitionToFinished();
                 }

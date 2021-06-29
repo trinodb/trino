@@ -44,7 +44,9 @@
 
 * Improve performance when reading dictionary-encoded Parquet files. ({issue}`7754`)
 * Fix incorrect results when referencing nested fields with non-lowercase names from ORC files. ({issue}`7350`)
+* Always use row-by-row deletes for ACID tables rather than dropping partitions. ({issue}`7621`)
 * Allow reading from ORC ACID transactional tables when `_orc_acid_version` metadata files are missing. ({issue}`7579`)
+* Add `UPDATE` support for ACID tables that were originally created as non-transactional. ({issue}`7622`)
 * Add support for connection proxying for Azure ADLS endpoints. ({issue}`7509`)
 
 ## Iceberg connector

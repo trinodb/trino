@@ -124,7 +124,7 @@ public class LimitPushDown
                         ImmutableList.of());
             }
 
-            if (!node.isWithTies() || (limit != null && node.getCount() >= limit.getCount())) {
+            if (!node.requiresPreSortedInputs() && (!node.isWithTies() || (limit != null && node.getCount() >= limit.getCount()))) {
                 // default visitPlan logic will insert the limit node
                 return context.rewrite(node.getSource(), new LimitContext(count, false));
             }

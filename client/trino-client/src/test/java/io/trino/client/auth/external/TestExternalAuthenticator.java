@@ -44,6 +44,7 @@ import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.client.auth.external.ExternalAuthenticator.TOKEN_URI_FIELD;
 import static io.trino.client.auth.external.ExternalAuthenticator.toAuthentication;
+import static io.trino.client.auth.external.MockTokenPoller.onPoll;
 import static io.trino.client.auth.external.TokenPollResult.successful;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
@@ -52,6 +53,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Test(singleThreaded = true)
 public class TestExternalAuthenticator
 {
     private static final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(TestExternalAuthenticator.class.getName() + "-%d"));
@@ -168,10 +170,10 @@ public class TestExternalAuthenticator
                 .withResult(URI.create("http://token.uri"), successful(new Token("valid-token-4")));
         MockRedirectHandler redirectHandler = new MockRedirectHandler();
 
-        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.local(), Duration.ofSeconds(1));
         List<Future<Request>> requests = times(
                 4,
-                () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
+                () -> new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.local(), Duration.ofSeconds(1))
+                        .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());
 
@@ -187,16 +189,15 @@ public class TestExternalAuthenticator
     @Test(timeOut = 2000)
     public void testAuthenticationFromMultipleThreadsWithCachedToken()
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(this.getClass().getName() + "%n"));
         MockTokenPoller tokenPoller = new MockTokenPoller()
                 .withResult(URI.create("http://token.uri"), successful(new Token("valid-token")));
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
-                .sleepOnRedirect(Duration.ofMillis(10));
+                .sleepOnRedirect(Duration.ofSeconds(1));
 
-        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(), Duration.ofSeconds(1));
         List<Future<Request>> requests = times(
-                4,
-                () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
+                2,
+                () -> new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(), Duration.ofSeconds(1))
+                        .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());
 
@@ -216,19 +217,20 @@ public class TestExternalAuthenticator
                 .withResult(URI.create("http://token.uri"), TokenPollResult.successful(new Token("first-token")))
                 .withResult(URI.create("http://token.uri"), TokenPollResult.failed("external authentication error"));
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
-                .sleepOnRedirect(Duration.ofMillis(10));
+                .sleepOnRedirect(Duration.ofMillis(500));
 
         ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(), Duration.ofSeconds(1));
         Request firstRequest = authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\""));
 
         List<Future<Request>> requests = times(
                 4,
-                () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"", firstRequest)))
+                () -> new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(), Duration.ofSeconds(1))
+                        .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"", firstRequest)))
                 .map(executor::submit)
                 .collect(toImmutableList());
 
         ConcurrentRequestAssertion assertion = new ConcurrentRequestAssertion(requests);
-        assertion.requests().containsExactly(null, null, null);
+        assertion.requests().containsOnlyNulls();
         assertion.firstException().hasMessage("external authentication error")
                 .isInstanceOf(ClientException.class);
 
@@ -239,18 +241,18 @@ public class TestExternalAuthenticator
     public void testAuthenticationFromMultipleThreadsWithCachedTokenAfterAuthenticateTimesOut()
     {
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
-                .sleepOnRedirect(Duration.ofMillis(5));
+                .sleepOnRedirect(Duration.ofSeconds(1));
 
-        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, (uri, duration) -> TokenPollResult.pending(uri), KnownToken.memoryCached(), Duration.ofMillis(1));
         List<Future<Request>> requests = times(
-                4,
-                () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
+                2,
+                () -> new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1))
+                        .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());
 
         ConcurrentRequestAssertion assertion = new ConcurrentRequestAssertion(requests);
         assertion.requests()
-                .containsExactly(null, null, null, null);
+                .containsExactly(null, null);
         assertion.assertThatNoExceptionsHasBeenThrown();
         assertThat(redirectHandler.getRedirectionCount()).isEqualTo(1);
     }
@@ -263,13 +265,14 @@ public class TestExternalAuthenticator
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
                 .sleepOnRedirect(Duration.ofMinutes(1));
 
-        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, (uri, duration) -> TokenPollResult.pending(uri), KnownToken.memoryCached(), Duration.ofMillis(1));
+        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1));
         Future<Request> interruptedAuthentication = interruptableThreadPool.submit(
                 () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")));
         Thread.sleep(100); //It's here to make sure that authentication will start before the other threads.
         List<Future<Request>> requests = times(
                 2,
-                () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
+                () -> new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1))
+                        .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());
 
@@ -352,8 +355,14 @@ public class TestExternalAuthenticator
 
         void assertThatNoExceptionsHasBeenThrown()
         {
-            assertThat(exceptions)
-                    .isEmpty();
+            if (!exceptions.isEmpty()) {
+                Throwable firstException = exceptions.get(0);
+                AssertionError assertionError = new AssertionError("Expected no exceptions, but some exceptions has been thrown", firstException);
+                for (int i = 1; i < exceptions.size(); i++) {
+                    assertionError.addSuppressed(exceptions.get(i));
+                }
+                throw assertionError;
+            }
         }
 
         ListAssert<Request> requests()

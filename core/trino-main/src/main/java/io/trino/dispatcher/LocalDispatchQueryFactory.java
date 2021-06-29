@@ -15,6 +15,7 @@ package io.trino.dispatcher;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.event.QueryMonitor;
 import io.trino.execution.ClusterSizeMonitor;
@@ -47,6 +48,8 @@ import static java.util.Objects.requireNonNull;
 public class LocalDispatchQueryFactory
         implements DispatchQueryFactory
 {
+    private static final Logger log = Logger.get(LocalDispatchQueryFactory.class);
+
     private final QueryManager queryManager;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
@@ -129,6 +132,19 @@ public class LocalDispatchQueryFactory
                 return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, warningCollector);
             }
             catch (Throwable e) {
+                if (e instanceof Error) {
+                    if (e instanceof StackOverflowError) {
+                        log.error(e, "Unhandled StackOverFlowError; should be handled earlier; to investigate full stacktrace you may need to enable -XX:MaxJavaStackTraceDepth=0 JVM flag");
+                    }
+                    else {
+                        log.error(e, "Unhandled Error");
+                    }
+                    // wrapping as RuntimeException to guard us from problem that code downstream which investigates queryExecutionFuture may not necessarily handle
+                    // Error subclass of Throwable well.
+                    RuntimeException wrappedError = new RuntimeException(e);
+                    stateMachine.transitionToFailed(wrappedError);
+                    throw wrappedError;
+                }
                 stateMachine.transitionToFailed(e);
                 throw e;
             }

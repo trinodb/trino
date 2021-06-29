@@ -66,7 +66,7 @@ public final class InterfaceTestUtils
 
     public static <I, C extends I> void assertProperForwardingMethodsAreCalled(Class<I> iface, Function<I, C> forwardingInstanceFactory, Set<Method> exclusions)
     {
-        for (Method actualMethod : difference(ImmutableSet.copyOf(iface.getDeclaredMethods()), exclusions)) {
+        for (Method actualMethod : difference(ImmutableSet.copyOf(iface.getMethods()), exclusions)) {
             Object[] actualArguments = new Object[actualMethod.getParameterCount()];
             for (int i = 0; i < actualArguments.length; i++) {
                 if (actualMethod.getParameterTypes()[i].isPrimitive()) {

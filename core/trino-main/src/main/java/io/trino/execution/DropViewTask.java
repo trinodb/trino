@@ -27,7 +27,7 @@ import io.trino.transaction.TransactionManager;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -42,7 +42,7 @@ public class DropViewTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             DropView statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -59,13 +59,13 @@ public class DropViewTask
             if (!statement.isExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", name);
             }
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
 
         accessControl.checkCanDropView(session.toSecurityContext(), name);
 
         metadata.dropView(session, name);
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

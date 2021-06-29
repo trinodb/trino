@@ -25,11 +25,14 @@ needs.
 
 See the :doc:`kafka-tutorial`.
 
-.. note::
+Requirements
+------------
 
-    The minimum supported Kafka broker version is 0.10.0.
-    The connector is tested against Confluent Kafka versions 5.2.1 and 5.5.2,
-    but any intermediate or newer versions are expected to work.
+To connect to Kafka, you need:
+
+* Kafka broker version 0.10.0 or higher.
+* Network access from the Trino coordinator and workers to the Kafka nodes.
+  Port 9092 is the default port.
 
 Configuration
 -------------

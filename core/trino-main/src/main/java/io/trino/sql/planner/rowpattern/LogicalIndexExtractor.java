@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -305,6 +306,14 @@ public class LogicalIndexExtractor
         public Set<Symbol> getMatchNumberSymbols()
         {
             return matchNumberSymbols;
+        }
+
+        public List<Symbol> getInputSymbols()
+        {
+            return valuePointers.stream()
+                    .map(ValuePointer::getInputSymbol)
+                    .filter(symbol -> !classifierSymbols.contains(symbol) && !matchNumberSymbols.contains(symbol))
+                    .collect(toImmutableList());
         }
 
         @Override

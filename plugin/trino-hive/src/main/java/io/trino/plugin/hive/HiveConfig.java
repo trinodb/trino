@@ -52,6 +52,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.time-zone",
         "hive.assume-canonical-partition-keys",
         "hive.partition-use-column-names",
+        "hive.allow-corrupt-writes-for-testing",
 })
 public class HiveConfig
 {
@@ -77,8 +78,6 @@ public class HiveConfig
     private int maxConcurrentFileRenames = 20;
     private int maxConcurrentMetastoreDrops = 20;
     private int maxConcurrentMetastoreUpdates = 20;
-
-    private boolean allowCorruptWritesForTesting;
 
     private long perTransactionMetastoreCacheMaximumSize = 1000;
 
@@ -109,6 +108,7 @@ public class HiveConfig
 
     private boolean bucketExecutionEnabled = true;
     private boolean sortedWritingEnabled = true;
+    private boolean propagateTableScanSortingProperties;
 
     private boolean optimizeMismatchedBucketCount;
     private boolean writesToNonManagedTablesEnabled;
@@ -369,21 +369,6 @@ public class HiveConfig
     public HiveConfig setMaxSplitIteratorThreads(int maxSplitIteratorThreads)
     {
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
-        return this;
-    }
-
-    @Deprecated
-    public boolean getAllowCorruptWritesForTesting()
-    {
-        return allowCorruptWritesForTesting;
-    }
-
-    @Deprecated
-    @Config("hive.allow-corrupt-writes-for-testing")
-    @ConfigDescription("Allow Hive connector to write data even when data will likely be corrupt")
-    public HiveConfig setAllowCorruptWritesForTesting(boolean allowCorruptWritesForTesting)
-    {
-        this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         return this;
     }
 
@@ -789,6 +774,19 @@ public class HiveConfig
     public HiveConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
     {
         this.sortedWritingEnabled = sortedWritingEnabled;
+        return this;
+    }
+
+    public boolean isPropagateTableScanSortingProperties()
+    {
+        return propagateTableScanSortingProperties;
+    }
+
+    @Config("hive.propagate-table-scan-sorting-properties")
+    @ConfigDescription("Use sorted table layout to generate more efficient execution plans. May lead to incorrect results if files are not sorted as per table definition.")
+    public HiveConfig setPropagateTableScanSortingProperties(boolean propagateTableScanSortingProperties)
+    {
+        this.propagateTableScanSortingProperties = propagateTableScanSortingProperties;
         return this;
     }
 

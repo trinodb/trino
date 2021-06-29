@@ -16,6 +16,8 @@ package io.trino.cost;
 import io.trino.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -46,16 +48,12 @@ public class TestSortStatsRule
                                 .build())
                 .build();
 
-        tester().assertStatsFor(pb -> pb
-                .output(outputBuilder -> {
+        tester()
+                .assertStatsFor(pb -> {
                     Symbol a = pb.symbol("a", BIGINT);
                     Symbol b = pb.symbol("b", DOUBLE);
-                    outputBuilder
-                            .source(pb.values(a, b))
-                            .column(a, "a1")
-                            .column(a, "a2")
-                            .column(b, "b");
-                }))
+                    return pb.sort(List.of(b), pb.values(a, b));
+                })
                 .withSourceStats(stats)
                 .check(outputStats -> outputStats.equalTo(stats));
     }

@@ -50,7 +50,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Predicates.equalTo;
 import static io.trino.connector.MockConnectorFactory.ApplyFilter;
 import static io.trino.connector.MockConnectorFactory.ApplyProjection;
 import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
@@ -60,10 +59,13 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.tests.BogusType.BOGUS;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -93,6 +95,7 @@ public class TestTableScanRedirectionWithPushdown
     private static final String DESTINATION_COLUMN_NAME_B = "destination_col_b";
     private static final ColumnHandle DESTINATION_COLUMN_HANDLE_B = new MockConnectorColumnHandle(DESTINATION_COLUMN_NAME_B, INTEGER);
     private static final String DESTINATION_COLUMN_NAME_C = "destination_col_c";
+    private static final String DESTINATION_COLUMN_NAME_D = "destination_col_d";
 
     private static final Map<ColumnHandle, String> REDIRECTION_MAPPING_A = ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A);
 
@@ -107,6 +110,10 @@ public class TestTableScanRedirectionWithPushdown
     private static final Map<ColumnHandle, String> ROW_TYPE_REDIRECTION_MAPPING_AD = ImmutableMap.of(
             SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A,
             SOURCE_COLUMN_HANDLE_D, DESTINATION_COLUMN_NAME_C);
+
+    private static final Map<ColumnHandle, String> BOGUS_REDIRECTION_MAPPING_BC = ImmutableMap.of(
+            SOURCE_COLUMN_HANDLE_B, DESTINATION_COLUMN_NAME_B,
+            SOURCE_COLUMN_HANDLE_C, DESTINATION_COLUMN_NAME_D);
 
     @Test
     public void testRedirectionAfterProjectionPushdown()
@@ -139,9 +146,9 @@ public class TestTableScanRedirectionWithPushdown
                             filter(
                                     "DEST_COL > 0",
                                     tableScan(
-                                            equalTo(new MockConnectorTableHandle(DESTINATION_TABLE)),
+                                            new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
-                                            ImmutableMap.of("DEST_COL", equalTo(DESTINATION_COLUMN_HANDLE_A))))));
+                                            ImmutableMap.of("DEST_COL", DESTINATION_COLUMN_HANDLE_A::equals)))));
         }
     }
 
@@ -160,12 +167,12 @@ public class TestTableScanRedirectionWithPushdown
                     output(
                             ImmutableList.of("DEST_COL"),
                             tableScan(
-                                    equalTo(new MockConnectorTableHandle(
+                                    new MockConnectorTableHandle(
                                             DESTINATION_TABLE,
                                             TupleDomain.withColumnDomains(ImmutableMap.of(DESTINATION_COLUMN_HANDLE_A, singleValue(INTEGER, 1L))),
-                                            Optional.empty())),
-                                    TupleDomain.withColumnDomains(ImmutableMap.of(equalTo(DESTINATION_COLUMN_HANDLE_A), singleValue(INTEGER, 1L))),
-                                    ImmutableMap.of("DEST_COL", equalTo(DESTINATION_COLUMN_HANDLE_A)))));
+                                            Optional.empty())::equals,
+                                    TupleDomain.withColumnDomains(ImmutableMap.of(DESTINATION_COLUMN_HANDLE_A::equals, singleValue(INTEGER, 1L))),
+                                    ImmutableMap.of("DEST_COL", DESTINATION_COLUMN_HANDLE_A::equals))));
 
             assertPlan(
                     queryRunner,
@@ -195,14 +202,14 @@ public class TestTableScanRedirectionWithPushdown
                             filter(
                                     "DEST_COL_A = 1",
                                     tableScan(
-                                            equalTo(new MockConnectorTableHandle(
+                                            new MockConnectorTableHandle(
                                                     DESTINATION_TABLE,
                                                     TupleDomain.withColumnDomains(ImmutableMap.of(DESTINATION_COLUMN_HANDLE_B, singleValue(INTEGER, 2L))),
-                                                    Optional.empty())),
-                                            TupleDomain.withColumnDomains(ImmutableMap.of(equalTo(DESTINATION_COLUMN_HANDLE_B), singleValue(INTEGER, 2L))),
+                                                    Optional.empty())::equals,
+                                            TupleDomain.withColumnDomains(ImmutableMap.of(DESTINATION_COLUMN_HANDLE_B::equals, singleValue(INTEGER, 2L))),
                                             ImmutableMap.of(
-                                                    "DEST_COL_A", equalTo(DESTINATION_COLUMN_HANDLE_A),
-                                                    "DEST_COL_B", equalTo(DESTINATION_COLUMN_HANDLE_B))))));
+                                                    "DEST_COL_A", DESTINATION_COLUMN_HANDLE_A::equals,
+                                                    "DEST_COL_B", DESTINATION_COLUMN_HANDLE_B::equals)))));
         }
     }
 
@@ -222,19 +229,19 @@ public class TestTableScanRedirectionWithPushdown
                     output(
                             ImmutableList.of("DEST_COL_B"),
                             tableScan(
-                                    equalTo(new MockConnectorTableHandle(
+                                    new MockConnectorTableHandle(
                                             DESTINATION_TABLE,
                                             TupleDomain.withColumnDomains(ImmutableMap.of(DESTINATION_COLUMN_HANDLE_A, singleValue(INTEGER, 1L))),
-                                            Optional.of(ImmutableList.of(DESTINATION_COLUMN_HANDLE_B)))),
+                                            Optional.of(ImmutableList.of(DESTINATION_COLUMN_HANDLE_B)))::equals,
                                     // PushProjectionIntoTableScan does not preserve enforced constraint
                                     // (issue: https://github.com/trinodb/trino/issues/6029)
                                     TupleDomain.all(),
-                                    ImmutableMap.of("DEST_COL_B", equalTo(DESTINATION_COLUMN_HANDLE_B)))));
+                                    ImmutableMap.of("DEST_COL_B", DESTINATION_COLUMN_HANDLE_B::equals))));
         }
     }
 
     @Test
-    public void testPredicateTypeMismatch()
+    public void testPredicateTypeWithCoercion()
     {
         try (LocalQueryRunner queryRunner = createLocalQueryRunner(
                 getMockApplyRedirectAfterPredicatePushdown(TYPE_MISMATCHED_REDIRECTION_MAPPING_BC, Optional.of(ImmutableSet.of(SOURCE_COLUMN_HANDLE_B))),
@@ -243,13 +250,42 @@ public class TestTableScanRedirectionWithPushdown
             // After 'source_col_c = 1' is pushed into source table scan, it's possible for 'source_col_c' table scan assignment to be pruned
             // Redirection results in Project('dest_col_b') -> Filter('dest_col_c = 1') -> TableScan for such case
             // but dest_col_a has mismatched type compared to source domain
+            assertPlan(
+                    queryRunner,
+                    "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'",
+                    output(
+                            ImmutableList.of("DEST_COL_B"),
+                            project(ImmutableMap.of("DEST_COL_B", expression("DEST_COL_B")),
+                                    filter("CAST(DEST_COL_A AS VARCHAR) = VARCHAR 'foo'",
+                                            tableScan(
+                                                    new MockConnectorTableHandle(
+                                                            DESTINATION_TABLE,
+                                                            TupleDomain.all(),
+                                                            Optional.of(ImmutableList.of(DESTINATION_COLUMN_HANDLE_B, DESTINATION_COLUMN_HANDLE_A)))::equals,
+                                                    // PushProjectionIntoTableScan does not preserve enforced constraint
+                                                    // (issue: https://github.com/prestosql/presto/issues/6029)
+                                                    TupleDomain.all(),
+                                                    ImmutableMap.of(
+                                                            "DEST_COL_B", DESTINATION_COLUMN_HANDLE_B::equals,
+                                                            "DEST_COL_A", DESTINATION_COLUMN_HANDLE_A::equals))))));
+        }
+    }
+
+    @Test
+    public void testPredicateTypeMismatchWithMissingCoercion()
+    {
+        try (LocalQueryRunner queryRunner = createLocalQueryRunner(
+                getMockApplyRedirectAfterPredicatePushdown(BOGUS_REDIRECTION_MAPPING_BC, Optional.of(ImmutableSet.of(SOURCE_COLUMN_HANDLE_B))),
+                Optional.of(this::mockApplyProjection),
+                Optional.of(getMockApplyFilter(ImmutableSet.of(SOURCE_COLUMN_HANDLE_C))))) {
+            // After 'source_col_d = 1' is pushed into source table scan, it's possible for 'source_col_c' table scan assignment to be pruned
+            // Redirection results in Project('dest_col_b') -> Filter('dest_col_d = 1') -> TableScan for such case
+            // but dest_col_d has mismatched type compared to source domain
             transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                     .execute(MOCK_SESSION, session -> {
                         assertThatThrownBy(() -> queryRunner.createPlan(session, "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'", WarningCollector.NOOP))
                                 .isInstanceOf(TrinoException.class)
-                                // TODO report source column name instead of ColumnHandle toString
-                                .hasMessageMatching("Redirected column mock_catalog.target_schema.target_table.destination_col_a has type integer, " +
-                                        "different from source column mock_catalog.test_schema.test_table.MockConnectorColumnHandle.*source_col_c.* type: varchar");
+                                .hasMessageMatching("Cast not possible from redirected column mock_catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*mock_catalog.test_schema.test_table.*source_col_c.* with type: varchar");
                     });
         }
     }
@@ -272,14 +308,14 @@ public class TestTableScanRedirectionWithPushdown
                     output(
                             ImmutableList.of("DEST_COL_A", "DEST_COL_C#0"),
                             tableScan(
-                                    equalTo(new MockConnectorTableHandle(
+                                    new MockConnectorTableHandle(
                                             DESTINATION_TABLE,
                                             TupleDomain.all(),
-                                            Optional.of(ImmutableList.of(DESTINATION_COLUMN_HANDLE_A, destinationColumnHandleC0)))),
+                                            Optional.of(ImmutableList.of(DESTINATION_COLUMN_HANDLE_A, destinationColumnHandleC0)))::equals,
                                     TupleDomain.all(),
                                     ImmutableMap.of(
-                                            "DEST_COL_A", equalTo(DESTINATION_COLUMN_HANDLE_A),
-                                            "DEST_COL_C#0", equalTo(destinationColumnHandleC0)))));
+                                            "DEST_COL_A", DESTINATION_COLUMN_HANDLE_A::equals,
+                                            "DEST_COL_C#0", destinationColumnHandleC0::equals))));
         }
     }
 
@@ -303,7 +339,8 @@ public class TestTableScanRedirectionWithPushdown
                         return ImmutableList.of(
                                 new ColumnMetadata(DESTINATION_COLUMN_NAME_A, INTEGER),
                                 new ColumnMetadata(DESTINATION_COLUMN_NAME_B, INTEGER),
-                                new ColumnMetadata(DESTINATION_COLUMN_NAME_C, ROW_TYPE));
+                                new ColumnMetadata(DESTINATION_COLUMN_NAME_C, ROW_TYPE),
+                                new ColumnMetadata(DESTINATION_COLUMN_NAME_D, BOGUS));
                     }
                     throw new IllegalArgumentException();
                 })
@@ -362,7 +399,8 @@ public class TestTableScanRedirectionWithPushdown
                 new ProjectionApplicationResult<>(
                         new MockConnectorTableHandle(handle.getTableName(), handle.getConstraint(), Optional.of(newColumns)),
                         outputExpressions.build(),
-                        outputAssignments.build()));
+                        outputAssignments.build(),
+                        false));
     }
 
     private ApplyFilter getMockApplyFilter(Set<ColumnHandle> pushdownColumns)
@@ -382,7 +420,8 @@ public class TestTableScanRedirectionWithPushdown
                     new ConstraintApplicationResult<>(
                             new MockConnectorTableHandle(handle.getTableName(), newDomain, Optional.empty()),
                             constraint.getSummary()
-                                    .filter((columnHandle, domain) -> !pushdownColumns.contains(columnHandle))));
+                                    .filter((columnHandle, domain) -> !pushdownColumns.contains(columnHandle)),
+                            false));
         };
     }
 
@@ -421,8 +460,9 @@ public class TestTableScanRedirectionWithPushdown
                             new CatalogSchemaTableName(MOCK_CATALOG, DESTINATION_TABLE),
                             redirectionMapping,
                             mockConnectorTable.getConstraint()
-                                    .transform(MockConnectorColumnHandle.class::cast)
-                                    .transform(redirectionMapping::get)));
+                                    .transformKeys(MockConnectorColumnHandle.class::cast)
+                                    .filter((columnHandle, domain) -> redirectionMapping.containsKey(columnHandle))
+                                    .transformKeys(redirectionMapping::get)));
         };
     }
 

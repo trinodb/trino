@@ -210,6 +210,15 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitWindowOperation(WindowOperation node, C context)
+    {
+        process(node.getName(), context);
+        process((Node) node.getWindow(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitGroupingOperation(GroupingOperation node, C context)
     {
         for (Expression columnArgument : node.getGroupingColumns()) {
@@ -271,7 +280,27 @@ public abstract class DefaultTraversalVisitor<C>
         if (node.getEnd().isPresent()) {
             process(node.getEnd().get(), context);
         }
+        for (MeasureDefinition measureDefinition : node.getMeasures()) {
+            process(measureDefinition, context);
+        }
+        for (VariableDefinition variableDefinition : node.getVariableDefinitions()) {
+            process(variableDefinition, context);
+        }
 
+        return null;
+    }
+
+    @Override
+    protected Void visitMeasureDefinition(MeasureDefinition node, C context)
+    {
+        process(node.getExpression(), context);
+        return null;
+    }
+
+    @Override
+    protected Void visitVariableDefinition(VariableDefinition node, C context)
+    {
+        process(node.getExpression(), context);
         return null;
     }
 

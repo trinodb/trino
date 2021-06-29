@@ -21,8 +21,8 @@ import javax.inject.Provider;
 
 import java.util.function.Predicate;
 
-import static io.trino.plugin.hive.HiveMetadata.DELTA_LAKE_PROVIDER;
-import static io.trino.plugin.hive.HiveMetadata.SPARK_TABLE_PROVIDER_KEY;
+import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
+import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 

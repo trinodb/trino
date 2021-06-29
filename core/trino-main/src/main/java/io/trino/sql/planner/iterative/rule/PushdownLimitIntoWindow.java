@@ -55,7 +55,9 @@ public class PushdownLimitIntoWindow
         this.rowNumberFunctionId = metadata.resolveFunction(QualifiedName.of("row_number"), ImmutableList.of()).getFunctionId();
         this.rankFunctionId = metadata.resolveFunction(QualifiedName.of("rank"), ImmutableList.of()).getFunctionId();
         this.pattern = limit()
-                .matching(limit -> !limit.isWithTies() && limit.getCount() != 0 && limit.getCount() <= Integer.MAX_VALUE)
+                .matching(limit -> !limit.isWithTies() &&
+                        limit.getCount() != 0 && limit.getCount() <= Integer.MAX_VALUE &&
+                        !limit.requiresPreSortedInputs())
                 .with(source().matching(window()
                         .matching(window -> window.getOrderingScheme().isPresent())
                         .matching(window -> toTopNRankingType(window).isPresent())

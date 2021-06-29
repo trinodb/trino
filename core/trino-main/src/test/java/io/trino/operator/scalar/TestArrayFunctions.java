@@ -29,8 +29,9 @@ public class TestArrayFunctions
     public void testArrayConstructor()
     {
         tryEvaluateWithAll("array[" + Joiner.on(", ").join(nCopies(254, "rand()")) + "]", new ArrayType(DOUBLE));
-        assertNotSupported(
+        assertInvalidFunction(
                 "array[" + Joiner.on(", ").join(nCopies(255, "rand()")) + "]",
+                TOO_MANY_ARGUMENTS,
                 "Too many arguments for array constructor");
     }
 

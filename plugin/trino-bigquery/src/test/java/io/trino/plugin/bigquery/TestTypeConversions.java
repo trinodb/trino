@@ -43,7 +43,6 @@ import static java.time.Month.MARCH;
 import static java.time.Month.MAY;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test
 public class TestTypeConversions
 {
     @Test

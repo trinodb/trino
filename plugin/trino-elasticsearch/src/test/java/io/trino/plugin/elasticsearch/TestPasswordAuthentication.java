@@ -73,7 +73,8 @@ public class TestPasswordAuthentication
                         .put("elasticsearch.security", "PASSWORD")
                         .put("elasticsearch.auth.user", USER)
                         .put("elasticsearch.auth.password", PASSWORD)
-                        .build());
+                        .build(),
+                3);
 
         assertions = new QueryAssertions(runner);
     }

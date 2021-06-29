@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.getSessionCatalog;
@@ -60,7 +60,7 @@ public class CreateSchemaTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             CreateSchema statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -73,7 +73,7 @@ public class CreateSchemaTask
     }
 
     @VisibleForTesting
-    ListenableFuture<?> internalExecute(CreateSchema statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    ListenableFuture<Void> internalExecute(CreateSchema statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
     {
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
 
@@ -85,7 +85,7 @@ public class CreateSchemaTask
             if (!statement.isNotExists()) {
                 throw semanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema);
             }
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
 
         CatalogName catalogName = metadata.getCatalogHandle(session, schema.getCatalogName())
@@ -111,7 +111,7 @@ public class CreateSchemaTask
             }
         }
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 
     private TrinoPrincipal getCreatePrincipal(CreateSchema statement, Session session, Metadata metadata)

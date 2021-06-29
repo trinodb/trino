@@ -180,6 +180,7 @@ public class IcebergMetadata
         implements ConnectorMetadata
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
+    private static final String ICEBERG_MATERIALIZED_VIEW_COMMENT = "Presto Materialized View";
     public static final String DEPENDS_ON_TABLES = "dependsOnTables";
 
     private final CatalogName catalogName;
@@ -265,6 +266,11 @@ public class IcebergMetadata
             if (hiveTable.isEmpty()) {
                 return null;
             }
+            
+            if (isMaterializedView(hiveTable.get())) {
+                return null;
+            }
+            
             if (!isIcebergTable(hiveTable.get())) {
                 throw new UnknownTableTypeException(tableName);
             }
@@ -412,7 +418,7 @@ public class IcebergMetadata
                 // still keeps predicate and discretePredicates evaluation the same on every row of the table. This
                 // can be further optimized by intersecting with partition values at the cost of iterating
                 // over all tableScan.planFiles() and caching partition values in table handle.
-                enforcedPredicate.transform(ColumnHandle.class::cast),
+                enforcedPredicate.transformKeys(ColumnHandle.class::cast),
                 // TODO: implement table partitioning
                 Optional.empty(),
                 Optional.empty(),
@@ -430,27 +436,23 @@ public class IcebergMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         if (useMetastore(session)) {
-            ImmutableList.Builder<SchemaTableName> tablesListBuilder = ImmutableList.builder();
-            schemaName.map(Collections::singletonList)
-                    .orElseGet(metastore::getAllDatabases)
-                    .stream()
-                    .flatMap(schema -> Stream.concat(
-                            // Get tables with parameter table_type set to  "ICEBERG" or "iceberg". This is required because
-                            // Trino uses lowercase value whereas Spark and Flink use uppercase.
-                            // TODO: use one metastore call to pass both the filters: https://github.com/trinodb/trino/issues/7710
-                            metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toLowerCase(Locale.ENGLISH)).stream()
-                                    .map(table -> new SchemaTableName(schema, table)),
-                            metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(Locale.ENGLISH)).stream()
-                                    .map(table -> new SchemaTableName(schema, table)))
-                            .distinct())  // distinct() to avoid duplicates for case-insensitive HMS backends
-                    .forEach(tablesListBuilder::add);
-
-            schemaName.map(Collections::singletonList)
-                    .orElseGet(metastore::getAllDatabases).stream()
-                    .flatMap(schema -> metastore.getAllViews(schema).stream()
-                            .map(table -> new SchemaTableName(schema, table)))
-                    .forEach(tablesListBuilder::add);
-            return tablesListBuilder.build();
+             ImmutableList.Builder<SchemaTableName> tablesListBuilder = ImmutableList.builder();
+             schemaName.map(Collections::singletonList)
+                     .orElseGet(metastore::getAllDatabases)
+                     .stream()
+                     .flatMap(schema -> Stream.concat(
+                             // Get tables with parameter table_type set to  "ICEBERG" or "iceberg". This is required because
+                             // Trino uses lowercase value whereas Spark and Flink use uppercase.
+                             // TODO: use one metastore call to pass both the filters: https://github.com/trinodb/trino/issues/7710
+                             metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toLowerCase(Locale.ENGLISH)).stream()
+                                     .map(table -> new SchemaTableName(schema, table)),
+                             metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(Locale.ENGLISH)).stream()
+                                     .map(table -> new SchemaTableName(schema, table)))
+                             .distinct())  // distinct() to avoid duplicates for case-insensitive HMS backends
+                     .forEach(tablesListBuilder::add);
+     
+             tablesListBuilder.addAll(listMaterializedViews(session, schemaName));
+             return tablesListBuilder.build();
         }
         else {
             HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
@@ -902,11 +904,6 @@ public class IcebergMetadata
         return false;
     }
 
-    public HiveMetastore getMetastore()
-    {
-        return metastore;
-    }
-
     public void rollback()
     {
         // TODO: cleanup open transaction
@@ -924,12 +921,12 @@ public class IcebergMetadata
         // TODO: Avoid enforcing the constraint when partition filters have large IN expressions, since iceberg cannot
         // support it. Such large expressions cannot be simplified since simplification changes the filtered set.
         TupleDomain<IcebergColumnHandle> newEnforcedConstraint = constraint.getSummary()
-                .transform(IcebergColumnHandle.class::cast)
+                .transformKeys(IcebergColumnHandle.class::cast)
                 .filter(isIdentityPartition)
                 .intersect(table.getEnforcedPredicate());
 
         TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = constraint.getSummary()
-                .transform(IcebergColumnHandle.class::cast)
+                .transformKeys(IcebergColumnHandle.class::cast)
                 .filter(isIdentityPartition.negate())
                 .intersect(table.getUnenforcedPredicate());
 
@@ -945,7 +942,8 @@ public class IcebergMetadata
                         table.getSnapshotId(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint),
-                newUnenforcedConstraint.transform(ColumnHandle.class::cast)));
+                newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast),
+                false));
     }
 
     private static Set<Integer> identityPartitionColumnsInAllSpecs(org.apache.iceberg.Table table)
@@ -1016,7 +1014,7 @@ public class IcebergMetadata
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .put(STORAGE_TABLE, storageTableName)
                 .put(PRESTO_VIEW_FLAG, "true")
-                .put(TABLE_COMMENT, "Presto Materialized View")
+                .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)
                 .build();
 
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
@@ -1069,6 +1067,12 @@ public class IcebergMetadata
             }
         }
         metastore.dropTable(identity, viewName.getSchemaName(), viewName.getTableName(), true);
+    }
+
+    @Override
+    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
+    {
+        return false;
     }
 
     @Override
@@ -1150,6 +1154,18 @@ public class IcebergMetadata
         return table.getTableType().equals(VIRTUAL_VIEW.name())
                 && "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG))
                 && table.getParameters().containsKey(STORAGE_TABLE);
+    }
+
+    @Override
+    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        // Iceberg does not support VIEWs
+        // Filter on ICEBERG_MATERIALIZED_VIEW_COMMENT is used to avoid listing hive views in case of a shared HMS
+        return schemaName.map(Collections::singletonList)
+                .orElseGet(metastore::getAllDatabases).stream()
+                .flatMap(schema -> metastore.getTablesWithParameter(schema, TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT).stream()
+                        .map(table -> new SchemaTableName(schema, table)))
+                .collect(toImmutableList());
     }
 
     @Override
