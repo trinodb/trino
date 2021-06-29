@@ -16,19 +16,16 @@ package io.trino.plugin.bigquery;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
-import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
+import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
-import java.nio.file.Path;
 import java.util.stream.Stream;
 
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,29 +36,18 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestBigQueryCaseInsensitiveMapping
         // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
-        extends BaseCaseInsensitiveMappingTest
+        extends AbstractTestQueryFramework
 {
     private BigQuerySqlExecutor bigQuerySqlExecutor;
-    private Path mappingFile;
 
-    @Override
-    protected SqlExecutor onRemoteDatabase()
-    {
-        return bigQuerySqlExecutor;
-    }
 
-    @Override
-    protected Path getMappingFile()
-    {
-        return mappingFile;
-    }
+
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
-        this.mappingFile = createRuleBasedIdentifierMappingFile();
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of("bigquery.case-insensitive-name-matching", "true"));
@@ -88,6 +74,7 @@ public class TestBigQueryCaseInsensitiveMapping
             // TODO: test with INSERT and CTAS https://github.com/trinodb/trino/issues/6868, https://github.com/trinodb/trino/issues/6869
         }
     }
+
     @Test
     public void testNonLowerCaseTableName()
             throws Exception
@@ -116,6 +103,7 @@ public class TestBigQueryCaseInsensitiveMapping
             // TODO: test with INSERT and CTAS https://github.com/trinodb/trino/issues/6868, https://github.com/trinodb/trino/issues/6869
         }
     }
+
     @Test
     public void testSchemaNameClash()
             throws Exception
@@ -149,6 +137,7 @@ public class TestBigQueryCaseInsensitiveMapping
             }
         }
     }
+
     @Test
     public void testTableNameClash()
             throws Exception
@@ -178,6 +167,7 @@ public class TestBigQueryCaseInsensitiveMapping
             }
         }
     }
+
     @Test
     public void testDropSchema()
     {
@@ -186,6 +176,7 @@ public class TestBigQueryCaseInsensitiveMapping
         bigQuerySqlExecutor.execute(format("CREATE SCHEMA `%s`", schema));
         assertUpdate("DROP SCHEMA " + schema.toLowerCase(ENGLISH));
     }
+
     @Test
     public void testDropSchemaNameClash()
     {
@@ -197,6 +188,12 @@ public class TestBigQueryCaseInsensitiveMapping
         assertQueryFails("DROP SCHEMA " + schema.toLowerCase(ENGLISH), "Found ambiguous names in BigQuery.*");
         bigQuerySqlExecutor.execute(format("DROP SCHEMA `%s`", schema));
         bigQuerySqlExecutor.execute(format("DROP SCHEMA `%s`", schema.toLowerCase(ENGLISH)));
+    }
+
+    private AutoCloseable withSchema(String schemaName)
+    {
+        bigQuerySqlExecutor.createDataset(schemaName);
+        return () -> bigQuerySqlExecutor.dropDataset(schemaName);
     }
 
     /**

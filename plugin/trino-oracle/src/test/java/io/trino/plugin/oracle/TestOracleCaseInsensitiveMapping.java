@@ -16,14 +16,11 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
-import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
-import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -38,29 +35,15 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestOracleCaseInsensitiveMapping
         // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
-        extends BaseCaseInsensitiveMappingTest
+        extends AbstractTestQueryFramework
 {
     private TestingOracleServer oracleServer;
-    private Path mappingFile;
-
-    @Override
-    protected SqlExecutor onRemoteDatabase()
-    {
-        return oracleServer::execute;
-    }
-
-    @Override
-    protected Path getMappingFile()
-    {
-        return mappingFile;
-    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         this.oracleServer = closeAfterClass(new TestingOracleServer());
-        this.mappingFile = createRuleBasedIdentifierMappingFile();
         return createOracleQueryRunner(
                 oracleServer,
                 ImmutableMap.of(),
@@ -71,7 +54,7 @@ public class TestOracleCaseInsensitiveMapping
                 ImmutableList.of());
     }
 
-    @Test @Override
+    @Test
     public void testNonLowerCaseTableName()
             throws Exception
     {
@@ -106,7 +89,7 @@ public class TestOracleCaseInsensitiveMapping
                             "(NULL, NULL, 'u')");
         }
     }
-    @Test @Override
+    @Test
     public void testSchemaNameClash()
             throws Exception
     {
@@ -129,7 +112,7 @@ public class TestOracleCaseInsensitiveMapping
             }
         }
     }
-    @Test @Override
+    @Test
     public void testTableNameClash()
             throws Exception
     {
@@ -150,7 +133,7 @@ public class TestOracleCaseInsensitiveMapping
         }
     }
 
-    @Override
+
     protected AutoCloseable withSchema(String schemaName)
     {
         oracleServer.execute(format("CREATE USER %s IDENTIFIED BY SCM", schemaName));
