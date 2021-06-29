@@ -29,6 +29,7 @@ import java.nio.file.Paths;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
@@ -125,8 +126,8 @@ public class TestAvroSchemaUrl
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""));
 
-        assertThat(() -> onTrino().executeQuery("ALTER TABLE test_avro_schema_url_in_serde_properties ADD COLUMN new_dummy_col varchar"))
-                .failsWithMessage("ALTER TABLE not supported when Avro schema url is set");
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE test_avro_schema_url_in_serde_properties ADD COLUMN new_dummy_col varchar"))
+                .hasMessageContaining("ALTER TABLE not supported when Avro schema url is set");
 
         onHive().executeQuery("INSERT INTO test_avro_schema_url_in_serde_properties VALUES ('some text', 2147483635)");
 

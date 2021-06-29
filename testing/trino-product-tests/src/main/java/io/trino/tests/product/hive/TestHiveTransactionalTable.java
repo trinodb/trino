@@ -51,6 +51,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_TRANSACTIONAL;
@@ -473,8 +474,8 @@ public class TestHiveTransactionalTable
                     "STORED AS ORC " +
                     "TBLPROPERTIES ('transactional'='true')");
 
-            assertThat(() -> query("SELECT * FROM " + tableName))
-                    .failsWithMessage("Failed to open transaction. Transactional tables support requires Hive metastore version at least 3.0");
+            assertQueryFailure(() -> query("SELECT * FROM " + tableName))
+                    .hasMessageContaining("Failed to open transaction. Transactional tables support requires Hive metastore version at least 3.0");
         }
     }
 
@@ -900,8 +901,8 @@ public class TestHiveTransactionalTable
             testOrcColumnRenames(tableName);
 
             log.info("About to rename partition column old_state to new_state");
-            assertThat(() -> onTrino().executeQuery(format("ALTER TABLE %s RENAME COLUMN old_state TO new_state", tableName)))
-                    .failsWithMessage("Renaming partition columns is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery(format("ALTER TABLE %s RENAME COLUMN old_state TO new_state", tableName)))
+                    .hasMessageContaining("Renaming partition columns is not supported");
         });
     }
 
@@ -1014,8 +1015,8 @@ public class TestHiveTransactionalTable
             assertThat(onHive().executeQuery("SELECT * FROM " + tableName))
                     .containsOnly(row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
             log.info("This shows that Trino gets an exception trying to widen the type");
-            assertThat(() -> onTrino().executeQuery("SELECT * FROM " + tableName))
-                    .failsWithMessageMatching(".*Malformed ORC file. Cannot read SQL type 'integer' from ORC stream '.*.age' of type BYTE with attributes.*");
+            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM " + tableName))
+                    .hasMessageMatching(".*Malformed ORC file. Cannot read SQL type 'integer' from ORC stream '.*.age' of type BYTE with attributes.*");
         });
     }
 
@@ -1065,8 +1066,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
 
             log.info("About to fail update");
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Hive update is only supported for ACID transactional tables");
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
+                    .hasMessageContaining("Hive update is only supported for ACID transactional tables");
         });
     }
 
@@ -1082,8 +1083,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
 
             log.info("About to fail update");
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Hive update is only supported for ACID transactional tables");
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
+                    .hasMessageContaining("Hive update is only supported for ACID transactional tables");
         });
     }
 
@@ -1097,8 +1098,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
 
             log.info("About to fail delete");
-            assertThat(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Deletes must match whole partitions for non-transactional tables");
+            assertQueryFailure(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName)))
+                    .hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
         });
     }
 
@@ -1114,8 +1115,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
 
             log.info("About to fail delete");
-            assertThat(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Deletes must match whole partitions for non-transactional tables");
+            assertQueryFailure(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName)))
+                    .hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
         });
     }
 
@@ -1129,8 +1130,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (col1, col2, col3) VALUES (17, 'S1', 7)", tableName));
 
             log.info("About to fail update");
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET col3 = 17 WHERE col3 = 7", tableName)))
-                    .failsWithMessage("Updating Hive table partition columns is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET col3 = 17 WHERE col3 = 7", tableName)))
+                    .hasMessageContaining("Updating Hive table partition columns is not supported");
         });
     }
 
@@ -1144,8 +1145,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
 
             log.info("About to fail update");
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Updating Hive table bucket columns is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
+                    .hasMessageContaining("Updating Hive table bucket columns is not supported");
         });
     }
 
@@ -1159,8 +1160,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("INSERT INTO %s (col1, col2, col3) VALUES (17, 'S1', 7)", tableName));
 
             log.info("About to fail update");
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET col1 = col2 WHERE col3 = 7", tableName)))
-                    .failsWithMessage("UPDATE table column types don't match SET expressions: Table: [integer], Expressions: [varchar]");
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET col1 = col2 WHERE col3 = 7", tableName)))
+                    .hasMessageContaining("UPDATE table column types don't match SET expressions: Table: [integer], Expressions: [varchar]");
         });
     }
 
@@ -1389,9 +1390,9 @@ public class TestHiveTransactionalTable
             });
 
             // WHERE with correlated subquery
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET column2 = 'row updated yet again' WHERE column2 = (SELECT name FROM tpch.tiny.region WHERE regionkey = column1)", tableName)))
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET column2 = 'row updated yet again' WHERE column2 = (SELECT name FROM tpch.tiny.region WHERE regionkey = column1)", tableName)))
                     // TODO (https://github.com/trinodb/trino/issues/3325) support correlated UPDATE
-                    .failsWithMessageMatching("\\Qjava.sql.SQLException: Query failed (#\\E\\S+\\Q): Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.MarkDistinctNode");
+                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.MarkDistinctNode");
         });
     }
 
@@ -1418,9 +1419,9 @@ public class TestHiveTransactionalTable
             });
 
             // SET with correlated subquery
-            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT name FROM tpch.tiny.region WHERE column1 = regionkey)", tableName)))
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET column2 = (SELECT name FROM tpch.tiny.region WHERE column1 = regionkey)", tableName)))
                     // TODO (https://github.com/trinodb/trino/issues/3325) support correlated UPDATE
-                    .failsWithMessageMatching("\\Qjava.sql.SQLException: Query failed (#\\E\\S+\\Q): Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.MarkDistinctNode");
+                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.MarkDistinctNode");
         });
     }
 
