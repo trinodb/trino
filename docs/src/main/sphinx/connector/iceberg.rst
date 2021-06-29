@@ -62,7 +62,7 @@ At a minimum, ``hive.metastore.uri`` must be configured:
   * - ``iceberg.file-format``
     - Define the data storage file format for Iceberg tables.
       Possible values are
-      
+
       * ``PARQUET``
       * ``ORC``
     - ``ORC``
@@ -79,6 +79,48 @@ At a minimum, ``hive.metastore.uri`` must be configured:
   * - ``iceberg.max-partitions-per-writer``
     - Maximum number of partitions handled per writer.
     - 100
+
+SQL support
+-----------
+
+The connector provides **read access and limited write access** to data and
+metadata in Iceberg. The following section lists all supported SQL statements
+and provides further details.
+
+  .. important::
+
+      No other SQL statements are supported.
+
+Read access:
+
+* :doc:`/sql/select` including:
+
+  * :doc:`/sql/match-recognize`
+  * :doc:`/sql/values`
+
+* :doc:`/sql/show-catalogs`
+* :doc:`/sql/show-columns`
+* :doc:`/sql/show-schemas`
+* :doc:`/sql/show-tables`
+* :doc:`/sql/describe`
+
+Write access:
+
+* :doc:`/sql/alter-table`
+* :doc:`/sql/create-schema`
+* CREATE MATERIALIZED VIEW
+* :doc:`/sql/create-table`, see also :ref:`iceberg-tables`
+* :doc:`/sql/create-table-as`, see also :ref:`iceberg-tables`
+* :doc:`/sql/delete`, see also :ref:`iceberg-delete`
+* DROP MATERIALIZED VIEW
+* :doc:`/sql/drop-schema`
+* :doc:`/sql/drop-table`
+* REFRESH MATERIALIZED VIEW
+* SHOW CREATE MATERIALIZED VIEW
+
+.. include:: sql-support-others.fragment
+
+.. _iceberg-tables:
 
 Partitioned tables
 ------------------
@@ -121,6 +163,8 @@ In this example, the table is partitioned by the month of ``order_date``, a hash
         customer VARCHAR,
         country VARCHAR)
     WITH (partitioning = ARRAY['month(order_date)', 'bucket(account_number, 10)', 'country'])
+
+.. _iceberg-delete:
 
 Deletion by partition
 ---------------------
