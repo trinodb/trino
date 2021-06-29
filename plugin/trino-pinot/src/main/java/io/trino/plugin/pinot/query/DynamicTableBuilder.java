@@ -32,6 +32,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.pinot.query.FilterToPinotSqlConverter.convertFilter;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -87,8 +88,7 @@ public final class DynamicTableBuilder
 
         Optional<String> filter;
         if (request.getFilterQuery() != null) {
-            FilterToPqlConverter filterToPqlConverter = new FilterToPqlConverter(request.getFilterSubQueryMap(), columnHandles);
-            filter = Optional.of(filterToPqlConverter.convert(request.getFilterQuery()));
+            filter = Optional.of(convertFilter(request.getPinotQuery(), columnHandles));
         }
         else {
             filter = Optional.empty();
@@ -142,11 +142,6 @@ public final class DynamicTableBuilder
 
     private static String getOutputColumnName(AggregationInfo aggregationInfo, String pinotColumnName)
     {
-        /*
-        if (pinotColumnName.equals(WILDCARD)) {
-            pinotColumnName = STAR;
-        }
-         */
         return format("%s(%s)", aggregationInfo.getAggregationType(), pinotColumnName).toLowerCase(ENGLISH);
     }
 

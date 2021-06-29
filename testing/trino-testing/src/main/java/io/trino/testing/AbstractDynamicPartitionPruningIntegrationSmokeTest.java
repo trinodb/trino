@@ -26,16 +26,18 @@ import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.spi.predicate.Domain.none;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
+import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -63,8 +65,6 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
 
         DynamicFilterService.DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(withPartitionedJoin().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 0);
         assertTrue(domainStats.getCollectionDuration().isPresent());
     }
 
@@ -105,8 +105,6 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
 
         DynamicFilterService.DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(withPartitionedJoin().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     @Test(timeOut = 30_000)
@@ -127,11 +125,8 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
 
         DynamicFilterService.DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
-                range(BIGINT, 1L, true, 100L, true)), false)
-                .toString(withPartitionedJoin().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 100);
+        assertThat(domainStats.getSimplifiedDomain())
+                .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
     }
 
     @Test(timeOut = 30_000)
@@ -157,8 +152,6 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
                 Domain.create(
                         ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
                         .toString(withPartitionedJoin().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     @Test(timeOut = 30_000)
@@ -183,11 +176,10 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 2);
 
         List<DynamicFilterService.DynamicFilterDomainStats> domainStats = dynamicFiltersStats.getDynamicFilterDomainStats();
-        assertEquals(domainStats.size(), 2);
-        domainStats.forEach(stats -> {
-            assertGreaterThanOrEqual(stats.getRangeCount(), 1);
-            assertEquals(stats.getDiscreteValuesCount(), 0);
-        });
+        assertThat(domainStats).map(DynamicFilterDomainStats::getSimplifiedDomain)
+                .containsExactlyInAnyOrder(
+                        getSimplifiedDomainString(2L, 3L, 2, BIGINT),
+                        getSimplifiedDomainString(2L, 2L, 1, BIGINT));
     }
 
     @Test(timeOut = 30_000)
@@ -212,8 +204,6 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
         DynamicFilterService.DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(withPartitionedJoin().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     @Test(timeOut = 30_000)
@@ -235,8 +225,6 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
 
         DynamicFilterService.DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(withPartitionedJoin().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 0);
     }
 
     @Test(timeOut = 30_000)
@@ -258,8 +246,6 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
 
         DynamicFilterService.DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(withPartitionedJoin().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     @Test(timeOut = 30_000)
@@ -280,11 +266,8 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
 
         DynamicFilterService.DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
-                range(BIGINT, 1L, true, 100L, true)), false)
-                .toString(withPartitionedJoin().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 100);
+        assertThat(domainStats.getSimplifiedDomain())
+                .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
     }
 
     @Test(timeOut = 30_000)
@@ -310,8 +293,6 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
                 Domain.create(
                         ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
                         .toString(withPartitionedJoin().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     @Test(timeOut = 30_000)
@@ -333,8 +314,6 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
 
         DynamicFilterService.DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(withPartitionedJoin().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 0);
     }
 
     @Test(timeOut = 30_000)
@@ -356,8 +335,6 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
 
         DynamicFilterService.DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(withPartitionedJoin().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     @Test(timeOut = 30_000)
@@ -381,8 +358,6 @@ public abstract class AbstractDynamicPartitionPruningIntegrationSmokeTest
         assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
                 range(BIGINT, 1L, true, 100L, true)), false)
                 .toString(withPartitionedJoin().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 100);
     }
 
     private DynamicFilterService.DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)

@@ -16,6 +16,9 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.cost.ScalarStatsCalculator;
+import io.trino.cost.SymbolStatsEstimate;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -26,6 +29,8 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Variable;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
@@ -41,6 +46,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -54,6 +60,8 @@ import static io.trino.sql.planner.ReferenceAwareExpressionNodeInliner.replaceEx
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
+import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class PushProjectionIntoTableScan
         implements Rule<ProjectNode>
@@ -64,11 +72,13 @@ public class PushProjectionIntoTableScan
 
     private final Metadata metadata;
     private final TypeAnalyzer typeAnalyzer;
+    private final ScalarStatsCalculator scalarStatsCalculator;
 
-    public PushProjectionIntoTableScan(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public PushProjectionIntoTableScan(Metadata metadata, TypeAnalyzer typeAnalyzer, ScalarStatsCalculator scalarStatsCalculator)
     {
         this.metadata = metadata;
         this.typeAnalyzer = typeAnalyzer;
+        this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
     }
 
     @Override
@@ -111,9 +121,10 @@ public class PushProjectionIntoTableScan
         List<NodeRef<Expression>> nodesForPartialProjections = nodeReferencesBuilder.build();
         List<ConnectorExpression> connectorPartialProjections = partialProjectionsBuilder.build();
 
-        Map<String, ColumnHandle> assignments = tableScan.getAssignments()
-                .entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue));
+        Map<String, Symbol> inputVariableMappings = tableScan.getAssignments().keySet().stream()
+                .collect(toImmutableMap(Symbol::getName, identity()));
+        Map<String, ColumnHandle> assignments = inputVariableMappings.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, entry -> tableScan.getAssignments().get(entry.getValue())));
 
         Optional<ProjectionApplicationResult<TableHandle>> result = metadata.applyProjection(context.getSession(), tableScan.getTable(), connectorPartialProjections, assignments);
 
@@ -156,15 +167,35 @@ public class PushProjectionIntoTableScan
             newProjectionAssignments.put(entry.getKey(), replaceExpression(entry.getValue(), nodesToNewPartialProjections));
         });
 
+        Optional<PlanNodeStatsEstimate> newStatistics = tableScan.getStatistics().map(statistics -> {
+            PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder();
+            builder.setOutputRowCount(statistics.getOutputRowCount());
+
+            for (int i = 0; i < connectorPartialProjections.size(); i++) {
+                ConnectorExpression inputConnectorExpression = connectorPartialProjections.get(i);
+                ConnectorExpression resultConnectorExpression = newConnectorPartialProjections.get(i);
+                if (!(resultConnectorExpression instanceof Variable)) {
+                    continue;
+                }
+                String resultVariableName = ((Variable) resultConnectorExpression).getName();
+                Expression inputExpression = ConnectorExpressionTranslator.translate(inputConnectorExpression, inputVariableMappings, new LiteralEncoder(metadata));
+                SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, context.getSession(), context.getSymbolAllocator().getTypes());
+                builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);
+            }
+            return builder.build();
+        });
+
         verifyTablePartitioning(context, tableScan, result.get().getHandle());
         return Result.ofPlanNode(
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
-                        TableScanNode.newInstance(
+                        new TableScanNode(
                                 tableScan.getId(),
                                 result.get().getHandle(),
                                 newScanOutputs,
                                 newScanAssignments,
+                                TupleDomain.all(),
+                                newStatistics,
                                 tableScan.isUpdateTarget(),
                                 tableScan.getUseConnectorNodePartitioning()),
                         newProjectionAssignments.build()));

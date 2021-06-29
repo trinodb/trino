@@ -14,12 +14,12 @@
 package io.trino.server;
 
 import com.google.inject.Key;
-import com.google.inject.TypeLiteral;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
 import io.trino.client.QueryResults;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -288,7 +288,7 @@ public class TestQueryResource
                 .setUri(uri)
                 .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                 .build();
-        JsonCodec<QueryInfo> codec = server.getInstance(Key.get(new TypeLiteral<JsonCodec<QueryInfo>>() {}));
+        JsonCodec<QueryInfo> codec = server.getInstance(Key.get(JsonCodecFactory.class)).jsonCodec(QueryInfo.class);
         return client.execute(request, createJsonResponseHandler(codec));
     }
 

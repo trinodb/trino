@@ -16,6 +16,7 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.airlift.units.Duration;
@@ -24,6 +25,7 @@ import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsAndCosts;
+import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StageStats;
 import io.trino.execution.TableInfo;
@@ -78,6 +80,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -137,6 +140,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
+import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ExpressionUtils.combineConjunctsWithDuplicates;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -146,11 +150,13 @@ import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
@@ -158,6 +164,7 @@ public class PlanPrinter
 {
     private final PlanRepresentation representation;
     private final Function<TableScanNode, TableInfo> tableInfoSupplier;
+    private final Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats;
     private final ValuePrinter valuePrinter;
 
     // NOTE: do NOT add Metadata or Session to this class.  The plan printer must be usable outside of a transaction.
@@ -166,6 +173,7 @@ public class PlanPrinter
             TypeProvider types,
             Optional<StageExecutionDescriptor> stageExecutionStrategy,
             Function<TableScanNode, TableInfo> tableInfoSupplier,
+            Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats,
             ValuePrinter valuePrinter,
             StatsAndCosts estimatedStatsAndCosts,
             Optional<Map<PlanNodeId, PlanNodeStats>> stats)
@@ -173,11 +181,13 @@ public class PlanPrinter
         requireNonNull(planRoot, "planRoot is null");
         requireNonNull(types, "types is null");
         requireNonNull(tableInfoSupplier, "tableInfoSupplier is null");
+        requireNonNull(dynamicFilterDomainStats, "dynamicFilterDomainStats is null");
         requireNonNull(valuePrinter, "valuePrinter is null");
         requireNonNull(estimatedStatsAndCosts, "estimatedStatsAndCosts is null");
         requireNonNull(stats, "stats is null");
 
         this.tableInfoSupplier = tableInfoSupplier;
+        this.dynamicFilterDomainStats = ImmutableMap.copyOf(dynamicFilterDomainStats);
         this.valuePrinter = valuePrinter;
 
         Optional<Duration> totalScheduledTime = stats.map(s -> new Duration(s.values().stream()
@@ -212,7 +222,7 @@ public class PlanPrinter
 
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
-        return new PlanPrinter(root, typeProvider, Optional.empty(), tableInfoSupplier, valuePrinter, StatsAndCosts.empty(), Optional.empty()).toJson();
+        return new PlanPrinter(root, typeProvider, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, StatsAndCosts.empty(), Optional.empty()).toJson();
     }
 
     public static String textLogicalPlan(
@@ -226,18 +236,28 @@ public class PlanPrinter
     {
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
-        return new PlanPrinter(plan, types, Optional.empty(), tableInfoSupplier, valuePrinter, estimatedStatsAndCosts, Optional.empty()).toText(verbose, level);
+        return new PlanPrinter(plan, types, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, estimatedStatsAndCosts, Optional.empty()).toText(verbose, level);
     }
 
-    public static String textDistributedPlan(StageInfo outputStageInfo, Metadata metadata, Session session, boolean verbose)
+    public static String textDistributedPlan(
+            StageInfo outputStageInfo,
+            QueryStats queryStats,
+            Metadata metadata,
+            Session session,
+            boolean verbose)
     {
         return textDistributedPlan(
                 outputStageInfo,
+                queryStats,
                 new ValuePrinter(metadata, session),
                 verbose);
     }
 
-    public static String textDistributedPlan(StageInfo outputStageInfo, ValuePrinter valuePrinter, boolean verbose)
+    public static String textDistributedPlan(
+            StageInfo outputStageInfo,
+            QueryStats queryStats,
+            ValuePrinter valuePrinter,
+            boolean verbose)
     {
         Map<PlanNodeId, TableInfo> tableInfos = getAllStages(Optional.of(outputStageInfo)).stream()
                 .map(StageInfo::getTables)
@@ -251,9 +271,14 @@ public class PlanPrinter
                 .map(StageInfo::getPlan)
                 .collect(toImmutableList());
         Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregateStageStats(allStages);
+
+        Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats = queryStats.getDynamicFiltersStats()
+                .getDynamicFilterDomainStats().stream()
+                .collect(toImmutableMap(DynamicFilterDomainStats::getDynamicFilterId, identity()));
         for (StageInfo stageInfo : allStages) {
             builder.append(formatFragment(
                     tableScanNode -> tableInfos.get(tableScanNode.getId()),
+                    dynamicFilterDomainStats,
                     valuePrinter,
                     stageInfo.getPlan(),
                     Optional.of(stageInfo),
@@ -271,7 +296,7 @@ public class PlanPrinter
         ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
         StringBuilder builder = new StringBuilder();
         for (PlanFragment fragment : plan.getAllFragments()) {
-            builder.append(formatFragment(tableInfoSupplier, valuePrinter, fragment, Optional.empty(), Optional.empty(), verbose, plan.getAllFragments()));
+            builder.append(formatFragment(tableInfoSupplier, ImmutableMap.of(), valuePrinter, fragment, Optional.empty(), Optional.empty(), verbose, plan.getAllFragments()));
         }
 
         return builder.toString();
@@ -279,6 +304,7 @@ public class PlanPrinter
 
     private static String formatFragment(
             Function<TableScanNode, TableInfo> tableInfoSupplier,
+            Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats,
             ValuePrinter valuePrinter,
             PlanFragment fragment,
             Optional<StageInfo> stageInfo,
@@ -351,6 +377,7 @@ public class PlanPrinter
                         typeProvider,
                         Optional.of(fragment.getStageExecutionDescriptor()),
                         tableInfoSupplier,
+                        dynamicFilterDomainStats,
                         valuePrinter,
                         fragment.getStatsAndCosts(),
                         planNodeStats).toText(verbose, 1))
@@ -516,9 +543,16 @@ public class PlanPrinter
         @Override
         public Void visitLimit(LimitNode node, Void context)
         {
+            String presSortedInputs = node.getPreSortedInputs().stream()
+                    .map(Symbol::getName)
+                    .collect(joining(", ", ", input pre-sorted by (", ")"));
             addNode(node,
                     format("Limit%s", node.isPartial() ? "Partial" : ""),
-                    format("[%s%s]", node.getCount(), node.isWithTies() ? "+ties" : ""));
+                    format(
+                            "[%s%s%s]",
+                            node.getCount(),
+                            node.isWithTies() ? "+ties" : "",
+                            node.requiresPreSortedInputs() ? presSortedInputs : ""));
             return processChildren(node, context);
         }
 
@@ -687,13 +721,23 @@ public class PlanPrinter
 
             NodeRepresentation nodeOutput = addNode(node, "PatterRecognition", format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashSymbol())));
 
+            if (node.getCommonBaseFrame().isPresent()) {
+                nodeOutput.appendDetailsLine("base frame: " + formatFrame(node.getCommonBaseFrame().get()));
+            }
+            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+                WindowNode.Function function = entry.getValue();
+                nodeOutput.appendDetailsLine("%s := %s(%s)", entry.getKey(), function.getResolvedFunction().getSignature().getName(), Joiner.on(", ").join(function.getArguments()));
+            }
+
             for (Map.Entry<Symbol, Measure> entry : node.getMeasures().entrySet()) {
                 nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), unresolveFunctions(entry.getValue().getExpressionAndValuePointers().getExpression()));
                 appendValuePointers(nodeOutput, entry.getValue().getExpressionAndValuePointers());
             }
-            nodeOutput.appendDetailsLine(formatRowsPerMatch(node.getRowsPerMatch()));
+            if (node.getRowsPerMatch() != WINDOW) {
+                nodeOutput.appendDetailsLine(formatRowsPerMatch(node.getRowsPerMatch()));
+            }
             nodeOutput.appendDetailsLine(formatSkipTo(node.getSkipToPosition(), node.getSkipToLabel()));
-            nodeOutput.appendDetailsLine(format("pattern[%s]", node.getPattern()));
+            nodeOutput.appendDetailsLine(format("pattern[%s] (%s)", node.getPattern(), node.isInitial() ? "INITIAL" : "SEEK"));
             nodeOutput.appendDetailsLine(format("subsets[%s]", node.getSubsets().entrySet().stream()
                     .map(subset -> subset.getKey().getName() +
                             " := " +
@@ -757,17 +801,16 @@ public class PlanPrinter
         {
             switch (rowsPerMatch) {
                 case ONE:
-                    return "ALL ROWS PER MATCH";
+                    return "ONE ROW PER MATCH";
                 case ALL_SHOW_EMPTY:
                     return "ALL ROWS PER MATCH SHOW EMPTY MATCHES";
                 case ALL_OMIT_EMPTY:
                     return "ALL ROWS PER MATCH OMIT EMPTY MATCHES";
                 case ALL_WITH_UNMATCHED:
                     return "ALL ROWS PER MATCH WITH UNMATCHED ROWS";
-                case WINDOW:
-                    throw new UnsupportedOperationException("pattern matching in WINDOW is not supported");
+                default:
+                    throw new IllegalArgumentException("unexpected rowsPer match value: " + rowsPerMatch.name());
             }
-            throw new UnsupportedOperationException("unsupported ROWS PER MATCH option");
         }
 
         private String formatSkipTo(Position position, Optional<IrLabel> label)
@@ -932,6 +975,7 @@ public class PlanPrinter
                 }
             }
 
+            List<DynamicFilters.Descriptor> dynamicFilters = ImmutableList.of();
             if (filterNode.isPresent()) {
                 operatorName += "Filter";
                 formatString += "filterPredicate = %s, ";
@@ -939,8 +983,9 @@ public class PlanPrinter
                 DynamicFilters.ExtractResult extractResult = extractDynamicFilters(predicate);
                 arguments.add(unresolveFunctions(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts())));
                 if (!extractResult.getDynamicConjuncts().isEmpty()) {
-                    formatString += "dynamicFilter = %s, ";
-                    arguments.add(printDynamicFilters(extractResult.getDynamicConjuncts()));
+                    formatString += "dynamicFilters = %s, ";
+                    dynamicFilters = extractResult.getDynamicConjuncts();
+                    arguments.add(printDynamicFilters(dynamicFilters));
                 }
             }
 
@@ -978,6 +1023,19 @@ public class PlanPrinter
                     nodeOutput.appendDetails("Input: %s (%s)", formatPositions(nodeStats.getPlanNodeInputPositions()), nodeStats.getPlanNodeInputDataSize().toString());
                     double filtered = 100.0d * (nodeStats.getPlanNodeInputPositions() - nodeStats.getPlanNodeOutputPositions()) / nodeStats.getPlanNodeInputPositions();
                     nodeOutput.appendDetailsLine(", Filtered: %s%%", formatDouble(filtered));
+                }
+                List<DynamicFilterDomainStats> collectedDomainStats = dynamicFilters.stream()
+                        .map(DynamicFilters.Descriptor::getId)
+                        .map(dynamicFilterDomainStats::get)
+                        .filter(Objects::nonNull)
+                        .collect(toImmutableList());
+                if (!collectedDomainStats.isEmpty()) {
+                    nodeOutput.appendDetailsLine("Dynamic filters: ");
+                    collectedDomainStats.forEach(stats -> nodeOutput.appendDetailsLine(
+                            "    - %s, %s, collection time=%s",
+                            stats.getDynamicFilterId(),
+                            stats.getSimplifiedDomain(),
+                            stats.getCollectionDuration().map(Duration::toString).orElse("uncollected")));
                 }
                 return null;
             }
@@ -1141,6 +1199,14 @@ public class PlanPrinter
             addNode(node, "Except", node.isDistinct() ? " distinct" : " all");
 
             return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitRefreshMaterializedView(RefreshMaterializedViewNode node, Void context)
+        {
+            addNode(node, "RefreshMaterializedView", format("[%s]", node.getViewName()));
+
+            return null;
         }
 
         @Override

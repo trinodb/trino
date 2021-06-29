@@ -58,6 +58,7 @@ public class TestDomain
         assertFalse(domain.includesNullableValue(Long.MAX_VALUE));
         assertFalse(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.all(BIGINT));
+        assertEquals(domain.toString(), "NONE");
     }
 
     @Test
@@ -74,6 +75,7 @@ public class TestDomain
         assertFalse(domain.includesNullableValue(0L));
         assertFalse(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.all(ID));
+        assertEquals(domain.toString(), "NONE");
     }
 
     @Test
@@ -90,6 +92,7 @@ public class TestDomain
         assertFalse(domain.includesNullableValue(Slices.EMPTY_SLICE));
         assertFalse(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.all(HYPER_LOG_LOG));
+        assertEquals(domain.toString(), "NONE");
     }
 
     @Test
@@ -109,6 +112,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(Long.MAX_VALUE));
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.none(BIGINT));
+        assertEquals(domain.toString(), "ALL");
     }
 
     @Test
@@ -131,6 +135,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue((long) floatToRawIntBits(Float.NaN)));
         assertTrue(domain.includesNullableValue((long) 0x7fc01234)); // different NaN representation
         assertEquals(domain.complement(), Domain.none(REAL));
+        assertEquals(domain.toString(), "ALL");
 
         domain = Domain.all(DOUBLE);
         assertFalse(domain.isNone());
@@ -149,6 +154,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(Double.NaN));
         assertTrue(domain.includesNullableValue(longBitsToDouble(0x7ff8123412341234L))); // different NaN representation
         assertEquals(domain.complement(), Domain.none(DOUBLE));
+        assertEquals(domain.toString(), "ALL");
     }
 
     @Test
@@ -166,6 +172,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(0L));
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.none(ID));
+        assertEquals(domain.toString(), "ALL");
     }
 
     @Test
@@ -183,6 +190,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(Slices.EMPTY_SLICE));
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.none(HYPER_LOG_LOG));
+        assertEquals(domain.toString(), "ALL");
     }
 
     @Test
@@ -203,6 +211,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.notNull(BIGINT));
         assertEquals(domain.getNullableSingleValue(), null);
+        assertEquals(domain.toString(), "[NULL]");
     }
 
     @Test
@@ -221,6 +230,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.notNull(ID));
         assertEquals(domain.getNullableSingleValue(), null);
+        assertEquals(domain.toString(), "[NULL]");
     }
 
     @Test
@@ -239,6 +249,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.notNull(HYPER_LOG_LOG));
         assertEquals(domain.getNullableSingleValue(), null);
+        assertEquals(domain.toString(), "[NULL]");
     }
 
     @Test
@@ -258,6 +269,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(Long.MAX_VALUE));
         assertFalse(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.onlyNull(BIGINT));
+        assertEquals(domain.toString(), "[ SortedRangeSet[type=bigint, ranges=1, {(<min>,<max>)}] ]");
     }
 
     @Test
@@ -275,6 +287,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(0L));
         assertFalse(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.onlyNull(ID));
+        assertEquals(domain.toString(), "[ EquatableValueSet[type=id, values=0, EXCLUDES{}] ]");
     }
 
     @Test
@@ -292,6 +305,7 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(Slices.EMPTY_SLICE));
         assertFalse(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.onlyNull(HYPER_LOG_LOG));
+        assertEquals(domain.toString(), "[ [ALL] ]");
     }
 
     @Test
@@ -312,6 +326,7 @@ public class TestDomain
         assertEquals(domain.complement(), Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 0L), Range.greaterThan(BIGINT, 0L)), true));
         assertEquals(domain.getSingleValue(), 0L);
         assertEquals(domain.getNullableSingleValue(), 0L);
+        assertEquals(domain.toString(), "[ SortedRangeSet[type=bigint, ranges=1, {[0]}] ]");
 
         assertThatThrownBy(() -> Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 2L, true)), false).getSingleValue())
                 .isInstanceOf(IllegalStateException.class)
@@ -335,6 +350,7 @@ public class TestDomain
         assertEquals(domain.complement(), Domain.create(ValueSet.of(ID, 0L).complement(), true));
         assertEquals(domain.getSingleValue(), 0L);
         assertEquals(domain.getNullableSingleValue(), 0L);
+        assertEquals(domain.toString(), "[ EquatableValueSet[type=id, values=1, {0}] ]");
 
         assertThatThrownBy(() -> Domain.create(ValueSet.of(ID, 0L, 1L), false).getSingleValue())
                 .isInstanceOf(IllegalStateException.class)

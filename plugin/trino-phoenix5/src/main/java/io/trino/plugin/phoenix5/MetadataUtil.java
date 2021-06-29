@@ -15,7 +15,7 @@ package io.trino.plugin.phoenix5;
 
 import org.apache.phoenix.util.SchemaUtil;
 
-import java.util.Optional;
+import javax.annotation.Nullable;
 
 import static io.trino.plugin.phoenix5.PhoenixMetadata.DEFAULT_SCHEMA;
 
@@ -23,18 +23,18 @@ public final class MetadataUtil
 {
     private MetadataUtil() {}
 
-    public static String getEscapedTableName(Optional<String> schema, String table)
+    public static String getEscapedTableName(@Nullable String schema, String table)
     {
-        return SchemaUtil.getEscapedTableName(toPhoenixSchemaName(schema).orElse(null), table);
+        return SchemaUtil.getEscapedTableName(toPhoenixSchemaName(schema), table);
     }
 
-    public static Optional<String> toPhoenixSchemaName(Optional<String> prestoSchemaName)
+    public static @Nullable String toPhoenixSchemaName(@Nullable String trinoSchemaName)
     {
-        return prestoSchemaName.map(schemaName -> DEFAULT_SCHEMA.equalsIgnoreCase(schemaName) ? "" : schemaName);
+        return DEFAULT_SCHEMA.equalsIgnoreCase(trinoSchemaName) ? "" : trinoSchemaName;
     }
 
-    public static Optional<String> toPrestoSchemaName(Optional<String> phoenixSchemaName)
+    public static @Nullable String toTrinoSchemaName(@Nullable String phoenixSchemaName)
     {
-        return phoenixSchemaName.map(schemaName -> schemaName.isEmpty() ? DEFAULT_SCHEMA : schemaName);
+        return "".equals(phoenixSchemaName) ? DEFAULT_SCHEMA : phoenixSchemaName;
     }
 }

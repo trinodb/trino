@@ -47,7 +47,7 @@ class RandomExchanger
     }
 
     @Override
-    public ListenableFuture<?> waitForWriting()
+    public ListenableFuture<Void> waitForWriting()
     {
         return memoryManager.getNotFullFuture();
     }

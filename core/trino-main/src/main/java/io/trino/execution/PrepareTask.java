@@ -30,7 +30,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static java.util.Locale.ENGLISH;
@@ -60,7 +60,7 @@ public class PrepareTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             Prepare prepare,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -77,6 +77,6 @@ public class PrepareTask
 
         String sql = getFormattedSql(statement, sqlParser);
         stateMachine.addPreparedStatement(prepare.getName().getValue(), sql);
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

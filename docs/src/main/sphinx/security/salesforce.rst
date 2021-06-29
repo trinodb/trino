@@ -13,8 +13,8 @@ basic credentials.  This can also be used to secure the :ref:`Web UI <web-ui-aut
 .. note::
 
     This is *not* a Salesforce connector, and does not allow users to query
-    Salesforce data. It's simply a means by which users can authenticate to Trino, similar
-    to :doc:`ldap` or :doc:`password-file`.
+    Salesforce data. Salesforce authentication is simply a means by which users
+    can authenticate to Trino, similar to :doc:`ldap` or :doc:`password-file`.
 
 Salesforce authenticator configuration
 --------------------------------------

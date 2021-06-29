@@ -38,6 +38,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.testng.Assert.assertEquals;
 
 public class TestDynamicTable
@@ -90,12 +91,77 @@ public class TestDynamicTable
     public void testFilter()
     {
         String tableName = realtimeOnlyTable.getTableName();
-        String query = format("select FlightNum, AirlineID from %s where (((CancellationCode IN ('strike', 'weather', 'pilot_bac')) AND (Origin = 'jfk')) " +
-                        "OR (((OriginCityName != 'catfish paradise') AND (OriginState != 'az')) AND (AirTime between 1 and 5))) " +
-                        "OR (((((DepDelayMinutes < 10) AND (Distance >= 3)) AND (ArrDelay > 4)) AND (SecurityDelay < 5)) AND (LateAircraftDelay <= 7)) limit 60",
+        String query = format("select FlightNum, AirlineID from %s where ((CancellationCode IN ('strike', 'weather', 'pilot_bac')) AND (Origin = 'jfk')) " +
+                        "OR ((OriginCityName != 'catfish paradise') AND (OriginState != 'az') AND (AirTime between 1 and 5)) " +
+                        "AND AirTime NOT IN (7,8,9) " +
+                        "OR ((DepDelayMinutes < 10) AND (Distance >= 3) AND (ArrDelay > 4) AND (SecurityDelay < 5) AND (LateAircraftDelay <= 7)) limit 60",
+                tableName.toLowerCase(ENGLISH));
+
+        String expected = format("select FlightNum, AirlineID from %s where OR(AND(CancellationCode IN ('strike', 'weather', 'pilot_bac'), (Origin) = ('jfk'))," +
+                        " AND((OriginCityName) != ('catfish paradise'), (OriginState) != ('az'), BETWEEN(AirTime, 1, 5), AirTime NOT IN (7, 8, 9))," +
+                        " AND((DepDelayMinutes) < (10), (Distance) >= (3), (ArrDelay) > (4), (SecurityDelay) < (5), (LateAircraftDelay) <= (7))) limit 60",
                 tableName.toLowerCase(ENGLISH));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query));
-        assertEquals(extractPql(dynamicTable, TupleDomain.all(), ImmutableList.of()), query);
+        assertEquals(extractPql(dynamicTable, TupleDomain.all(), ImmutableList.of()), expected);
+    }
+
+    @Test
+    public void testPrimitiveTypes()
+    {
+        // Note: Pinot treats varbinary literals as strings
+        // ci and intellij produce different results when X'abcd' is used:
+        // ci will interpret as a string, i.e. "X''ABCD"
+        // intellij will expand the X'abcd' to binary 0b10011100001111
+        // Pinot will interpret both forms as a string regardless, so we cannot use X'....'
+        String tableName = "primitive_types_table";
+        String query = "SELECT string_col, long_col, int_col, bool_col, double_col, float_col, bytes_col" +
+                "  FROM " + tableName + " WHERE string_col = 'string' AND long_col = 12345678901 AND int_col = 123456789" +
+                "  AND double_col = 3.56 AND float_col = 3.56 AND bytes_col = 'abcd' LIMIT 60";
+        String expected = "select string_col, long_col, int_col, bool_col, double_col, float_col, bytes_col" +
+                " from primitive_types_table where AND((string_col) = ('string'), (long_col) = (12345678901)," +
+                " (int_col) = (123456789), (double_col) = (3.56)," +
+                " (float_col) = (3.56), (bytes_col) = ('abcd')) limit 60";
+        DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query));
+        assertEquals(extractPql(dynamicTable, TupleDomain.all(), ImmutableList.of()), expected);
+    }
+
+    @Test
+    public void testDoubleWithScientificNotation()
+    {
+        // Pinot does not recognize double literals with scientific notation
+        String tableName = "primitive_types_table";
+        String query = "SELECT string_col FROM " + tableName + " WHERE double_col = 3.5E5";
+        assertThatNullPointerException().isThrownBy(() -> buildFromPql(pinotMetadata, new SchemaTableName("default", query)))
+                .withFailMessage("");
+    }
+
+    @Test
+    public void testFilterWithCast()
+    {
+        String tableName = "primitive_types_table";
+        String query = "SELECT string_col, long_col" +
+                " FROM " + tableName + " WHERE string_col = CAST(123 AS STRING) AND long_col = CAST('123' AS LONG) LIMIT 60";
+        String expected = "select string_col, long_col from primitive_types_table" +
+                " where AND((string_col) = (CAST(123 AS string)), (long_col) = (CAST('123' AS long))) limit 60";
+        DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query));
+        assertEquals(extractPql(dynamicTable, TupleDomain.all(), ImmutableList.of()), expected);
+    }
+
+    @Test
+    public void testFilterWithCaseStatements()
+    {
+        String tableName = realtimeOnlyTable.getTableName();
+        String query = format("select FlightNum, AirlineID from %s " +
+                "where case when cancellationcode = 'strike' then 3 else 4 end != 5 " +
+                "AND case origincityname when 'nyc' then 'pizza' when 'la' then 'burrito' when 'boston' then 'clam chowder' " +
+                "else 'burger' end != 'salad'", tableName.toLowerCase(ENGLISH));
+        String expected = format("select FlightNum, AirlineID from %s where AND((CASE WHEN (CancellationCode) = ('strike')" +
+                        " THEN 3 ELSE 4 END) != (5), (CASE WHEN (OriginCityName) = ('nyc') THEN 'pizza'" +
+                        " WHEN (OriginCityName) = ('la') THEN 'burrito' WHEN (OriginCityName) = ('boston') THEN 'clam chowder'" +
+                        " ELSE 'burger' END) != ('salad')) limit 10",
+                tableName.toLowerCase(ENGLISH));
+        DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query));
+        assertEquals(extractPql(dynamicTable, TupleDomain.all(), ImmutableList.of()), expected);
     }
 
     @Test
@@ -121,7 +187,7 @@ public class TestDynamicTable
         String tableName = realtimeOnlyTable.getTableName();
         String query = format("select FlightNum from %s where DivLongestGTimes = POW(3, 2) limit 60", tableName.toLowerCase(ENGLISH));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query));
-        String expectedPql = "select FlightNum from realtimeonly where minus(divlongestgtimes,pow('3','2')) = '0' limit 60";
+        String expectedPql = "select FlightNum from realtimeonly where (DivLongestGTimes) = (POW(3, 2)) limit 60";
         assertEquals(extractPql(dynamicTable, TupleDomain.all(), ImmutableList.of()), expectedPql);
     }
 

@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.FullConnectorSession;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
@@ -42,5 +43,25 @@ public final class SessionFunctions
     {
         // this function is a language construct and has special access to internals
         return utf8Slice(((FullConnectorSession) session).getSession().getPath().toString());
+    }
+
+    @ScalarFunction(value = "$current_catalog", hidden = true)
+    @Description("Current catalog")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice currentCatalog(ConnectorSession session)
+    {
+        return ((FullConnectorSession) session).getSession().getCatalog()
+                .map(Slices::utf8Slice)
+                .orElse(null);
+    }
+
+    @ScalarFunction(value = "$current_schema", hidden = true)
+    @Description("Current schema")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice currentSchema(ConnectorSession session)
+    {
+        return ((FullConnectorSession) session).getSession().getSchema()
+                .map(Slices::utf8Slice)
+                .orElse(null);
     }
 }

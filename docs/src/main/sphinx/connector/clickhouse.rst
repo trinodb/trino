@@ -79,7 +79,7 @@ Table property usage example::
     )
     WITH (
       engine = 'MergeTree',
-      order_by = 'id, birthday',
+      order_by = ARRAY['id', 'birthday'],
       partition_by = 'toYYYYMM(logdate)'
     );
 
@@ -90,17 +90,33 @@ Property Name               Default Value    Description
 =========================== ================ ==============================================================================================================
 ``engine``                  ``Log``          Name and parameters of the engine.
 
-``order_by``                (none)           list of columns to be the sorting key. It's required if ``engine`` is ``MergeTree``
+``order_by``                (none)           list of columns to be the sorting key. Required if ``engine`` is ``MergeTree``.
 
-``partition_by``            (none)           list of columns to be the partition key. It's optional.
+``partition_by``            (none)           list of columns to be the partition key. Optional.
 
-``primary_key``             (none)           list of columns to be the primary key. It's optional.
+``primary_key``             (none)           list of columns to be the primary key. Optional.
 
-``sample_by``               (none)           An expression for sampling. It's optional.
+``sample_by``               (none)           An expression for sampling. Optional.
 
 =========================== ================ ==============================================================================================================
 
-Currently the connector only supports ``Log`` and ``MergeTree`` table engines in create table.
+Currently the connector only supports ``Log`` and ``MergeTree`` table engines
+in create table statement. ``ReplicatedMergeTree`` engine is not yet supported.
+
+Pushdown
+--------
+
+The connector supports pushdown for a number of operations:
+
+* :ref:`limit-pushdown`
+
+:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+* :func:`avg`
+* :func:`count`
+* :func:`max`
+* :func:`min`
+* :func:`sum`
 
 Limitations
 -----------

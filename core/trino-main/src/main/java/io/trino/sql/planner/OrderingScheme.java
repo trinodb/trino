@@ -26,6 +26,7 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.NullOrdering;
 import io.trino.sql.tree.SortItem.Ordering;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,7 +34,6 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class OrderingScheme
@@ -108,13 +108,24 @@ public class OrderingScheme
 
     public static OrderingScheme fromOrderBy(OrderBy orderBy)
     {
-        return new OrderingScheme(
-                orderBy.getSortItems().stream()
-                        .map(SortItem::getSortKey)
-                        .map(Symbol::from)
-                        .collect(toImmutableList()),
-                orderBy.getSortItems().stream()
-                        .collect(toImmutableMap(sortItem -> Symbol.from(sortItem.getSortKey()), OrderingScheme::sortItemToSortOrder)));
+        List<Symbol> orderBySymbols = orderBy.getSortItems().stream()
+                .map(SortItem::getSortKey)
+                .map(Symbol::from)
+                .collect(toImmutableList());
+
+        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+        Map<Symbol, SortOrder> orders = new HashMap<>();
+        for (int i = 0; i < orderBySymbols.size(); i++) {
+            Symbol symbol = orderBySymbols.get(i);
+            // for multiple sort items based on the same expression, retain the first one:
+            // ORDER BY x DESC, x ASC, y --> ORDER BY x DESC, y
+            if (!orders.containsKey(symbol)) {
+                symbols.add(symbol);
+                orders.put(symbol, sortItemToSortOrder(orderBy.getSortItems().get(i)));
+            }
+        }
+
+        return new OrderingScheme(symbols.build(), orders);
     }
 
     public static SortOrder sortItemToSortOrder(SortItem sortItem)

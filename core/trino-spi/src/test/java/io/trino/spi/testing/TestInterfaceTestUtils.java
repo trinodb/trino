@@ -88,4 +88,10 @@ public class TestInterfaceTestUtils
         @Override
         public void foo(String s) {}
     }
+
+    @Test
+    public void testAssertProperForwardingMethodsAreCalledWithPrivateMethods()
+    {
+        InterfaceTestUtils.assertProperForwardingMethodsAreCalled(InterfaceWithPrivateMethod.class, ForwardingInterfaceWithPrivateMethod::new);
+    }
 }

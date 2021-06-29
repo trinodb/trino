@@ -17,10 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.client.FailureInfo;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Metadata;
@@ -44,7 +42,9 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.planner.iterative.rule.DesugarCurrentCatalog;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentPath;
+import io.trino.sql.planner.iterative.rule.DesugarCurrentSchema;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -57,7 +57,9 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.ComparisonExpression.Operator;
+import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
@@ -95,7 +97,6 @@ import io.trino.type.FunctionType;
 import io.trino.type.JoniRegexp;
 import io.trino.type.LikeFunctions;
 import io.trino.type.TypeCoercion;
-import io.trino.util.Failures;
 import io.trino.util.FastutilSetHelper;
 
 import java.lang.invoke.MethodHandle;
@@ -130,7 +131,6 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
@@ -142,7 +142,7 @@ import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMap
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ResolvedFunctionCallRewriter.rewriteResolvedFunctions;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
-import static io.trino.type.JsonType.JSON;
+import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
 import static io.trino.util.Failures.checkCondition;
@@ -246,9 +246,7 @@ public class ExpressionInterpreter
         analyzer.analyze(resolved, Scope.create());
 
         // evaluate the expression
-        Object result = new ExpressionInterpreter(resolved, metadata, session, analyzer.getExpressionTypes()).evaluate();
-        verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
-        return result;
+        return new ExpressionInterpreter(resolved, metadata, session, analyzer.getExpressionTypes()).evaluate();
     }
 
     public Type getType()
@@ -258,17 +256,21 @@ public class ExpressionInterpreter
 
     public Object evaluate()
     {
-        return new Visitor(false).process(expression, new NoPagePositionContext());
+        Object result = new Visitor(false).processWithExceptionHandling(expression, new NoPagePositionContext());
+        verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
+        return result;
     }
 
     public Object evaluate(SymbolResolver inputs)
     {
-        return new Visitor(false).process(expression, inputs);
+        Object result = new Visitor(false).processWithExceptionHandling(expression, inputs);
+        verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
+        return result;
     }
 
     public Object optimize(SymbolResolver inputs)
     {
-        return new Visitor(true).process(expression, inputs);
+        return new Visitor(true).processWithExceptionHandling(expression, inputs);
     }
 
     private class Visitor
@@ -279,6 +281,28 @@ public class ExpressionInterpreter
         private Visitor(boolean optimize)
         {
             this.optimize = optimize;
+        }
+
+        private Object processWithExceptionHandling(Expression expression, Object context)
+        {
+            if (expression == null) {
+                return null;
+            }
+
+            try {
+                return process(expression, context);
+            }
+            catch (TrinoException e) {
+                if (optimize) {
+                    // Certain operations like 0 / 0 or likeExpression may throw exceptions.
+                    // When optimizing, do not throw the exception, but delay it until the expression is actually executed.
+                    // This is to take advantage of the possibility that some other optimization removes the erroneous
+                    // expression from the plan.
+                    return expression;
+                }
+                // Do not suppress exceptions during expression execution.
+                throw e;
+            }
         }
 
         @Override
@@ -296,7 +320,8 @@ public class ExpressionInterpreter
                 return node;
             }
 
-            Object base = process(node.getBase(), context);
+            // Row dereference: process dereference base eagerly, and only then pick the expected field
+            Object base = processWithExceptionHandling(node.getBase(), context);
             // if the base part is evaluated to be null, the dereference expression should also be null
             if (base == null) {
                 return null;
@@ -355,7 +380,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitIsNullPredicate(IsNullPredicate node, Object context)
         {
-            Object value = process(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), context);
 
             if (value instanceof Expression) {
                 return new IsNullPredicate(toExpression(value, type(node.getValue())));
@@ -367,7 +392,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitIsNotNullPredicate(IsNotNullPredicate node, Object context)
         {
-            Object value = process(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), context);
 
             if (value instanceof Expression) {
                 return new IsNotNullPredicate(toExpression(value, type(node.getValue())));
@@ -379,71 +404,60 @@ public class ExpressionInterpreter
         @Override
         protected Object visitSearchedCaseExpression(SearchedCaseExpression node, Object context)
         {
-            Object defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
+            Object newDefault = null;
+            boolean foundNewDefault = false;
 
             List<WhenClause> whenClauses = new ArrayList<>();
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), context);
-                Object result = processWithExceptionHandling(whenClause.getResult(), context);
 
                 if (whenOperand instanceof Expression) {
                     // cannot fully evaluate, add updated whenClause
                     whenClauses.add(new WhenClause(
                             toExpression(whenOperand, type(whenClause.getOperand())),
-                            toExpression(result, type(whenClause.getResult()))));
+                            toExpression(processWithExceptionHandling(whenClause.getResult(), context), type(whenClause.getResult()))));
                 }
                 else if (Boolean.TRUE.equals(whenOperand)) {
-                    // condition is true, use this as defaultResult
-                    defaultResult = result;
+                    // condition is true, use this as default
+                    foundNewDefault = true;
+                    newDefault = processWithExceptionHandling(whenClause.getResult(), context);
                     break;
                 }
+            }
+
+            Object defaultResult;
+            if (foundNewDefault) {
+                defaultResult = newDefault;
+            }
+            else {
+                defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
             }
 
             if (whenClauses.isEmpty()) {
                 return defaultResult;
             }
 
-            Expression resultExpression = (defaultResult == null) ? null : toExpression(defaultResult, type(node));
-            return new SearchedCaseExpression(whenClauses, Optional.ofNullable(resultExpression));
+            Expression defaultExpression = (defaultResult == null) ? null : toExpression(defaultResult, type(node));
+            return new SearchedCaseExpression(whenClauses, Optional.ofNullable(defaultExpression));
         }
 
         @Override
         protected Object visitIfExpression(IfExpression node, Object context)
         {
-            Object trueValue = processWithExceptionHandling(node.getTrueValue(), context);
-            Object falseValue = processWithExceptionHandling(node.getFalseValue().orElse(null), context);
             Object condition = processWithExceptionHandling(node.getCondition(), context);
 
             if (condition instanceof Expression) {
-                Expression falseValueExpression = (falseValue == null) ? null : toExpression(falseValue, type(node.getFalseValue().get()));
+                Object trueValue = processWithExceptionHandling(node.getTrueValue(), context);
+                Object falseValue = processWithExceptionHandling(node.getFalseValue().orElse(null), context);
                 return new IfExpression(
                         toExpression(condition, type(node.getCondition())),
                         toExpression(trueValue, type(node.getTrueValue())),
-                        falseValueExpression);
+                        (falseValue == null) ? null : toExpression(falseValue, type(node.getFalseValue().get())));
             }
-            else if (Boolean.TRUE.equals(condition)) {
-                return trueValue;
+            if (Boolean.TRUE.equals(condition)) {
+                return processWithExceptionHandling(node.getTrueValue(), context);
             }
-            else {
-                return falseValue;
-            }
-        }
-
-        private Object processWithExceptionHandling(Expression expression, Object context)
-        {
-            if (expression == null) {
-                return null;
-            }
-
-            try {
-                return process(expression, context);
-            }
-            catch (RuntimeException e) {
-                // HACK
-                // Certain operations like 0 / 0 or likeExpression may throw exceptions.
-                // Wrap them a FunctionCall that will throw the exception if the expression is actually executed
-                return createFailureFunction(e, type(expression), ExpressionInterpreter.this.metadata);
-            }
+            return processWithExceptionHandling(node.getFalseValue().orElse(null), context);
         }
 
         @Override
@@ -452,31 +466,38 @@ public class ExpressionInterpreter
             Object operand = processWithExceptionHandling(node.getOperand(), context);
             Type operandType = type(node.getOperand());
 
-            // evaluate defaultClause
-            Expression defaultClause = node.getDefaultValue().orElse(null);
-            Object defaultResult = processWithExceptionHandling(defaultClause, context);
-
             // if operand is null, return defaultValue
             if (operand == null) {
-                return defaultResult;
+                return processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
             }
+
+            Object newDefault = null;
+            boolean foundNewDefault = false;
 
             List<WhenClause> whenClauses = new ArrayList<>();
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), context);
-                Object result = processWithExceptionHandling(whenClause.getResult(), context);
 
                 if (whenOperand instanceof Expression || operand instanceof Expression) {
                     // cannot fully evaluate, add updated whenClause
                     whenClauses.add(new WhenClause(
                             toExpression(whenOperand, type(whenClause.getOperand())),
-                            toExpression(result, type(whenClause.getResult()))));
+                            toExpression(processWithExceptionHandling(whenClause.getResult(), context), type(whenClause.getResult()))));
                 }
                 else if (whenOperand != null && isEqual(operand, operandType, whenOperand, type(whenClause.getOperand()))) {
-                    // condition is true, use this as defaultResult
-                    defaultResult = result;
+                    // condition is true, use this as default
+                    foundNewDefault = true;
+                    newDefault = processWithExceptionHandling(whenClause.getResult(), context);
                     break;
                 }
+            }
+
+            Object defaultResult;
+            if (foundNewDefault) {
+                defaultResult = newDefault;
+            }
+            else {
+                defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
             }
 
             if (whenClauses.isEmpty()) {
@@ -500,49 +521,58 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCoalesceExpression(CoalesceExpression node, Object context)
         {
-            Type type = type(node);
-            List<Object> values = node.getOperands().stream()
-                    .map(value -> processWithExceptionHandling(value, context))
-                    .filter(Objects::nonNull)
-                    .flatMap(expression -> {
-                        if (expression instanceof CoalesceExpression) {
-                            return ((CoalesceExpression) expression).getOperands().stream();
-                        }
-                        return Stream.of(expression);
-                    })
-                    .collect(toList());
-
-            if ((!values.isEmpty() && !(values.get(0) instanceof Expression)) || values.size() == 1) {
-                return values.get(0);
-            }
-            ImmutableList.Builder<Expression> operandsBuilder = ImmutableList.builder();
-            Set<Expression> visitedExpression = new HashSet<>();
-            for (Object value : values) {
-                Expression expression = toExpression(value, type);
-                if (!isDeterministic(expression, metadata) || visitedExpression.add(expression)) {
-                    operandsBuilder.add(expression);
-                }
-                // TODO: Replace this logic with an anlyzer which specifies whether it evaluates to null
-                if (expression instanceof Literal && !(expression instanceof NullLiteral)) {
-                    break;
-                }
-            }
-            List<Expression> expressions = operandsBuilder.build();
-
-            if (expressions.isEmpty()) {
+            List<Object> newOperands = processOperands(node, context);
+            if (newOperands.isEmpty()) {
                 return null;
             }
-
-            if (expressions.size() == 1) {
-                return getOnlyElement(expressions);
+            if (newOperands.size() == 1) {
+                return getOnlyElement(newOperands);
             }
-            return new CoalesceExpression(expressions);
+            return new CoalesceExpression(newOperands.stream()
+                    .map(value -> toExpression(value, type(node)))
+                    .collect(toImmutableList()));
+        }
+
+        private List<Object> processOperands(CoalesceExpression node, Object context)
+        {
+            Type type = type(node);
+            List<Object> newOperands = new ArrayList<>();
+            Set<Expression> uniqueNewOperands = new HashSet<>();
+            for (Expression operand : node.getOperands()) {
+                Object value = processWithExceptionHandling(operand, context);
+                if (value instanceof CoalesceExpression) {
+                    // The nested CoalesceExpression was recursively processed. It does not contain null.
+                    for (Expression nestedOperand : ((CoalesceExpression) value).getOperands()) {
+                        // Skip duplicates unless they are non-deterministic.
+                        if (!isDeterministic(nestedOperand, metadata) || uniqueNewOperands.add(nestedOperand)) {
+                            newOperands.add(nestedOperand);
+                        }
+                        // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
+                        if (nestedOperand instanceof Literal) {
+                            return newOperands;
+                        }
+                    }
+                }
+                else if (value instanceof Expression) {
+                    // Skip duplicates unless they are non-deterministic.
+                    Expression expression = toExpression(value, type);
+                    if (!isDeterministic(expression, metadata) || uniqueNewOperands.add(expression)) {
+                        newOperands.add(expression);
+                    }
+                }
+                else if (value != null) {
+                    // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
+                    newOperands.add(value);
+                    return newOperands;
+                }
+            }
+            return newOperands;
         }
 
         @Override
         protected Object visitInPredicate(InPredicate node, Object context)
         {
-            Object value = process(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), context);
 
             Expression valueListExpression = node.getValueList();
             if (!(valueListExpression instanceof InListExpression)) {
@@ -552,7 +582,7 @@ public class ExpressionInterpreter
                 return node;
             }
             InListExpression valueList = (InListExpression) valueListExpression;
-            verify(!valueList.getValues().isEmpty()); // `NULL IN ()` would be false, but is not possible
+            // `NULL IN ()` would be false, but InListExpression cannot be empty by construction
             if (value == null) {
                 return null;
             }
@@ -565,7 +595,7 @@ public class ExpressionInterpreter
             if (!inListCache.containsKey(valueList)) {
                 if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
                         valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
-                    Set<Object> objectSet = valueList.getValues().stream().map(expression -> process(expression, context)).collect(Collectors.toSet());
+                    Set<Object> objectSet = valueList.getValues().stream().map(expression -> processWithExceptionHandling(expression, context)).collect(Collectors.toSet());
                     Type type = type(node.getValue());
                     set = FastutilSetHelper.toFastutilHashSet(
                             objectSet,
@@ -580,11 +610,7 @@ public class ExpressionInterpreter
                 return set.contains(value);
             }
 
-            boolean hasUnresolvedValue = false;
-            if (value instanceof Expression) {
-                hasUnresolvedValue = true;
-            }
-
+            boolean hasUnresolvedValue = value instanceof Expression;
             boolean hasNullValue = false;
             boolean found = false;
             List<Object> values = new ArrayList<>(valueList.getValues().size());
@@ -592,6 +618,11 @@ public class ExpressionInterpreter
 
             ResolvedFunction equalsOperator = metadata.resolveOperator(OperatorType.EQUAL, types(node.getValue(), valueList));
             for (Expression expression : valueList.getValues()) {
+                // Use process() instead of processWithExceptionHandling() for processing in-list items.
+                // Do not handle exceptions thrown while processing a single in-list expression,
+                // but fail the whole in-predicate evaluation.
+                // According to in-predicate semantics, all in-list items must be successfully evaluated
+                // before a check for the match is performed.
                 Object inValue = process(expression, context);
                 if (value instanceof Expression || inValue instanceof Expression) {
                     hasUnresolvedValue = true;
@@ -662,12 +693,23 @@ public class ExpressionInterpreter
         @Override
         protected Object visitArithmeticUnary(ArithmeticUnaryExpression node, Object context)
         {
-            Object value = process(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), context);
             if (value == null) {
                 return null;
             }
             if (value instanceof Expression) {
-                return new ArithmeticUnaryExpression(node.getSign(), toExpression(value, type(node.getValue())));
+                Expression valueExpression = toExpression(value, type(node.getValue()));
+                switch (node.getSign()) {
+                    case PLUS:
+                        return valueExpression;
+                    case MINUS:
+                        if (valueExpression instanceof ArithmeticUnaryExpression && ((ArithmeticUnaryExpression) valueExpression).getSign().equals(MINUS)) {
+                            return ((ArithmeticUnaryExpression) valueExpression).getValue();
+                        }
+                        return new ArithmeticUnaryExpression(MINUS, valueExpression);
+                    default:
+                        throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
+                }
             }
 
             switch (node.getSign()) {
@@ -697,11 +739,11 @@ public class ExpressionInterpreter
         @Override
         protected Object visitArithmeticBinary(ArithmeticBinaryExpression node, Object context)
         {
-            Object left = process(node.getLeft(), context);
+            Object left = processWithExceptionHandling(node.getLeft(), context);
             if (left == null) {
                 return null;
             }
-            Object right = process(node.getRight(), context);
+            Object right = processWithExceptionHandling(node.getRight(), context);
             if (right == null) {
                 return null;
             }
@@ -721,7 +763,7 @@ public class ExpressionInterpreter
             Expression right = node.getRight();
 
             if (operator == Operator.IS_DISTINCT_FROM) {
-                return evaluateIsDistinctFrom(context, left, right);
+                return processIsDistinctFrom(context, left, right);
             }
             // Execution engine does not have not equal and greater than operators, so interpret with
             // equal or less than, but do not flip operator in result, as many optimizers depend on
@@ -744,13 +786,13 @@ public class ExpressionInterpreter
                 return result;
             }
 
-            return evaluateComparisonExpression(context, operator, left, right);
+            return processComparisonExpression(context, operator, left, right);
         }
 
-        private Object evaluateIsDistinctFrom(Object context, Expression leftExpression, Expression rightExpression)
+        private Object processIsDistinctFrom(Object context, Expression leftExpression, Expression rightExpression)
         {
-            Object left = process(leftExpression, context);
-            Object right = process(rightExpression, context);
+            Object left = processWithExceptionHandling(leftExpression, context);
+            Object right = processWithExceptionHandling(rightExpression, context);
 
             if (left == null && right instanceof Expression) {
                 return new IsNotNullPredicate((Expression) right);
@@ -767,14 +809,14 @@ public class ExpressionInterpreter
             return invokeOperator(OperatorType.valueOf(Operator.IS_DISTINCT_FROM.name()), types(leftExpression, rightExpression), Arrays.asList(left, right));
         }
 
-        private Object evaluateComparisonExpression(Object context, Operator operator, Expression leftExpression, Expression rightExpression)
+        private Object processComparisonExpression(Object context, Operator operator, Expression leftExpression, Expression rightExpression)
         {
-            Object left = process(leftExpression, context);
+            Object left = processWithExceptionHandling(leftExpression, context);
             if (left == null) {
                 return null;
             }
 
-            Object right = process(rightExpression, context);
+            Object right = processWithExceptionHandling(rightExpression, context);
             if (right == null) {
                 return null;
             }
@@ -811,12 +853,12 @@ public class ExpressionInterpreter
         @Override
         protected Object visitBetweenPredicate(BetweenPredicate node, Object context)
         {
-            Object value = process(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), context);
             if (value == null) {
                 return null;
             }
-            Object min = process(node.getMin(), context);
-            Object max = process(node.getMax(), context);
+            Object min = processWithExceptionHandling(node.getMin(), context);
+            Object max = processWithExceptionHandling(node.getMax(), context);
 
             if (value instanceof Expression || min instanceof Expression || max instanceof Expression) {
                 return new BetweenPredicate(
@@ -846,11 +888,11 @@ public class ExpressionInterpreter
         @Override
         protected Object visitNullIfExpression(NullIfExpression node, Object context)
         {
-            Object first = process(node.getFirst(), context);
+            Object first = processWithExceptionHandling(node.getFirst(), context);
             if (first == null) {
                 return null;
             }
-            Object second = process(node.getSecond(), context);
+            Object second = processWithExceptionHandling(node.getSecond(), context);
             if (second == null) {
                 return first;
             }
@@ -878,15 +920,13 @@ public class ExpressionInterpreter
             if (equal) {
                 return null;
             }
-            else {
-                return first;
-            }
+            return first;
         }
 
         @Override
         protected Object visitNotExpression(NotExpression node, Object context)
         {
-            Object value = process(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), context);
             if (value == null) {
                 return null;
             }
@@ -901,7 +941,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitLogicalBinaryExpression(LogicalBinaryExpression node, Object context)
         {
-            Object left = process(node.getLeft(), context);
+            Object left = processWithExceptionHandling(node.getLeft(), context);
             Object right;
 
             switch (node.getOperator()) {
@@ -910,7 +950,7 @@ public class ExpressionInterpreter
                         return false;
                     }
 
-                    right = process(node.getRight(), context);
+                    right = processWithExceptionHandling(node.getRight(), context);
 
                     if (Boolean.FALSE.equals(left) || Boolean.TRUE.equals(right)) {
                         return left;
@@ -926,7 +966,7 @@ public class ExpressionInterpreter
                         return true;
                     }
 
-                    right = process(node.getRight(), context);
+                    right = processWithExceptionHandling(node.getRight(), context);
 
                     if (Boolean.TRUE.equals(left) || Boolean.FALSE.equals(right)) {
                         return left;
@@ -962,7 +1002,7 @@ public class ExpressionInterpreter
             List<Type> argumentTypes = new ArrayList<>();
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.getArguments()) {
-                Object value = process(expression, context);
+                Object value = processWithExceptionHandling(expression, context);
                 Type type = type(expression);
                 argumentValues.add(value);
                 argumentTypes.add(type);
@@ -982,9 +1022,9 @@ public class ExpressionInterpreter
                     hasUnresolvedValue(argumentValues) ||
                     isDynamicFilter(node) ||
                     resolvedFunction.getSignature().getName().equals("fail"))) {
-                verify(!node.isDistinct(), "window does not support distinct");
-                verify(node.getOrderBy().isEmpty(), "window does not support order by");
-                verify(node.getFilter().isEmpty(), "window does not support filter");
+                verify(!node.isDistinct(), "distinct not supported");
+                verify(node.getOrderBy().isEmpty(), "order by not supported");
+                verify(node.getFilter().isEmpty(), "filter not supported");
                 return new FunctionCallBuilder(metadata)
                         .setName(node.getName())
                         .setWindow(node.getWindow())
@@ -1018,16 +1058,16 @@ public class ExpressionInterpreter
                             .map(Primitives::wrap)
                             .collect(toImmutableList()),
                     argumentNames,
-                    map -> process(body, new LambdaSymbolResolver(map)));
+                    map -> processWithExceptionHandling(body, new LambdaSymbolResolver(map)));
         }
 
         @Override
         protected Object visitBindExpression(BindExpression node, Object context)
         {
             List<Object> values = node.getValues().stream()
-                    .map(value -> process(value, context))
+                    .map(value -> processWithExceptionHandling(value, context))
                     .collect(toList()); // values are nullable
-            Object function = process(node.getFunction(), context);
+            Object function = processWithExceptionHandling(node.getFunction(), context);
 
             if (hasUnresolvedValue(values) || hasUnresolvedValue(function)) {
                 ImmutableList.Builder<Expression> builder = ImmutableList.builder();
@@ -1046,7 +1086,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitLikePredicate(LikePredicate node, Object context)
         {
-            Object value = process(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.getValue(), context);
 
             if (value == null) {
                 return null;
@@ -1059,7 +1099,7 @@ public class ExpressionInterpreter
                 return evaluateLikePredicate(node, (Slice) value, getConstantPattern(node));
             }
 
-            Object pattern = process(node.getPattern(), context);
+            Object pattern = processWithExceptionHandling(node.getPattern(), context);
 
             if (pattern == null) {
                 return null;
@@ -1067,7 +1107,7 @@ public class ExpressionInterpreter
 
             Object escape = null;
             if (node.getEscape().isPresent()) {
-                escape = process(node.getEscape().get(), context);
+                escape = processWithExceptionHandling(node.getEscape().get(), context);
 
                 if (escape == null) {
                     return null;
@@ -1093,15 +1133,18 @@ public class ExpressionInterpreter
                 Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape));
                 Type valueType = type(node.getValue());
                 Type patternType = createVarcharType(unescapedPattern.length());
-                Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(valueType, patternType);
-                checkArgument(commonSuperType.isPresent(), "Missing super type when optimizing %s", node);
+                Type superType = typeCoercion.getCommonSuperType(valueType, patternType)
+                        .orElseThrow(() -> new IllegalArgumentException("Missing super type when optimizing " + node));
                 Expression valueExpression = toExpression(value, valueType);
-                Expression patternExpression = toExpression(unescapedPattern, patternType);
-                Type superType = commonSuperType.get();
                 if (!valueType.equals(superType)) {
                     valueExpression = new Cast(valueExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
                 }
-                if (!patternType.equals(superType)) {
+                Expression patternExpression;
+                if (superType instanceof VarcharType) {
+                    patternExpression = toExpression(unescapedPattern, superType);
+                }
+                else {
+                    patternExpression = toExpression(unescapedPattern, patternType);
                     patternExpression = new Cast(patternExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(patternType, superType));
                 }
                 return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, valueExpression, patternExpression);
@@ -1153,7 +1196,7 @@ public class ExpressionInterpreter
         @Override
         public Object visitCast(Cast node, Object context)
         {
-            Object value = process(node.getExpression(), context);
+            Object value = processWithExceptionHandling(node.getExpression(), context);
             Type targetType = metadata.getType(toTypeSignature(node.getType()));
             Type sourceType = type(node.getExpression());
             if (value instanceof Expression) {
@@ -1192,7 +1235,7 @@ public class ExpressionInterpreter
             BlockBuilder arrayBlockBuilder = elementType.createBlockBuilder(null, node.getValues().size());
 
             for (Expression expression : node.getValues()) {
-                Object value = process(expression, context);
+                Object value = processWithExceptionHandling(expression, context);
                 if (value instanceof Expression) {
                     checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
                     return visitFunctionCall(
@@ -1206,6 +1249,18 @@ public class ExpressionInterpreter
             }
 
             return arrayBlockBuilder.build();
+        }
+
+        @Override
+        protected Object visitCurrentCatalog(CurrentCatalog node, Object context)
+        {
+            return visitFunctionCall(DesugarCurrentCatalog.getCall(node, metadata), context);
+        }
+
+        @Override
+        protected Object visitCurrentSchema(CurrentSchema node, Object context)
+        {
+            return visitFunctionCall(DesugarCurrentSchema.getCall(node, metadata), context);
         }
 
         @Override
@@ -1230,30 +1285,28 @@ public class ExpressionInterpreter
             int cardinality = arguments.size();
             List<Object> values = new ArrayList<>(cardinality);
             for (Expression argument : arguments) {
-                values.add(process(argument, context));
+                values.add(processWithExceptionHandling(argument, context));
             }
             if (hasUnresolvedValue(values)) {
                 return new Row(toExpressions(values, parameterTypes));
             }
-            else {
-                BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
-                BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
-                for (int i = 0; i < cardinality; ++i) {
-                    writeNativeValue(parameterTypes.get(i), singleRowBlockWriter, values.get(i));
-                }
-                blockBuilder.closeEntry();
-                return rowType.getObject(blockBuilder, 0);
+            BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
+            BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
+            for (int i = 0; i < cardinality; ++i) {
+                writeNativeValue(parameterTypes.get(i), singleRowBlockWriter, values.get(i));
             }
+            blockBuilder.closeEntry();
+            return rowType.getObject(blockBuilder, 0);
         }
 
         @Override
         protected Object visitSubscriptExpression(SubscriptExpression node, Object context)
         {
-            Object base = process(node.getBase(), context);
+            Object base = processWithExceptionHandling(node.getBase(), context);
             if (base == null) {
                 return null;
             }
-            Object index = process(node.getIndex(), context);
+            Object index = processWithExceptionHandling(node.getIndex(), context);
             if (index == null) {
                 return null;
             }
@@ -1365,23 +1418,6 @@ public class ExpressionInterpreter
         {
             throw new IllegalArgumentException("Context does not have a position");
         }
-    }
-
-    private static Expression createFailureFunction(RuntimeException exception, Type type, Metadata metadata)
-    {
-        requireNonNull(exception, "Exception is null");
-
-        String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
-        FunctionCall jsonParse = new FunctionCallBuilder(metadata)
-                .setName(QualifiedName.of("json_parse"))
-                .addArgument(VARCHAR, new StringLiteral(failureInfo))
-                .build();
-        FunctionCall failureFunction = new FunctionCallBuilder(metadata)
-                .setName(QualifiedName.of("fail"))
-                .addArgument(JSON, jsonParse)
-                .build();
-
-        return new Cast(failureFunction, toSqlType(type));
     }
 
     private static boolean isArray(Type type)

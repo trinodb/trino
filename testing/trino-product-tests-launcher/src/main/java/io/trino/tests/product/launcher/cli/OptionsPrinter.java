@@ -20,11 +20,13 @@ import picocli.CommandLine.Parameters;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.lang.reflect.Modifier.isPublic;
 import static java.lang.reflect.Modifier.isStatic;
 import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public final class OptionsPrinter
@@ -104,6 +106,15 @@ public final class OptionsPrinter
             else {
                 return null;
             }
+        }
+
+        if (value instanceof Map) {
+            if (((Map<?, ?>) value).isEmpty()) {
+                return null;
+            }
+            return ((Map<?, ?>) value).keySet().stream()
+                    .map(key -> String.format("%s %s=%s", annotation.names()[0], key, ((Map<?, ?>) value).get(key)))
+                    .collect(joining(" "));
         }
 
         return String.format("%s %s", annotation.names()[0], value);

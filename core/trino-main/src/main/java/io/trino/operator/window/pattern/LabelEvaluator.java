@@ -45,26 +45,34 @@ public class LabelEvaluator
     // inclusive - the first row of the search partition
     private final int partitionStart;
 
-    // exclusive - the first row after the search partition
-    private final int partitionEnd;
+    // inclusive - the first row of the partition area available for pattern search.
+    // this area is the whole partition in case of MATCH_RECOGNIZE, and the area enclosed
+    // by the common base frame in case of pattern recognition in WINDOW clause.
+    private final int searchStart;
+
+    // exclusive - the first row after the the partition area available for pattern search.
+    // this area is the whole partition in case of MATCH_RECOGNIZE, and the area enclosed
+    // by the common base frame in case of pattern recognition in WINDOW clause.
+    private final int searchEnd;
 
     private final List<Evaluation> evaluations;
 
     private final WindowIndex windowIndex;
 
-    public LabelEvaluator(long matchNumber, int patternStart, int partitionStart, int partitionEnd, List<Evaluation> evaluations, WindowIndex windowIndex)
+    public LabelEvaluator(long matchNumber, int patternStart, int partitionStart, int searchStart, int searchEnd, List<Evaluation> evaluations, WindowIndex windowIndex)
     {
         this.matchNumber = matchNumber;
         this.patternStart = patternStart;
         this.partitionStart = partitionStart;
-        this.partitionEnd = partitionEnd;
+        this.searchStart = searchStart;
+        this.searchEnd = searchEnd;
         this.evaluations = requireNonNull(evaluations, "evaluations is null");
         this.windowIndex = requireNonNull(windowIndex, "windowIndex is null");
     }
 
     public int getInputLength()
     {
-        return partitionEnd - patternStart;
+        return searchEnd - patternStart;
     }
 
     public boolean isMatchingAtPartitionStart()
@@ -75,7 +83,7 @@ public class LabelEvaluator
     public boolean evaluateLabel(int label, ArrayView matchedLabels)
     {
         Evaluation evaluation = evaluations.get(label);
-        return evaluation.test(label, matchedLabels, partitionStart, partitionEnd, patternStart, matchNumber, windowIndex);
+        return evaluation.test(label, matchedLabels, partitionStart, searchStart, searchEnd, patternStart, matchNumber, windowIndex);
     }
 
     public static class Evaluation
@@ -102,7 +110,7 @@ public class LabelEvaluator
         // TODO This method allocates an intermediate block and passes it as the input to the pre-compiled expression.
         //  Instead, the expression should be compiled directly against the row navigations.
         //  The same applies to MeasureComputation.compute()
-        public boolean test(int label, ArrayView matchedLabels, int partitionStart, int partitionEnd, int patternStart, long matchNumber, WindowIndex windowIndex)
+        public boolean test(int label, ArrayView matchedLabels, int partitionStart, int searchStart, int searchEnd, int patternStart, long matchNumber, WindowIndex windowIndex)
         {
             // get values at appropriate positions and prepare input for the projection as an array of single-value blocks
             Block[] blocks = new Block[expectedLayout.size()];
@@ -113,7 +121,7 @@ public class LabelEvaluator
                     blocks[i] = nativeValueToBlock(BIGINT, matchNumber);
                 }
                 else {
-                    int position = pointer.getLogicalIndexNavigation().resolvePosition(matchedLabels, label, partitionStart, partitionEnd, patternStart);
+                    int position = pointer.getLogicalIndexNavigation().resolvePosition(matchedLabels, label, searchStart, searchEnd, patternStart);
                     if (position >= 0) {
                         if (channel == CLASSIFIER) {
                             Type type = VARCHAR;

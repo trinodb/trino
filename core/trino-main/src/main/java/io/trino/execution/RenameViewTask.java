@@ -27,7 +27,7 @@ import io.trino.transaction.TransactionManager;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -45,7 +45,7 @@ public class RenameViewTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             RenameView statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -76,6 +76,6 @@ public class RenameViewTask
 
         metadata.renameView(session, viewName, target);
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

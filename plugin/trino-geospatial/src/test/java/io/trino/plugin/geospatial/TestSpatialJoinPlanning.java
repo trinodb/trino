@@ -28,6 +28,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.testing.LocalQueryRunner;
@@ -44,6 +45,7 @@ import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -55,7 +57,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -296,34 +297,38 @@ public class TestSpatialJoinPlanning
     {
         // broadcast
         assertPlan("SELECT b.name, a.name " +
-                        "FROM (VALUES (2.1, 2.1, 'x')) AS a (lng, lat, name), (VALUES (2.1, 2.1, 'x')) AS b (lng, lat, name) " +
+                        "FROM " + singleRow("2.1", "2.1", "'x'") + " AS a (lng, lat, name), " + singleRow("2.1", "2.1", "'x'") + " AS b (lng, lat, name) " +
                         "WHERE ST_Distance(ST_Point(a.lng, a.lat), ST_Point(b.lng, b.lat)) <= 3.1",
                 anyTree(
                         spatialJoin("st_distance(st_point_a, st_point_b) <= radius",
-                                project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lat as double))")),
-                                        anyTree(
-                                                values(ImmutableMap.of("a_lng", 0, "a_lat", 1)))),
-                                anyTree(
-                                        project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lat as double))"), "radius", expression("3.1e0")),
-                                                anyTree(
-                                                        values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))));
+                                project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lng as double))"), "a_name", expression("'x'")),
+                                        project(
+                                                ImmutableMap.of("a_lng", expression("CAST(DECIMAL '2.1' AS decimal(2, 1))")),
+                                                singleRow())),
+                                any(
+                                        project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lng as double))"), "radius", expression("3.1e0"), "b_name", expression("'x'")),
+                                                project(
+                                                        ImmutableMap.of("b_lng", expression("CAST(DECIMAL '2.1' AS decimal(2, 1))")),
+                                                        singleRow()))))));
 
         assertPlan("SELECT b.name, a.name " +
-                        "FROM (VALUES (2.1, 2.1, 'x')) AS a (lng, lat, name), (VALUES (2.1, 2.1, 'x')) AS b (lng, lat, name) " +
+                        "FROM " + singleRow("2.1", "2.1", "'x'") + " AS a (lng, lat, name), " + singleRow("2.1", "2.1", "'x'") + " AS b (lng, lat, name) " +
                         "WHERE ST_Distance(ST_Point(a.lng, a.lat), ST_Point(b.lng, b.lat)) <= 300 / (cos(radians(b.lat)) * 111321)",
                 anyTree(
                         spatialJoin("st_distance(st_point_a, st_point_b) <= radius",
-                                project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lat as double))")),
-                                        anyTree(
-                                                values(ImmutableMap.of("a_lng", 0, "a_lat", 1)))),
-                                anyTree(
-                                        project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lat as double))"), "radius", expression("3e2 / (cos(radians(cast(b_lat as double))) * 111.321e3)")),
-                                                anyTree(
-                                                        values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))));
+                                project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lng as double))"), "a_name", expression("'x'")),
+                                        project(
+                                                ImmutableMap.of("a_lng", expression("CAST(DECIMAL '2.1' AS decimal(2, 1))")),
+                                                singleRow())),
+                                any(
+                                        project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lng as double))"), "radius", expression("3e2 / (cos(radians(cast(b_lng as double))) * 111.321e3)"), "b_name", expression("'x'")),
+                                                project(
+                                                        ImmutableMap.of("b_lng", expression("CAST(DECIMAL '2.1' AS decimal(2, 1))")),
+                                                        singleRow()))))));
 
         // distributed
         assertDistributedPlan("SELECT b.name, a.name " +
-                        "FROM (VALUES (2.1, 2.1, 'x')) AS a (lng, lat, name), (VALUES (2.1, 2.1, 'x')) AS b (lng, lat, name) " +
+                        "FROM " + singleRow("2.1", "2.1", "'x'") + " AS a (lng, lat, name), " + singleRow("2.1", "2.1", "'x'") + " AS b (lng, lat, name) " +
                         "WHERE ST_Distance(ST_Point(a.lng, a.lat), ST_Point(b.lng, b.lat)) <= 3.1",
                 withSpatialPartitioning("memory.default.kdb_tree"),
                 anyTree(
@@ -331,15 +336,17 @@ public class TestSpatialJoinPlanning
                                 anyTree(
                                         unnest(
                                                 project(ImmutableMap.of("partitions", expression(format("spatial_partitions(%s, st_point_a)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lat as double))")),
-                                                                anyTree(
-                                                                        values(ImmutableMap.of("a_lng", 0, "a_lat", 1))))))),
+                                                        project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lng as double))")),
+                                                                project(
+                                                                        ImmutableMap.of("a_lng", expression("CAST(DECIMAL '2.1' AS decimal(2, 1))")),
+                                                                        singleRow()))))),
                                 anyTree(
                                         unnest(
                                                 project(ImmutableMap.of("partitions", expression(format("spatial_partitions(%s, st_point_b, 3.1e0)", kdbTreeLiteral)), "radius", expression("3.1e0")),
-                                                        project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lat as double))")),
-                                                                anyTree(
-                                                                        values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))))));
+                                                        project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lng as double))")),
+                                                                project(
+                                                                        ImmutableMap.of("b_lng", expression("CAST(DECIMAL '2.1' AS decimal(2, 1))")),
+                                                                        singleRow()))))))));
     }
 
     @Test
@@ -359,15 +366,21 @@ public class TestSpatialJoinPlanning
     @Test
     public void testNotIntersects()
     {
-        assertPlan("SELECT b.name, a.name " +
-                        "FROM (VALUES (IF(rand() >= 0, 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))'), 'a')) AS a (wkt, name), (VALUES (IF(rand() >= 0, 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))'), 'a')) AS b (wkt, name) " +
-                        "WHERE NOT ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))",
+        assertPlan(format("SELECT b.name, a.name " +
+                        "FROM " +
+                        singleRow("IF(rand() >= 0, 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))')", "'a'") + " AS a (wkt, name), " +
+                        singleRow("IF(rand() >= 0, 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))')", "'a'") + " AS b (wkt, name) " +
+                        "           WHERE NOT ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))", singleRow()),
                 anyTree(
-                        filter("NOT ST_Intersects(ST_GeometryFromText(cast(wkt_a as varchar)), ST_GeometryFromText(cast(wkt_b as varchar)))",
+                        filter(
+                                "NOT ST_Intersects(ST_GeometryFromText(cast(wkt_a as varchar)), ST_GeometryFromText(cast(wkt_b as varchar)))",
                                 join(JoinNode.Type.INNER, emptyList(),
-                                        anyTree(
-                                                values(ImmutableMap.of("wkt_a", 0, "name_a", 1))),
-                                        values(ImmutableMap.of("wkt_b", 0, "name_b", 1))))));
+                                        project(
+                                                ImmutableMap.of("wkt_a", expression("(CASE WHEN (rand() >= 0E0) THEN 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))' END)"), "name_a", expression("'a'")),
+                                                singleRow()),
+                                        any(project(
+                                                ImmutableMap.of("wkt_b", expression("(CASE WHEN (rand() >= 0E0) THEN 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))' END)"), "name_b", expression("'a'")),
+                                                singleRow()))))));
     }
 
     @Test
@@ -497,6 +510,26 @@ public class TestSpatialJoinPlanning
                                                 project(ImmutableMap.of("p3", expression(format("spatial_partitions(%s, g3)", kdbTreeLiteral))),
                                                         project(ImmutableMap.of("g3", expression("ST_GeometryFromText(cast(name_b2 as varchar))")),
                                                                 tableScan("nation", ImmutableMap.of("name_b2", "name"))))))))));
+    }
+
+    /**
+     * Create SQL producing single row of given expressions using a table instead of VALUES.
+     * Helps avoid VALUES-based constant folding.
+     */
+    private String singleRow(String... columns)
+    {
+        String outputs = String.join(", ", columns);
+        return format("(SELECT %s FROM tpch.tiny.region WHERE regionkey = 1)", outputs);
+    }
+
+    /**
+     * Match plan for the single row base subquery as created by `singleRow(String... columns)`
+     */
+    private PlanMatchPattern singleRow()
+    {
+        return filter(
+                "regionkey = BIGINT '1'",
+                tableScan("region", ImmutableMap.of("regionkey", "regionkey")));
     }
 
     private Session withSpatialPartitioning(String tableName)

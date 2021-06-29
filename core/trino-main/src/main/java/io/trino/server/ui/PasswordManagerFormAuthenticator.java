@@ -14,15 +14,21 @@
 package io.trino.server.ui;
 
 import io.airlift.log.Logger;
+import io.trino.server.security.PasswordAuthenticatorConfig;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.SecurityConfig;
+import io.trino.server.security.UserMapping;
+import io.trino.server.security.UserMappingException;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.PasswordAuthenticator;
 
 import javax.inject.Inject;
 
+import java.security.Principal;
 import java.util.List;
+import java.util.Optional;
 
+import static io.trino.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
 
 public class PasswordManagerFormAuthenticator
@@ -30,13 +36,15 @@ public class PasswordManagerFormAuthenticator
 {
     private static final Logger log = Logger.get(PasswordManagerFormAuthenticator.class);
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
+    private final UserMapping userMapping;
     private final boolean insecureAuthenticationOverHttpAllowed;
 
     @Inject
-    public PasswordManagerFormAuthenticator(PasswordAuthenticatorManager passwordAuthenticatorManager, SecurityConfig securityConfig)
+    public PasswordManagerFormAuthenticator(PasswordAuthenticatorManager passwordAuthenticatorManager, PasswordAuthenticatorConfig config, SecurityConfig securityConfig)
     {
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         passwordAuthenticatorManager.setRequired();
+        this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
         this.insecureAuthenticationOverHttpAllowed = requireNonNull(securityConfig, "securityConfig is null").isInsecureAuthenticationOverHttpAllowed();
     }
 
@@ -58,30 +66,31 @@ public class PasswordManagerFormAuthenticator
     }
 
     @Override
-    public boolean isValidCredential(String username, String password, boolean secure)
+    public Optional<String> isValidCredential(String username, String password, boolean secure)
     {
         if (username == null) {
-            return false;
+            return Optional.empty();
         }
 
         if (!secure) {
-            return insecureAuthenticationOverHttpAllowed && password == null;
+            return Optional.of(username)
+                    .filter(user -> insecureAuthenticationOverHttpAllowed && password == null);
         }
 
         List<PasswordAuthenticator> authenticators = passwordAuthenticatorManager.getAuthenticators();
         for (PasswordAuthenticator authenticator : authenticators) {
             try {
-                authenticator.createAuthenticatedPrincipal(username, password);
-                return true;
+                Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
+                String authenticatedUser = userMapping.mapUser(principal.toString());
+                return Optional.of(authenticatedUser);
             }
-            catch (AccessDeniedException e) {
+            catch (AccessDeniedException | UserMappingException e) {
                 // Try another one
             }
             catch (RuntimeException e) {
                 log.debug(e, "Error authenticating user for Web UI");
             }
         }
-
-        return false;
+        return Optional.empty();
     }
 }

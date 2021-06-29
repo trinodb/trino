@@ -56,29 +56,21 @@ import io.trino.operator.ExplainAnalyzeOperator.ExplainAnalyzeOperatorFactory;
 import io.trino.operator.FilterAndProjectOperator;
 import io.trino.operator.GroupIdOperator;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
-import io.trino.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.operator.HashSemiJoinOperator;
-import io.trino.operator.JoinBridgeManager;
-import io.trino.operator.JoinOperatorFactory;
-import io.trino.operator.JoinOperatorFactory.OuterOperatorFactoryResult;
 import io.trino.operator.LimitOperator.LimitOperatorFactory;
 import io.trino.operator.LocalPlannerAware;
-import io.trino.operator.LookupJoinOperators;
-import io.trino.operator.LookupOuterOperator.LookupOuterOperatorFactory;
-import io.trino.operator.LookupSourceFactory;
 import io.trino.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.trino.operator.MergeOperator.MergeOperatorFactory;
-import io.trino.operator.NestedLoopJoinBridge;
-import io.trino.operator.NestedLoopJoinPagesSupplier;
+import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.OrderByOperator.OrderByOperatorFactory;
 import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.PartitionedLookupSourceFactory;
 import io.trino.operator.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.operator.PipelineExecutionStrategy;
+import io.trino.operator.RefreshMaterializedViewOperator.RefreshMaterializedViewOperatorFactory;
 import io.trino.operator.RowNumberOperator;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import io.trino.operator.SetBuilderOperator.SetBuilderOperatorFactory;
@@ -115,6 +107,15 @@ import io.trino.operator.index.IndexBuildDriverFactoryProvider;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexLookupSourceFactory;
 import io.trino.operator.index.IndexSourceOperator;
+import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.JoinOperatorFactory;
+import io.trino.operator.join.JoinOperatorFactory.OuterOperatorFactoryResult;
+import io.trino.operator.join.LookupOuterOperator.LookupOuterOperatorFactory;
+import io.trino.operator.join.LookupSourceFactory;
+import io.trino.operator.join.NestedLoopJoinBridge;
+import io.trino.operator.join.NestedLoopJoinPagesSupplier;
+import io.trino.operator.join.PartitionedLookupSourceFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
@@ -184,6 +185,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -267,9 +269,6 @@ import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.SystemSessionProperties.isSpillOrderBy;
 import static io.trino.SystemSessionProperties.isSpillWindowOperator;
 import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
-import static io.trino.operator.JoinUtils.isBuildSideReplicated;
-import static io.trino.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
-import static io.trino.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
@@ -280,6 +279,9 @@ import static io.trino.operator.TableWriterOperator.STATS_START_CHANNEL;
 import static io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static io.trino.operator.WindowFunctionDefinition.window;
 import static io.trino.operator.WorkProcessorPipelineSourceOperator.toOperatorFactories;
+import static io.trino.operator.join.JoinUtils.isBuildSideReplicated;
+import static io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
+import static io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import static io.trino.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
@@ -354,7 +356,7 @@ public class LocalExecutionPlanner
     private final PartitioningSpillerFactory partitioningSpillerFactory;
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
-    private final LookupJoinOperators lookupJoinOperators;
+    private final OperatorFactories operatorFactories;
     private final OrderingCompiler orderingCompiler;
     private final DynamicFilterConfig dynamicFilterConfig;
     private final TypeOperators typeOperators;
@@ -380,7 +382,7 @@ public class LocalExecutionPlanner
             PartitioningSpillerFactory partitioningSpillerFactory,
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
-            LookupJoinOperators lookupJoinOperators,
+            OperatorFactories operatorFactories,
             OrderingCompiler orderingCompiler,
             DynamicFilterConfig dynamicFilterConfig,
             TypeOperators typeOperators,
@@ -407,7 +409,7 @@ public class LocalExecutionPlanner
         this.maxLocalExchangeBufferSize = taskManagerConfig.getMaxLocalExchangeBufferSize();
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        this.lookupJoinOperators = requireNonNull(lookupJoinOperators, "lookupJoinOperators is null");
+        this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.dynamicFilterConfig = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
@@ -1170,7 +1172,37 @@ public class LocalExecutionPlanner
                 nextOutputChannel++;
             }
 
-            // TODO here go window functions in the following channels, similarly to measures
+            // process window functions
+            ImmutableList.Builder<WindowFunctionDefinition> windowFunctionsBuilder = ImmutableList.builder();
+            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+                // window functions outputs go in remaining channels starting after the last measure channel
+                outputMappings.put(entry.getKey(), nextOutputChannel);
+                nextOutputChannel++;
+
+                WindowNode.Function function = entry.getValue();
+                ResolvedFunction resolvedFunction = function.getResolvedFunction();
+                ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
+                for (Expression argument : function.getArguments()) {
+                    if (!(argument instanceof LambdaExpression)) {
+                        Symbol argumentSymbol = Symbol.from(argument);
+                        arguments.add(source.getLayout().get(argumentSymbol));
+                    }
+                }
+                WindowFunctionSupplier windowFunctionSupplier = metadata.getWindowFunctionImplementation(resolvedFunction);
+                Type type = resolvedFunction.getSignature().getReturnType();
+
+                List<LambdaExpression> lambdaExpressions = function.getArguments().stream()
+                        .filter(LambdaExpression.class::isInstance)
+                        .map(LambdaExpression.class::cast)
+                        .collect(toImmutableList());
+                List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
+                        .filter(FunctionType.class::isInstance)
+                        .map(FunctionType.class::cast)
+                        .collect(toImmutableList());
+
+                List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, windowFunctionSupplier.getLambdaInterfaces(), functionTypes);
+                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, function.isIgnoreNulls(), lambdaProviders, arguments.build()));
+            }
 
             // prepare structures specific to PatternRecognitionNode
             // 1. establish a two-way mapping of IrLabels to `int`
@@ -1193,7 +1225,7 @@ public class LocalExecutionPlanner
                     .map(baseFrame -> {
                         checkArgument(
                                 baseFrame.getType() == ROWS &&
-                                        baseFrame.getEndType() == CURRENT_ROW,
+                                        baseFrame.getStartType() == CURRENT_ROW,
                                 "invalid base frame");
                         return new FrameInfo(
                                 baseFrame.getType(),
@@ -1264,7 +1296,7 @@ public class LocalExecutionPlanner
                     node.getId(),
                     source.getTypes(),
                     outputChannels.build(),
-                    ImmutableList.of(), // TODO support window functions
+                    windowFunctionsBuilder.build(),
                     partitionChannels,
                     preGroupedChannels,
                     sortChannels,
@@ -2022,13 +2054,14 @@ public class LocalExecutionPlanner
             OptionalInt totalOperatorsCount = context.getDriverInstanceCount();
             switch (node.getType()) {
                 case INNER:
-                    lookupJoinOperatorFactory = lookupJoinOperators.innerJoin(
+                    lookupJoinOperatorFactory = operatorFactories.innerJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
+                            false,
+                            false,
+                            false,
                             probeSource.getTypes(),
-                            false,
-                            false,
                             probeChannels,
                             probeHashChannel,
                             Optional.empty(),
@@ -2037,12 +2070,13 @@ public class LocalExecutionPlanner
                             blockTypeOperators);
                     break;
                 case SOURCE_OUTER:
-                    lookupJoinOperatorFactory = lookupJoinOperators.probeOuterJoin(
+                    lookupJoinOperatorFactory = operatorFactories.probeOuterJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
-                            probeSource.getTypes(),
                             false,
+                            false,
+                            probeSource.getTypes(),
                             probeChannels,
                             probeHashChannel,
                             Optional.empty(),
@@ -2642,13 +2676,14 @@ public class LocalExecutionPlanner
             boolean waitForBuild = consumedLocalDynamicFilters;
             switch (node.getType()) {
                 case INNER:
-                    return lookupJoinOperators.innerJoin(
+                    return operatorFactories.innerJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
-                            probeTypes,
                             outputSingleMatch,
                             waitForBuild,
+                            node.getFilter().isPresent(),
+                            probeTypes,
                             probeJoinChannels,
                             probeHashChannel,
                             Optional.of(probeOutputChannels),
@@ -2656,12 +2691,13 @@ public class LocalExecutionPlanner
                             partitioningSpillerFactory,
                             blockTypeOperators);
                 case LEFT:
-                    return lookupJoinOperators.probeOuterJoin(
+                    return operatorFactories.probeOuterJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
-                            probeTypes,
                             outputSingleMatch,
+                            node.getFilter().isPresent(),
+                            probeTypes,
                             probeJoinChannels,
                             probeHashChannel,
                             Optional.of(probeOutputChannels),
@@ -2669,12 +2705,13 @@ public class LocalExecutionPlanner
                             partitioningSpillerFactory,
                             blockTypeOperators);
                 case RIGHT:
-                    return lookupJoinOperators.lookupOuterJoin(
+                    return operatorFactories.lookupOuterJoin(
                             context.getNextOperatorId(),
                             node.getId(),
                             lookupSourceFactoryManager,
-                            probeTypes,
                             waitForBuild,
+                            node.getFilter().isPresent(),
+                            probeTypes,
                             probeJoinChannels,
                             probeHashChannel,
                             Optional.of(probeOutputChannels),
@@ -2682,7 +2719,18 @@ public class LocalExecutionPlanner
                             partitioningSpillerFactory,
                             blockTypeOperators);
                 case FULL:
-                    return lookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory, blockTypeOperators);
+                    return operatorFactories.fullOuterJoin(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            lookupSourceFactoryManager,
+                            node.getFilter().isPresent(),
+                            probeTypes,
+                            probeJoinChannels,
+                            probeHashChannel,
+                            Optional.of(probeOutputChannels),
+                            totalOperatorsCount,
+                            partitioningSpillerFactory,
+                            blockTypeOperators);
             }
             throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
         }
@@ -2793,6 +2841,14 @@ public class LocalExecutionPlanner
             }
 
             return ImmutableSet.of();
+        }
+
+        @Override
+        public PhysicalOperation visitRefreshMaterializedView(RefreshMaterializedViewNode node, LocalExecutionPlanContext context)
+        {
+            context.setDriverInstanceCount(1);
+            OperatorFactory operatorFactory = new RefreshMaterializedViewOperatorFactory(context.getNextOperatorId(), node.getId(), metadata, node.getViewName());
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }
 
         @Override

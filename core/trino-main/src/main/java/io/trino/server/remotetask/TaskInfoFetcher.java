@@ -194,7 +194,7 @@ public class TaskInfoFetcher
         }
 
         // if throttled due to error, asynchronously wait for timeout and try again
-        ListenableFuture<?> errorRateLimit = errorTracker.acquireRequestPermit();
+        ListenableFuture<Void> errorRateLimit = errorTracker.acquireRequestPermit();
         if (!errorRateLimit.isDone()) {
             errorRateLimit.addListener(this::sendNextRequest, executor);
             return;

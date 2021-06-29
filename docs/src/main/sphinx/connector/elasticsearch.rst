@@ -84,6 +84,21 @@ This property defines the timeout value for all Elasticsearch connection attempt
 
 This property is optional; the default is ``1s``.
 
+``elasticsearch.backoff-init-delay``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This property defines the minimum duration between backpressure retry attempts for a single request to Elasticsearch.
+Setting it too low might overwhelm an already struggling ES cluster.
+
+This property is optional; the default is ``500ms``.
+
+``elasticsearch.backoff-max-delay``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This property defines the maximum duration between backpressure retry attempts for a single request to Elasticsearch.
+
+This property is optional; the default is ``20s``.
+
 ``elasticsearch.max-retry-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

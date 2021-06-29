@@ -69,6 +69,11 @@ public class KuduBucketFunction
                 .map(hashBucketSchema -> this.calculateSchemaLevelBucketId(page, partialRow, hashBucketSchema, position))
                 .collect(toImmutableList());
 
+        return getBucket(bucketIds, hashBucketSchemas);
+    }
+
+    static int getBucket(List<Integer> bucketIds, List<HashBucketSchema> hashBucketSchemas)
+    {
         int bucketId = 0;
         for (int i = 0; i < bucketIds.size(); i++) {
             int dimensionBucket = 1;

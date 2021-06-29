@@ -14,6 +14,7 @@
 package io.trino.sql.planner.assertions;
 
 import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
@@ -22,6 +23,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -34,11 +36,16 @@ public class ConnectorAwareTableScanMatcher
 {
     private final Predicate<ConnectorTableHandle> expectedTable;
     private final TupleDomain<Predicate<ColumnHandle>> expectedEnforcedConstraint;
+    private final Predicate<Optional<PlanNodeStatsEstimate>> expectedStatistics;
 
-    public ConnectorAwareTableScanMatcher(Predicate<ConnectorTableHandle> expectedTable, TupleDomain<Predicate<ColumnHandle>> expectedEnforcedConstraint)
+    public ConnectorAwareTableScanMatcher(
+            Predicate<ConnectorTableHandle> expectedTable,
+            TupleDomain<Predicate<ColumnHandle>> expectedEnforcedConstraint,
+            Predicate<Optional<PlanNodeStatsEstimate>> expectedStatistics)
     {
         this.expectedTable = requireNonNull(expectedTable, "expectedTable is null");
         this.expectedEnforcedConstraint = requireNonNull(expectedEnforcedConstraint, "expectedEnforcedConstraint is null");
+        this.expectedStatistics = requireNonNull(expectedStatistics, "expectedStatistics is null");
     }
 
     @Override
@@ -57,13 +64,18 @@ public class ConnectorAwareTableScanMatcher
         TupleDomain<ColumnHandle> actual = tableScanNode.getEnforcedConstraint();
 
         boolean tableMatches = expectedTable.test(tableScanNode.getTable().getConnectorHandle());
+        boolean domainsMatch = domainsMatch(expectedEnforcedConstraint, actual);
+        boolean statisticMatch = expectedStatistics.test(tableScanNode.getStatistics());
 
-        return new MatchResult(tableMatches && domainsMatch(expectedEnforcedConstraint, actual));
+        return new MatchResult(tableMatches && domainsMatch && statisticMatch);
     }
 
-    public static PlanMatchPattern create(Predicate<ConnectorTableHandle> table, TupleDomain<Predicate<ColumnHandle>> constraints)
+    public static PlanMatchPattern create(
+            Predicate<ConnectorTableHandle> table,
+            TupleDomain<Predicate<ColumnHandle>> constraints,
+            Predicate<Optional<PlanNodeStatsEstimate>> expectedStatistics)
     {
         return node(TableScanNode.class)
-                .with(new ConnectorAwareTableScanMatcher(table, constraints));
+                .with(new ConnectorAwareTableScanMatcher(table, constraints, expectedStatistics));
     }
 }

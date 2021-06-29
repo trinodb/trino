@@ -701,11 +701,11 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT * FROM (" +
                         "  SELECT t2.x || t2.z cc FROM (" +
                         "    SELECT *" +
-                        "    FROM (VALUES (CAST('a' AS VARCHAR), CAST('c' AS VARCHAR))) t(x, z)" +
+                        "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) t(x, z)" +
                         "  ) t2" +
                         "  JOIN (" +
                         "    SELECT *" +
-                        "    FROM (VALUES (CAST('a' AS VARCHAR), CAST('c' AS VARCHAR))) u(x, z)" +
+                        "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) u(x, z)" +
                         "    WHERE z='c'" +
                         "  ) u2" +
                         "  ON t2.z = u2.z" +
@@ -1294,7 +1294,7 @@ public abstract class AbstractTestEngineOnlyQueries
                                 "FROM" +
                                 "  (" +
                                 " VALUES " +
-                                "     (CHAR 'Pi', CAST('PI' AS VARCHAR), TIMESTAMP '2012-03-14 1:59:26.535', TIMESTAMP '2012-03-14 1:59:26.535897', DECIMAL '3.14')" +
+                                "     (CHAR 'Pi', VARCHAR 'PI', TIMESTAMP '2012-03-14 1:59:26.535', TIMESTAMP '2012-03-14 1:59:26.535897', DECIMAL '3.14')" +
                                 ")  AS t (t_char, t_varchar, t_timestamp, t_timestamp_2, t_decimal)" +
                                 "WHERE t_char = ? AND t_varchar = ? AND t_timestamp = ? AND t_timestamp_2 = ? AND t_decimal = ?")
                 .build();
@@ -2156,17 +2156,19 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testRows()
     {
         // Using JSON_FORMAT(CAST(_ AS JSON)) because H2 does not support ROW type
-        assertQuery("SELECT JSON_FORMAT(CAST(ROW(1 + 2, CONCAT('a', 'b')) AS JSON))", "SELECT '[3,\"ab\"]'");
-        assertQuery("SELECT JSON_FORMAT(CAST(ROW(a + b) AS JSON)) FROM (VALUES (1, 2)) AS t(a, b)", "SELECT '[3]'");
-        assertQuery("SELECT JSON_FORMAT(CAST(ROW(1, ROW(9, a, ARRAY[], NULL), ROW(1, 2)) AS JSON)) FROM (VALUES ('a')) t(a)", "SELECT '[1,[9,\"a\",[],null],[1,2]]'");
+        assertQuery("SELECT JSON_FORMAT(CAST(ROW(1 + 2, CONCAT('a', 'b')) AS JSON))", "SELECT '{\"\":3,\"\":\"ab\"}'");
+        assertQuery("SELECT JSON_FORMAT(CAST(ROW(a + b) AS JSON)) FROM (VALUES (1, 2)) AS t(a, b)", "SELECT '{\"\":3}'");
+        assertQuery("SELECT JSON_FORMAT(CAST(ROW(1, ROW(9, a, ARRAY[], NULL), ROW(1, 2)) AS JSON)) FROM (VALUES ('a')) t(a)",
+                "SELECT '{\"\":1,\"\":{\"\":9,\"\":\"a\",\"\":[],\"\":null},\"\":{\"\":1,\"\":2}}'");
         assertQuery("SELECT JSON_FORMAT(CAST(ROW(ROW(ROW(ROW(ROW(a, b), c), d), e), f) AS JSON)) FROM (VALUES (ROW(0, 1), 2, '3', NULL, ARRAY[5], ARRAY[])) t(a, b, c, d, e, f)",
-                "SELECT '[[[[[[0,1],2],\"3\"],null],[5]],[]]'");
-        assertQuery("SELECT JSON_FORMAT(CAST(ARRAY_AGG(ROW(a, b)) AS JSON)) FROM (VALUES (1, 2), (3, 4), (5, 6)) t(a, b)", "SELECT '[[1,2],[3,4],[5,6]]'");
+                "SELECT '{\"\":{\"\":{\"\":{\"\":{\"\":{\"\":0,\"\":1},\"\":2},\"\":\"3\"},\"\":null},\"\":[5]},\"\":[]}'");
+        assertQuery("SELECT JSON_FORMAT(CAST(ARRAY_AGG(ROW(a, b)) AS JSON)) FROM (VALUES (1, 2), (3, 4), (5, 6)) t(a, b)",
+                "SELECT '[{\"\":1,\"\":2},{\"\":3,\"\":4},{\"\":5,\"\":6}]'");
         assertQuery("SELECT CONTAINS(ARRAY_AGG(ROW(a, b)), ROW(1, 2)) FROM (VALUES (1, 2), (3, 4), (5, 6)) t(a, b)", "SELECT TRUE");
         assertQuery("SELECT JSON_FORMAT(CAST(ARRAY_AGG(ROW(c, d)) AS JSON)) FROM (VALUES (ARRAY[1, 3, 5], ARRAY[2, 4, 6])) AS t(a, b) CROSS JOIN UNNEST(a, b) AS u(c, d)",
-                "SELECT '[[1,2],[3,4],[5,6]]'");
-        assertQuery("SELECT JSON_FORMAT(CAST(ROW(x, y, z) AS JSON)) FROM (VALUES ROW(1, NULL, '3')) t(x,y,z)", "SELECT '[1,null,\"3\"]'");
-        assertQuery("SELECT JSON_FORMAT(CAST(ROW(x, y, z) AS JSON)) FROM (VALUES ROW(1, CAST(NULL AS INTEGER), '3')) t(x,y,z)", "SELECT '[1,null,\"3\"]'");
+                "SELECT '[{\"\":1,\"\":2},{\"\":3,\"\":4},{\"\":5,\"\":6}]'");
+        assertQuery("SELECT JSON_FORMAT(CAST(ROW(x, y, z) AS JSON)) FROM (VALUES ROW(1, NULL, '3')) t(x,y,z)", "SELECT '{\"\":1,\"\":null,\"\":\"3\"}'");
+        assertQuery("SELECT JSON_FORMAT(CAST(ROW(x, y, z) AS JSON)) FROM (VALUES ROW(1, CAST(NULL AS INTEGER), '3')) t(x,y,z)", "SELECT '{\"\":1,\"\":null,\"\":\"3\"}'");
     }
 
     @Test
@@ -2333,9 +2335,6 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         assertQuery("SELECT count(*) FROM (SELECT (SELECT 1))");
         assertQuery("SELECT * FROM (SELECT (SELECT 1))");
-        assertQueryFails(
-                "SELECT * FROM (SELECT (SELECT 1, 2))",
-                "line 1:23: Multiple columns returned by subquery are not yet supported. Found 2");
     }
 
     @Test
@@ -3193,6 +3192,8 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT CAST(row(true, array[0, 2]) AS row(aa boolean, bb array(boolean))).bb[1]", "SELECT false");
         assertQuery("SELECT CAST(row(0.1, array[0, 2], row(1, 0.5)) AS row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))).cc.ee", "SELECT '0.5'");
         assertQuery("SELECT CAST(array[row(0.1, array[0, 2], row(1, 0.5))] AS array<row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))>)[1].cc.ee", "SELECT '0.5'");
+        assertQuery("SELECT CAST(ROW(1, 2, 3) AS ROW(a BIGINT, A DOUBLE, c BIGINT)).c", "SELECT 3");
+        assertQueryFails("SELECT CAST(ROW(1, 2) AS ROW(a BIGINT, A DOUBLE)).a", "line 1:51: Ambiguous row field reference: a");
     }
 
     @Test
@@ -3583,9 +3584,6 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryOrdered(
                 "SELECT (SELECT t.* FROM (VALUES 1)) FROM (SELECT name FROM nation ORDER BY regionkey, name LIMIT 5) t(a)",
                 "SELECT name FROM nation ORDER BY regionkey, name LIMIT 5");
-        assertQueryFails(
-                "SELECT (SELECT t.* FROM (VALUES 1)) FROM (SELECT name, regionkey FROM nation) t(a, b)",
-                ".* Multiple columns returned by subquery are not yet supported. Found 2");
         // alias/table name shadowing
         assertQuery("SELECT(SELECT region.* FROM (VALUES 1) region) FROM region", "SELECT 1 FROM region");
         assertQuery("SELECT(SELECT r.* FROM (VALUES 1) r) FROM region r", "SELECT 1 FROM region");
@@ -6044,7 +6042,11 @@ public abstract class AbstractTestEngineOnlyQueries
 
     private static String pivotQuery(int columnsCount)
     {
-        String values = IntStream.range(0, columnsCount)
+        String fields = IntStream.range(0, columnsCount)
+                .mapToObj(columnNumber -> "lower(name)")
+                .collect(joining(", "));
+
+        String literals = IntStream.range(0, columnsCount)
                 .mapToObj(columnNumber -> format("%d", columnNumber))
                 .collect(joining(", "));
 
@@ -6052,7 +6054,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .mapToObj(columnNumber -> format("a%d", columnNumber))
                 .collect(joining(", "));
 
-        return format("SELECT * FROM (SELECT %s) a(%s) INNER JOIN unnest(ARRAY[%1$s], ARRAY[%2$s]) b(b1, b2) ON true", values, columns);
+        return format("SELECT * FROM (SELECT %s FROM region LIMIT 1) a(%s) INNER JOIN unnest(ARRAY[%s], ARRAY[%2$s]) b(b1, b2) ON true", fields, columns, literals);
     }
 
     @Test(timeOut = 30_000)
@@ -6064,6 +6066,21 @@ public abstract class AbstractTestEngineOnlyQueries
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.toString())
                 .build();
         assertQuery(session, "SELECT * FROM (SELECT * FROM nation WHERE nationkey < -1) a RIGHT JOIN nation b ON a.nationkey = b.nationkey");
+    }
+
+    /**
+     * Regression test for https://github.com/trinodb/trino/pull/7723.
+     */
+    @Test
+    public void testJoinWithNonOrderableType()
+    {
+        assertThat(query("SELECT b.mapped FROM (SELECT 'trino' AS name) a " +
+                "LEFT JOIN ( " +
+                "  SELECT " +
+                "    split(CAST(JSON '{\"key\": {\"name\": \"trino\"}}' AS map(varchar, map(varchar, varchar)))['key']['name'], ',') AS names, " +
+                "    CAST(JSON '{\"key\": {\"name\": \"trino\"}}' AS map(varchar, map(varchar, varchar)))['key'] mapped " +
+                ") b ON contains(b.names, a.name)"))
+                .matches("SELECT CAST(map(ARRAY['name'], ARRAY['trino']) AS map(varchar, varchar))");
     }
 
     private static ZonedDateTime zonedDateTime(String value)

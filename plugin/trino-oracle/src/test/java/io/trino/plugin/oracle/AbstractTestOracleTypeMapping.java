@@ -14,10 +14,8 @@
 package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -37,11 +35,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
 
@@ -49,9 +43,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
-import static io.trino.plugin.oracle.OracleDataTypes.dateDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.trinoTimestampWithTimeZoneDataType;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
 import static io.trino.spi.type.CharType.createCharType;
@@ -60,10 +52,13 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
+import static io.trino.testing.datatype.DataType.timestampWithTimeZoneDataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.HALF_UP;
@@ -85,10 +80,6 @@ public abstract class AbstractTestOracleTypeMapping
 
     private static final String NO_SUPPORTED_COLUMNS = "Table '.*' has no supported columns \\(all \\d+ columns are not supported\\)";
 
-    private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
-    private final LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
-    private final LocalDateTime afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
-
     private final ZoneId jvmZone = ZoneId.systemDefault();
     private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
     private final LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
@@ -102,9 +93,6 @@ public abstract class AbstractTestOracleTypeMapping
     // minutes offset change since 1970-01-01, no DST
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
     private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
-
-    private final ZoneOffset fixedOffsetEast = ZoneOffset.ofHoursMinutes(2, 17);
-    private final ZoneOffset fixedOffsetWest = ZoneOffset.ofHoursMinutes(-7, -31);
 
     @BeforeClass
     public void setUp()
@@ -277,17 +265,17 @@ public abstract class AbstractTestOracleTypeMapping
     public void testUnboundedVarcharMapping()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("varchar", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
-                .addRoundTrip("varchar", "'😂'", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
-                .addRoundTrip("varchar", "'clob'", createUnboundedVarcharType(), "CAST('clob' AS varchar)")
+                .addRoundTrip("varchar", "'攻殻機動隊'", createUnboundedVarcharType(), "VARCHAR '攻殻機動隊'")
+                .addRoundTrip("varchar", "'😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
+                .addRoundTrip("varchar", "'clob'", createUnboundedVarcharType(), "VARCHAR 'clob'")
                 .addRoundTrip("varchar", "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
-                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
-                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
-                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "CAST('clob' AS varchar)")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'攻殻機動隊'", createUnboundedVarcharType(), "VARCHAR '攻殻機動隊'")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "VARCHAR 'clob'")
                 .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
-                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
-                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
-                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "CAST('clob' AS varchar)")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'攻殻機動隊'", createUnboundedVarcharType(), "VARCHAR '攻殻機動隊'")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "VARCHAR 'clob'")
                 .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("unbounded"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("unbounded"));
@@ -297,16 +285,16 @@ public abstract class AbstractTestOracleTypeMapping
     public void testUnboundedVarcharReadMapping()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("clob", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS VARCHAR)")
-                .addRoundTrip("clob", "'😂'", createUnboundedVarcharType(), "CAST('😂' AS VARCHAR)")
-                .addRoundTrip("clob", "'clob'", createUnboundedVarcharType(), "CAST('clob' AS VARCHAR)")
+                .addRoundTrip("clob", "'攻殻機動隊'", createUnboundedVarcharType(), "VARCHAR '攻殻機動隊'")
+                .addRoundTrip("clob", "'😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
+                .addRoundTrip("clob", "'clob'", createUnboundedVarcharType(), "VARCHAR 'clob'")
                 .addRoundTrip("clob", "NULL", createUnboundedVarcharType(), "CAST(NULL AS VARCHAR)")
-                .addRoundTrip("clob", "empty_clob()", createUnboundedVarcharType(), "CAST('' AS VARCHAR)")
-                .addRoundTrip("nclob", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS VARCHAR)")
-                .addRoundTrip("nclob", "'😂'", createUnboundedVarcharType(), "CAST('😂' AS VARCHAR)")
-                .addRoundTrip("nclob", "'clob'", createUnboundedVarcharType(), "CAST('clob' AS VARCHAR)")
+                .addRoundTrip("clob", "empty_clob()", createUnboundedVarcharType(), "VARCHAR ''")
+                .addRoundTrip("nclob", "'攻殻機動隊'", createUnboundedVarcharType(), "VARCHAR '攻殻機動隊'")
+                .addRoundTrip("nclob", "'😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
+                .addRoundTrip("nclob", "'clob'", createUnboundedVarcharType(), "VARCHAR 'clob'")
                 .addRoundTrip("nclob", "NULL", createUnboundedVarcharType(), "CAST(NULL AS VARCHAR)")
-                .addRoundTrip("nclob", "empty_clob()", createUnboundedVarcharType(), "CAST('' AS VARCHAR)")
+                .addRoundTrip("nclob", "empty_clob()", createUnboundedVarcharType(), "VARCHAR ''")
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_unbounded"));
         // The tests on empty strings are read-only because Oracle treats empty
         // strings as NULL. The empty clob is generated by an Oracle function.
@@ -659,87 +647,8 @@ public abstract class AbstractTestOracleTypeMapping
                 .execute(getQueryRunner(), oracleCreateAndInsert("test_blob"));
     }
 
-    /* Datetime tests */
-
     @Test
-    public void testLegacyDateMapping()
-    {
-        legacyDateTests(zone -> trinoCreateAsSelect("l_date_" + zone));
-    }
-
-    @Test
-    public void testLegacyDateReadMapping()
-    {
-        legacyDateTests(zone -> oracleCreateAndInsert("l_read_date_" + zone));
-    }
-
-    private void legacyDateTests(Function<String, DataSetup> dataSetup)
-    {
-        Map<String, TimeZoneKey> zonesBySqlName = ImmutableMap.of(
-                "UTC", UTC_KEY,
-                "JVM", getTimeZoneKey(ZoneId.systemDefault().getId()),
-                "other", getTimeZoneKey(ZoneId.of("Europe/Vilnius").getId()));
-
-        for (Map.Entry<String, TimeZoneKey> zone : zonesBySqlName.entrySet()) {
-            runLegacyTimestampTestInZone(
-                    dataSetup.apply(zone.getKey()),
-                    zone.getValue().getId(),
-                    legacyDateTests());
-        }
-    }
-
-    private static DataTypeTest legacyDateTests()
-    {
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone =
-                LocalDate.of(1983, 10, 1);
-
-        verify(someZone.getRules().getValidOffsets(
-                dateOfLocalTimeChangeBackwardAtMidnightInSomeZone
-                        .atStartOfDay().minusMinutes(1)).size() == 2);
-
-        return DataTypeTest.create()
-                // before epoch
-                .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
-                // summer on northern hemisphere (possible DST)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1))
-                // winter on northern hemisphere
-                // (possible DST on southern hemisphere)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1))
-                .addRoundTrip(dateDataType(),
-                        dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
-    }
-
-    @Test
-    public void testDateMapping()
-    {
-        DateTests(zone -> trinoCreateAsSelect("nl_date_" + zone));
-    }
-
-    @Test
-    public void testDateReadMapping()
-    {
-        DateTests(zone -> oracleCreateAndInsert("nl_read_date_" + zone));
-    }
-
-    private void DateTests(Function<String, DataSetup> dataSetup)
-    {
-        Map<String, TimeZoneKey> zonesBySqlName = ImmutableMap.of(
-                "UTC", UTC_KEY,
-                "JVM", getTimeZoneKey(ZoneId.systemDefault().getId()),
-                "other", getTimeZoneKey(ZoneId.of("Europe/Vilnius").getId()));
-
-        for (Map.Entry<String, TimeZoneKey> zone : zonesBySqlName.entrySet()) {
-            runTimestampTestInZone(
-                    dataSetup.apply(zone.getKey()),
-                    zone.getValue().getId(),
-                    DateTests());
-        }
-    }
-
-    private DataTypeTest DateTests()
+    public void testDate()
     {
         // Note: these test cases are duplicates of those for PostgreSQL and MySQL.
 
@@ -766,123 +675,179 @@ public abstract class AbstractTestOracleTypeMapping
                 dateOfLocalTimeChangeBackwardAtMidnightInSomeZone
                         .atStartOfDay().minusMinutes(1)).size() == 2);
 
-        return DataTypeTest.create()
+        SqlDataTypeTest dateTests = SqlDataTypeTest.create()
                 // before epoch
-                .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
+                .addRoundTrip("DATE", "DATE '1952-04-03'", TIMESTAMP_MILLIS, "TIMESTAMP '1952-04-03 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '1970-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '1970-02-03'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-02-03 00:00:00.000'")
                 // summer on northern hemisphere (possible DST)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1))
+                .addRoundTrip("DATE", "DATE '2017-07-01'", TIMESTAMP_MILLIS, "TIMESTAMP '2017-07-01 00:00:00.000'")
                 // winter on northern hemisphere
                 // (possible DST on southern hemisphere)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1))
-                .addRoundTrip(dateDataType(),
-                        dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
-                .addRoundTrip(dateDataType(),
-                        dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
-                .addRoundTrip(dateDataType(),
-                        dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
+                .addRoundTrip("DATE", "DATE '2017-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '2017-01-01 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '1983-04-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1983-04-01 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '1983-10-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1983-10-01 00:00:00.000'");
+
+        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), ZoneId.systemDefault().getId(), ZoneId.of("Europe/Vilnius").getId())) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(getTimeZoneKey(timeZoneId))
+                    .build();
+            dateTests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_date"));
+            dateTests.execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"));
+            dateTests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+        }
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testTimestamp(boolean insertWithTrino, ZoneId sessionZone)
+    public void testTimestamp(ZoneId sessionZone)
     {
         // using two non-JVM zones so that we don't need to worry what Oracle system zone is
-        DataTypeTest tests = DataTypeTest.create()
-                .addRoundTrip(timestampDataType(), beforeEpoch)
-                .addRoundTrip(timestampDataType(), afterEpoch)
-                .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
-                .addRoundTrip(timestampDataType(), timeDoubledInVilnius)
-                .addRoundTrip(timestampDataType(), epoch) // epoch also is a gap in JVM zone
-                .addRoundTrip(timestampDataType(), timeGapInJvmZone1)
-                .addRoundTrip(timestampDataType(), timeGapInJvmZone2)
-                .addRoundTrip(timestampDataType(), timeGapInVilnius)
-                .addRoundTrip(timestampDataType(), timeGapInKathmandu);
+        SqlDataTypeTest tests = SqlDataTypeTest.create()
+                // before epoch
+                .addRoundTrip("timestamp", "TIMESTAMP '1958-01-01 13:18:03.123'", TIMESTAMP_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123'")
+                // after epoch
+                .addRoundTrip("timestamp", "TIMESTAMP '2019-03-18 10:01:17.987'", TIMESTAMP_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987'")
+                // epoch, epoch also is a gap in JVM zone
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000'")
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeDoubledInJvmZone), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeDoubledInJvmZone))
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeDoubledInVilnius), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeDoubledInVilnius))
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInJvmZone1), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInJvmZone1))
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInJvmZone2), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInJvmZone2))
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInVilnius), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInVilnius))
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInKathmandu), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInKathmandu));
 
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
                 .build();
-
-        if (insertWithTrino) {
-            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
-        }
-        else {
-            tests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"));
-        }
+        tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
+        tests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
+        tests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"));
     }
 
     @DataProvider
     public Object[][] testTimestampDataProvider()
     {
         return new Object[][] {
-                {true, UTC},
-                {false, UTC},
-
-                {true, jvmZone},
-                {false, jvmZone},
-
+                {UTC},
+                {jvmZone},
                 // using two non-JVM zones so that we don't need to worry what Oracle system zone is
-                {true, vilnius},
-                {false, vilnius},
-
-                {true, kathmandu},
-                {false, kathmandu},
-
-                {true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {vilnius},
+                {kathmandu},
+                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
         };
     }
 
-    @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
-    public void testTimestampWithTimeZone(boolean insertWithTrino)
+    @Test
+    public void testTimestampWithTimeZoneFromTrino()
     {
-        DataType<ZonedDateTime> dataType;
-        DataSetup dataSetup;
-        if (insertWithTrino) {
-            dataType = trinoTimestampWithTimeZoneDataType();
-            dataSetup = trinoCreateAsSelect("timestamp_tz");
-        }
-        else {
-            dataType = oracleTimestamp3TimeZoneDataType();
-            dataSetup = oracleCreateAndInsert("timestamp_tz");
-        }
-
-        DataTypeTest tests = DataTypeTest.create()
-                .addRoundTrip(dataType, epoch.atZone(UTC))
-                .addRoundTrip(dataType, epoch.atZone(kathmandu))
-                .addRoundTrip(dataType, epoch.atZone(fixedOffsetEast))
-                .addRoundTrip(dataType, epoch.atZone(fixedOffsetWest))
-                .addRoundTrip(dataType, beforeEpoch.atZone(UTC))
-                .addRoundTrip(dataType, beforeEpoch.atZone(kathmandu))
-                .addRoundTrip(dataType, beforeEpoch.atZone(fixedOffsetEast))
-                .addRoundTrip(dataType, beforeEpoch.atZone(fixedOffsetWest))
-                .addRoundTrip(dataType, afterEpoch.atZone(UTC))
-                .addRoundTrip(dataType, afterEpoch.atZone(kathmandu))
-                .addRoundTrip(dataType, afterEpoch.atZone(fixedOffsetEast))
-                .addRoundTrip(dataType, afterEpoch.atZone(fixedOffsetWest))
-                .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(UTC))
-                .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(jvmZone))
-                .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(kathmandu))
-                .addRoundTrip(dataType, timeDoubledInVilnius.atZone(UTC))
-                .addRoundTrip(dataType, timeDoubledInVilnius.atZone(vilnius))
-                .addRoundTrip(dataType, timeDoubledInVilnius.atZone(kathmandu))
-                .addRoundTrip(dataType, timeGapInJvmZone1.atZone(UTC))
-                .addRoundTrip(dataType, timeGapInJvmZone1.atZone(kathmandu))
-                .addRoundTrip(dataType, timeGapInJvmZone2.atZone(UTC))
-                .addRoundTrip(dataType, timeGapInJvmZone2.atZone(kathmandu))
-                .addRoundTrip(dataType, timeGapInVilnius.atZone(kathmandu))
-                .addRoundTrip(dataType, timeGapInKathmandu.atZone(vilnius));
-
-        tests.execute(getQueryRunner(), dataSetup);
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1970-01-01 00:00:00.000 Z'",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 Z'")
+                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1970-01-01 00:00:00.000 Asia/Kathmandu'",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 Asia/Kathmandu'")
+                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1970-01-01 00:00:00.000 +02:17'",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 +02:17'")
+                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1970-01-01 00:00:00.000 -07:31'",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 -07:31'")
+                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1958-01-01 13:18:03.123 Z'",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 Z'")
+                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1958-01-01 13:18:03.123 Asia/Kathmandu'",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 Asia/Kathmandu'")
+                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1958-01-01 13:18:03.123 +02:17'",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 +02:17'")
+                .addRoundTrip("timestamp with time zone", "TIMESTAMP '1958-01-01 13:18:03.123 -07:31'",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 -07:31'")
+                .addRoundTrip("timestamp with time zone", "TIMESTAMP '2019-03-18 10:01:17.987 Z'",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 Z'")
+                .addRoundTrip("timestamp with time zone", "TIMESTAMP '2019-03-18 10:01:17.987 Asia/Kathmandu'",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 Asia/Kathmandu'")
+                .addRoundTrip("timestamp with time zone", "TIMESTAMP '2019-03-18 10:01:17.987 +02:17'",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 +02:17'")
+                .addRoundTrip("timestamp with time zone", "TIMESTAMP '2019-03-18 10:01:17.987 -07:31'",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 -07:31'")
+                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(UTC)))
+                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(jvmZone)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(jvmZone)))
+                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(kathmandu)))
+                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(UTC)))
+                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(vilnius)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(vilnius)))
+                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(kathmandu)))
+                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(UTC)))
+                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(kathmandu)))
+                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(UTC)))
+                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(kathmandu)))
+                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeGapInVilnius.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInVilnius.atZone(kathmandu)))
+                .addRoundTrip("timestamp with time zone", timestampWithTimeZoneDataType(3).toLiteral(timeGapInKathmandu.atZone(vilnius)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInKathmandu.atZone(vilnius)))
+                .execute(getQueryRunner(), trinoCreateAsSelect("timestamp_tz"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("timestamp_tz"));
     }
 
-    @DataProvider
-    public Object[][] testTimestampWithTimeZoneDataProvider()
+    @Test
+    public void testTimestampWithTimeZoneFromOracle()
     {
-        return new Object[][] {
-                {true},
-                {false},
-        };
+        // TODO: Fix Oracle TimestampWithTimeZone mappings to handle DST correctly (https://github.com/trinodb/trino/issues/7739)
+        DataTypeTest.create()
+                .addRoundTrip(oracleTimestamp3TimeZoneDataType(), timeDoubledInJvmZone.atZone(jvmZone))
+                .addRoundTrip(oracleTimestamp3TimeZoneDataType(), timeDoubledInVilnius.atZone(vilnius))
+                .execute(getQueryRunner(), oracleCreateAndInsert("timestamp_tz"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1970-01-01 00:00:00.000000000', 'UTC')",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 Z'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1970-01-01 00:00:00.000000000', 'Asia/Kathmandu')",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 Asia/Kathmandu'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1970-01-01 00:00:00.000000000', '+02:17')",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 +02:17'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1970-01-01 00:00:00.000000000', '-07:31')",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000 -07:31'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1958-01-01 13:18:03.123000000', 'UTC')",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 Z'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1958-01-01 13:18:03.123000000', 'Asia/Kathmandu')",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 Asia/Kathmandu'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1958-01-01 13:18:03.123000000', '+02:17')",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 +02:17'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '1958-01-01 13:18:03.123000000', '-07:31')",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123 -07:31'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '2019-03-18 10:01:17.987000000', 'UTC')",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 Z'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '2019-03-18 10:01:17.987000000', 'Asia/Kathmandu')",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 Asia/Kathmandu'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '2019-03-18 10:01:17.987000000', '+02:17')",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 +02:17'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "from_tz(TIMESTAMP '2019-03-18 10:01:17.987000000', '-07:31')",
+                        TIMESTAMP_TZ_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987 -07:31'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeDoubledInJvmZone.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(UTC)))
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeDoubledInJvmZone.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInJvmZone.atZone(kathmandu)))
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeDoubledInVilnius.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(UTC)))
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeDoubledInVilnius.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeDoubledInVilnius.atZone(kathmandu)))
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInJvmZone1.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(UTC)))
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInJvmZone1.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone1.atZone(kathmandu)))
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInJvmZone2.atZone(UTC)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(UTC)))
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInJvmZone2.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInJvmZone2.atZone(kathmandu)))
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInVilnius.atZone(kathmandu)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInVilnius.atZone(kathmandu)))
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", oracleTimestamp3TimeZoneDataType().toLiteral(timeGapInKathmandu.atZone(vilnius)),
+                        TIMESTAMP_TZ_MILLIS, timestampWithTimeZoneDataType(3).toLiteral(timeGapInKathmandu.atZone(vilnius)))
+                .execute(getQueryRunner(), oracleCreateAndInsert("timestamp_tz"));
     }
 
     /* Unsupported type tests */
@@ -941,34 +906,6 @@ public abstract class AbstractTestOracleTypeMapping
         for (DataTypeTest test : tests) {
             test.execute(getQueryRunner(), dataSetup);
         }
-    }
-
-    /**
-     * Run a {@link DataTypeTest} in the given time zone, using legacy timestamps.
-     * <p>
-     * If the given time zone is {@code null}, use the default session time zone.
-     */
-    private void runLegacyTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
-    {
-        Session.SessionBuilder session = Session.builder(getSession());
-        if (zone != null) {
-            session.setTimeZoneKey(getTimeZoneKey(zone));
-        }
-        test.execute(getQueryRunner(), session.build(), dataSetup);
-    }
-
-    /**
-     * Run a {@link DataTypeTest} in the given time zone, using non-legacy timestamps.
-     * <p>
-     * If the given time zone is {@code null}, use the default session time zone.
-     */
-    private void runTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
-    {
-        Session.SessionBuilder session = Session.builder(getSession());
-        if (zone != null) {
-            session.setTimeZoneKey(getTimeZoneKey(zone));
-        }
-        test.execute(getQueryRunner(), session.build(), dataSetup);
     }
 
     protected abstract SqlExecutor getOracleSqlExecutor();

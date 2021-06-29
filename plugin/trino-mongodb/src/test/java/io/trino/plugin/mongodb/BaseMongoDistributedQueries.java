@@ -69,12 +69,6 @@ public abstract class BaseMongoDistributedQueries
     }
 
     @Override
-    public void testDropColumn()
-    {
-        // the connector does not support dropping columns
-    }
-
-    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("test disabled for Mongo");

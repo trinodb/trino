@@ -13,7 +13,7 @@
  */
 package io.trino.dispatcher;
 
-import com.google.common.util.concurrent.AbstractFuture;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.execution.QueryIdGenerator;
@@ -49,7 +49,7 @@ import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
@@ -134,7 +134,7 @@ public class DispatchManager
         return queryIdGenerator.createNextQueryId();
     }
 
-    public ListenableFuture<?> createQuery(QueryId queryId, Slug slug, SessionContext sessionContext, String query)
+    public ListenableFuture<Void> createQuery(QueryId queryId, Slug slug, SessionContext sessionContext, String query)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionContext is null");
@@ -142,16 +142,7 @@ public class DispatchManager
         checkArgument(!query.isEmpty(), "query must not be empty string");
         checkArgument(queryTracker.tryGetQuery(queryId).isEmpty(), "query %s already exists", queryId);
 
-        DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
-        dispatchExecutor.execute(() -> {
-            try {
-                createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager);
-            }
-            finally {
-                queryCreationFuture.set(null);
-            }
-        });
-        return queryCreationFuture;
+        return nonCancellationPropagating(Futures.submit(() -> createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager), dispatchExecutor));
     }
 
     /**
@@ -246,14 +237,14 @@ public class DispatchManager
         return queryAdded;
     }
 
-    public ListenableFuture<?> waitForDispatched(QueryId queryId)
+    public ListenableFuture<Void> waitForDispatched(QueryId queryId)
     {
         return queryTracker.tryGetQuery(queryId)
                 .map(dispatchQuery -> {
                     dispatchQuery.recordHeartbeat();
                     return dispatchQuery.getDispatchedFuture();
                 })
-                .orElseGet(() -> immediateFuture(null));
+                .orElseGet(Futures::immediateVoidFuture);
     }
 
     public List<BasicQueryInfo> getQueries()
@@ -320,28 +311,5 @@ public class DispatchManager
 
         queryTracker.tryGetQuery(queryId)
                 .ifPresent(query -> query.fail(cause));
-    }
-
-    private static class DispatchQueryCreationFuture
-            extends AbstractFuture<QueryInfo>
-    {
-        @Override
-        protected boolean set(QueryInfo value)
-        {
-            return super.set(value);
-        }
-
-        @Override
-        protected boolean setException(Throwable throwable)
-        {
-            return super.setException(throwable);
-        }
-
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning)
-        {
-            // query submission cannot be canceled
-            return false;
-        }
     }
 }

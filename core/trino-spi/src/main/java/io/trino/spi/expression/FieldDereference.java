@@ -13,6 +13,7 @@
  */
 package io.trino.spi.expression;
 
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -33,6 +34,11 @@ public class FieldDereference
         super(type);
         this.target = requireNonNull(target, "target is null");
         this.field = field;
+
+        int size = ((RowType) target.getType()).getFields().size();
+        if (field < 0 || field >= size) {
+            throw new IllegalArgumentException(format("field out of range: [0, %s], was %s", size - 1, field));
+        }
     }
 
     public ConnectorExpression getTarget()

@@ -697,7 +697,7 @@ public class TestSqlTaskExecution
 
     public static class Pauser
     {
-        private volatile SettableFuture<?> future = SettableFuture.create();
+        private volatile SettableFuture<Void> future = SettableFuture.create();
 
         public Pauser()
         {
@@ -799,7 +799,7 @@ public class TestSqlTaskExecution
             private final OperatorContext operatorContext;
             private final PlanNodeId planNodeId;
 
-            private final SettableFuture<?> blocked = SettableFuture.create();
+            private final SettableFuture<Void> blocked = SettableFuture.create();
 
             private TestingSplit split;
 
@@ -868,7 +868,7 @@ public class TestSqlTaskExecution
             }
 
             @Override
-            public ListenableFuture<?> isBlocked()
+            public ListenableFuture<Void> isBlocked()
             {
                 return blocked;
             }
@@ -1001,7 +1001,7 @@ public class TestSqlTaskExecution
             }
 
             @Override
-            public ListenableFuture<?> isBlocked()
+            public ListenableFuture<Void> isBlocked()
             {
                 if (!finishing) {
                     return NOT_BLOCKED;
@@ -1109,6 +1109,7 @@ public class TestSqlTaskExecution
             private final Lifespan lifespan;
 
             private final ListenableFuture<Integer> multiplierFuture;
+            private final ListenableFuture<Void> blockedFutureView;
             private final Queue<Page> pages = new ArrayDeque<>();
             private boolean finishing;
 
@@ -1124,6 +1125,7 @@ public class TestSqlTaskExecution
                             .mapToInt(Page::getPositionCount)
                             .sum();
                 }, directExecutor());
+                blockedFutureView = asVoid(multiplierFuture);
             }
 
             @Override
@@ -1142,9 +1144,9 @@ public class TestSqlTaskExecution
             }
 
             @Override
-            public ListenableFuture<?> isBlocked()
+            public ListenableFuture<Void> isBlocked()
             {
-                return multiplierFuture;
+                return blockedFutureView;
             }
 
             @Override
@@ -1178,6 +1180,11 @@ public class TestSqlTaskExecution
                 return result;
             }
         }
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 
     private static class BuildStates
@@ -1222,7 +1229,7 @@ public class TestSqlTaskExecution
         private static class BuildState
         {
             private final SettableFuture<List<Page>> pagesFuture = SettableFuture.create();
-            private final SettableFuture<?> lookupDoneFuture = SettableFuture.create();
+            private final SettableFuture<Void> lookupDoneFuture = SettableFuture.create();
 
             private final List<Page> pages = new ArrayList<>();
             private int pendingBuildCount;
@@ -1296,7 +1303,7 @@ public class TestSqlTaskExecution
                 }
             }
 
-            public ListenableFuture<?> getLookupDoneFuture()
+            public ListenableFuture<Void> getLookupDoneFuture()
             {
                 return lookupDoneFuture;
             }

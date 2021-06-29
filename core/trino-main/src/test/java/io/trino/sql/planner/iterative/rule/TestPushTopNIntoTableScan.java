@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -109,7 +108,7 @@ public class TestPushTopNIntoTableScan
             MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
             // make the mock connector return a new connectorHandle
             MockConnectorFactory.ApplyTopN applyTopN =
-                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true));
+                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
             MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
@@ -128,7 +127,7 @@ public class TestPushTopNIntoTableScan
                     .withSession(MOCK_SESSION)
                     .matches(
                             tableScan(
-                                    equalTo(connectorHandle),
+                                    connectorHandle::equals,
                                     TupleDomain.all(),
                                     new HashMap<>()));
         }
@@ -141,7 +140,7 @@ public class TestPushTopNIntoTableScan
             MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
             // make the mock connector return a new connectorHandle
             MockConnectorFactory.ApplyTopN applyTopN =
-                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false));
+                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false, false));
             MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
@@ -162,11 +161,11 @@ public class TestPushTopNIntoTableScan
                             topN(1, ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
                                     TopNNode.Step.SINGLE,
                                     tableScan(
-                                            equalTo(connectorHandle),
+                                            connectorHandle::equals,
                                             TupleDomain.all(),
                                             ImmutableMap.of(
-                                                    dimensionName, equalTo(dimensionColumn),
-                                                    metricName, equalTo(metricColumn)))));
+                                                    dimensionName, dimensionColumn::equals,
+                                                    metricName, metricColumn::equals))));
         }
     }
 
@@ -177,7 +176,7 @@ public class TestPushTopNIntoTableScan
             MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
             // make the mock connector return a new connectorHandle
             MockConnectorFactory.ApplyTopN applyTopN =
-                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true));
+                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
             MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
@@ -196,7 +195,7 @@ public class TestPushTopNIntoTableScan
                     .withSession(MOCK_SESSION)
                     .matches(
                             tableScan(
-                                    equalTo(connectorHandle),
+                                    connectorHandle::equals,
                                     TupleDomain.all(),
                                     new HashMap<>()));
         }
@@ -209,7 +208,7 @@ public class TestPushTopNIntoTableScan
             MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
             // make the mock connector return a new connectorHandle
             MockConnectorFactory.ApplyTopN applyTopN =
-                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false));
+                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false, false));
             MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
@@ -230,11 +229,61 @@ public class TestPushTopNIntoTableScan
                             topN(1, ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
                                     TopNNode.Step.PARTIAL,
                                     tableScan(
-                                            equalTo(connectorHandle),
+                                            connectorHandle::equals,
                                             TupleDomain.all(),
                                             ImmutableMap.of(
-                                                    dimensionName, equalTo(dimensionColumn),
-                                                    metricName, equalTo(metricColumn)))));
+                                                    dimensionName, dimensionColumn::equals,
+                                                    metricName, metricColumn::equals))));
+        }
+    }
+
+    /**
+     * Ensure FINAL TopN can be pushed into table scan.
+     * <p>
+     * In case of TopN over outer join, TopN may become eligible for push down
+     * only after PARTIAL TopN was pushed down and only then the join was
+     * pushed down as well -- the connector may decide to accept Join pushdown
+     * only after it learns there is TopN in play which limits results size.
+     * <p>
+     * Thus the optimization sequence can be:
+     * <ol>
+     * <li>Try to push Join into Table Scan -- connector rejects that (e.g. too big data set size)
+     * <li>Create FINAL/PARTIAL TopN
+     * <li>Push PARTIAL TopN through Outer Join
+     * <li>Push PARTIAL TopN into Table Scan -- connector accepts that.
+     * <li>Push Join into Table Scan -- connector now accepts join pushdown.
+     * <li>Push FINAL TopN into Table Scan
+     * </ol>
+     */
+    @Test
+    public void testPushFinalTopNIntoTableScan()
+    {
+        try (RuleTester ruleTester = defaultRuleTester()) {
+            MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
+            // make the mock connector return a new connectorHandle
+            MockConnectorFactory.ApplyTopN applyTopN =
+                    (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
+            MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
+
+            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
+
+            ruleTester.assertThat(new PushTopNIntoTableScan(ruleTester.getMetadata()))
+                    .on(p -> {
+                        Symbol dimension = p.symbol(dimensionName, VARCHAR);
+                        Symbol metric = p.symbol(metricName, BIGINT);
+                        return p.topN(1, ImmutableList.of(dimension), TopNNode.Step.FINAL,
+                                p.tableScan(TEST_TABLE_HANDLE,
+                                        ImmutableList.of(dimension, metric),
+                                        ImmutableMap.of(
+                                                dimension, dimensionColumn,
+                                                metric, metricColumn)));
+                    })
+                    .withSession(MOCK_SESSION)
+                    .matches(
+                            tableScan(
+                                    connectorHandle::equals,
+                                    TupleDomain.all(),
+                                    new HashMap<>()));
         }
     }
 

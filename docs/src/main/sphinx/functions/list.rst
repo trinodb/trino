@@ -65,7 +65,7 @@ B
 - :func:`bing_tile_at`
 - :func:`bing_tile_coordinates`
 - :func:`bing_tile_polygon`
-- ``bing_tile_quadkey``
+- :func:`bing_tile_quadkey`
 - :func:`bing_tile_zoom_level`
 - :func:`bing_tiles_around`
 - :func:`bit_count`
@@ -159,6 +159,7 @@ F
 - :func:`floor`
 - :func:`format`
 - ``format_datetime``
+- :func:`format_number`
 - :func:`from_base`
 - :func:`from_base64`
 - :func:`from_base64url`
@@ -171,9 +172,9 @@ F
 - :func:`from_ieee754_64`
 - :func:`from_iso8601_date`
 - :func:`from_iso8601_timestamp`
-- ``from_iso8601_timestamp_nanos``
+- :func:`from_iso8601_timestamp_nanos`
 - :func:`from_unixtime`
-- ``from_unixtime_nanos``
+- :func:`from_unixtime_nanos`
 - :func:`from_utf8`
 
 G
@@ -199,7 +200,7 @@ H
 - :func:`hmac_sha256`
 - :func:`hmac_sha512`
 - :func:`hour`
-- ``human_readable_seconds``
+- :func:`human_readable_seconds`
 
 I
 -
@@ -262,7 +263,7 @@ L
 - :func:`lower`
 - :func:`lpad`
 - :func:`ltrim`
-- ``luhn_check``
+- :func:`luhn_check`
 
 M
 -
@@ -275,7 +276,7 @@ M
 - :func:`map_filter`
 - :func:`map_from_entries`
 - :func:`map_keys`
-- ``map_union``
+- :func:`map_union`
 - :func:`map_values`
 - :func:`map_zip_with`
 - :func:`max`
@@ -291,7 +292,7 @@ M
 - :func:`month`
 - :func:`multimap_agg`
 - :func:`multimap_from_entries`
-- ``murmur3``
+- :func:`murmur3`
 
 N
 -
@@ -378,6 +379,7 @@ S
 - :func:`skewness`
 - :func:`slice`
 - :ref:`SOME <quantified_comparison_predicates>`
+- :func:`soundex`
 - ``spatial_partitioning``
 - ``spatial_partitions``
 - :func:`split`
@@ -458,12 +460,12 @@ T
 
 - :func:`tan`
 - :func:`tanh`
-- ``tdigest_agg``
+- :func:`tdigest_agg`
 - :func:`timezone_hour`
 - :func:`timezone_minute`
 - :func:`to_base`
 - :func:`to_base64`
-- ``to_base64url``
+- :func:`to_base64url`
 - :func:`to_big_endian_32`
 - :func:`to_big_endian_64`
 - :func:`to_char`

@@ -51,11 +51,7 @@ typically runs with default HTTP configuration on the default port, 8080.
 When a load balancer accepts a TLS encrypted connection, it adds a
 `forwarded
 <https://developer.mozilla.org/en-US/docs/Web/HTTP/Proxy_servers_and_tunneling#forwarding_client_information_through_proxies>`_
-HTTP header to the request, such as:
-
-.. code-block:: text
-
-    X-Forwarded-Proto: https
+HTTP header to the request, such as ``X-Forwarded-Proto: https``.
 
 This tells the Trino coordinator to process the connection as if a TLS
 connection has already been successfully negotiated for it. This is why you do

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import io.trino.connector.CatalogName;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.IndexHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -66,6 +67,7 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -121,6 +123,7 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.util.MoreLists.nElements;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public class PlanBuilder
@@ -257,6 +260,16 @@ public class PlanBuilder
 
     public LimitNode limit(long limit, List<Symbol> tiesResolvers, PlanNode source)
     {
+        return limit(limit, tiesResolvers, false, ImmutableList.of(), source);
+    }
+
+    public LimitNode limit(long limit, boolean partial, List<Symbol> preSortedInputs, PlanNode source)
+    {
+        return limit(limit, ImmutableList.of(), partial, preSortedInputs, source);
+    }
+
+    public LimitNode limit(long limit, List<Symbol> tiesResolvers, boolean partial, List<Symbol> preSortedInputs, PlanNode source)
+    {
         Optional<OrderingScheme> tiesResolvingScheme = Optional.empty();
         if (!tiesResolvers.isEmpty()) {
             tiesResolvingScheme = Optional.of(
@@ -269,7 +282,8 @@ public class PlanBuilder
                 source,
                 limit,
                 tiesResolvingScheme,
-                false);
+                partial,
+                preSortedInputs);
     }
 
     public TopNNode topN(long count, List<Symbol> orderBy, PlanNode source)
@@ -492,22 +506,17 @@ public class PlanBuilder
 
     public TableScanNode tableScan(List<Symbol> symbols, boolean forDelete)
     {
-        return new TableScanNode(
-                idAllocator.getNextId(),
-                new TableHandle(new CatalogName("testConnector"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE)),
-                symbols,
-                symbols.stream().collect(toImmutableMap(identity(), symbol -> new TestingMetadata.TestingColumnHandle(symbol.getName()))),
-                TupleDomain.all(),
-                forDelete,
-                Optional.empty());
+        return tableScan(tableScan -> tableScan
+                .setSymbols(symbols)
+                .setAssignmentsForSymbols(symbols)
+                .setUpdateTarget(forDelete));
     }
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
-        return tableScan(
-                new TableHandle(new CatalogName("testConnector"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE)),
-                symbols,
-                assignments);
+        return tableScan(tableScan -> tableScan
+                .setSymbols(symbols)
+                .setAssignments(assignments));
     }
 
     public TableScanNode tableScan(
@@ -515,7 +524,10 @@ public class PlanBuilder
             List<Symbol> symbols,
             Map<Symbol, ColumnHandle> assignments)
     {
-        return tableScan(tableHandle, symbols, assignments, TupleDomain.all());
+        return tableScan(tableScan -> tableScan
+                .setTableHandle(tableHandle)
+                .setSymbols(symbols)
+                .setAssignments(assignments));
     }
 
     public TableScanNode tableScan(
@@ -524,14 +536,11 @@ public class PlanBuilder
             Map<Symbol, ColumnHandle> assignments,
             boolean forDelete)
     {
-        return new TableScanNode(
-                idAllocator.getNextId(),
-                tableHandle,
-                symbols,
-                assignments,
-                TupleDomain.all(),
-                forDelete,
-                Optional.empty());
+        return tableScan(tableScan -> tableScan
+                .setTableHandle(tableHandle)
+                .setSymbols(symbols)
+                .setAssignments(assignments)
+                .setUpdateTarget(forDelete));
     }
 
     public TableScanNode tableScan(
@@ -540,14 +549,11 @@ public class PlanBuilder
             Map<Symbol, ColumnHandle> assignments,
             Optional<Boolean> useConnectorNodePartitioning)
     {
-        return new TableScanNode(
-                idAllocator.getNextId(),
-                tableHandle,
-                symbols,
-                assignments,
-                TupleDomain.all(),
-                false,
-                useConnectorNodePartitioning);
+        return tableScan(tableScan -> tableScan
+                .setTableHandle(tableHandle)
+                .setSymbols(symbols)
+                .setAssignments(assignments)
+                .setUseConnectorNodePartitioning(useConnectorNodePartitioning));
     }
 
     public TableScanNode tableScan(
@@ -556,14 +562,95 @@ public class PlanBuilder
             Map<Symbol, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
-        return new TableScanNode(
-                idAllocator.getNextId(),
-                tableHandle,
-                symbols,
-                assignments,
-                enforcedConstraint,
-                false,
-                Optional.empty());
+        return tableScan(tableScan -> tableScan
+                .setTableHandle(tableHandle)
+                .setSymbols(symbols)
+                .setAssignments(assignments)
+                .setEnforcedConstraint(enforcedConstraint));
+    }
+
+    public TableScanNode tableScan(Consumer<TableScanBuilder> consumer)
+    {
+        TableScanBuilder tableScan = new TableScanBuilder(idAllocator);
+        consumer.accept(tableScan);
+        return tableScan.build();
+    }
+
+    public static class TableScanBuilder
+    {
+        private final PlanNodeIdAllocator idAllocator;
+        private TableHandle tableHandle = new TableHandle(new CatalogName("testConnector"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE));
+        private List<Symbol> symbols;
+        private Map<Symbol, ColumnHandle> assignments;
+        private TupleDomain<ColumnHandle> enforcedConstraint = TupleDomain.all();
+        private Optional<PlanNodeStatsEstimate> statistics = Optional.empty();
+        private boolean updateTarget;
+        private Optional<Boolean> useConnectorNodePartitioning = Optional.empty();
+
+        private TableScanBuilder(PlanNodeIdAllocator idAllocator)
+        {
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+        }
+
+        public TableScanBuilder setTableHandle(TableHandle tableHandle)
+        {
+            this.tableHandle = tableHandle;
+            return this;
+        }
+
+        public TableScanBuilder setSymbols(List<Symbol> symbols)
+        {
+            this.symbols = symbols;
+            return this;
+        }
+
+        public TableScanBuilder setAssignmentsForSymbols(List<Symbol> symbols)
+        {
+            return setAssignments(symbols.stream().collect(toImmutableMap(identity(), symbol -> new TestingMetadata.TestingColumnHandle(symbol.getName()))));
+        }
+
+        public TableScanBuilder setAssignments(Map<Symbol, ColumnHandle> assignments)
+        {
+            this.assignments = assignments;
+            return this;
+        }
+
+        public TableScanBuilder setEnforcedConstraint(TupleDomain<ColumnHandle> enforcedConstraint)
+        {
+            this.enforcedConstraint = enforcedConstraint;
+            return this;
+        }
+
+        public TableScanBuilder setStatistics(Optional<PlanNodeStatsEstimate> statistics)
+        {
+            this.statistics = statistics;
+            return this;
+        }
+
+        public TableScanBuilder setUpdateTarget(boolean updateTarget)
+        {
+            this.updateTarget = updateTarget;
+            return this;
+        }
+
+        public TableScanBuilder setUseConnectorNodePartitioning(Optional<Boolean> useConnectorNodePartitioning)
+        {
+            this.useConnectorNodePartitioning = useConnectorNodePartitioning;
+            return this;
+        }
+
+        public TableScanNode build()
+        {
+            return new TableScanNode(
+                    idAllocator.getNextId(),
+                    tableHandle,
+                    symbols,
+                    assignments,
+                    enforcedConstraint,
+                    statistics,
+                    updateTarget,
+                    useConnectorNodePartitioning);
+        }
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
@@ -1111,6 +1198,13 @@ public class PlanBuilder
                 maxRankingPerPartition,
                 false,
                 hashSymbol);
+    }
+
+    public PatternRecognitionNode patternRecognition(Consumer<PatternRecognitionBuilder> consumer)
+    {
+        PatternRecognitionBuilder patternRecognitionBuilder = new PatternRecognitionBuilder();
+        consumer.accept(patternRecognitionBuilder);
+        return patternRecognitionBuilder.build(idAllocator);
     }
 
     public static Expression expression(String sql)

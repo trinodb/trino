@@ -33,6 +33,6 @@ public class ConfigCdh5
     @Override
     public List<String> getExcludedGroups()
     {
-        return ImmutableList.of("skip_on_cdh", "iceberg");
+        return ImmutableList.of("skip_on_cdh");
     }
 }

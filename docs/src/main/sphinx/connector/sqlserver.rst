@@ -10,8 +10,11 @@ between two different SQL Server instances.
 Requirements
 ------------
 
-The connector supports SQL Server 2016, SQL Server 2014, SQL Server 2012
-and Azure SQL Database as connected data sources.
+To connect to SQL Server, you need:
+
+* SQL Server 2012 or higher, or Azure SQL Database.
+* Network access from the Trino coordinator and workers to SQL Server.
+  Port 1433 is the default port.
 
 Configuration
 -------------

@@ -24,6 +24,7 @@ import io.trino.sql.planner.plan.UnionNode;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.plan.Patterns.Limit.requiresPreSortedInputs;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.union;
@@ -56,6 +57,7 @@ public class PushLimitThroughUnion
 
     private static final Pattern<LimitNode> PATTERN = limit()
             .matching(limit -> !limit.isWithTies())
+            .with(requiresPreSortedInputs().equalTo(false))
             .with(source().matching(union().capturedAs(CHILD)));
 
     @Override

@@ -22,7 +22,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -43,7 +42,6 @@ import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.ComparisonExpression.Operator;
 import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FieldReference;
@@ -79,8 +77,6 @@ import io.trino.type.UnknownType;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -589,26 +585,6 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitDereferenceExpression(DereferenceExpression node, Void context)
-        {
-            RowType rowType = (RowType) getType(node.getBase());
-            String fieldName = node.getField().getValue();
-            List<Field> fields = rowType.getFields();
-            int index = -1;
-            for (int i = 0; i < fields.size(); i++) {
-                Field field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
-                    checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
-                    index = i;
-                }
-            }
-
-            checkState(index >= 0, "could not find field name: %s", node.getField());
-            Type returnType = getType(node);
-            return new SpecialForm(DEREFERENCE, returnType, process(node.getBase(), context), constant(index, INTEGER));
-        }
-
-        @Override
         protected RowExpression visitIfExpression(IfExpression node, Void context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
@@ -718,6 +694,11 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression base = process(node.getBase(), context);
             RowExpression index = process(node.getIndex(), context);
+
+            if (getType(node.getBase()) instanceof RowType) {
+                long value = (Long) ((ConstantExpression) index).getValue();
+                return new SpecialForm(DEREFERENCE, getType(node), base, constant((int) value - 1, INTEGER));
+            }
 
             return call(
                     metadata.resolveOperator(SUBSCRIPT, ImmutableList.of(base.getType(), index.getType())),

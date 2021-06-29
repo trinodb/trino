@@ -224,6 +224,28 @@ public class Assignments
         return assignments.hashCode();
     }
 
+    public static class Assignment
+    {
+        private final Symbol output;
+        private final Expression expression;
+
+        public Assignment(Symbol output, Expression expression)
+        {
+            this.output = requireNonNull(output, "output is null");
+            this.expression = requireNonNull(expression, "expression is null");
+        }
+
+        public Symbol getOutput()
+        {
+            return output;
+        }
+
+        public Expression getExpression()
+        {
+            return expression;
+        }
+    }
+
     public static class Builder
     {
         private final Map<Symbol, Expression> assignments = new LinkedHashMap<>();
@@ -279,6 +301,12 @@ public class Assignments
         public Assignments build()
         {
             return new Assignments(assignments);
+        }
+
+        public Builder add(Assignment assignment)
+        {
+            put(assignment.getOutput(), assignment.getExpression());
+            return this;
         }
     }
 }

@@ -162,6 +162,6 @@ public class LocalFileMetadata
                 handle.getServerAddressColumn(),
                 newDomain);
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
     }
 }

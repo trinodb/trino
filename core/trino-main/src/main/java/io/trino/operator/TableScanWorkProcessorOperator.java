@@ -14,6 +14,8 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -42,6 +44,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static java.util.Objects.requireNonNull;
@@ -270,7 +273,7 @@ public class TableScanWorkProcessorOperator
 
             CompletableFuture<?> isBlocked = pageSource.isBlocked();
             if (!isBlocked.isDone()) {
-                return ProcessState.blocked(toListenableFuture(isBlocked));
+                return ProcessState.blocked(asVoid(toListenableFuture(isBlocked)));
             }
 
             Page page = pageSource.getNextPage();
@@ -288,5 +291,10 @@ public class TableScanWorkProcessorOperator
 
             return ProcessState.ofResult(page);
         }
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 }

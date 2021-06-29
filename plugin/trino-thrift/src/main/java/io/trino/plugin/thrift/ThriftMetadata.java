@@ -187,7 +187,7 @@ public class ThriftMetadata
                 newDomain,
                 handle.getDesiredColumns());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
     }
 
     @Override
@@ -212,7 +212,7 @@ public class ThriftMetadata
                 handle.getConstraint(),
                 Optional.of(desiredColumns.build()));
 
-        return Optional.of(new ProjectionApplicationResult<>(handle, projections, assignmentList.build()));
+        return Optional.of(new ProjectionApplicationResult<>(handle, projections, assignmentList.build(), false));
     }
 
     @Override

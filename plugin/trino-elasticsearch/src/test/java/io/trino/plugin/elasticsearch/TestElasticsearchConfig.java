@@ -26,6 +26,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.plugin.elasticsearch.ElasticsearchConfig.Security.AWS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -42,6 +43,8 @@ public class TestElasticsearchConfig
                 .setScrollTimeout(new Duration(1, MINUTES))
                 .setRequestTimeout(new Duration(10, SECONDS))
                 .setConnectTimeout(new Duration(1, SECONDS))
+                .setBackoffInitDelay(new Duration(500, MILLISECONDS))
+                .setBackoffMaxDelay(new Duration(20, SECONDS))
                 .setMaxRetryTime(new Duration(30, SECONDS))
                 .setNodeRefreshInterval(new Duration(1, MINUTES))
                 .setMaxHttpConnections(25)
@@ -71,6 +74,8 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.scroll-timeout", "20s")
                 .put("elasticsearch.request-timeout", "1s")
                 .put("elasticsearch.connect-timeout", "10s")
+                .put("elasticsearch.backoff-init-delay", "100ms")
+                .put("elasticsearch.backoff-max-delay", "15s")
                 .put("elasticsearch.max-retry-time", "10s")
                 .put("elasticsearch.node-refresh-interval", "10m")
                 .put("elasticsearch.max-http-connections", "100")
@@ -93,6 +98,8 @@ public class TestElasticsearchConfig
                 .setScrollTimeout(new Duration(20, SECONDS))
                 .setRequestTimeout(new Duration(1, SECONDS))
                 .setConnectTimeout(new Duration(10, SECONDS))
+                .setBackoffInitDelay(new Duration(100, MILLISECONDS))
+                .setBackoffMaxDelay(new Duration(15, SECONDS))
                 .setMaxRetryTime(new Duration(10, SECONDS))
                 .setNodeRefreshInterval(new Duration(10, MINUTES))
                 .setMaxHttpConnections(100)

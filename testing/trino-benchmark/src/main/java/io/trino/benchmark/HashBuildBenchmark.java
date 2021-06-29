@@ -17,14 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverFactory;
-import io.trino.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import io.trino.operator.JoinBridgeManager;
-import io.trino.operator.LookupJoinOperators;
+import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
-import io.trino.operator.PartitionedLookupSourceFactory;
 import io.trino.operator.TaskContext;
+import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
+import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.PartitionedLookupSourceFactory;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.SingleStreamSpillerFactory;
@@ -42,15 +43,22 @@ import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static java.util.Objects.requireNonNull;
 
 public class HashBuildBenchmark
         extends AbstractOperatorBenchmark
 {
-    private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators();
+    private final OperatorFactories operatorFactories;
 
     public HashBuildBenchmark(LocalQueryRunner localQueryRunner)
     {
+        this(localQueryRunner, new TrinoOperatorFactories());
+    }
+
+    public HashBuildBenchmark(LocalQueryRunner localQueryRunner, OperatorFactories operatorFactories)
+    {
         super(localQueryRunner, "hash_build", 4, 5);
+        this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
     }
 
     @Override
@@ -90,13 +98,14 @@ public class HashBuildBenchmark
         // empty join so build finishes
         ImmutableList.Builder<OperatorFactory> joinDriversBuilder = ImmutableList.builder();
         joinDriversBuilder.add(new ValuesOperatorFactory(0, new PlanNodeId("values"), ImmutableList.of()));
-        OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(
+        OperatorFactory joinOperator = operatorFactories.innerJoin(
                 2,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
+                false,
+                false,
+                false,
                 ImmutableList.of(BIGINT),
-                false,
-                false,
                 Ints.asList(0),
                 OptionalInt.empty(),
                 Optional.empty(),

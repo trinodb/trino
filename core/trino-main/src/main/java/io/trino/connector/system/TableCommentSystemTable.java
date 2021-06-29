@@ -13,6 +13,7 @@
  */
 package io.trino.connector.system;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.FullConnectorSession;
@@ -22,9 +23,11 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.InMemoryRecordSet.Builder;
 import io.trino.spi.connector.RecordCursor;
@@ -34,11 +37,15 @@ import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.Sets.union;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
+import static io.trino.metadata.MetadataListing.getMaterializedViews;
+import static io.trino.metadata.MetadataListing.getViews;
 import static io.trino.metadata.MetadataListing.listCatalogs;
 import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -96,8 +103,14 @@ public class TableCommentSystemTable
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             Set<SchemaTableName> names = ImmutableSet.of();
+            Map<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.of();
+            Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = ImmutableMap.of();
             try {
-                names = listTables(session, metadata, accessControl, prefix);
+                materializedViews = getMaterializedViews(session, metadata, accessControl, prefix);
+                views = getViews(session, metadata, accessControl, prefix);
+                // Some connectors like blackhole, accumulo and raptor don't return views in listTables
+                // Materialized views are consistently returned in listTables by the relevant connectors
+                names = union(listTables(session, metadata, accessControl, prefix), views.keySet());
             }
             catch (TrinoException e) {
                 // listTables throws an exception if cannot connect the database
@@ -105,13 +118,9 @@ public class TableCommentSystemTable
             }
 
             for (SchemaTableName name : names) {
-                QualifiedObjectName tableName = new QualifiedObjectName(prefix.getCatalogName(), name.getSchemaName(), name.getTableName());
                 Optional<String> comment = Optional.empty();
                 try {
-                    comment = metadata.getTableHandle(session, tableName)
-                            .map(handle -> metadata.getTableMetadata(session, handle))
-                            .map(metadata -> metadata.getMetadata().getComment())
-                            .get();
+                    comment = getComment(session, prefix, name, views, materializedViews);
                 }
                 catch (TrinoException e) {
                     // getTableHandle may throw an exception (e.g. Cassandra connector doesn't allow case insensitive column names)
@@ -122,5 +131,27 @@ public class TableCommentSystemTable
         }
 
         return table.build().cursor();
+    }
+
+    private Optional<String> getComment(
+            Session session,
+            QualifiedTablePrefix prefix,
+            SchemaTableName name,
+            Map<SchemaTableName, ConnectorViewDefinition> views,
+            Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews)
+    {
+        ConnectorMaterializedViewDefinition materializedViewDefinition = materializedViews.get(name);
+        if (materializedViewDefinition != null) {
+            return materializedViewDefinition.getComment();
+        }
+        ConnectorViewDefinition viewDefinition = views.get(name);
+        if (viewDefinition != null) {
+            return viewDefinition.getComment();
+        }
+        QualifiedObjectName tableName = new QualifiedObjectName(prefix.getCatalogName(), name.getSchemaName(), name.getTableName());
+        return metadata.getRedirectionAwareTableHandle(session, tableName).getTableHandle()
+                .map(handle -> metadata.getTableMetadata(session, handle))
+                .map(metadata -> metadata.getMetadata().getComment())
+                .get();
     }
 }

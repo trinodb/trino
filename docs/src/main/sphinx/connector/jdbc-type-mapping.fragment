@@ -1,11 +1,11 @@
-JDBC type mapping and metadata cache
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+General configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following properties can be used to configure how data types from the
 connected data source are mapped to Trino data types and how the metadata is
 cached in Trino.
 
-.. list-table:: Configuration properties that manage JDBC type mapping and metadata cache
+.. list-table::
   :widths: 30, 40, 30
   :header-rows: 1
 

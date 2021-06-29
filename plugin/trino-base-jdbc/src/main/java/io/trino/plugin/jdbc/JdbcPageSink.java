@@ -57,14 +57,6 @@ public class JdbcPageSink
             throw new TrinoException(JDBC_ERROR, e);
         }
 
-        try {
-            connection.setAutoCommit(false);
-        }
-        catch (SQLException e) {
-            closeWithSuppression(connection, e);
-            throw new TrinoException(JDBC_ERROR, e);
-        }
-
         columnTypes = handle.getColumnTypes();
 
         if (handle.getJdbcColumnTypes().isEmpty()) {
@@ -92,6 +84,8 @@ public class JdbcPageSink
         }
 
         try {
+            // Per JDBC specification, auto-commit mode is the default. Verify that in case pooling or custom ConnectionFactory is used.
+            verify(connection.getAutoCommit(), "Connection not in auto-commit");
             statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle, columnWriters));
         }
         catch (SQLException e) {
@@ -114,8 +108,6 @@ public class JdbcPageSink
 
                 if (batchSize >= 1000) {
                     statement.executeBatch();
-                    connection.commit();
-                    connection.setAutoCommit(false);
                     batchSize = 0;
                 }
             }
@@ -165,7 +157,6 @@ public class JdbcPageSink
                 PreparedStatement statement = this.statement) {
             if (batchSize > 0) {
                 statement.executeBatch();
-                connection.commit();
             }
         }
         catch (SQLNonTransientException e) {
@@ -186,17 +177,12 @@ public class JdbcPageSink
         return completedFuture(ImmutableList.of());
     }
 
-    @SuppressWarnings("unused")
     @Override
     public void abort()
     {
-        // rollback and close
-        try (Connection connection = this.connection;
-                PreparedStatement statement = this.statement) {
-            // skip rollback if implicitly closed due to an error
-            if (!connection.isClosed()) {
-                connection.rollback();
-            }
+        // close statement and connection
+        try (connection) {
+            statement.close();
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);

@@ -97,6 +97,7 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -251,6 +252,8 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalC
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
+import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
@@ -262,6 +265,8 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -822,7 +827,7 @@ public abstract class AbstractTestHive
                             ImmutableMap.of(),
                             TupleDomain.all()));
                 },
-                new NoneHiveMaterializedViewMetadata()
+                (metastore) -> new NoneHiveMaterializedViewMetadata()
                 {
                     @Override
                     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
@@ -844,7 +849,7 @@ public abstract class AbstractTestHive
                 SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
-                transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
+                transactionHandle -> transactionManager.get(transactionHandle).getMetastore(),
                 partitionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
@@ -972,7 +977,7 @@ public abstract class AbstractTestHive
         @Override
         public SemiTransactionalHiveMetastore getMetastore()
         {
-            return ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore();
+            return transactionManager.get(transactionHandle).getMetastore();
         }
 
         @Override
@@ -1603,6 +1608,12 @@ public abstract class AbstractTestHive
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
             assertTableIsBucketed(tableHandle, transaction, session);
+            ConnectorTableProperties properties = metadata.getTableProperties(
+                    newSession(ImmutableMap.of("propagate_table_scan_sorting_properties", true)),
+                    tableHandle);
+            // trino_test_bucketed_by_bigint_boolean does not define sorting, therefore local properties is empty
+            assertTrue(properties.getLocalProperties().isEmpty());
+            assertTrue(metadata.getTableProperties(newSession(), tableHandle).getLocalProperties().isEmpty());
 
             String testString = "test";
             Long testBigint = 89L;
@@ -1782,6 +1793,106 @@ public abstract class AbstractTestHive
                         .collect(onlyElement()),
                 3);
         assertEquals(idCount.keySet(), expectedIds);
+    }
+
+    @Test
+    public void testBucketedSortedTableEvolution()
+            throws Exception
+    {
+        SchemaTableName temporaryTable = temporaryTable("test_bucket_sorting_evolution");
+        try {
+            doTestBucketedSortedTableEvolution(temporaryTable);
+        }
+        finally {
+            dropTable(temporaryTable);
+        }
+    }
+
+    private void doTestBucketedSortedTableEvolution(SchemaTableName tableName)
+            throws Exception
+    {
+        int rowCount = 100;
+        // Create table and populate it with 3 partitions with different sort orders but same bucketing
+        createEmptyTable(
+                tableName,
+                ORC,
+                ImmutableList.of(
+                        new Column("id", HIVE_LONG, Optional.empty()),
+                        new Column("name", HIVE_STRING, Optional.empty())),
+                ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty())),
+                Optional.of(new HiveBucketProperty(
+                        ImmutableList.of("id"),
+                        BUCKETING_V1,
+                        4,
+                        ImmutableList.of(new SortingColumn("id", ASCENDING), new SortingColumn("name", ASCENDING)))));
+        // write a 4-bucket partition sorted by id, name
+        MaterializedResult.Builder sortedByIdNameBuilder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
+        IntStream.range(0, rowCount).forEach(i -> sortedByIdNameBuilder.row((long) i, String.valueOf(i), "sorted_by_id_name"));
+        insertData(tableName, sortedByIdNameBuilder.build());
+
+        // write a 4-bucket partition sorted by name
+        alterBucketProperty(tableName, Optional.of(new HiveBucketProperty(
+                ImmutableList.of("id"),
+                BUCKETING_V1,
+                4,
+                ImmutableList.of(new SortingColumn("name", ASCENDING)))));
+        MaterializedResult.Builder sortedByNameBuilder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
+        IntStream.range(0, rowCount).forEach(i -> sortedByNameBuilder.row((long) i, String.valueOf(i), "sorted_by_name"));
+        insertData(tableName, sortedByNameBuilder.build());
+
+        // write a 4-bucket partition sorted by id
+        alterBucketProperty(tableName, Optional.of(new HiveBucketProperty(
+                ImmutableList.of("id"),
+                BUCKETING_V1,
+                4,
+                ImmutableList.of(new SortingColumn("id", ASCENDING)))));
+        MaterializedResult.Builder sortedByIdBuilder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
+        IntStream.range(0, rowCount).forEach(i -> sortedByIdBuilder.row((long) i, String.valueOf(i), "sorted_by_id"));
+        insertData(tableName, sortedByIdBuilder.build());
+
+        ConnectorTableHandle tableHandle;
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+            metadata.beginQuery(session);
+            tableHandle = getTableHandle(metadata, tableName);
+
+            // read entire table
+            List<ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).values().stream()
+                    .collect(toImmutableList());
+            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
+            assertEquals(result.getRowCount(), 300);
+        }
+
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession(ImmutableMap.of("propagate_table_scan_sorting_properties", true));
+            metadata.beginQuery(session);
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+            // verify local sorting property
+            ConnectorTableProperties properties = metadata.getTableProperties(session, tableHandle);
+            assertEquals(properties.getLocalProperties(), ImmutableList.of(
+                    new SortingProperty<>(columnHandles.get("id"), ASC_NULLS_FIRST)));
+
+            // read on a entire table should fail with exception
+            assertThatThrownBy(() -> readTable(transaction, tableHandle, ImmutableList.copyOf(columnHandles.values()), session, TupleDomain.all(), OptionalInt.empty(), Optional.empty()))
+                    .isInstanceOf(TrinoException.class)
+                    .hasMessage("Hive table (%s) sorting by [id] is not compatible with partition (pk=sorted_by_name) sorting by [name]." +
+                            " This restriction can be avoided by disabling propagate_table_scan_sorting_properties.", tableName);
+
+            // read only the partitions with sorting that is compatible to table sorting
+            MaterializedResult result = readTable(
+                    transaction,
+                    tableHandle,
+                    ImmutableList.copyOf(columnHandles.values()),
+                    session,
+                    TupleDomain.withColumnDomains(ImmutableMap.of(
+                            columnHandles.get("pk"),
+                            Domain.create(ValueSet.of(VARCHAR, utf8Slice("sorted_by_id_name"), utf8Slice("sorted_by_id")), false))),
+                    OptionalInt.empty(),
+                    Optional.empty());
+            assertEquals(result.getRowCount(), 200);
+        }
     }
 
     @Test
@@ -2466,8 +2577,8 @@ public abstract class AbstractTestHive
                             .put(BUCKETED_BY_PROPERTY, ImmutableList.of("id"))
                             .put(BUCKET_COUNT_PROPERTY, bucketCount)
                             .put(SORTED_BY_PROPERTY, ImmutableList.builder()
-                                    .add(new SortingColumn("value_asc", SortingColumn.Order.ASCENDING))
-                                    .add(new SortingColumn("value_desc", SortingColumn.Order.DESCENDING))
+                                    .add(new SortingColumn("value_asc", ASCENDING))
+                                    .add(new SortingColumn("value_desc", DESCENDING))
                                     .build())
                             .build());
 
@@ -2529,6 +2640,18 @@ public abstract class AbstractTestHive
 
             ConnectorTableHandle tableHandle = getTableHandle(metadata, table);
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
+
+            // verify local sorting property
+            ConnectorTableProperties properties = metadata.getTableProperties(
+                    newSession(ImmutableMap.of(
+                            "propagate_table_scan_sorting_properties", true,
+                            "bucket_execution_enabled", false)),
+                    tableHandle);
+            Map<String, Integer> columnIndex = indexColumns(columnHandles);
+            assertEquals(properties.getLocalProperties(), ImmutableList.of(
+                    new SortingProperty<>(columnHandles.get(columnIndex.get("value_asc")), ASC_NULLS_FIRST),
+                    new SortingProperty<>(columnHandles.get(columnIndex.get("value_desc")), DESC_NULLS_LAST)));
+            assertThat(metadata.getTableProperties(newSession(), tableHandle).getLocalProperties()).isEmpty();
 
             List<ConnectorSplit> splits = getAllSplits(tableHandle, transaction, session);
             assertThat(splits).hasSize(bucketCount);
@@ -3371,7 +3494,7 @@ public abstract class AbstractTestHive
             assertThat(metadata.applyTableScanRedirect(session, getTableHandle(metadata, tableName))).isEmpty();
             Optional<TableScanRedirectApplicationResult> result = metadata.applyTableScanRedirect(session, getTableHandle(metadata, sourceTableName));
             assertThat(result).isPresent();
-            assertThat(getOnlyElement(result.get().getRedirections()).getDestinationTable())
+            assertThat(result.get().getDestinationTable())
                     .isEqualTo(new CatalogSchemaTableName("hive", database, "mock_redirection_target"));
         }
         finally {

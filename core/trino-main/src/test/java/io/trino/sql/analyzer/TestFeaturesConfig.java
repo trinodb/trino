@@ -80,12 +80,14 @@ public class TestFeaturesConfig
                 .setUnwrapCasts(true)
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
                 .setEnableStatsCalculator(true)
+                .setStatisticsPrecalculationForPushdownEnabled(false)
                 .setCollectPlanStatisticsForAllQueries(false)
                 .setIgnoreStatsCalculatorFailures(true)
                 .setDefaultFilterFactorEnabled(false)
                 .setEnableForcedExchangeBelowGroupId(true)
                 .setExchangeCompressionEnabled(false)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.ABORT)
+                .setLegacyRowToJsonCast(false)
                 .setEnableIntermediateAggregations(false)
                 .setPushAggregationThroughOuterJoin(true)
                 .setPushPartialAggregationThoughJoin(false)
@@ -110,7 +112,8 @@ public class TestFeaturesConfig
                 .setOptimizeDuplicateInsensitiveJoins(true)
                 .setUseLegacyWindowFilterPushdown(false)
                 .setUseTableScanNodePartitioning(true)
-                .setTableScanNodePartitioningMinBucketToTaskRatio(0.5));
+                .setTableScanNodePartitioningMinBucketToTaskRatio(0.5)
+                .setMergeProjectWithValues(true));
     }
 
     @Test
@@ -122,6 +125,7 @@ public class TestFeaturesConfig
                 .put("network-cost-weight", "0.2")
                 .put("iterative-optimizer-timeout", "10s")
                 .put("enable-stats-calculator", "false")
+                .put("statistics-precalculation-for-pushdown.enabled", "true")
                 .put("collect-plan-statistics-for-all-queries", "true")
                 .put("optimizer.ignore-stats-calculator-failures", "false")
                 .put("optimizer.default-filter-factor-enabled", "true")
@@ -163,6 +167,7 @@ public class TestFeaturesConfig
                 .put("memory-revoking-target", "0.8")
                 .put("exchange.compression-enabled", "true")
                 .put("exchange.data-integrity-verification", "RETRY")
+                .put("deprecated.legacy-row-to-json-cast", "true")
                 .put("optimizer.enable-intermediate-aggregations", "true")
                 .put("parse-decimal-literals-as-double", "true")
                 .put("optimizer.force-single-node-output", "false")
@@ -186,6 +191,7 @@ public class TestFeaturesConfig
                 .put("optimizer.use-legacy-window-filter-pushdown", "true")
                 .put("optimizer.use-table-scan-node-partitioning", "false")
                 .put("optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio", "0.0")
+                .put("optimizer.merge-project-with-values", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -194,6 +200,7 @@ public class TestFeaturesConfig
                 .setNetworkCostWeight(0.2)
                 .setIterativeOptimizerTimeout(new Duration(10, SECONDS))
                 .setEnableStatsCalculator(false)
+                .setStatisticsPrecalculationForPushdownEnabled(true)
                 .setCollectPlanStatisticsForAllQueries(true)
                 .setIgnoreStatsCalculatorFailures(false)
                 .setEnableForcedExchangeBelowGroupId(false)
@@ -234,6 +241,7 @@ public class TestFeaturesConfig
                 .setMemoryRevokingTarget(0.8)
                 .setExchangeCompressionEnabled(true)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.RETRY)
+                .setLegacyRowToJsonCast(true)
                 .setEnableIntermediateAggregations(true)
                 .setParseDecimalLiteralsAsDouble(true)
                 .setForceSingleNodeOutput(false)
@@ -257,7 +265,8 @@ public class TestFeaturesConfig
                 .setOptimizeDuplicateInsensitiveJoins(false)
                 .setUseLegacyWindowFilterPushdown(true)
                 .setUseTableScanNodePartitioning(false)
-                .setTableScanNodePartitioningMinBucketToTaskRatio(0.0);
+                .setTableScanNodePartitioningMinBucketToTaskRatio(0.0)
+                .setMergeProjectWithValues(false);
         assertFullMapping(properties, expected);
     }
 }

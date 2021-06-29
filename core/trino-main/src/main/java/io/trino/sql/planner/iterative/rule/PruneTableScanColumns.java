@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.Assignment;
@@ -31,6 +32,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -110,12 +112,20 @@ public class PruneTableScanColumns
         TupleDomain<ColumnHandle> enforcedConstraint = node.getEnforcedConstraint()
                 .filter((columnHandle, domain) -> visibleColumns.contains(columnHandle));
 
+        Optional<PlanNodeStatsEstimate> newStatistics = node.getStatistics().map(statistics ->
+                new PlanNodeStatsEstimate(
+                        statistics.getOutputRowCount(),
+                        statistics.getSymbolStatistics().entrySet().stream()
+                                .filter(entry -> newAssignments.containsKey(entry.getKey()))
+                                .collect(toImmutableMap(Entry::getKey, Entry::getValue))));
+
         return Optional.of(new TableScanNode(
                 node.getId(),
                 handle,
                 newOutputs,
                 newAssignments,
                 enforcedConstraint,
+                newStatistics,
                 node.isUpdateTarget(),
                 node.getUseConnectorNodePartitioning()));
     }

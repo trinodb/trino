@@ -122,7 +122,7 @@ public abstract class AbstractCostBasedPlanTest
         return joinOrderPrinter.result();
     }
 
-    private static Path getSourcePath()
+    protected Path getSourcePath()
     {
         Path workingDir = Paths.get(System.getProperty("user.dir"));
         verify(isDirectory(workingDir), "Working directory is not a directory");
@@ -130,7 +130,7 @@ public abstract class AbstractCostBasedPlanTest
         switch (topDirectoryName) {
             case "trino-benchto-benchmarks":
                 return workingDir;
-            case "presto":
+            case "trino":
                 return workingDir.resolve("testing/trino-benchto-benchmarks");
             default:
                 throw new IllegalStateException("This class must be executed from trino-benchto-benchmarks or Trino source directory");

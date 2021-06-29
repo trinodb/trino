@@ -23,6 +23,7 @@ import io.trino.metadata.Metadata;
 import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.joins.JoinGraph;
 import io.trino.sql.planner.plan.FilterNode;
@@ -55,10 +56,12 @@ public class EliminateCrossJoins
 {
     private static final Pattern<JoinNode> PATTERN = join();
     private final Metadata metadata;
+    private final TypeAnalyzer typeAnalyzer;
 
-    public EliminateCrossJoins(Metadata metadata)
+    public EliminateCrossJoins(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = metadata;
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override
@@ -78,7 +81,7 @@ public class EliminateCrossJoins
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        JoinGraph joinGraph = JoinGraph.buildFrom(metadata, node, context.getLookup(), context.getIdAllocator());
+        JoinGraph joinGraph = JoinGraph.buildFrom(metadata, node, context.getLookup(), context.getIdAllocator(), context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
         if (joinGraph.size() < 3 || !joinGraph.isContainsCrossJoin()) {
             return Result.empty();
         }

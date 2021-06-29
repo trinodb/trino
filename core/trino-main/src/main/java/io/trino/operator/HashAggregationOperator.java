@@ -450,7 +450,7 @@ public class HashAggregationOperator
     }
 
     @Override
-    public ListenableFuture<?> startMemoryRevoke()
+    public ListenableFuture<Void> startMemoryRevoke()
     {
         if (aggregationBuilder != null) {
             return aggregationBuilder.startMemoryRevoke();

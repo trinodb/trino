@@ -34,6 +34,7 @@ import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createSession;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
 public class TestKuduIntegrationGroupedExecution
@@ -96,6 +97,45 @@ public class TestKuduIntegrationGroupedExecution
 
         assertUpdate("DROP TABLE test_grouped_execution_t1");
         assertUpdate("DROP TABLE test_grouped_execution_t2");
+    }
+
+    @Test
+    public void testGroupedExecutionJoinRangePartition()
+    {
+        String tableName1 = "test_grouped_execution_range_t1_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName1 + " (" +
+                "key1 INT WITH (primary_key=true), " +
+                "key2 INT WITH (primary_key=true), " +
+                "attr1 INT" +
+                ") WITH (" +
+                " partition_by_hash_columns = ARRAY['key1'], " +
+                " partition_by_hash_buckets = 2, " +
+                "  partition_by_range_columns = ARRAY['key2']," +
+                "  range_partitions = '[{\"lower\": null, \"upper\": \"4\"}, {\"lower\": \"4\", \"upper\": null}]'" +
+                ")");
+
+        String tableName2 = "test_grouped_execution_range_t2_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName2 + " (" +
+                "key1 INT WITH (primary_key=true), " +
+                "key2 INT WITH (primary_key=true), " +
+                "attr2 decimal(10, 6)" +
+                ") WITH (" +
+                " partition_by_hash_columns = ARRAY['key1'], " +
+                " partition_by_hash_buckets = 2," +
+                "  partition_by_range_columns = ARRAY['key2']," +
+                "  range_partitions = '[{\"lower\": null, \"upper\": \"4\"}, {\"lower\": \"4\", \"upper\": null}]'" +
+                ")");
+
+        assertUpdate("INSERT INTO " + tableName1 + " VALUES (0, 0, 0), (0, 5, 0), (1, 0, 0), (1, 5, 0)", 4);
+        assertUpdate("INSERT INTO " + tableName2 + " VALUES (0, 0, 0), (0, 5, 1), (1, 0, 0), (1, 5, 2)", 4);
+        assertQuery(
+                getSession(),
+                "SELECT t1.* FROM " + tableName1 + " t1 join " + tableName2 + " t2 on t1.key1=t2.key1 WHERE t2.attr2=2",
+                "VALUES (1, 0, 0), (1, 5, 0)",
+                assertRemoteExchangesCount(1));
+
+        assertUpdate("DROP TABLE " + tableName1);
+        assertUpdate("DROP TABLE " + tableName2);
     }
 
     @Test

@@ -1,0 +1,89 @@
+{
+    "schemaName": "alltypes",
+    "dimensionFieldSpecs": [
+        {
+            "name": "string_col",
+            "dataType": "STRING"
+        },
+        {
+            "name": "bool_col",
+            "dataType": "BOOLEAN"
+        },
+        {
+            "name": "bytes_col",
+            "dataType": "BYTES"
+        },
+        {
+            "name": "string_array_col",
+            "dataType": "STRING",
+            "singleValueField": false
+        },
+        {
+            "name": "bool_array_col",
+            "dataType": "BOOLEAN",
+            "singleValueField": false
+        },
+        {
+            "name": "int_array_col",
+            "dataType": "INT",
+            "singleValueField": false
+        },
+        {
+            "name": "int_array_col_with_pinot_default",
+            "dataType": "INT",
+            "singleValueField": false,
+            "defaultNullValue": 7
+        },
+        {
+            "name": "float_array_col",
+            "dataType": "FLOAT",
+            "singleValueField": false
+        },
+        {
+            "name": "double_array_col",
+            "dataType": "DOUBLE",
+            "singleValueField": false
+        },
+        {
+            "name": "long_array_col",
+            "dataType": "LONG",
+            "singleValueField": false
+        }
+    ],
+    "metricFieldSpecs": [
+        {
+            "name": "int_col",
+            "dataType": "INT"
+        },
+        {
+            "name": "float_col",
+            "dataType": "FLOAT"
+        },
+        {
+            "name": "double_col",
+            "dataType": "DOUBLE"
+        },
+        {
+            "name": "long_col",
+            "dataType": "LONG"
+        }
+    ],
+    "dateTimeFieldSpecs": [
+        {
+            "name": "updated_at_seconds",
+            "dataType": "LONG",
+            "defaultNullValue" : 0,
+            "format": "1:SECONDS:EPOCH",
+            "transformFunction": "toEpochSeconds(updated_at)",
+            "granularity" : "1:SECONDS"
+        },
+        {
+            "name": "updated_at_hours",
+            "dataType": "LONG",
+            "defaultNullValue" : 0,
+            "format": "1:SECONDS:EPOCH",
+            "transformFunction": "toEpochSecondsRounded(updated_at, 3600)",
+            "granularity" : "1:SECONDS"
+        }
+    ]
+}

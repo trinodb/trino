@@ -7,6 +7,14 @@ external `Amazon Redshift <https://aws.amazon.com/redshift/>`_ cluster. This can
 different systems like Redshift and Hive, or between two different
 Redshift clusters.
 
+Requirements
+------------
+
+To connect to Redshift, you need:
+
+* Network access from the Trino coordinator and workers to Redshift.
+  Port 5439 is the default port.
+
 Configuration
 -------------
 
@@ -61,6 +69,13 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
 
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``redshift`` in the above examples.
+
+.. _redshift-type-mapping:
+
+Type mapping
+------------
+
+.. include:: jdbc-type-mapping.fragment
 
 Limitations
 -----------

@@ -24,17 +24,14 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
+import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.geospatial.GeoFunctions.stEnvelope;
 import static io.trino.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static io.trino.plugin.geospatial.GeoFunctions.stIntersection;
@@ -91,10 +88,6 @@ public class BenchmarkEnvelopeIntersection
     public static void main(String[] args)
             throws RunnerException
     {
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkEnvelopeIntersection.class.getSimpleName() + ".*")
-                .build();
-        new Runner(options).run();
+        benchmark(BenchmarkEnvelopeIntersection.class).run();
     }
 }

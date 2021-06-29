@@ -52,23 +52,25 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
-import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowOperation;
 import io.trino.transaction.TransactionId;
 
 import javax.annotation.Nullable;
@@ -135,7 +137,9 @@ public class Analysis
 
     private final Map<NodeRef<RangeQuantifier>, Range> ranges = new LinkedHashMap<>();
 
-    private final Map<NodeRef<PatternRecognitionRelation>, Set<String>> undefinedLabels = new LinkedHashMap<>();
+    private final Map<NodeRef<RowPattern>, Set<String>> undefinedLabels = new LinkedHashMap<>();
+
+    private final Map<NodeRef<WindowOperation>, MeasureDefinition> measureDefinitions = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
@@ -150,11 +154,13 @@ public class Analysis
     // Store resolved window specifications defined in WINDOW clause
     private final Map<NodeRef<QuerySpecification>, Map<CanonicalizationAware<Identifier>, ResolvedWindow>> windowDefinitions = new LinkedHashMap<>();
 
-    // Store resolved window specifications for window functions
-    private final Map<NodeRef<FunctionCall>, ResolvedWindow> windows = new LinkedHashMap<>();
+    // Store resolved window specifications for window functions and row pattern measures
+    private final Map<NodeRef<Node>, ResolvedWindow> windows = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> windowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<QuerySpecification>, List<WindowOperation>> windowMeasures = new LinkedHashMap<>();
+    private final Map<NodeRef<OrderBy>, List<WindowOperation>> orderByWindowMeasures = new LinkedHashMap<>();
     private final Map<NodeRef<Offset>, Long> offset = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, OptionalLong> limit = new LinkedHashMap<>();
     private final Map<NodeRef<AllColumns>, List<Field>> selectAllResultFields = new LinkedHashMap<>();
@@ -162,6 +168,7 @@ public class Analysis
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
     private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, SubqueryAnalysis> subqueries = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
 
     private final Map<NodeRef<Table>, TableEntry> tables = new LinkedHashMap<>();
 
@@ -192,6 +199,7 @@ public class Analysis
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
+    private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
     private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
 
@@ -471,14 +479,14 @@ public class Analysis
         return null;
     }
 
-    public void setWindow(FunctionCall functionCall, ResolvedWindow window)
+    public void setWindow(Node node, ResolvedWindow window)
     {
-        windows.put(NodeRef.of(functionCall), window);
+        windows.put(NodeRef.of(node), window);
     }
 
-    public ResolvedWindow getWindow(FunctionCall functionCall)
+    public ResolvedWindow getWindow(Node node)
     {
-        return windows.get(NodeRef.of(functionCall));
+        return windows.get(NodeRef.of(node));
     }
 
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
@@ -499,6 +507,26 @@ public class Analysis
     public List<FunctionCall> getOrderByWindowFunctions(OrderBy query)
     {
         return orderByWindowFunctions.get(NodeRef.of(query));
+    }
+
+    public void setWindowMeasures(QuerySpecification node, List<WindowOperation> measures)
+    {
+        windowMeasures.put(NodeRef.of(node), ImmutableList.copyOf(measures));
+    }
+
+    public List<WindowOperation> getWindowMeasures(QuerySpecification node)
+    {
+        return windowMeasures.get(NodeRef.of(node));
+    }
+
+    public void setOrderByWindowMeasures(OrderBy node, List<WindowOperation> measures)
+    {
+        orderByWindowMeasures.put(NodeRef.of(node), ImmutableList.copyOf(measures));
+    }
+
+    public List<WindowOperation> getOrderByWindowMeasures(OrderBy node)
+    {
+        return orderByWindowMeasures.get(NodeRef.of(node));
     }
 
     public void addColumnReferences(Map<NodeRef<Expression>, ResolvedField> columnReferences)
@@ -722,6 +750,16 @@ public class Analysis
         return refreshMaterializedView;
     }
 
+    public void setDelegatedRefreshMaterializedView(QualifiedObjectName viewName)
+    {
+        this.delegatedRefreshMaterializedView = Optional.of(viewName);
+    }
+
+    public Optional<QualifiedObjectName> getDelegatedRefreshMaterializedView()
+    {
+        return delegatedRefreshMaterializedView;
+    }
+
     public Query getNamedQuery(Table table)
     {
         return namedQueries.get(NodeRef.of(table));
@@ -866,9 +904,9 @@ public class Analysis
         return patternRecognitionFunctions.contains(NodeRef.of(functionCall));
     }
 
-    public void setRange(RangeQuantifier quantifier, Range range)
+    public void setRanges(Map<NodeRef<RangeQuantifier>, Range> quantifierRanges)
     {
-        ranges.put(NodeRef.of(quantifier), range);
+        ranges.putAll(quantifierRanges);
     }
 
     public Range getRange(RangeQuantifier quantifier)
@@ -878,16 +916,31 @@ public class Analysis
         return range;
     }
 
-    public void setUndefinedLabels(PatternRecognitionRelation relation, Set<String> labels)
+    public void setUndefinedLabels(RowPattern pattern, Set<String> labels)
     {
-        undefinedLabels.put(NodeRef.of(relation), labels);
+        undefinedLabels.put(NodeRef.of(pattern), labels);
     }
 
-    public Set<String> getUndefinedLabels(PatternRecognitionRelation relation)
+    public void setUndefinedLabels(Map<NodeRef<RowPattern>, Set<String>> labels)
     {
-        Set<String> labels = undefinedLabels.get(NodeRef.of(relation));
-        checkNotNull(labels, "missing undefined labels for relation ", relation);
+        undefinedLabels.putAll(labels);
+    }
+
+    public Set<String> getUndefinedLabels(RowPattern pattern)
+    {
+        Set<String> labels = undefinedLabels.get(NodeRef.of(pattern));
+        checkNotNull(labels, "missing undefined labels for ", pattern);
         return labels;
+    }
+
+    public void setMeasureDefinitions(Map<NodeRef<WindowOperation>, MeasureDefinition> definitions)
+    {
+        measureDefinitions.putAll(definitions);
+    }
+
+    public MeasureDefinition getMeasureDefinition(WindowOperation measure)
+    {
+        return measureDefinitions.get(NodeRef.of(measure));
     }
 
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
@@ -1045,6 +1098,16 @@ public class Analysis
     public Scope getImplicitFromScope(QuerySpecification node)
     {
         return implicitFromScopes.get(NodeRef.of(node));
+    }
+
+    public void addPredicateCoercions(Map<NodeRef<Expression>, PredicateCoercions> coercions)
+    {
+        predicateCoercions.putAll(coercions);
+    }
+
+    public PredicateCoercions getPredicateCoercions(Expression expression)
+    {
+        return predicateCoercions.get(NodeRef.of(expression));
     }
 
     @Immutable
@@ -1359,6 +1422,38 @@ public class Analysis
         public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries()
         {
             return Collections.unmodifiableList(quantifiedComparisonSubqueries);
+        }
+    }
+
+    /**
+     * Analysis for predicates such as <code>x IN (subquery)</code> or <code>x = SOME (subquery)</code>
+     */
+    public static class PredicateCoercions
+    {
+        private final Type valueType;
+        private final Optional<Type> valueCoercion;
+        private final Optional<Type> subqueryCoercion;
+
+        public PredicateCoercions(Type valueType, Optional<Type> valueCoercion, Optional<Type> subqueryCoercion)
+        {
+            this.valueType = requireNonNull(valueType, "valueType is null");
+            this.valueCoercion = requireNonNull(valueCoercion, "valueCoercion is null");
+            this.subqueryCoercion = requireNonNull(subqueryCoercion, "subqueryCoercion is null");
+        }
+
+        public Type getValueType()
+        {
+            return valueType;
+        }
+
+        public Optional<Type> getValueCoercion()
+        {
+            return valueCoercion;
+        }
+
+        public Optional<Type> getSubqueryCoercion()
+        {
+            return subqueryCoercion;
         }
     }
 

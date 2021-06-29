@@ -167,11 +167,11 @@ public class DataDefinitionExecution<T extends Statement>
                 return;
             }
 
-            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters, warningCollector);
-            Futures.addCallback(future, new FutureCallback<Object>()
+            ListenableFuture<Void> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters, warningCollector);
+            Futures.addCallback(future, new FutureCallback<>()
             {
                 @Override
-                public void onSuccess(@Nullable Object result)
+                public void onSuccess(@Nullable Void result)
                 {
                     stateMachine.transitionToFinishing();
                 }

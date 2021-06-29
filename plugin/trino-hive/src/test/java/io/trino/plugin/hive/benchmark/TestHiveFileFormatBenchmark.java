@@ -20,21 +20,29 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
+import static io.trino.plugin.hive.HiveCompressionCodec.SNAPPY;
+import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.HIVE_RCBINARY;
+import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.TRINO_ORC;
+import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.TRINO_RCBINARY;
+import static io.trino.plugin.hive.benchmark.BenchmarkHiveFileFormat.DataSet.LARGE_MAP_VARCHAR_DOUBLE;
+import static io.trino.plugin.hive.benchmark.BenchmarkHiveFileFormat.DataSet.LINEITEM;
+import static io.trino.plugin.hive.benchmark.BenchmarkHiveFileFormat.DataSet.MAP_VARCHAR_DOUBLE;
+
 public class TestHiveFileFormatBenchmark
 {
     @Test
     public void testSomeFormats()
             throws Exception
     {
-        executeBenchmark(DataSet.LINEITEM, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_RCBINARY);
-        executeBenchmark(DataSet.LINEITEM, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_ORC);
-        executeBenchmark(DataSet.LINEITEM, HiveCompressionCodec.SNAPPY, FileFormat.HIVE_RCBINARY);
-        executeBenchmark(DataSet.MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_RCBINARY);
-        executeBenchmark(DataSet.MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_ORC);
-        executeBenchmark(DataSet.MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.HIVE_RCBINARY);
-        executeBenchmark(DataSet.LARGE_MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_RCBINARY);
-        executeBenchmark(DataSet.LARGE_MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_ORC);
-        executeBenchmark(DataSet.LARGE_MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.HIVE_RCBINARY);
+        executeBenchmark(LINEITEM, SNAPPY, TRINO_RCBINARY);
+        executeBenchmark(LINEITEM, SNAPPY, TRINO_ORC);
+        executeBenchmark(LINEITEM, SNAPPY, HIVE_RCBINARY);
+        executeBenchmark(MAP_VARCHAR_DOUBLE, SNAPPY, TRINO_RCBINARY);
+        executeBenchmark(MAP_VARCHAR_DOUBLE, SNAPPY, TRINO_ORC);
+        executeBenchmark(MAP_VARCHAR_DOUBLE, SNAPPY, HIVE_RCBINARY);
+        executeBenchmark(LARGE_MAP_VARCHAR_DOUBLE, SNAPPY, TRINO_RCBINARY);
+        executeBenchmark(LARGE_MAP_VARCHAR_DOUBLE, SNAPPY, TRINO_ORC);
+        executeBenchmark(LARGE_MAP_VARCHAR_DOUBLE, SNAPPY, HIVE_RCBINARY);
     }
 
     @Test
@@ -42,7 +50,7 @@ public class TestHiveFileFormatBenchmark
             throws Exception
     {
         for (HiveCompressionCodec codec : HiveCompressionCodec.values()) {
-            executeBenchmark(DataSet.LINEITEM, codec, FileFormat.TRINO_RCBINARY);
+            executeBenchmark(LINEITEM, codec, TRINO_RCBINARY);
         }
     }
 
@@ -51,11 +59,11 @@ public class TestHiveFileFormatBenchmark
             throws Exception
     {
         for (DataSet dataSet : DataSet.values()) {
-            executeBenchmark(dataSet, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_RCBINARY);
+            executeBenchmark(dataSet, SNAPPY, TRINO_RCBINARY);
         }
     }
 
-    private static void executeBenchmark(DataSet dataSet, HiveCompressionCodec codec, FileFormat format)
+    private static void executeBenchmark(DataSet dataSet, HiveCompressionCodec codec, BenchmarkFileFormat format)
             throws IOException
     {
         BenchmarkHiveFileFormat benchmark = new BenchmarkHiveFileFormat(dataSet, codec, format);

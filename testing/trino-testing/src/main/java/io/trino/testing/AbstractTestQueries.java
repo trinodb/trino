@@ -35,8 +35,8 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
@@ -50,7 +50,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
-    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION, LINE_ITEM);
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION);
 
     // We can just use the default type registry, since we don't use any parametric types
     protected static final List<SqlFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder()
@@ -231,7 +231,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testSelectWithComparison()
     {
-        assertQuery("SELECT orderkey FROM lineitem WHERE tax < discount");
+        assertQuery("SELECT orderkey FROM orders WHERE totalprice < custkey");
     }
 
     @Test
@@ -299,11 +299,14 @@ public abstract class AbstractTestQueries
         assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
         assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
 
-        Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
-        assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
-        Set<Object> result = computeActual("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
-        assertNotEquals(allSchemas, result);
-        assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
+        // Using eventual assertion because set of schemas may change concurrently.
+        assertEventually(() -> {
+            Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
+            assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
+            Set<Object> result = computeActual("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
+            assertNotEquals(allSchemas, result);
+            assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
+        });
     }
 
     @Test

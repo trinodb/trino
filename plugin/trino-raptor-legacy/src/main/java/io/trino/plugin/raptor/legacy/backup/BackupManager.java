@@ -75,7 +75,7 @@ public class BackupManager
         executorService.shutdownNow();
     }
 
-    public CompletableFuture<?> submit(UUID uuid, File source)
+    public CompletableFuture<Void> submit(UUID uuid, File source)
     {
         requireNonNull(uuid, "uuid is null");
         requireNonNull(source, "source is null");
@@ -86,7 +86,7 @@ public class BackupManager
 
         // TODO: decrement when the running task is finished (not immediately on cancel)
         pendingBackups.incrementAndGet();
-        CompletableFuture<?> future = runAsync(new BackgroundBackup(uuid, source), executorService);
+        CompletableFuture<Void> future = runAsync(new BackgroundBackup(uuid, source), executorService);
         future.whenComplete((none, throwable) -> pendingBackups.decrementAndGet());
         return future;
     }

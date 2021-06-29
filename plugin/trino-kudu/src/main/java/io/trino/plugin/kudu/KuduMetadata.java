@@ -208,51 +208,16 @@ public class KuduMetadata
         try {
             KuduTable table = clientSession.openTable(schemaTableName);
             OptionalInt bucketCount = OptionalInt.empty();
-            if (isKuduGroupedExecutionEnabled(session)) {
-                bucketCount = getTableBucketCount(table);
+            List<HashBucketSchema> bucketSchemas = table.getPartitionSchema().getHashBucketSchemas();
+            if (!bucketSchemas.isEmpty()) {
+                bucketCount = OptionalInt.of(bucketSchemas.stream()
+                        .mapToInt(HashBucketSchema::getNumBuckets)
+                        .reduce(1, Math::multiplyExact));
             }
             return new KuduTableHandle(schemaTableName, table, TupleDomain.all(), Optional.empty(), false, bucketCount, OptionalLong.empty());
         }
         catch (NotFoundException e) {
             return null;
-        }
-    }
-
-    private OptionalInt getTableBucketCount(KuduTable table)
-    {
-        int rangePartitionCount = getRangePartitions(table).size();
-        return OptionalInt.of(getHashPartitionCount(table) * (rangePartitionCount == 0 ? 1 : rangePartitionCount));
-    }
-
-    private int getHashPartitionCount(KuduTable table)
-    {
-        int hashBucketCount = 1;
-        List<HashBucketSchema> bucketSchemas = table.getPartitionSchema().getHashBucketSchemas();
-        if (bucketSchemas != null && !bucketSchemas.isEmpty()) {
-            hashBucketCount = bucketSchemas.stream()
-                    .mapToInt(HashBucketSchema::getNumBuckets)
-                    .reduce(1, Math::multiplyExact);
-        }
-        return hashBucketCount;
-    }
-
-    private Optional<List<KuduRangePartition>> getKuduRangePartitions(KuduTable table)
-    {
-        List<Partition> rangePartitions = getRangePartitions(table);
-        List<KuduRangePartition> kuduRangePartitions = rangePartitions.stream().map(partition ->
-                new KuduRangePartition(partition.getRangeKeyStart(), partition.getRangeKeyEnd())
-        ).collect(Collectors.toList());
-        return kuduRangePartitions.isEmpty() ? Optional.empty() : Optional.of(kuduRangePartitions);
-    }
-
-    private List<Partition> getRangePartitions(KuduTable table)
-    {
-        final long fetchTabletsTimeoutInMillis = 60 * 1000;
-        try {
-            return table.getRangePartitions(fetchTabletsTimeoutInMillis);
-        }
-        catch (Exception e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unable to get list of tablets for table " + table.getName(), e);
         }
     }
 
@@ -515,7 +480,7 @@ public class KuduMetadata
                 handle.getBucketCount(),
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
     }
 
     /**
@@ -573,7 +538,7 @@ public class KuduMetadata
                 handle.getBucketCount(),
                 handle.getLimit());
 
-        return Optional.of(new ProjectionApplicationResult<>(handle, projections, assignmentList.build()));
+        return Optional.of(new ProjectionApplicationResult<>(handle, projections, assignmentList.build(), false));
     }
 
     @Override
@@ -594,6 +559,26 @@ public class KuduMetadata
                 handle.getBucketCount(),
                 OptionalLong.of(limit));
 
-        return Optional.of(new LimitApplicationResult<>(handle, false));
+        return Optional.of(new LimitApplicationResult<>(handle, false, false));
+    }
+
+    private static Optional<List<KuduRangePartition>> getKuduRangePartitions(KuduTable table)
+    {
+        List<Partition> rangePartitions = getRangePartitions(table);
+        List<KuduRangePartition> kuduRangePartitions = rangePartitions.stream()
+                .map(partition -> new KuduRangePartition(partition.getRangeKeyStart(), partition.getRangeKeyEnd()))
+                .collect(toImmutableList());
+        return kuduRangePartitions.isEmpty() ? Optional.empty() : Optional.of(kuduRangePartitions);
+    }
+
+    private static List<Partition> getRangePartitions(KuduTable table)
+    {
+        final long fetchTabletsTimeoutInMillis = 60 * 1000;
+        try {
+            return table.getRangePartitions(fetchTabletsTimeoutInMillis);
+        }
+        catch (Exception e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unable to get list of tablets for table " + table.getName(), e);
+        }
     }
 }

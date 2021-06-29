@@ -243,6 +243,16 @@ public class SymbolMapper
 
     public PatternRecognitionNode map(PatternRecognitionNode node, PlanNode source)
     {
+        ImmutableMap.Builder<Symbol, WindowNode.Function> newFunctions = ImmutableMap.builder();
+        node.getWindowFunctions().forEach((symbol, function) -> {
+            List<Expression> newArguments = function.getArguments().stream()
+                    .map(this::map)
+                    .collect(toImmutableList());
+            WindowNode.Frame newFrame = map(function.getFrame());
+
+            newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, newFrame, function.isIgnoreNulls()));
+        });
+
         ImmutableMap.Builder<Symbol, Measure> newMeasures = ImmutableMap.builder();
         node.getMeasures().forEach((symbol, measure) -> {
             ExpressionAndValuePointers newExpression = map(measure.getExpressionAndValuePointers());
@@ -261,6 +271,7 @@ public class SymbolMapper
                         .map(this::map)
                         .collect(toImmutableSet()),
                 node.getPreSortedOrderPrefix(),
+                newFunctions.build(),
                 newMeasures.build(),
                 node.getCommonBaseFrame().map(this::map),
                 node.getRowsPerMatch(),
@@ -305,7 +316,10 @@ public class SymbolMapper
                 source,
                 node.getCount(),
                 node.getTiesResolvingScheme().map(this::map),
-                node.isPartial());
+                node.isPartial(),
+                node.getPreSortedInputs().stream()
+                        .map(this::map)
+                        .collect(toImmutableList()));
     }
 
     public OrderingScheme map(OrderingScheme orderingScheme)

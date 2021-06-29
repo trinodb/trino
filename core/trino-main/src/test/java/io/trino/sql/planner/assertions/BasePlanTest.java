@@ -69,7 +69,7 @@ public class BasePlanTest
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
 
-        sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
+        sessionProperties.forEach(sessionBuilder::setSystemProperty);
 
         LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
 
@@ -158,6 +158,7 @@ public class BasePlanTest
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                 new PruneUnreferencedOutputs(queryRunner.getMetadata()),
                 new IterativeOptimizer(
+                        queryRunner.getMetadata(),
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),

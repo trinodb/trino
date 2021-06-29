@@ -143,7 +143,7 @@ class DynamicFiltersFetcher
         }
 
         // if throttled due to error, asynchronously wait for timeout and try again
-        ListenableFuture<?> errorRateLimit = errorTracker.acquireRequestPermit();
+        ListenableFuture<Void> errorRateLimit = errorTracker.acquireRequestPermit();
         if (!errorRateLimit.isDone()) {
             errorRateLimit.addListener(this::fetchDynamicFiltersIfNecessary, executor);
             return;

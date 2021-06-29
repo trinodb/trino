@@ -13,15 +13,20 @@
  */
 package io.trino.server.security;
 
+import io.trino.client.ProtocolDetectionException;
+import io.trino.server.ProtocolConfig;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.MultivaluedMap;
 
 import java.security.Principal;
+import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.client.ProtocolHeaders.detectProtocol;
 import static io.trino.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
 import static io.trino.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
@@ -31,15 +36,17 @@ public class PasswordAuthenticator
 {
     private final PasswordAuthenticatorManager authenticatorManager;
     private final UserMapping userMapping;
+    private final Optional<String> alternateHeaderName;
 
     @Inject
-    public PasswordAuthenticator(PasswordAuthenticatorManager authenticatorManager, PasswordAuthenticatorConfig config)
+    public PasswordAuthenticator(PasswordAuthenticatorManager authenticatorManager, PasswordAuthenticatorConfig config, ProtocolConfig protocolConfig)
     {
         requireNonNull(config, "config is null");
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
 
         this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");
         authenticatorManager.setRequired();
+        this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
     }
 
     @Override
@@ -57,6 +64,9 @@ public class PasswordAuthenticator
             try {
                 Principal principal = authenticator.createAuthenticatedPrincipal(user, password);
                 String authenticatedUser = userMapping.mapUser(principal.toString());
+
+                // rewrite the original "unmapped" user header to the mapped user (see method Javadoc for more details)
+                rewriteUserHeaderToMappedUser(basicAuthCredentials, request.getHeaders(), authenticatedUser);
                 return Identity.forUser(authenticatedUser)
                         .withPrincipal(principal)
                         .build();
@@ -76,6 +86,25 @@ public class PasswordAuthenticator
 
         verify(exception != null, "exception not set");
         throw exception;
+    }
+
+    /**
+     * When the user in the basic authentication header matches the x-trino-user header, we assume that the client does
+     * not want to force the runtime user name, and only wanted to communicate the authentication user.
+     */
+    private void rewriteUserHeaderToMappedUser(BasicAuthCredentials basicAuthCredentials, MultivaluedMap<String, String> headers, String authenticatedUser)
+    {
+        String userHeader;
+        try {
+            userHeader = detectProtocol(alternateHeaderName, headers.keySet()).requestUser();
+        }
+        catch (ProtocolDetectionException ignored) {
+            // this shouldn't fail here, but ignore and it will be handled elsewhere
+            return;
+        }
+        if (basicAuthCredentials.getUser().equals(headers.getFirst(userHeader))) {
+            headers.putSingle(userHeader, authenticatedUser);
+        }
     }
 
     private static AuthenticationException needAuthentication(String message)

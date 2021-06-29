@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.memory;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.testing.AbstractDynamicFilteringIntegrationSmokeTest;
@@ -24,7 +25,13 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.PART;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -40,13 +47,14 @@ public class TestMemorySmoke
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return MemoryQueryRunner.createQueryRunner(
+        return createMemoryQueryRunner(
                 // Adjust DF limits to test edge cases
                 ImmutableMap.of(
                         "dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "100",
                         "dynamic-filtering.small-broadcast.range-row-limit-per-driver", "100",
                         "dynamic-filtering.large-broadcast.max-distinct-values-per-driver", "100",
-                        "dynamic-filtering.large-broadcast.range-row-limit-per-driver", "100000"));
+                        "dynamic-filtering.large-broadcast.range-row-limit-per-driver", "100000"),
+                ImmutableList.of(NATION, CUSTOMER, ORDERS, LINE_ITEM, PART));
     }
 
     @Test

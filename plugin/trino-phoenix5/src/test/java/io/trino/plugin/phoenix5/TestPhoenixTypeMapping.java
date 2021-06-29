@@ -233,7 +233,7 @@ public class TestPhoenixTypeMapping
                     .build();
             trinoTestCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
             trinoTestCases.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"));
-            trinoTestCases.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_date"));
+            trinoTestCases.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
             phoenixTestCases.execute(getQueryRunner(), session, phoenixCreateAndInsert("tpch.test_date"));
         }
     }
@@ -410,7 +410,7 @@ public class TestPhoenixTypeMapping
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup prestoCreateAndInsert(Session session, String tableNamePrefix)
+    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }

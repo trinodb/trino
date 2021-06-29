@@ -70,7 +70,7 @@ public abstract class BaseElasticsearchConnectorTest
         HostAndPort address = elasticsearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
-        return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables(), ImmutableMap.of(), ImmutableMap.of());
+        return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables(), ImmutableMap.of(), ImmutableMap.of(), 3);
     }
 
     @Override
@@ -130,6 +130,15 @@ public abstract class BaseElasticsearchConnectorTest
     {
         elasticsearch.stop();
         client.close();
+    }
+
+    @Test
+    public void testWithoutBackpressure()
+    {
+        assertQuerySucceeds("SELECT * FROM orders");
+        // Check that JMX stats show no sign of backpressure
+        assertQueryReturnsEmptyResult("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*\" WHERE \"backpressurestats.alltime.count\" > 0");
+        assertQueryReturnsEmptyResult("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*\" WHERE \"backpressurestats.alltime.max\" > 0");
     }
 
     @Test
@@ -221,6 +230,72 @@ public abstract class BaseElasticsearchConnectorTest
                 .build();
 
         assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testNullPredicate()
+            throws IOException
+    {
+        String indexName = "null_predicate1";
+        @Language("JSON")
+        String properties = "" +
+                "{" +
+                "  \"properties\":{" +
+                "    \"null_keyword\":   { \"type\": \"keyword\" }," +
+                "    \"custkey\":   { \"type\": \"keyword\" }" +
+                "  }" +
+                "}";
+        createIndex(indexName, properties);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("null_keyword", 32)
+                .put("custkey", 1301)
+                .build());
+
+        assertQueryReturnsEmptyResult("SELECT * FROM null_predicate1 WHERE null_keyword IS NULL");
+        assertQueryReturnsEmptyResult("SELECT * FROM null_predicate1 WHERE null_keyword = '10' OR null_keyword IS NULL");
+
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, 32)");
+        assertQuery("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301)");
+
+        // not null filter
+        // filtered column is selected
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword IS NOT NULL", "VALUES (1301, 32)");
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL", "VALUES (1301, 32)");
+
+        // filtered column is not selected
+        assertQuery("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL", "VALUES (1301)");
+
+        indexName = "null_predicate2";
+        properties = "" +
+                "{" +
+                "  \"properties\":{" +
+                "    \"null_keyword\":   { \"type\": \"keyword\" }," +
+                "    \"custkey\":   { \"type\": \"keyword\" }" +
+                "  }" +
+                "}";
+        createIndex(indexName, properties);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("custkey", 1301)
+                .build());
+
+        // not null filter
+        assertQueryReturnsEmptyResult("SELECT * FROM null_predicate2 WHERE null_keyword IS NOT NULL");
+        assertQueryReturnsEmptyResult("SELECT * FROM null_predicate2 WHERE null_keyword = '10' OR null_keyword IS NOT NULL");
+
+        // filtered column is selected
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword IS NULL", "VALUES (1301, NULL)");
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, NULL)");
+
+        // filtered column is not selected
+        assertQuery("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301)");
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("null_keyword", 32)
+                .put("custkey", 1302)
+                .build());
+
+        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, NULL), (1302, 32)");
+        assertQuery("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301), (1302)");
     }
 
     @Test
@@ -578,6 +653,50 @@ public abstract class BaseElasticsearchConnectorTest
                 .row(false)
                 .row(false)
                 .row(false)
+                .build();
+
+        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testTimestamps()
+            throws IOException
+    {
+        String indexName = "timestamps";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"timestamp_column\":   { \"type\": \"date\" }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("timestamp_column", "2015-01-01")
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("timestamp_column", "2015-01-01T12:10:30Z")
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("timestamp_column", 1420070400001L)
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("timestamp_column", "1420070400001")
+                .build());
+
+        MaterializedResult rows = computeActual("SELECT timestamp_column FROM timestamps");
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row(LocalDateTime.parse("2015-01-01T00:00:00"))
+                .row(LocalDateTime.parse("2015-01-01T12:10:30"))
+                .row(LocalDateTime.parse("2015-01-01T00:00:00.001"))
+                .row(LocalDateTime.parse("2015-01-01T00:00:00.001"))
                 .build();
 
         assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
@@ -962,6 +1081,18 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery(
                 "SELECT count(*) FROM orders_alias",
                 "SELECT count(*) FROM orders");
+    }
+
+    @Test
+    public void testSelectInformationSchemaForMultiIndexAlias()
+            throws IOException
+    {
+        addAlias("nation", "multi_alias");
+        addAlias("region", "multi_alias");
+
+        // No duplicate entries should be found in information_schema.tables or information_schema.columns.
+        testSelectInformationSchemaTables();
+        testSelectInformationSchemaColumns();
     }
 
     @Test(enabled = false) // TODO (https://github.com/trinodb/trino/issues/2428)
