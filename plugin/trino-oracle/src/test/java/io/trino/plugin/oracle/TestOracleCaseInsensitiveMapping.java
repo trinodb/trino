@@ -107,6 +107,7 @@ public class TestOracleCaseInsensitiveMapping
                             "(NULL, NULL, 'u')");
         }
     }
+
     @Test
     public void testSchemaNameClash()
             throws Exception
@@ -130,6 +131,7 @@ public class TestOracleCaseInsensitiveMapping
             }
         }
     }
+
     @Test
     public void testTableNameClash()
             throws Exception
