@@ -16,7 +16,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
-import com.starburstdata.presto.plugin.jdbc.PoolingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.StarburstJdbcMetadataFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedJdbcIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
@@ -44,7 +43,6 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ExtraCredentialsBasedJdbcIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
@@ -67,6 +65,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeClient.SNOWFLAKE_MAX_LIST_EXPRESSIONS;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
@@ -98,6 +97,7 @@ public class SnowflakeJdbcClientModule
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
+        bindSessionPropertiesProvider(binder, SnowflakeJdbcSessionProperties.class);
 
         install(new CredentialProviderModule());
 
@@ -149,7 +149,7 @@ public class SnowflakeJdbcClientModule
     public ConnectionFactory getBaseConnectionFactory(BaseJdbcConfig config, JdbcConnectionPoolConfig connectionPoolingConfig, CredentialProvider credentialProvider, SnowflakeConfig snowflakeConfig)
     {
         if (connectionPoolingConfig.isConnectionPoolEnabled()) {
-            return new PoolingConnectionFactory(
+            return new WarehouseAwarePoolingConnectionFactory(
                     catalogName,
                     SnowflakeDriver.class,
                     getConnectionProperties(snowflakeConfig),
@@ -158,7 +158,7 @@ public class SnowflakeJdbcClientModule
                     new DefaultCredentialPropertiesProvider(credentialProvider));
         }
 
-        return new DriverConnectionFactory(
+        return new WarehouseAwareDriverConnectionFactory(
                 new SnowflakeDriver(),
                 config.getConnectionUrl(),
                 getConnectionProperties(snowflakeConfig),
@@ -251,7 +251,7 @@ public class SnowflakeJdbcClientModule
                     SnowflakeConfig snowflakeConfig)
             {
                 if (connectionPoolingConfig.isConnectionPoolEnabled()) {
-                    return new PoolingConnectionFactory(
+                    return new WarehouseAwarePoolingConnectionFactory(
                             catalogName,
                             SnowflakeDriver.class,
                             getConnectionProperties(snowflakeConfig),
@@ -260,7 +260,7 @@ public class SnowflakeJdbcClientModule
                             new SnowflakeOauthPropertiesProvider(snowflakeOauthService));
                 }
 
-                return new DriverConnectionFactory(
+                return new WarehouseAwareDriverConnectionFactory(
                         new SnowflakeDriver(),
                         config.getConnectionUrl(),
                         getConnectionProperties(snowflakeConfig),
@@ -295,7 +295,7 @@ public class SnowflakeJdbcClientModule
                     SnowflakeConfig snowflakeConfig)
             {
                 if (connectionPoolingConfig.isConnectionPoolEnabled()) {
-                    return new PoolingConnectionFactory(
+                    return new WarehouseAwarePoolingConnectionFactory(
                             catalogName,
                             SnowflakeDriver.class,
                             getConnectionProperties(snowflakeConfig),
@@ -303,7 +303,7 @@ public class SnowflakeJdbcClientModule
                             connectionPoolingConfig,
                             new SnowflakeOAuth2TokenPassthroughProvider());
                 }
-                return new DriverConnectionFactory(
+                return new WarehouseAwareDriverConnectionFactory(
                         new SnowflakeDriver(),
                         config.getConnectionUrl(),
                         getConnectionProperties(snowflakeConfig),

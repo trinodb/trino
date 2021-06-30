@@ -88,10 +88,12 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.getRootCause;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -464,6 +466,7 @@ public class SnowflakeClient
         }
         catch (SQLException | RuntimeException e) {
             throwIfInstanceOf(e, TrinoException.class);
+            throwIfInvalidWarehouse(e);
             throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
         }
     }
@@ -496,6 +499,15 @@ public class SnowflakeClient
             TableStatistics.Builder tableStatistics = TableStatistics.builder();
             tableStatistics.setRowCount(Estimate.of(rowCount));
             return tableStatistics.build();
+        }
+    }
+
+    private static void throwIfInvalidWarehouse(Throwable throwable)
+    {
+        Throwable rootCause = getRootCause(throwable);
+        if (rootCause instanceof SQLException && ((SQLException) rootCause).getErrorCode() == 606) {
+            throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, "Could not query Snowflake due to invalid warehouse configuration. " +
+                    "Fix configuration or select an active Snowflake warehouse with 'warehouse' catalog session property.", throwable);
         }
     }
 }
