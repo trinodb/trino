@@ -16,17 +16,22 @@ package io.trino.plugin.ignite;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
 // Some tests here create colliding names which can cause any other concurrent test to fail.
@@ -121,6 +126,61 @@ public class TestIgniteCaseInsensitiveMapping
                             "('l', NULL, NULL)," +
                             "('2', 'm', NULL)," +
                             "('3', NULL, 'u')");
+        }
+    }
+
+    @Test
+    public void testSchemaAndTableNameRuleMapping()
+    {
+        // Ignite, only has PUBLIC schema and all user tables under it.
+    }
+
+    @Test
+    public void testSchemaNameClash()
+            throws Exception
+    {
+        String[] nameVariants = {"public", "PuBlic", "PUBLIC"};
+        assertThat(Stream.of(nameVariants)
+                .map(name -> name.toLowerCase(ENGLISH))
+                .collect(toImmutableSet()))
+                .hasSize(1);
+
+        for (int i = 0; i < nameVariants.length; i++) {
+            for (int j = i + 1; j < nameVariants.length; j++) {
+                String schemaName = nameVariants[i];
+                String otherSchemaName = nameVariants[j];
+                try (AutoCloseable ignore1 = withSchema(schemaName);
+                        AutoCloseable ignore2 = withSchema(otherSchemaName);
+                        AutoCloseable ignore3 = withTable(schemaName, "some_table_name", "(c varchar(5) primary key, ignore int)")) {
+                    assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("public"::equals)).hasSize(1);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testTableNameClash()
+            throws Exception
+    {
+        String[] nameVariants = {"casesensitivename", "CaseSensitiveName", "CASESENSITIVENAME"};
+        assertThat(Stream.of(nameVariants)
+                .map(name -> name.toLowerCase(ENGLISH))
+                .collect(toImmutableSet()))
+                .hasSize(1);
+        try (AutoCloseable ignore = withTable(nameVariants[0], "(a varchar(1), b int primary key)");
+                AutoCloseable someTable = withTable("some_table", "(d varchar(5), ignore varchar(1) primary key)")) {
+            List<MaterializedRow> rows = computeActual("SHOW COLUMNS FROM some_table").getMaterializedRows();
+            assertTrue(rows != null && rows.size() == 2);
+            assertEquals(rows.get(0).getField(0), "d");
+            assertEquals(rows.get(0).getField(1), "varchar(5)");
+            assertEquals(rows.get(0).getField(2), "");
+            assertEquals(rows.get(1).getField(0), "ignore");
+            assertEquals(rows.get(1).getField(1), "varchar(1)");
+
+            assertQueryReturnsEmptyResult("SELECT * FROM some_table");
+            for (String nameVariant : nameVariants) {
+                assertQueryFails("CREATE TABLE " + nameVariant + " (c varchar(5), ignore int) with (primary_key = ARRAY['ignore'])", ".* Table 'ignite.public.casesensitivename' already exists");
+            }
         }
     }
 
