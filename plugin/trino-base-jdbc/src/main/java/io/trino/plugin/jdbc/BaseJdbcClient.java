@@ -333,10 +333,11 @@ public abstract class BaseJdbcClient
         RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         String escapePattern = metadata.getSearchStringEscape();
         String tableName = remoteTableName.getTableName();
+        Objects.requireNonNull(tableName, "table name can not be null");
         return metadata.getColumns(
                 remoteTableName.getCatalogName().orElse(null),
                 remoteTableName.getSchemaName().map(name -> escapeNamePattern(name, escapePattern)).orElse(null),
-                (tableName == null) ? null : escapeNamePattern(tableName, escapePattern),
+                escapeNamePattern(tableName, escapePattern),
                 null);
     }
 
