@@ -26,7 +26,6 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
-import io.trino.plugin.hive.testing.TestingHivePlugin;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -87,7 +86,6 @@ public class TestIcebergMetadataListingHadoopMode
                         .setMetastoreUser("test"));
         queryRunner.installPlugin(new TestingIcebergPlugin(metastore, Boolean.valueOf("false")));
         queryRunner.createCatalog("iceberg", "iceberg", ImmutableMap.of("iceberg.hadoopmode", "true", "hive.config.resources", hivesiteLocation));
-        queryRunner.installPlugin(new TestingHivePlugin(metastore));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of("hive.security", "sql-standard"));
 
         return queryRunner;
