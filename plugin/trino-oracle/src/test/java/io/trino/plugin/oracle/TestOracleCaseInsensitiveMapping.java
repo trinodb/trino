@@ -59,8 +59,8 @@ public class TestOracleCaseInsensitiveMapping
             throws Exception
     {
         try (AutoCloseable ignore1 = withSchema("\"SomeSchema\"");
-             AutoCloseable ignore2 = withTable(
-                     "\"SomeSchema\".\"NonLowerCaseTable\"", "(\"lower_case_name\", \"Mixed_Case_Name\", \"UPPER_CASE_NAME\") AS SELECT 'a', 'b', 'c' FROM dual")) {
+                AutoCloseable ignore2 = withTable(
+                        "\"SomeSchema\".\"NonLowerCaseTable\"", "(\"lower_case_name\", \"Mixed_Case_Name\", \"UPPER_CASE_NAME\") AS SELECT 'a', 'b', 'c' FROM dual")) {
             assertQuery(
                     "SELECT column_name FROM information_schema.columns WHERE table_schema = 'someschema' AND table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
@@ -89,6 +89,7 @@ public class TestOracleCaseInsensitiveMapping
                             "(NULL, NULL, 'u')");
         }
     }
+
     @Test
     public void testSchemaNameClash()
             throws Exception
@@ -102,9 +103,9 @@ public class TestOracleCaseInsensitiveMapping
             for (int j = i + 1; j < nameVariants.length; j++) {
                 String schemaName = nameVariants[i];
                 String otherSchemaName = nameVariants[j];
-                try (AutoCloseable ignore1 = withSchema(schemaName);
-                     AutoCloseable ignore2 = withSchema(otherSchemaName);
-                     AutoCloseable ignore3 = withTable(schemaName + ".some_table_name", "(c varchar(5))")) {
+                    try (AutoCloseable ignore1 = withSchema(schemaName);
+                        AutoCloseable ignore2 = withSchema(otherSchemaName);
+                        AutoCloseable ignore3 = withTable(schemaName + ".some_table_name", "(c varchar(5))")) {
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.trino.plugin.jdbc.JdbcClient.getSchemaNames to return a List
                     assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name: Ambiguous name: casesensitivename");
                     assertQueryFails("SELECT * FROM casesensitivename.some_table_name", "Failed to find remote schema name: Ambiguous name: casesensitivename");
@@ -112,6 +113,7 @@ public class TestOracleCaseInsensitiveMapping
             }
         }
     }
+
     @Test
     public void testTableNameClash()
             throws Exception
@@ -124,22 +126,22 @@ public class TestOracleCaseInsensitiveMapping
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
                 try (AutoCloseable ignore1 = withTable(TestingOracleServer.TEST_USER + "." + nameVariants[i], "(c varchar(5))");
-                     AutoCloseable ignore2 = withTable(TestingOracleServer.TEST_USER + "." + nameVariants[j], "(d varchar(5))")) {
-                     assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO, should be 2
-                     assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
-                     assertQueryFails("SELECT * FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
+                        AutoCloseable ignore2 = withTable(TestingOracleServer.TEST_USER + "." + nameVariants[j], "(d varchar(5))")) {
+                    assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO, should be 2
+                    assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
+                    assertQueryFails("SELECT * FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
                 }
             }
         }
     }
-
-
+    
     protected AutoCloseable withSchema(String schemaName)
     {
         oracleServer.execute(format("CREATE USER %s IDENTIFIED BY SCM", schemaName));
         oracleServer.execute(format("ALTER USER %s QUOTA 100M ON SYSTEM", schemaName));
         return () -> oracleServer.execute("DROP USER " + schemaName);
     }
+
     /**
      * @deprecated Use {@link TestTable} instead.
      */

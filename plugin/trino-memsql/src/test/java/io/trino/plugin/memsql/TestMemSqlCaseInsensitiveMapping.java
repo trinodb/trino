@@ -15,24 +15,16 @@ package io.trino.plugin.memsql;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-import io.trino.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
-import static io.trino.testing.assertions.Assert.assertEquals;
-import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
-import static org.assertj.core.api.Assertions.assertThat;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
 // Some tests here create colliding names which can cause any other concurrent test to fail.
@@ -43,18 +35,6 @@ public class TestMemSqlCaseInsensitiveMapping
 {
     protected TestingMemSqlServer memSqlServer;
     protected Path mappingFile;
-
-    @Override
-    protected SqlExecutor onRemoteDatabase()
-    {
-        return memSqlServer::execute;
-    }
-
-    @Override
-    protected Path getMappingFile()
-    {
-        return mappingFile;
-    }
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -75,4 +55,18 @@ public class TestMemSqlCaseInsensitiveMapping
     {
         memSqlServer.execute(sql);
     }
+
+    @Override
+    protected Path getMappingFile()
+    {
+        return mappingFile;
+    }
+
+    @Override
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return memSqlServer::execute;
+    }
+
+
 }
