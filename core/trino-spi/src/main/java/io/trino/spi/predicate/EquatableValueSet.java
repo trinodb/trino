@@ -40,12 +40,10 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
 import static java.lang.String.format;
-import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
@@ -128,9 +126,9 @@ public class EquatableValueSet
 
     public Collection<Object> getValues()
     {
-        return unmodifiableCollection(entries.stream()
+        return entries.stream()
                 .map(ValueEntry::getValue)
-                .collect(toList()));
+                .collect(toUnmodifiableList());
     }
 
     public int getValuesCount()
