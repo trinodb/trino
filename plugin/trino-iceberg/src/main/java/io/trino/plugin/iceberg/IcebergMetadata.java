@@ -266,11 +266,9 @@ public class IcebergMetadata
             if (hiveTable.isEmpty()) {
                 return null;
             }
-            
             if (isMaterializedView(hiveTable.get())) {
                 return null;
             }
-            
             if (!isIcebergTable(hiveTable.get())) {
                 throw new UnknownTableTypeException(tableName);
             }
