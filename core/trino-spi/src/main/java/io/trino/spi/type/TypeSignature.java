@@ -198,7 +198,7 @@ public final class TypeSignature
     {
         return new TypeSignature(
                 name,
-                Arrays.asList(parameters).stream()
+                Arrays.stream(parameters)
                         .map(TypeSignatureParameter::typeParameter)
                         .collect(toUnmodifiableList()));
     }
@@ -208,7 +208,7 @@ public final class TypeSignature
         List<TypeSignatureParameter> parameters = new ArrayList<>();
         parameters.add(typeParameter(first));
 
-        Arrays.asList(rest).stream()
+        Arrays.stream(rest)
                 .map(TypeSignatureParameter::typeParameter)
                 .forEach(parameters::add);
 
