@@ -44,7 +44,7 @@ public class TestMemSqlCaseInsensitiveMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.memSqlServer = new TestingMemSqlServer();
+        memSqlServer = new TestingMemSqlServer();
         return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
     }
 
@@ -70,6 +70,7 @@ public class TestMemSqlCaseInsensitiveMapping
             assertQueryReturnsEmptyResult("SELECT * FROM nonlowercaseschema.lower_case_name");
         }
     }
+
     @Test
     public void testNonLowerCaseTableName()
             throws Exception
@@ -78,6 +79,7 @@ public class TestMemSqlCaseInsensitiveMapping
              AutoCloseable ignore2 = withTable(
                      "SomeSchema.NonLowerCaseTable", "(lower_case_name varchar(10), Mixed_Case_Name varchar(10), UPPER_CASE_NAME varchar(10))")) {
             execute("INSERT INTO SomeSchema.NonLowerCaseTable VALUES ('a', 'b', 'c')");
+
             assertQuery(
                     "SELECT column_name FROM information_schema.columns WHERE table_schema = 'someschema' AND table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
@@ -89,12 +91,15 @@ public class TestMemSqlCaseInsensitiveMapping
                             .map(row -> row.getField(0))
                             .collect(toImmutableSet()),
                     ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
+
             // Note: until https://github.com/prestodb/presto/issues/2863 is resolved, this is *the* way to access the tables.
+
             assertQuery("SELECT lower_case_name FROM someschema.nonlowercasetable", "VALUES 'a'");
             assertQuery("SELECT mixed_case_name FROM someschema.nonlowercasetable", "VALUES 'b'");
             assertQuery("SELECT upper_case_name FROM someschema.nonlowercasetable", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM SomeSchema.NonLowerCaseTable", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM \"SomeSchema\".\"NonLowerCaseTable\"", "VALUES 'c'");
+
             assertUpdate("INSERT INTO someschema.nonlowercasetable (lower_case_name) VALUES ('lower')", 1);
             assertUpdate("INSERT INTO someschema.nonlowercasetable (mixed_case_name) VALUES ('mixed')", 1);
             assertUpdate("INSERT INTO someschema.nonlowercasetable (upper_case_name) VALUES ('upper')", 1);
@@ -106,6 +111,7 @@ public class TestMemSqlCaseInsensitiveMapping
                             "(NULL, NULL, 'upper')");
         }
     }
+
     @Test
     public void testSchemaNameClash()
             throws Exception
@@ -115,6 +121,7 @@ public class TestMemSqlCaseInsensitiveMapping
                 .map(name -> name.toLowerCase(ENGLISH))
                 .collect(toImmutableSet()))
                 .hasSize(1);
+
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
                 String schemaName = nameVariants[i];
@@ -130,6 +137,7 @@ public class TestMemSqlCaseInsensitiveMapping
             }
         }
     }
+
     @Test
     public void testTableNameClash()
             throws Exception
@@ -139,6 +147,7 @@ public class TestMemSqlCaseInsensitiveMapping
                 .map(name -> name.toLowerCase(ENGLISH))
                 .collect(toImmutableSet()))
                 .hasSize(1);
+
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
                 try (AutoCloseable ignore1 = withTable("tpch." + nameVariants[i], "(c varchar(5))");

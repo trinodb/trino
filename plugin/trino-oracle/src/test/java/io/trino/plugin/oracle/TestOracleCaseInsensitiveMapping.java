@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.testing.AbstractTestQueryFramework;
-
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
@@ -44,7 +43,7 @@ public class TestOracleCaseInsensitiveMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.oracleServer = closeAfterClass(new TestingOracleServer());
+        oracleServer = closeAfterClass(new TestingOracleServer());
         return createOracleQueryRunner(
                 oracleServer,
                 ImmutableMap.of(),
@@ -90,12 +89,15 @@ public class TestOracleCaseInsensitiveMapping
                             .map(row -> row.getField(0))
                             .collect(toImmutableSet()),
                     ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
+
             // Note: until https://github.com/prestodb/presto/issues/2863 is resolved, this is *the* way to access the tables.
+
             assertQuery("SELECT lower_case_name FROM someschema.nonlowercasetable", "VALUES 'a'");
             assertQuery("SELECT mixed_case_name FROM someschema.nonlowercasetable", "VALUES 'b'");
             assertQuery("SELECT upper_case_name FROM someschema.nonlowercasetable", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM SomeSchema.NonLowerCaseTable", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM \"SomeSchema\".\"NonLowerCaseTable\"", "VALUES 'c'");
+
             assertUpdate("INSERT INTO someschema.nonlowercasetable (lower_case_name) VALUES ('l')", 1);
             assertUpdate("INSERT INTO someschema.nonlowercasetable (mixed_case_name) VALUES ('m')", 1);
             assertUpdate("INSERT INTO someschema.nonlowercasetable (upper_case_name) VALUES ('u')", 1);
@@ -117,6 +119,7 @@ public class TestOracleCaseInsensitiveMapping
                 .map(name -> name.replace("\"", "").toLowerCase(ENGLISH))
                 .collect(toImmutableSet()))
                 .hasSize(1);
+
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
                 String schemaName = nameVariants[i];
@@ -141,6 +144,7 @@ public class TestOracleCaseInsensitiveMapping
                 .map(name -> name.replace("\"", "").toLowerCase(ENGLISH))
                 .collect(toImmutableSet()))
                 .hasSize(1);
+
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
                 try (AutoCloseable ignore1 = withTable(TestingOracleServer.TEST_USER + "." + nameVariants[i], "(c varchar(5))");
@@ -153,12 +157,13 @@ public class TestOracleCaseInsensitiveMapping
         }
     }
 
-    protected AutoCloseable withSchema(String schemaName)
+    private AutoCloseable withSchema(String schemaName)
     {
         oracleServer.execute(format("CREATE USER %s IDENTIFIED BY SCM", schemaName));
         oracleServer.execute(format("ALTER USER %s QUOTA 100M ON SYSTEM", schemaName));
         return () -> oracleServer.execute("DROP USER " + schemaName);
     }
+
     /**
      * @deprecated Use {@link TestTable} instead.
      */
