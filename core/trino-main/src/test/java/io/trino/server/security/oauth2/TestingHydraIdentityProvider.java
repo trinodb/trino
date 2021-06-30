@@ -133,8 +133,8 @@ public class TestingHydraIdentityProvider
                         "--id", clientId,
                         "--secret", clientSecret,
                         "--audience", String.join(",", audiences),
-                        "-g", "authorization_code,refresh_token,client_credentials",
-                        "-r", "token,code,id_token",
+                        "--grant-types", "authorization_code,refresh_token,client_credentials",
+                        "--response-types", "token,code,id_token",
                         "--scope", "openid,offline",
                         "--token-endpoint-auth-method", tokenEndpointAuthMethod.getValue(),
                         "--callbacks", callbackUrl)
