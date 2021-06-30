@@ -238,7 +238,7 @@ public class MySqlClient
     {
         // MySQL maps their "database" to SQL catalogs and does not have schemas
         DatabaseMetaData metadata = connection.getMetaData();
-        final String escapePattern = metadata.getSearchStringEscape();
+        String escapePattern = metadata.getSearchStringEscape();
         return metadata.getTables(
                 schemaName.orElse(null),
                 null,

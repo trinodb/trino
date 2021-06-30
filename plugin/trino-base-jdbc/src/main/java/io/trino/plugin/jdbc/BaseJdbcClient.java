@@ -331,8 +331,8 @@ public abstract class BaseJdbcClient
             throws SQLException
     {
         RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
-        final String escapePattern = metadata.getSearchStringEscape();
-        final String tableName = remoteTableName.getTableName();
+        String escapePattern = metadata.getSearchStringEscape();
+        String tableName = remoteTableName.getTableName();
         return metadata.getColumns(
                 remoteTableName.getCatalogName().orElse(null),
                 remoteTableName.getSchemaName().map(name -> escapeNamePattern(name, escapePattern)).orElse(null),
@@ -813,12 +813,11 @@ public abstract class BaseJdbcClient
     {
         // this method is called by IdentifierMapping, so cannot use IdentifierMapping here as this woudl cause an endless loop
         DatabaseMetaData metadata = connection.getMetaData();
-        final String escapePattern = metadata.getSearchStringEscape();
-        final Function<String, String> escape = name -> escapeNamePattern(name, escapePattern);
+        String escapePattern = metadata.getSearchStringEscape();
         return metadata.getTables(
                 connection.getCatalog(),
-                remoteSchemaName.map(escape).orElse(null),
-                remoteTableName.map(escape).orElse(null),
+                remoteSchemaName.map(name -> escapeNamePattern(name, escapePattern)).orElse(null),
+                remoteTableName.map(name -> escapeNamePattern(name, escapePattern)).orElse(null),
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
