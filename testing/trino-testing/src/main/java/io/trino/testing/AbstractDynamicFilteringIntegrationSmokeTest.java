@@ -27,11 +27,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
-import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 /**
@@ -40,7 +38,7 @@ import static org.testng.Assert.assertEquals;
  * @see AbstractDynamicFilteringIntegrationSmokeTest
  */
 public abstract class AbstractDynamicFilteringIntegrationSmokeTest
-        extends AbstractTestQueries
+        extends AbstractTestQueryFramework
 {
     private static final int ORDERS_COUNT = 15000;
     private static final int CUSTOMER_COUNT = 1500;
@@ -72,21 +70,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
                 .build();
         assertQuery(session, query, "SELECT 1, 1, 1");
-    }
-
-    private void assertQueryResult(@Language("SQL") String sql, Object... expected)
-    {
-        MaterializedResult rows = computeActual(sql);
-        assertEquals(rows.getRowCount(), expected.length);
-
-        for (int i = 0; i < expected.length; i++) {
-            MaterializedRow materializedRow = rows.getMaterializedRows().get(i);
-            int fieldCount = materializedRow.getFieldCount();
-            assertEquals(fieldCount, 1, format("Expected only one column, but got '%d'", fieldCount));
-            Object value = materializedRow.getField(0);
-            assertEquals(value, expected[i]);
-            assertEquals(materializedRow.getFieldCount(), 1);
-        }
     }
 
     protected void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount,
@@ -137,14 +120,5 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
                 .map(OperatorStats::getInputPositions)
                 .map(Math::toIntExact)
                 .collect(toImmutableList());
-    }
-
-    private DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)
-    {
-        return getDistributedQueryRunner().getCoordinator()
-                .getQueryManager()
-                .getFullQueryInfo(queryId)
-                .getQueryStats()
-                .getDynamicFiltersStats();
     }
 }
