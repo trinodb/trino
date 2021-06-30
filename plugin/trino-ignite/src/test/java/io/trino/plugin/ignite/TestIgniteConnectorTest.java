@@ -27,6 +27,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.Test;
 
 import java.util.List;
 
@@ -43,7 +44,6 @@ import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -219,7 +219,11 @@ public class TestIgniteConnectorTest
 
         assertUpdate("DROP TABLE " + tableNameLike);
         assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
+    }
 
+    @Test
+    public void testCreateTableWithAllProperties()
+    {
         String tableWithAllProperties = "test_create_with_all_properties";
         assertUpdate("CREATE TABLE " + tableWithAllProperties + " (a bigint, b double, c varchar, d date) WITH (" +
                 "primary_key = ARRAY['a', 'b']," +
@@ -266,19 +270,6 @@ public class TestIgniteConnectorTest
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN x bigint");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN IF NOT EXISTS x bigint");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-    }
-
-    @Override
-    public void testInsertForDefaultColumn()
-    {
-        try (TestTable testTable = createTableWithDefaultColumns()) {
-            assertUpdate(format("INSERT INTO %s (col_required, col_required2) VALUES (1, 10)", testTable.getName()), 1);
-            assertUpdate(format("INSERT INTO %s VALUES (2, 3, 4, 5, 6)", testTable.getName()), 1);
-            assertUpdate(format("INSERT INTO %s VALUES (7, null, null, 8, 9)", testTable.getName()), 1);
-            assertUpdate(format("INSERT INTO %s (col_required2, col_required) VALUES (12, 13)", testTable.getName()), 1);
-
-            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, null, 43, 42, 10), (2, 3, 4, 5, 6), (7, null, null, 8, 9), (13, null, 43, 42, 12)");
-        }
     }
 
     @Override
@@ -340,7 +331,12 @@ public class TestIgniteConnectorTest
                         "   comment varchar(79) NOT NULL\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   primary_key = ARRAY['orderkey']\n)");
+                        "   backups = 1,\n" +
+                        "   cache_group = 'SQL_PUBLIC_ORDERS',\n" +
+                        "   cache_name = 'SQL_PUBLIC_ORDERS',\n" +
+                        "   primary_key = ARRAY['orderkey'],\n" +
+                        "   template = 'PARTITIONED',\n" +
+                        "   write_synchronization_mode = 'FULL_SYNC'\n)");
     }
 
     @Override

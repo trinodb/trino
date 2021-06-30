@@ -49,7 +49,8 @@ public class IgniteJdbcClientModule
             throws SQLException
     {
         IgniteJdbcThinDriver driver = new IgniteJdbcThinDriver();
-        checkArgument(driver.acceptsURL(config.getConnectionUrl()), "Trino only support Ignite thin client");
+        checkArgument(driver.acceptsURL(config.getConnectionUrl()),
+                "Trino only support Ignite thin client, connection url should start with 'jdbc:ignite:thin://', actual get " + config.getConnectionUrl());
         Properties connectionProperties = new Properties();
         return new DriverConnectionFactory(
                 driver,

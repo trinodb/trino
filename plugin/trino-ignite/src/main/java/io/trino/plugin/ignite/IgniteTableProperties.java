@@ -26,8 +26,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.ignite.IgniteTemplateType.PARTITIONED;
-import static io.trino.plugin.ignite.IgniteWriteSyncMode.FULL_SYNC;
+import static io.trino.plugin.ignite.IgniteTableProperties.IgniteTemplateType.PARTITIONED;
+import static io.trino.plugin.ignite.IgniteTableProperties.IgniteWriteSyncMode.FULL_SYNC;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -128,5 +128,18 @@ public class IgniteTableProperties
     {
         requireNonNull(tableProperties, "tableProperties is null");
         return (String) tableProperties.get(AFFINITY_KEY_PROPERTY);
+    }
+
+    public enum IgniteTemplateType
+    {
+        REPLICATED,
+        PARTITIONED,
+    }
+
+    public enum IgniteWriteSyncMode
+    {
+        PRIMARY_SYNC,
+        FULL_SYNC,
+        FULL_ASYNC,
     }
 }

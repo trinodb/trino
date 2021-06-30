@@ -30,6 +30,7 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -47,6 +48,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -68,7 +70,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -82,11 +83,18 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.plugin.ignite.IgniteTableProperties.CACHE_NAME_PROPERTY;
 import static io.trino.plugin.ignite.IgniteTableProperties.PRIMARY_KEY_PROPERTY;
+import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
+import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
@@ -97,30 +105,31 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Long.reverseBytes;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -136,8 +145,6 @@ public class IgniteJdbcClient
     private static final Splitter SPLITTER = Splitter.on(",").omitEmptyStrings().trimResults();
 
     private final Type uuidType;
-    private static final int IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION = 9;
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     @Inject
     public IgniteJdbcClient(
@@ -190,13 +197,10 @@ public class IgniteJdbcClient
         }
 
         switch (typeHandle.getJdbcType()) {
+            case Types.CHAR:
+                return Optional.of(charColumnMapping(typeHandle.getColumnSize()));
             case Types.VARCHAR:
-                return Optional.of(varcharColumnMapping(
-                        typeHandle.getColumnSize()
-                                // default added column in Ignite will has Integer.MAX_VALUE length which not allow in Trino, will consider the column as varchar
-                                .filter(columnSize -> columnSize != UNBOUNDED_LENGTH)
-                                .map(VarcharType::createVarcharType)
-                                .orElse(createUnboundedVarcharType()), true));
+                return Optional.of(varcharColumnMapping(typeHandle.getColumnSize()));
             case Types.DATE:
                 return Optional.of(ColumnMapping.longMapping(
                         DATE,
@@ -224,12 +228,19 @@ public class IgniteJdbcClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.DECIMAL:
-                int decimalDigits = typeHandle.getRequiredDecimalDigits();
-                int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (precision > Decimals.MAX_PRECISION) {
-                    return Optional.empty();
+                int precision = typeHandle.getRequiredColumnSize();
+                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                if (getDecimalRounding(session) == ALLOW_OVERFLOW) {
+                    if (precision > Decimals.MAX_PRECISION) {
+                        int scale = min(decimalDigits, getDecimalDefaultScale(session));
+                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                    }
                 }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                precision += max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                if (precision > Decimals.MAX_PRECISION) {
+                    break;
+                }
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
 
             case Types.BINARY:
                 return Optional.of(varbinaryColumnMapping());
@@ -248,7 +259,30 @@ public class IgniteJdbcClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.DECIMAL, Optional.of("Decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+        return Optional.of(new JdbcTypeHandle(Types.DECIMAL, Optional.of("Decimal"),
+                Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+    }
+
+    public static ColumnMapping varcharColumnMapping(Optional<Integer> columnSize)
+    {
+        VarcharType varcharType = columnSize
+                // default added column in Ignite will has Integer.MAX_VALUE length which not allow in Trino, will consider the column as varchar
+                .filter(size -> size != UNBOUNDED_LENGTH)
+                .map(VarcharType::createVarcharType)
+                .orElse(createUnboundedVarcharType());
+        return ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction(), FULL_PUSHDOWN);
+    }
+
+    private static ColumnMapping charColumnMapping(Optional<Integer> charLength)
+    {
+        if (charLength.isEmpty() || charLength.get() > CharType.MAX_LENGTH) {
+            return varcharColumnMapping(charLength);
+        }
+        CharType charType = createCharType(charLength.get());
+        return ColumnMapping.sliceMapping(
+                charType,
+                charReadFunction(charType),
+                charWriteFunction());
     }
 
     public static LongReadFunction dateReadFunction()
@@ -418,12 +452,12 @@ public class IgniteJdbcClient
                         break;
                     case IgniteTableProperties.TEMPLATE_PROPERTY:
                         Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH)))
-                                .map(IgniteTemplateType::valueOf)
+                                .map(IgniteTableProperties.IgniteTemplateType::valueOf)
                                 .ifPresent(value -> properties.put(property, value));
                         break;
                     case IgniteTableProperties.WRITE_SYNCHRONIZATION_MODE_PROPERTY:
                         Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH)))
-                                .map(IgniteWriteSyncMode::valueOf)
+                                .map(IgniteTableProperties.IgniteWriteSyncMode::valueOf)
                                 .ifPresent(value -> properties.put(property, value));
                         break;
                     case CACHE_NAME_PROPERTY:
@@ -490,6 +524,9 @@ public class IgniteJdbcClient
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
             return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType.getPrecision(), decimalType.getScale()));
+        }
+        if (type instanceof CharType) {
+            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
         }
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;

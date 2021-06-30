@@ -22,6 +22,7 @@ import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 
 import java.util.Optional;
 
@@ -64,9 +65,15 @@ public class ImplementAvgDecimal
 
         String column = context.getIdentifierQuote().apply(columnHandle.getColumnName());
 
+        if (type.getPrecision() == Decimals.MAX_PRECISION) {
+            return Optional.of(new JdbcExpression(
+                    format("CAST(sum(%s) / count(%1$s) AS decimal(%s, %s)", column, type.getPrecision(), type.getScale()),
+                    columnHandle.getJdbcTypeHandle()));
+        }
+
         // wait https://issues.apache.org/jira/browse/IGNITE-14948 to be solved.
         return Optional.of(new JdbcExpression(
-                format("CAST(sum(%s) / count(%s) AS decimal(%s, %s))", column, column, type.getPrecision() + 1, type.getScale()),
+                format("round(CAST(sum(%s) / count(%1$s) AS decimal(%s, %s)), %s)", column, type.getPrecision() + 1, type.getScale() + 1, type.getScale()),
                 columnHandle.getJdbcTypeHandle()));
     }
 }
