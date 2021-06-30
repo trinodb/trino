@@ -366,6 +366,12 @@ public class DictionaryBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return positionCount > 0 && dictionary.mayHaveNull();
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         return dictionary.isNull(getId(position));
