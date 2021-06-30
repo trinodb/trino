@@ -39,11 +39,15 @@ import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -1277,5 +1281,51 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithVarcharPredicate()
     {
         throw new SkipException("This is implemented by testDeleteWithVarcharEqualityPredicate");
+    }
+
+    @Test(dataProvider = "testInsertBatchSizeSessionProperty")
+    public void testInsertBatchSizeSessionProperty(Integer batchSize, Integer numberOfRows)
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new SkipException("CREATE TABLE is required for insert_batch_size test but is not supported");
+        }
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "insert_batch_size", batchSize.toString())
+                .build();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_insert_batch_size",
+                "(a varchar(36), b bigint)")) {
+            String values = String.join(",", makeValuesForInsertBatchSizeSessionPropertyTest(numberOfRows));
+            assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) VALUES " + values, numberOfRows);
+            assertQuery("SELECT COUNT(*) FROM " + table.getName(), format("VALUES %d", numberOfRows));
+        }
+    }
+
+    private static List<String> makeValuesForInsertBatchSizeSessionPropertyTest(int numberOfRows)
+    {
+        List<String> result = new ArrayList<>(numberOfRows);
+        for (int i = 0; i < numberOfRows; i++) {
+            result.add(format("('%s', %d)", UUID.randomUUID(), ThreadLocalRandom.current().nextLong()));
+        }
+        return result;
+    }
+
+    @DataProvider(name = "testInsertBatchSizeSessionProperty")
+    public static Object[][] batchSizeAndNumberOfRowsForInsertBatchSizePropertyTest()
+    {
+        return new Object[][] {
+                {100, 64},
+                {100, 100},
+                {100, 512},
+                {100, 1000},
+                {1000, 100},
+                {1000, 1000},
+                {1000, 5000},
+                {10000, 1000},
+                {10000, 5000},
+                {10000, 15000},
+        };
     }
 }
