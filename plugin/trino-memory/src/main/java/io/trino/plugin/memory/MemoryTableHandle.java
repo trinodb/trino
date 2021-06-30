@@ -16,10 +16,14 @@ package io.trino.plugin.memory;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Collections;
 import java.util.Objects;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,6 +33,8 @@ public final class MemoryTableHandle
     private final long id;
     private final OptionalLong limit;
     private final OptionalDouble sampleRatio;
+    private final TupleDomain<MemoryColumnHandle> predicate;  // only for testing complex pushdowns, not used for filtering
+    private final Set<ConnectorExpression> connectorExpressions;  // only for testing complex pushdowns, not used for filtering
 
     public MemoryTableHandle(long id)
     {
@@ -41,9 +47,21 @@ public final class MemoryTableHandle
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("sampleRatio") OptionalDouble sampleRatio)
     {
+        this(id, limit, sampleRatio, TupleDomain.all(), Collections.emptySet());
+    }
+
+    public MemoryTableHandle(
+            long id,
+            OptionalLong limit,
+            OptionalDouble sampleRatio,
+            TupleDomain<MemoryColumnHandle> predicate,
+            Set<ConnectorExpression> connectorExpressions)
+    {
         this.id = id;
         this.limit = requireNonNull(limit, "limit is null");
         this.sampleRatio = requireNonNull(sampleRatio, "sampleRatio is null");
+        this.predicate = requireNonNull(predicate, "predicate is null");
+        this.connectorExpressions = requireNonNull(connectorExpressions, "connectorExpressions is null");
     }
 
     @JsonProperty
@@ -62,6 +80,16 @@ public final class MemoryTableHandle
     public OptionalDouble getSampleRatio()
     {
         return sampleRatio;
+    }
+
+    public TupleDomain<MemoryColumnHandle> getPredicate()
+    {
+        return predicate;
+    }
+
+    public Set<ConnectorExpression> getConnectorExpressions()
+    {
+        return connectorExpressions;
     }
 
     @Override

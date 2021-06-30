@@ -35,6 +35,11 @@ public abstract class ConnectorExpression
 
     public abstract List<? extends ConnectorExpression> getChildren();
 
+    protected <R, C> R accept(ConnectorExpressionVisitor<R, C> connectorExpressionVisitor, C context)
+    {
+        return connectorExpressionVisitor.visitConnectorExpression(this, context);
+    }
+
     @Override
     public abstract int hashCode();
 

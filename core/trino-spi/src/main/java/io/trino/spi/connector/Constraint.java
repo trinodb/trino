@@ -13,6 +13,7 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -21,6 +22,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static io.trino.spi.expression.Constant.TRUE_CONSTANT;
 import static java.util.Objects.requireNonNull;
 
 public class Constraint
@@ -28,6 +30,7 @@ public class Constraint
     private final TupleDomain<ColumnHandle> summary;
     private final Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate;
     private final Optional<Set<ColumnHandle>> predicateColumns;
+    private final ConnectorExpression connectorExpression;
 
     public static Constraint alwaysTrue()
     {
@@ -50,12 +53,12 @@ public class Constraint
     @Deprecated
     public Constraint(TupleDomain<ColumnHandle> summary, Predicate<Map<ColumnHandle, NullableValue>> predicate)
     {
-        this(summary, Optional.of(predicate), Optional.empty());
+        this(summary, Optional.of(predicate), Optional.empty(), TRUE_CONSTANT);
     }
 
     public Constraint(TupleDomain<ColumnHandle> summary, Predicate<Map<ColumnHandle, NullableValue>> predicate, Set<ColumnHandle> predicateColumns)
     {
-        this(summary, Optional.of(predicate), Optional.of(predicateColumns));
+        this(summary, Optional.of(predicate), Optional.of(predicateColumns), TRUE_CONSTANT);
     }
 
     /**
@@ -64,14 +67,21 @@ public class Constraint
     @Deprecated
     public Constraint(TupleDomain<ColumnHandle> summary, Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
-        this(summary, predicate, Optional.empty());
+        this(summary, predicate, Optional.empty(), TRUE_CONSTANT);
     }
 
     public Constraint(TupleDomain<ColumnHandle> summary, Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate, Optional<Set<ColumnHandle>> predicateColumns)
     {
+        this(summary, predicate, predicateColumns, TRUE_CONSTANT);
+    }
+
+    public Constraint(TupleDomain<ColumnHandle> summary, Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate,
+                      Optional<Set<ColumnHandle>> predicateColumns, ConnectorExpression connectorExpression)
+    {
         this.summary = requireNonNull(summary, "summary is null");
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
+        this.connectorExpression = requireNonNull(connectorExpression, "connectorExpression is null");
 
         // TODO remove deprecated constructors and validate that predicate is present *iff* predicateColumns is present
         if (predicateColumns.isPresent() && predicate.isEmpty()) {
@@ -104,5 +114,10 @@ public class Constraint
     public Optional<Set<ColumnHandle>> getPredicateColumns()
     {
         return predicateColumns;
+    }
+
+    public ConnectorExpression getConnectorExpression()
+    {
+        return connectorExpression;
     }
 }

@@ -110,7 +110,8 @@ public class PushProjectionIntoTableScan
                     expression.getValue(),
                     context.getSession(),
                     typeAnalyzer,
-                    context.getSymbolAllocator().getTypes());
+                    context.getSymbolAllocator().getTypes(),
+                    metadata);
 
             partialTranslations.forEach((nodeRef, expr) -> {
                 nodeReferencesBuilder.add(nodeRef);
@@ -151,7 +152,7 @@ public class PushProjectionIntoTableScan
 
         // Translate partial connector projections back to new partial projections
         List<Expression> newPartialProjections = newConnectorPartialProjections.stream()
-                .map(expression -> ConnectorExpressionTranslator.translate(expression, variableMappings, new LiteralEncoder(metadata)))
+                .map(expression -> ConnectorExpressionTranslator.translate(expression, metadata, new LiteralEncoder(metadata), Optional.of(variableMappings)))
                 .collect(toImmutableList());
 
         // Map internal node references to new partial projections
@@ -178,7 +179,7 @@ public class PushProjectionIntoTableScan
                     continue;
                 }
                 String resultVariableName = ((Variable) resultConnectorExpression).getName();
-                Expression inputExpression = ConnectorExpressionTranslator.translate(inputConnectorExpression, inputVariableMappings, new LiteralEncoder(metadata));
+                Expression inputExpression = ConnectorExpressionTranslator.translate(inputConnectorExpression, metadata, new LiteralEncoder(metadata), Optional.of(inputVariableMappings));
                 SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, context.getSession(), context.getSymbolAllocator().getTypes());
                 builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);
             }

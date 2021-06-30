@@ -15,25 +15,24 @@ package io.trino.spi.expression;
 
 import io.trino.spi.type.Type;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
-
-public class Variable
+public class Call
         extends ConnectorExpression
 {
     private final String name;
+    private final List<ConnectorExpression> arguments;
 
-    public Variable(String name, Type type)
+    public Call(
+            Type type,
+            String name,
+            List<ConnectorExpression> arguments)
     {
         super(type);
-        this.name = requireNonNull(name, "name is null");
-
-        if (name.isEmpty()) {
-            throw new IllegalArgumentException("name is empty");
-        }
+        this.name = name;
+        this.arguments = new ArrayList<>(arguments);
     }
 
     public String getName()
@@ -41,22 +40,21 @@ public class Variable
         return name;
     }
 
+    public List<ConnectorExpression> getArguments()
+    {
+        return new ArrayList<>(arguments);
+    }
+
     @Override
     protected <R, C> R accept(ConnectorExpressionVisitor<R, C> connectorExpressionVisitor, C context)
     {
-        return connectorExpressionVisitor.visitVariable(this, context);
+        return connectorExpressionVisitor.visitCall(this, context);
     }
 
     @Override
     public List<? extends ConnectorExpression> getChildren()
     {
-        return emptyList();
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name, getType());
+        return new ArrayList<>(arguments);
     }
 
     @Override
@@ -68,15 +66,23 @@ public class Variable
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
+        Call call = (Call) o;
+        return Objects.equals(name, call.name) &&
+                Objects.equals(arguments, call.arguments);
+    }
 
-        Variable that = (Variable) o;
-        return Objects.equals(name, that.name) &&
-                Objects.equals(getType(), that.getType());
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(name, arguments);
     }
 
     @Override
     public String toString()
     {
-        return name + "::" + getType();
+        return "Function{" +
+                "name='" + name + '\'' +
+                ", arguments=" + arguments +
+                "}";
     }
 }

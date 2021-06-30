@@ -1691,7 +1691,16 @@ public final class MetadataManager
                 .map(result -> new ConstraintApplicationResult<>(
                         new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
                         result.getRemainingFilter(),
-                        result.isPrecalculateStatistics()));
+                        result.isPrecalculateStatistics(),
+                        result.getRemainingConnectorExpression()));
+    }
+
+    @Override
+    public boolean supportsConnectorExpressionPushdown(Session session, TableHandle tableHandle)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        return metadata.supportsConnectorExpressionPushdown(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
     }
 
     @Override
