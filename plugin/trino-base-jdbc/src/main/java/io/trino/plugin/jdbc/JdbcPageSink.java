@@ -35,6 +35,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getInsertBatchSize;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -46,6 +47,7 @@ public class JdbcPageSink
 
     private final List<Type> columnTypes;
     private final List<WriteFunction> columnWriters;
+    private final int maxBatchSize;
     private int batchSize;
 
     public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient)
@@ -92,6 +94,8 @@ public class JdbcPageSink
             closeWithSuppression(connection, e);
             throw new TrinoException(JDBC_ERROR, e);
         }
+
+        this.maxBatchSize = getInsertBatchSize(session);
     }
 
     @Override
@@ -106,7 +110,7 @@ public class JdbcPageSink
                 statement.addBatch();
                 batchSize++;
 
-                if (batchSize >= 1000) {
+                if (batchSize >= maxBatchSize) {
                     statement.executeBatch();
                     batchSize = 0;
                 }

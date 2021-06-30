@@ -17,10 +17,13 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 
 public class JdbcMetadataConfig
 {
+    static final int MAX_ALLOWED_INSERT_BATCH_SIZE = 1_000_000;
+
     private boolean allowDropTable;
     /*
      * Join pushdown is disabled by default as this is the safer option.
@@ -39,6 +42,8 @@ public class JdbcMetadataConfig
     // Use 32 as compaction threshold as it provides reasonable balance
     // between performance and pushdown capabilities
     private int domainCompactionThreshold = 32;
+
+    private int insertBatchSize = 1000;
 
     public boolean isAllowDropTable()
     {
@@ -105,6 +110,21 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setDomainCompactionThreshold(int domainCompactionThreshold)
     {
         this.domainCompactionThreshold = domainCompactionThreshold;
+        return this;
+    }
+
+    @Min(1)
+    @Max(MAX_ALLOWED_INSERT_BATCH_SIZE)
+    public int getInsertBatchSize()
+    {
+        return insertBatchSize;
+    }
+
+    @Config("insert.batch-size")
+    @ConfigDescription("Maximum number of rows to insert in a single batch")
+    public JdbcMetadataConfig setInsertBatchSize(int insertBatchSize)
+    {
+        this.insertBatchSize = insertBatchSize;
         return this;
     }
 }
