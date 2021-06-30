@@ -29,7 +29,7 @@ The CLI uses the HTTP protocol and the
 :doc:`Trino client REST API </develop/client-protocol>` to communicate
 with Trino.
 
-HTTPS/TLS
+TLS/HTTPS
 ---------
 
 Trino is typically available with an HTTPS URL. This means that all network
@@ -58,6 +58,8 @@ password value to avoid the prompt.
 Use ``--help`` to see information about specifying the keystore, truststore, and
 other authentication details as required. If using Kerberos, see :doc:`/security/cli`.
 
+.. _cli-external-sso-auth:
+
 External authentication - SSO
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -78,8 +80,33 @@ The detailed behavior is as follows:
   the query.
 * Further queries in the CLI session do not require additional logins while the
   authentication token remains valid. Token expiration depends on the external
-  authentication system configuration.
+  authentication type configuration.
 * Expired tokens force you to log in again.
+
+.. _cli-certificate-auth:
+
+Certificate authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use the following CLI arguments to connect to a cluster that uses
+:doc:`certificate authentication </security/certificate>`.
+
+.. list-table:: CLI options for certificate authentication
+   :widths: 35 65
+   :header-rows: 1
+
+   * - Option
+     - Description
+   * - ``--keystore-path=<path>``
+     - Absolute or relative path to a :doc:`PEM </security/inspect-pem>` or
+       :doc:`JKS </security/inspect-jks>` file, which must contain a certificate
+       that is trusted by the Trino cluster you are connecting to.
+   * - ``--keystore-password=<password>``
+     - Only required if the keystore has a password.
+
+The three ``--truststore`` related options are independent of client certificate
+authentication with the CLI; instead, they control the client's trust of the
+server's certificate.
 
 .. _cli-jwt-auth:
 
