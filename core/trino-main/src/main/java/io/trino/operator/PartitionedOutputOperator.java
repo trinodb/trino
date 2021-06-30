@@ -301,6 +301,12 @@ public class PartitionedOutputOperator
         return null;
     }
 
+    @Override
+    public void close()
+    {
+        systemMemoryContext.close();
+    }
+
     private static class PagePartitioner
     {
         private final OutputBuffer outputBuffer;
