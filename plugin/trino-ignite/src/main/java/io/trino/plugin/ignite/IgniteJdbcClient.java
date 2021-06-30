@@ -51,7 +51,6 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -70,6 +69,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +82,8 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.wrappedLongArray;
+import static io.trino.plugin.ignite.IgniteTableProperties.CACHE_NAME_PROPERTY;
+import static io.trino.plugin.ignite.IgniteTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -98,8 +100,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMappingUsingSqlTime;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
@@ -141,6 +141,7 @@ public class IgniteJdbcClient
 
     private final Type uuidType;
     private static final int IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION = 9;
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     @Inject
     public IgniteJdbcClient(
@@ -237,9 +238,6 @@ public class IgniteJdbcClient
             case Types.BINARY:
                 return Optional.of(varbinaryColumnMapping());
 
-            case Types.TIME:
-                return Optional.of(timeColumnMappingUsingSqlTime());
-
             case Types.TIMESTAMP:
                 return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
             case Types.OTHER:
@@ -301,7 +299,7 @@ public class IgniteJdbcClient
         for (Map.Entry<String, Object> propertyEntry : tableProperties.entrySet()) {
             String propertyKey = propertyEntry.getKey();
             switch (propertyKey) {
-                case IgniteTableProperties.PRIMARY_KEY_PROPERTY:
+                case PRIMARY_KEY_PROPERTY:
                     break;
                 case IgniteTableProperties.AFFINITY_KEY_PROPERTY:
                     String affinityKey = IgniteTableProperties.getAffinityKey(tableProperties);
@@ -313,7 +311,7 @@ public class IgniteJdbcClient
                 case IgniteTableProperties.BACKUPS_PROPERTY:
                 case IgniteTableProperties.TEMPLATE_PROPERTY:
                 case IgniteTableProperties.CACHE_GROUP_PROPERTY:
-                case IgniteTableProperties.CACHE_NAME_PROPERTY:
+                case CACHE_NAME_PROPERTY:
                 case IgniteTableProperties.DATA_REGION_PROPERTY:
                 case IgniteTableProperties.WRITE_SYNCHRONIZATION_MODE_PROPERTY:
                     tableOptions.add(propertyKey + " = " + propertyEntry.getValue());
@@ -406,7 +404,7 @@ public class IgniteJdbcClient
             checkArgument(resultSet.next(), "Ignite table: '" + tableName + "' properties is NULL");
             List<String> primaryKeys = extractColumnNamesFromOrderingScheme(resultSet.getString("PKS"));
             checkArgument(!primaryKeys.isEmpty(), "Ignite table should has at least one primary key");
-            properties.put(IgniteTableProperties.PRIMARY_KEY_PROPERTY, primaryKeys);
+            properties.put(PRIMARY_KEY_PROPERTY, primaryKeys);
 
             for (String property : IgniteTableProperties.WITH_PROPERTIES) {
                 switch (property) {
@@ -420,31 +418,25 @@ public class IgniteJdbcClient
                         break;
                     case IgniteTableProperties.BACKUPS_PROPERTY:
                         int backups = resultSet.getInt(property.toUpperCase(ENGLISH));
-                        // backups should at least greater than 0, but default value is 1, we do not show the default value
-                        if (backups > 1) {
+                        if (backups > 0) {
                             properties.put(property, backups);
                         }
                         break;
                     case IgniteTableProperties.TEMPLATE_PROPERTY:
                         Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH)))
                                 .map(IgniteTemplateType::valueOf)
-                                .filter(template -> template != IgniteTemplateType.PARTITIONED)
                                 .ifPresent(value -> properties.put(property, value));
                         break;
                     case IgniteTableProperties.WRITE_SYNCHRONIZATION_MODE_PROPERTY:
                         Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH)))
                                 .map(IgniteWriteSyncMode::valueOf)
-                                .filter(mode -> mode != IgniteWriteSyncMode.FULL_SYNC)
                                 .ifPresent(value -> properties.put(property, value));
                         break;
-                    case IgniteTableProperties.CACHE_NAME_PROPERTY:
+                    case CACHE_NAME_PROPERTY:
                     case IgniteTableProperties.CACHE_GROUP_PROPERTY:
-                        Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH)))
-                                .filter(name -> !name.equals("SQL_PUBLIC_" + tableName))
-                                .ifPresent(value -> properties.put(property, value));
-                        break;
                     case IgniteTableProperties.DATA_REGION_PROPERTY:
-                        Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH))).ifPresent(value -> properties.put(property, value));
+                        Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH)))
+                                .ifPresent(value -> properties.put(property, value));
                         break;
                     default:
                         throw new IllegalStateException("Unexpected value: " + property);
@@ -525,20 +517,12 @@ public class IgniteJdbcClient
         if (type instanceof VarbinaryType) {
             return WriteMapping.sliceMapping("binary", varbinaryWriteFunction());
         }
-        if (type instanceof TimeType) {
-            TimeType timeType = (TimeType) type;
-            if (timeType.getPrecision() <= IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-                return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
-            }
-            return WriteMapping.longMapping(format("time(%s)", IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION), timeWriteFunction(IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION));
-        }
         if (type instanceof TimestampType) {
             TimestampType timestampType = (TimestampType) type;
             if (timestampType.getPrecision() <= IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-                verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
                 return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
             }
-            verify(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION);
+            verify(timestampType.getPrecision() > IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION);
             return WriteMapping.objectMapping(format("timestamp(%s)", IGNITE_MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWriteFunction(timestampType));
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -607,7 +591,12 @@ public class IgniteJdbcClient
         // when create temporary table, the table may be only contain primary keys, it's not allow in Ignite.
         // so we append a dummy column to make create temporary table won't fail because of this.
         columnList.add("`for_trino_ignore` varchar(1)");
-        String createTableSql = createTableSql(newTableName, columnList.build(), getTableProperties(connection, tableHandle));
+        ImmutableMap.Builder<String, Object> properties = new ImmutableMap.Builder<>();
+        Map<String, Object> tableProperties = getTableProperties(connection, tableHandle);
+        // create temporary table only need the primary key
+        properties.put(PRIMARY_KEY_PROPERTY, IgniteTableProperties.getPrimaryKey(tableProperties));
+
+        String createTableSql = createTableSql(newTableName, columnList.build(), properties.build());
         execute(connection, createTableSql);
     }
 

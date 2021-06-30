@@ -11,7 +11,6 @@ import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import io.trino.type.UuidType;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -163,8 +162,8 @@ public class TestIgniteSqlTypeMapping
     public void testUuid()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("uuid","CAST ('114514ea-0601-1981-1142-e9b55b0abd6d' as uuid)", UUID,"CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS uuid)")
-                .addRoundTrip("uuid","CAST ('114514ea-0601-1981-1142-e9b55b0abd6e' as uuid)", UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6e' AS uuid)")
+                .addRoundTrip("uuid", "CAST ('114514ea-0601-1981-1142-e9b55b0abd6d' as uuid)", UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS uuid)")
+                .addRoundTrip("uuid", "CAST ('114514ea-0601-1981-1142-e9b55b0abd6e' as uuid)", UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6e' AS uuid)")
                 .addRoundTrip("uuid", "CAST(NULL AS uuid)", UUID, "cast(NULL as uuid)")
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_uuid"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_uuid"));
