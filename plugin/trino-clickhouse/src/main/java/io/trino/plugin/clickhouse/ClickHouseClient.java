@@ -65,6 +65,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -275,10 +276,11 @@ public class ClickHouseClient
     {
         // ClickHouse maps their "database" to SQL catalogs and does not have schemas
         DatabaseMetaData metadata = connection.getMetaData();
+        final String escapePattern = metadata.getSearchStringEscape();
         return metadata.getTables(
                 null,
                 schemaName.orElse(null),
-                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
+                tableName.map(name -> escapeNamePattern(name, escapePattern)).orElse(null),
                 new String[] {"TABLE", "VIEW"});
     }
 

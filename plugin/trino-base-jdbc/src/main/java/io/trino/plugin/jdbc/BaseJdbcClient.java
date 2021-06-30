@@ -331,10 +331,12 @@ public abstract class BaseJdbcClient
             throws SQLException
     {
         RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
+        final String escapePattern = metadata.getSearchStringEscape();
+        final String tableName = remoteTableName.getTableName();
         return metadata.getColumns(
                 remoteTableName.getCatalogName().orElse(null),
-                escapeNamePattern(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(Optional.of(remoteTableName.getTableName()), metadata.getSearchStringEscape()).orElse(null),
+                remoteTableName.getSchemaName().map(name -> escapeNamePattern(name, escapePattern)).orElse(null),
+                (tableName == null) ? null : escapeNamePattern(tableName, escapePattern),
                 null);
     }
 
@@ -811,10 +813,12 @@ public abstract class BaseJdbcClient
     {
         // this method is called by IdentifierMapping, so cannot use IdentifierMapping here as this woudl cause an endless loop
         DatabaseMetaData metadata = connection.getMetaData();
+        final String escapePattern = metadata.getSearchStringEscape();
+        final Function<String, String> escape = name -> escapeNamePattern(name, escapePattern);
         return metadata.getTables(
                 connection.getCatalog(),
-                escapeNamePattern(remoteSchemaName, metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(remoteTableName, metadata.getSearchStringEscape()).orElse(null),
+                remoteSchemaName.map(escape).orElse(null),
+                remoteTableName.map(escape).orElse(null),
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
@@ -1016,12 +1020,7 @@ public abstract class BaseJdbcClient
         return sb.toString();
     }
 
-    protected static Optional<String> escapeNamePattern(Optional<String> name, String escape)
-    {
-        return name.map(string -> escapeNamePattern(string, escape));
-    }
-
-    private static String escapeNamePattern(String name, String escape)
+    protected static String escapeNamePattern(String name, String escape)
     {
         requireNonNull(name, "name is null");
         requireNonNull(escape, "escape is null");
