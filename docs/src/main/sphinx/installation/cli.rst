@@ -88,7 +88,7 @@ Certificate authentication
 Use the following CLI command line arguments to connect to a cluster that uses
 :doc:`certificate authentication </security/certificate>`.
 
-.. list-table:: CLI options for ertificate authentication
+.. list-table:: CLI options for certificate authentication
    :widths: 35 65
    :header-rows: 1
 
@@ -100,13 +100,10 @@ Use the following CLI command line arguments to connect to a cluster that uses
        that is trusted by the Trino cluster you are connecting to.
    * - ``--keystore-password=<password>``
      - Only required if the keystore has a password.
-   * - ``--keystore-type=<type>``
-     - Rarely used. Specifies the value of the keystore.type property, or ``jks``
-       if not specified. See the ``java.security`` file in your JDK
-       installation's ``lib/security`` or ``conf/security`` directory.
 
-The three ``--truststore`` related options are not used for client certificate
-authentication with the CLI.
+The three ``--truststore`` related options are independent of client certificate
+authentication with the CLI; instead, they control the client's trust of the
+server's certificate.
 
 Pagination
 ----------

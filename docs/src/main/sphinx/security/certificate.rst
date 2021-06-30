@@ -73,6 +73,7 @@ authentication type <authentication-types>` in :ref:`etc/config.properties
 You can specify certificate authentication along with another authenticaton
 method, such as ``PASSWORD``. In this case, authentication is performed in the
 order of entries, and the first successful authentication results in access.
+For example, the following setting shows the use of two types:
 
 .. code-block:: properties
 
