@@ -309,6 +309,7 @@ public class IcebergMetadata
             if (hiveTable.isEmpty() || !isIcebergTable(hiveTable.get())) {
                 return Optional.empty();
             }
+            
             table = getIcebergTable(session, hiveTable.get().getSchemaTableName());
         }
         else {
@@ -526,6 +527,7 @@ public class IcebergMetadata
                     .setOwnerType(owner.getType())
                     .setOwnerName(owner.getName())
                     .build();
+                    
             metastore.createDatabase(new HiveIdentity(session), database);
         }
         else {
@@ -604,12 +606,14 @@ public class IcebergMetadata
         if (useMetastore(session)) {
             Database database = metastore.getDatabase(schemaName)
                     .orElseThrow(() -> new SchemaNotFoundException(schemaName));
+                    
             HdfsContext hdfsContext = new HdfsContext(session);
             HiveIdentity identity = new HiveIdentity(session);
             String targetPath = getTableLocation(tableMetadata.getProperties());
             if (targetPath == null) {
                 targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableName).toString();
             }
+            
             TableOperations operations = tableOperationsProvider.createTableOperations(
                     hdfsContext,
                     session.getQueryId(),
@@ -618,6 +622,7 @@ public class IcebergMetadata
                     tableName,
                     Optional.of(session.getUser()),
                     Optional.of(targetPath));
+                    
             if (operations.current() != null) {
                 throw new TableAlreadyExistsException(schemaTableName);
             }
