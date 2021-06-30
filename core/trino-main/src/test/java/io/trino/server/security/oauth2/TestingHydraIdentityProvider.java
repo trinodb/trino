@@ -51,14 +51,13 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 import static java.util.Objects.requireNonNull;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 
 public class TestingHydraIdentityProvider
         implements AutoCloseable
@@ -157,8 +156,8 @@ public class TestingHydraIdentityProvider
                                         .build())
                                 .build())
                 .execute()) {
-            assertEquals(response.code(), SC_OK);
-            assertNotNull(response.body());
+            checkState(response.code() == SC_OK);
+            requireNonNull(response.body());
             return mapper.readTree(response.body().byteStream())
                     .get("access_token")
                     .textValue();
@@ -260,7 +259,7 @@ public class TestingHydraIdentityProvider
                             .get()
                             .build())
                     .execute()) {
-                assertNotNull(response.body());
+                requireNonNull(response.body());
                 return mapper.readTree(response.body().byteStream());
             }
         }
@@ -283,7 +282,7 @@ public class TestingHydraIdentityProvider
         private void sendRedirect(Response redirectResponse, HttpServletResponse response)
                 throws IOException
         {
-            assertNotNull(redirectResponse.body());
+            requireNonNull(redirectResponse.body());
             response.sendRedirect(
                     toHostUrl(mapper.readTree(redirectResponse.body().byteStream())
                             .get("redirect_to")
