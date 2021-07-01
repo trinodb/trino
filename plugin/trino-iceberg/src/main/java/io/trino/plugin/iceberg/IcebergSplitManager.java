@@ -15,6 +15,8 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -36,11 +38,13 @@ public class IcebergSplitManager
     public static final int ICEBERG_DOMAIN_COMPACTION_THRESHOLD = 1000;
 
     private final IcebergTransactionManager transactionManager;
+    private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager, HiveTableOperationsProvider tableOperationsProvider)
+    public IcebergSplitManager(IcebergTransactionManager transactionManager, HdfsEnvironment hdfsEnvironment)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -71,7 +75,7 @@ public class IcebergSplitManager
 
         // TODO Use residual. Right now there is no way to propagate residual to Trino but at least we can
         //      propagate it at split level so the parquet pushdown can leverage it.
-        IcebergSplitSource splitSource = new IcebergSplitSource(tableScan.planTasks());
+        IcebergSplitSource splitSource = new IcebergSplitSource(tableScan.planTasks(), hdfsEnvironment, new HdfsContext(session));
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
     }

@@ -13,11 +13,17 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
+import io.airlift.log.Logger;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import org.apache.hadoop.fs.BlockLocation;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.io.CloseableIterable;
@@ -25,11 +31,15 @@ import org.apache.iceberg.io.CloseableIterable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.limit;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static java.util.Objects.requireNonNull;
@@ -38,10 +48,13 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
+    private static final Logger log = Logger.get(IcebergMetadata.class);
     private final CloseableIterable<CombinedScanTask> combinedScanIterable;
     private final Iterator<FileScanTask> fileScanIterator;
+    private final HdfsEnvironment hdfsEnvironment;
+    private final HdfsContext hdfsContext;
 
-    public IcebergSplitSource(CloseableIterable<CombinedScanTask> combinedScanIterable)
+    public IcebergSplitSource(CloseableIterable<CombinedScanTask> combinedScanIterable, HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext)
     {
         this.combinedScanIterable = requireNonNull(combinedScanIterable, "combinedScanIterable is null");
 
@@ -49,6 +62,8 @@ public class IcebergSplitSource
                 .map(CombinedScanTask::files)
                 .flatMap(Collection::stream)
                 .iterator();
+        this.hdfsEnvironment = hdfsEnvironment;
+        this.hdfsContext = hdfsContext;
     }
 
     @Override
@@ -94,7 +109,43 @@ public class IcebergSplitSource
                 task.length(),
                 task.file().fileSizeInBytes(),
                 task.file().format(),
-                ImmutableList.of(),
+                blocklocations(task),
                 getPartitionKeys(task));
+    }
+
+    private List<HostAddress> blocklocations(FileScanTask task)
+    {
+        Set<HostAddress> locationSets = new HashSet<>();
+        Path path = new Path(task.file().path().toString());
+        try {
+            FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
+            for (BlockLocation b : fs.getFileBlockLocations(path, task.start(), task.length())) {
+                locationSets.addAll(getHostAddresses(b));
+            }
+        }
+        catch (IOException e) {
+            log.warn("Failed to get block locations for path %s", path, e);
+        }
+        ArrayList<HostAddress> list = new ArrayList<>(locationSets);
+        return list;
+    }
+
+    private static List<HostAddress> getHostAddresses(BlockLocation blockLocation)
+    {
+        // Hadoop FileSystem returns "localhost" as a default
+        return Arrays.stream(getBlockHosts(blockLocation))
+                .map(HostAddress::fromString)
+                .filter(address -> !address.getHostText().equals("localhost"))
+                .collect(toImmutableList());
+    }
+
+    private static String[] getBlockHosts(BlockLocation blockLocation)
+    {
+        try {
+            return blockLocation.getHosts();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
