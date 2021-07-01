@@ -96,7 +96,6 @@ import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
 final class IcebergUtil
 {
-    private static final Logger log = Logger.get(IcebergUtil.class);
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
 
     private IcebergUtil() {}
