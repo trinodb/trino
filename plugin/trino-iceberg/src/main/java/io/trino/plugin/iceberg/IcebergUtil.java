@@ -14,8 +14,10 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
+import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.spi.TrinoException;
@@ -28,6 +30,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
@@ -39,6 +43,11 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.catalog.Namespace;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.NoSuchNamespaceException;
+import org.apache.iceberg.exceptions.NoSuchTableException;
+import org.apache.iceberg.hadoop.HadoopCatalog;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -54,6 +63,7 @@ import java.util.regex.Pattern;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.reverse;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
@@ -86,6 +96,7 @@ import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
 final class IcebergUtil
 {
+    private static final Logger log = Logger.get(IcebergUtil.class);
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
 
     private IcebergUtil() {}
@@ -93,6 +104,58 @@ final class IcebergUtil
     public static boolean isIcebergTable(io.trino.plugin.hive.metastore.Table table)
     {
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
+    }
+
+    public static HadoopCatalog getHadoopCatalog(HdfsEnvironment hdfsEnvironment, ConnectorSession session)
+    {
+        HdfsContext hdfsContext = new HdfsContext(session);
+        Path path = new Path("/");
+        Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
+        String warehouse = configuration.get("hive.metastore.warehouse.dir");
+
+        if (warehouse == null || warehouse.isEmpty()) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, format("hive.metastore.warehouse.dir not set"));
+        }
+        return getHadoopCatalog(hdfsEnvironment, session, warehouse);
+    }
+
+    public static HadoopCatalog getHadoopCatalog(HdfsEnvironment hdfsEnvironment, ConnectorSession session, String location)
+    {
+        HdfsContext hdfsContext = new HdfsContext(session);
+        Path path = new Path(location);
+        Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
+        return new HadoopCatalog(configuration, location);
+    }
+
+    public static boolean icebergSchemaExists(HdfsEnvironment hdfsEnvironment, ConnectorSession session, String schemaName)
+    {
+        try {
+            HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
+            Namespace namespace = Namespace.of(schemaName);
+            hadoopCatalog.loadNamespaceMetadata(namespace);
+            return true;
+        }
+        catch (NoSuchNamespaceException e) {
+            return false;
+        }
+    }
+
+    public static boolean icebergTableExists(HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
+    {
+        try {
+            TableIdentifier tableIdentifier = TableIdentifier.of(table.getSchemaName(), table.getTableName());
+            HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
+            hadoopCatalog.loadTable(tableIdentifier);
+            return true;
+        }
+        catch (NoSuchTableException e) {
+            return false;
+        }
+    }
+
+    public static boolean useMetastore(ConnectorSession session)
+    {
+        return !IcebergSessionProperties.isHadoopMode(session);
     }
 
     public static Table loadIcebergTable(HiveTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
@@ -112,18 +175,26 @@ final class IcebergUtil
             HiveTableOperationsProvider tableOperationsProvider,
             ConnectorSession session,
             SchemaTableName table,
-            TableMetadata tableMetadata)
+            TableMetadata tableMetadata,
+            HdfsEnvironment hdfsEnvironment)
     {
-        HiveTableOperations operations = (HiveTableOperations) tableOperationsProvider.createTableOperations(
-                new HdfsContext(session),
-                session.getQueryId(),
-                new HiveIdentity(session),
-                table.getSchemaName(),
-                table.getTableName(),
-                Optional.empty(),
-                Optional.empty());
-        operations.initializeFromMetadata(tableMetadata);
-        return new BaseTable(operations, quotedTableName(table));
+        if (useMetastore(session)) {
+            HiveTableOperations operations = (HiveTableOperations) tableOperationsProvider.createTableOperations(
+                    new HdfsContext(session),
+                    session.getQueryId(),
+                    new HiveIdentity(session),
+                    table.getSchemaName(),
+                    table.getTableName(),
+                    Optional.empty(),
+                    Optional.empty());
+            operations.initializeFromMetadata(tableMetadata);
+            return new BaseTable(operations, quotedTableName(table));
+        }
+        else {
+            TableIdentifier tableIdentifier = TableIdentifier.of(table.getSchemaName(), table.getTableName());
+            HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
+            return hadoopCatalog.loadTable(tableIdentifier);
+        }
     }
 
     public static long resolveSnapshotId(Table table, long snapshotId)

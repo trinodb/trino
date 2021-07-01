@@ -41,6 +41,7 @@ import static java.lang.String.format;
 
 public final class IcebergSessionProperties
 {
+    private static final String HADOOP_MODE = "hadoopmode";
     private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String USE_FILE_SIZE_FROM_METADATA = "use_file_size_from_metadata";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
@@ -72,6 +73,11 @@ public final class IcebergSessionProperties
             ParquetWriterConfig parquetWriterConfig)
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(booleanProperty(
+                        HADOOP_MODE,
+                        "Use hadoop file system to store schema/table information.",
+                        icebergConfig.isHadoopMode(),
+                        false))
                 .add(enumProperty(
                         COMPRESSION_CODEC,
                         "Compression codec to use when writing files",
@@ -188,6 +194,11 @@ public final class IcebergSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public static boolean isHadoopMode(ConnectorSession session)
+    {
+        return session.getProperty(HADOOP_MODE, Boolean.class);
     }
 
     public static boolean isOrcBloomFiltersEnabled(ConnectorSession session)
