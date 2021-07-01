@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 
 import java.util.stream.Stream;
 
-
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -39,9 +38,6 @@ public class TestBigQueryCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
     private BigQuerySqlExecutor bigQuerySqlExecutor;
-
-
-
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -84,7 +80,7 @@ public class TestBigQueryCaseInsensitiveMapping
         try (AutoCloseable ignore1 = withSchema(bigQuerySchema);
              AutoCloseable ignore2 = withTable(
                      bigQuerySchema + ".NonLowerCaseTable", "AS SELECT 'a' AS lower_case_name, 'b' AS Mixed_Case_Name, 'c' AS UPPER_CASE_NAME")) {
-            assertThat(computeActual("SHOW TABLES FROM " + trinoSchema).getOnlyColumn()).contains("nonlowercasetable");
+            assertThat(computeActual("SHOW TABLES FROM " + trinoSchema).getOnlyColumn()).contains(trinoSchema);
             assertEquals(
                     computeActual("SHOW COLUMNS FROM " + trinoSchema + ".nonlowercasetable").getMaterializedRows().stream()
                             .map(row -> row.getField(0))
