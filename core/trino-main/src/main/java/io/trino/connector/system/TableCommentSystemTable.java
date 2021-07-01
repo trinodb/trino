@@ -152,6 +152,10 @@ public class TableCommentSystemTable
         return metadata.getRedirectionAwareTableHandle(session, tableName).getTableHandle()
                 .map(handle -> metadata.getTableMetadata(session, handle))
                 .map(metadata -> metadata.getMetadata().getComment())
-                .get();
+                .orElseGet(() -> {
+                    // A previously listed table might have been dropped concurrently
+                    LOG.debug("Failed to get metadata for table: %s", name);
+                    return Optional.empty();
+                });
     }
 }
