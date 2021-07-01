@@ -130,12 +130,6 @@ public class TestIgniteCaseInsensitiveMapping
     }
 
     @Test
-    public void testSchemaAndTableNameRuleMapping()
-    {
-        // Ignite, only has PUBLIC schema and all user tables under it.
-    }
-
-    @Test
     public void testSchemaNameClash()
             throws Exception
     {
@@ -156,6 +150,35 @@ public class TestIgniteCaseInsensitiveMapping
                 }
             }
         }
+    }
+
+    @Test
+    public void testTableNameClashWithRuleMapping()
+    {
+        skipTest();
+    }
+
+    @Test
+    public void testSchemaNameClashWithRuleMapping()
+    {
+        skipTest();
+    }
+
+    @Test
+    public void testSchemaAndTableNameRuleMapping()
+    {
+        // Ignite, only has PUBLIC schema and all user tables under it.
+        skipTest();
+    }
+
+    @Test
+    public void testSchemaNameRuleMapping()
+    {
+        skipTest();
+    }
+
+    private void skipTest()
+    {
     }
 
     @Test
@@ -182,6 +205,12 @@ public class TestIgniteCaseInsensitiveMapping
                 assertQueryFails("CREATE TABLE " + nameVariant + " (c varchar(5), ignore int) with (primary_key = ARRAY['ignore'])", ".* Table 'ignite.public.casesensitivename' already exists");
             }
         }
+    }
+
+    @Test
+    public void testTableNameRuleMapping()
+    {
+        skipTest();
     }
 
     @Override
