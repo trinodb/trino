@@ -134,6 +134,43 @@ The connector supports pushdown for a number of operations:
 * :func:`min`
 * :func:`sum`
 
+Types
+-----
+
+The following are supported Ignite SQL data types from `<https://ignite.apache.org/docs/latest/sql-reference/data-types>`_
+
+=============================== =========================== ===================================================================================
+Ignite SQL data type name       Map to Trino type           Description
+=============================== =========================== ===================================================================================
+``BOOLEAN``                     BooleanType                 Possible values: TRUE and FALSE. Mapped to Java/JDBC ``java.lang.Boolean``.
+
+``BIGINT``                      BigintType                  Possible values: [-9223372036854775808, 9223372036854775807]. Mapped to Java/JDBC ``java.lang.Long``.
+
+``DECIMAL``                     DecimalType                 Possible values: Data type with fixed precision and scale. Mapped to Java/JDBC ``java.math.BigDecimal``.
+
+``DOUBLE``                      DoubleType                  Possible values: A floating point number. Mapped to Java/JDBC ``java.lang.Double``.
+
+``INT``                         IntegerType                 Possible values: [-2147483648, 2147483647]. Mapped to Java/JDBC ``java.lang.Integer``.
+
+``REAL``                        RealType                    Possible values: A single precision floating point number. Mapped to Java/JDBC ``java.lang.Float``.
+
+``SMALLINT``                    SmallintType                Possible values: [-32768, 32767]. Mapped to Java/JDBC ``java.lang.Short``.
+
+``TINYINT``                     TinyintType                 Possible values: [-128, 127]. Mapped to Java/JDBC ``java.lang.Byte``.
+
+``CHAR``                        CharType                    Possible values: A unicode String. This type is supported for compatibility with other databases and older applications.
+                                                            Mapped to Java/JDBC ``java.lang.String``.
+
+``VARCHAR``                     VarcharType                 Possible values: A Unicode String. Mapped to Java/JDBC ``java.lang.String``.
+
+``DATE``                        DateType                    Possible values: The date data type. The format is yyyy-MM-dd. Mapped to Java/JDBC ``java.sql.Date``.
+
+``BINARY``                      VarbinaryType               Possible values: Represents a byte array. Mapped to Java/JDBC ``byte[]``.
+
+``UUID``                        UuidType                    Possible values: Universally unique identifier. This is a 128 bit value. Mapped to Java/JDBC ``java.lang.UUID``.
+=============================== =========================== ===================================================================================
+
+
 Limitations
 -----------
 
