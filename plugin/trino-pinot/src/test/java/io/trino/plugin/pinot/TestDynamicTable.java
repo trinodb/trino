@@ -131,8 +131,9 @@ public class TestDynamicTable
         // Pinot does not recognize double literals with scientific notation
         String tableName = "primitive_types_table";
         String query = "SELECT string_col FROM " + tableName + " WHERE double_col = 3.5E5";
-        assertThatNullPointerException().isThrownBy(() -> buildFromPql(pinotMetadata, new SchemaTableName("default", query)))
-                .withFailMessage("");
+        assertThatNullPointerException().isThrownBy(() -> buildFromPql(pinotMetadata, new SchemaTableName("default", query)));
+        // TODO: enable the line below when we move to Java 15+:
+//                .withMessage("Cannot invoke \"java.lang.Integer.intValue()\" because \"this.scale\" is null");
     }
 
     @Test
