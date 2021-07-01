@@ -659,7 +659,6 @@ public class IcebergMetadata
             if (tableMetadata.getComment().isPresent()) {
                 propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
             }
-            HdfsContext hdfsContext = new HdfsContext(session);
             String targetPath = getTableLocation(tableMetadata.getProperties());
             HadoopCatalog catalog;
             if (targetPath == null) {
