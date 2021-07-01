@@ -80,7 +80,8 @@ public class TestHiveSplit
                         ImmutableList.of(createBaseColumn("col", 5, HIVE_LONG, BIGINT, ColumnType.REGULAR, Optional.of("comment"))))),
                 Optional.empty(),
                 false,
-                Optional.of(acidInfo));
+                Optional.of(acidInfo),
+                555534);
 
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
@@ -101,5 +102,6 @@ public class TestHiveSplit
         assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
         assertEquals(actual.getAcidInfo().get(), expected.getAcidInfo().get());
+        assertEquals(actual.getSplitNumber(), expected.getSplitNumber());
     }
 }
