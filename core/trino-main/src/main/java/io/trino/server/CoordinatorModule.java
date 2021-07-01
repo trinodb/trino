@@ -104,7 +104,7 @@ import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -334,7 +334,7 @@ public class CoordinatorModule
 
     private void bindLowMemoryKiller(LowMemoryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 MemoryManagerConfig.class,
                 config -> policy == config.getLowMemoryKillerPolicy(),
                 binder -> binder.bind(LowMemoryKiller.class).to(clazz).in(Scopes.SINGLETON)));
