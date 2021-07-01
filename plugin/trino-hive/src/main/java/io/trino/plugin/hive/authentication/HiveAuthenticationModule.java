@@ -20,7 +20,7 @@ import io.trino.plugin.hive.authentication.HiveAuthenticationConfig.HdfsAuthenti
 
 import java.util.function.Predicate;
 
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.trino.plugin.hive.authentication.AuthenticationModules.kerberosHdfsAuthenticationModule;
 import static io.trino.plugin.hive.authentication.AuthenticationModules.kerberosImpersonatingHdfsAuthenticationModule;
 import static io.trino.plugin.hive.authentication.AuthenticationModules.noHdfsAuthenticationModule;
@@ -51,7 +51,7 @@ public class HiveAuthenticationModule
 
     private void bindAuthenticationModule(Predicate<HiveAuthenticationConfig> predicate, Module module)
     {
-        install(installModuleIf(HiveAuthenticationConfig.class, predicate, module));
+        install(conditionalModule(HiveAuthenticationConfig.class, predicate, module));
     }
 
     private static boolean noHdfsAuth(HiveAuthenticationConfig config)
