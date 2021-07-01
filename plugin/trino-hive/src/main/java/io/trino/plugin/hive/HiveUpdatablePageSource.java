@@ -42,8 +42,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.PartitionAndStatementId.CODEC;
+import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -69,6 +71,8 @@ public class HiveUpdatablePageSource
     private long maxWriteId;
     private long rowCount;
     private long insertRowCounter;
+    private long initialRowId;
+    private long maxNumberOfRowsPerSplit;
 
     private boolean closed;
 
@@ -86,7 +90,9 @@ public class HiveUpdatablePageSource
             ConnectorSession session,
             HiveType hiveRowType,
             List<HiveColumnHandle> dependencyColumns,
-            AcidOperation updateKind)
+            AcidOperation updateKind,
+            long initialRowId,
+            long maxNumberOfRowsPerSplit)
     {
         super(hiveTableHandle.getTransaction(), statementId, bucketNumber, bucketPath, originalFile, orcFileWriterFactory, configuration, session, hiveRowType, updateKind);
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
@@ -95,6 +101,8 @@ public class HiveUpdatablePageSource
         this.hiveRowTypeNullsBlock = nativeValueToBlock(hiveRowType.getType(typeManager), null);
         checkArgument(hiveTableHandle.isInAcidTransaction(), "Not in a transaction; hiveTableHandle: %s", hiveTableHandle);
         this.writeId = hiveTableHandle.getWriteId();
+        this.initialRowId = initialRowId;
+        this.maxNumberOfRowsPerSplit = maxNumberOfRowsPerSplit;
         if (updateKind == AcidOperation.UPDATE) {
             this.dependencyChannels = Optional.of(hiveTableHandle.getUpdateProcessor()
                     .orElseThrow(() -> new IllegalArgumentException("updateProcessor not present"))
@@ -171,7 +179,10 @@ public class HiveUpdatablePageSource
     {
         long[] rowIds = new long[positionCount];
         for (int index = 0; index < positionCount; index++) {
-            rowIds[index] = insertRowCounter++;
+            rowIds[index] = initialRowId + insertRowCounter++;
+        }
+        if (insertRowCounter >= maxNumberOfRowsPerSplit) {
+            throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, format("Trying to insert too many rows in a single split, max allowed is %d per split", maxNumberOfRowsPerSplit));
         }
         return new LongArrayBlock(positionCount, Optional.empty(), rowIds);
     }

@@ -1652,6 +1652,26 @@ public class TestHiveTransactionalTable
         }
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testDoubleUpdateAndThenReadFromHive()
+    {
+        withTemporaryTable("test_double_update", true, false, NONE, tableName -> {
+            onTrino().executeQuery(
+                    "CREATE TABLE test_double_update ( " +
+                            "column1 INT, " +
+                            "column2 VARCHAR " +
+                            ") " +
+                            "WITH ( " +
+                            "   transactional = true " +
+                            ");");
+            onTrino().executeQuery("INSERT INTO test_double_update VALUES(1, 'x')");
+            onTrino().executeQuery("INSERT INTO test_double_update VALUES(2, 'y')");
+            onTrino().executeQuery("UPDATE test_double_update SET column2 = 'xy1'");
+            onTrino().executeQuery("UPDATE test_double_update SET column2 = 'xy2'");
+            verifySelectForTrinoAndHive("SELECT * FROM test_double_update", "true", row(1, "xy2"), row(2, "xy2"));
+        });
+    }
+
     private void hdfsDeleteAll(String directory)
     {
         if (!hdfsClient.exist(directory)) {
