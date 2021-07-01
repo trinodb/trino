@@ -178,6 +178,7 @@ public class PredicatePushDown
         private final TypeProvider types;
         private final ExpressionEquivalence expressionEquivalence;
         private final boolean dynamicFiltering;
+        private static final int MAX_LINEAR_EXPANSION_LENGTH = 1024;
 
         private Rewriter(
                 SymbolAllocator symbolAllocator,
@@ -327,8 +328,9 @@ public class PredicatePushDown
             verify(AstUtils.preOrder(expression).noneMatch(TryExpression.class::isInstance));
 
             // candidate symbols for inlining are
-            //   1. references to simple constants or symbol references
-            //   2. references to complex expressions that appear only once
+            //   1. references to simple constants or symbol references, or
+            //   2. references to complex expressions that appear only once, or
+            //   3. references to complex expressions more than once, but all of them only refers to a single symbol and the expanded length is within a threshold
             // which come from the node, as opposed to an enclosing scope.
             Set<Symbol> childOutputSet = ImmutableSet.copyOf(node.getOutputSymbols());
             Map<Symbol, Long> dependencies = SymbolsExtractor.extractAll(expression).stream()
@@ -338,7 +340,17 @@ public class PredicatePushDown
             return dependencies.entrySet().stream()
                     .allMatch(entry -> entry.getValue() == 1
                             || node.getAssignments().get(entry.getKey()) instanceof Literal
-                            || node.getAssignments().get(entry.getKey()) instanceof SymbolReference);
+                            || node.getAssignments().get(entry.getKey()) instanceof SymbolReference
+                            || isEligibleForLinearExpansion(node.getAssignments().get(entry.getKey()), entry.getValue()));
+        }
+
+        // Relax the heuristics to make common scenarios eligible for predicate pushdown
+        private boolean isEligibleForLinearExpansion(Expression expr, long count)
+        {
+            // Qualify the expression that refers to at most a single symbol
+            // but also avoid excessive duplication of long expression
+            return SymbolsExtractor.extractAll(expr).size() <= 1 &&
+                    expr.toString().length() * count <= MAX_LINEAR_EXPANSION_LENGTH;
         }
 
         @Override

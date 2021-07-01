@@ -297,14 +297,52 @@ public abstract class AbstractPredicatePushdownTest
     @Test
     public void testPredicatePushDownOverProjection()
     {
-        // Non-singletons should not be pushed down
+        // Non-singletons should be pushed down, as long as there is only one symbol being referenced
         assertPlan(
                 "WITH t AS (SELECT orderkey * 2 x FROM orders) " +
                         "SELECT * FROM t WHERE x + x > 1",
                 anyTree(
-                        filter("((expr + expr) > BIGINT '1')",
-                                project(ImmutableMap.of("expr", expression("orderkey * BIGINT '2'")),
-                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))));
+                        project(
+                                filter("((orderkey * BIGINT '2') + (orderkey * BIGINT '2'))  > BIGINT '1'",
+                                        tableScan("orders", ImmutableMap.of(
+                                                "orderkey", "orderkey"))))));
+
+        // Complex expression should be pushed down, as long as there is only one symbol being referenced
+        assertPlan(
+                "WITH t AS (SELECT CAST(orderdate AS VARCHAR) x FROM orders) " +
+                        "SELECT * FROM t WHERE x = '2021-01-01' OR x = '2021-01-02'",
+                anyTree(
+                        project(
+                                filter("((CAST(orderdate AS VARCHAR) = VARCHAR '2021-01-01') OR (CAST(orderdate AS VARCHAR) = VARCHAR '2021-01-02'))",
+                                        tableScan("orders", ImmutableMap.of(
+                                                "orderdate", "orderdate"))))));
+
+        // Complex expression should not be pushed down, if the expansion exceeds the length threshold, even though there is only one symbol being referenced
+        assertPlan(
+                "WITH t AS (SELECT CAST(orderdate AS VARCHAR) x FROM orders) " +
+                        "SELECT * FROM t WHERE x = '2021-01-01' OR x = '2021-01-02' OR x = '2021-01-03' OR x = '2021-01-04' OR x = '2021-01-05' OR x = '2021-01-06'" +
+                        " OR x = '2021-01-07' OR x = '2021-01-08' OR x = '2021-01-09' OR x = '2021-01-10' OR x = '2021-01-11' OR x = '2021-01-12' OR x = '2021-01-13'" +
+                        " OR x = '2021-01-14' OR x = '2021-01-15' OR x = '2021-01-16' OR x = '2021-01-17' OR x = '2021-01-18' OR x = '2021-01-19' OR x = '2021-01-20'" +
+                        " OR x = '2021-02-01' OR x = '2021-02-02' OR x = '2021-02-03' OR x = '2021-02-04' OR x = '2021-02-05' OR x = '2021-02-06'" +
+                        " OR x = '2021-02-07' OR x = '2021-02-08' OR x = '2021-02-09' OR x = '2021-02-10' OR x = '2021-02-11' OR x = '2021-02-12' OR x = '2021-02-13'" +
+                        " OR x = '2021-02-14' OR x = '2021-02-15' OR x = '2021-02-16' OR x = '2021-02-17' OR x = '2021-02-18' OR x = '2021-02-19' OR x = '2021-02-20'",
+                anyTree(
+                        filter("(((((((\"expr\" = VARCHAR '2021-01-01') OR (\"expr\" = VARCHAR '2021-01-02')) OR ((\"expr\" = VARCHAR '2021-01-03')" +
+                                        " OR (\"expr\" = VARCHAR '2021-01-04'))) OR (((\"expr\" = VARCHAR '2021-01-05') OR (\"expr\" = VARCHAR '2021-01-06'))" +
+                                        " OR ((\"expr\" = VARCHAR '2021-01-07') OR (\"expr\" = VARCHAR '2021-01-08')))) OR ((((\"expr\" = VARCHAR '2021-01-09')" +
+                                        " OR (\"expr\" = VARCHAR '2021-01-10')) OR ((\"expr\" = VARCHAR '2021-01-11') OR (\"expr\" = VARCHAR '2021-01-12')))" +
+                                        " OR (((\"expr\" = VARCHAR '2021-01-13') OR (\"expr\" = VARCHAR '2021-01-14')) OR ((\"expr\" = VARCHAR '2021-01-15')" +
+                                        " OR (\"expr\" = VARCHAR '2021-01-16'))))) OR (((((\"expr\" = VARCHAR '2021-01-17') OR (\"expr\" = VARCHAR '2021-01-18'))" +
+                                        " OR ((\"expr\" = VARCHAR '2021-01-19') OR (\"expr\" = VARCHAR '2021-01-20'))) OR (((\"expr\" = VARCHAR '2021-02-01')" +
+                                        " OR (\"expr\" = VARCHAR '2021-02-02')) OR ((\"expr\" = VARCHAR '2021-02-03') OR (\"expr\" = VARCHAR '2021-02-04'))))" +
+                                        " OR ((((\"expr\" = VARCHAR '2021-02-05') OR (\"expr\" = VARCHAR '2021-02-06')) OR ((\"expr\" = VARCHAR '2021-02-07')" +
+                                        " OR (\"expr\" = VARCHAR '2021-02-08'))) OR (((\"expr\" = VARCHAR '2021-02-09') OR (\"expr\" = VARCHAR '2021-02-10'))" +
+                                        " OR ((\"expr\" = VARCHAR '2021-02-11') OR (\"expr\" = VARCHAR '2021-02-12')))))) OR ((((\"expr\" = VARCHAR '2021-02-13')" +
+                                        " OR (\"expr\" = VARCHAR '2021-02-14')) OR ((\"expr\" = VARCHAR '2021-02-15') OR (\"expr\" = VARCHAR '2021-02-16')))" +
+                                        " OR (((\"expr\" = VARCHAR '2021-02-17') OR (\"expr\" = VARCHAR '2021-02-18')) OR ((\"expr\" = VARCHAR '2021-02-19')" +
+                                        " OR (\"expr\" = VARCHAR '2021-02-20')))))",
+                                project(ImmutableMap.of("expr", expression("CAST(orderdate AS VARCHAR)")),
+                                        tableScan("orders", ImmutableMap.of("orderdate", "orderdate"))))));
 
         // constant non-singleton should be pushed down
         assertPlan(
