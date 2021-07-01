@@ -25,7 +25,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 
 import java.util.Optional;
 
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 
 public class HiveMetastoreModule
         extends AbstractConfigurationAwareModule
@@ -54,7 +54,7 @@ public class HiveMetastoreModule
 
     private void bindMetastoreModule(String name, Module module)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 MetastoreTypeConfig.class,
                 metastore -> name.equalsIgnoreCase(metastore.getMetastoreType()),
                 module));
