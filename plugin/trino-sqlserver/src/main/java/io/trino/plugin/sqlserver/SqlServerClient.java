@@ -578,7 +578,6 @@ public class SqlServerClient
     }
 
     private boolean hasSnapshotIsolationEnabled(Connection connection)
-            throws SQLException
     {
         try {
             return snapshotIsolationEnabled.get(SnapshotIsolationEnabledCacheKey.INSTANCE, () -> {

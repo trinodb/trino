@@ -39,7 +39,6 @@ public class InputReader
     private final LineReader reader;
 
     public InputReader(Path historyFile, Completer... completers)
-            throws IOException
     {
         reader = LineReaderBuilder.builder()
                 .terminal(TerminalUtils.getTerminal())

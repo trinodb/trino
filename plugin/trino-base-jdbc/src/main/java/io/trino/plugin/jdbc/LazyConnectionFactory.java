@@ -40,7 +40,6 @@ public final class LazyConnectionFactory
 
     @Override
     public Connection openConnection(ConnectorSession session)
-            throws SQLException
     {
         return new LazyConnection(() -> delegate.openConnection(session));
     }
