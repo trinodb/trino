@@ -27,7 +27,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -38,7 +38,7 @@ public class RemoteQueryCancellationModule
     @Override
     protected void setup(Binder binder)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 RemoteQueryCancellationConfig.class,
                 RemoteQueryCancellationConfig::isRemoteQueryCancellationEnabled,
                 bindForRecordCursor()));

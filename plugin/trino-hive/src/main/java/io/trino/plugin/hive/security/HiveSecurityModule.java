@@ -19,7 +19,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigurationModule.installModules;
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +57,7 @@ public class HiveSecurityModule
 
     private void bindSecurityModule(String name, Module module)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 SecurityConfig.class,
                 security -> name.equalsIgnoreCase(security.getSecuritySystem()),
                 module));
