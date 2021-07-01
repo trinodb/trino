@@ -74,7 +74,6 @@ public class PluginManager
     private final GroupProviderManager groupProviderManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
-    private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
     @Inject
     public PluginManager(
@@ -110,8 +109,6 @@ public class PluginManager
         pluginsProvider.loadPlugins(this::loadPlugin, this::createClassLoader);
 
         metadataManager.verifyTypes();
-
-        pluginsLoaded.set(true);
     }
 
     private void loadPlugin(String plugin, Supplier<PluginClassLoader> createClassLoader)
