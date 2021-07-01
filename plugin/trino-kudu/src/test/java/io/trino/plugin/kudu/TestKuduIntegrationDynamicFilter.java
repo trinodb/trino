@@ -119,6 +119,7 @@ public class TestKuduIntegrationDynamicFilter
                     TimeUnit.HOURS.sleep(1);
                 }
                 catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     throw new IllegalStateException(e);
                 }
             });

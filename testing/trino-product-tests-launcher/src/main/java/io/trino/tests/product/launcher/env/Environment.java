@@ -198,6 +198,7 @@ public final class Environment
             log.warn("Some of the containers are stopped or unhealthy");
         }
         catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             log.info("Interrupted");
             // It's OK not to restore interrupt flag here. When we return we're exiting the process.
         }

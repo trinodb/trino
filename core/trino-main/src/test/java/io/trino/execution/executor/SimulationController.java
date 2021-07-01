@@ -102,6 +102,7 @@ class SimulationController
                     MILLISECONDS.sleep(500);
                 }
                 catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     return;
                 }
             }

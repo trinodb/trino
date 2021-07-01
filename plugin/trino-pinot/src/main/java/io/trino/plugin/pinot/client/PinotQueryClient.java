@@ -112,6 +112,7 @@ public class PinotQueryClient
             return dataTableMap;
         }
         catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new PinotException(PINOT_EXCEPTION, Optional.of(query), "Pinot query execution was interrupted", e);
         }
     }

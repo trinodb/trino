@@ -94,6 +94,7 @@ public class TestQueryTracker
             freeze.await();
         }
         catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             interrupted.countDown();
             throw new RuntimeException(e);
         }

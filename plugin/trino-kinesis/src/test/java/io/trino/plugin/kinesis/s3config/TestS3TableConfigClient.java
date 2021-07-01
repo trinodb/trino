@@ -105,6 +105,7 @@ public class TestS3TableConfigClient
             log.info("done sleeping, will now try to read the tables.");
         }
         catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             log.error("interrupted ...");
         }
 

@@ -80,6 +80,7 @@ public class FileSystemFinalizerService
                 finalizer.cleanup();
             }
             catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
                 return;
             }
             catch (Throwable t) {

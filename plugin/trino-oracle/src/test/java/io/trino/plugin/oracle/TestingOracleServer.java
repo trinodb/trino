@@ -65,7 +65,11 @@ public class TestingOracleServer
         try {
             execInContainer("/bin/bash", "/etc/init.d/oracle-xe", "restart");
         }
-        catch (InterruptedException | IOException e) {
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (IOException e) {
             throw new RuntimeException(e);
         }
 
