@@ -26,7 +26,7 @@ public class TestSapHanaAutomaticJoinPushdown
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        server = closeAfterClass(new TestingSapHanaServer());
+        server = closeAfterClass(TestingSapHanaServer.create());
         return createSapHanaQueryRunner(
                 server,
                 Map.of(),

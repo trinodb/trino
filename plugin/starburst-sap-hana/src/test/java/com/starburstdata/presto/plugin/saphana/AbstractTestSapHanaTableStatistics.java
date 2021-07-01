@@ -34,7 +34,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        sapHanaServer = closeAfterClass(new TestingSapHanaServer());
+        sapHanaServer = closeAfterClass(TestingSapHanaServer.create());
         return createSapHanaQueryRunner(
                 sapHanaServer,
                 ImmutableMap.<String, String>builder()

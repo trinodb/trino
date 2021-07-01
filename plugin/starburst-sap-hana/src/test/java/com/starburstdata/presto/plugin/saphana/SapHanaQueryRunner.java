@@ -60,10 +60,10 @@ public final class SapHanaQueryRunner
             connectorProperties.putIfAbsent("connection-password", server.getPassword());
             connectorProperties.putIfAbsent("allow-drop-table", "true");
 
-            server.execute("CREATE SCHEMA tpch");
-            server.execute("CREATE USER " + GRANTED_USER);
-            server.execute("CREATE USER " + NON_GRANTED_USER);
-            server.execute("GRANT ALL PRIVILEGES ON SCHEMA tpch TO " + GRANTED_USER);
+            server.executeWithRetry("CREATE SCHEMA tpch");
+            server.executeWithRetry("CREATE USER " + GRANTED_USER);
+            server.executeWithRetry("CREATE USER " + NON_GRANTED_USER);
+            server.executeWithRetry("GRANT ALL PRIVILEGES ON SCHEMA tpch TO " + GRANTED_USER);
 
             queryRunner.installPlugin(new TestingSapHanaPlugin());
             queryRunner.createCatalog("saphana", "sap-hana", connectorProperties);
@@ -97,7 +97,7 @@ public final class SapHanaQueryRunner
     {
         Logging.initialize();
 
-        TestingSapHanaServer sapHanaServer = new TestingSapHanaServer();
+        TestingSapHanaServer sapHanaServer = TestingSapHanaServer.create();
         DistributedQueryRunner queryRunner = createSapHanaQueryRunner(
                 sapHanaServer,
                 ImmutableMap.<String, String>builder()

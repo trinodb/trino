@@ -121,7 +121,7 @@ public class TestSapHanaTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(new TestingSapHanaServer());
+        server = closeAfterClass(TestingSapHanaServer.create());
         return createSapHanaQueryRunner(
                 server,
                 ImmutableMap.of(),

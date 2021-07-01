@@ -22,7 +22,7 @@ public class TestSapHanaPooledConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(new TestingSapHanaServer());
+        server = closeAfterClass(TestingSapHanaServer.create());
         return createSapHanaQueryRunner(
                 server,
                 ImmutableMap.<String, String>builder()
