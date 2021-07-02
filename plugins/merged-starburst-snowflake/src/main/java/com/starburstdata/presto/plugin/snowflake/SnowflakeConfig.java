@@ -17,9 +17,9 @@ import java.util.Optional;
 public class SnowflakeConfig
 {
     private SnowflakeImpersonationType impersonationType = SnowflakeImpersonationType.NONE;
-    private String warehouse;
-    private String database;
-    private String role;
+    private Optional<String> warehouse = Optional.empty();
+    private Optional<String> database = Optional.empty();
+    private Optional<String> role = Optional.empty();
 
     public SnowflakeImpersonationType getImpersonationType()
     {
@@ -36,40 +36,40 @@ public class SnowflakeConfig
 
     public Optional<String> getWarehouse()
     {
-        return Optional.ofNullable(warehouse);
+        return warehouse;
     }
 
     @Config("snowflake.warehouse")
     @ConfigDescription("Name of Snowflake warehouse to use")
     public SnowflakeConfig setWarehouse(String warehouse)
     {
-        this.warehouse = warehouse;
+        this.warehouse = Optional.ofNullable(warehouse);
         return this;
     }
 
     public Optional<String> getDatabase()
     {
-        return Optional.ofNullable(database);
+        return database;
     }
 
     @Config("snowflake.database")
     @ConfigDescription("Name of Snowflake database to use")
     public SnowflakeConfig setDatabase(String database)
     {
-        this.database = database;
+        this.database = Optional.ofNullable(database);
         return this;
     }
 
     public Optional<String> getRole()
     {
-        return Optional.ofNullable(role);
+        return role;
     }
 
     @Config("snowflake.role")
     @ConfigDescription("Name of Snowflake role to use")
     public SnowflakeConfig setRole(String role)
     {
-        this.role = role;
+        this.role = Optional.ofNullable(role);
         return this;
     }
 }
