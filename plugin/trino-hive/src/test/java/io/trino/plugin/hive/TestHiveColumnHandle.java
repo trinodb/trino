@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.plugin.base.TypeDeserializer;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -90,7 +91,7 @@ public class TestHiveColumnHandle
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
         TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new HiveModule.TypeDeserializer(typeManager)));
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(typeManager)));
         JsonCodec<HiveColumnHandle> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(HiveColumnHandle.class);
 
         String json = codec.toJson(expected);
