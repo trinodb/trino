@@ -58,11 +58,13 @@ public class TestIgniteCaseInsensitiveMapping
                         .build());
     }
 
+    @Override
     protected AutoCloseable withSchema(String schemaName)
     {
         return null;
     }
 
+    @Override
     protected String quoted(String name)
     {
         String identifierQuote = "`";
@@ -70,7 +72,7 @@ public class TestIgniteCaseInsensitiveMapping
         return identifierQuote + name + identifierQuote;
     }
 
-    @Test
+    @Override
     public void testNonLowerCaseSchemaName()
             throws Exception
     {
@@ -86,7 +88,7 @@ public class TestIgniteCaseInsensitiveMapping
         }
     }
 
-    @Test
+    @Override
     public void testNonLowerCaseTableName()
             throws Exception
     {
@@ -129,7 +131,7 @@ public class TestIgniteCaseInsensitiveMapping
         }
     }
 
-    @Test
+    @Override
     public void testSchemaNameClash()
             throws Exception
     {
@@ -152,26 +154,26 @@ public class TestIgniteCaseInsensitiveMapping
         }
     }
 
-    @Test
+    @Override
     public void testTableNameClashWithRuleMapping()
     {
         skipTest();
     }
 
-    @Test
+    @Override
     public void testSchemaNameClashWithRuleMapping()
     {
         skipTest();
     }
 
-    @Test
+    @Override
     public void testSchemaAndTableNameRuleMapping()
     {
         // Ignite, only has PUBLIC schema and all user tables under it.
         skipTest();
     }
 
-    @Test
+    @Override
     public void testSchemaNameRuleMapping()
     {
         skipTest();
@@ -181,7 +183,7 @@ public class TestIgniteCaseInsensitiveMapping
     {
     }
 
-    @Test
+    @Override
     public void testTableNameClash()
             throws Exception
     {
@@ -207,7 +209,7 @@ public class TestIgniteCaseInsensitiveMapping
         }
     }
 
-    @Test
+    @Override
     public void testTableNameRuleMapping()
     {
         skipTest();

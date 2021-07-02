@@ -27,7 +27,6 @@ public class TestIgniteContainer
     public static final Integer HTTP_PORT = 10800;
 
     private static final String NAME = "ignite";
-    private static final String DEFAULT_TAG = "2.10.0";
     private static final Integer NATIVE_PORT = 18000;
     private static final String DRIVER_CLASS_NAME = "org.apache.ignite.IgniteJdbcThinDriver";
     private static final String JDBC_URL_PREFIX = "jdbc:ignite:thin://";
