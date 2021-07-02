@@ -76,7 +76,9 @@ public class TestMemorySmoke
                         "dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "100",
                         "dynamic-filtering.small-broadcast.range-row-limit-per-driver", "100",
                         "dynamic-filtering.large-broadcast.max-distinct-values-per-driver", "100",
-                        "dynamic-filtering.large-broadcast.range-row-limit-per-driver", "100000"),
+                        "dynamic-filtering.large-broadcast.range-row-limit-per-driver", "100000",
+                        // disable semi join to inner join rewrite to test semi join operators explicitly
+                        "optimizer.rewrite-filtering-semi-join-to-inner-join", "false"),
                 ImmutableList.of(NATION, CUSTOMER, ORDERS, LINE_ITEM, PART));
     }
 
