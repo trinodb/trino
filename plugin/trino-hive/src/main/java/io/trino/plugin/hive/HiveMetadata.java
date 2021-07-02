@@ -2703,6 +2703,18 @@ public class HiveMetadata
     }
 
     @Override
+    public void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        accessControlMetadata.grantSchemaPrivileges(session, schemaName, privileges, HivePrincipal.from(grantee), grantOption);
+    }
+
+    @Override
+    public void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        accessControlMetadata.revokeSchemaPrivileges(session, schemaName, privileges, HivePrincipal.from(grantee), grantOption);
+    }
+
+    @Override
     public void grantTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         accessControlMetadata.grantTablePrivileges(session, schemaTableName, privileges, HivePrincipal.from(grantee), grantOption);
