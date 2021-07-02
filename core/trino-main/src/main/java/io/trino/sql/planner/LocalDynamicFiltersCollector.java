@@ -49,18 +49,14 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-class LocalDynamicFiltersCollector
+public class LocalDynamicFiltersCollector
 {
-    private final Metadata metadata;
-    private final TypeOperators typeOperators;
     private final Session session;
     // Each future blocks until its dynamic filter is collected.
     private final Map<DynamicFilterId, SettableFuture<Domain>> futures = new HashMap<>();
 
-    public LocalDynamicFiltersCollector(Metadata metadata, TypeOperators typeOperators, Session session)
+    public LocalDynamicFiltersCollector(Session session)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
     }
 
@@ -88,7 +84,12 @@ class LocalDynamicFiltersCollector
     }
 
     // Called during TableScan planning (no need to be synchronized as local planning is single threaded)
-    public DynamicFilter createDynamicFilter(List<Descriptor> descriptors, Map<Symbol, ColumnHandle> columnsMap, TypeProvider typeProvider)
+    public DynamicFilter createDynamicFilter(
+            List<Descriptor> descriptors,
+            Map<Symbol, ColumnHandle> columnsMap,
+            TypeProvider typeProvider,
+            Metadata metadata,
+            TypeOperators typeOperators)
     {
         Multimap<DynamicFilterId, Descriptor> descriptorMap = extractSourceSymbols(descriptors);
 
