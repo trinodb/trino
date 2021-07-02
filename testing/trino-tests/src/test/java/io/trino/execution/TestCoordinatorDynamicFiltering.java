@@ -122,7 +122,9 @@ public class TestCoordinatorDynamicFiltering
         return DistributedQueryRunner.builder(session)
                 .setExtraProperties(ImmutableMap.of(
                         // keep limits lower to test edge cases
-                        "dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "10"))
+                        "dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "10",
+                        // disable semi join to inner join rewrite to test semi join operators explicitly
+                        "optimizer.rewrite-filtering-semi-join-to-inner-join", "false"))
                 .build();
     }
 

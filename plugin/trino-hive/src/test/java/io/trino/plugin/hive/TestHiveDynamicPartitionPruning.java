@@ -65,6 +65,8 @@ public class TestHiveDynamicPartitionPruning
                 // Reduced partitioned join limit for large DF to enable DF min/max collection with ENABLE_LARGE_DYNAMIC_FILTERS
                 .addExtraProperty("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100")
                 .addExtraProperty("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
+                // disable semi join to inner join rewrite to test semi join operators explicitly
+                .addExtraProperty("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
                 .setHiveProperties(ImmutableMap.of("hive.dynamic-filtering-probe-blocking-timeout", "1h"))
                 .setInitialTables(getTables())
                 .build();
