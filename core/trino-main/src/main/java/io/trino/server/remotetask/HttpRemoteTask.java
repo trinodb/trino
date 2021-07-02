@@ -520,7 +520,8 @@ public final class HttpRemoteTask
         }
 
         // if there is a request already running, wait for it to complete
-        if (this.currentRequest != null && !this.currentRequest.isDone()) {
+        // currentRequest is always cleared when request is complete
+        if (currentRequest != null) {
             return;
         }
 
