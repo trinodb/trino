@@ -15,33 +15,17 @@ package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
-import io.trino.Session;
-import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.operator.OperatorStats;
-import io.trino.spi.QueryId;
-import io.trino.sql.analyzer.FeaturesConfig;
-import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.AbstractDynamicFilteringIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
-import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
-import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
@@ -53,12 +37,11 @@ import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestMemorySmoke
-        extends AbstractTestQueryFramework
+        extends AbstractDynamicFilteringIntegrationSmokeTest
 {
     private static final int LINEITEM_COUNT = 60175;
     private static final int ORDERS_COUNT = 15000;
     private static final int PART_COUNT = 2000;
-    private static final int CUSTOMER_COUNT = 1500;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -273,146 +256,47 @@ public class TestMemorySmoke
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Lists differ at element")
     public void testCrossJoinDynamicFiltering()
     {
-        assertUpdate("DROP TABLE IF EXISTS probe");
         assertUpdate("CREATE TABLE probe (k VARCHAR, v INTEGER)");
-        assertUpdate("INSERT INTO probe VALUES ('a', 0), ('b', 1), ('c', 2), ('d', 3), ('e', NULL)", 5);
-
-        assertUpdate("DROP TABLE IF EXISTS build");
         assertUpdate("CREATE TABLE build (vmin INTEGER, vmax INTEGER)");
-        assertUpdate("INSERT INTO build VALUES (1, 2), (NULL, NULL)", 2);
+        assertUpdate("INSERT INTO probe VALUES ('a', 0), ('b', 1), ('c', 2), ('d', 3)", 4);
+        assertUpdate("INSERT INTO build VALUES (1, 2)", 1);
 
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin", withBroadcastJoin(), 3, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin", withBroadcastJoin(), 2, 2, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v <= vmax", withBroadcastJoin(), 3, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v < vmax", withBroadcastJoin(), 2, 2, 2);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin", withBroadcastJoin(), 3, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin", withBroadcastJoin(), 2, 2, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v <= vmax", withBroadcastJoin(), 3, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v < vmax", withBroadcastJoin(), 2, 2, 1);
 
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v < vmax", withBroadcastJoin(), 1, 1, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND v <= vmax", withBroadcastJoin(), 1, 1, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND v < vmax", withBroadcastJoin(), 0, 0, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND vmax < 0", withBroadcastJoin(), 0, 0, 2);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v < vmax", withBroadcastJoin(), 1, 1, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND v <= vmax", withBroadcastJoin(), 1, 1, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND v < vmax", withBroadcastJoin(), 0, 0, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND vmax < 0", withBroadcastJoin(), 0, 0, 1);
 
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax", withBroadcastJoin(), 2, 2, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v <= vmax", withBroadcastJoin(), 2, 2, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax", withBroadcastJoin(), 2, 2, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax", withBroadcastJoin(), 2, 2, 2);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax", withBroadcastJoin(), 2, 2, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v <= vmax", withBroadcastJoin(), 2, 2, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax", withBroadcastJoin(), 2, 2, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax", withBroadcastJoin(), 2, 2, 1);
 
-        // TODO: support complex inequality join clauses: https://github.com/trinodb/trino/issues/5755
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax - 1", withBroadcastJoin(), 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax", withBroadcastJoin(), 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax - 1", withBroadcastJoin(), 0, 5, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax - 1", withBroadcastJoin(), 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax", withBroadcastJoin(), 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax - 1", withBroadcastJoin(), 0, 5, 2);
+        // TODO: support complex inequality join clauses: https://github.com/prestosql/presto/issues/5755
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax - 1", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax - 1", withBroadcastJoin(), 0, 4, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax - 1", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax - 1", withBroadcastJoin(), 0, 4, 1);
 
-        // TODO: make sure it works after https://github.com/trinodb/trino/issues/5777 is fixed
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v <= vmax - 1", withBroadcastJoin(), 1, 1, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin + 1 AND v <= vmax", withBroadcastJoin(), 1, 1, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin + 1 AND v <= vmax - 1", withBroadcastJoin(), 0, 0, 2);
+        // TODO: make sure it works after https://github.com/prestosql/presto/issues/5777 is fixed
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v <= vmax - 1", withBroadcastJoin(), 1, 1, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin + 1 AND v <= vmax", withBroadcastJoin(), 1, 1, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin + 1 AND v <= vmax - 1", withBroadcastJoin(), 0, 0, 1);
 
-        // TODO: support complex inequality join clauses: https://github.com/trinodb/trino/issues/5755
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax - 1", withBroadcastJoin(), 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax", withBroadcastJoin(), 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax - 1", withBroadcastJoin(), 0, 5, 2);
+        // TODO: support complex inequality join clauses: https://github.com/prestosql/presto/issues/5755
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax - 1", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax - 1", withBroadcastJoin(), 0, 4, 1);
 
-        assertDynamicFiltering("SELECT * FROM probe WHERE v <= (SELECT max(vmax) FROM build)", withBroadcastJoin(), 3, 3, 2);
-
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v IS NOT DISTINCT FROM vmin", withBroadcastJoin(), 2, 2, 2);
-    }
-
-    @Test
-    public void testIsNotDistinctFromNaN()
-    {
-        assertUpdate("DROP TABLE IF EXISTS probe_nan");
-        assertUpdate("CREATE TABLE probe_nan (v DOUBLE)");
-        assertUpdate("INSERT INTO probe_nan VALUES 0, 1, 2, NULL, nan()", 5);
-
-        assertUpdate("DROP TABLE IF EXISTS build_nan");
-        assertUpdate("CREATE TABLE build_nan (v DOUBLE)");
-        assertUpdate("INSERT INTO build_nan VALUES 1, NULL, nan()", 3);
-
-        assertDynamicFiltering("SELECT * FROM probe_nan p JOIN build_nan b ON p.v IS NOT DISTINCT FROM b.v", withBroadcastJoin(), 3, 5, 3);
-        assertDynamicFiltering("SELECT * FROM probe_nan p JOIN build_nan b ON p.v = b.v", withBroadcastJoin(), 1, 1, 3);
-    }
-
-    @Test
-    public void testCrossJoinLargeBuildSideDynamicFiltering()
-    {
-        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
-        assertDynamicFiltering(
-                "SELECT * FROM orders o, customer c WHERE o.custkey < c.custkey AND c.name < 'Customer#000001000' AND o.custkey > 1000",
-                withBroadcastJoin(),
-                0,
-                ORDERS_COUNT, CUSTOMER_COUNT);
-    }
-
-    private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
-    {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(session, selectQuery);
-
-        assertEquals(result.getResult().getRowCount(), expectedRowCount);
-        assertEquals(getOperatorRowsRead(getDistributedQueryRunner(), result.getQueryId()), Ints.asList(expectedOperatorRowsRead));
-    }
-
-    private Session withBroadcastJoin()
-    {
-        return Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
-                .build();
-    }
-
-    private Session withLargeDynamicFilters()
-    {
-        return Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
-                .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "true")
-                .build();
-    }
-
-    private Session withBroadcastJoinNonReordering()
-    {
-        return Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
-                .build();
-    }
-
-    private Session withPartitionedJoin()
-    {
-        return Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
-                .build();
-    }
-
-    private static List<Integer> getOperatorRowsRead(DistributedQueryRunner runner, QueryId queryId)
-    {
-        QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
-        return stats.getOperatorSummaries()
-                .stream()
-                .filter(summary -> summary.getOperatorType().contains("Scan"))
-                .map(OperatorStats::getInputPositions)
-                .map(Math::toIntExact)
-                .collect(toImmutableList());
-    }
-
-    @Test
-    public void testJoinDynamicFilteringMultiJoin()
-    {
-        assertUpdate("CREATE TABLE t0 (k0 integer, v0 real)");
-        assertUpdate("CREATE TABLE t1 (k1 integer, v1 real)");
-        assertUpdate("CREATE TABLE t2 (k2 integer, v2 real)");
-        assertUpdate("INSERT INTO t0 VALUES (1, 1.0)", 1);
-        assertUpdate("INSERT INTO t1 VALUES (1, 2.0)", 1);
-        assertUpdate("INSERT INTO t2 VALUES (1, 3.0)", 1);
-
-        String query = "SELECT k0, k1, k2 FROM t0, t1, t2 WHERE (k0 = k1) AND (k0 = k2) AND (v0 + v1 = v2)";
-        Session session = Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
-                .build();
-        assertQuery(session, query, "SELECT 1, 1, 1");
+        assertDynamicFiltering("SELECT * FROM probe WHERE v <= (SELECT max(vmax) FROM build)", withBroadcastJoin(), 3, 3, 1);
     }
 
     @Test
