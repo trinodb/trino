@@ -13,23 +13,17 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
-import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
+import com.google.common.collect.ImmutableMap;
+import io.trino.spi.type.Type;
 
-import java.util.function.Supplier;
+import java.util.Map;
 
-public interface Decoder
+public final class DecoderFactory
 {
-    /**
-     * @deprecated use {@link #decode(String, SearchHit, Supplier, BlockBuilder)}
-     */
-    @Deprecated
-    void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output);
+    private static final Map<Type, Decoder> decoders;
 
-    /**
-     * Decoder for elasticsearch SearchHit to trino BlockBuilder.
-     */
-    default void decode(String path, SearchHit hit, Supplier<Object> getter, BlockBuilder output)
-    {
+    static {
+        // Initialize all decoders once and reuse.
+        decoders = ImmutableMap.of();
     }
 }

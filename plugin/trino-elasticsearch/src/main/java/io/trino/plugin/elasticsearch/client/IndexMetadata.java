@@ -14,13 +14,37 @@
 package io.trino.plugin.elasticsearch.client;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class IndexMetadata
 {
+    private static Type ipAddressType;
+
+    public static void init(TypeManager typeManager)
+    {
+        ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
+    }
+
     private final ObjectType schema;
 
     public IndexMetadata(ObjectType schema)
@@ -37,18 +61,13 @@ public class IndexMetadata
     {
         private final boolean isArray;
         private final String name;
-        private final Type type;
+        private final FieldType type;
 
-        public Field(boolean isArray, String name, Type type)
+        public Field(boolean isArray, String name, FieldType fieldType)
         {
             this.isArray = isArray;
             this.name = requireNonNull(name, "name is null");
-            this.type = requireNonNull(type, "type is null");
-        }
-
-        public boolean isArray()
-        {
-            return isArray;
+            this.type = requireNonNull(fieldType, "type is null");
         }
 
         public String getName()
@@ -56,16 +75,38 @@ public class IndexMetadata
             return name;
         }
 
-        public Type getType()
+        public FieldType getType()
         {
             return type;
         }
+
+        public Type toTrinoType()
+        {
+            Type trinoType = type.toTrinoType();
+            return trinoType != null && isArray ? new ArrayType(trinoType) : trinoType;
+        }
+
+        public boolean supportsPredicates()
+        {
+            return type.supportsPredicates();
+        }
     }
 
-    public interface Type {}
+    public interface FieldType
+    {
+        default Type toTrinoType()
+        {
+            return null;
+        }
+
+        default boolean supportsPredicates()
+        {
+            return false;
+        }
+    }
 
     public static class PrimitiveType
-            implements Type
+            implements FieldType
     {
         private final String name;
 
@@ -78,10 +119,57 @@ public class IndexMetadata
         {
             return name;
         }
+
+        public Type toTrinoType()
+        {
+            switch (name) {
+                case "float":
+                    return REAL;
+                case "double":
+                    return DOUBLE;
+                case "byte":
+                    return TINYINT;
+                case "short":
+                    return SMALLINT;
+                case "integer":
+                    return INTEGER;
+                case "long":
+                    return BIGINT;
+                case "text":
+                case "keyword":
+                    return VARCHAR;
+                case "boolean":
+                    return BOOLEAN;
+                case "binary":
+                    return VARBINARY;
+                case "ip":
+                    return ipAddressType;
+            }
+
+            return null;
+        }
+
+        @Override
+        public boolean supportsPredicates()
+        {
+            switch (name.toLowerCase(ENGLISH)) {
+                case "boolean":
+                case "byte":
+                case "short":
+                case "integer":
+                case "long":
+                case "double":
+                case "float":
+                case "keyword":
+                    return true;
+            }
+
+            return false;
+        }
     }
 
     public static class DateTimeType
-            implements Type
+            implements FieldType
     {
         private final List<String> formats;
 
@@ -92,14 +180,25 @@ public class IndexMetadata
             this.formats = ImmutableList.copyOf(formats);
         }
 
-        public List<String> getFormats()
+        @Override
+        public Type toTrinoType()
         {
-            return formats;
+            // otherwise, skip -- we don't support custom formats, yet
+            if (formats.isEmpty()) {
+                return TIMESTAMP_MILLIS;
+            }
+            return null;
+        }
+
+        @Override
+        public boolean supportsPredicates()
+        {
+            return true;
         }
     }
 
     public static class ObjectType
-            implements Type
+            implements FieldType
     {
         private final List<Field> fields;
 
@@ -113,6 +212,26 @@ public class IndexMetadata
         public List<Field> getFields()
         {
             return fields;
+        }
+
+        @Override
+        public Type toTrinoType()
+        {
+            ImmutableList.Builder<RowType.Field> builder = ImmutableList.builder();
+            for (IndexMetadata.Field field : fields) {
+                Type trinoType = field.toTrinoType();
+                if (trinoType != null) {
+                    builder.add(RowType.field(field.getName(), trinoType));
+                }
+            }
+
+            List<RowType.Field> fields = builder.build();
+
+            if (!fields.isEmpty()) {
+                return RowType.from(fields);
+            }
+
+            return null;
         }
     }
 }

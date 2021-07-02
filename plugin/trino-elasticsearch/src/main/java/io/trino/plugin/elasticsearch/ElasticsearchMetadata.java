@@ -22,9 +22,6 @@ import com.google.common.io.BaseEncoding;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
-import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
-import io.trino.plugin.elasticsearch.client.IndexMetadata.ObjectType;
-import io.trino.plugin.elasticsearch.client.IndexMetadata.PrimitiveType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -40,12 +37,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 import javax.inject.Inject;
 
@@ -61,15 +54,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -94,7 +78,6 @@ public class ElasticsearchMetadata
             PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
             new ElasticsearchColumnHandle(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME, VARCHAR, false));
 
-    private final Type ipAddressType;
     private final ElasticsearchClient client;
     private final String schemaName;
 
@@ -102,10 +85,10 @@ public class ElasticsearchMetadata
     public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
     {
         requireNonNull(typeManager, "typeManager is null");
-        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
         requireNonNull(config, "config is null");
         this.schemaName = config.getDefaultSchema();
+        IndexMetadata.init(typeManager);
     }
 
     @Override
@@ -200,7 +183,7 @@ public class ElasticsearchMetadata
                 .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
 
         for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
-            Type type = toTrinoType(field);
+            Type type = field.toTrinoType();
             if (type == null || counts.get(field.getName().toLowerCase(ENGLISH)) > 1) {
                 continue;
             }
@@ -220,7 +203,7 @@ public class ElasticsearchMetadata
         for (IndexMetadata.Field field : fields) {
             result.add(ColumnMetadata.builder()
                     .setName(field.getName())
-                    .setType(toTrinoType(field))
+                    .setType(field.toTrinoType())
                     .build());
         }
         return result.build();
@@ -237,100 +220,11 @@ public class ElasticsearchMetadata
         for (IndexMetadata.Field field : fields) {
             result.put(field.getName(), new ElasticsearchColumnHandle(
                     field.getName(),
-                    toTrinoType(field),
-                    supportsPredicates(field.getType())));
+                    field.toTrinoType(),
+                    field.supportsPredicates()));
         }
 
         return result.build();
-    }
-
-    private static boolean supportsPredicates(IndexMetadata.Type type)
-    {
-        if (type instanceof DateTimeType) {
-            return true;
-        }
-
-        if (type instanceof PrimitiveType) {
-            switch (((PrimitiveType) type).getName().toLowerCase(ENGLISH)) {
-                case "boolean":
-                case "byte":
-                case "short":
-                case "integer":
-                case "long":
-                case "double":
-                case "float":
-                case "keyword":
-                    return true;
-            }
-        }
-
-        return false;
-    }
-
-    private Type toTrinoType(IndexMetadata.Field metaDataField)
-    {
-        return toTrinoType(metaDataField, metaDataField.isArray());
-    }
-
-    private Type toTrinoType(IndexMetadata.Field metaDataField, boolean isArray)
-    {
-        IndexMetadata.Type type = metaDataField.getType();
-        if (isArray) {
-            Type elementType = toTrinoType(metaDataField, false);
-            return new ArrayType(elementType);
-        }
-        if (type instanceof PrimitiveType) {
-            switch (((PrimitiveType) type).getName()) {
-                case "float":
-                    return REAL;
-                case "double":
-                    return DOUBLE;
-                case "byte":
-                    return TINYINT;
-                case "short":
-                    return SMALLINT;
-                case "integer":
-                    return INTEGER;
-                case "long":
-                    return BIGINT;
-                case "text":
-                case "keyword":
-                    return VARCHAR;
-                case "ip":
-                    return ipAddressType;
-                case "boolean":
-                    return BOOLEAN;
-                case "binary":
-                    return VARBINARY;
-            }
-        }
-        else if (type instanceof DateTimeType) {
-            if (((DateTimeType) type).getFormats().isEmpty()) {
-                return TIMESTAMP_MILLIS;
-            }
-            // otherwise, skip -- we don't support custom formats, yet
-        }
-        else if (type instanceof ObjectType) {
-            ObjectType objectType = (ObjectType) type;
-
-            ImmutableList.Builder<RowType.Field> builder = ImmutableList.builder();
-            for (IndexMetadata.Field field : objectType.getFields()) {
-                Type trinoType = toTrinoType(field);
-                if (trinoType != null) {
-                    builder.add(RowType.field(field.getName(), trinoType));
-                }
-            }
-
-            List<RowType.Field> fields = builder.build();
-
-            if (!fields.isEmpty()) {
-                return RowType.from(fields);
-            }
-
-            // otherwise, skip -- row types must have at least 1 field
-        }
-
-        return null;
     }
 
     @Override
