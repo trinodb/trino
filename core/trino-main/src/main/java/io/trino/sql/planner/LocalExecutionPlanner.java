@@ -508,7 +508,7 @@ public class LocalExecutionPlanner
             OutputFactory outputOperatorFactory)
     {
         Session session = taskContext.getSession();
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, metadata, typeOperators, types);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, types);
 
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session, stageExecutionDescriptor), context);
 
@@ -549,10 +549,6 @@ public class LocalExecutionPlanner
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
-        // the collector is shared with all subContexts to allow local dynamic filtering
-        // with multiple table scans (e.g. co-located joins).
-        private final LocalDynamicFiltersCollector dynamicFiltersCollector;
-
         // this is shared with all subContexts
         private final AtomicInteger nextPipelineId;
 
@@ -560,14 +556,13 @@ public class LocalExecutionPlanner
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
 
-        public LocalExecutionPlanContext(TaskContext taskContext, Metadata metadata, TypeOperators typeOperators, TypeProvider types)
+        public LocalExecutionPlanContext(TaskContext taskContext, TypeProvider types)
         {
             this(
                     taskContext,
                     types,
                     new ArrayList<>(),
                     Optional.empty(),
-                    new LocalDynamicFiltersCollector(metadata, typeOperators, taskContext.getSession()),
                     new AtomicInteger(0));
         }
 
@@ -576,14 +571,12 @@ public class LocalExecutionPlanner
                 TypeProvider types,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
-                LocalDynamicFiltersCollector dynamicFiltersCollector,
                 AtomicInteger nextPipelineId)
         {
             this.taskContext = taskContext;
             this.types = types;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
-            this.dynamicFiltersCollector = dynamicFiltersCollector;
             this.nextPipelineId = nextPipelineId;
         }
 
@@ -677,12 +670,12 @@ public class LocalExecutionPlanner
 
         public LocalDynamicFiltersCollector getDynamicFiltersCollector()
         {
-            return dynamicFiltersCollector;
+            return taskContext.getLocalDynamicFiltersCollector();
         }
 
         private void addLocalDynamicFilters(Map<DynamicFilterId, Domain> dynamicTupleDomain)
         {
-            dynamicFiltersCollector.collectDynamicFilterDomains(dynamicTupleDomain);
+            taskContext.addDynamicFilter(dynamicTupleDomain);
         }
 
         private void addCoordinatorDynamicFilters(Map<DynamicFilterId, Domain> dynamicTupleDomain)
@@ -718,12 +711,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(indexSourceContext.isEmpty(), "index build plan cannot have sub-contexts");
-            return new LocalExecutionPlanContext(taskContext, types, driverFactories, indexSourceContext, dynamicFiltersCollector, nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, types, driverFactories, indexSourceContext, nextPipelineId);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(taskContext, types, driverFactories, Optional.of(indexSourceContext), dynamicFiltersCollector, nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, types, driverFactories, Optional.of(indexSourceContext), nextPipelineId);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -1760,7 +1753,12 @@ public class LocalExecutionPlanner
             }
 
             log.debug("[TableScan] Dynamic filters: %s", dynamicFilters);
-            return context.getDynamicFiltersCollector().createDynamicFilter(dynamicFilters, tableScanNode.getAssignments(), context.getTypes());
+            return context.getDynamicFiltersCollector().createDynamicFilter(
+                    dynamicFilters,
+                    tableScanNode.getAssignments(),
+                    context.getTypes(),
+                    metadata,
+                    typeOperators);
         }
 
         @Override
