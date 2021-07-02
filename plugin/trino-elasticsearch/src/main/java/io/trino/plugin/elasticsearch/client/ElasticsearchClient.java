@@ -24,6 +24,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
@@ -123,6 +124,7 @@ public class ElasticsearchClient
     private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
     private static final JsonCodec<CountResponse> COUNT_RESPONSE_CODEC = jsonCodec(CountResponse.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final Set<String> DATA_ROLES = ImmutableSet.of("data", "data_hot", "data_content", "data_warm", "data_cold");
 
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
 
@@ -385,7 +387,7 @@ public class ElasticsearchClient
             String nodeId = entry.getKey();
             NodesResponse.Node node = entry.getValue();
 
-            if (node.getRoles().contains("data")) {
+            if (!Sets.intersection(node.getRoles(), DATA_ROLES).isEmpty()) {
                 Optional<String> address = node.getAddress()
                         .flatMap(ElasticsearchClient::extractAddress);
 
