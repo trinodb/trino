@@ -390,6 +390,24 @@ public class TestMemorySmoke
                 ORDERS_COUNT, CUSTOMER_COUNT);
     }
 
+    @Test
+    public void testJoinDynamicFilteringMultiJoin()
+    {
+        assertUpdate("CREATE TABLE t0 (k0 integer, v0 real)");
+        assertUpdate("CREATE TABLE t1 (k1 integer, v1 real)");
+        assertUpdate("CREATE TABLE t2 (k2 integer, v2 real)");
+        assertUpdate("INSERT INTO t0 VALUES (1, 1.0)", 1);
+        assertUpdate("INSERT INTO t1 VALUES (1, 2.0)", 1);
+        assertUpdate("INSERT INTO t2 VALUES (1, 3.0)", 1);
+
+        String query = "SELECT k0, k1, k2 FROM t0, t1, t2 WHERE (k0 = k1) AND (k0 = k2) AND (v0 + v1 = v2)";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
+                .build();
+        assertQuery(session, query, "SELECT 1, 1, 1");
+    }
+
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
     {
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(session, selectQuery);
@@ -437,24 +455,6 @@ public class TestMemorySmoke
                 .map(OperatorStats::getInputPositions)
                 .map(Math::toIntExact)
                 .collect(toImmutableList());
-    }
-
-    @Test
-    public void testJoinDynamicFilteringMultiJoin()
-    {
-        assertUpdate("CREATE TABLE t0 (k0 integer, v0 real)");
-        assertUpdate("CREATE TABLE t1 (k1 integer, v1 real)");
-        assertUpdate("CREATE TABLE t2 (k2 integer, v2 real)");
-        assertUpdate("INSERT INTO t0 VALUES (1, 1.0)", 1);
-        assertUpdate("INSERT INTO t1 VALUES (1, 2.0)", 1);
-        assertUpdate("INSERT INTO t2 VALUES (1, 3.0)", 1);
-
-        String query = "SELECT k0, k1, k2 FROM t0, t1, t2 WHERE (k0 = k1) AND (k0 = k2) AND (v0 + v1 = v2)";
-        Session session = Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
-                .build();
-        assertQuery(session, query, "SELECT 1, 1, 1");
     }
 
     @Test
