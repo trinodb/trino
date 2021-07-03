@@ -251,43 +251,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <!-- these tests take a very long time so only run them in the CI server -->
-                    <excludes>
-                        <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>
-                        <exclude>**/TestLocalQueries.java</exclude>
-                        <exclude>**/TestNonIterativeDistributedQueries.java</exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <profile>
-            <id>ci-only</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <excludes combine.self="override" />
-                            <includes>
-                                <include>**/TestDistributedQueriesNoHashGeneration.java</include>
-                                <include>**/TestLocalQueries.java</include>
-                                <include>**/TestNonIterativeDistributedQueries.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>
