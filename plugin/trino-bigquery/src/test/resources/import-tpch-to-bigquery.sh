@@ -4,8 +4,8 @@ set -euo pipefail
 cd "${BASH_SOURCE%/*}"
 
 # TODO: Adjust these values as needed
-trino_cli="/Users/hashhar/code/src/github.com/hashhar/trino/client/trino-cli/target/trino-cli-*-executable.jar"
-target_project="trino-318706"
+trino_cli="<PATH_To_TRINO_CLI>"
+target_project="<GOOGLE_CLOUD_PROJECT_ID>"
 
 source_catalog=tpch
 source_schema=tiny
