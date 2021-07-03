@@ -32,17 +32,9 @@ import java.util.function.Supplier;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
-/**
- * This factory class creates the KinesisConnector during server start and binds all the dependency
- * by calling create() method.
- */
 public class KinesisConnectorFactory
         implements ConnectorFactory
 {
-    public KinesisConnectorFactory()
-    {
-    }
-
     @Override
     public String getName()
     {
@@ -78,8 +70,7 @@ public class KinesisConnectorFactory
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 
-            KinesisConnector connector = injector.getInstance(KinesisConnector.class);
-            return connector;
+            return injector.getInstance(KinesisConnector.class);
         }
         catch (Exception e) {
             throwIfUnchecked(e);
