@@ -1,0 +1,82 @@
+[
+  {
+    "name": "orderkey",
+    "type": "INTEGER",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "partkey",
+    "type": "INTEGER",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "suppkey",
+    "type": "INTEGER",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "linenumber",
+    "type": "INTEGER",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "quantity",
+    "type": "FLOAT",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "extendedprice",
+    "type": "FLOAT",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "discount",
+    "type": "FLOAT",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "tax",
+    "type": "FLOAT",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "returnflag",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "linestatus",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "shipdate",
+    "type": "DATE",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "commitdate",
+    "type": "DATE",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "receiptdate",
+    "type": "DATE",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "shipinstruct",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "shipmode",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "comment",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  }
+]

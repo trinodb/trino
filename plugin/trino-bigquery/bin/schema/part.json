@@ -1,0 +1,47 @@
+[
+  {
+    "name": "partkey",
+    "type": "INTEGER",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "name",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "mfgr",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "brand",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "type",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "size",
+    "type": "INTEGER",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "container",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "retailprice",
+    "type": "FLOAT",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "comment",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  }
+]
