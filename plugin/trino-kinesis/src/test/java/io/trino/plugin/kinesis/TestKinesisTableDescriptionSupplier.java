@@ -33,12 +33,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-/**
- * Unit test for the TableDescriptionSupplier and related classes
- */
 public class TestKinesisTableDescriptionSupplier
 {
-    private KinesisPlugin kinesisPlugin;
     private KinesisConnector connector;
 
     @BeforeClass
@@ -57,7 +53,7 @@ public class TestKinesisTableDescriptionSupplier
         mockClient.createStream("sampleTable", 2);
         KinesisConnectorFactory kinesisConnectorFactory = new TestingKinesisConnectorFactory(kinesisTestClientManager);
 
-        kinesisPlugin = new KinesisPlugin(kinesisConnectorFactory);
+        KinesisPlugin kinesisPlugin = new KinesisPlugin(kinesisConnectorFactory);
         connector = TestUtils.createConnector(kinesisPlugin, properties, true);
     }
 
