@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 public class TestingKinesisConnectorFactory
         extends KinesisConnectorFactory
 {
-    KinesisClientProvider kinesisClientProvider;
+    private KinesisClientProvider kinesisClientProvider;
 
     public TestingKinesisConnectorFactory(KinesisClientProvider kinesisClientProvider)
     {
