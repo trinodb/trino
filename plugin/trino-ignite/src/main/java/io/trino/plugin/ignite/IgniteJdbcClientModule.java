@@ -20,6 +20,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
@@ -40,6 +41,7 @@ public class IgniteJdbcClientModule
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(IgniteJdbcClient.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, IgniteTableProperties.class);
+        binder.install(new DecimalModule());
     }
 
     @Provides

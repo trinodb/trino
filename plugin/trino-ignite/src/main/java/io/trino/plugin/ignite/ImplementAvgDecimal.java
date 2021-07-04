@@ -65,15 +65,8 @@ public class ImplementAvgDecimal
 
         String column = context.getIdentifierQuote().apply(columnHandle.getColumnName());
 
-        if (type.getPrecision() == Decimals.MAX_PRECISION) {
-            return Optional.of(new JdbcExpression(
-                    format("CAST(sum(%s) / count(%1$s) AS decimal(%s, %s)", column, type.getPrecision(), type.getScale()),
-                    columnHandle.getJdbcTypeHandle()));
-        }
-
         // wait https://issues.apache.org/jira/browse/IGNITE-14948 to be solved.
         return Optional.of(new JdbcExpression(
-                format("round(CAST(sum(%s) / count(%1$s) AS decimal(%s, %s)), %s)", column, type.getPrecision() + 1, type.getScale() + 1, type.getScale()),
-                columnHandle.getJdbcTypeHandle()));
+                format("CAST(sum(%s) / count(%1$s) AS decimal(%s, %s))", column, type.getPrecision() + 1, type.getScale()), columnHandle.getJdbcTypeHandle()));
     }
 }
