@@ -39,6 +39,7 @@ public class IgniteTableProperties
 {
     private final List<PropertyMetadata<?>> tableProperties;
 
+    private static final int DEFAULT_REPLICATION_NUMBERS = 1;
     public static final String PRIMARY_KEY_PROPERTY = "primary_key";
     public static final String BACKUPS_PROPERTY = "backups";
     public static final String AFFINITY_KEY_PROPERTY = "affinity_key";
@@ -73,7 +74,7 @@ public class IgniteTableProperties
                 integerProperty(
                         BACKUPS_PROPERTY,
                         "The backup number for the table",
-                        1,
+                        DEFAULT_REPLICATION_NUMBERS,
                         value -> checkArgument(value > 0, "backups should greater than 0"),
                         false),
                 stringProperty(
