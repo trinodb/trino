@@ -22,7 +22,6 @@ import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 
 import java.util.Optional;
 
