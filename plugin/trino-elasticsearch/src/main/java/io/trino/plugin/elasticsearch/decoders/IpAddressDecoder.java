@@ -19,9 +19,6 @@ import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import org.elasticsearch.search.SearchHit;
-
-import java.util.function.Supplier;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -32,32 +29,26 @@ import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
 
 public class IpAddressDecoder
-        implements Decoder
+        extends AbstractDecoder<String>
 {
-    private final String path;
-    private final Type ipAddressType;
-
-    public IpAddressDecoder(String path, Type type)
+    public IpAddressDecoder(Type type)
     {
-        this.path = requireNonNull(path, "path is null");
-        this.ipAddressType = requireNonNull(type, "type is null");
+        super(requireNonNull(type, "type is null"));
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    protected String convert(String path, Object value)
     {
-        Object value = getter.get();
-        if (value == null) {
-            output.appendNull();
+        if (value instanceof String) {
+            return (String) value;
         }
-        else if (value instanceof String) {
-            String address = (String) value;
-            Slice slice = castToIpAddress(Slices.utf8Slice(address));
-            ipAddressType.writeSlice(output, slice);
-        }
-        else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a string value for field '%s' of type IP: %s [%s]", path, value, value.getClass().getSimpleName()));
-        }
+        throw new TrinoException(TYPE_MISMATCH, format("Expected a string value for field '%s' of type IP: %s [%s]", path, value, value.getClass().getSimpleName()));
+    }
+
+    @Override
+    protected void write(BlockBuilder output, String value)
+    {
+        type.writeSlice(output, castToIpAddress(Slices.utf8Slice(value)));
     }
 
     // This is a copy of IpAddressOperators.castFromVarcharToIpAddress method

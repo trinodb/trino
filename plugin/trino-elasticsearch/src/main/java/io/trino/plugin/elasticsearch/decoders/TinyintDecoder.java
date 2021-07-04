@@ -15,41 +15,29 @@ package io.trino.plugin.elasticsearch.decoders;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
-
-import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class TinyintDecoder
-        implements Decoder
+        extends AbstractDecoder<Long>
 {
-    private final String path;
-
-    public TinyintDecoder(String path)
+    public TinyintDecoder()
     {
-        this.path = requireNonNull(path, "path is null");
+        super(TINYINT);
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public Long convert(String path, Object value)
     {
-        Object value = getter.get();
-        if (value == null) {
-            output.appendNull();
-            return;
-        }
-
-        long decoded;
+        long tinyint;
         if (value instanceof Number) {
-            decoded = ((Number) value).longValue();
+            tinyint = ((Number) value).longValue();
         }
         else if (value instanceof String) {
             try {
-                decoded = Long.parseLong((String) value);
+                tinyint = Long.parseLong((String) value);
             }
             catch (NumberFormatException e) {
                 throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as TINYINT: %s", path, value));
@@ -59,10 +47,16 @@ public class TinyintDecoder
             throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type TINYINT: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
 
-        if (decoded < Byte.MIN_VALUE || decoded > Byte.MAX_VALUE) {
-            throw new TrinoException(TYPE_MISMATCH, format("Value out of range for field '%s' of type TINYINT: %s", path, decoded));
+        if (tinyint < Byte.MIN_VALUE || tinyint > Byte.MAX_VALUE) {
+            throw new TrinoException(TYPE_MISMATCH, format("Value out of range for field '%s' of type TINYINT: %s", path, tinyint));
         }
 
-        TINYINT.writeLong(output, decoded);
+        return tinyint;
+    }
+
+    @Override
+    public void write(BlockBuilder output, Long value)
+    {
+        TINYINT.writeLong(output, value);
     }
 }

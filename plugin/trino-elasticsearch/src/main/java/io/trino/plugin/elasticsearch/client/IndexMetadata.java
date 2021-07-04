@@ -120,6 +120,7 @@ public class IndexMetadata
             return name;
         }
 
+        @Override
         public Type toTrinoType()
         {
             switch (name) {

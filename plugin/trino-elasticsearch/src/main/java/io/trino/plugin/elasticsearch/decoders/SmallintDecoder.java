@@ -15,41 +15,29 @@ package io.trino.plugin.elasticsearch.decoders;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
-
-import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class SmallintDecoder
-        implements Decoder
+        extends AbstractDecoder<Long>
 {
-    private final String path;
-
-    public SmallintDecoder(String path)
+    public SmallintDecoder()
     {
-        this.path = requireNonNull(path, "path is null");
+        super(SMALLINT);
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public Long convert(String path, Object value)
     {
-        Object value = getter.get();
-        if (value == null) {
-            output.appendNull();
-            return;
-        }
-
-        long decoded;
+        long smallint;
         if (value instanceof Number) {
-            decoded = ((Number) value).longValue();
+            smallint = ((Number) value).longValue();
         }
         else if (value instanceof String) {
             try {
-                decoded = Long.parseLong((String) value);
+                smallint = Long.parseLong((String) value);
             }
             catch (NumberFormatException e) {
                 throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as SMALLINT: %s", path, value));
@@ -59,10 +47,16 @@ public class SmallintDecoder
             throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type SMALLINT: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
 
-        if (decoded < Short.MIN_VALUE || decoded > Short.MAX_VALUE) {
-            throw new TrinoException(TYPE_MISMATCH, format("Value out of range for field '%s' of type SMALLINT: %s", path, decoded));
+        if (smallint < Short.MIN_VALUE || smallint > Short.MAX_VALUE) {
+            throw new TrinoException(TYPE_MISMATCH, format("Value out of range for field '%s' of type SMALLINT: %s", path, smallint));
         }
 
-        SMALLINT.writeLong(output, decoded);
+        return smallint;
+    }
+
+    @Override
+    public void write(BlockBuilder output, Long value)
+    {
+        SMALLINT.writeLong(output, value);
     }
 }

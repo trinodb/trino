@@ -15,42 +15,29 @@ package io.trino.plugin.elasticsearch.decoders;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
-
-import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class IntegerDecoder
-        implements Decoder
+        extends AbstractDecoder<Long>
 {
-    private final String path;
-
-    public IntegerDecoder(String path)
+    public IntegerDecoder()
     {
-        this.path = requireNonNull(path, "path is null");
+        super(INTEGER);
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public Long convert(String path, Object value)
     {
-        Object value = getter.get();
-
-        if (value == null) {
-            output.appendNull();
-            return;
-        }
-
-        long decoded;
+        long integer;
         if (value instanceof Number) {
-            decoded = ((Number) value).longValue();
+            integer = ((Number) value).longValue();
         }
         else if (value instanceof String) {
             try {
-                decoded = Long.parseLong((String) value);
+                integer = Long.parseLong((String) value);
             }
             catch (NumberFormatException e) {
                 throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as INTEGER: %s", path, value));
@@ -60,10 +47,16 @@ public class IntegerDecoder
             throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type INTEGER: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
 
-        if (decoded < Integer.MIN_VALUE || decoded > Integer.MAX_VALUE) {
-            throw new TrinoException(TYPE_MISMATCH, format("Value out of range for field '%s' of type INTEGER: %s", path, decoded));
+        if (integer < Integer.MIN_VALUE || integer > Integer.MAX_VALUE) {
+            throw new TrinoException(TYPE_MISMATCH, format("Value out of range for field '%s' of type INTEGER: %s", path, integer));
         }
 
-        INTEGER.writeLong(output, decoded);
+        return integer;
+    }
+
+    @Override
+    public void write(BlockBuilder output, Long value)
+    {
+        INTEGER.writeLong(output, value);
     }
 }

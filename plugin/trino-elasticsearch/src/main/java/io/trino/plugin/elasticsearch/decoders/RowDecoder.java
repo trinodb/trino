@@ -15,9 +15,7 @@ package io.trino.plugin.elasticsearch.decoders;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
 
-import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -29,31 +27,25 @@ import static java.util.Objects.requireNonNull;
 public class RowDecoder
         implements Decoder
 {
-    private final String path;
-    private final List<String> fieldNames;
-    private final List<Decoder> decoders;
+    private final Map<String, Decoder> elementsDecoder;
 
-    public RowDecoder(String path, List<String> fieldNames, List<Decoder> decoders)
+    public RowDecoder(Map<String, Decoder> elementsDecoder)
     {
-        this.path = requireNonNull(path, "path is null");
-        this.fieldNames = fieldNames;
-        this.decoders = decoders;
+        this.elementsDecoder = elementsDecoder;
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(String path, Supplier<Object> getter, BlockBuilder output)
     {
+        requireNonNull(path, "path is null");
         Object data = getter.get();
-
         if (data == null) {
             output.appendNull();
         }
         else if (data instanceof Map) {
             BlockBuilder row = output.beginBlockEntry();
-            for (int i = 0; i < decoders.size(); i++) {
-                String field = fieldNames.get(i);
-                decoders.get(i).decode(hit, () -> getField((Map<String, Object>) data, field), row);
-            }
+            elementsDecoder.entrySet().stream()
+                    .forEach(elementDecoder -> elementDecoder.getValue().decode(elementDecoder.getKey(), () -> getField((Map<String, Object>) data, elementDecoder.getKey()), row));
             output.closeEntry();
         }
         else {

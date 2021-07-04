@@ -15,45 +15,39 @@ package io.trino.plugin.elasticsearch.decoders;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
-
-import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class BigintDecoder
-        implements Decoder
+        extends AbstractDecoder<Long>
 {
-    private final String path;
-
-    public BigintDecoder(String path)
+    public BigintDecoder()
     {
-        this.path = requireNonNull(path, "path is null");
+        super(BIGINT);
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public Long convert(String path, Object value)
     {
-        Object value = getter.get();
-        if (value == null) {
-            output.appendNull();
-        }
-        else if (value instanceof Number) {
-            BIGINT.writeLong(output, ((Number) value).longValue());
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
         }
         else if (value instanceof String) {
             try {
-                BIGINT.writeLong(output, Long.parseLong((String) value));
+                return Long.parseLong((String) value);
             }
             catch (NumberFormatException e) {
                 throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as BIGINT: %s", path, value));
             }
         }
-        else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type BIGINT: %s [%s]", path, value, value.getClass().getSimpleName()));
-        }
+        throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type BIGINT: %s [%s]", path, value, value.getClass().getSimpleName()));
+    }
+
+    @Override
+    protected void write(BlockBuilder output, Long value)
+    {
+        BIGINT.writeLong(output, value);
     }
 }

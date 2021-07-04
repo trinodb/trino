@@ -14,7 +14,6 @@
 package io.trino.plugin.elasticsearch.decoders;
 
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -30,7 +29,7 @@ public class ArrayDecoder
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(String path, Supplier<Object> getter, BlockBuilder output)
     {
         Object data = getter.get();
 
@@ -39,12 +38,12 @@ public class ArrayDecoder
         }
         else if (data instanceof List) {
             BlockBuilder array = output.beginBlockEntry();
-            ((List<?>) data).forEach(element -> elementDecoder.decode(hit, () -> element, array));
+            ((List<?>) data).forEach(element -> elementDecoder.decode(path, () -> element, array));
             output.closeEntry();
         }
         else {
             BlockBuilder array = output.beginBlockEntry();
-            elementDecoder.decode(hit, () -> data, array);
+            elementDecoder.decode(path, () -> data, array);
             output.closeEntry();
         }
     }

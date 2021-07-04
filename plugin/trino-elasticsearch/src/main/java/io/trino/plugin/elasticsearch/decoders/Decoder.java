@@ -14,22 +14,14 @@
 package io.trino.plugin.elasticsearch.decoders;
 
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
+import io.trino.spi.type.Type;
 
 import java.util.function.Supplier;
 
 public interface Decoder
 {
     /**
-     * @deprecated use {@link #decode(String, SearchHit, Supplier, BlockBuilder)}
+     * Decodes elasticsearch value to trino {@link Type} and write to {@link BlockBuilder}.
      */
-    @Deprecated
-    void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output);
-
-    /**
-     * Decoder for elasticsearch SearchHit to trino BlockBuilder.
-     */
-    default void decode(String path, SearchHit hit, Supplier<Object> getter, BlockBuilder output)
-    {
-    }
+    void decode(String path, Supplier<Object> valueSupplier, BlockBuilder output);
 }

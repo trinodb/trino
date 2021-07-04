@@ -16,77 +16,56 @@ package io.trino.plugin.elasticsearch.decoders;
 import com.google.common.primitives.Longs;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.common.document.DocumentField;
-import org.elasticsearch.search.SearchHit;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
-import static java.util.Objects.requireNonNull;
 
 public class TimestampDecoder
-        implements Decoder
+        extends AbstractDecoder<Long>
 {
-    private final String path;
-
-    public TimestampDecoder(String path)
+    public TimestampDecoder()
     {
-        this.path = requireNonNull(path, "path is null");
+        super(TIMESTAMP_MILLIS);
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public Long convert(String path, Object value)
     {
-        DocumentField documentField = hit.getFields().get(path);
-        Object value = null;
-
-        if (documentField != null) {
-            if (documentField.getValues().size() > 1) {
-                throw new TrinoException(TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", path, documentField.getValues().size()));
-            }
-            value = documentField.getValue();
-        }
-        else {
-            value = getter.get();
-        }
-
-        if (value == null) {
-            output.appendNull();
-        }
-        else {
-            LocalDateTime timestamp;
-            if (value instanceof String) {
-                String valueString = (String) value;
-                Long epochMillis = Longs.tryParse(valueString);
-                if (epochMillis != null) {
-                    timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), UTC);
-                }
-                else {
-                    timestamp = ISO_DATE_TIME.parse(valueString, LocalDateTime::from);
-                }
-            }
-            else if (value instanceof Number) {
-                timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), UTC);
+        LocalDateTime timestamp;
+        if (value instanceof String) {
+            String valueString = (String) value;
+            Long epochMillis = Longs.tryParse(valueString);
+            if (epochMillis != null) {
+                timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), UTC);
             }
             else {
-                throw new TrinoException(NOT_SUPPORTED, format(
-                        "Unsupported representation for field '%s' of type TIMESTAMP: %s [%s]",
-                        path,
-                        value,
-                        value.getClass().getSimpleName()));
+                timestamp = ISO_DATE_TIME.parse(valueString, LocalDateTime::from);
             }
-
-            long epochMicros = timestamp.atOffset(UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
-
-            TIMESTAMP_MILLIS.writeLong(output, epochMicros);
         }
+        else if (value instanceof Number) {
+            timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), UTC);
+        }
+        else {
+            throw new TrinoException(NOT_SUPPORTED, format(
+                    "Unsupported representation for field '%s' of type TIMESTAMP: %s [%s]",
+                    path,
+                    value,
+                    value.getClass().getSimpleName()));
+        }
+
+        return timestamp.atOffset(UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+    }
+
+    @Override
+    public void write(BlockBuilder output, Long value)
+    {
+        TIMESTAMP_MILLIS.writeLong(output, value);
     }
 }
