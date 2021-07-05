@@ -50,6 +50,8 @@ public class TestFileSystemCache
 
         FileSystem fs5 = getFileSystem(environment, "user");
         assertNotSame(fs5, fs1);
+
+        environment.doAs("user", () -> FileSystem.getLocal(new Configuration(false)));
     }
 
     private FileSystem getFileSystem(HdfsEnvironment environment, String user)

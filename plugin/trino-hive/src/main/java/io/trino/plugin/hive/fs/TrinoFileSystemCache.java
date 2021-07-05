@@ -24,6 +24,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileSystemCache;
 import org.apache.hadoop.fs.FilterFileSystem;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Options;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -130,7 +131,13 @@ public class TrinoFileSystemCache
         }
         FileSystem original = (FileSystem) ReflectionUtils.newInstance(clazz, conf);
         original.initialize(uri, conf);
-        FilterFileSystem wrapper = new FileSystemWrapper(original);
+        FilterFileSystem wrapper;
+        if (original instanceof LocalFileSystem) {
+            wrapper = new LocalFileSystemWrapper((LocalFileSystem) original);
+        }
+        else {
+            wrapper = new FileSystemWrapper(original);
+        }
         FileSystemFinalizerService.getInstance().addFinalizer(wrapper, () -> {
             try {
                 original.close();
@@ -296,6 +303,58 @@ public class TrinoFileSystemCache
             extends FilterFileSystem
     {
         public FileSystemWrapper(FileSystem fs)
+        {
+            super(fs);
+        }
+
+        @Override
+        public FSDataInputStream open(Path f, int bufferSize)
+                throws IOException
+        {
+            return new InputStreamWrapper(getRawFileSystem().open(f, bufferSize), this);
+        }
+
+        @Override
+        public FSDataOutputStream append(Path f, int bufferSize, Progressable progress)
+                throws IOException
+        {
+            return new OutputStreamWrapper(getRawFileSystem().append(f, bufferSize, progress), this);
+        }
+
+        @Override
+        public FSDataOutputStream create(Path f, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
+                throws IOException
+        {
+            return new OutputStreamWrapper(getRawFileSystem().create(f, permission, overwrite, bufferSize, replication, blockSize, progress), this);
+        }
+
+        @Override
+        public FSDataOutputStream create(Path f, FsPermission permission, EnumSet<CreateFlag> flags, int bufferSize, short replication, long blockSize, Progressable progress, Options.ChecksumOpt checksumOpt)
+                throws IOException
+        {
+            return new OutputStreamWrapper(getRawFileSystem().create(f, permission, flags, bufferSize, replication, blockSize, progress, checksumOpt), this);
+        }
+
+        @Override
+        public FSDataOutputStream createNonRecursive(Path f, FsPermission permission, EnumSet<CreateFlag> flags, int bufferSize, short replication, long blockSize, Progressable progress)
+                throws IOException
+        {
+            return new OutputStreamWrapper(getRawFileSystem().createNonRecursive(f, permission, flags, bufferSize, replication, blockSize, progress), this);
+        }
+
+        // missing in FilterFileSystem (HADOOP-16399)
+        @Override
+        public BlockLocation[] getFileBlockLocations(Path p, long start, long len)
+                throws IOException
+        {
+            return fs.getFileBlockLocations(p, start, len);
+        }
+    }
+
+    private static class LocalFileSystemWrapper
+            extends LocalFileSystem
+    {
+        public LocalFileSystemWrapper(LocalFileSystem fs)
         {
             super(fs);
         }
