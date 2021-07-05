@@ -3056,6 +3056,12 @@ public class HiveMetadata
     }
 
     @Override
+    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
+    {
+        return hiveMaterializedViewMetadata.delegateMaterializedViewRefreshToConnector(session, viewName);
+    }
+
+    @Override
     public CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName name)
     {
         return hiveMaterializedViewMetadata.refreshMaterializedView(session, name);

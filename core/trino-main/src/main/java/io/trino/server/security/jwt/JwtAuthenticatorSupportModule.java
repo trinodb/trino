@@ -24,7 +24,7 @@ import javax.inject.Singleton;
 
 import java.net.URI;
 
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 
@@ -35,7 +35,7 @@ public class JwtAuthenticatorSupportModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(JwtAuthenticatorConfig.class);
-        install(installModuleIf(
+        install(conditionalModule(
                 JwtAuthenticatorConfig.class,
                 JwtAuthenticatorSupportModule::isHttp,
                 new JwkModule(),

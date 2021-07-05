@@ -39,7 +39,7 @@ import io.trino.spi.type.TypeManager;
 import javax.inject.Inject;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -95,7 +95,7 @@ public class KafkaConnectorModule
 
     public void bindTopicSchemaProviderModule(String name, Module module)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 KafkaConfig.class,
                 kafkaConfig -> name.equalsIgnoreCase(kafkaConfig.getTableDescriptionSupplier()),
                 module));

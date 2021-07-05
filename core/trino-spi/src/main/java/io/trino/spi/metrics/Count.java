@@ -11,14 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.util;
+package io.trino.spi.metrics;
 
-public interface Mergeable<T>
+public interface Count<T>
+        extends Metric<T>
 {
-    /**
-     * Merges the current state with the state of the other instance, and returns the merged state.
-     *
-     * @throws NullPointerException if other is null
-     */
-    T mergeWith(T other);
+    long getTotal();
 }

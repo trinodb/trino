@@ -26,7 +26,7 @@ import io.trino.spi.type.TypeManager;
 import javax.inject.Inject;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.trino.plugin.elasticsearch.ElasticsearchConfig.Security.AWS;
@@ -57,14 +57,14 @@ public class ElasticsearchConnectorModule
         newOptionalBinder(binder, AwsSecurityConfig.class);
         newOptionalBinder(binder, PasswordConfig.class);
 
-        install(installModuleIf(
+        install(conditionalModule(
                 ElasticsearchConfig.class,
                 config -> config.getSecurity()
                         .filter(isEqual(AWS))
                         .isPresent(),
                 conditionalBinder -> configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class)));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 ElasticsearchConfig.class,
                 config -> config.getSecurity()
                         .filter(isEqual(PASSWORD))

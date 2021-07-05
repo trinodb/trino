@@ -145,7 +145,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -247,11 +247,11 @@ public class ServerMainModule
 
         // network topology
         // TODO: move to CoordinatorModule when NodeScheduler is moved
-        install(installModuleIf(
+        install(conditionalModule(
                 NodeSchedulerConfig.class,
                 config -> UNIFORM == config.getNodeSchedulerPolicy(),
                 new UniformNodeSelectorModule()));
-        install(installModuleIf(
+        install(conditionalModule(
                 NodeSchedulerConfig.class,
                 config -> TOPOLOGY == config.getNodeSchedulerPolicy(),
                 new TopologyAwareNodeSelectorModule()));

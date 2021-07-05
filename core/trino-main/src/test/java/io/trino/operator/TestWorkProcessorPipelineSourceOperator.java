@@ -26,6 +26,7 @@ import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.WorkProcessorAssertion.Transform;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
@@ -390,6 +391,12 @@ public class TestWorkProcessorPipelineSourceOperator
         public Duration getReadTime()
         {
             return new Duration(7, NANOSECONDS);
+        }
+
+        @Override
+        public Metrics getConnectorMetrics()
+        {
+            return Metrics.EMPTY;
         }
 
         @Override
