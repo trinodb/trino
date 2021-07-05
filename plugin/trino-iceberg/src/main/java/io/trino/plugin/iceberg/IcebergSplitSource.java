@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.HdfsEnvironment;
@@ -53,8 +54,13 @@ public class IcebergSplitSource
     private final Iterator<FileScanTask> fileScanIterator;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
+    private final boolean locality;
 
-    public IcebergSplitSource(CloseableIterable<CombinedScanTask> combinedScanIterable, HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext)
+    public IcebergSplitSource(
+            CloseableIterable<CombinedScanTask> combinedScanIterable,
+            HdfsEnvironment hdfsEnvironment,
+            HdfsContext hdfsContext,
+            boolean locality)
     {
         this.combinedScanIterable = requireNonNull(combinedScanIterable, "combinedScanIterable is null");
 
@@ -64,6 +70,7 @@ public class IcebergSplitSource
                 .iterator();
         this.hdfsEnvironment = hdfsEnvironment;
         this.hdfsContext = hdfsContext;
+        this.locality = locality;
     }
 
     @Override
@@ -109,8 +116,18 @@ public class IcebergSplitSource
                 task.length(),
                 task.file().fileSizeInBytes(),
                 task.file().format(),
-                blocklocations(task),
+                getAddresses(task),
                 getPartitionKeys(task));
+    }
+
+    private List<HostAddress> getAddresses(FileScanTask task)
+    {
+        if (locality) {
+            return blocklocations(task);
+        }
+        else {
+            return ImmutableList.of();
+        }
     }
 
     private List<HostAddress> blocklocations(FileScanTask task)

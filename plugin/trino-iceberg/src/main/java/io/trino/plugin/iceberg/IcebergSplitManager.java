@@ -30,6 +30,7 @@ import org.apache.iceberg.TableScan;
 import javax.inject.Inject;
 
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isLocality;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -75,7 +76,11 @@ public class IcebergSplitManager
 
         // TODO Use residual. Right now there is no way to propagate residual to Trino but at least we can
         //      propagate it at split level so the parquet pushdown can leverage it.
-        IcebergSplitSource splitSource = new IcebergSplitSource(tableScan.planTasks(), hdfsEnvironment, new HdfsContext(session));
+        IcebergSplitSource splitSource = new IcebergSplitSource(
+                tableScan.planTasks(),
+                hdfsEnvironment,
+                new HdfsContext(session),
+                isLocality(session));
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
     }

@@ -61,6 +61,7 @@ public final class IcebergSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    private static final String LOCALITY = "locality";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -77,6 +78,11 @@ public final class IcebergSessionProperties
                         "Compression codec to use when writing files",
                         HiveCompressionCodec.class,
                         icebergConfig.getCompressionCodec(),
+                        false))
+                .add(booleanProperty(
+                        LOCALITY,
+                        "When true, we will get block locations from FileSystem for every datafile",
+                        icebergConfig.isLocality(),
                         false))
                 .add(booleanProperty(
                         USE_FILE_SIZE_FROM_METADATA,
@@ -188,6 +194,11 @@ public final class IcebergSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public static boolean isLocality(ConnectorSession session)
+    {
+        return session.getProperty(LOCALITY, Boolean.class);
     }
 
     public static boolean isOrcBloomFiltersEnabled(ConnectorSession session)
