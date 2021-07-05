@@ -359,8 +359,7 @@ public final class HttpRemoteTask
         updateSplitQueueSpace();
 
         if (needsUpdate) {
-            this.needsUpdate.set(true);
-            scheduleUpdate();
+            triggerUpdate();
         }
     }
 
@@ -372,16 +371,14 @@ public final class HttpRemoteTask
         }
 
         noMoreSplits.put(sourceId, true);
-        needsUpdate.set(true);
-        scheduleUpdate();
+        triggerUpdate();
     }
 
     @Override
     public synchronized void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
     {
         if (pendingNoMoreSplitsForLifespan.put(sourceId, lifespan)) {
-            needsUpdate.set(true);
-            scheduleUpdate();
+            triggerUpdate();
         }
     }
 
@@ -394,8 +391,7 @@ public final class HttpRemoteTask
 
         if (newOutputBuffers.getVersion() > outputBuffers.get().getVersion()) {
             outputBuffers.set(newOutputBuffers);
-            needsUpdate.set(true);
-            scheduleUpdate();
+            triggerUpdate();
         }
     }
 
@@ -509,6 +505,13 @@ public final class HttpRemoteTask
     private void scheduleUpdate()
     {
         executor.execute(this::sendUpdate);
+    }
+
+    private synchronized void triggerUpdate()
+    {
+        // synchronized so that needsUpdate is not cleared in sendUpdate before actual request is sent
+        needsUpdate.set(true);
+        sendUpdate();
     }
 
     private synchronized void sendUpdate()
