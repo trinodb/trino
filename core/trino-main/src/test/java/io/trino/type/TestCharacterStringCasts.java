@@ -67,6 +67,11 @@ public class TestCharacterStringCasts
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
         String codePointBeforeSpace = new String(Character.toChars(' ' - 1));
 
+        assertEquals(varcharToCharSaturatedFloorCast(
+                5L,
+                utf8Slice("123" + new String(Character.toChars(0xE000)))),
+                utf8Slice("123" + new String(Character.toChars(0xD7FF)) + maxCodePoint));
+
         // Truncation
         assertEquals(varcharToCharSaturatedFloorCast(
                 4L,
