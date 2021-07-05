@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.operator.output;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -20,6 +20,10 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
 import io.trino.memory.context.SimpleLocalMemoryContext;
+import io.trino.operator.DriverContext;
+import io.trino.operator.InterpretedHashGenerator;
+import io.trino.operator.OperatorContext;
+import io.trino.operator.PartitionFunction;
 import io.trino.operator.exchange.LocalPartitionGenerator;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
