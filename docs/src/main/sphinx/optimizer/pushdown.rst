@@ -188,3 +188,108 @@ FETCH FIRST N ROWS``.
 
 Implementation and support is connector-specific since different data sources
 support different SQL syntax and processing.
+
+We will be showcased two similar queries for demonstrating how the Trino
+compute engine deals with a connector supporting Top-N functionality and also with a
+connector which is missing this functionality.
+
+Following is  presented a concrete example of a Top-N query
+on the ``tpch`` connector which does not support Top-N pushdown functionality::
+
+    SELECT custkey, name
+    FROM tpch.sf1.customer
+    ORDER BY custkey
+    LIMIT 5;
+
+You can get the explain plan by prepending the above query with ``EXPLAIN``::
+
+    EXPLAIN SELECT custkey, name
+    FROM tpch.sf1.customer
+    ORDER BY custkey
+    LIMIT 5;
+
+Following is presented the query plan of the ``EXPLAIN`` query.
+
+.. code-block:: text
+
+ Fragment 0 [SINGLE]
+     Output layout: [custkey, name]
+     Output partitioning: SINGLE []
+     Stage Execution Strategy: UNGROUPED_EXECUTION
+     Output[custkey, name]
+     │   Layout: [custkey:bigint, name:varchar(25)]
+     │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+     └─ TopN[5 by (custkey ASC NULLS LAST)]
+        │   Layout: [custkey:bigint, name:varchar(25)]
+        └─ LocalExchange[SINGLE] ()
+           │   Layout: [custkey:bigint, name:varchar(25)]
+           │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+           └─ RemoteSource[1]
+                  Layout: [custkey:bigint, name:varchar(25)]
+
+ Fragment 1 [SOURCE]
+     Output layout: [custkey, name]
+     Output partitioning: SINGLE []
+     Stage Execution Strategy: UNGROUPED_EXECUTION
+     TopNPartial[5 by (custkey ASC NULLS LAST)]
+     │   Layout: [custkey:bigint, name:varchar(25)]
+     └─ TableScan[tpch:customer:sf1.0, grouped = false]
+            Layout: [custkey:bigint, name:varchar(25)]
+            Estimates: {rows: 150000 (4.58MB), cpu: 4.58M, memory: 0B, network: 0B}
+            custkey := tpch:custkey
+            name := tpch:name
+
+Note in the query above the Top-N operator ``TopN[5 by (custkey ASC NULLS LAST)]``
+is being applied in the ``SINGLE`` fragment at the compute engine level and not at the source
+database level.
+
+Following is presented a concrete example of a Top-N pushdown query
+on top of a PostgreSQL database::
+
+    SELECT id, name
+    FROM postgresql.public.company
+    ORDER BY id
+    LIMIT 5;
+
+Following is presented the query plan of the ``EXPLAIN`` query.
+
+.. code-block:: text
+
+ Fragment 0 [SINGLE]
+     Output layout: [id, name]
+     Output partitioning: SINGLE []
+     Stage Execution Strategy: UNGROUPED_EXECUTION
+     Output[id, name]
+     │   Layout: [id:integer, name:varchar]
+     │   Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: ?}
+     └─ RemoteSource[1]
+            Layout: [id:integer, name:varchar]
+
+ Fragment 1 [SOURCE]
+     Output layout: [id, name]
+     Output partitioning: SINGLE []
+     Stage Execution Strategy: UNGROUPED_EXECUTION
+     TableScan[postgresql:public.company public.company sortOrder=[id:integer:int4 ASC NULLS LAST] limit=5, grouped = false]
+         Layout: [id:integer, name:varchar]
+         Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: 0B}
+         name := name:varchar:text
+         id := id:integer:int4
+
+
+Note that, compared to the previous query executed on top of the ``tpch`` connector,
+the output of the ``EXPLAIN`` query applied on top of the ``postgresql`` connector
+is missing the reference to the operator ``TopN[5 by (id ASC NULLS LAST)]``
+in the ``SINGLE`` fragment which corresponds to the operations to be performed
+at compute engine level.
+
+The absence of the ``TopN`` operator in the ``SINGLE`` fragment
+demonstrates that the query benefits of the Top-N pushdown optimization.
+
+On a side note, within ``SOURCE`` fragment corresponding to the computation performed within
+PostgreSQL database, there can be observed that the ``TableScan`` element
+contains information about ``sortOrder`` and ``limit`` which
+are to be pushed down to the data source::
+
+    sortOrder=[id:integer:int4 ASC NULLS LAST] limit=5
+
+This output though is connector specific.
