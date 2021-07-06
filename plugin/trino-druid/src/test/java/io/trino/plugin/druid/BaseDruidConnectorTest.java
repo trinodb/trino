@@ -36,7 +36,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseDruidConnectorTest
         extends BaseJdbcConnectorTest
@@ -142,27 +141,6 @@ public abstract class BaseDruidConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
-    }
-
-    @Override
-    public void testDeleteWithVarcharEqualityPredicate()
-    {
-        assertThatThrownBy(() -> super.testDeleteWithVarcharEqualityPredicate())
-                .hasMessage("This connector does not support creating tables");
-    }
-
-    @Override
-    public void testDeleteWithVarcharInequalityPredicate()
-    {
-        assertThatThrownBy(() -> super.testDeleteWithVarcharInequalityPredicate())
-                .hasMessage("This connector does not support creating tables");
-    }
-
-    @Override
-    public void testDeleteWithVarcharGreaterAndLowerPredicate()
-    {
-        assertThatThrownBy(() -> super.testDeleteWithVarcharGreaterAndLowerPredicate())
-                .hasMessage("This connector does not support creating tables");
     }
 
     @Override
