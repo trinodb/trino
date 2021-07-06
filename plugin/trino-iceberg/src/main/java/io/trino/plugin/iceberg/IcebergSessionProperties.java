@@ -43,6 +43,7 @@ public final class IcebergSessionProperties
 {
     private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String USE_FILE_SIZE_FROM_METADATA = "use_file_size_from_metadata";
+    private static final String FETCH_SPLIT_LOCATIONS = "fetch_split_locations";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
@@ -61,7 +62,6 @@ public final class IcebergSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
-    private static final String LOCALITY = "locality";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -80,14 +80,14 @@ public final class IcebergSessionProperties
                         icebergConfig.getCompressionCodec(),
                         false))
                 .add(booleanProperty(
-                        LOCALITY,
-                        "When true, we will get block locations from FileSystem for every datafile",
-                        icebergConfig.isLocality(),
-                        false))
-                .add(booleanProperty(
                         USE_FILE_SIZE_FROM_METADATA,
                         "Use file size stored in Iceberg metadata",
                         icebergConfig.isUseFileSizeFromMetadata(),
+                        false))
+                .add(booleanProperty(
+                        FETCH_SPLIT_LOCATIONS,
+                        "When true, we will get block locations from FileSystem for every datafile",
+                        icebergConfig.isFetchingSplitLocations(),
                         false))
                 .add(booleanProperty(
                         ORC_BLOOM_FILTERS_ENABLED,
@@ -196,11 +196,6 @@ public final class IcebergSessionProperties
         return sessionProperties;
     }
 
-    public static boolean isLocality(ConnectorSession session)
-    {
-        return session.getProperty(LOCALITY, Boolean.class);
-    }
-
     public static boolean isOrcBloomFiltersEnabled(ConnectorSession session)
     {
         return session.getProperty(ORC_BLOOM_FILTERS_ENABLED, Boolean.class);
@@ -291,6 +286,11 @@ public final class IcebergSessionProperties
     public static boolean isUseFileSizeFromMetadata(ConnectorSession session)
     {
         return session.getProperty(USE_FILE_SIZE_FROM_METADATA, Boolean.class);
+    }
+
+    public static boolean isFetchingSplitLocations(ConnectorSession session)
+    {
+        return session.getProperty(FETCH_SPLIT_LOCATIONS, Boolean.class);
     }
 
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)

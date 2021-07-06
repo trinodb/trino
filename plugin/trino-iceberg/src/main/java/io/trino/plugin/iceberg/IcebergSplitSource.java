@@ -49,18 +49,18 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
-    private static final Logger log = Logger.get(IcebergMetadata.class);
+    private static final Logger log = Logger.get(IcebergSplitSource.class);
     private final CloseableIterable<CombinedScanTask> combinedScanIterable;
     private final Iterator<FileScanTask> fileScanIterator;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
-    private final boolean locality;
+    private final boolean fetchSplitLocations;
 
     public IcebergSplitSource(
             CloseableIterable<CombinedScanTask> combinedScanIterable,
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
-            boolean locality)
+            boolean fetchSplitLocations)
     {
         this.combinedScanIterable = requireNonNull(combinedScanIterable, "combinedScanIterable is null");
 
@@ -68,9 +68,9 @@ public class IcebergSplitSource
                 .map(CombinedScanTask::files)
                 .flatMap(Collection::stream)
                 .iterator();
-        this.hdfsEnvironment = hdfsEnvironment;
-        this.hdfsContext = hdfsContext;
-        this.locality = locality;
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
+        this.fetchSplitLocations = fetchSplitLocations;
     }
 
     @Override
@@ -122,29 +122,26 @@ public class IcebergSplitSource
 
     private List<HostAddress> getAddresses(FileScanTask task)
     {
-        if (locality) {
-            return blocklocations(task);
-        }
-        else {
+        if (!fetchSplitLocations) {
             return ImmutableList.of();
         }
+        return blockLocations(task);
     }
 
-    private List<HostAddress> blocklocations(FileScanTask task)
+    private List<HostAddress> blockLocations(FileScanTask task)
     {
-        Set<HostAddress> locationSets = new HashSet<>();
+        Set<HostAddress> locations = new HashSet<>();
         Path path = new Path(task.file().path().toString());
         try {
             FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
-            for (BlockLocation b : fs.getFileBlockLocations(path, task.start(), task.length())) {
-                locationSets.addAll(getHostAddresses(b));
+            for (BlockLocation blockLocation : fs.getFileBlockLocations(path, task.start(), task.length())) {
+                locations.addAll(getHostAddresses(blockLocation));
             }
         }
         catch (IOException e) {
             log.warn("Failed to get block locations for path %s", path, e);
         }
-        ArrayList<HostAddress> list = new ArrayList<>(locationSets);
-        return list;
+        return new ArrayList<>(locations);
     }
 
     private static List<HostAddress> getHostAddresses(BlockLocation blockLocation)
@@ -152,12 +149,13 @@ public class IcebergSplitSource
         // Hadoop FileSystem returns "localhost" as a default
         return Arrays.stream(getBlockHosts(blockLocation))
                 .map(HostAddress::fromString)
-                .filter(address -> !address.getHostText().equals("localhost"))
+                .filter(address -> !"localhost".equals(address.getHostText()))
                 .collect(toImmutableList());
     }
 
     private static String[] getBlockHosts(BlockLocation blockLocation)
     {
+        // To handle IOException from BlockLocation#getHosts
         try {
             return blockLocation.getHosts();
         }

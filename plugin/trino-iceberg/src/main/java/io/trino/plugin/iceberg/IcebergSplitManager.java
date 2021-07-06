@@ -30,7 +30,7 @@ import org.apache.iceberg.TableScan;
 import javax.inject.Inject;
 
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.isLocality;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isFetchingSplitLocations;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -80,7 +80,7 @@ public class IcebergSplitManager
                 tableScan.planTasks(),
                 hdfsEnvironment,
                 new HdfsContext(session),
-                isLocality(session));
+                isFetchingSplitLocations(session));
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
     }
