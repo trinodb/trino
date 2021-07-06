@@ -178,7 +178,7 @@ public class PredicatePushDown
         private final TypeProvider types;
         private final ExpressionEquivalence expressionEquivalence;
         private final boolean dynamicFiltering;
-        private static final int MAX_LINEAR_EXPANSION_LENGTH = 1024;
+        private static final int MAX_EXPR_REFERENCE_COUNT = 50;
 
         private Rewriter(
                 SymbolAllocator symbolAllocator,
@@ -348,9 +348,9 @@ public class PredicatePushDown
         private boolean isEligibleForLinearExpansion(Expression expr, long count)
         {
             // Qualify the expression that refers to at most a single symbol
-            // but also avoid excessive duplication of long expression
+            // but also avoid excessive duplication of repeated references to the same expression
             return SymbolsExtractor.extractAll(expr).size() <= 1 &&
-                    expr.toString().length() * count <= MAX_LINEAR_EXPANSION_LENGTH;
+                    count <= MAX_EXPR_REFERENCE_COUNT;
         }
 
         @Override

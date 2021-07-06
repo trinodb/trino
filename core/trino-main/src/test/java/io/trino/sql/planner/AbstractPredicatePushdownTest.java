@@ -317,7 +317,7 @@ public abstract class AbstractPredicatePushdownTest
                                         tableScan("orders", ImmutableMap.of(
                                                 "orderdate", "orderdate"))))));
 
-        // Complex expression should not be pushed down, if the expansion exceeds the length threshold, even though there is only one symbol being referenced
+        // Complex expression should not be pushed down, if the expansion exceeds the expression count threshold, even though there is only one symbol being referenced
         assertPlan(
                 "WITH t AS (SELECT CAST(orderdate AS VARCHAR) x FROM orders) " +
                         "SELECT * FROM t WHERE x = '2021-01-01' OR x = '2021-01-02' OR x = '2021-01-03' OR x = '2021-01-04' OR x = '2021-01-05' OR x = '2021-01-06'" +
@@ -325,7 +325,10 @@ public abstract class AbstractPredicatePushdownTest
                         " OR x = '2021-01-14' OR x = '2021-01-15' OR x = '2021-01-16' OR x = '2021-01-17' OR x = '2021-01-18' OR x = '2021-01-19' OR x = '2021-01-20'" +
                         " OR x = '2021-02-01' OR x = '2021-02-02' OR x = '2021-02-03' OR x = '2021-02-04' OR x = '2021-02-05' OR x = '2021-02-06'" +
                         " OR x = '2021-02-07' OR x = '2021-02-08' OR x = '2021-02-09' OR x = '2021-02-10' OR x = '2021-02-11' OR x = '2021-02-12' OR x = '2021-02-13'" +
-                        " OR x = '2021-02-14' OR x = '2021-02-15' OR x = '2021-02-16' OR x = '2021-02-17' OR x = '2021-02-18' OR x = '2021-02-19' OR x = '2021-02-20'",
+                        " OR x = '2021-02-14' OR x = '2021-02-15' OR x = '2021-02-16' OR x = '2021-02-17' OR x = '2021-02-18' OR x = '2021-02-19' OR x = '2021-02-20'" +
+                        " OR x = '2021-03-01' OR x = '2021-03-02' OR x = '2021-03-03' OR x = '2021-03-04' OR x = '2021-03-05' OR x = '2021-03-06'" +
+                        " OR x = '2021-03-07' OR x = '2021-03-08' OR x = '2021-03-09' OR x = '2021-03-10' OR x = '2021-03-11' OR x = '2021-03-12' OR x = '2021-03-13'" +
+                        " OR x = '2021-03-14' OR x = '2021-03-15' OR x = '2021-03-16' OR x = '2021-03-17' OR x = '2021-03-18' OR x = '2021-03-19' OR x = '2021-03-20'",
                 anyTree(
                         filter("(((((((\"expr\" = VARCHAR '2021-01-01') OR (\"expr\" = VARCHAR '2021-01-02')) OR ((\"expr\" = VARCHAR '2021-01-03')" +
                                         " OR (\"expr\" = VARCHAR '2021-01-04'))) OR (((\"expr\" = VARCHAR '2021-01-05') OR (\"expr\" = VARCHAR '2021-01-06'))" +
@@ -337,10 +340,16 @@ public abstract class AbstractPredicatePushdownTest
                                         " OR (\"expr\" = VARCHAR '2021-02-02')) OR ((\"expr\" = VARCHAR '2021-02-03') OR (\"expr\" = VARCHAR '2021-02-04'))))" +
                                         " OR ((((\"expr\" = VARCHAR '2021-02-05') OR (\"expr\" = VARCHAR '2021-02-06')) OR ((\"expr\" = VARCHAR '2021-02-07')" +
                                         " OR (\"expr\" = VARCHAR '2021-02-08'))) OR (((\"expr\" = VARCHAR '2021-02-09') OR (\"expr\" = VARCHAR '2021-02-10'))" +
-                                        " OR ((\"expr\" = VARCHAR '2021-02-11') OR (\"expr\" = VARCHAR '2021-02-12')))))) OR ((((\"expr\" = VARCHAR '2021-02-13')" +
+                                        " OR ((\"expr\" = VARCHAR '2021-02-11') OR (\"expr\" = VARCHAR '2021-02-12')))))) OR ((((((\"expr\" = VARCHAR '2021-02-13')" +
                                         " OR (\"expr\" = VARCHAR '2021-02-14')) OR ((\"expr\" = VARCHAR '2021-02-15') OR (\"expr\" = VARCHAR '2021-02-16')))" +
                                         " OR (((\"expr\" = VARCHAR '2021-02-17') OR (\"expr\" = VARCHAR '2021-02-18')) OR ((\"expr\" = VARCHAR '2021-02-19')" +
-                                        " OR (\"expr\" = VARCHAR '2021-02-20')))))",
+                                        " OR (\"expr\" = VARCHAR '2021-02-20')))) OR ((((\"expr\" = VARCHAR '2021-03-01') OR (\"expr\" = VARCHAR '2021-03-02'))" +
+                                        " OR ((\"expr\" = VARCHAR '2021-03-03') OR (\"expr\" = VARCHAR '2021-03-04'))) OR (((\"expr\" = VARCHAR '2021-03-05')" +
+                                        " OR (\"expr\" = VARCHAR '2021-03-06')) OR ((\"expr\" = VARCHAR '2021-03-07') OR (\"expr\" = VARCHAR '2021-03-08')))))" +
+                                        " OR (((((\"expr\" = VARCHAR '2021-03-09') OR (\"expr\" = VARCHAR '2021-03-10')) OR ((\"expr\" = VARCHAR '2021-03-11')" +
+                                        " OR (\"expr\" = VARCHAR '2021-03-12'))) OR (((\"expr\" = VARCHAR '2021-03-13') OR (\"expr\" = VARCHAR '2021-03-14'))" +
+                                        " OR ((\"expr\" = VARCHAR '2021-03-15') OR (\"expr\" = VARCHAR '2021-03-16')))) OR (((\"expr\" = VARCHAR '2021-03-17')" +
+                                        " OR (\"expr\" = VARCHAR '2021-03-18')) OR ((\"expr\" = VARCHAR '2021-03-19') OR (\"expr\" = VARCHAR '2021-03-20'))))))",
                                 project(ImmutableMap.of("expr", expression("CAST(orderdate AS VARCHAR)")),
                                         tableScan("orders", ImmutableMap.of("orderdate", "orderdate"))))));
 
