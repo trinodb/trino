@@ -1236,7 +1236,7 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithComplexPredicate()
     {
         skipTestUnlessSupportsDeletes();
-        assertThatThrownBy(() -> super.testDeleteWithComplexPredicate())
+        assertThatThrownBy(super::testDeleteWithComplexPredicate)
                 .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
@@ -1244,7 +1244,7 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithSubquery()
     {
         skipTestUnlessSupportsDeletes();
-        assertThatThrownBy(() -> super.testDeleteWithSubquery())
+        assertThatThrownBy(super::testDeleteWithSubquery)
                 .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
@@ -1252,7 +1252,7 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithSemiJoin()
     {
         skipTestUnlessSupportsDeletes();
-        assertThatThrownBy(() -> super.testDeleteWithSemiJoin())
+        assertThatThrownBy(super::testDeleteWithSemiJoin)
                 .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
