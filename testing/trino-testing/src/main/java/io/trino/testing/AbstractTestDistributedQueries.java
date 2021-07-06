@@ -610,10 +610,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDelete()
     {
-        if (!supportsDelete()) {
-            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
-            return;
-        }
+        skipTestUnlessSupportsDeletes();
 
         String tableName = "test_delete_" + randomTableSuffix();
 
@@ -656,10 +653,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDeleteWithComplexPredicate()
     {
-        if (!supportsDelete()) {
-            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
-            return;
-        }
+        skipTestUnlessSupportsDeletes();
 
         String tableName = "test_delete_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
@@ -679,10 +673,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDeleteWithSubquery()
     {
-        if (!supportsDelete()) {
-            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
-            return;
-        }
+        skipTestUnlessSupportsDeletes();
 
         String tableName = "test_delete_" + randomTableSuffix();
 
@@ -708,10 +699,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDeleteWithSemiJoin()
     {
-        if (!supportsDelete()) {
-            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
-            return;
-        }
+        skipTestUnlessSupportsDeletes();
 
         String tableName = "test_delete_" + randomTableSuffix();
 
@@ -750,10 +738,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDeleteWithVarcharPredicate()
     {
-        if (!supportsDelete()) {
-            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
-            return;
-        }
+        skipTestUnlessSupportsDeletes();
 
         String tableName = "test_delete_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
@@ -762,6 +747,17 @@ public abstract class AbstractTestDistributedQueries
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE orderstatus <> 'O'");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    protected void skipTestUnlessSupportsDeletes()
+    {
+        skipTestUnless(supportsCreateTable());
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'"))) {
+            if (!supportsDelete()) {
+                assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+                throw new SkipException("This connector does not support deletes");
+            }
+        }
     }
 
     @Test
