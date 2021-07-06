@@ -5,9 +5,13 @@ Pulsar connector tutorial
 Overview
 ========
 
-The :doc:`pulsar` for Trino allows access to live topic data from Apache Pulsar using Trino. 
+The :doc:`pulsar` for Trino allows access to live topic data from Apache Pulsar
+using Trino. 
 
-This tutorial walks you through every step of using the Pulsar connector to query data in Pulsar topics on a single node, including how to start Pulsar, load data to Pulsar topics, configure the Pulsar connector, start Trino, query data, and more.
+This tutorial walks you through every step of using the Pulsar connector to
+query data in Pulsar topics on a single node, including how to start Pulsar,
+load data to Pulsar topics, configure the Pulsar connector, start Trino, query
+data, and more.
 
 
 Prerequisites
@@ -18,7 +22,9 @@ Prerequisites
 Step 1: start Pulsar
 --------------------
 
-For how to install and start Pulsar in standalone mode, see `install Pulsar standalone <https://pulsar.apache.org/docs/en/next/standalone/#install-pulsar-standalone>`_.
+For how to install and start Pulsar in standalone mode, see `install Pulsar
+standalone
+<https://pulsar.apache.org/docs/en/next/standalone/#install-pulsar-standalone>`_.
 
 Step 2: load data
 -----------------
@@ -29,7 +35,8 @@ Step 2: load data
 
     git clone https://github.com/streamnative/examples
 
-2. Build the `taxidata CLI tool <https://github.com/streamnative/examples/tree/master/nyctaxi/taxidata>`_.
+2. Build the `taxidata CLI tool
+<https://github.com/streamnative/examples/tree/master/nyctaxi/taxidata>`_.
 
 .. code-block:: text
 
@@ -46,18 +53,33 @@ Step 2: load data
     --pulsarUrl pulsar://localhost:6650 \
     --speed 1
 
-You can get two tables (greentaxi and yellowtaxi). For the data schema of these tables, see `here <https://github.com/streamnative/examples/tree/master/nyctaxi/taxidata/pkg/types>`_.
+You can get two tables (greentaxi and yellowtaxi). For the data schema of these
+tables, see `here
+<https://github.com/streamnative/examples/tree/master/nyctaxi/taxidata/pkg/types>`_.
 
-The taxidata CLI tool keeps ingesting data into Pulsar topics until it ingests all data successfully (which may take several hours) or it is stopped. You can proceed with the next steps once you execute the above command successfully and do not need to wait until it ingests all data. 
+The taxidata CLI tool keeps ingesting data into Pulsar topics until it ingests
+all data successfully (which may take several hours) or it is stopped. You can
+proceed with the next steps once you execute the above command successfully and
+do not need to wait until it ingests all data. 
 
 .. note::
 
-    After finishing loading data, you might not get any table when you query Pulsar data, that is because the topic is garbage collected by Pulsar as there is no active producer or consumer on that topic for a while. This can be configured but for this quick start the simplest solution is to re-execute the above command, then you can get the tables.
+    After finishing loading data, you might not get any table when you query
+    Pulsar data, that is because the topic is garbage collected by Pulsar as
+    there is no active producer or consumer on that topic for a while. This can
+    be configured but for this quick start the simplest solution is to
+    re-execute the above command, then you can get the tables.
 
 Step 3: configure Pulsar connector
 ----------------------------------
 
-In the `Trino installation directory <https://trino.io/docs/current/installation/deployment.html#installing-trino>`_, create `etc/catalog <https://trino.io/docs/current/installation/deployment.html#catalog-properties>`_ directory (if it does not exist) and then create ``apachepulsar.properties`` configuration file under that directory with the minimal configurations as below. For how to configure the Pulsar connector, see :doc:`pulsar`. 
+In the `Trino installation directory
+<https://trino.io/docs/current/installation/deployment.html#installing-trino>`_,
+create `etc/catalog
+<https://trino.io/docs/current/installation/deployment.html#catalog-properties>`_
+directory (if it does not exist) and then create ``apachepulsar.properties``
+configuration file under that directory with the minimal configurations as
+below. For how to configure the Pulsar connector, see :doc:`pulsar`. 
 
 .. code-block:: text
 
@@ -70,7 +92,12 @@ Step 4: start Trino
 
 1. Configure Trino.
 
-Pulsar admin uses port 8080, so you need to change the Trino HTTP port to another available port by updating ``http-server.http.port`` and ``discovery.uri`` properties in the Trino configuration file (``etc/config.properties``) as below. For more information, see `Configuring Trino <https://trino.io/docs/current/installation/deployment.html#config-properties>`_.
+Pulsar admin uses port 8080, so you need to change the Trino HTTP port to
+another available port by updating ``http-server.http.port`` and
+``discovery.uri`` properties in the Trino configuration file
+(``etc/config.properties``) as below. For more information, see `Configuring
+Trino
+<https://trino.io/docs/current/installation/deployment.html#config-properties>`_.
 
 .. code-block:: text
 
@@ -86,12 +113,14 @@ Pulsar admin uses port 8080, so you need to change the Trino HTTP port to anothe
 
 2. Start Trino in standalone mode.
 
-For more information, see `Running Trino <https://trino.io/docs/current/installation/deployment.html#running-trino>`_.
+For more information, see `Running Trino
+<https://trino.io/docs/current/installation/deployment.html#running-trino>`_.
 
 Step 5: query data 
 ------------------
 
-1. `Install and start Trino CLI <https://trino.io/docs/current/installation/cli.html>`_.
+1. `Install and start Trino CLI
+<https://trino.io/docs/current/installation/cli.html>`_.
 
 2. In the Trino installation directory, invoke the Trino CLI. 
 
@@ -160,7 +189,9 @@ Replace ``:{trino-port}`` with your actual Trino HTTP port
     Splits: 19 total, 19 done (100.00%)
     5.87 [26 rows, 2.47KB] [4 rows/s, 430B/s]
 
-The taxidata tool keeps ingesting data to Pulsar topic when it is running, so you can get different results if performing the same query multiple times since you are getting more data.
+The taxidata tool keeps ingesting data to Pulsar topic when it is running, so
+you can get different results if performing the same query multiple times since
+you are getting more data.
 
 .. code-block:: text
 
