@@ -1170,10 +1170,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testDeleteWithBigintEqualityPredicate()
     {
-        if (!hasBehavior(SUPPORTS_DELETE)) {
-            assertQueryFails("DELETE FROM region WHERE regionkey = 1", "This connector does not support deletes");
-            return;
-        }
+        skipTestUnlessSupportsDeletes();
         String tableName = "test_delete_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM region", 5);
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 1", 1);
@@ -1190,11 +1187,8 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testDeleteWithVarcharEqualityPredicate()
     {
+        skipTestUnlessSupportsDeletes();
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
-            if (!hasBehavior(SUPPORTS_DELETE)) {
-                assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
-                return;
-            }
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col = 'A'", "Unsupported delete");
                 return;
@@ -1208,11 +1202,8 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testDeleteWithVarcharInequalityPredicate()
     {
+        skipTestUnlessSupportsDeletes();
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
-            if (!hasBehavior(SUPPORTS_DELETE)) {
-                assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
-                return;
-            }
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", "Unsupported delete");
                 return;
@@ -1226,11 +1217,8 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testDeleteWithVarcharGreaterAndLowerPredicate()
     {
+        skipTestUnlessSupportsDeletes();
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'0'", "'a'", "'A'", "'b'", "null"))) {
-            if (!hasBehavior(SUPPORTS_DELETE)) {
-                assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
-                return;
-            }
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col < 'A'", "Unsupported delete");
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col > 'A'", "Unsupported delete");
@@ -1247,10 +1235,7 @@ public abstract class BaseJdbcConnectorTest
     @Override
     public void testDeleteWithComplexPredicate()
     {
-        if (!hasBehavior(SUPPORTS_DELETE)) {
-            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
-            return;
-        }
+        skipTestUnlessSupportsDeletes();
         assertThatThrownBy(() -> super.testDeleteWithComplexPredicate())
                 .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
@@ -1258,10 +1243,7 @@ public abstract class BaseJdbcConnectorTest
     @Override
     public void testDeleteWithSubquery()
     {
-        if (!hasBehavior(SUPPORTS_DELETE)) {
-            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
-            return;
-        }
+        skipTestUnlessSupportsDeletes();
         assertThatThrownBy(() -> super.testDeleteWithSubquery())
                 .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
@@ -1269,10 +1251,7 @@ public abstract class BaseJdbcConnectorTest
     @Override
     public void testDeleteWithSemiJoin()
     {
-        if (!hasBehavior(SUPPORTS_DELETE)) {
-            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
-            return;
-        }
+        skipTestUnlessSupportsDeletes();
         assertThatThrownBy(() -> super.testDeleteWithSemiJoin())
                 .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
