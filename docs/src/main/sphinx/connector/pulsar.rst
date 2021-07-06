@@ -11,16 +11,22 @@ Pulsar connector
 Overview
 --------
 
-`Apache Pulsar <https://pulsar.apache.org/docs/en/next/standalone/>`_ is a cloud-native, distributed messaging and streaming platform. 
+`Apache Pulsar <https://pulsar.apache.org/docs/en/next/standalone/>`_ is a
+cloud-native, distributed messaging and streaming platform. 
 
-The Pulsar connector allows you to query data from Pulsar topics as tables in Trino:
+The Pulsar connector allows you to query data from Pulsar topics as tables in
+Trino:
 
-* A Pulsar cluster is configured as a catalog in Trino. 
+* A Pulsar cluster is configured as a catalog in Trino.
+
 * The Pulsar namespace or tenant combination is mapped to a schema in Trino.
+
 * A Pulsar topic schema is mapped to a Trino table schema.
+
 * A message in a Pulsar topic is presented as a row in Trino.
 
-For how to get started with the Pulsar connector, see the :doc:`pulsar-tutorial`.
+For how to get started with the Pulsar connector, see the
+:doc:`pulsar-tutorial`.
 
 Requirements
 ------------
@@ -28,16 +34,27 @@ Requirements
 To connect to Pulsar, you need:
 
 * Pulsar 2.8.0 or higher.
-* Network access from the Trino coordinator and workers to the Pulsar web service API. 8080 is the default port.
-* Network access from the Trino workers to the Apache ZooKeeper clusters and brokers used by Pulsar. 2181 is the default port.
-* Network access from the Trino workers to the Apache BookKeeper clusters and brokers used by Pulsar. 3181 is the default port.
+
+* Network access from the Trino coordinator and workers to the Pulsar web
+service API. 8080 is the default port.
+
+* Network access from the Trino workers to the Apache ZooKeeper clusters and
+brokers used by Pulsar. 2181 is the default port.
+
+* Network access from the Trino workers to the Apache BookKeeper clusters and
+brokers used by Pulsar. 3181 is the default port.
 
 Configuration
 -------------
 
-The connector can query simple or multi-node Pulsar deployments with one or multiple ZooKeeper clusters. Create a catalog properties file that specifies the Pulsar connector by setting the ``connector.name`` to ``pulsar`` and configure catalogs with the required and optional properties as desired.
+The connector can query simple or multi-node Pulsar deployments with one or
+multiple ZooKeeper clusters. Create a catalog properties file that specifies the
+Pulsar connector by setting the ``connector.name`` to ``pulsar`` and configure
+catalogs with the required and optional properties as desired.
 
-For example, to access a cluster as the ``mypulsar`` catalog, create the file ``etc/catalog/mypulsar.properties``. Replace the connection properties as appropriate for your setup:
+For example, to access a cluster as the ``mypulsar`` catalog, create the file
+``etc/catalog/mypulsar.properties``. Replace the connection properties as
+appropriate for your setup:
 
 .. code-block:: text
 
@@ -57,11 +74,18 @@ Property                                              Description               
 ``pulsar.zookeeper-uri``                              Comma-separated list of URIs for the ZooKeeper cluster's metadata service.    localhost:2181
 ===================================================== ============================================================================  ==============================================
 
-You can use the Pulsar connector on a single-node cluster (see the :doc:`pulsar-tutorial`) or multi-node cluster. 
+You can use the Pulsar connector on a single-node cluster (see the
+:doc:`pulsar-tutorial`) or multi-node cluster. 
 
-For how to deploy a multi-node Trino cluster, see `Deploying Trino <https://trino.io/docs/current/installation/deployment.html>`_.
+For how to deploy a multi-node Trino cluster, see `Deploying Trino
+<https://trino.io/docs/current/installation/deployment.html>`_.
 
-For how to deploy a multi-node Pulsar cluster, see `Deploying a Multi-Cluster on Bare Metal <https://pulsar.apache.org/docs/en/next/deploy-bare-metal-multi-cluster/>`_. If there are multiple ZooKeeper clusters and brokers, you need to specify multiple hosts in the configuration file (``etc/catalog/apachepulsar.properties``) as below.
+For how to deploy a multi-node Pulsar cluster, see `Deploying a Multi-Cluster on
+Bare Metal
+<https://pulsar.apache.org/docs/en/next/deploy-bare-metal-multi-cluster/>`_. If
+there are multiple ZooKeeper clusters and brokers, you need to specify multiple
+hosts in the configuration file (``etc/catalog/apachepulsar.properties``) as
+below.
 
 .. code-block:: text
 
@@ -104,7 +128,8 @@ Property                              Description                               
 Monitoring 
 """"""""""
 
-You can use different ways to monitor the overall health and the status of the Pulsar connector status.
+You can use different ways to monitor the overall health and the status of the
+Pulsar connector status.
 
 ===================================== ======================================================== ========  =======================================================================================================
 Property                              Description                                              Default   Example value
@@ -116,7 +141,11 @@ Property                              Description                               
 Offloader 
 """""""""
 
-Pulsar's `tiered storage <https://pulsar.apache.org/docs/en/next/tiered-storage-overview/>`_ feature allows older backlog data to be moved from BookKeeper to long term and cheaper storage, while still allowing clients to access the backlog as if nothing has changed. Tiered storage supports using variou offloaders for long-term storage.
+Pulsar's `tiered storage
+<https://pulsar.apache.org/docs/en/next/tiered-storage-overview/>`_ feature
+allows older backlog data to be moved from BookKeeper to long term and cheaper
+storage, while still allowing clients to access the backlog as if nothing has
+changed. Tiered storage supports using variou offloaders for long-term storage.
 
 ============================================== ===================================================================================  ================
 Property                                       Description                                                                          Default
@@ -131,7 +160,9 @@ Property                                       Description                      
 BookKeeper  
 """"""""""
 
-`BookKeeper <https://bookkeeper.apache.org/>`_ is a replicated log storage system that Pulsar uses for durable storage of all messages. You can configure different properties to improve performance.
+`BookKeeper <https://bookkeeper.apache.org/>`_ is a replicated log storage
+system that Pulsar uses for durable storage of all messages. You can configure
+different properties to improve performance.
 
 ================================================ ==================================================================  ==============================================
 Property                                         Description                                                         Default
@@ -149,7 +180,8 @@ Property                                         Description                    
 Type mapping
 ------------
 
-Trino supports selecting Pulsar types. The following tables show the data type mapping of the Pulsar to Trino.
+Trino supports selecting Pulsar types. The following tables show the data type
+mapping of the Pulsar to Trino.
 
 Avro and JSON schema
 ^^^^^^^^^^^^^^^^^^^^
@@ -217,7 +249,8 @@ Pulsar protobuf schema type Trino type
 SQL support
 -----------
 
-The connector provides **read-only access** to data and metadata in Pulsar with the statements described in the following sections. 
+The connector provides **read-only access** to data and metadata in Pulsar with
+the statements described in the following sections. 
 
 No other statements are supported.
 
@@ -243,14 +276,23 @@ No other statements are supported.
 Performance
 -----------
 
-The query performance is efficient and highly scalable since Pulsar adopts `two-level segment-based architecture <https://pulsar.apache.org/docs/en/next/concepts-architecture-overview/#apache-bookkeeper>`_. Topics in Pulsar are stored as segments in `Apache BookKeeper <https://bookkeeper.apache.org/>`_. Each topic segment is replicated to some BookKeeper nodes, which enables concurrent reads and high read throughput (you can configure the number of BookKeeper nodes and the default number is 3). In the Pulsar connector, data is read directly from BookKeeper, so Trino workers can read concurrently from horizontally scalable BookKeeper nodes.
+The query performance is efficient and highly scalable since Pulsar adopts
+`two-level segment-based architecture
+<https://pulsar.apache.org/docs/en/next/concepts-architecture-overview/#apache-bookkeeper>`_.
+Topics in Pulsar are stored as segments in `Apache BookKeeper
+<https://bookkeeper.apache.org/>`_. Each topic segment is replicated to some
+BookKeeper nodes, which enables concurrent reads and high read throughput (you
+can configure the number of BookKeeper nodes and the default number is 3). In
+the Pulsar connector, data is read directly from BookKeeper, so Trino workers
+can read concurrently from horizontally scalable BookKeeper nodes.
 
 .. figure:: ../images/pulsar-connector.png
 
 Security
 --------
 
-You can enable authentication features and secure connections to Pulsar with TLS. 
+You can enable authentication features and secure connections to Pulsar with
+TLS. 
 
 =========================================== ================================================================================= ==============
 Property                                    Description                                                                       Default
