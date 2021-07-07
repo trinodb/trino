@@ -646,6 +646,11 @@ public final class MetadataManager
             return true;
         }
 
+        if (!getRedirectedTableName(session, name).equals(name)) {
+            // If the table is redirected, we do not check for existence of the target table
+            return true;
+        }
+
         return getTableHandle(session, name).isPresent();
     }
 
@@ -1411,6 +1416,11 @@ public final class MetadataManager
     {
         requireNonNull(session, "session is null");
         requireNonNull(originalTableName, "originalTableName is null");
+
+        if (originalTableName.getCatalogName().isEmpty() || originalTableName.getSchemaName().isEmpty() || originalTableName.getObjectName().isEmpty()) {
+            // table cannot exist
+            return originalTableName;
+        }
 
         QualifiedObjectName tableName = originalTableName;
         Set<QualifiedObjectName> visitedTableNames = new LinkedHashSet<>();
