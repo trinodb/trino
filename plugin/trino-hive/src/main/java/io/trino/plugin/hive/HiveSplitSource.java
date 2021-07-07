@@ -79,6 +79,7 @@ class HiveSplitSource
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final AtomicInteger remainingInitialSplits;
+    private final AtomicLong numberOfProcessedSplits;
 
     private final HiveSplitLoader splitLoader;
     private final AtomicReference<State> stateReference;
@@ -112,6 +113,7 @@ class HiveSplitSource
         this.maxSplitSize = getMaxSplitSize(session);
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
+        this.numberOfProcessedSplits = new AtomicLong(0);
     }
 
     public static HiveSplitSource allAtOnce(
@@ -381,7 +383,8 @@ class HiveSplitSource
                         internalSplit.getBucketConversion(),
                         internalSplit.getBucketValidation(),
                         internalSplit.isS3SelectPushdownEnabled(),
-                        internalSplit.getAcidInfo()));
+                        internalSplit.getAcidInfo(),
+                        numberOfProcessedSplits.getAndIncrement()));
 
                 internalSplit.increaseStart(splitBytes);
 

@@ -158,6 +158,23 @@ public class QueryBuilder
         throw new IllegalStateException("Unsupported join type: " + joinType);
     }
 
+    public PreparedQuery prepareDelete(
+            ConnectorSession session,
+            Connection connection,
+            JdbcNamedRelationHandle baseRelation,
+            TupleDomain<ColumnHandle> tupleDomain)
+    {
+        String sql = "DELETE FROM " + getRelation(baseRelation.getRemoteTableName());
+
+        ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
+
+        List<String> clauses = toConjuncts(session, connection, tupleDomain, accumulator::add);
+        if (!clauses.isEmpty()) {
+            sql += " WHERE " + Joiner.on(" AND ").join(clauses);
+        }
+        return new PreparedQuery(sql, accumulator.build());
+    }
+
     public PreparedStatement prepareStatement(
             ConnectorSession session,
             Connection connection,

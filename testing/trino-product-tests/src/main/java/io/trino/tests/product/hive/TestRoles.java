@@ -143,15 +143,15 @@ public class TestRoles
     public void testCreateDuplicateRole()
     {
         onTrino().executeQuery(format("CREATE ROLE %s", ROLE1));
-        QueryAssert.assertThat(() -> onTrino().executeQuery(format("CREATE ROLE %s", ROLE1)))
-                .failsWithMessage(format("Role '%s' already exists", ROLE1));
+        QueryAssert.assertQueryFailure(() -> onTrino().executeQuery(format("CREATE ROLE %s", ROLE1)))
+                .hasMessageContaining(format("Role '%s' already exists", ROLE1));
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropNonExistentRole()
     {
-        QueryAssert.assertThat(() -> onTrino().executeQuery(format("DROP ROLE %s", ROLE3)))
-                .failsWithMessage(format("Role '%s' does not exist", ROLE3));
+        QueryAssert.assertQueryFailure(() -> onTrino().executeQuery(format("DROP ROLE %s", ROLE3)))
+                .hasMessageContaining(format("Role '%s' does not exist", ROLE3));
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -159,12 +159,12 @@ public class TestRoles
     {
         // Only users that are granted with "admin" role can create, drop and list roles
         // Alice is not granted with "admin" role
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery(format("CREATE ROLE %s", ROLE3)))
-                .failsWithMessage(format("Cannot create role %s", ROLE3));
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery(format("DROP ROLE %s", ROLE3)))
-                .failsWithMessage(format("Cannot drop role %s", ROLE3));
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.roles"))
-                .failsWithMessage("Cannot select from table information_schema.roles");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery(format("CREATE ROLE %s", ROLE3)))
+                .hasMessageContaining(format("Cannot create role %s", ROLE3));
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery(format("DROP ROLE %s", ROLE3)))
+                .hasMessageContaining(format("Cannot drop role %s", ROLE3));
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.roles"))
+                .hasMessageContaining("Cannot select from table information_schema.roles");
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -448,14 +448,14 @@ public class TestRoles
         onTrino().executeQuery("CREATE ROLE role1");
         onTrino().executeQuery("CREATE ROLE role2");
 
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob"))
-                .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION"))
-                .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE role1 FROM USER bob"))
-                .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob"))
-                .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob"))
+                .hasMessageContaining("Cannot grant roles [role1] to [USER bob]");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION"))
+                .hasMessageContaining("Cannot grant roles [role1] to [USER bob]");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("REVOKE role1 FROM USER bob"))
+                .hasMessageContaining("Cannot revoke roles [role1] from [USER bob]");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob"))
+                .hasMessageContaining("Cannot revoke roles [role1] from [USER bob]");
 
         onTrino().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
 
@@ -466,14 +466,14 @@ public class TestRoles
 
         onTrino().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER alice");
 
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob"))
-                .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION"))
-                .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE role1 FROM USER bob"))
-                .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob"))
-                .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob"))
+                .hasMessageContaining("Cannot grant roles [role1] to [USER bob]");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION"))
+                .hasMessageContaining("Cannot grant roles [role1] to [USER bob]");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("REVOKE role1 FROM USER bob"))
+                .hasMessageContaining("Cannot revoke roles [role1] from [USER bob]");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob"))
+                .hasMessageContaining("Cannot revoke roles [role1] from [USER bob]");
 
         onTrino().executeQuery("GRANT role2 TO USER alice");
         onTrino().executeQuery("GRANT role1 TO ROLE role2 WITH ADMIN OPTION");
@@ -485,14 +485,14 @@ public class TestRoles
 
         onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM ROLE role2");
 
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob"))
-                .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION"))
-                .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE role1 FROM USER bob"))
-                .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob"))
-                .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob"))
+                .hasMessageContaining("Cannot grant roles [role1] to [USER bob]");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION"))
+                .hasMessageContaining("Cannot grant roles [role1] to [USER bob]");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("REVOKE role1 FROM USER bob"))
+                .hasMessageContaining("Cannot revoke roles [role1] from [USER bob]");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob"))
+                .hasMessageContaining("Cannot revoke roles [role1] from [USER bob]");
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -567,8 +567,8 @@ public class TestRoles
                         row("public"),
                         row("admin"),
                         row("role1"));
-        QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("SHOW ROLES"))
-                .failsWithMessage("Cannot show roles from catalog hive");
+        QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("SHOW ROLES"))
+                .hasMessageContaining("Cannot show roles from catalog hive");
         onTrino().executeQuery("GRANT admin TO alice");
         onPrestoAlice().executeQuery("SET ROLE admin");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW ROLES"))
@@ -781,24 +781,24 @@ public class TestRoles
                         row("alice", "USER", "role2", "ROLE", "hive", "default", "test_table", "INSERT", "NO", null)));
 
         onPrestoBob().executeQuery("SET ROLE NONE");
-        QueryAssert.assertThat(() -> onPrestoBob().executeQuery(select))
-                .failsWithMessage("Access Denied");
-        QueryAssert.assertThat(() -> onPrestoBob().executeQuery(insert))
-                .failsWithMessage("Access Denied");
+        QueryAssert.assertQueryFailure(() -> onPrestoBob().executeQuery(select))
+                .hasMessageContaining("Access Denied");
+        QueryAssert.assertQueryFailure(() -> onPrestoBob().executeQuery(insert))
+                .hasMessageContaining("Access Denied");
         QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
                 .containsOnly(ImmutableList.of());
 
         onPrestoBob().executeQuery("SET ROLE role1");
         onPrestoBob().executeQuery(select);
-        QueryAssert.assertThat(() -> onPrestoBob().executeQuery(insert))
-                .failsWithMessage("Access Denied");
+        QueryAssert.assertQueryFailure(() -> onPrestoBob().executeQuery(insert))
+                .hasMessageContaining("Access Denied");
         QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
                 .containsOnly(ImmutableList.of(
                         row("alice", "USER", "role1", "ROLE", "hive", "default", "test_table", "SELECT", "NO", null)));
 
         onPrestoBob().executeQuery("SET ROLE role2");
-        QueryAssert.assertThat(() -> onPrestoBob().executeQuery(select))
-                .failsWithMessage("Access Denied");
+        QueryAssert.assertQueryFailure(() -> onPrestoBob().executeQuery(select))
+                .hasMessageContaining("Access Denied");
         onPrestoBob().executeQuery(insert);
         QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
                 .containsOnly(ImmutableList.of(
@@ -810,12 +810,12 @@ public class TestRoles
     private static void assertAdminExecute(String query)
     {
         onTrino().executeQuery("SET ROLE NONE");
-        QueryAssert.assertThat(() -> onTrino().executeQuery(query))
-                .failsWithMessage("Access Denied");
+        QueryAssert.assertQueryFailure(() -> onTrino().executeQuery(query))
+                .hasMessageContaining("Access Denied");
 
         onTrino().executeQuery("SET ROLE ALL");
-        QueryAssert.assertThat(() -> onTrino().executeQuery(query))
-                .failsWithMessage("Access Denied");
+        QueryAssert.assertQueryFailure(() -> onTrino().executeQuery(query))
+                .hasMessageContaining("Access Denied");
 
         onTrino().executeQuery("SET ROLE admin");
         onTrino().executeQuery(query);

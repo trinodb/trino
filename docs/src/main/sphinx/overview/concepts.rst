@@ -21,8 +21,8 @@ general to most specific.
 
 .. note::
 
-    The book `Presto: The Definitive Guide
-    <https://trino.io/presto-the-definitive-guide.html>`_ and the research
+    The book `Trino: The Definitive Guide
+    <https://trino.io/trino-the-definitive-guide.html>`_ and the research
     paper `Presto: SQL on Everything <https://trino.io/paper.html>`_ can
     provide further information about Trino and the concepts in use.
 

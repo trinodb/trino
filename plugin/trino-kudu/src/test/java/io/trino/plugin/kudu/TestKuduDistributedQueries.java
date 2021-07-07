@@ -122,6 +122,16 @@ public class TestKuduDistributedQueries
     }
 
     @Override
+    protected void skipTestUnlessSupportsDeletes()
+    {
+        // TODO Remove override once kudu connector can create tables with default partitions
+        if (!supportsDelete()) {
+            assertQueryFails("DELETE FROM region", "This connector does not support deletes");
+            throw new SkipException("This connector does not support deletes");
+        }
+    }
+
+    @Override
     public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");

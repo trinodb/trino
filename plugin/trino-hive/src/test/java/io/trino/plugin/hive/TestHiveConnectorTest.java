@@ -222,6 +222,41 @@ public class TestHiveConnectorTest
                 .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
     }
 
+    @Override
+    public void testDeleteWithComplexPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithComplexPredicate)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testDeleteWithSemiJoin()
+    {
+        assertThatThrownBy(super::testDeleteWithSemiJoin)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testDeleteWithSubquery)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testDeleteWithVarcharPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithVarcharPredicate)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testRowLevelDelete()
+    {
+        assertThatThrownBy(super::testRowLevelDelete)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
     @Test
     public void testRequiredPartitionFilter()
     {
@@ -3681,6 +3716,24 @@ public class TestHiveConnectorTest
         actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_header_footer", format));
         assertEquals(actual.getOnlyValue(), createTableSql);
         assertUpdate(format("DROP TABLE %s_table_skip_header_footer", format));
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s_table_skip_header " +
+                        "WITH (\n" +
+                        "   format = '%s',\n" +
+                        "   skip_header_line_count = 1\n" +
+                        ") AS SELECT CAST(1 AS VARCHAR) AS col_name1, CAST(2 AS VARCHAR) as col_name2",
+                catalog, schema, name, format);
+
+        assertUpdate(createTableSql, 1);
+        assertUpdate(format("INSERT INTO %s.%s.%s_table_skip_header VALUES('3', '4')", catalog, schema, name), 1);
+        MaterializedResult materializedRows = computeActual(format("SELECT * FROM %s_table_skip_header", name));
+        assertEqualsIgnoreOrder(materializedRows, resultBuilder(getSession(), VARCHAR, VARCHAR)
+                .row("1", "2")
+                .row("3", "4")
+                .build()
+                .getMaterializedRows());
+        assertUpdate(format("DROP TABLE %s_table_skip_header", format));
     }
 
     @Test
@@ -3704,7 +3757,7 @@ public class TestHiveConnectorTest
                         ")\n" +
                         "WITH (\n" +
                         "   format = 'CSV',\n" +
-                        "   skip_header_line_count = 1\n" +
+                        "   skip_header_line_count = 2\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get());
@@ -3715,7 +3768,7 @@ public class TestHiveConnectorTest
                 format("INSERT INTO %s.%s.csv_table_skip_header VALUES ('name')",
                         getSession().getCatalog().get(),
                         getSession().getSchema().get())))
-                .hasMessageMatching("Inserting into Hive table with skip.header.line.count property not supported");
+                .hasMessageMatching("Inserting into Hive table with value of skip.header.line.count property greater than 1 is not supported");
 
         assertUpdate("DROP TABLE csv_table_skip_header");
 
@@ -3756,7 +3809,7 @@ public class TestHiveConnectorTest
                 format("INSERT INTO %s.%s.csv_table_skip_header_footer VALUES ('name')",
                         getSession().getCatalog().get(),
                         getSession().getSchema().get())))
-                .hasMessageMatching("Inserting into Hive table with skip.header.line.count property not supported");
+                .hasMessageMatching("Inserting into Hive table with skip.footer.line.count property not supported");
 
         assertUpdate("DROP TABLE csv_table_skip_header_footer");
     }

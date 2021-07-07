@@ -20,7 +20,7 @@ import io.trino.plugin.base.security.AllowAllAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorSecurityModule
@@ -43,7 +43,7 @@ public class RaptorSecurityModule
 
     private void bindSecurityModule(String name, Module module)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 RaptorSecurityConfig.class,
                 security -> name.equalsIgnoreCase(security.getSecuritySystem()),
                 module));
