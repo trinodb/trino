@@ -30,6 +30,7 @@ import io.airlift.units.Duration;
 import io.trino.GroupByHashPageIndexerFactory;
 import io.trino.PagesIndexPageSorter;
 import io.trino.SystemSessionProperties;
+import io.trino.SystemSessionPropertiesProvider;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
 import io.trino.connector.ConnectorManager;
@@ -207,6 +208,7 @@ public class ServerMainModule
         newExporter(binder).export(GcMonitor.class).withGeneratedName();
 
         // session properties
+        newSetBinder(binder, SystemSessionPropertiesProvider.class).addBinding().to(SystemSessionProperties.class);
         binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
