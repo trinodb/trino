@@ -13,17 +13,17 @@
  */
 package io.trino.plugin.redis.util;
 
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.metadata.Metadata;
+import io.trino.plugin.base.TypeDeserializer;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
 
 import java.util.function.Supplier;
+
+import static java.util.Objects.requireNonNull;
 
 public final class CodecSupplier<T>
         implements Supplier<JsonCodec<T>>
@@ -33,34 +33,16 @@ public final class CodecSupplier<T>
 
     public CodecSupplier(Class<T> clazz, Metadata metadata)
     {
-        this.clazz = clazz;
+        requireNonNull(metadata, "metadata is null");
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(metadata)));
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(metadata::getType)));
         this.codecFactory = new JsonCodecFactory(objectMapperProvider);
+        this.clazz = requireNonNull(clazz, "clazz is null");
     }
 
     @Override
     public JsonCodec<T> get()
     {
         return codecFactory.jsonCodec(clazz);
-    }
-
-    private static class TypeDeserializer
-            extends FromStringDeserializer<Type>
-    {
-        private static final long serialVersionUID = 1L;
-        private final Metadata metadata;
-
-        public TypeDeserializer(Metadata metadata)
-        {
-            super(Type.class);
-            this.metadata = metadata;
-        }
-
-        @Override
-        protected Type _deserialize(String value, DeserializationContext context)
-        {
-            return metadata.getType(TypeId.of(value));
-        }
     }
 }

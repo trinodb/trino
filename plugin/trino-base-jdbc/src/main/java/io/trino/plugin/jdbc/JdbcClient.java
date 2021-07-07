@@ -35,6 +35,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -171,4 +172,6 @@ public interface JdbcClient
     {
         return Optional.empty();
     }
+
+    OptionalLong delete(ConnectorSession session, JdbcTableHandle handle);
 }

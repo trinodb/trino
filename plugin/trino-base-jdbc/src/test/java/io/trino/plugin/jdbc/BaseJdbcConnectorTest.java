@@ -32,17 +32,22 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -65,6 +70,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUS
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CANCELLATION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN;
@@ -76,11 +82,13 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHD
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
@@ -93,6 +101,18 @@ public abstract class BaseJdbcConnectorTest
     public void afterClass()
     {
         executor.shutdownNow();
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+                return true;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Test
@@ -1145,5 +1165,146 @@ public abstract class BaseJdbcConnectorTest
     protected TestView createSleepingView(Duration minimalSleepDuration)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Test
+    public void testDeleteWithBigintEqualityPredicate()
+    {
+        skipTestUnlessSupportsDeletes();
+        String tableName = "test_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM region", 5);
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 1", 1);
+        assertQuery(
+                "SELECT regionkey, name FROM " + tableName,
+                "VALUES "
+                        + "(0, 'AFRICA'),"
+                        + "(2, 'ASIA'),"
+                        + "(3, 'EUROPE'),"
+                        + "(4, 'MIDDLE EAST')");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDeleteWithVarcharEqualityPredicate()
+    {
+        skipTestUnlessSupportsDeletes();
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)) {
+                assertQueryFails("DELETE FROM " + table.getName() + " WHERE col = 'A'", "Unsupported delete");
+                return;
+            }
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col = 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', null");
+        }
+    }
+
+    @Test
+    public void testDeleteWithVarcharInequalityPredicate()
+    {
+        skipTestUnlessSupportsDeletes();
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
+                assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", "Unsupported delete");
+                return;
+            }
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col != 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+        }
+    }
+
+    @Test
+    public void testDeleteWithVarcharGreaterAndLowerPredicate()
+    {
+        skipTestUnlessSupportsDeletes();
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'0'", "'a'", "'A'", "'b'", "null"))) {
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
+                assertQueryFails("DELETE FROM " + table.getName() + " WHERE col < 'A'", "Unsupported delete");
+                assertQueryFails("DELETE FROM " + table.getName() + " WHERE col > 'A'", "Unsupported delete");
+                return;
+            }
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col < 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', 'A', 'b', null");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col > 'A'", 2);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+        }
+    }
+
+    @Override
+    public void testDeleteWithComplexPredicate()
+    {
+        skipTestUnlessSupportsDeletes();
+        assertThatThrownBy(super::testDeleteWithComplexPredicate)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Override
+    public void testDeleteWithSubquery()
+    {
+        skipTestUnlessSupportsDeletes();
+        assertThatThrownBy(super::testDeleteWithSubquery)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Override
+    public void testDeleteWithSemiJoin()
+    {
+        skipTestUnlessSupportsDeletes();
+        assertThatThrownBy(super::testDeleteWithSemiJoin)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Override
+    public void testDeleteWithVarcharPredicate()
+    {
+        throw new SkipException("This is implemented by testDeleteWithVarcharEqualityPredicate");
+    }
+
+    @Test(dataProvider = "testInsertBatchSizeSessionProperty")
+    public void testInsertBatchSizeSessionProperty(Integer batchSize, Integer numberOfRows)
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new SkipException("CREATE TABLE is required for insert_batch_size test but is not supported");
+        }
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "insert_batch_size", batchSize.toString())
+                .build();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_insert_batch_size",
+                "(a varchar(36), b bigint)")) {
+            String values = String.join(",", makeValuesForInsertBatchSizeSessionPropertyTest(numberOfRows));
+            assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) VALUES " + values, numberOfRows);
+            assertQuery("SELECT COUNT(*) FROM " + table.getName(), format("VALUES %d", numberOfRows));
+        }
+    }
+
+    private static List<String> makeValuesForInsertBatchSizeSessionPropertyTest(int numberOfRows)
+    {
+        List<String> result = new ArrayList<>(numberOfRows);
+        for (int i = 0; i < numberOfRows; i++) {
+            result.add(format("('%s', %d)", UUID.randomUUID(), ThreadLocalRandom.current().nextLong()));
+        }
+        return result;
+    }
+
+    @DataProvider(name = "testInsertBatchSizeSessionProperty")
+    public static Object[][] batchSizeAndNumberOfRowsForInsertBatchSizePropertyTest()
+    {
+        return new Object[][] {
+                {100, 64},
+                {100, 100},
+                {100, 512},
+                {100, 1000},
+                {1000, 100},
+                {1000, 1000},
+                {1000, 5000},
+                {10000, 1000},
+                {10000, 5000},
+                {10000, 15000},
+        };
     }
 }

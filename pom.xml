@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>359-SNAPSHOT</version>
+    <version>360-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -165,7 +165,7 @@
     <repositories>
         <repository>
             <id>confluent</id>
-            <url>http://packages.confluent.io/maven/</url>
+            <url>https://packages.confluent.io/maven/</url>
             <snapshots>
                 <enabled>false</enabled>
             </snapshots>

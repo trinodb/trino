@@ -45,7 +45,7 @@ import static javax.ws.rs.core.HttpHeaders.USER_AGENT;
 import static javax.ws.rs.core.MediaType.APPLICATION_FORM_URLENCODED;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
-class ScribeHttpClient
+public class ScribeHttpClient
         implements HttpClient
 {
     private static final Multimap<String, String> DEFAULT_HEADERS = ImmutableMultimap.<String, String>builder()

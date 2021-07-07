@@ -29,6 +29,7 @@ import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -39,6 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -232,11 +234,14 @@ public class WorkProcessorPipelineSourceOperator
             long deltaReadTimeNanos = deltaAndSet(context.readTimeNanos, sourceOperator.getReadTime().roundTo(NANOSECONDS));
 
             long deltaDynamicFilterSplitsProcessed = deltaAndSet(context.dynamicFilterSplitsProcessed, sourceOperator.getDynamicFilterSplitsProcessed());
+            Metrics metrics = sourceOperator.getConnectorMetrics();
+            context.connectorMetrics.set(metrics);
 
             operatorContext.recordPhysicalInputWithTiming(deltaPhysicalInputDataSize, deltaPhysicalInputPositions, deltaReadTimeNanos);
             operatorContext.recordNetworkInput(deltaInternalNetworkInputDataSize, deltaInternalNetworkInputPositions);
             operatorContext.recordProcessedInput(deltaInputDataSize, deltaInputPositions);
             operatorContext.recordDynamicFilterSplitProcessed(deltaDynamicFilterSplitsProcessed);
+            operatorContext.setLatestMetrics(metrics);
         }
 
         if (state.getType() == FINISHED) {
@@ -337,6 +342,7 @@ public class WorkProcessorPipelineSourceOperator
                         context.outputPositions.get(),
 
                         context.dynamicFilterSplitsProcessed.get(),
+                        context.connectorMetrics.get(),
 
                         DataSize.ofBytes(0),
 
@@ -676,6 +682,7 @@ public class WorkProcessorPipelineSourceOperator
         final AtomicLong outputPositions = new AtomicLong();
 
         final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
+        final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY);
 
         final AtomicLong peakUserMemoryReservation = new AtomicLong();
         final AtomicLong peakSystemMemoryReservation = new AtomicLong();

@@ -49,6 +49,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 
 public final class SystemSessionProperties
+        implements SystemSessionPropertiesProvider
 {
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
@@ -656,6 +657,7 @@ public final class SystemSessionProperties
                         true));
     }
 
+    @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;

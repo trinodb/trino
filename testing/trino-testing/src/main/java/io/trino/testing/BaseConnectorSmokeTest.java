@@ -183,7 +183,9 @@ public abstract class BaseConnectorSmokeTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM region", 5);
 
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 2", 1);
-        assertThat(query("SELECT regionkey FROM " + tableName))
+        assertThat(query("SELECT * FROM " + tableName + " WHERE regionkey = 2"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT cast(regionkey AS integer) FROM " + tableName))
                 .skippingTypesCheck()
                 .matches("VALUES 0, 1, 3, 4");
 
