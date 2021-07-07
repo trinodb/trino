@@ -66,6 +66,4 @@ public class TestMemSqlCaseInsensitiveMapping
     {
         return memSqlServer::execute;
     }
-
-
 }
