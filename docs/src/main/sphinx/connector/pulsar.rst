@@ -36,13 +36,13 @@ To connect to Pulsar, you need:
 * Pulsar 2.8.0 or higher.
 
 * Network access from the Trino coordinator and workers to the Pulsar web
-service API. 8080 is the default port.
+  service API. 8080 is the default port.
 
 * Network access from the Trino workers to the Apache ZooKeeper clusters and
-brokers used by Pulsar. 2181 is the default port.
+  brokers used by Pulsar. 2181 is the default port.
 
 * Network access from the Trino workers to the Apache BookKeeper clusters and
-brokers used by Pulsar. 3181 is the default port.
+  brokers used by Pulsar. 3181 is the default port.
 
 Configuration
 -------------
