@@ -158,7 +158,7 @@ public class FileHiveMetastore
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(
-                new NodeVersion("test_version"),
+                new NodeVersion("testversion"),
                 hdfsEnvironment,
                 new MetastoreConfig(),
                 new FileHiveMetastoreConfig()
