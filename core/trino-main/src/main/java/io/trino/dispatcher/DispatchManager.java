@@ -69,6 +69,7 @@ public class DispatchManager
     private final AccessControl accessControl;
     private final SessionSupplier sessionSupplier;
     private final SessionPropertyDefaults sessionPropertyDefaults;
+    private final SessionPropertyManager sessionPropertyManager;
 
     private final int maxQueryLength;
 
@@ -89,6 +90,7 @@ public class DispatchManager
             AccessControl accessControl,
             SessionSupplier sessionSupplier,
             SessionPropertyDefaults sessionPropertyDefaults,
+            SessionPropertyManager sessionPropertyManager,
             QueryManagerConfig queryManagerConfig,
             DispatchExecutor dispatchExecutor)
     {
@@ -101,6 +103,7 @@ public class DispatchManager
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
+        this.sessionPropertyManager = sessionPropertyManager;
 
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
@@ -219,7 +222,7 @@ public class DispatchManager
         catch (Throwable throwable) {
             // creation must never fail, so register a failed query in this case
             if (session == null) {
-                session = Session.builder(new SessionPropertyManager())
+                session = Session.builder(sessionPropertyManager)
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
                         .setSource(sessionContext.getSource())
