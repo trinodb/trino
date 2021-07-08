@@ -70,7 +70,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUS
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CANCELLATION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN;
@@ -1262,7 +1261,7 @@ public abstract class BaseJdbcConnectorTest
         throw new SkipException("This is implemented by testDeleteWithVarcharEqualityPredicate");
     }
 
-    @Test(dataProvider = "testInsertBatchSizeSessionProperty")
+    @Test(dataProvider = "batchSizeAndTotalNumberOfRowsToInsertDataProvider")
     public void testInsertBatchSizeSessionProperty(Integer batchSize, Integer numberOfRows)
     {
         if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
@@ -1291,8 +1290,8 @@ public abstract class BaseJdbcConnectorTest
         return result;
     }
 
-    @DataProvider(name = "testInsertBatchSizeSessionProperty")
-    public static Object[][] batchSizeAndNumberOfRowsForInsertBatchSizePropertyTest()
+    @DataProvider
+    public static Object[][] batchSizeAndTotalNumberOfRowsToInsertDataProvider()
     {
         return new Object[][] {
                 {100, 64},
