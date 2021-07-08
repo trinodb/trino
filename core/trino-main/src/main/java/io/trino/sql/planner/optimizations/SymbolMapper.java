@@ -63,7 +63,7 @@ public class SymbolMapper
 {
     private final Function<Symbol, Symbol> mappingFunction;
 
-    private SymbolMapper(Function<Symbol, Symbol> mappingFunction)
+    public SymbolMapper(Function<Symbol, Symbol> mappingFunction)
     {
         this.mappingFunction = requireNonNull(mappingFunction, "mappingFunction is null");
     }

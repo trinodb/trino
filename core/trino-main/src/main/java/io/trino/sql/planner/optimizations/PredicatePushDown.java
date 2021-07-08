@@ -635,14 +635,14 @@ public class PredicatePushDown
                             })
                             .map(expression -> {
                                 ComparisonExpression comparison = expression.getComparison();
-                                Symbol leftSymbol = Symbol.from(comparison.getLeft());
-                                Symbol rightSymbol = Symbol.from(comparison.getRight());
-                                boolean alignedComparison = node.getLeft().getOutputSymbols().contains(leftSymbol);
+                                Expression leftExpression = comparison.getLeft();
+                                Expression rightExpression = comparison.getRight();
+                                boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(leftExpression));
                                 return new DynamicFilterExpression(
                                         new ComparisonExpression(
                                                 alignedComparison ? comparison.getOperator() : comparison.getOperator().flip(),
-                                                (alignedComparison ? leftSymbol : rightSymbol).toSymbolReference(),
-                                                (alignedComparison ? rightSymbol : leftSymbol).toSymbolReference()),
+                                                alignedComparison ? leftExpression : rightExpression,
+                                                alignedComparison ? rightExpression : leftExpression),
                                         expression.isNullAllowed());
                             }))
                     .collect(toImmutableList());
@@ -672,11 +672,12 @@ public class PredicatePushDown
                     .stream()
                     .map(clause -> {
                         ComparisonExpression comparison = clause.getComparison();
-                        Symbol probeSymbol = Symbol.from(comparison.getLeft());
+                        Expression probeExpression = comparison.getLeft();
                         Symbol buildSymbol = Symbol.from(comparison.getRight());
-                        Type type = symbolAllocator.getTypes().get(probeSymbol);
+                        // we can take type of buildSymbol instead probeExpression as comparison expression must have the same type on both sides
+                        Type type = symbolAllocator.getTypes().get(buildSymbol);
                         DynamicFilterId id = requireNonNull(buildSymbolToDynamicFilter.get(buildSymbol), () -> "missing dynamic filter for symbol " + buildSymbol);
-                        return createDynamicFilterExpression(metadata, id, type, probeSymbol.toSymbolReference(), comparison.getOperator(), clause.isNullAllowed());
+                        return createDynamicFilterExpression(metadata, id, type, probeExpression, comparison.getOperator(), clause.isNullAllowed());
                     })
                     .collect(toImmutableList());
             // Return a mapping from build symbols to corresponding dynamic filter IDs:
@@ -1280,7 +1281,10 @@ public class PredicatePushDown
                 }
                 comparison = (ComparisonExpression) expression;
             }
-            return comparison.getLeft() instanceof SymbolReference && comparison.getRight() instanceof SymbolReference;
+
+            // Build side expression must be a symbol reference, since DynamicFilterSourceOperator can only collect column values (not expressions)
+            return (comparison.getRight() instanceof SymbolReference && rightSymbols.contains(Symbol.from(comparison.getRight())))
+                    || (comparison.getLeft() instanceof SymbolReference && rightSymbols.contains(Symbol.from(comparison.getLeft())));
         }
 
         private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<ComparisonExpression.Operator> operators)
