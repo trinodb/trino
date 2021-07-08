@@ -231,6 +231,13 @@ class RelationPlanner
             PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build(), updateTarget, Optional.empty());
 
             plan = new RelationPlan(root, scope, outputSymbols, outerContext);
+
+            List<Type> types = analysis.getRelationCoercion(node);
+            if (types != null) {
+                // apply required coercion and prune invisible fields from child outputs
+                NodeAndMappings coerced = coerce(plan, types, symbolAllocator, idAllocator);
+                plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
+            }
         }
 
         plan = addRowFilters(node, plan);

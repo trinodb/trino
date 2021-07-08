@@ -1550,7 +1550,7 @@ class StatementAnalyzer
             // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
             // This is needed in case the underlying table(s) changed and the query in the view now produces types that
             // are implicitly coercible to the declared view types.
-            List<Field> outputFields = columns.stream()
+            List<Field> viewFields = columns.stream()
                     .map(column -> Field.newQualified(
                             table.getName(),
                             Optional.of(column.getName()),
@@ -1562,17 +1562,17 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             if (storageTable.isPresent()) {
-                // use storage table output fields as Analysis#columns keys are compared by Field identity
-                // and storage table fields have already been registered
-                outputFields = analyzeStorageTable(table, outputFields, storageTable.get());
-                analyzeFiltersAndMasks(table, name, storageTable, outputFields, session.getIdentity().getUser());
-                return createAndAssignScope(table, scope, outputFields);
+                List<Field> storageTableFields = analyzeStorageTable(table, viewFields, storageTable.get());
+                analyzeFiltersAndMasks(table, name, storageTable, viewFields, session.getIdentity().getUser());
+                analysis.addRelationCoercion(table, viewFields.stream().map(Field::getType).toArray(Type[]::new));
+                // use storage table output fields as they contain ColumnHandles
+                return createAndAssignScope(table, scope, storageTableFields);
             }
 
-            analyzeFiltersAndMasks(table, name, storageTable, outputFields, session.getIdentity().getUser());
-            outputFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
+            analyzeFiltersAndMasks(table, name, storageTable, viewFields, session.getIdentity().getUser());
+            viewFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
             analysis.registerNamedQuery(table, query);
-            return createAndAssignScope(table, scope, outputFields);
+            return createAndAssignScope(table, scope, viewFields);
         }
 
         private List<Field> analyzeStorageTable(Table table, List<Field> viewFields, TableHandle storageTable)
@@ -1624,15 +1624,20 @@ class StatementAnalyzer
                 }
 
                 if (!tableField.getType().equals(viewField.getType())) {
-                    throw semanticException(
-                            INVALID_VIEW,
-                            table,
-                            "column [%s] of type %s projected from storage table at position %s has a different type from column [%s] of type %s stored in view definition",
-                            tableFieldName,
-                            tableField.getType(),
-                            index,
-                            viewFieldName,
-                            viewField.getType());
+                    try {
+                        metadata.getCoercion(viewField.getType(), tableField.getType());
+                    }
+                    catch (TrinoException e) {
+                        throw semanticException(
+                                INVALID_VIEW,
+                                table,
+                                "cannot cast column [%s] of type %s projected from storage table at position %s into column [%s] of type %s stored in view definition",
+                                tableFieldName,
+                                tableField.getType(),
+                                index,
+                                viewFieldName,
+                                viewField.getType());
+                    }
                 }
             }
 
