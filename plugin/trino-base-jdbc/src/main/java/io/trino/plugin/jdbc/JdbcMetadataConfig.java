@@ -45,6 +45,10 @@ public class JdbcMetadataConfig
 
     private int insertBatchSize = 1000;
 
+    // Do not create temporary table during insert.
+    // This means that the write operation can fail and leave the table in an inconsistent state.
+    private boolean nonTransactionalInsert;
+
     public boolean isAllowDropTable()
     {
         return allowDropTable;
@@ -125,6 +129,20 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setInsertBatchSize(int insertBatchSize)
     {
         this.insertBatchSize = insertBatchSize;
+        return this;
+    }
+
+    public boolean isNonTransactionalInsert()
+    {
+        return nonTransactionalInsert;
+    }
+
+    @Config("insert.non-transactional-insert.enabled")
+    @ConfigDescription("Do not create temporary table during insert. " +
+            "This means that the write operation can fail and leave the table in an inconsistent state.")
+    public JdbcMetadataConfig setNonTransactionalInsert(boolean nonTransactionalInsert)
+    {
+        this.nonTransactionalInsert = nonTransactionalInsert;
         return this;
     }
 }
