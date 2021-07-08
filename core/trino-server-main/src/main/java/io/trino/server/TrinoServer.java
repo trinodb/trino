@@ -18,6 +18,7 @@ import com.google.common.primitives.Ints;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.trino.server.Server.start;
 import static java.lang.String.format;
 
 public final class TrinoServer
@@ -35,6 +36,6 @@ public final class TrinoServer
         }
 
         String version = TrinoServer.class.getPackage().getImplementationVersion();
-        new Server().start(firstNonNull(version, "unknown"));
+        start(firstNonNull(version, "unknown"));
     }
 }

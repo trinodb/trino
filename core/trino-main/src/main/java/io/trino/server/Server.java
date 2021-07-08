@@ -72,12 +72,17 @@ import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
 public class Server
 {
-    public final void start(String trinoVersion)
+    public static void start(String trinoVersion)
     {
-        new EmbedVersion(trinoVersion).embedVersion(() -> doStart(trinoVersion)).run();
+        start(trinoVersion, ImmutableList.of());
     }
 
-    private void doStart(String trinoVersion)
+    public static void start(String trinoVersion, Iterable<? extends Module> additionalModules)
+    {
+        new EmbedVersion(trinoVersion).embedVersion(() -> doStart(trinoVersion, additionalModules)).run();
+    }
+
+    private static void doStart(String trinoVersion, Iterable<? extends Module> additionalModules)
     {
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
@@ -108,7 +113,7 @@ public class Server
                 new GracefulShutdownModule(),
                 new WarningCollectorModule());
 
-        modules.addAll(getAdditionalModules());
+        modules.addAll(additionalModules);
 
         Bootstrap app = new Bootstrap(modules.build());
 
