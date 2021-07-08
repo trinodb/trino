@@ -104,12 +104,27 @@ public class TestColumnMask
                 VIEW_OWNER,
                 ImmutableMap.of());
 
+        ConnectorMaterializedViewDefinition materializedViewWithCasts = new ConnectorMaterializedViewDefinition(
+                "SELECT nationkey, cast(name as varchar(1)) as name, regionkey, comment FROM local.tiny.nation",
+                Optional.of(new CatalogSchemaTableName("local", "tiny", "nation")),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(
+                        new ConnectorMaterializedViewDefinition.Column("nationkey", BigintType.BIGINT.getTypeId()),
+                        new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(2).getTypeId()),
+                        new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
+                        new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                Optional.empty(),
+                VIEW_OWNER,
+                ImmutableMap.of());
+
         MockConnectorFactory mock = MockConnectorFactory.builder()
                 .withGetViews((s, prefix) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_view"), view))
                 .withGetMaterializedViews((s, prefix) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_materialized_view"), materializedView,
-                        new SchemaTableName("default", "nation_fresh_materialized_view"), freshMaterializedView))
+                        new SchemaTableName("default", "nation_fresh_materialized_view"), freshMaterializedView,
+                        new SchemaTableName("default", "materialized_view_with_casts"), materializedViewWithCasts))
                 .build();
 
         runner.createCatalog(MOCK_CATALOG, mock, ImmutableMap.of());
@@ -252,6 +267,11 @@ public class TestColumnMask
                 "name",
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "reverse(name)"));
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "default", "materialized_view_with_casts"),
+                "name",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "reverse(name)"));
 
         assertThat(assertions.query(
                 Session.builder(SESSION)
@@ -266,6 +286,13 @@ public class TestColumnMask
                         .build(),
                 "SELECT name FROM mock.default.nation_materialized_view WHERE nationkey = 1"))
                 .matches("VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
+
+        assertThat(assertions.query(
+                Session.builder(SESSION)
+                        .setIdentity(Identity.forUser(USER).build())
+                        .build(),
+                "SELECT name FROM mock.default.materialized_view_with_casts WHERE nationkey = 1"))
+                .matches("VALUES CAST('RA' AS VARCHAR(2))");
     }
 
     @Test
