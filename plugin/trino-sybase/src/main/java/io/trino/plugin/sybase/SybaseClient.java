@@ -20,22 +20,11 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
-import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
-import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
-import io.trino.plugin.jdbc.expression.ImplementCount;
-import io.trino.plugin.jdbc.expression.ImplementCountAll;
-import io.trino.plugin.jdbc.expression.ImplementMinMax;
-import io.trino.plugin.jdbc.expression.ImplementSum;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.AggregateFunction;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
@@ -51,7 +40,6 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -73,8 +61,6 @@ public class SybaseClient
 
     private static final Joiner DOT_JOINER = Joiner.on(".");
 
-    private final AggregateFunctionRewriter aggregateFunctionRewriter;
-
     @Override
     public void createSchema(ConnectorSession session, String schemaName)
     {
@@ -88,23 +74,6 @@ public class SybaseClient
         super(config, "\"", connectionFactory, identifierMapping);
 
         requireNonNull(config, "sybaseConfig is null");
-
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
-                this::quoted,
-                ImmutableSet.<AggregateFunctionRule>builder()
-                        .add(new ImplementCountAll(bigintTypeHandle))
-                        .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementMinMax())
-                        .add(new ImplementSum(SybaseClient::toTypeHandle))
-                        .add(new ImplementAvgFloatingPoint())
-                        .add(new ImplementAvgDecimal())
-                        .add(new ImplementAvgBigint())
-                        .add(new ImplementSybaseStdev())
-                        .add(new ImplementSybaseStddevPop())
-                        .add(new ImplementSybaseVariance())
-                        .add(new ImplementSybaseVariancePop())
-                        .build());
     }
 
     @Override
@@ -207,13 +176,6 @@ public class SybaseClient
         }
 
         return legacyToWriteMapping(session, type);
-    }
-
-    @Override
-    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
-    {
-        // TODO support complex ConnectorExpressions
-        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
