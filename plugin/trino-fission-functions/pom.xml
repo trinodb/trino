@@ -13,7 +13,7 @@
 
     <artifactId>trino-fission-functions</artifactId>
     
-    <description>Trino - Custom fission funcion plugin for the CCCS</description>
+    <description>Trino - Custom fission function plugin for the CCCS</description>
     
     <packaging>trino-plugin</packaging>
 
