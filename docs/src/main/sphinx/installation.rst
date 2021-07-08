@@ -10,6 +10,7 @@ information, in the following sections:
 .. toctree::
     :maxdepth: 1
 
+    installation/try-it
     installation/deployment
 
 Once you have a completed the deployment, or if you have access to a running
