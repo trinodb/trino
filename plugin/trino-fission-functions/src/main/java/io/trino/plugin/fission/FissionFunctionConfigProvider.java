@@ -15,26 +15,23 @@ package io.trino.plugin.fission;
 
 import java.io.IOException;
 
-public class FissionFucntionConfigProvider
+public class FissionFunctionConfigProvider
 {
-    private static final String FISSION_FUCNTION_BASE_URL_ENV_VAR = "FISSION_FUCNTION_BASE_URL";
+    private static final String FISSION_FUNCTION_BASE_URL_ENV_VAR = "FISSION_FUNCTION_BASE_URL";
 
     private static String fissionFunctionbaseUrl;
 
-    private FissionFucntionConfigProvider() {}
+    private FissionFunctionConfigProvider() {}
 
     public static String getFissionFunctionBaseURL() throws IOException
     {
-        if (fissionFunctionbaseUrl != null) {
-            return fissionFunctionbaseUrl;
+        if (this.fissionFunctionbaseUrl == null) {
+            fissionFunctionbaseUrl = System.getenv(FISSION_FUNCTION_BASE_URL_ENV_VAR);
+            if (this.fissionFunctionbaseUrl == null || this.fissionFunctionbaseUrl.isEmpty()) {
+                String errorMesseage = String.format("%s is not set.", FISSION_FUNCTION_BASE_URL_ENV_VAR);
+                throw new IOException(errorMesseage);
+            }
         }
-
-        fissionFunctionbaseUrl = System.getenv(FISSION_FUCNTION_BASE_URL_ENV_VAR);
-
-        if (fissionFunctionbaseUrl == null || fissionFunctionbaseUrl.isEmpty()) {
-            String errorMesseage = String.format("%s is not set", FISSION_FUCNTION_BASE_URL_ENV_VAR);
-            throw new IOException(errorMesseage);
-        }
-        return fissionFunctionbaseUrl;
+        return this.fissionFunctionbaseUrl;
     }
 }
