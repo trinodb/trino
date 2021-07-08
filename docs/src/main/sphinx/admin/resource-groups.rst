@@ -83,13 +83,15 @@ Selector rules
 
 * ``queryType`` (optional): string to match against the type of the query submitted:
 
-  * ``DATA_DEFINITION``: Queries that alter/create/drop the metadata of schemas/tables/views, and that manage
-    prepared statements, privileges, sessions, and transactions.
-  * ``DELETE``: ``DELETE`` queries.
-  * ``DESCRIBE``: ``DESCRIBE``, ``DESCRIBE INPUT``, ``DESCRIBE OUTPUT``, and ``SHOW`` queries.
-  * ``EXPLAIN``: ``EXPLAIN`` queries.
-  * ``INSERT``: ``INSERT`` and ``CREATE TABLE AS`` queries.
   * ``SELECT``: ``SELECT`` queries.
+  * ``EXPLAIN``: ``EXPLAIN`` queries.
+  * ``DESCRIBE``: ``DESCRIBE``, ``DESCRIBE INPUT``, ``DESCRIBE OUTPUT``, and ``SHOW`` queries.
+  * ``INSERT``: ``INSERT``, ``CREATE TABLE AS``, and ``REFRESH MATERIALIZED VIEW`` queries.
+  * ``UPDATE``: ``UPDATE`` queries.
+  * ``DELETE``: ``DELETE`` queries.
+  * ``ANALYZE``: ``ANALYZE`` queries.
+  * ``DATA_DEFINITION``: Queries that alter/create/drop the metadata of schemas/tables/views,
+    and that manage prepared statements, privileges, sessions, and transactions.
 
 * ``clientTags`` (optional): list of tags. To match, every tag in this list must be in the list of
   client-provided tags associated with the query.
