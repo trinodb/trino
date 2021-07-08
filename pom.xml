@@ -62,7 +62,7 @@
         <dep.errorprone.version>2.8.0</dep.errorprone.version>
         <dep.testcontainers.version>1.16.0</dep.testcontainers.version>
         <dep.docker-java.version>3.2.11</dep.docker-java.version>
-        <dep.coral.version>1.0.60</dep.coral.version>
+        <dep.coral.version>1.0.77</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
         <!-- TODO: update after moving to Airbase 112 -->
         <dep.jackson.version>2.12.3</dep.jackson.version>
@@ -1038,7 +1038,7 @@
             <dependency>
                 <groupId>com.linkedin.calcite</groupId>
                 <artifactId>calcite-core</artifactId>
-                <version>1.21.0.146</version>
+                <version>1.21.0.150</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
