@@ -29,7 +29,7 @@ See [CONTRIBUTING](CONTRIBUTING.md) for contribution requirements.
 ## Build requirements
 
 * Mac OS X or Linux
-* Java 11.0.7+, 64-bit
+* Java 11.0.11+, 64-bit
 * Docker
 
 ## Building Trino

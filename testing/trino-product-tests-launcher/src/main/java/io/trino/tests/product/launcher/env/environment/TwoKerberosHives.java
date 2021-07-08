@@ -87,7 +87,7 @@ public final class TwoKerberosHives
 
         builder.configureContainer(COORDINATOR, container -> {
             container
-                    .withFileSystemBind(keytabsHostDirectory, "/etc/presto/conf", READ_WRITE)
+                    .withFileSystemBind(keytabsHostDirectory, "/etc/trino/conf", READ_WRITE)
 
                     .withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/presto-krb5.conf")),

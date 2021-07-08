@@ -81,15 +81,17 @@ Table property usage example::
 
     CREATE TABLE default.trino_ck (
       id int NOT NULL,
-      birthday DATE,
+      birthday DATE NOT NULL,
       name VARCHAR,
       age BIGINT,
-      logdate DATE
+      logdate DATE NOT NULL
     )
     WITH (
       engine = 'MergeTree',
       order_by = ARRAY['id', 'birthday'],
-      partition_by = 'toYYYYMM(logdate)'
+      partition_by = ARRAY['toYYYYMM(logdate)'],
+      primary_key = ARRAY['id'],
+      sample_by = 'id'
     );
 
 The following are supported ClickHouse table properties from `<https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/>`_
@@ -99,13 +101,14 @@ Property Name               Default Value    Description
 =========================== ================ ==============================================================================================================
 ``engine``                  ``Log``          Name and parameters of the engine.
 
-``order_by``                (none)           list of columns to be the sorting key. Required if ``engine`` is ``MergeTree``.
+``order_by``                (none)           Array of columns or expressions to concatenate to create the sorting key. Required if ``engine`` is ``MergeTree``.
 
-``partition_by``            (none)           list of columns to be the partition key. Optional.
+``partition_by``            (none)           Array of columns or expressions to use as nested partition keys. Optional.
 
-``primary_key``             (none)           list of columns to be the primary key. Optional.
+``primary_key``             (none)           Array of columns or expressions to concatenate to create the primary key. Optional.
 
-``sample_by``               (none)           An expression for sampling. Optional.
+``sample_by``               (none)           An expression to use for `sampling <https://clickhouse.tech/docs/en/sql-reference/statements/select/sample/>`_.
+                                             Optional.
 
 =========================== ================ ==============================================================================================================
 

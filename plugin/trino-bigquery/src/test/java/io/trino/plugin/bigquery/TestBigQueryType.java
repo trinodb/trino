@@ -21,7 +21,6 @@ import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static java.math.BigDecimal.ONE;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test
 public class TestBigQueryType
 {
     @Test

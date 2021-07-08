@@ -29,6 +29,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
@@ -137,8 +138,8 @@ public class TestInsertIntoCassandraTable
                 row("key 2", null, null, false, null, null, null, null, null, null, 999, null, null, null, null, "text 2", null, null, null, null, null, null));
 
         // negative test: failed to insert null to primary key
-        assertThat(() -> query(format("INSERT INTO %s (a) VALUES (null) ", tableNameInDatabase)))
-                .failsWithMessage("Invalid null value in condition for column a");
+        assertQueryFailure(() -> query(format("INSERT INTO %s (a) VALUES (null) ", tableNameInDatabase)))
+                .hasMessageContaining("Invalid null value in condition for column a");
     }
 
     @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
@@ -159,11 +160,11 @@ public class TestInsertIntoCassandraTable
                 query(format("SELECT lower('%s')", CASSANDRA_MATERIALIZED_VIEW)),
                 new Duration(1, MINUTES));
 
-        assertThat(() -> query(format("INSERT INTO %s.%s.%s (a) VALUES (null) ", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_MATERIALIZED_VIEW)))
-                .failsWithMessage("Inserting into materialized views not yet supported");
+        assertQueryFailure(() -> query(format("INSERT INTO %s.%s.%s (a) VALUES (null) ", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_MATERIALIZED_VIEW)))
+                .hasMessageContaining("Inserting into materialized views not yet supported");
 
-        assertThat(() -> query(format("DROP TABLE %s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_MATERIALIZED_VIEW)))
-                .failsWithMessage("Dropping materialized views not yet supported");
+        assertQueryFailure(() -> query(format("DROP TABLE %s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_MATERIALIZED_VIEW)))
+                .hasMessageContaining("Dropping materialized views not yet supported");
 
         onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, CASSANDRA_MATERIALIZED_VIEW));
     }

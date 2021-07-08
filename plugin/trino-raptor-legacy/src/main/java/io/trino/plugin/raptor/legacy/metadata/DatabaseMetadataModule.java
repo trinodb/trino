@@ -40,7 +40,7 @@ import javax.sql.DataSource;
 import java.lang.reflect.Type;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static java.util.Objects.requireNonNull;
@@ -51,7 +51,7 @@ public class DatabaseMetadataModule
     @Override
     protected void setup(Binder ignored)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 DatabaseConfig.class,
                 config -> "mysql".equals(config.getDatabaseType()),
                 binder -> {
@@ -59,7 +59,7 @@ public class DatabaseMetadataModule
                     bindDaoSupplier(binder, ShardDao.class, MySqlShardDao.class);
                 }));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 DatabaseConfig.class,
                 config -> "h2".equals(config.getDatabaseType()),
                 binder -> {

@@ -11,14 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.util;
+package io.trino.plugin.hive;
 
-public interface Mergeable<T>
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
+
+import java.util.Optional;
+
+public interface SystemTableProvider
 {
-    /**
-     * Merges the current state with the state of the other instance, and returns the merged state.
-     *
-     * @throws NullPointerException if other is null
-     */
-    T mergeWith(T other);
+    Optional<SystemTable> getSystemTable(HiveMetadata metadata, ConnectorSession session, SchemaTableName tableName);
 }
