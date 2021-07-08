@@ -77,79 +77,83 @@ import io.trino.sql.tree.Use;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.spi.resourcegroups.QueryType.ANALYZE;
+import static io.trino.spi.resourcegroups.QueryType.DATA_DEFINITION;
+import static io.trino.spi.resourcegroups.QueryType.DELETE;
+import static io.trino.spi.resourcegroups.QueryType.DESCRIBE;
+import static io.trino.spi.resourcegroups.QueryType.EXPLAIN;
+import static io.trino.spi.resourcegroups.QueryType.INSERT;
+import static io.trino.spi.resourcegroups.QueryType.SELECT;
+import static io.trino.spi.resourcegroups.QueryType.UPDATE;
+
 public final class StatementUtils
 {
     private StatementUtils() {}
 
-    private static final Map<Class<? extends Statement>, QueryType> STATEMENT_QUERY_TYPES;
-
-    static {
-        ImmutableMap.Builder<Class<? extends Statement>, QueryType> builder = ImmutableMap.builder();
-        builder.put(Query.class, QueryType.SELECT);
-
-        builder.put(Explain.class, QueryType.EXPLAIN);
-        builder.put(Analyze.class, QueryType.ANALYZE);
-
-        builder.put(CreateTableAsSelect.class, QueryType.INSERT);
-        builder.put(Insert.class, QueryType.INSERT);
-
-        builder.put(Delete.class, QueryType.DELETE);
-
-        builder.put(Update.class, QueryType.UPDATE);
-
-        builder.put(ShowCatalogs.class, QueryType.DESCRIBE);
-        builder.put(ShowCreate.class, QueryType.DESCRIBE);
-        builder.put(ShowFunctions.class, QueryType.DESCRIBE);
-        builder.put(ShowGrants.class, QueryType.DESCRIBE);
-        builder.put(ShowRoles.class, QueryType.DESCRIBE);
-        builder.put(ShowRoleGrants.class, QueryType.DESCRIBE);
-        builder.put(ShowSchemas.class, QueryType.DESCRIBE);
-        builder.put(ShowSession.class, QueryType.DESCRIBE);
-        builder.put(ShowStats.class, QueryType.DESCRIBE);
-        builder.put(ShowTables.class, QueryType.DESCRIBE);
-        builder.put(ShowColumns.class, QueryType.DESCRIBE);
-        builder.put(DescribeInput.class, QueryType.DESCRIBE);
-        builder.put(DescribeOutput.class, QueryType.DESCRIBE);
-
-        builder.put(CreateSchema.class, QueryType.DATA_DEFINITION);
-        builder.put(DropSchema.class, QueryType.DATA_DEFINITION);
-        builder.put(RenameSchema.class, QueryType.DATA_DEFINITION);
-        builder.put(SetSchemaAuthorization.class, QueryType.DATA_DEFINITION);
-        builder.put(AddColumn.class, QueryType.DATA_DEFINITION);
-        builder.put(SetTableAuthorization.class, QueryType.DATA_DEFINITION);
-        builder.put(CreateTable.class, QueryType.DATA_DEFINITION);
-        builder.put(RenameTable.class, QueryType.DATA_DEFINITION);
-        builder.put(Comment.class, QueryType.DATA_DEFINITION);
-        builder.put(RenameColumn.class, QueryType.DATA_DEFINITION);
-        builder.put(DropColumn.class, QueryType.DATA_DEFINITION);
-        builder.put(DropTable.class, QueryType.DATA_DEFINITION);
-        builder.put(CreateView.class, QueryType.DATA_DEFINITION);
-        builder.put(RenameView.class, QueryType.DATA_DEFINITION);
-        builder.put(SetViewAuthorization.class, QueryType.DATA_DEFINITION);
-        builder.put(DropView.class, QueryType.DATA_DEFINITION);
-        builder.put(CreateMaterializedView.class, QueryType.DATA_DEFINITION);
-        builder.put(RefreshMaterializedView.class, QueryType.INSERT);
-        builder.put(DropMaterializedView.class, QueryType.DATA_DEFINITION);
-        builder.put(Use.class, QueryType.DATA_DEFINITION);
-        builder.put(SetSession.class, QueryType.DATA_DEFINITION);
-        builder.put(ResetSession.class, QueryType.DATA_DEFINITION);
-        builder.put(StartTransaction.class, QueryType.DATA_DEFINITION);
-        builder.put(Commit.class, QueryType.DATA_DEFINITION);
-        builder.put(Rollback.class, QueryType.DATA_DEFINITION);
-        builder.put(Call.class, QueryType.DATA_DEFINITION);
-        builder.put(CreateRole.class, QueryType.DATA_DEFINITION);
-        builder.put(DropRole.class, QueryType.DATA_DEFINITION);
-        builder.put(GrantRoles.class, QueryType.DATA_DEFINITION);
-        builder.put(RevokeRoles.class, QueryType.DATA_DEFINITION);
-        builder.put(SetRole.class, QueryType.DATA_DEFINITION);
-        builder.put(Grant.class, QueryType.DATA_DEFINITION);
-        builder.put(Revoke.class, QueryType.DATA_DEFINITION);
-        builder.put(Prepare.class, QueryType.DATA_DEFINITION);
-        builder.put(Deallocate.class, QueryType.DATA_DEFINITION);
-        builder.put(SetPath.class, QueryType.DATA_DEFINITION);
-        builder.put(SetTimeZone.class, QueryType.DATA_DEFINITION);
-        STATEMENT_QUERY_TYPES = builder.build();
-    }
+    private static final Map<Class<? extends Statement>, QueryType> STATEMENT_QUERY_TYPES = ImmutableMap.<Class<? extends Statement>, QueryType>builder()
+            // SELECT
+            .put(Query.class, SELECT)
+            // EXPLAIN
+            .put(Explain.class, EXPLAIN)
+            // DESCRIBE
+            .put(DescribeInput.class, DESCRIBE)
+            .put(DescribeOutput.class, DESCRIBE)
+            .put(ShowCatalogs.class, DESCRIBE)
+            .put(ShowColumns.class, DESCRIBE)
+            .put(ShowCreate.class, DESCRIBE)
+            .put(ShowFunctions.class, DESCRIBE)
+            .put(ShowGrants.class, DESCRIBE)
+            .put(ShowRoleGrants.class, DESCRIBE)
+            .put(ShowRoles.class, DESCRIBE)
+            .put(ShowSchemas.class, DESCRIBE)
+            .put(ShowSession.class, DESCRIBE)
+            .put(ShowStats.class, DESCRIBE)
+            .put(ShowTables.class, DESCRIBE)
+            // DML
+            .put(CreateTableAsSelect.class, INSERT)
+            .put(RefreshMaterializedView.class, INSERT)
+            .put(Insert.class, INSERT)
+            .put(Update.class, UPDATE)
+            .put(Delete.class, DELETE)
+            .put(Analyze.class, ANALYZE)
+            // DDL
+            .put(AddColumn.class, DATA_DEFINITION)
+            .put(Call.class, DATA_DEFINITION)
+            .put(Comment.class, DATA_DEFINITION)
+            .put(Commit.class, DATA_DEFINITION)
+            .put(CreateMaterializedView.class, DATA_DEFINITION)
+            .put(CreateRole.class, DATA_DEFINITION)
+            .put(CreateSchema.class, DATA_DEFINITION)
+            .put(CreateTable.class, DATA_DEFINITION)
+            .put(CreateView.class, DATA_DEFINITION)
+            .put(Deallocate.class, DATA_DEFINITION)
+            .put(DropColumn.class, DATA_DEFINITION)
+            .put(DropMaterializedView.class, DATA_DEFINITION)
+            .put(DropRole.class, DATA_DEFINITION)
+            .put(DropSchema.class, DATA_DEFINITION)
+            .put(DropTable.class, DATA_DEFINITION)
+            .put(DropView.class, DATA_DEFINITION)
+            .put(Grant.class, DATA_DEFINITION)
+            .put(GrantRoles.class, DATA_DEFINITION)
+            .put(Prepare.class, DATA_DEFINITION)
+            .put(RenameColumn.class, DATA_DEFINITION)
+            .put(RenameSchema.class, DATA_DEFINITION)
+            .put(RenameTable.class, DATA_DEFINITION)
+            .put(RenameView.class, DATA_DEFINITION)
+            .put(ResetSession.class, DATA_DEFINITION)
+            .put(Revoke.class, DATA_DEFINITION)
+            .put(RevokeRoles.class, DATA_DEFINITION)
+            .put(Rollback.class, DATA_DEFINITION)
+            .put(SetPath.class, DATA_DEFINITION)
+            .put(SetRole.class, DATA_DEFINITION)
+            .put(SetSchemaAuthorization.class, DATA_DEFINITION)
+            .put(SetSession.class, DATA_DEFINITION)
+            .put(SetTableAuthorization.class, DATA_DEFINITION)
+            .put(SetTimeZone.class, DATA_DEFINITION)
+            .put(SetViewAuthorization.class, DATA_DEFINITION)
+            .put(StartTransaction.class, DATA_DEFINITION)
+            .put(Use.class, DATA_DEFINITION)
+            .build();
 
     public static Map<Class<? extends Statement>, QueryType> getAllQueryTypes()
     {
