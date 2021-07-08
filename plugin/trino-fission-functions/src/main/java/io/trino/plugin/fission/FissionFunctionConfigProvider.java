@@ -22,7 +22,11 @@ public class FissionFunctionConfigProvider
     private static String fissionFunctionbaseUrl;
 
     private FissionFunctionConfigProvider() {}
-
+    /**
+     * Fetetches env var 'FISSION_FUNCTION_BASE_URL' and returns it as a string, if it is not set will throw an error
+     * 
+     * @return fissionFunctionbaseUrl, string prepresntation of the url url for fission endpoints
+     */
     public static String getFissionFunctionBaseURL() throws IOException
     {
         if (this.fissionFunctionbaseUrl == null) {
