@@ -30,7 +30,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SALESFORCE_CONNECTOR_KEY_VALUE;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -214,7 +213,6 @@ public final class SalesforceQueryRunner
         public Builder()
         {
             connectorProperties = ImmutableMap.<String, String>builder()
-                    .put("salesforce.key", SALESFORCE_CONNECTOR_KEY_VALUE)
                     .put("salesforce.user", requireNonNull(System.getProperty("salesforce.test.user1.username"), "salesforce.test.user1.username is not set"))
                     .put("salesforce.password", requireNonNull(System.getProperty("salesforce.test.user1.password"), "salesforce.test.user1.password is not set"))
                     .put("salesforce.security-token", requireNonNull(System.getProperty("salesforce.test.user1.security-token"), "salesforce.test.user1.security-token is not set"))

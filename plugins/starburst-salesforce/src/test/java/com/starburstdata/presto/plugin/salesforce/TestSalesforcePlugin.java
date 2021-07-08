@@ -16,7 +16,6 @@ import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SALESFORCE_CONNECTOR_KEY_VALUE;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -40,7 +39,6 @@ public class TestSalesforcePlugin
         factory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
-                        .put("salesforce.key", SALESFORCE_CONNECTOR_KEY_VALUE)
                         .put("salesforce.user", requireNonNull(System.getProperty("salesforce.test.user1.username"), "salesforce.test.user1.username is not set"))
                         .put("salesforce.password", requireNonNull(System.getProperty("salesforce.test.user1.password"), "salesforce.test.user1.password is not set"))
                         .put("salesforce.security-token", requireNonNull(System.getProperty("salesforce.test.user1.security-token"), "salesforce.test.user1.security-token is not set"))
