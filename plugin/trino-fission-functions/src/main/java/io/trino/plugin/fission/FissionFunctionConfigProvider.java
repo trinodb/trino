@@ -19,7 +19,7 @@ public class FissionFunctionConfigProvider
 {
     private static final String FISSION_FUNCTION_BASE_URL_ENV_VAR = "FISSION_FUNCTION_BASE_URL";
 
-    private static String fissionFunctionbaseUrl;
+    private static String fissionFunctionBaseUrl;
 
     private FissionFunctionConfigProvider() {}
 
@@ -27,17 +27,17 @@ public class FissionFunctionConfigProvider
      * Fetches env var 'FISSION_FUNCTION_BASE_URL' and returns it as a string, if it is not set will throw an error
      *
      * @throws IOException if FISSION_FUNCTION_BASE_URL env var is not set
-     * @return fissionFunctionbaseUrl - string representation of the url for fission endpoints
+     * @return fissionFunctionBaseUrl - string representation of the url for fission endpoints
      */
     public static String getFissionFunctionBaseURL() throws IOException
     {
-        if (fissionFunctionbaseUrl == null) {
-            fissionFunctionbaseUrl = System.getenv(FISSION_FUNCTION_BASE_URL_ENV_VAR);
-            if (fissionFunctionbaseUrl == null || fissionFunctionbaseUrl.isEmpty()) {
+        if (fissionFunctionBaseUrl == null) {
+            fissionFunctionBaseUrl = System.getenv(FISSION_FUNCTION_BASE_URL_ENV_VAR);
+            if (fissionFunctionBaseUrl == null || fissionFunctionBaseUrl.isEmpty()) {
                 String errorMesseage = String.format("%s is not set.", FISSION_FUNCTION_BASE_URL_ENV_VAR);
                 throw new IOException(errorMesseage);
             }
         }
-        return fissionFunctionbaseUrl;
+        return fissionFunctionBaseUrl;
     }
 }
