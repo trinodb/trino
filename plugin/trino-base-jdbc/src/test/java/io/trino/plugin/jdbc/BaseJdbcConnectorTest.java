@@ -1260,6 +1260,26 @@ public abstract class BaseJdbcConnectorTest
         throw new SkipException("This is implemented by testDeleteWithVarcharEqualityPredicate");
     }
 
+    @Test
+    public void testInsertWithoutTemporaryTable()
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new SkipException("CREATE TABLE is required for testing non-transactional write support");
+        }
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "non_transactional_insert", "false")
+                .build();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_bypass_temp",
+                "(a varchar(36), b bigint)")) {
+            String values = String.join(",", buildRowsForInsert(5000));
+            assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) VALUES " + values, 5000);
+            assertQuery("SELECT COUNT(*) FROM " + table.getName(), format("VALUES %d", 5000));
+        }
+    }
+
     @Test(dataProvider = "batchSizeAndTotalNumberOfRowsToInsertDataProvider")
     public void testInsertBatchSizeSessionProperty(Integer batchSize, Integer numberOfRows)
     {
@@ -1274,13 +1294,13 @@ public abstract class BaseJdbcConnectorTest
                 getQueryRunner()::execute,
                 "test_insert_batch_size",
                 "(a varchar(36), b bigint)")) {
-            String values = String.join(",", makeValuesForInsertBatchSizeSessionPropertyTest(numberOfRows));
+            String values = String.join(",", buildRowsForInsert(numberOfRows));
             assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) VALUES " + values, numberOfRows);
             assertQuery("SELECT COUNT(*) FROM " + table.getName(), format("VALUES %d", numberOfRows));
         }
     }
 
-    private static List<String> makeValuesForInsertBatchSizeSessionPropertyTest(int numberOfRows)
+    private static List<String> buildRowsForInsert(int numberOfRows)
     {
         List<String> result = new ArrayList<>(numberOfRows);
         for (int i = 0; i < numberOfRows; i++) {

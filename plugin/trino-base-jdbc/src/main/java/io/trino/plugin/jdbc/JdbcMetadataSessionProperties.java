@@ -38,6 +38,7 @@ public class JdbcMetadataSessionProperties
     public static final String TOPN_PUSHDOWN_ENABLED = "topn_pushdown_enabled";
     public static final String DOMAIN_COMPACTION_THRESHOLD = "domain_compaction_threshold";
     public static final String INSERT_BATCH_SIZE = "insert_batch_size";
+    public static final String NON_TRANSACTIONAL_INSERT = "non_transactional_insert";
 
     private final List<PropertyMetadata<?>> properties;
 
@@ -73,6 +74,11 @@ public class JdbcMetadataSessionProperties
                         jdbcMetadataConfig.getInsertBatchSize(),
                         value -> validateInsertBatchSize(value, MAX_ALLOWED_INSERT_BATCH_SIZE),
                         false))
+                .add(booleanProperty(
+                        NON_TRANSACTIONAL_INSERT,
+                        "Do not use temporary table on insert to table",
+                        jdbcMetadataConfig.isNonTransactionalInsert(),
+                        false))
                 .build();
     }
 
@@ -105,6 +111,11 @@ public class JdbcMetadataSessionProperties
     public static int getInsertBatchSize(ConnectorSession session)
     {
         return session.getProperty(INSERT_BATCH_SIZE, Integer.class);
+    }
+
+    public static boolean isNonTransactionalInsert(ConnectorSession session)
+    {
+        return session.getProperty(NON_TRANSACTIONAL_INSERT, Boolean.class);
     }
 
     private static void validateDomainCompactionThreshold(int domainCompactionThreshold, Optional<Integer> maxDomainCompactionThreshold)

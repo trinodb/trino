@@ -36,7 +36,8 @@ public class TestJdbcMetadataConfig
                 .setAggregationPushdownEnabled(true)
                 .setTopNPushdownEnabled(true)
                 .setDomainCompactionThreshold(32)
-                .setInsertBatchSize(1000));
+                .setInsertBatchSize(1000)
+                .setNonTransactionalInsert(false));
     }
 
     @Test
@@ -49,6 +50,7 @@ public class TestJdbcMetadataConfig
                 .put("domain-compaction-threshold", "42")
                 .put("topn-pushdown.enabled", "false")
                 .put("insert.batch-size", "24")
+                .put("insert.non-transactional-insert.enabled", "true")
                 .build();
 
         JdbcMetadataConfig expected = new JdbcMetadataConfig()
@@ -57,7 +59,8 @@ public class TestJdbcMetadataConfig
                 .setAggregationPushdownEnabled(false)
                 .setTopNPushdownEnabled(false)
                 .setDomainCompactionThreshold(42)
-                .setInsertBatchSize(24);
+                .setInsertBatchSize(24)
+                .setNonTransactionalInsert(true);
 
         assertFullMapping(properties, expected);
     }
