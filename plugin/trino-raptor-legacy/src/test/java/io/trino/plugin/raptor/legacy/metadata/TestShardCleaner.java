@@ -44,12 +44,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Arrays.asList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -71,12 +71,13 @@ public class TestShardCleaner
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 
-        temporary = createTempDir();
+        temporary = createTempDirectory("tmp").toFile();
         File directory = new File(temporary, "data");
         storageService = new FileStorageService(directory);
         storageService.start();

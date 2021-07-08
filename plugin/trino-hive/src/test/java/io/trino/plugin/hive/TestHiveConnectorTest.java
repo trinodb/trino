@@ -90,7 +90,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.asCharSink;
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
@@ -148,6 +147,7 @@ import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -3566,7 +3566,7 @@ public class TestHiveConnectorTest
             List<String> tableProperties)
             throws Exception
     {
-        File tempDir = createTempDir();
+        File tempDir = createTempDirectory("tmp").toFile();
         File dataFile = new File(tempDir, "test.txt");
         Files.asCharSink(dataFile, UTF_8).write(fileContents);
 
@@ -3650,7 +3650,7 @@ public class TestHiveConnectorTest
     public void testCreateExternalTableWithDataNotAllowed()
             throws IOException
     {
-        File tempDir = createTempDir();
+        File tempDir = createTempDirectory("tmp").toFile();
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external_with_data_not_allowed " +

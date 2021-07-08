@@ -22,12 +22,12 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 
 public class TestHiveCreateExternalTableDisabled
         extends AbstractTestQueryFramework
@@ -48,7 +48,7 @@ public class TestHiveCreateExternalTableDisabled
     public void testCreateExternalTableWithData()
             throws Exception
     {
-        File tempDir = createTempDir();
+        File tempDir = createTempDirectory("tmp").toFile();
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external " +
@@ -64,7 +64,7 @@ public class TestHiveCreateExternalTableDisabled
     public void testCreateExternalTable()
             throws Exception
     {
-        File tempDir = createTempDir();
+        File tempDir = createTempDirectory("tmp").toFile();
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external (n TINYINT) " +

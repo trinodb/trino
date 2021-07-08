@@ -75,6 +75,7 @@ public abstract class AbstractCostBasedPlanTest
     }
 
     protected void generate()
+            throws IOException
     {
         initPlanTest();
         try {

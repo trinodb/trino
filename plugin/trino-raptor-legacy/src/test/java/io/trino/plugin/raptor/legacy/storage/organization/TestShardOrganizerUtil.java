@@ -16,7 +16,6 @@ package io.trino.plugin.raptor.legacy.storage.organization;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.io.Files;
 import io.trino.plugin.raptor.legacy.RaptorMetadata;
 import io.trino.plugin.raptor.legacy.metadata.ColumnInfo;
 import io.trino.plugin.raptor.legacy.metadata.ColumnStats;
@@ -38,6 +37,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,6 +60,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.nio.file.Files.createTempDirectory;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -79,12 +80,13 @@ public class TestShardOrganizerUtil
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dbi.registerMapper(new TableColumn.Mapper(new InternalTypeManager(createTestMetadataManager(), new TypeOperators())));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
-        dataDir = Files.createTempDir();
+        dataDir = createTempDirectory("tmp").toFile();
 
         metadata = new RaptorMetadata(dbi, createShardManager(dbi));
 

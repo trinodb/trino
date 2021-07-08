@@ -16,7 +16,6 @@ package io.trino.plugin.hive.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
@@ -46,6 +45,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
@@ -64,6 +64,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static org.testng.Assert.assertTrue;
 
 public class TestHiveProjectionPushdownIntoTableScan
@@ -81,8 +82,9 @@ public class TestHiveProjectionPushdownIntoTableScan
 
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
+            throws IOException
     {
-        baseDir = Files.createTempDir();
+        baseDir = createTempDirectory("tmp").toFile();
         HdfsConfig config = new HdfsConfig();
         HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());

@@ -14,7 +14,6 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
@@ -27,6 +26,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static java.nio.file.Files.createTempDirectory;
 
 public class TestRaptorPlugin
 {
@@ -38,7 +38,7 @@ public class TestRaptorPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertInstanceOf(factory, RaptorConnectorFactory.class);
 
-        File tmpDir = Files.createTempDir();
+        File tmpDir = createTempDirectory("tmp").toFile();
         try {
             Map<String, String> config = ImmutableMap.<String, String>builder()
                     .put("metadata.db.type", "h2")

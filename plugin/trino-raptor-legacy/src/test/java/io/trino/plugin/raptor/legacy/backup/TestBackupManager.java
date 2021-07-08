@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.raptor.legacy.backup;
 
-import com.google.common.io.Files;
 import io.trino.plugin.raptor.legacy.storage.BackupStats;
 import io.trino.plugin.raptor.legacy.storage.FileStorageService;
 import io.trino.spi.TrinoException;
@@ -32,12 +31,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.io.Files.createTempDir;
+import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -59,8 +59,9 @@ public class TestBackupManager
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
-        temporary = createTempDir();
+        temporary = createTempDirectory("tmp").toFile();
 
         FileBackupStore fileStore = new FileBackupStore(new File(temporary, "backup"));
         fileStore.start();
@@ -91,7 +92,7 @@ public class TestBackupManager
         List<UUID> uuids = new ArrayList<>(5);
         for (int i = 0; i < 5; i++) {
             File file = new File(temporary, "file" + i);
-            Files.write("hello world", file, UTF_8);
+            asCharSink(file, UTF_8).write("hello world");
             uuids.add(randomUUID());
 
             futures.add(backupManager.submit(uuids.get(i), file));
@@ -113,7 +114,7 @@ public class TestBackupManager
         assertBackupStats(0, 0, 0);
 
         File file = new File(temporary, "failure");
-        Files.write("hello world", file, UTF_8);
+        asCharSink(file, UTF_8).write("test data");
 
         assertThatThrownBy(() -> backupManager.submit(FAILURE_UUID, file).get(10, SECONDS))
                 .isInstanceOfSatisfying(ExecutionException.class, wrapper -> {
@@ -134,7 +135,7 @@ public class TestBackupManager
         assertBackupStats(0, 0, 0);
 
         File file = new File(temporary, "corrupt");
-        Files.write("hello world", file, UTF_8);
+        asCharSink(file, UTF_8).write("test data");
 
         assertThatThrownBy(() -> backupManager.submit(CORRUPTION_UUID, file).get(10, SECONDS))
                 .isInstanceOfSatisfying(ExecutionException.class, wrapper -> {

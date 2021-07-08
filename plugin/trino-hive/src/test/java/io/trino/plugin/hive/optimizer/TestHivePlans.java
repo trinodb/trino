@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.optimizer;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.trino.Session;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
@@ -41,6 +40,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -61,6 +61,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.nio.file.Files.createTempDirectory;
 
 public class TestHivePlans
         extends BasePlanTest
@@ -77,8 +78,9 @@ public class TestHivePlans
 
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
+            throws IOException
     {
-        baseDir = Files.createTempDir();
+        baseDir = createTempDirectory("tmp").toFile();
         HdfsConfig config = new HdfsConfig();
         HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());

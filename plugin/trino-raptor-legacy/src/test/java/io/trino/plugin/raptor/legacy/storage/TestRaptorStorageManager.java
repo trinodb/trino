@@ -70,7 +70,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.hash.Hashing.md5;
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Files.hash;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -99,6 +98,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -139,8 +139,9 @@ public class TestRaptorStorageManager
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
-        temporary = createTempDir();
+        temporary = createTempDirectory("tmp").toFile();
         File directory = new File(temporary, "data");
         storageService = new FileStorageService(directory);
         storageService.start();

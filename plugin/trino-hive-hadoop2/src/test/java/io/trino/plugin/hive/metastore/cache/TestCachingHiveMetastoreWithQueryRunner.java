@@ -36,6 +36,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SuppressWarnings("UnstableApiUsage")
@@ -62,7 +63,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
                 .setNodeCount(1)
                 .build();
         queryRunner.installPlugin(new HivePlugin());
-        temporaryDirectory = createTempDir();
+        temporaryDirectory = createTempDirectory("tmp").toFile();
         queryRunner.createCatalog(CATALOG, "hive", ImmutableMap.of(
                 "hive.metastore", "file",
                 "hive.metastore.catalog.dir", temporaryDirectory.toURI().toString(),
@@ -78,7 +79,10 @@ public class TestCachingHiveMetastoreWithQueryRunner
             throws IOException
     {
         queryRunner.close();
-        deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
+
+        if (temporaryDirectory != null) {
+            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
+        }
     }
 
     private static Session getTestSession(Identity identity)

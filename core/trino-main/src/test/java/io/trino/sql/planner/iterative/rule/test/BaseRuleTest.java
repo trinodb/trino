@@ -20,6 +20,7 @@ import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,6 +39,7 @@ public abstract class BaseRuleTest
 
     @BeforeClass
     public final void setUp()
+            throws IOException
     {
         Optional<LocalQueryRunner> localQueryRunner = createLocalQueryRunner();
 
@@ -51,6 +53,7 @@ public abstract class BaseRuleTest
     }
 
     protected Optional<LocalQueryRunner> createLocalQueryRunner()
+            throws IOException
     {
         return Optional.empty();
     }

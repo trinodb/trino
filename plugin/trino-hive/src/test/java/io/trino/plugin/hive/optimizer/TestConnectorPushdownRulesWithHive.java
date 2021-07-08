@@ -16,7 +16,6 @@ package io.trino.plugin.hive.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.cost.ScalarStatsCalculator;
@@ -81,6 +80,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Arrays.asList;
 
 public class TestConnectorPushdownRulesWithHive
@@ -101,8 +101,9 @@ public class TestConnectorPushdownRulesWithHive
 
     @Override
     protected Optional<LocalQueryRunner> createLocalQueryRunner()
+            throws IOException
     {
-        baseDir = Files.createTempDir();
+        baseDir = createTempDirectory("tmp").toFile();
         HdfsConfig config = new HdfsConfig();
         HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());

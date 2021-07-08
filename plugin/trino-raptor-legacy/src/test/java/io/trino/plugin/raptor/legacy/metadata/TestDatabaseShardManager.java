@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.common.io.Files;
 import io.airlift.slice.Slice;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
@@ -88,6 +87,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.toSet;
@@ -104,11 +104,13 @@ public class TestDatabaseShardManager
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
-        dataDir = Files.createTempDir();
+        dataDir = createTempDirectory("tmp").toFile();
+
         shardManager = createShardManager(dbi);
     }
 
