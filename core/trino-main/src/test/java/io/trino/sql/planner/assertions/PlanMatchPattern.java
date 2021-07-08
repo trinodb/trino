@@ -27,6 +27,8 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -1172,14 +1174,23 @@ public final class PlanMatchPattern
 
     public static class DynamicFilterPattern
     {
-        private final SymbolAlias probe;
+        private final Expression probe;
         private final ComparisonExpression.Operator operator;
         private final SymbolAlias build;
         private final boolean nullAllowed;
 
-        public DynamicFilterPattern(String probeAlias, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
+        public DynamicFilterPattern(String probeExpression, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
         {
-            this.probe = new SymbolAlias(requireNonNull(probeAlias, "probeAlias is null"));
+            this(
+                    PlanBuilder.expression(probeExpression),
+                    operator,
+                    buildAlias,
+                    nullAllowed);
+        }
+
+        public DynamicFilterPattern(Expression probe, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
+        {
+            this.probe = requireNonNull(probe, "probe is null");
             this.operator = requireNonNull(operator, "operator is null");
             this.build = new SymbolAlias(requireNonNull(buildAlias, "buildAlias is null"));
             this.nullAllowed = nullAllowed;
@@ -1192,17 +1203,23 @@ public final class PlanMatchPattern
 
         Expression getExpression(SymbolAliases aliases)
         {
+            Expression probeMapped = symbolMapper(aliases).map(probe);
             if (nullAllowed) {
                 return new NotExpression(
                         new ComparisonExpression(
                                 IS_DISTINCT_FROM,
-                                probe.toSymbol(aliases).toSymbolReference(),
+                                probeMapped,
                                 build.toSymbol(aliases).toSymbolReference()));
             }
             return new ComparisonExpression(
                     operator,
-                    probe.toSymbol(aliases).toSymbolReference(),
+                    probeMapped,
                     build.toSymbol(aliases).toSymbolReference());
+        }
+
+        private static SymbolMapper symbolMapper(SymbolAliases symbolAliases)
+        {
+            return new SymbolMapper(symbol -> Symbol.from(symbolAliases.get(symbol.getName())));
         }
 
         @Override
