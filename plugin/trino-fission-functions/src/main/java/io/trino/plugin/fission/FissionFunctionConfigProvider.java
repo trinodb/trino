@@ -24,13 +24,14 @@ public class FissionFunctionConfigProvider
     private FissionFunctionConfigProvider() {}
 
     /**
-     * Fetetches env var 'FISSION_FUNCTION_BASE_URL' and returns it as a string, if it is not set will throw an error
+     * Fetches env var 'FISSION_FUNCTION_BASE_URL' and returns it as a string, if it is not set will throw an error
+     *
      * @throws IOException if FISSION_FUNCTION_BASE_URL env var is not set
-     * @return fissionFunctionbaseUrl, string prepresntation of the url url for fission endpoints
+     * @return fissionFunctionbaseUrl - string representation of the url for fission endpoints
      */
     public static String getFissionFunctionBaseURL() throws IOException
     {
-        if (this.fissionFunctionbaseUrl == null) {
+        if (fissionFunctionbaseUrl == null) {
             fissionFunctionbaseUrl = System.getenv(FISSION_FUNCTION_BASE_URL_ENV_VAR);
             if (fissionFunctionbaseUrl == null || fissionFunctionbaseUrl.isEmpty()) {
                 String errorMesseage = String.format("%s is not set.", FISSION_FUNCTION_BASE_URL_ENV_VAR);
