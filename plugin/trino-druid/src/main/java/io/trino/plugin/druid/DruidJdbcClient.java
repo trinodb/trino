@@ -50,7 +50,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -86,31 +85,26 @@ public class DruidJdbcClient
     @Override
     public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            String jdbcSchemaName = schemaTableName.getSchemaName();
-            String jdbcTableName = schemaTableName.getTableName();
-            try (ResultSet resultSet = getTables(connection, Optional.of(jdbcSchemaName), Optional.of(jdbcTableName))) {
-                List<JdbcTableHandle> tableHandles = new ArrayList<>();
-                while (resultSet.next()) {
+        String jdbcSchemaName = schemaTableName.getSchemaName();
+        String jdbcTableName = schemaTableName.getTableName();
+        try (Connection connection = connectionFactory.openConnection(session);
+                ResultSet resultSet = getTables(connection, Optional.of(jdbcSchemaName), Optional.of(jdbcTableName))) {
+            List<JdbcTableHandle> tableHandles = new ArrayList<>();
+            while (resultSet.next()) {
+                String schemaName = resultSet.getString("TABLE_SCHEM");
+                String tableName = resultSet.getString("TABLE_NAME");
+                if (Objects.equals(schemaName, jdbcSchemaName) && Objects.equals(tableName, jdbcTableName)) {
                     tableHandles.add(new JdbcTableHandle(
                             schemaTableName,
                             DRUID_CATALOG,
-                            resultSet.getString("TABLE_SCHEM"),
-                            resultSet.getString("TABLE_NAME")));
+                            schemaName,
+                            tableName));
                 }
-                if (tableHandles.isEmpty()) {
-                    return Optional.empty();
-                }
-                return Optional.of(
-                        getOnlyElement(
-                                tableHandles
-                                        .stream()
-                                        .filter(
-                                                jdbcTableHandle ->
-                                                        Objects.equals(jdbcTableHandle.getSchemaName(), schemaTableName.getSchemaName())
-                                                                && Objects.equals(jdbcTableHandle.getTableName(), schemaTableName.getTableName()))
-                                        .collect(Collectors.toList())));
             }
+            if (tableHandles.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(getOnlyElement(tableHandles));
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
