@@ -24,7 +24,7 @@ public class FissionFunctionConfigProvider
     private FissionFunctionConfigProvider() {}
 
     /**
-     * Fetetches env var 'FISSION_FUNCTION_BASE_URL' and returns it as a string, if it is not set will throw an error
+     * Fetches env var 'FISSION_FUNCTION_BASE_URL' and returns it as a string, if it is not set will throw an error
      *
      * @return fissionFunctionbaseUrl - string representation of the url for fission endpoints
      */
