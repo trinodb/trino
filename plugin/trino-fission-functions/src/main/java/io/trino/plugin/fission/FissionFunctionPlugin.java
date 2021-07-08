@@ -24,7 +24,7 @@ public class FissionFunctionPlugin
     public Set<Class<?>> getFunctions()
     {
         return ImmutableSet.<Class<?>>builder()
-                .add(FissionFunctionFucntions.class)
+                .add(FissionFunctionFunctions.class)
                 .build();
     }
 }

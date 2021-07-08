@@ -28,13 +28,13 @@ import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
 
-public class FissionFunctionFucntions
+public class FissionFunctionFunctions
 {
     private static final BasicCookieStore cookieStore = new BasicCookieStore();
 
     private static String baseUrl = "";
 
-    private FissionFunctionFucntions()
+    private FissionFunctionFunctions()
     {
     }
 
@@ -48,7 +48,7 @@ public class FissionFunctionFucntions
         httpClient = builder.build();
         String result = "";
         try {
-            HttpGet getRequest = new HttpGet(String.format("%s/dnsdb?lookup=%s", FissionFucntionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
+            HttpGet getRequest = new HttpGet(String.format("%s/dnsdb?lookup=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
             HttpResponse response = httpClient.execute(getRequest);
             result = EntityUtils.toString(response.getEntity());
         }
