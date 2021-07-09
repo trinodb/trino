@@ -69,7 +69,6 @@ import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NamespaceNotEmptyException;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
-import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.types.Type;
@@ -87,7 +86,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -146,10 +144,9 @@ public class IcebergMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return catalog.listNamespaces(session)
-                .stream()
+        return catalog.listNamespaces(session).stream()
                 .map(Namespace::toString)
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
     }
 
     @Override
@@ -327,10 +324,9 @@ public class IcebergMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return catalog.listTables(schemaName.map(Namespace::of).orElse(null), session)
-                .stream()
+        return catalog.listTables(schemaName.map(Namespace::of).orElse(null), session).stream()
                 .map(IcebergUtil::fromTableId)
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
     }
 
     @Override
@@ -546,13 +542,12 @@ public class IcebergMetadata
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
     {
-        Table icebergTable;
-        try {
-            icebergTable = catalog.loadTable(toTableId(table), session);
-        }
-        catch (NoSuchTableException e) {
+        TableIdentifier tableId = toTableId(table);
+        if (!catalog.tableExists(tableId, session)) {
             throw new TableNotFoundException(table);
         }
+
+        Table icebergTable = catalog.loadTable(tableId, session);
 
         List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
 
@@ -677,6 +672,11 @@ public class IcebergMetadata
         return snapshotIds.computeIfAbsent(table.toString(), ignored -> snapshotId
                 .map(id -> IcebergUtil.resolveSnapshotId(table, id))
                 .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId)));
+    }
+
+    Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        return catalog.loadTable(toTableId(schemaTableName), session);
     }
 
     @Override
