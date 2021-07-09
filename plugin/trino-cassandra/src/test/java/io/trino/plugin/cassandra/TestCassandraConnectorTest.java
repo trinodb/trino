@@ -879,9 +879,9 @@ public class TestCassandraConnectorTest
     }
 
     @Override
-    public void testDeleteAllTable()
+    public void testDeleteAllDataFromTable()
     {
-        assertThatThrownBy(super::testDeleteAllTable)
+        assertThatThrownBy(super::testDeleteAllDataFromTable)
                 .hasStackTraceContaining("Deleting without partition key is not supported");
     }
 

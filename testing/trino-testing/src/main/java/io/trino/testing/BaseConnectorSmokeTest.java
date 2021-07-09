@@ -168,7 +168,7 @@ public abstract class BaseConnectorSmokeTest
     }
 
     @Test
-    public void testDelete()
+    public void testRowLevelDelete()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col bigint)", ImmutableList.of("1", "2"))) {
