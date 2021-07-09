@@ -760,22 +760,20 @@ public abstract class BaseConnectorTest
     public void testDeleteAllDataFromTable()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
-        String tableName = "test_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
-        // not using assertUpdate as some connectors provide update count and some not
-        getQueryRunner().execute("DELETE FROM " + tableName);
-        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            // not using assertUpdate as some connectors provide update count and some not
+            getQueryRunner().execute("DELETE FROM " + table.getName());
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
+        }
     }
 
     @Test
     public void testRowLevelDelete()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        String tableName = "test_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
-        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 2", 1);
-        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 24");
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 4");
+        }
     }
 }
