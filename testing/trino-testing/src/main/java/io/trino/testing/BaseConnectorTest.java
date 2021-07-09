@@ -759,11 +759,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testDeleteAllDataFromTable()
     {
-        if (!hasBehavior(SUPPORTS_DELETE)) {
-            assertQueryFails("DELETE FROM region", "This connector does not support deletes");
-            return;
-        }
-
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
         String tableName = "test_delete_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
         // not using assertUpdate as some connectors provide update count and some not
@@ -775,14 +771,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testRowLevelDelete()
     {
-        if (!hasBehavior(SUPPORTS_DELETE)) {
-            assertQueryFails("DELETE FROM region", "This connector does not support deletes");
-            return;
-        }
-        if (!hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
-            assertQueryFails("DELETE FROM nation WHERE nationkey = 2", "This connector does not support deletes");
-            return;
-        }
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         String tableName = "test_delete_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
         assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 2", 1);
