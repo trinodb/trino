@@ -24,13 +24,13 @@ public class IcebergMetadataFactory
 {
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
-    private final TrinoIcebergCatalogFactory catalogFactory;
+    private final TrinoSessionCatalogFactory catalogFactory;
 
     @Inject
     public IcebergMetadataFactory(
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            TrinoIcebergCatalogFactory catalogFactory)
+            TrinoSessionCatalogFactory catalogFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");

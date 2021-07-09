@@ -35,11 +35,11 @@ import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
-import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
-class TrinoIcebergCatalogFactory
+class TrinoSessionCatalogFactory
 {
-    private final IcebergCatalogType catalogType;
+    private final SessionCatalogType catalogType;
     private final CatalogName catalogName;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -47,7 +47,7 @@ class TrinoIcebergCatalogFactory
     private final HiveTableOperationsProvider tableOperationsProvider;
 
     @Inject
-    public TrinoIcebergCatalogFactory(
+    public TrinoSessionCatalogFactory(
             CatalogName catalogName,
             IcebergConfig config,
             HiveMetastore metastore,
@@ -69,7 +69,7 @@ class TrinoIcebergCatalogFactory
             case HIVE:
                 return new TrinoHiveSessionCatalog(catalogName, metastore, hdfsEnvironment, typeManager, tableOperationsProvider);
             default:
-                throw new TrinoException(CONFIGURATION_INVALID, "Unknown Trino Iceberg catalog type " + catalogType);
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported Trino Iceberg catalog type " + catalogType);
         }
     }
 }

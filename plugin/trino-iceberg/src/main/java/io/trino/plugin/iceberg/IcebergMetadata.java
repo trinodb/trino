@@ -134,7 +134,7 @@ public class IcebergMetadata
     public IcebergMetadata(
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            TrinoIcebergCatalogFactory catalogFactory)
+            TrinoSessionCatalogFactory catalogFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
@@ -176,6 +176,7 @@ public class IcebergMetadata
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
         verify(name.getTableType() == DATA, "Wrong table type: " + name.getTableType());
+
         TableIdentifier tableId = toTableId(tableName);
         if (!catalog.tableExists(tableId, session)) {
             return null;
@@ -203,12 +204,14 @@ public class IcebergMetadata
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
+
         TableIdentifier tableId = TableIdentifier.of(tableName.getSchemaName(), name.getTableName());
         if (!catalog.tableExists(tableId, session)) {
             return Optional.empty();
         }
 
         Table table = catalog.loadTable(tableId, session);
+
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
         switch (name.getTableType()) {
             case DATA:
@@ -380,6 +383,7 @@ public class IcebergMetadata
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
+        // basic sanity check to provide a better error message
         try {
             catalog.dropNamespace(Namespace.of(schemaName), session);
         }
@@ -868,10 +872,5 @@ public class IcebergMetadata
         {
             return this.snapshotId;
         }
-    }
-
-    public TrinoSessionCatalog getCatalog()
-    {
-        return catalog;
     }
 }

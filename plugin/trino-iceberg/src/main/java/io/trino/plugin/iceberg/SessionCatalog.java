@@ -123,87 +123,30 @@ public interface SessionCatalog<P, S>
 
     List<TableIdentifier> listTables(Namespace namespace, S session);
 
-    Table createTable(
-            TableIdentifier identifier,
-            Schema schema,
-            PartitionSpec spec,
-            String location,
-            Map<String, String> properties,
-            S session);
+    Table createTable(TableIdentifier identifier, Schema schema, PartitionSpec spec, String location, Map<String, String> properties, S session);
 
-    Table createTable(
-            TableIdentifier identifier,
-            Schema schema,
-            PartitionSpec spec,
-            Map<String, String> properties,
-            S session);
+    Table createTable(TableIdentifier identifier, Schema schema, PartitionSpec spec, Map<String, String> properties, S session);
 
-    Table createTable(
-            TableIdentifier identifier,
-            Schema schema,
-            PartitionSpec spec,
-            S session);
+    Table createTable(TableIdentifier identifier, Schema schema, PartitionSpec spec, S session);
 
-    Table createTable(
-            TableIdentifier identifier,
-            Schema schema,
-            S session);
+    Table createTable(TableIdentifier identifier, Schema schema, S session);
 
-    Transaction newCreateTableTransaction(
-            TableIdentifier identifier,
-            Schema schema,
-            PartitionSpec spec,
-            String location,
-            Map<String, String> properties,
-            S session);
+    Transaction newCreateTableTransaction(TableIdentifier identifier, Schema schema, PartitionSpec spec, String location, Map<String, String> properties, S session);
 
-    Transaction newCreateTableTransaction(
-            TableIdentifier identifier,
-            Schema schema,
-            PartitionSpec spec,
-            Map<String, String> properties,
-            S session);
+    Transaction newCreateTableTransaction(TableIdentifier identifier, Schema schema, PartitionSpec spec, Map<String, String> properties, S session);
 
-    Transaction newCreateTableTransaction(
-            TableIdentifier identifier,
-            Schema schema,
-            PartitionSpec spec,
-            S session);
+    Transaction newCreateTableTransaction(TableIdentifier identifier, Schema schema, PartitionSpec spec, S session);
 
-    Transaction newCreateTableTransaction(
-            TableIdentifier identifier,
-            Schema schema,
-            S session);
+    Transaction newCreateTableTransaction(TableIdentifier identifier, Schema schema, S session);
 
-    Transaction newReplaceTableTransaction(
-            TableIdentifier identifier,
-            Schema schema,
-            PartitionSpec spec,
-            String location,
-            Map<String, String> properties,
-            boolean orCreate,
-            S session);
+    Transaction newReplaceTableTransaction(TableIdentifier identifier, Schema schema, PartitionSpec spec, String location,
+            Map<String, String> properties, boolean orCreate, S session);
 
-    Transaction newReplaceTableTransaction(
-            TableIdentifier identifier,
-            Schema schema,
-            PartitionSpec spec,
-            Map<String, String> properties,
-            boolean orCreate,
-            S session);
+    Transaction newReplaceTableTransaction(TableIdentifier identifier, Schema schema, PartitionSpec spec, Map<String, String> properties, boolean orCreate, S session);
 
-    Transaction newReplaceTableTransaction(
-            TableIdentifier identifier,
-            Schema schema,
-            PartitionSpec spec,
-            boolean orCreate,
-            S session);
+    Transaction newReplaceTableTransaction(TableIdentifier identifier, Schema schema, PartitionSpec spec, boolean orCreate, S session);
 
-    Transaction newReplaceTableTransaction(
-            TableIdentifier identifier,
-            Schema schema,
-            boolean orCreate,
-            S session);
+    Transaction newReplaceTableTransaction(TableIdentifier identifier, Schema schema, boolean orCreate, S session);
 
     boolean tableExists(TableIdentifier identifier, S session);
 

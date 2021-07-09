@@ -112,7 +112,6 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergUtil.fromTableId;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
-import static io.trino.plugin.iceberg.IcebergUtil.quotedName;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromTableId;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -606,11 +605,6 @@ class TrinoHiveSessionCatalog
     private static boolean isIcebergTable(io.trino.plugin.hive.metastore.Table hiveTable)
     {
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(hiveTable.getParameters().get(TABLE_TYPE_PROP));
-    }
-
-    private static String quotedTableName(TableIdentifier tableIdentifier)
-    {
-        return quotedName(schemaFromTableId(tableIdentifier)) + "." + quotedName(tableIdentifier.name());
     }
 
     private boolean isMaterializedView(io.trino.plugin.hive.metastore.Table hiveTable)
