@@ -418,7 +418,7 @@ class StatementAnalyzer
             Scope queryScope = analyze(insert.getQuery(), createScope(scope));
 
             // verify the insert destination columns match the query
-            Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
+            Optional<TableHandle> targetTableHandle = metadata.getOriginalTableHandle(session, targetTable, Optional.of("INSERT"));
             if (targetTableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, insert, "Table '%s' does not exist", targetTable);
             }
@@ -543,14 +543,13 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName targetTable = createQualifiedObjectName(session, refreshMaterializedView, storageName.get());
-            checkStorageTableNotRedirected(targetTable);
 
             // analyze the query that creates the data
             Query query = parseView(optionalView.get().getOriginalSql(), name, refreshMaterializedView);
             Scope queryScope = process(query, scope);
 
             // verify the insert destination columns match the query
-            Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
+            Optional<TableHandle> targetTableHandle = getStorageTableHandle(targetTable, name);
             if (targetTableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Table '%s' does not exist", targetTable);
             }
@@ -665,7 +664,7 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
-            TableHandle handle = metadata.getTableHandle(session, tableName)
+            TableHandle handle = metadata.getOriginalTableHandle(session, tableName, Optional.of("DELETE"))
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
@@ -751,7 +750,7 @@ class StatementAnalyzer
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
 
-            Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
+            Optional<TableHandle> targetTableHandle = metadata.getOriginalTableHandle(session, targetTable, Optional.of("CREATE TABLE AS SELECT"));
             if (targetTableHandle.isPresent()) {
                 if (node.isNotExists()) {
                     analysis.setCreate(new Analysis.Create(
@@ -1303,8 +1302,7 @@ class StatementAnalyzer
                         throw semanticException(INVALID_VIEW, table, "Materialized view '%s' is fresh but does not have storage table name", name);
                     }
                     QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName.get());
-                    checkStorageTableNotRedirected(storageTableName);
-                    Optional<TableHandle> tableHandle = metadata.getTableHandle(session, storageTableName);
+                    Optional<TableHandle> tableHandle = getStorageTableHandle(storageTableName, name);
                     if (tableHandle.isEmpty()) {
                         throw semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName);
                     }
@@ -1387,11 +1385,9 @@ class StatementAnalyzer
             return tableScope;
         }
 
-        private void checkStorageTableNotRedirected(QualifiedObjectName source)
+        private Optional<TableHandle> getStorageTableHandle(QualifiedObjectName storageTableName, QualifiedObjectName viewName)
         {
-            metadata.getRedirectionAwareTableHandle(session, source).getRedirectedTableName().ifPresent(name -> {
-                throw new TrinoException(NOT_SUPPORTED, format("Redirection of materialized view storage table '%s' to '%s' is not supported", source, name));
-            });
+            return metadata.getOriginalTableHandle(session, storageTableName, Optional.of(format("Scan of storage table '%s' for materialized view '%s'", storageTableName, viewName)));
         }
 
         private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, List<Field> fields, String authorization)
@@ -1580,7 +1576,6 @@ class StatementAnalyzer
             TableSchema tableSchema = metadata.getTableSchema(session, storageTable);
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, storageTable);
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
-            checkStorageTableNotRedirected(tableName);
             List<Field> tableFields = analyzeTableOutputFields(table, tableName, tableSchema, columnHandles)
                     .stream()
                     .filter(field -> !field.isHidden())
@@ -2211,7 +2206,7 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, update, "Updating through views is not supported");
             }
 
-            TableHandle handle = metadata.getTableHandle(session, tableName)
+            TableHandle handle = metadata.getOriginalTableHandle(session, tableName, Optional.of("UPDATE"))
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);

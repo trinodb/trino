@@ -61,7 +61,7 @@ public class CommentTask
 
         if (statement.getType() == Comment.Type.TABLE) {
             QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+            Optional<TableHandle> tableHandle = metadata.getOriginalTableHandle(session, tableName, Optional.of(getName()));
             if (tableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName);
             }
@@ -77,7 +77,7 @@ public class CommentTask
             }
 
             QualifiedObjectName tableName = createQualifiedObjectName(session, statement, prefix.get());
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+            Optional<TableHandle> tableHandle = metadata.getOriginalTableHandle(session, tableName, Optional.of(getName()));
             if (tableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + tableName);
             }

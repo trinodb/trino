@@ -50,8 +50,6 @@ public class TestHiveRedirectionToIceberg
             .add(row("abc", 1, Date.valueOf("2020-08-04")))
             .add(row("abcdefghijklmnopqrstuvwxyz", 2, Date.valueOf("2020-08-04")))
             .build();
-    private static final String NOT_SUPPORTED_ERROR_MESSAGE = ".*This operation is not supported on '.*', because it is redirected to '.*'. "
-            + "Modification operations \\(insert, alter, drop, delete, update, comment, grant, revoke\\) are not supported when redirection is enabled.";
 
     @Test(groups = {HIVE_REDIRECTION_TO_ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testSelect()
@@ -105,7 +103,7 @@ public class TestHiveRedirectionToIceberg
     {
         String tableName = createOnTrinoIceberg("test_drop");
         assertThatThrownBy(() -> onTrinoHive("DROP TABLE %s", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("DROP TABLE", tableName));
         dropWithTrinoIceberg(tableName);
     }
 
@@ -114,7 +112,7 @@ public class TestHiveRedirectionToIceberg
     {
         String tableName = createOnTrinoIceberg("test_delete");
         assertThatThrownBy(() -> onTrinoHive("DELETE FROM %s WHERE _bigint = 2", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("DELETE", tableName));
         dropWithTrinoIceberg(tableName);
     }
 
@@ -123,7 +121,7 @@ public class TestHiveRedirectionToIceberg
     {
         String tableName = createOnTrinoIceberg("test_insert");
         assertThatThrownBy(() -> insertWithTrinoHive(tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("INSERT", tableName));
         dropWithTrinoIceberg(tableName);
     }
 
@@ -134,17 +132,17 @@ public class TestHiveRedirectionToIceberg
         insertWithTrinoIceberg(tableName);
 
         assertThatThrownBy(() -> onTrinoHive("ALTER TABLE %s RENAME TO random_schema.random_table", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("RENAME TABLE", tableName));
 
         assertThatThrownBy(() -> onTrinoHive("ALTER TABLE %s ADD COLUMN _double DOUBLE", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("ADD COLUMN", tableName));
         assertThatThrownBy(() -> onTrinoHive("ALTER TABLE %s DROP COLUMN _string", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("DROP COLUMN", tableName));
         assertThatThrownBy(() -> onTrinoHive("ALTER TABLE %s RENAME COLUMN _bigint TO _bi", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("RENAME COLUMN", tableName));
 
         assertThatThrownBy(() -> onTrinoHive("ALTER TABLE %s SET AUTHORIZATION user", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("SET TABLE AUTHORIZATION", tableName));
 
         dropWithTrinoIceberg(tableName);
     }
@@ -154,7 +152,7 @@ public class TestHiveRedirectionToIceberg
     {
         String tableName = createOnTrinoIceberg("test_update");
         assertThatThrownBy(() -> onTrinoHive("UPDATE %s SET _string = 'big_number' WHERE _bigint > 3", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("UPDATE", tableName));
         dropWithTrinoIceberg(tableName);
     }
 
@@ -162,6 +160,8 @@ public class TestHiveRedirectionToIceberg
     public void testPartitionUpdates()
     {
         String tableName = createOnTrinoIceberg("test_partition_updates");
+        String errorFromHiveConnector = ".*This operation is not supported on '.*', because it is redirected to '.*'. "
+                + "Modification operations \\(insert, alter, drop, delete, update, comment, grant, revoke\\) are not supported when redirection is enabled.";
 
         assertThatThrownBy(() -> onTrino().executeQuery(format(
                 "CALL %s.system.create_empty_partition("
@@ -171,17 +171,17 @@ public class TestHiveRedirectionToIceberg
                 HIVE_CATALOG,
                 DEFAULT_SCHEMA,
                 tableName)))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(errorFromHiveConnector);
 
         assertThatThrownBy(() -> onTrino().executeQuery(format(
                 "CALL %s.system.drop_stats(schema_name => '%s', table_name => '%s', partition_values => ARRAY[ARRAY['5', 'DATE 2020-08-04']])",
                 HIVE_CATALOG,
                 DEFAULT_SCHEMA,
                 tableName)))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(errorFromHiveConnector);
 
         assertThatThrownBy(() -> onTrinoHive("ANALYZE %s", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(".*Cannot collect statistics for table '.*', because it is redirected to '.*'");
 
         dropWithTrinoIceberg(tableName);
     }
@@ -191,9 +191,9 @@ public class TestHiveRedirectionToIceberg
     {
         String tableName = createOnTrinoIceberg("test_grant_revoke");
         assertThatThrownBy(() -> onTrinoHive("GRANT SELECT on %s TO alice", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("GRANT", tableName));
         assertThatThrownBy(() -> onTrinoHive("REVOKE ALL PRIVILEGES ON %s FROM bob", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("REVOKE", tableName));
         dropWithTrinoIceberg(tableName);
     }
 
@@ -216,10 +216,10 @@ public class TestHiveRedirectionToIceberg
                 .containsOnly(row(icebergComment));
 
         assertThatThrownBy(() -> onTrinoHive("COMMENT ON TABLE %s IS 'ignore'", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("COMMENT", tableName));
 
         assertThatThrownBy(() -> onTrinoHive("COMMENT ON COLUMN %s._bigint IS 'ignore'", tableName))
-                .hasMessageMatching(NOT_SUPPORTED_ERROR_MESSAGE);
+                .hasMessageMatching(notSupportedError("COMMENT", tableName));
 
         dropWithTrinoIceberg(tableName);
     }
@@ -420,5 +420,14 @@ public class TestHiveRedirectionToIceberg
     private static String fullName(String catalogName, String schemaName, String tableName)
     {
         return format("%s.%s.%s", catalogName, schemaName, tableName);
+    }
+
+    private static final String notSupportedError(String operation, String tableName)
+    {
+        return format(
+                ".*Failed to perform operation '%s'. It is not supported on table '%s' because the table is redirected to '%s'",
+                operation,
+                fullName(HIVE_CATALOG, DEFAULT_SCHEMA, tableName),
+                fullName(ICEBERG_CATALOG, DEFAULT_SCHEMA, tableName));
     }
 }

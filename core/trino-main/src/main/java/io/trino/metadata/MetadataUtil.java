@@ -196,13 +196,14 @@ public final class MetadataUtil
         throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
+    // TODO: move this method to test
     public static boolean tableExists(Metadata metadata, Session session, String table)
     {
         if (session.getCatalog().isEmpty() || session.getSchema().isEmpty()) {
             return false;
         }
         QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);
-        return metadata.getTableHandle(session, name).isPresent();
+        return metadata.getOriginalTableHandle(session, name, Optional.empty()).isPresent();
     }
 
     public static class TableMetadataBuilder

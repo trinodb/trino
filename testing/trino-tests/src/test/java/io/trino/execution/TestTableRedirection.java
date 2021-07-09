@@ -372,6 +372,52 @@ public class TestTableRedirection
                 .hasMessageContaining("Table redirections form a loop");
     }
 
+    @Test
+    public void testUnsupportedOperations()
+    {
+        CatalogSchemaTableName source = new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, VALID_REDIRECTION_SRC);
+        CatalogSchemaTableName target = new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, VALID_REDIRECTION_TARGET);
+
+        assertThatThrownBy(() -> query(format("COMMENT ON TABLE %s IS 'ignore'", source)))
+                .hasMessageContaining(notSupportedError("COMMENT", source, target));
+        assertThatThrownBy(() -> query(format("COMMENT ON COLUMN %s.%s IS 'ignore'", source, C0)))
+                .hasMessageContaining(notSupportedError("COMMENT", source, target));
+
+        assertThatThrownBy(() -> query(format("DROP TABLE %s", source)))
+                .hasMessageContaining(notSupportedError("DROP TABLE", source, target));
+
+        assertThatThrownBy(() -> query(format("DELETE FROM %s WHERE %s = 2", source, C0)))
+                .hasMessageContaining(notSupportedError("DELETE", source, target));
+
+        assertThatThrownBy(() -> query(format("INSERT INTO %s SELECT * FROM %s", source, target)))
+                .hasMessageContaining(notSupportedError("INSERT", source, target));
+
+        assertThatThrownBy(() -> query(format("ALTER TABLE %s RENAME TO %s", source, new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, "ignore"))))
+                .hasMessageContaining(notSupportedError("RENAME TABLE", source, target));
+
+        assertThatThrownBy(() -> query(format("ALTER TABLE %s ADD COLUMN ignore BIGINT", source)))
+                .hasMessageContaining(notSupportedError("ADD COLUMN", source, target));
+        assertThatThrownBy(() -> query(format("ALTER TABLE %s DROP COLUMN %s", source, C0)))
+                .hasMessageContaining(notSupportedError("DROP COLUMN", source, target));
+        assertThatThrownBy(() -> query(format("ALTER TABLE %s RENAME COLUMN %s TO ignore", source, C0)))
+                .hasMessageContaining(notSupportedError("RENAME COLUMN", source, target));
+
+        assertThatThrownBy(() -> query(format("ALTER TABLE %s SET AUTHORIZATION user", source)))
+                .hasMessageContaining(notSupportedError("SET TABLE AUTHORIZATION", source, target));
+        assertThatThrownBy(() -> query(format("UPDATE %s SET %s = 2 WHERE %s > 3", source, C0, C1)))
+                .hasMessageContaining(notSupportedError("UPDATE", source, target));
+
+        assertThatThrownBy(() -> query(format("GRANT SELECT on %s TO alice", source)))
+                .hasMessageMatching(notSupportedError("GRANT", source, target));
+        assertThatThrownBy(() -> query(format("REVOKE ALL PRIVILEGES ON %s FROM bob", source)))
+                .hasMessageMatching(notSupportedError("REVOKE", source, target));
+    }
+
+    private static final String notSupportedError(String operation, CatalogSchemaTableName source, CatalogSchemaTableName target)
+    {
+        return format("Failed to perform operation '%s'. It is not supported on table '%s' because the table is redirected to '%s'", operation, source, target);
+    }
+
     // TODO: Add tests for redirection in CommentsSystemTable and CREATE TABLE LIKE
 
     private static String row(String... values)

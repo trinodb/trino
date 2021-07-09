@@ -89,7 +89,7 @@ public class GrantTask
     private void executeGrantOnTable(Session session, Grant statement, Metadata metadata, AccessControl accessControl)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = metadata.getOriginalTableHandle(session, tableName, Optional.of(getName()));
         if (tableHandle.isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
         }

@@ -57,7 +57,7 @@ public class DropColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
-        Optional<TableHandle> tableHandleOptional = metadata.getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandleOptional = metadata.getOriginalTableHandle(session, tableName, Optional.of(getName()));
 
         if (tableHandleOptional.isEmpty()) {
             if (!statement.isTableExists()) {

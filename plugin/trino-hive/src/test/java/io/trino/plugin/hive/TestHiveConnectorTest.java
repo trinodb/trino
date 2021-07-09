@@ -3130,7 +3130,7 @@ public class TestHiveConnectorTest
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName));
+                    Optional<TableHandle> tableHandle = metadata.getOriginalTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName), Optional.empty());
                     assertTrue(tableHandle.isPresent());
                     return metadata.getTableMetadata(transactionSession, tableHandle.get());
                 });
@@ -3145,7 +3145,7 @@ public class TestHiveConnectorTest
                 .readOnly()
                 .execute(session, transactionSession -> {
                     QualifiedObjectName name = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
-                    TableHandle table = metadata.getTableHandle(transactionSession, name)
+                    TableHandle table = metadata.getOriginalTableHandle(transactionSession, name, Optional.empty())
                             .orElseThrow(() -> new AssertionError("table not found: " + name));
                     table = metadata.applyFilter(transactionSession, table, Constraint.alwaysTrue())
                             .orElseThrow(() -> new AssertionError("applyFilter did not return a result"))
@@ -7291,7 +7291,7 @@ public class TestHiveConnectorTest
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .execute(session, transactionSession -> {
                     QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
-                    Optional<TableHandle> handle = metadata.getTableHandle(transactionSession, objectName);
+                    Optional<TableHandle> handle = metadata.getOriginalTableHandle(transactionSession, objectName, Optional.empty());
                     List<ColumnHandle> columns = ImmutableList.copyOf(metadata.getColumnHandles(transactionSession, handle.get()).values());
                     InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get(), columns);
                     HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle.getConnectorHandle();

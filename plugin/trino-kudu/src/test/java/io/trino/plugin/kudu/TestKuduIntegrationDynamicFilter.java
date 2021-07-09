@@ -96,7 +96,7 @@ public class TestKuduIntegrationDynamicFilter
                 .build()
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
         QualifiedObjectName tableName = new QualifiedObjectName("kudu", "tpch", "orders");
-        Optional<TableHandle> tableHandle = runner.getMetadata().getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = runner.getMetadata().getOriginalTableHandle(session, tableName, Optional.empty());
         assertTrue(tableHandle.isPresent());
         SplitSource splitSource = runner.getSplitManager()
                 .getSplits(session, tableHandle.get(), UNGROUPED_SCHEDULING, new IncompleteDynamicFilter());
