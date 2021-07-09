@@ -182,3 +182,5 @@ public class TestMemSqlCaseInsensitiveMapping
         memSqlServer.execute(sql);
     }
 }
+
+
