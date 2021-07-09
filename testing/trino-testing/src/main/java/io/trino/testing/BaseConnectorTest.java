@@ -728,7 +728,7 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testDeleteAllTable()
+    public void testDeleteAllDataFromTable()
     {
         if (!hasBehavior(SUPPORTS_DELETE)) {
             assertQueryFails("DELETE FROM region", "This connector does not support deletes");

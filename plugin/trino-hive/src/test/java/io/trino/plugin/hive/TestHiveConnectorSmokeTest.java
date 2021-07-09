@@ -54,9 +54,9 @@ public class TestHiveConnectorSmokeTest
     }
 
     @Override
-    public void testDelete()
+    public void testRowLevelDelete()
     {
-        assertThatThrownBy(super::testDelete)
+        assertThatThrownBy(super::testRowLevelDelete)
                 .hasMessage("Deletes must match whole partitions for non-transactional tables");
     }
 
