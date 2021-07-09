@@ -168,6 +168,34 @@ public abstract class BaseConnectorSmokeTest
     }
 
     @Test
+    public void verifySupportsDeleteDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_DELETE)) {
+            // Covered by testDeleteAllDataFromTable
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+        }
+    }
+
+    @Test
+    public void verifySupportsRowLevelDeleteDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
+            // Covered by testRowLevelDelete
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", "This connector does not support deletes");
+        }
+    }
+
+    @Test
     public void testDeleteAllDataFromTable()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
