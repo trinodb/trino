@@ -1,9 +1,9 @@
-# Presto Verifier
+# Trino Verifier
 
-The Presto Verifier can be used to test Presto against a database, such
-as MySQL, or to test two Presto clusters against each other. We use it
+The Trino Verifier can be used to test Trino against a database, such
+as MySQL, or to test two Trino clusters against each other. We use it
 to continuously test the master branch against the previous release,
-while developing Presto.
+while developing Trino.
 
 To use the Verifier, create a MySQL database with the following table
 and load it with the queries you would like to run:
@@ -43,7 +43,7 @@ thread-count=1
 ```
 
 Lastly, download the [Maven verifier plugin][maven_download] for the same 
-release as your Presto instance by navigating to the directory for that 
+release as your Trino instance by navigating to the directory for that 
 release, and selecting the ``trino-verifier-*.jar`` file. Once it is downloaded,
 rename it to `verifier`, make it executable with `chmod +x`, then run it:
 

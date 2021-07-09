@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.node.NodeInfo;
 import io.airlift.stats.TestingGcMonitor;
@@ -64,7 +65,6 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public class TestSqlTaskManager
 {
     private static final TaskId TASK_ID = new TaskId("query", 0, 1);
@@ -268,7 +268,8 @@ public class TestSqlTaskManager
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                     createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                    OptionalInt.empty());
+                    OptionalInt.empty(),
+                    ImmutableMap.of());
             assertTrue(reducesLimitsContext.isMemoryLimitsInitialized());
             assertEquals(reducesLimitsContext.getMaxUserMemory(), 1);
             assertEquals(reducesLimitsContext.getMaxTotalMemory(), 2);
@@ -283,7 +284,8 @@ public class TestSqlTaskManager
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                     createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                    OptionalInt.empty());
+                    OptionalInt.empty(),
+                    ImmutableMap.of());
             assertTrue(attemptsIncreaseContext.isMemoryLimitsInitialized());
             assertEquals(attemptsIncreaseContext.getMaxUserMemory(), memoryConfig.getMaxQueryMemoryPerNode().toBytes());
             assertEquals(attemptsIncreaseContext.getMaxTotalMemory(), memoryConfig.getMaxQueryTotalMemoryPerNode().toBytes());
@@ -320,7 +322,8 @@ public class TestSqlTaskManager
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, splits, true)),
                 outputBuffers,
-                OptionalInt.empty());
+                OptionalInt.empty(),
+                ImmutableMap.of());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, OutputBuffers outputBuffers)
@@ -332,7 +335,8 @@ public class TestSqlTaskManager
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 outputBuffers,
-                OptionalInt.empty());
+                OptionalInt.empty(),
+                ImmutableMap.of());
     }
 
     public static class MockExchangeClientSupplier

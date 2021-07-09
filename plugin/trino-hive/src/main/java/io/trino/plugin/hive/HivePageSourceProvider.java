@@ -30,6 +30,7 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -77,6 +78,8 @@ import static io.trino.plugin.hive.orc.OrcTypeToHiveTypeTranslator.fromOrcTypeTo
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
+import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -84,6 +87,13 @@ import static java.util.stream.Collectors.toList;
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    // We partitions the rowId space between splits assigning each split 2^42 ids.
+    // As we need to encode the split number in id it allows us to have at most 2^22 splits per query
+    private static final int PER_SPLIT_ROW_ID_BITS = 42;
+    private static final int SPLIT_ID_BITS = 64 - PER_SPLIT_ROW_ID_BITS;
+    private static final long MAX_NUMBER_OF_ROWS_PER_SPLIT = 1L << PER_SPLIT_ROW_ID_BITS;
+    private static final long MAX_NUMBER_OF_SPLITS = 1L << SPLIT_ID_BITS;
+
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
     private final int domainCompactionThreshold;
@@ -196,6 +206,12 @@ public class HivePageSourceProvider
                 ColumnMetadata<OrcType> columnMetadata = orcPageSource.getColumnTypes();
                 int acidRowColumnId = originalFile ? 0 : ACID_ROW_STRUCT_COLUMN_ID;
                 HiveType rowType = fromOrcTypeToHiveType(columnMetadata.get(new OrcColumnId(acidRowColumnId)), columnMetadata);
+
+                long currentSplitNumber = hiveSplit.getSplitNumber();
+                if (currentSplitNumber >= MAX_NUMBER_OF_SPLITS) {
+                    throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, format("Number of splits is higher than maximum possible number of splits %d", MAX_NUMBER_OF_SPLITS));
+                }
+                long initialRowId = currentSplitNumber << PER_SPLIT_ROW_ID_BITS;
                 return new HiveUpdatablePageSource(
                         hiveTable,
                         hiveSplit.getPartitionName(),
@@ -210,7 +226,9 @@ public class HivePageSourceProvider
                         session,
                         rowType,
                         dependencyColumns,
-                        hiveTable.getTransaction().getOperation());
+                        hiveTable.getTransaction().getOperation(),
+                        initialRowId,
+                        MAX_NUMBER_OF_ROWS_PER_SPLIT);
             }
 
             return source;

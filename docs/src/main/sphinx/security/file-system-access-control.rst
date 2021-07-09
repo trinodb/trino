@@ -262,7 +262,7 @@ The example below defines the following table access policy:
           "schema": "hr",
           "table": "employee",
           "privileges": ["SELECT"],
-          "filter": "user = current_user"
+          "filter": "user = current_user",
           "filter_environment": {
             "user": "admin"
           }

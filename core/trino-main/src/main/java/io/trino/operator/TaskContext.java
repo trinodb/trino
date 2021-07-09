@@ -35,6 +35,7 @@ import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.predicate.Domain;
+import io.trino.sql.planner.LocalDynamicFiltersCollector;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import org.joda.time.DateTime;
 
@@ -107,6 +108,11 @@ public class TaskContext
     private final MemoryTrackingContext taskMemoryContext;
     private final DynamicFiltersCollector dynamicFiltersCollector;
 
+    // The collector is shared for dynamic filters collected from coordinator
+    // as well as from local build-side of replicated joins. It is also shared with
+    // with multiple table scans (e.g. co-located joins).
+    private final LocalDynamicFiltersCollector localDynamicFiltersCollector;
+
     public static TaskContext createTaskContext(
             QueryContext queryContext,
             TaskStateMachine taskStateMachine,
@@ -159,6 +165,7 @@ public class TaskContext
         // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
         taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
         this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
+        this.localDynamicFiltersCollector = new LocalDynamicFiltersCollector(session);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
         this.totalPartitions = requireNonNull(totalPartitions, "totalPartitions is null");
@@ -589,5 +596,15 @@ public class TaskContext
     public QueryContext getQueryContext()
     {
         return queryContext;
+    }
+
+    public LocalDynamicFiltersCollector getLocalDynamicFiltersCollector()
+    {
+        return localDynamicFiltersCollector;
+    }
+
+    public void addDynamicFilter(Map<DynamicFilterId, Domain> dynamicFilterDomains)
+    {
+        localDynamicFiltersCollector.collectDynamicFilterDomains(dynamicFilterDomains);
     }
 }

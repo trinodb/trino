@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
@@ -211,6 +212,9 @@ public abstract class AbstractTestHiveFileSystem
                 partitionUpdateCodec,
                 new NodeVersion("test_version"),
                 new NoneHiveRedirectionsProvider(),
+                ImmutableSet.of(
+                        new PartitionsSystemTableProvider(hivePartitionManager),
+                        new PropertiesSystemTableProvider()),
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();

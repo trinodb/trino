@@ -20,7 +20,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testcontainers.containers.MySQLContainer;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
@@ -29,7 +28,6 @@ import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.copyTables;
 import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createSession;
 import static java.lang.String.format;
 
-@Test
 public class TestRaptorIntegrationSmokeTestMySql
         extends TestRaptorIntegrationSmokeTest
 {

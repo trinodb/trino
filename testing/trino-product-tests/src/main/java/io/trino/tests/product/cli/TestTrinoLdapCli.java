@@ -264,7 +264,7 @@ public class TestTrinoLdapCli
         ldapTruststorePassword = "wrong_password";
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains("Keystore was tampered with, or password was incorrect"));
+                assertThat(line).contains("Error setting up SSL: keystore password was incorrect"));
         skipAfterTestWithContext();
     }
 

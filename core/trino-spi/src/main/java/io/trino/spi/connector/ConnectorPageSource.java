@@ -14,6 +14,7 @@
 package io.trino.spi.connector;
 
 import io.trino.spi.Page;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -69,5 +70,15 @@ public interface ConnectorPageSource
     default CompletableFuture<?> isBlocked()
     {
         return NOT_BLOCKED;
+    }
+
+    /**
+     * Returns the connector's metrics, mapping a metric ID to its latest value.
+     * Each call must return an immutable snapshot of available metrics.
+     * Same ID metrics are merged across all tasks and exposed via OperatorStats.
+     */
+    default Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
     }
 }

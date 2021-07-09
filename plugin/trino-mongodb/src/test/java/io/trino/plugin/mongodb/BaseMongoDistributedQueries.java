@@ -22,7 +22,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Test
 public abstract class BaseMongoDistributedQueries
         extends AbstractTestDistributedQueries
 {

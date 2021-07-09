@@ -15,8 +15,8 @@ package io.trino.sql.planner.planprinter;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.spi.Mergeable;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.util.Mergeable;
 
 import java.util.Map;
 import java.util.Set;

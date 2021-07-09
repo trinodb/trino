@@ -134,7 +134,8 @@ public class TaskResource
                 taskUpdateRequest.getFragment(),
                 taskUpdateRequest.getSources(),
                 taskUpdateRequest.getOutputIds(),
-                taskUpdateRequest.getTotalPartitions());
+                taskUpdateRequest.getTotalPartitions(),
+                taskUpdateRequest.getDynamicFilterDomains());
 
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();

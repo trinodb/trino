@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
@@ -169,21 +170,25 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testDelete()
     {
-        if (!hasBehavior(SUPPORTS_DELETE)) {
-            assertQueryFails("DELETE FROM region", "This connector does not support deletes");
-            return;
-        }
-
-        if (!hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
-            assertQueryFails("DELETE FROM region WHERE regionkey = 2", ".*[Dd]elet(e|ing).*(not |un)supported.*");
-            return;
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col bigint)", ImmutableList.of("1", "2"))) {
+            if (!hasBehavior(SUPPORTS_DELETE)) {
+                assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+                throw new SkipException("This connector does not support deletes");
+            }
+            if (!hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
+                assertQueryFails("DELETE FROM " + table.getName() + " WHERE col = 2", ".*[Dd]elet(e|ing).*(not |un)supported.*");
+                throw new SkipException("This connector does not support row-level deletes");
+            }
         }
 
         String tableName = "test_delete_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM region", 5);
 
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 2", 1);
-        assertThat(query("SELECT regionkey FROM " + tableName))
+        assertThat(query("SELECT * FROM " + tableName + " WHERE regionkey = 2"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT cast(regionkey AS integer) FROM " + tableName))
                 .skippingTypesCheck()
                 .matches("VALUES 0, 1, 3, 4");
 
