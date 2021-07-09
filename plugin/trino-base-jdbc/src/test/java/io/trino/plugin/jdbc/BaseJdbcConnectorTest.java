@@ -78,6 +78,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_W
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -1169,7 +1170,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testDeleteWithBigintEqualityPredicate()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         String tableName = "test_delete_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM region", 5);
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 1", 1);
@@ -1186,7 +1187,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testDeleteWithVarcharEqualityPredicate()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col = 'A'", "Unsupported delete");
@@ -1201,7 +1202,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testDeleteWithVarcharInequalityPredicate()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", "Unsupported delete");
@@ -1216,7 +1217,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testDeleteWithVarcharGreaterAndLowerPredicate()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'0'", "'a'", "'A'", "'b'", "null"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col < 'A'", "Unsupported delete");
@@ -1234,7 +1235,7 @@ public abstract class BaseJdbcConnectorTest
     @Override
     public void testDeleteWithComplexPredicate()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         assertThatThrownBy(super::testDeleteWithComplexPredicate)
                 .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
@@ -1242,7 +1243,7 @@ public abstract class BaseJdbcConnectorTest
     @Override
     public void testDeleteWithSubquery()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         assertThatThrownBy(super::testDeleteWithSubquery)
                 .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
@@ -1250,7 +1251,7 @@ public abstract class BaseJdbcConnectorTest
     @Override
     public void testDeleteWithSemiJoin()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         assertThatThrownBy(super::testDeleteWithSemiJoin)
                 .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
