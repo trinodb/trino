@@ -83,42 +83,15 @@ At a minimum, ``hive.metastore.uri`` must be configured:
 SQL support
 -----------
 
-The connector provides **read access and limited write access** to data and
-metadata in Iceberg. The following section lists all supported SQL statements
-and provides further details.
+This connector provides read access and write access to data and metadata in
+Iceberg. In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following features:
 
-  .. important::
-
-      No other SQL statements are supported.
-
-Read access:
-
-* :doc:`/sql/select` including:
-
-  * :doc:`/sql/match-recognize`
-  * :doc:`/sql/values`
-
-* :doc:`/sql/show-catalogs`
-* :doc:`/sql/show-columns`
-* :doc:`/sql/show-schemas`
-* :doc:`/sql/show-tables`
-* :doc:`/sql/describe`
-
-Write access:
-
-* :doc:`/sql/alter-table`
-* :doc:`/sql/create-schema`
-* CREATE MATERIALIZED VIEW
-* :doc:`/sql/create-table`, see also :ref:`iceberg-tables`
-* :doc:`/sql/create-table-as`, see also :ref:`iceberg-tables`
+* :doc:`/sql/insert`
 * :doc:`/sql/delete`, see also :ref:`iceberg-delete`
-* DROP MATERIALIZED VIEW
-* :doc:`/sql/drop-schema`
-* :doc:`/sql/drop-table`
-* REFRESH MATERIALIZED VIEW
-* SHOW CREATE MATERIALIZED VIEW
-
-.. include:: sql-support-others.fragment
+* :ref:`sql-schema-table-management`, see also :ref:`iceberg-tables`
+* :ref:`sql-materialized-views-management`
 
 .. _iceberg-tables:
 
