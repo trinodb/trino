@@ -210,17 +210,14 @@ public abstract class BaseConnectorSmokeTest
     public void testRowLevelDelete()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        String tableName = "test_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM region", 5);
-
-        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 2", 1);
-        assertThat(query("SELECT * FROM " + tableName + " WHERE regionkey = 2"))
-                .returnsEmptyResult();
-        assertThat(query("SELECT cast(regionkey AS integer) FROM " + tableName))
-                .skippingTypesCheck()
-                .matches("VALUES 0, 1, 3, 4");
-
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE regionkey = 2"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT cast(regionkey AS integer) FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES 0, 1, 3, 4");
+        }
     }
 
     @Test

@@ -82,7 +82,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELET
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -1171,17 +1170,16 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithBigintEqualityPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        String tableName = "test_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM region", 5);
-        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 1", 1);
-        assertQuery(
-                "SELECT regionkey, name FROM " + tableName,
-                "VALUES "
-                        + "(0, 'AFRICA'),"
-                        + "(2, 'ASIA'),"
-                        + "(3, 'EUROPE'),"
-                        + "(4, 'MIDDLE EAST')");
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 1", 1);
+            assertQuery(
+                    "SELECT regionkey, name FROM " + table.getName(),
+                    "VALUES "
+                            + "(0, 'AFRICA'),"
+                            + "(2, 'ASIA'),"
+                            + "(3, 'EUROPE'),"
+                            + "(4, 'MIDDLE EAST')");
+        }
     }
 
     @Test
