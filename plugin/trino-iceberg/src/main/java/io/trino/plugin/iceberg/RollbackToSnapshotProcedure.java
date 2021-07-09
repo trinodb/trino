@@ -24,7 +24,7 @@ import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
+import static io.trino.plugin.iceberg.IcebergUtil.toTableId;
 import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -41,12 +41,12 @@ public class RollbackToSnapshotProcedure
             String.class,
             Long.class);
 
-    private final HiveTableOperationsProvider tableOperationsProvider;
+    private final TrinoSessionCatalog catalog;
 
     @Inject
-    public RollbackToSnapshotProcedure(HiveTableOperationsProvider tableOperationsProvider)
+    public RollbackToSnapshotProcedure(TrinoIcebergCatalogFactory catalogFactory)
     {
-        this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
+        this.catalog = requireNonNull(catalogFactory, "catalogFactory is null").create();
     }
 
     @Override
@@ -65,7 +65,7 @@ public class RollbackToSnapshotProcedure
     public void rollbackToSnapshot(ConnectorSession clientSession, String schema, String table, Long snapshotId)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
-        Table icebergTable = loadIcebergTable(tableOperationsProvider, clientSession, schemaTableName);
+        Table icebergTable = catalog.loadTable(toTableId(schemaTableName), clientSession);
         icebergTable.rollback().toSnapshotId(snapshotId).commit();
     }
 }
