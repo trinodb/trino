@@ -79,6 +79,33 @@
 
 <script type="text/javascript" src="dist/query.js"></script>
 
+<script>
+    $(document).ready(function()
+    {
+        $.getJSON("QueryStats.json",function(data)
+        {
+          var holder = $.getDynamicFiltersStats();
+          var details = '';
+
+          details += '<ul>';
+          details += '<li> Domains of Filters: <ul>';
+          holder.getDynamicFilterDomainStats().each(key, value)
+          {
+            details +='<li>' + value.getSimplifiedDomain() + '</li>';
+          }
+          details += '</ul>' + '</li>';
+          details += '<li>' + 'Number of lazy filters: ' + holder.getLazyDynamicFilters() + '</li>';
+          details += '<li>' + 'Number of replicated filters: ' + holder.getReplicatedDynamicFilters() + '</li>';
+          details += '<li>' + 'Total number of filters: ' + holder.getTotalDynamicFilters() + '</li>';
+          details += '<li>' + 'Number of completed filters: ' + holder.getDynamicFiltersCompleted() + '</li>';
+          details += '</ul>';
+        }
+        );
+   }
+   );
+   $('#Query-details').append(details);
+</script>
+
 <!-- Fonts -->
 <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700" rel="stylesheet">
 

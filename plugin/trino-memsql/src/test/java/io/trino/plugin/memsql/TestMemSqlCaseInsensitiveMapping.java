@@ -15,36 +15,32 @@ package io.trino.plugin.memsql;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.SqlExecutor;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.util.stream.Stream;
+import java.nio.file.Path;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
-import static io.trino.testing.assertions.Assert.assertEquals;
-import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
-import static org.assertj.core.api.Assertions.assertThat;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
 // Some tests here create colliding names which can cause any other concurrent test to fail.
 @Test(singleThreaded = true)
 public class TestMemSqlCaseInsensitiveMapping
-        // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
-        extends AbstractTestQueryFramework
+        extends BaseCaseInsensitiveMappingTest
 {
     protected TestingMemSqlServer memSqlServer;
+    protected Path mappingFile;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        memSqlServer = new TestingMemSqlServer();
+        this.memSqlServer = new TestingMemSqlServer();
+        this.mappingFile = createRuleBasedIdentifierMappingFile();
         return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
     }
 
@@ -54,6 +50,7 @@ public class TestMemSqlCaseInsensitiveMapping
         memSqlServer.close();
     }
 
+<<<<<<< HEAD
     @Test
     public void testNonLowerCaseSchemaName()
             throws Exception
@@ -136,12 +133,17 @@ public class TestMemSqlCaseInsensitiveMapping
                 }
             }
         }
+=======
+    private void execute(String sql)
+    {
+        memSqlServer.execute(sql);
+>>>>>>> ab0a06943839fe48693d073508b2744d1f465076
     }
 
-    @Test
-    public void testTableNameClash()
-            throws Exception
+    @Override
+    protected Path getMappingFile()
     {
+<<<<<<< HEAD
         String[] nameVariants = {"casesensitivename", "CaseSensitiveName", "CASESENSITIVENAME"};
         assertThat(Stream.of(nameVariants)
                 .map(name -> name.toLowerCase(ENGLISH))
@@ -159,26 +161,16 @@ public class TestMemSqlCaseInsensitiveMapping
                 }
             }
         }
+=======
+        return mappingFile;
+>>>>>>> ab0a06943839fe48693d073508b2744d1f465076
     }
 
-    private AutoCloseable withSchema(String schemaName)
+    @Override
+    protected SqlExecutor onRemoteDatabase()
     {
-        execute(format("CREATE SCHEMA `%s`", schemaName));
-        return () -> execute(format("DROP SCHEMA `%s`", schemaName));
+        return memSqlServer::execute;
     }
 
-    /**
-     * @deprecated Use {@link TestTable} instead.
-     */
-    @Deprecated
-    private AutoCloseable withTable(String tableName, String tableDefinition)
-    {
-        execute(format("CREATE TABLE %s %s", tableName, tableDefinition));
-        return () -> execute(format("DROP TABLE %s", tableName));
-    }
 
-    private void execute(String sql)
-    {
-        memSqlServer.execute(sql);
-    }
 }
