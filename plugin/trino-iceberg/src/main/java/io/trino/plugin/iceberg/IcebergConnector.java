@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.hive.HiveTransactionHandle;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
@@ -39,6 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -187,9 +187,7 @@ public class IcebergConnector
     {
         checkConnectorSupports(SERIALIZABLE, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            transactionManager.put(transaction, metadataFactory.create());
-        }
+        withClassLoader(getClass().getClassLoader(), () -> transactionManager.put(transaction, metadataFactory.create()));
         return transaction;
     }
 
@@ -203,9 +201,7 @@ public class IcebergConnector
     public void rollback(ConnectorTransactionHandle transaction)
     {
         IcebergMetadata metadata = transactionManager.remove(transaction);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            metadata.rollback();
-        }
+        withClassLoader(getClass().getClassLoader(), metadata::rollback);
     }
 
     @Override

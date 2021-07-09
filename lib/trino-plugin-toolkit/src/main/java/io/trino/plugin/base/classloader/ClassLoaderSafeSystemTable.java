@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.base.classloader;
 
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -24,6 +23,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeSystemTable
@@ -42,32 +42,24 @@ public class ClassLoaderSafeSystemTable
     @Override
     public Distribution getDistribution()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getDistribution();
-        }
+        return withClassLoader(classLoader, delegate::getDistribution);
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getTableMetadata();
-        }
+        return withClassLoader(classLoader, delegate::getTableMetadata);
     }
 
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.cursor(transactionHandle, session, constraint);
-        }
+        return withClassLoader(classLoader, () -> delegate.cursor(transactionHandle, session, constraint));
     }
 
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.pageSource(transactionHandle, session, constraint);
-        }
+        return withClassLoader(classLoader, () -> delegate.pageSource(transactionHandle, session, constraint));
     }
 }

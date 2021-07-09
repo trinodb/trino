@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.base.classloader;
 
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSplitSource;
 
@@ -21,6 +20,7 @@ import javax.inject.Inject;
 
 import java.util.concurrent.CompletableFuture;
 
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeConnectorSplitSource
@@ -39,24 +39,18 @@ public class ClassLoaderSafeConnectorSplitSource
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getNextBatch(partitionHandle, maxSize);
-        }
+        return withClassLoader(classLoader, () -> delegate.getNextBatch(partitionHandle, maxSize));
     }
 
     @Override
     public void close()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.close();
-        }
+        withClassLoader(classLoader, delegate::close);
     }
 
     @Override
     public boolean isFinished()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.isFinished();
-        }
+        return withClassLoader(classLoader, () -> delegate.isFinished());
     }
 }

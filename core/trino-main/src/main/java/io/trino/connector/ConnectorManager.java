@@ -34,7 +34,6 @@ import io.trino.security.AccessControlManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorContext;
@@ -78,6 +77,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -165,8 +165,8 @@ public class ConnectorManager
 
         for (Map.Entry<CatalogName, MaterializedConnector> entry : connectors.entrySet()) {
             Connector connector = entry.getValue().getConnector();
-            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
-                connector.shutdown();
+            try {
+                withClassLoader(connector.getClass().getClassLoader(), connector::shutdown);
             }
             catch (Throwable t) {
                 log.error(t, "Error shutting down connector: %s", entry.getKey());
@@ -337,12 +337,14 @@ public class ConnectorManager
         MaterializedConnector materializedConnector = connectors.remove(catalogName);
         if (materializedConnector != null) {
             Connector connector = materializedConnector.getConnector();
-            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
-                connector.shutdown();
-            }
-            catch (Throwable t) {
-                log.error(t, "Error shutting down connector: %s", catalogName);
-            }
+            withClassLoader(connector.getClass().getClassLoader(), () -> {
+                try {
+                    connector.shutdown();
+                }
+                catch (Throwable t) {
+                    log.error(t, "Error shutting down connector: %s", catalogName);
+                }
+            });
         }
     }
 
@@ -356,9 +358,8 @@ public class ConnectorManager
                 pageIndexerFactory,
                 factory.getDuplicatePluginClassLoaderFactory());
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getConnectorFactory().getClass().getClassLoader())) {
-            return factory.getConnectorFactory().create(catalogName.getCatalogName(), properties, context);
-        }
+        return withClassLoader(factory.getConnectorFactory().getClass().getClassLoader(),
+                () -> factory.getConnectorFactory().create(catalogName.getCatalogName(), properties, context));
     }
 
     private static class InternalConnectorFactory

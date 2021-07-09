@@ -19,7 +19,6 @@ import io.airlift.json.JsonModule;
 import io.trino.plugin.atop.AtopConnectorConfig.AtopSecurity;
 import io.trino.plugin.base.security.AllowAllAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -28,6 +27,7 @@ import io.trino.spi.connector.ConnectorHandleResolver;
 import java.util.Map;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public class AtopConnectorFactory
@@ -59,7 +59,7 @@ public class AtopConnectorFactory
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        return withClassLoader(classLoader, () -> {
             Bootstrap app = new Bootstrap(
                     new AtopModule(
                             atopFactoryClass,
@@ -86,6 +86,6 @@ public class AtopConnectorFactory
                     .initialize();
 
             return injector.getInstance(AtopConnector.class);
-        }
+        });
     }
 }

@@ -17,7 +17,6 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.CatalogName;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -26,6 +25,7 @@ import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public class PhoenixConnectorFactory
@@ -55,7 +55,7 @@ public class PhoenixConnectorFactory
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        return withClassLoader(classLoader, () -> {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new PhoenixClientModule(),
@@ -72,6 +72,6 @@ public class PhoenixConnectorFactory
                     .initialize();
 
             return injector.getInstance(PhoenixConnector.class);
-        }
+        });
     }
 }

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.base.classloader;
 
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
@@ -21,6 +20,7 @@ import io.trino.spi.eventlistener.SplitCompletedEvent;
 
 import javax.inject.Inject;
 
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeEventListener
@@ -39,24 +39,18 @@ public class ClassLoaderSafeEventListener
     @Override
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.queryCreated(queryCreatedEvent);
-        }
+        withClassLoader(classLoader, () -> delegate.queryCreated(queryCreatedEvent));
     }
 
     @Override
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.queryCompleted(queryCompletedEvent);
-        }
+        withClassLoader(classLoader, () -> delegate.queryCompleted(queryCompletedEvent));
     }
 
     @Override
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.splitCompleted(splitCompletedEvent);
-        }
+        withClassLoader(classLoader, () -> delegate.splitCompleted(splitCompletedEvent));
     }
 }

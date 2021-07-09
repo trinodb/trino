@@ -18,16 +18,14 @@ import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
 import io.confluent.kafka.schemaregistry.client.rest.entities.SubjectVersion;
-import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import org.apache.avro.Schema;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeSchemaRegistryClient
@@ -45,312 +43,210 @@ public class ClassLoaderSafeSchemaRegistryClient
     @Override
     public Optional<ParsedSchema> parseSchema(String schemaType, String schemaString, List<SchemaReference> references)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.parseSchema(schemaType, schemaString, references);
-        }
+        return withClassLoader(classLoader, () -> delegate.parseSchema(schemaType, schemaString, references));
     }
 
     @Override
     public int register(String subject, Schema schema)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.register(subject, schema);
-        }
+        return withClassLoader(classLoader, () -> delegate.register(subject, schema));
     }
 
     @Override
     public int register(String subject, ParsedSchema parsedSchema)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.register(subject, parsedSchema);
-        }
+        return withClassLoader(classLoader, () -> delegate.register(subject, parsedSchema));
     }
 
     @Override
     public int register(String subject, Schema schema, int version, int id)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.register(subject, schema, version, id);
-        }
+        return withClassLoader(classLoader, () -> delegate.register(subject, schema, version, id));
     }
 
     @Override
     public int register(String subject, ParsedSchema parsedSchema, int version, int id)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.register(subject, parsedSchema, version, id);
-        }
+        return withClassLoader(classLoader, () -> delegate.register(subject, parsedSchema, version, id));
     }
 
     @Override
     public Schema getByID(int id)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getByID(id);
-        }
+        return withClassLoader(classLoader, () -> delegate.getByID(id));
     }
 
     @Override
     public Schema getById(int id)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getById(id);
-        }
+        return withClassLoader(classLoader, () -> delegate.getById(id));
     }
 
     @Override
     public ParsedSchema getSchemaById(int id)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSchemaById(id);
-        }
+        return withClassLoader(classLoader, () -> delegate.getSchemaById(id));
     }
 
     @Override
     public Schema getBySubjectAndID(String subject, int id)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getBySubjectAndID(subject, id);
-        }
+        return withClassLoader(classLoader, () -> delegate.getBySubjectAndID(subject, id));
     }
 
     @Override
     public Schema getBySubjectAndId(String subject, int id)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getBySubjectAndId(subject, id);
-        }
+        return withClassLoader(classLoader, () -> delegate.getBySubjectAndId(subject, id));
     }
 
     @Override
     public ParsedSchema getSchemaBySubjectAndId(String subject, int id)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSchemaBySubjectAndId(subject, id);
-        }
+        return withClassLoader(classLoader, () -> delegate.getSchemaBySubjectAndId(subject, id));
     }
 
     @Override
     public Collection<String> getAllSubjectsById(int id)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getAllSubjectsById(id);
-        }
+        return withClassLoader(classLoader, () -> delegate.getAllSubjectsById(id));
     }
 
     @Override
     public Collection<SubjectVersion> getAllVersionsById(int id)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getAllVersionsById(id);
-        }
+        return withClassLoader(classLoader, () -> delegate.getAllVersionsById(id));
     }
 
     @Override
     public io.confluent.kafka.schemaregistry.client.rest.entities.Schema getByVersion(String subject, int version, boolean lookupDeletedSchema)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getByVersion(subject, version, lookupDeletedSchema);
-        }
+        return withClassLoader(classLoader, () -> delegate.getByVersion(subject, version, lookupDeletedSchema));
     }
 
     @Override
     public SchemaMetadata getLatestSchemaMetadata(String subject)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getLatestSchemaMetadata(subject);
-        }
+        return withClassLoader(classLoader, () -> delegate.getLatestSchemaMetadata(subject));
     }
 
     @Override
     public SchemaMetadata getSchemaMetadata(String subject, int version)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSchemaMetadata(subject, version);
-        }
+        return withClassLoader(classLoader, () -> delegate.getSchemaMetadata(subject, version));
     }
 
     @Override
     public int getVersion(String subject, Schema schema)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getVersion(subject, schema);
-        }
+        return withClassLoader(classLoader, () -> delegate.getVersion(subject, schema));
     }
 
     @Override
     public int getVersion(String subject, ParsedSchema parsedSchema)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getVersion(subject, parsedSchema);
-        }
+        return withClassLoader(classLoader, () -> delegate.getVersion(subject, parsedSchema));
     }
 
     @Override
     public List<Integer> getAllVersions(String subject)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getAllVersions(subject);
-        }
+        return withClassLoader(classLoader, () -> delegate.getAllVersions(subject));
     }
 
     @Override
     public boolean testCompatibility(String subject, Schema schema)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.testCompatibility(subject, schema);
-        }
+        return withClassLoader(classLoader, () -> delegate.testCompatibility(subject, schema));
     }
 
     @Override
     public boolean testCompatibility(String subject, ParsedSchema parsedSchema)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.testCompatibility(subject, parsedSchema);
-        }
+        return withClassLoader(classLoader, () -> delegate.testCompatibility(subject, parsedSchema));
     }
 
     @Override
     public String updateCompatibility(String subject, String compatibility)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.updateCompatibility(subject, compatibility);
-        }
+        return withClassLoader(classLoader, () -> delegate.updateCompatibility(subject, compatibility));
     }
 
     @Override
     public String getCompatibility(String subject)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getCompatibility(subject);
-        }
+        return withClassLoader(classLoader, () -> delegate.getCompatibility(subject));
     }
 
     @Override
     public String setMode(String mode)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.setMode(mode);
-        }
+        return withClassLoader(classLoader, () -> delegate.setMode(mode));
     }
 
     @Override
     public String setMode(String mode, String subject)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.setMode(mode, subject);
-        }
+        return withClassLoader(classLoader, () -> delegate.setMode(mode, subject));
     }
 
     @Override
     public String getMode()
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getMode();
-        }
+        return withClassLoader(classLoader, () -> delegate.getMode());
     }
 
     @Override
     public String getMode(String subject)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getMode(subject);
-        }
+        return withClassLoader(classLoader, () -> delegate.getMode(subject));
     }
 
     @Override
     public Collection<String> getAllSubjects()
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getAllSubjects();
-        }
+        return withClassLoader(classLoader, () -> delegate.getAllSubjects());
     }
 
     @Override
     public int getId(String subject, Schema schema)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getId(subject, schema);
-        }
+        return withClassLoader(classLoader, () -> delegate.getId(subject, schema));
     }
 
     @Override
     public int getId(String subject, ParsedSchema parsedSchema)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getId(subject, parsedSchema);
-        }
+        return withClassLoader(classLoader, () -> delegate.getId(subject, parsedSchema));
     }
 
     @Override
     public List<Integer> deleteSubject(String subject)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.deleteSubject(subject);
-        }
+        return withClassLoader(classLoader, () -> delegate.deleteSubject(subject));
     }
 
     @Override
     public List<Integer> deleteSubject(Map<String, String> requestProperties, String subject)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.deleteSubject(subject);
-        }
+        return withClassLoader(classLoader, () -> delegate.deleteSubject(subject));
     }
 
     @Override
     public Integer deleteSchemaVersion(String subject, String version)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.deleteSchemaVersion(subject, version);
-        }
+        return withClassLoader(classLoader, () -> delegate.deleteSchemaVersion(subject, version));
     }
 
     @Override
     public Integer deleteSchemaVersion(Map<String, String> requestProperties, String subject, String version)
-            throws IOException, RestClientException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.deleteSchemaVersion(requestProperties, subject, version);
-        }
+        return withClassLoader(classLoader, () -> delegate.deleteSchemaVersion(requestProperties, subject, version));
     }
 
     @Override
     public void reset()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.reset();
-        }
+        withClassLoader(classLoader, delegate::reset);
     }
 }
