@@ -136,8 +136,48 @@ public abstract class AbstractTestIcebergConnectorTest
     @Override
     public void testDelete()
     {
-        // Deletes are covered with testMetadata*Delete test methods
+        // Deletes are covered with testMetadataDelete test methods
         assertThatThrownBy(super::testDelete)
+                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+    }
+
+    @Override
+    public void testDeleteWithComplexPredicate()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testDeleteWithComplexPredicate)
+                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+    }
+
+    @Override
+    public void testDeleteWithSemiJoin()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testDeleteWithSemiJoin)
+                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+    }
+
+    @Override
+    public void testDeleteWithSubquery()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testDeleteWithSubquery)
+                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+    }
+
+    @Override
+    public void testDeleteWithVarcharPredicate()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testDeleteWithVarcharPredicate)
+                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+    }
+
+    @Override
+    public void testRowLevelDelete()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testRowLevelDelete)
                 .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
     }
 

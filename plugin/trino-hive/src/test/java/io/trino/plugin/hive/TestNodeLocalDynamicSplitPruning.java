@@ -106,7 +106,8 @@ public class TestNodeLocalDynamicSplitPruning
                 Optional.empty(),
                 Optional.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                0);
 
         TableHandle tableHandle = new TableHandle(
                 new CatalogName(HIVE_CATALOG_NAME),

@@ -25,7 +25,7 @@ import static java.lang.String.format;
 
 public final class ImmutableLdapObjectDefinitions
 {
-    private static final String DOMAIN = "dc=presto,dc=testldap,dc=com";
+    private static final String DOMAIN = "dc=trino,dc=testldap,dc=com";
     private static final String AMERICA_DISTINGUISHED_NAME = format("ou=America,%s", DOMAIN);
     private static final String ASIA_DISTINGUISHED_NAME = format("ou=Asia,%s", DOMAIN);
     private static final String EUROPE_DISTINGUISHED_NAME = format("ou=Europe,%s", DOMAIN);

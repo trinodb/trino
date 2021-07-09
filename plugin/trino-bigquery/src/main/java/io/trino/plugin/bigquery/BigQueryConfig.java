@@ -47,6 +47,7 @@ public class BigQueryConfig
     private int maxReadRowsRetries = DEFAULT_MAX_READ_ROWS_RETRIES;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private Duration viewsCacheTtl = new Duration(15, MINUTES);
 
     @AssertTrue(message = "Exactly one of 'bigquery.credentials-key' or 'bigquery.credentials-file' must be specified, or the default GoogleCredentials could be created")
     public boolean isCredentialsConfigurationValid()
@@ -216,6 +217,21 @@ public class BigQueryConfig
     public BigQueryConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0m")
+    public Duration getViewsCacheTtl()
+    {
+        return viewsCacheTtl;
+    }
+
+    @Config("bigquery.views-cache-ttl")
+    @ConfigDescription("Duration for which the results of querying a view will be cached")
+    public BigQueryConfig setViewsCacheTtl(Duration viewsCacheTtl)
+    {
+        this.viewsCacheTtl = viewsCacheTtl;
         return this;
     }
 

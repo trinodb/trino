@@ -173,13 +173,18 @@ public final class HiveWriteUtils
 
     public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName, ConnectorSession session)
     {
+        return createRecordWriter(target, conf, properties, outputFormatName, session, Optional.empty());
+    }
+
+    public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName, ConnectorSession session, Optional<TextHeaderWriter> textHeaderWriter)
+    {
         try {
             boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
             if (outputFormatName.equals(MapredParquetOutputFormat.class.getName())) {
                 return ParquetRecordWriter.create(target, conf, properties, session);
             }
             if (outputFormatName.equals(HiveIgnoreKeyTextOutputFormat.class.getName())) {
-                return new TextRecordWriter(target, conf, properties, compress);
+                return new TextRecordWriter(target, conf, properties, compress, textHeaderWriter);
             }
             if (outputFormatName.equals(HiveSequenceFileOutputFormat.class.getName())) {
                 return new SequenceFileRecordWriter(target, conf, Text.class, compress);

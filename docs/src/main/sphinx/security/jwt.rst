@@ -11,8 +11,8 @@ including:
 *  Valid time period
 *  Signature
 
-Sites such as `jwt.io <jwt.io>`_ are available to help you decode and verify a
-JWT.
+Sites such as `jwt.io <https://jwt.io>`_ are available to help you decode and
+verify a JWT.
 
 A JWT is designed to be passed between servers as proof of prior authentication
 in a workflow like the following:

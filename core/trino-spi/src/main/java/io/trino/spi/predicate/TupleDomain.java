@@ -40,8 +40,8 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * Defines a set of valid tuples according to the constraints on each of its constituent columns
@@ -184,7 +184,7 @@ public final class TupleDomain<T>
     {
         return domains.map(map -> map.entrySet().stream()
                 .map(entry -> new ColumnDomain<>(entry.getKey(), entry.getValue()))
-                .collect(toList()));
+                .collect(toUnmodifiableList()));
     }
 
     private static <T> boolean containsNoneDomain(Map<T, Domain> domains)

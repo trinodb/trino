@@ -60,8 +60,7 @@ public final class TestingSqlServer
                     event.getAttemptCount(),
                     event.getLastFailure().getMessage()));
 
-    private static final DockerImageName DOCKER_IMAGE_NAME = DockerImageName.parse("microsoft/mssql-server-linux:2017-CU13")
-            .asCompatibleSubstituteFor("mcr.microsoft.com/mssql/server:2017-CU12");
+    private static final DockerImageName DOCKER_IMAGE_NAME = DockerImageName.parse("mcr.microsoft.com/mssql/server:2017-CU13");
 
     private final MSSQLServerContainer<?> container;
     private final String databaseName;

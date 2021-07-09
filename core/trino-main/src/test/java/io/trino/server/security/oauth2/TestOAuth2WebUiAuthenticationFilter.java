@@ -28,7 +28,6 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.server.security.jwt.JwkService;
 import io.trino.server.security.jwt.JwkSigningKeyResolver;
-import io.trino.server.security.jwt.JwtAuthenticatorConfig;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiModule;
@@ -315,7 +314,7 @@ public class TestOAuth2WebUiAuthenticationFilter
         assertThat(cookie.getValue()).isNotBlank();
         Jws<Claims> jwt = Jwts.parser()
                 .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
-                        new JwtAuthenticatorConfig().setKeyFile("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
+                        URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
                         new JettyHttpClient(new HttpClientConfig()
                                 .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath())))))
                 .parseClaimsJws(cookie.getValue());

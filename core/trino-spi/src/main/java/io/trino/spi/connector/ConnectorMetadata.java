@@ -45,7 +45,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 public interface ConnectorMetadata
 {
@@ -393,7 +393,7 @@ public interface ConnectorMetadata
                             .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
                     List<String> partitionColumns = partitioning.getPartitioningColumns().stream()
                             .map(columnNamesByHandle::get)
-                            .collect(toList());
+                            .collect(toUnmodifiableList());
 
                     return new ConnectorNewTableLayout(partitioning.getPartitioningHandle(), partitionColumns);
                 });

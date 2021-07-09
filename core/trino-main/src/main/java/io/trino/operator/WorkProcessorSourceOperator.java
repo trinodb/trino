@@ -16,6 +16,7 @@ package io.trino.operator;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.metrics.Metrics;
 
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -67,4 +68,6 @@ public interface WorkProcessorSourceOperator
     {
         return 0;
     }
+
+    Metrics getConnectorMetrics();
 }

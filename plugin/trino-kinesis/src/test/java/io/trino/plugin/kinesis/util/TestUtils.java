@@ -30,7 +30,7 @@ import static org.testng.Assert.assertNotNull;
 
 public final class TestUtils
 {
-    public static final String NONE_KEY = "NONE";
+    private static final String NONE_KEY = "NONE";
 
     private TestUtils() {}
 
