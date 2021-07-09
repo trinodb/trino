@@ -67,6 +67,9 @@ public class TestCassandraLatestConnectorSmokeTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_DELETE:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
