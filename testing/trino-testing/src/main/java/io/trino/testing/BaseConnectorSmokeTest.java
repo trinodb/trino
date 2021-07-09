@@ -168,6 +168,17 @@ public abstract class BaseConnectorSmokeTest
     }
 
     @Test
+    public void testDeleteAllDataFromTable()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            // not using assertUpdate as some connectors provide update count and some do not
+            getQueryRunner().execute("DELETE FROM " + table.getName());
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
+        }
+    }
+
+    @Test
     public void testRowLevelDelete()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
