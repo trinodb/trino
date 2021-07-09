@@ -59,9 +59,9 @@ public class TestMemSqlCaseInsensitiveMapping
             throws Exception
     {
         try (AutoCloseable ignore1 = withSchema("NonLowerCaseSchema");
-                AutoCloseable ignore2 = withTable("NonLowerCaseSchema.lower_case_name", "(c varchar(5))");
-                AutoCloseable ignore3 = withTable("NonLowerCaseSchema.Mixed_Case_Name", "(c varchar(5))");
-                AutoCloseable ignore4 = withTable("NonLowerCaseSchema.UPPER_CASE_NAME", "(c varchar(5))")) {
+             AutoCloseable ignore2 = withTable("NonLowerCaseSchema.lower_case_name", "(c varchar(5))");
+             AutoCloseable ignore3 = withTable("NonLowerCaseSchema.Mixed_Case_Name", "(c varchar(5))");
+             AutoCloseable ignore4 = withTable("NonLowerCaseSchema.UPPER_CASE_NAME", "(c varchar(5))")) {
             assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()).contains("nonlowercaseschema");
             assertQuery("SHOW SCHEMAS LIKE 'nonlowerc%'", "VALUES 'nonlowercaseschema'");
             assertQuery("SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE '%nonlowercaseschema'", "VALUES 'nonlowercaseschema'");
@@ -76,8 +76,8 @@ public class TestMemSqlCaseInsensitiveMapping
             throws Exception
     {
         try (AutoCloseable ignore1 = withSchema("SomeSchema");
-                AutoCloseable ignore2 = withTable(
-                        "SomeSchema.NonLowerCaseTable", "(lower_case_name varchar(10), Mixed_Case_Name varchar(10), UPPER_CASE_NAME varchar(10))")) {
+             AutoCloseable ignore2 = withTable(
+                     "SomeSchema.NonLowerCaseTable", "(lower_case_name varchar(10), Mixed_Case_Name varchar(10), UPPER_CASE_NAME varchar(10))")) {
             execute("INSERT INTO SomeSchema.NonLowerCaseTable VALUES ('a', 'b', 'c')");
 
             assertQuery(
@@ -127,8 +127,8 @@ public class TestMemSqlCaseInsensitiveMapping
                 String schemaName = nameVariants[i];
                 String otherSchemaName = nameVariants[j];
                 try (AutoCloseable ignore1 = withSchema(schemaName);
-                        AutoCloseable ignore2 = withSchema(otherSchemaName);
-                        AutoCloseable ignore3 = withTable(schemaName + ".some_table_name", "(c varchar(5))")) {
+                     AutoCloseable ignore2 = withSchema(otherSchemaName);
+                     AutoCloseable ignore3 = withTable(schemaName + ".some_table_name", "(c varchar(5))")) {
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()).contains("casesensitivename");
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.trino.plugin.jdbc.JdbcClient.getSchemaNames to return a List
                     assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name: Ambiguous name: casesensitivename");
@@ -151,7 +151,7 @@ public class TestMemSqlCaseInsensitiveMapping
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
                 try (AutoCloseable ignore1 = withTable("tpch." + nameVariants[i], "(c varchar(5))");
-                        AutoCloseable ignore2 = withTable("tpch." + nameVariants[j], "(d varchar(5))")) {
+                     AutoCloseable ignore2 = withTable("tpch." + nameVariants[j], "(d varchar(5))")) {
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn()).contains("casesensitivename");
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO, should be 2
                     assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
@@ -182,3 +182,5 @@ public class TestMemSqlCaseInsensitiveMapping
         memSqlServer.execute(sql);
     }
 }
+
+
