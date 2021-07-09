@@ -58,9 +58,9 @@ public abstract class BaseCaseInsensitiveMappingTest
             throws Exception
     {
         try (AutoCloseable ignore1 = withSchema("NonLowerCaseSchema");
-                AutoCloseable ignore2 = withTable("NonLowerCaseSchema", "lower_case_name", "(c varchar(5))");
-                AutoCloseable ignore3 = withTable("NonLowerCaseSchema", "Mixed_Case_Name", "(c varchar(5))");
-                AutoCloseable ignore4 = withTable("NonLowerCaseSchema", "UPPER_CASE_NAME", "(c varchar(5))")) {
+             AutoCloseable ignore2 = withTable("NonLowerCaseSchema", "lower_case_name", "(c varchar(5))");
+             AutoCloseable ignore3 = withTable("NonLowerCaseSchema", "Mixed_Case_Name", "(c varchar(5))");
+             AutoCloseable ignore4 = withTable("NonLowerCaseSchema", "UPPER_CASE_NAME", "(c varchar(5))")) {
             assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()).contains("nonlowercaseschema");
             assertQuery("SHOW SCHEMAS LIKE 'nonlowerc%'", "VALUES 'nonlowercaseschema'");
             assertQuery("SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE '%nonlowercaseschema'", "VALUES 'nonlowercaseschema'");
@@ -75,13 +75,13 @@ public abstract class BaseCaseInsensitiveMappingTest
             throws Exception
     {
         try (AutoCloseable ignore1 = withSchema("SomeSchema");
-                AutoCloseable ignore2 = withTable(
-                        "SomeSchema",
-                        "NonLowerCaseTable",
-                        "(" +
-                                quoted("lower_case_name") + " varchar(1), " +
-                                quoted("Mixed_Case_Name") + " varchar(1), " +
-                                quoted("UPPER_CASE_NAME") + " varchar(1))")) {
+             AutoCloseable ignore2 = withTable(
+                     "SomeSchema",
+                     "NonLowerCaseTable",
+                     "(" +
+                             quoted("lower_case_name") + " varchar(1), " +
+                             quoted("Mixed_Case_Name") + " varchar(1), " +
+                             quoted("UPPER_CASE_NAME") + " varchar(1))")) {
             onRemoteDatabase().execute("INSERT INTO " + (quoted("SomeSchema") + "." + quoted("NonLowerCaseTable")) + " SELECT 'a', 'b', 'c'");
             assertQuery(
                     "SELECT column_name FROM information_schema.columns WHERE table_schema = 'someschema' AND table_name = 'nonlowercasetable'",
@@ -130,10 +130,10 @@ public abstract class BaseCaseInsensitiveMappingTest
                 String schemaName = nameVariants[i];
                 String otherSchemaName = nameVariants[j];
                 try (AutoCloseable ignore1 = withSchema(schemaName);
-                        AutoCloseable ignore2 = withSchema(otherSchemaName);
-                        AutoCloseable ignore3 = withTable(schemaName, "some_table_name", "(c varchar(5))");
-                        AutoCloseable ignore4 = withSchema("some_schema");
-                        AutoCloseable ignore5 = withTable("some_schema", "some_table", "(c int)")) {
+                     AutoCloseable ignore2 = withSchema(otherSchemaName);
+                     AutoCloseable ignore3 = withTable(schemaName, "some_table_name", "(c varchar(5))");
+                     AutoCloseable ignore4 = withSchema("some_schema");
+                     AutoCloseable ignore5 = withTable("some_schema", "some_table", "(c int)")) {
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.trino.plugin.jdbc.JdbcClient.getSchemaNames to return a List
                     assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name: Ambiguous name: casesensitivename");
                     assertQueryFails("SELECT * FROM casesensitivename.some_table_name", "Failed to find remote schema name: Ambiguous name: casesensitivename");
@@ -157,8 +157,8 @@ public abstract class BaseCaseInsensitiveMappingTest
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
                 try (AutoCloseable ignore1 = withTable(nameVariants[i], "(c varchar(5))");
-                        AutoCloseable ignore2 = withTable(nameVariants[j], "(d varchar(5))");
-                        AutoCloseable ignore3 = withTable("some_table", "(d varchar(5))")) {
+                     AutoCloseable ignore2 = withTable(nameVariants[j], "(d varchar(5))");
+                     AutoCloseable ignore3 = withTable("some_table", "(d varchar(5))")) {
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO, should be 2
                     assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
                     assertQueryFails("SELECT * FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
@@ -179,7 +179,7 @@ public abstract class BaseCaseInsensitiveMappingTest
                 ImmutableList.of());
 
         try (AutoCloseable ignore1 = withSchema("remote_schema");
-                AutoCloseable ignore3 = withTable("remote_schema", "some_table_name", "(c varchar(5))")) {
+             AutoCloseable ignore3 = withTable("remote_schema", "some_table_name", "(c varchar(5))")) {
             assertThat(computeActual("SHOW SCHEMAS ")
                     .getOnlyColumn())
                     .contains("trino_schema");
@@ -211,8 +211,8 @@ public abstract class BaseCaseInsensitiveMappingTest
                 String otherRemoteSchema = nameVariants[j];
 
                 try (AutoCloseable ignore1 = withSchema(remoteSchema);
-                        AutoCloseable ignore2 = withSchema(otherRemoteSchema);
-                        AutoCloseable ignore3 = withTable(remoteSchema, "some_table_name", "(c varchar(5))")) {
+                     AutoCloseable ignore2 = withSchema(otherRemoteSchema);
+                     AutoCloseable ignore3 = withTable(remoteSchema, "some_table_name", "(c varchar(5))")) {
                     String schema = schemaMappingRules.stream()
                             .filter(rule -> rule.getRemoteSchema().equals(remoteSchema))
                             .map(SchemaMappingRule::getMapping)
@@ -271,7 +271,7 @@ public abstract class BaseCaseInsensitiveMappingTest
                 String remoteTable = nameVariants[i];
                 String otherRemoteTable = nameVariants[j];
                 try (AutoCloseable ignore1 = withTable(remoteTable, "(c varchar(5))");
-                        AutoCloseable ignore2 = withTable(otherRemoteTable, "(d varchar(5))")) {
+                     AutoCloseable ignore2 = withTable(otherRemoteTable, "(d varchar(5))")) {
                     String table = tableMappingRules.stream()
                             .filter(rule -> rule.getRemoteTable().equals(remoteTable))
                             .map(TableMappingRule::getMapping)
@@ -300,7 +300,7 @@ public abstract class BaseCaseInsensitiveMappingTest
                 ImmutableList.of(new TableMappingRule("remote_schema", "remote_table", "trino_table")));
 
         try (AutoCloseable ignore1 = withSchema("remote_schema");
-                AutoCloseable ignore2 = withTable("remote_schema", "remote_table", "(c varchar(5))")) {
+             AutoCloseable ignore2 = withTable("remote_schema", "remote_table", "(c varchar(5))")) {
             assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn())
                     .contains("trino_schema");
             assertThat(computeActual("SHOW TABLES IN trino_schema").getOnlyColumn())
