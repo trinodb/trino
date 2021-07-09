@@ -1528,6 +1528,42 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testInsertRowIdCorrectness()
+    {
+        withTemporaryTable("test_insert_row_id_correctness", true, false, NONE, tableName -> {
+            // We use tpch.tiny.supplier because it is the smallest table that
+            // is written as multiple pages by the ORC writer. If it stops
+            // being split into pages, this test won't detect issues arising
+            // from row numbering across pages, which is its original purpose.
+            onTrino().executeQuery(format(
+                    "CREATE TABLE %s\n"
+                            + "WITH (transactional = true)\n"
+                            + "AS SELECT *\n"
+                            + "FROM tpch.tiny.supplier\n"
+                            + "WITH NO DATA",
+                    tableName));
+            onTrino().executeQuery(format("INSERT INTO %s select * from tpch.tiny.supplier", tableName));
+
+            int supplierRows = 100;
+            assertThat(query("SELECT count(*) FROM " + tableName))
+                    .containsOnly(row(supplierRows));
+
+            String queryTarget = format(" FROM %s WHERE suppkey = 10", tableName);
+
+            assertThat(query("SELECT count(*)" + queryTarget))
+                    .as("Only one matching row exists")
+                    .containsOnly(row(1));
+            assertThat(onTrino().executeQuery("DELETE" + queryTarget))
+                    .as("Only one row is reported as deleted")
+                    .containsOnly(row(1));
+
+            assertThat(query("SELECT count(*) FROM " + tableName))
+                    .as("Only one row was actually deleted")
+                    .containsOnly(row(supplierRows - 1));
+        });
+    }
+
     private void verifyOriginalFiles(String tableName, String whereClause)
     {
         QueryResult result = onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s %s", tableName, whereClause));
