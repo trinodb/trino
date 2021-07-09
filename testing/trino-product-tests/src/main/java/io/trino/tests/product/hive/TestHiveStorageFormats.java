@@ -289,6 +289,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreateTableAs(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
