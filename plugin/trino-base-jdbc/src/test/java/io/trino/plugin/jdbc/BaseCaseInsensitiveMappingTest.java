@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -58,7 +57,6 @@ public abstract class BaseCaseInsensitiveMappingTest
     public void testNonLowerCaseSchemaName()
             throws Exception
     {
-<<<<<<< HEAD
         try (AutoCloseable ignore1 = withSchema("NonLowerCaseSchema");
              AutoCloseable ignore2 = withTable("NonLowerCaseSchema", "lower_case_name", "(c varchar(5))");
              AutoCloseable ignore3 = withTable("NonLowerCaseSchema", "Mixed_Case_Name", "(c varchar(5))");
@@ -69,21 +67,6 @@ public abstract class BaseCaseInsensitiveMappingTest
             assertQuery("SHOW TABLES FROM nonlowercaseschema", "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
             assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'nonlowercaseschema'", "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
             assertQueryReturnsEmptyResult("SELECT * FROM nonlowercaseschema.lower_case_name");
-=======
-        String SchemaName ="nonlowerc";
-        String QuerySchema="NonLowerCaseSchema";
-        String TrinoSchema = QuerySchema.toLowerCase(ENGLISH);
-        try (AutoCloseable ignore1 = withSchema(QuerySchema);
-                AutoCloseable ignore2 = withTable(QuerySchema, "lower_case_name", "(c varchar(5))");
-                AutoCloseable ignore3 = withTable(QuerySchema, "Mixed_Case_Name", "(c varchar(5))");
-                AutoCloseable ignore4 = withTable(QuerySchema, "UPPER_CASE_NAME", "(c varchar(5))")) {
-            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()).contains(TrinoSchema);
-            assertQuery("SHOW SCHEMAS LIKE '"+SchemaName+"%'", "VALUES '"+TrinoSchema+"'");
-            assertQuery("SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE %"+TrinoSchema, "VALUES '"+TrinoSchema+"'");
-            assertQuery("SHOW TABLES FROM '"+TrinoSchema+"'", "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = '"+TrinoSchema+"'", "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertQueryReturnsEmptyResult("SELECT * FROM "+TrinoSchema+".lower_case_name");
->>>>>>> ab0a06943839fe48693d073508b2744d1f465076
         }
     }
 
@@ -91,7 +74,6 @@ public abstract class BaseCaseInsensitiveMappingTest
     public void testNonLowerCaseTableName()
             throws Exception
     {
-<<<<<<< HEAD
         try (AutoCloseable ignore1 = withSchema("SomeSchema");
              AutoCloseable ignore2 = withTable(
                      "SomeSchema",
@@ -100,44 +82,32 @@ public abstract class BaseCaseInsensitiveMappingTest
                              quoted("lower_case_name") + " varchar(1), " +
                              quoted("Mixed_Case_Name") + " varchar(1), " +
                              quoted("UPPER_CASE_NAME") + " varchar(1))")) {
-=======
-        String QuerySchema = "SomeSchema";
-        String TrinoSchema = QuerySchema.toLowerCase(ENGLISH);
-        try (AutoCloseable ignore1 = withSchema(QuerySchema);
-                AutoCloseable ignore2 = withTable(
-                        QuerySchema,
-                        "NonLowerCaseTable",
-                        "(" +
-                                quoted("lower_case_name") + " varchar(1), " +
-                                quoted("Mixed_Case_Name") + " varchar(1), " +
-                                quoted("UPPER_CASE_NAME") + " varchar(1))")) {
->>>>>>> ab0a06943839fe48693d073508b2744d1f465076
             onRemoteDatabase().execute("INSERT INTO " + (quoted("SomeSchema") + "." + quoted("NonLowerCaseTable")) + " SELECT 'a', 'b', 'c'");
             assertQuery(
-                    "SELECT column_name FROM information_schema.columns WHERE table_schema = '"+TrinoSchema+"' AND table_name = '"+TrinoSchema+"'",
+                    "SELECT column_name FROM information_schema.columns WHERE table_schema = 'someschema' AND table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
             assertQuery(
-                    "SELECT column_name FROM information_schema.columns WHERE table_name = '"+TrinoSchema+"'",
+                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
             assertEquals(
-                    computeActual("SHOW COLUMNS FROM "+TrinoSchema+".nonlowercasetable").getMaterializedRows().stream()
+                    computeActual("SHOW COLUMNS FROM someschema.nonlowercasetable").getMaterializedRows().stream()
                             .map(row -> row.getField(0))
                             .collect(toImmutableSet()),
                     ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
 
             // Note: until https://github.com/prestodb/presto/issues/2863 is resolved, this is *the* way to access the tables.
 
-            assertQuery("SELECT lower_case_name FROM "+TrinoSchema+".nonlowercasetable", "VALUES 'a'");
-            assertQuery("SELECT mixed_case_name FROM "+TrinoSchema+".nonlowercasetable", "VALUES 'b'");
-            assertQuery("SELECT upper_case_name FROM "+TrinoSchema+".nonlowercasetable", "VALUES 'c'");
-            assertQuery("SELECT upper_case_name FROM "+QuerySchema+".NonLowerCaseTable", "VALUES 'c'");
-            assertQuery("SELECT upper_case_name FROM \""+QuerySchema+"\".\"NonLowerCaseTable\"", "VALUES 'c'");
+            assertQuery("SELECT lower_case_name FROM someschema.nonlowercasetable", "VALUES 'a'");
+            assertQuery("SELECT mixed_case_name FROM someschema.nonlowercasetable", "VALUES 'b'");
+            assertQuery("SELECT upper_case_name FROM someschema.nonlowercasetable", "VALUES 'c'");
+            assertQuery("SELECT upper_case_name FROM SomeSchema.NonLowerCaseTable", "VALUES 'c'");
+            assertQuery("SELECT upper_case_name FROM \"SomeSchema\".\"NonLowerCaseTable\"", "VALUES 'c'");
 
-            assertUpdate("INSERT INTO "+TrinoSchema+".nonlowercasetable (lower_case_name) VALUES ('l')", 1);
-            assertUpdate("INSERT INTO "+TrinoSchema+".nonlowercasetable (mixed_case_name) VALUES ('m')", 1);
-            assertUpdate("INSERT INTO "+TrinoSchema+".nonlowercasetable (upper_case_name) VALUES ('u')", 1);
+            assertUpdate("INSERT INTO someschema.nonlowercasetable (lower_case_name) VALUES ('l')", 1);
+            assertUpdate("INSERT INTO someschema.nonlowercasetable (mixed_case_name) VALUES ('m')", 1);
+            assertUpdate("INSERT INTO someschema.nonlowercasetable (upper_case_name) VALUES ('u')", 1);
             assertQuery(
-                    "SELECT * FROM "+TrinoSchema+".nonlowercasetable",
+                    "SELECT * FROM someschema.nonlowercasetable",
                     "VALUES ('a', 'b', 'c')," +
                             "('l', NULL, NULL)," +
                             "(NULL, 'm', NULL)," +
@@ -149,8 +119,7 @@ public abstract class BaseCaseInsensitiveMappingTest
     public void testSchemaNameClash()
             throws Exception
     {
-        String Schema_Name = "";
-        String[] nameVariants = {Schema_Name+"casesensitivename", Schema_Name+"CaseSensitiveName", Schema_Name+"CASESENSITIVENAME"};
+        String[] nameVariants = {"casesensitivename", "CaseSensitiveName", "CASESENSITIVENAME"};
         assertThat(Stream.of(nameVariants)
                 .map(name -> name.toLowerCase(ENGLISH))
                 .collect(toImmutableSet()))
@@ -161,18 +130,10 @@ public abstract class BaseCaseInsensitiveMappingTest
                 String schemaName = nameVariants[i];
                 String otherSchemaName = nameVariants[j];
                 try (AutoCloseable ignore1 = withSchema(schemaName);
-<<<<<<< HEAD
                      AutoCloseable ignore2 = withSchema(otherSchemaName);
                      AutoCloseable ignore3 = withTable(schemaName, "some_table_name", "(c varchar(5))");
                      AutoCloseable ignore4 = withSchema("some_schema");
                      AutoCloseable ignore5 = withTable("some_schema", "some_table", "(c int)")) {
-=======
-                        AutoCloseable ignore2 = withSchema(otherSchemaName);
-                        AutoCloseable ignore3 = withTable(schemaName, "some_table_name", "(c varchar(5))");
-                        AutoCloseable ignore4 = withSchema("some_schema");
-                        AutoCloseable ignore5 = withTable("some_schema", "some_table", "(c int)")) {
-                    String trinoSchema = schemaName.toLowerCase(ENGLISH);
->>>>>>> ab0a06943839fe48693d073508b2744d1f465076
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.trino.plugin.jdbc.JdbcClient.getSchemaNames to return a List
                     assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name: Ambiguous name: casesensitivename");
                     assertQueryFails("SELECT * FROM casesensitivename.some_table_name", "Failed to find remote schema name: Ambiguous name: casesensitivename");
