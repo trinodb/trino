@@ -27,21 +27,21 @@ import static io.trino.plugin.iceberg.SessionCatalogType.HIVE;
 
 public class IcebergConfig
 {
-    private SessionCatalogType catalogType = HIVE;
+    private SessionCatalogType sessionCatalogType = HIVE;
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
 
-    public SessionCatalogType getCatalogType()
+    public SessionCatalogType getSessionCatalogType()
     {
-        return catalogType;
+        return sessionCatalogType;
     }
 
     @Config("iceberg.session-catalog-type")
-    public IcebergConfig setCatalogType(SessionCatalogType catalogType)
+    public IcebergConfig setSessionCatalogType(SessionCatalogType sessionCatalogType)
     {
-        this.catalogType = catalogType;
+        this.sessionCatalogType = sessionCatalogType;
         return this;
     }
 

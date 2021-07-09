@@ -34,7 +34,7 @@ public class TestIcebergConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
-                .setCatalogType(HIVE)
+                .setSessionCatalogType(HIVE)
                 .setFileFormat(ORC)
                 .setCompressionCodec(GZIP)
                 .setUseFileSizeFromMetadata(true)
@@ -53,7 +53,7 @@ public class TestIcebergConfig
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
-                .setCatalogType(ICEBERG)
+                .setSessionCatalogType(ICEBERG)
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(HiveCompressionCodec.NONE)
                 .setUseFileSizeFromMetadata(false)

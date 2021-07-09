@@ -55,7 +55,7 @@ class TrinoSessionCatalogFactory
             TypeManager typeManager,
             HiveTableOperationsProvider tableOperationsProvider)
     {
-        this.catalogType = config.getCatalogType();
+        this.catalogType = config.getSessionCatalogType();
         this.catalogName = catalogName;
         this.metastore = metastore;
         this.hdfsEnvironment = hdfsEnvironment;
