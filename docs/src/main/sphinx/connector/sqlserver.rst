@@ -112,45 +112,20 @@ SQL Server Type                     Trino Type
 Complete list of `SQL Server data types
 <https://msdn.microsoft.com/en-us/library/ms187752.aspx>`_.
 
-.. include:: jdbc-type-mapping.fragment
-
 .. _sqlserver-sql-support:
 
 SQL support
 -----------
 
-The connector provides **read access and limited write access** to data and
-metadata in SQL Server. The following section lists all supported SQL statements
-and provides further details.
+The connector provides read access and write access to data and metadata in SQL
+Server. In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following features:
 
-.. important::
-  No other SQL statements are supported.
-
-Read access:
-
-* :doc:`/sql/select` including:
-
- * :doc:`/sql/match-recognize`
- * :doc:`/sql/values`
-
-* :doc:`/sql/show-catalogs`
-* :doc:`/sql/show-columns`
-* :doc:`/sql/show-schemas`
-* :doc:`/sql/show-tables`
-* :doc:`/sql/describe`
-
-Write access:
-
-* :doc:`/sql/create-schema`
-* :doc:`/sql/create-table`
-* :doc:`/sql/create-table-as`
-* :doc:`/sql/delete`
-* :doc:`/sql/drop-schema`
-* :doc:`/sql/drop-table`
 * :doc:`/sql/insert`
-* :doc:`/sql/show-create-table`
+* :doc:`/sql/delete`
+* :ref:`sql-schema-table-management`
 
-.. include:: sql-support-others.fragment
 
 .. _sqlserver-pushdown:
 

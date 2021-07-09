@@ -124,37 +124,14 @@ that catalog name instead of ``postgresql`` in the above examples.
 SQL support
 -----------
 
-The connector provides **read access and limited write access** to data and
-metadata in PostgreSQL. The following section lists all supported SQL statements
-and provides further details.
+The connector provides read access and write access to data and metadata in
+PostgreSQL.  In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
 
-.. important::
-
-    No other SQL statements are supported.
-
-Read access:
-
-* :doc:`/sql/select` including:
-
-  * :doc:`/sql/match-recognize`
-  * :doc:`/sql/values`
-
-* :doc:`/sql/show-catalogs`
-* :doc:`/sql/show-columns`
-* :doc:`/sql/show-schemas`
-* :doc:`/sql/show-tables`
-* :doc:`/sql/describe`
-
-Write access:
-
-* :doc:`/sql/alter-table`
-* :doc:`/sql/delete`
-* :doc:`/sql/drop-schema`
-* :doc:`/sql/drop-table`
 * :doc:`/sql/insert`
-* :doc:`/sql/show-create-table`
-
-.. include:: sql-support-others.fragment
+* :doc:`/sql/delete`
+* :ref:`sql-schema-table-management`
 
 .. _postgresql-pushdown:
 
