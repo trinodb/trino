@@ -211,10 +211,13 @@ import static io.trino.sql.QueryUtil.subquery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.parser.ParserAssert.assertExpressionIsInvalid;
+import static io.trino.sql.parser.ParserAssert.assertStatementIsInvalid;
 import static io.trino.sql.parser.ParserAssert.expression;
 import static io.trino.sql.parser.ParserAssert.rowPattern;
 import static io.trino.sql.parser.ParserAssert.statement;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
+import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
 import static io.trino.sql.parser.TreeNodes.columnDefinition;
 import static io.trino.sql.parser.TreeNodes.dateTimeType;
 import static io.trino.sql.parser.TreeNodes.field;
@@ -852,10 +855,22 @@ public class TestSqlParser
         assertExpression("DECIMAL '+.34'", new DecimalLiteral("+.34"));
         assertExpression("DECIMAL '-.34'", new DecimalLiteral("-.34"));
 
-        assertInvalidExpression("123.", "Unexpected decimal literal: 123.");
-        assertInvalidExpression("123.0", "Unexpected decimal literal: 123.0");
-        assertInvalidExpression(".5", "Unexpected decimal literal: .5");
-        assertInvalidExpression("123.5", "Unexpected decimal literal: 123.5");
+        assertExpression("123.", new DecimalLiteral("123."));
+        assertExpression("123.0", new DecimalLiteral("123.0"));
+        assertExpression(".5", new DecimalLiteral(".5"));
+        assertExpression("123.5", new DecimalLiteral("123.5"));
+
+        assertInvalidDecimalExpression("123.", "Unexpected decimal literal: 123.");
+        assertInvalidDecimalExpression("123.0", "Unexpected decimal literal: 123.0");
+        assertInvalidDecimalExpression(".5", "Unexpected decimal literal: .5");
+        assertInvalidDecimalExpression("123.5", "Unexpected decimal literal: 123.5");
+    }
+
+    private static void assertInvalidDecimalExpression(String sql, String message)
+    {
+        assertThatThrownBy(() -> SQL_PARSER.createExpression(sql, new ParsingOptions(REJECT)))
+                .isInstanceOfSatisfying(ParsingException.class, e ->
+                        assertThat(e.getErrorMessage()).isEqualTo(message));
     }
 
     @Test
@@ -973,8 +988,12 @@ public class TestSqlParser
         assertStatement("SHOW COLUMNS FROM \"awesome table\"", new ShowColumns(QualifiedName.of("awesome table"), Optional.empty(), Optional.empty()));
         assertStatement("SHOW COLUMNS FROM \"awesome schema\".\"awesome table\"", new ShowColumns(QualifiedName.of("awesome schema", "awesome table"), Optional.empty(), Optional.empty()));
         assertStatement("SHOW COLUMNS FROM a.b LIKE '%$_%' ESCAPE '$'", new ShowColumns(QualifiedName.of("a", "b"), Optional.of("%$_%"), Optional.of("$")));
-        assertInvalidStatement("SHOW COLUMNS FROM a.b LIKE null", "mismatched input 'null'. Expecting: <string>");
-        assertInvalidStatement("SHOW COLUMNS FROM a.b LIKE 'a' ESCAPE null'", "mismatched input 'null'. Expecting: <string>");
+
+        assertStatementIsInvalid("SHOW COLUMNS FROM a.b LIKE null")
+                .withMessage("line 1:28: mismatched input 'null'. Expecting: <string>");
+
+        assertStatementIsInvalid("SHOW COLUMNS FROM a.b LIKE 'a' ESCAPE null'")
+                .withMessage("line 1:39: mismatched input 'null'. Expecting: <string>");
     }
 
     @Test
@@ -3404,16 +3423,6 @@ public class TestSqlParser
     }
 
     /**
-     * @deprecated use {@link ParserAssert#statement(String)} instead
-     */
-    @Deprecated
-    private static void assertInvalidStatement(String statement, String expectedErrorMessageRegex)
-    {
-        assertThatThrownBy(() -> SQL_PARSER.createStatement(statement, new ParsingOptions()))
-                .isInstanceOfSatisfying(ParsingException.class, e -> assertTrue(e.getErrorMessage().matches(expectedErrorMessageRegex)));
-    }
-
-    /**
      * @deprecated use {@link ParserAssert#expression(String)} instead
      */
     @Deprecated
@@ -3436,8 +3445,8 @@ public class TestSqlParser
 
     private static void assertInvalidExpression(String expression, String expectedErrorMessageRegex)
     {
-        assertThatThrownBy(() -> createExpression(expression))
-                .isInstanceOfSatisfying(ParsingException.class, e -> assertTrue(e.getErrorMessage().matches(expectedErrorMessageRegex)));
+        assertExpressionIsInvalid(expression)
+                .withMessageMatching("line \\d+:\\d+: " + expectedErrorMessageRegex);
     }
 
     private static String indent(String value)
