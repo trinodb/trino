@@ -29,7 +29,6 @@ import io.trino.plugin.base.security.ForwardingSystemAccessControl;
 import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -71,6 +70,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.spi.StandardErrorCode.SERVER_STARTING_UP;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoaderOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -170,10 +170,7 @@ public class AccessControlManager
         SystemAccessControlFactory factory = systemAccessControlFactories.get(name);
         checkState(factory != null, "Access control '%s' is not registered: %s", name, configFile);
 
-        SystemAccessControl systemAccessControl;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            systemAccessControl = factory.create(ImmutableMap.copyOf(properties));
-        }
+        SystemAccessControl systemAccessControl = withClassLoaderOf(factory.getClass(), () -> factory.create(ImmutableMap.copyOf(properties)));
 
         log.info("-- Loaded system access control %s --", name);
         return systemAccessControl;
@@ -188,10 +185,7 @@ public class AccessControlManager
         SystemAccessControlFactory factory = systemAccessControlFactories.get(name);
         checkState(factory != null, "Access control '%s' is not registered", name);
 
-        SystemAccessControl systemAccessControl;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            systemAccessControl = factory.create(ImmutableMap.copyOf(properties));
-        }
+        SystemAccessControl systemAccessControl = withClassLoaderOf(factory.getClass(), () -> factory.create(ImmutableMap.copyOf(properties)));
 
         setSystemAccessControls(ImmutableList.of(systemAccessControl));
     }

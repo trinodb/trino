@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.GroupProviderFactory;
 
@@ -34,6 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoaderOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -87,10 +87,7 @@ public class GroupProviderManager
         GroupProviderFactory factory = groupProviderFactories.get(name);
         checkState(factory != null, "Group provider %s is not registered", name);
 
-        GroupProvider groupProvider;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            groupProvider = factory.create(ImmutableMap.copyOf(properties));
-        }
+        GroupProvider groupProvider = withClassLoaderOf(factory.getClass(), () -> factory.create(ImmutableMap.copyOf(properties)));
 
         checkState(configuredGroupProvider.compareAndSet(Optional.empty(), Optional.of(groupProvider)), "groupProvider is already set");
 

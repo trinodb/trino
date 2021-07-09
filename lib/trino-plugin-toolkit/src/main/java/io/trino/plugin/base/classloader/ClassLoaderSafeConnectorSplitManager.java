@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.base.classloader;
 
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -24,6 +23,7 @@ import io.trino.spi.connector.DynamicFilter;
 
 import javax.inject.Inject;
 
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public final class ClassLoaderSafeConnectorSplitManager
@@ -42,16 +42,12 @@ public final class ClassLoaderSafeConnectorSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSplits(transactionHandle, session, layout, splitSchedulingStrategy);
-        }
+        return withClassLoader(classLoader, () -> delegate.getSplits(transactionHandle, session, layout, splitSchedulingStrategy));
     }
 
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, DynamicFilter dynamicFilter)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSplits(transaction, session, table, splitSchedulingStrategy, dynamicFilter);
-        }
+        return withClassLoader(classLoader, () -> delegate.getSplits(transaction, session, table, splitSchedulingStrategy, dynamicFilter));
     }
 }

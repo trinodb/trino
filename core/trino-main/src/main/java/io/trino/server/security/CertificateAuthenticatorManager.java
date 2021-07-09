@@ -15,7 +15,6 @@ package io.trino.server.security;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.CertificateAuthenticator;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 
@@ -30,6 +29,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoaderOf;
 import static java.util.Objects.requireNonNull;
 
 public class CertificateAuthenticatorManager
@@ -77,10 +77,7 @@ public class CertificateAuthenticatorManager
         CertificateAuthenticatorFactory factory = factories.get(name);
         checkState(factory != null, "Certificate authenticator '%s' is not registered", name);
 
-        CertificateAuthenticator authenticator;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            authenticator = factory.create(ImmutableMap.copyOf(properties));
-        }
+        CertificateAuthenticator authenticator = withClassLoaderOf(factory.getClass(), () -> factory.create(ImmutableMap.copyOf(properties)));
 
         this.authenticator.set(requireNonNull(authenticator, "authenticator is null"));
 

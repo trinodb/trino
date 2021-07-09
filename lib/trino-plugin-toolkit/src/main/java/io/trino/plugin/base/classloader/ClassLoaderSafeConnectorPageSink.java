@@ -15,7 +15,6 @@ package io.trino.plugin.base.classloader;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorPageSink;
 
 import javax.inject.Inject;
@@ -23,6 +22,7 @@ import javax.inject.Inject;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeConnectorPageSink
@@ -41,48 +41,36 @@ public class ClassLoaderSafeConnectorPageSink
     @Override
     public long getCompletedBytes()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getCompletedBytes();
-        }
+        return withClassLoader(classLoader, delegate::getCompletedBytes);
     }
 
     @Override
     public long getSystemMemoryUsage()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSystemMemoryUsage();
-        }
+        return withClassLoader(classLoader, delegate::getSystemMemoryUsage);
     }
 
     @Override
     public long getValidationCpuNanos()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getValidationCpuNanos();
-        }
+        return withClassLoader(classLoader, delegate::getValidationCpuNanos);
     }
 
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.appendPage(page);
-        }
+        return withClassLoader(classLoader, () -> delegate.appendPage(page));
     }
 
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.finish();
-        }
+        return withClassLoader(classLoader, delegate::finish);
     }
 
     @Override
     public void abort()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.abort();
-        }
+        withClassLoader(classLoader, delegate::abort);
     }
 }

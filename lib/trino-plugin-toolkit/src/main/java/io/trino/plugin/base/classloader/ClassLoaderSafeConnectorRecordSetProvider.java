@@ -14,7 +14,6 @@
 
 package io.trino.plugin.base.classloader;
 
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -27,6 +26,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeConnectorRecordSetProvider
@@ -45,16 +45,12 @@ public class ClassLoaderSafeConnectorRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return new ClassLoaderSafeRecordSet(delegate.getRecordSet(transaction, session, split, table, columns), classLoader);
-        }
+        return withClassLoader(classLoader, () -> new ClassLoaderSafeRecordSet(delegate.getRecordSet(transaction, session, split, table, columns), classLoader));
     }
 
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return new ClassLoaderSafeRecordSet(delegate.getRecordSet(transactionHandle, session, split, columns), classLoader);
-        }
+        return withClassLoader(classLoader, () -> new ClassLoaderSafeRecordSet(delegate.getRecordSet(transactionHandle, session, split, columns), classLoader));
     }
 }

@@ -49,7 +49,6 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorContext;
@@ -69,6 +68,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public final class InternalHiveConnectorFactory
@@ -85,7 +85,7 @@ public final class InternalHiveConnectorFactory
         requireNonNull(config, "config is null");
 
         ClassLoader classLoader = InternalHiveConnectorFactory.class.getClassLoader();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        return withClassLoader(classLoader, () -> {
             Bootstrap app = new Bootstrap(
                     new EventModule(),
                     new MBeanModule(),
@@ -157,7 +157,7 @@ public final class InternalHiveConnectorFactory
                     hiveMaterializedViewPropertiesProvider.getMaterializedViewProperties(),
                     accessControl,
                     classLoader);
-        }
+        });
     }
 
     public static void bindSessionPropertiesProvider(Binder binder, Class<? extends SessionPropertiesProvider> type)

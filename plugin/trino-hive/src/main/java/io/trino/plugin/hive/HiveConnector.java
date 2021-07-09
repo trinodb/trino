@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorHandleResolver;
@@ -40,6 +39,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
@@ -210,9 +210,7 @@ public class HiveConnector
     {
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            transactionManager.put(transaction, metadataFactory.create());
-        }
+        withClassLoader(classLoader, () -> transactionManager.put(transaction, metadataFactory.create()));
         return transaction;
     }
 
@@ -221,9 +219,7 @@ public class HiveConnector
     {
         TransactionalMetadata metadata = transactionManager.remove(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            metadata.commit();
-        }
+        withClassLoader(classLoader, metadata::commit);
     }
 
     @Override
@@ -231,9 +227,7 @@ public class HiveConnector
     {
         TransactionalMetadata metadata = transactionManager.remove(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            metadata.rollback();
-        }
+        withClassLoader(classLoader, metadata::rollback);
     }
 
     @Override

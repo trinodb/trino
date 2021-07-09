@@ -20,7 +20,6 @@ import io.airlift.node.NodeInfo;
 import io.trino.execution.ManagedQueryExecution;
 import io.trino.server.ResourceGroupInfo;
 import io.trino.spi.TrinoException;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
@@ -57,6 +56,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoaderOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -158,10 +158,9 @@ public final class InternalResourceGroupManager<C>
         ResourceGroupConfigurationManagerFactory factory = configurationManagerFactories.get(name);
         checkState(factory != null, "Resource group configuration manager '%s' is not registered", name);
 
-        ResourceGroupConfigurationManager<C> configurationManager;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            configurationManager = cast(factory.create(ImmutableMap.copyOf(properties), configurationManagerContext));
-        }
+        ResourceGroupConfigurationManager<C> configurationManager = withClassLoaderOf(
+                factory.getClass(),
+                () -> cast(factory.create(ImmutableMap.copyOf(properties), configurationManagerContext)));
 
         checkState(this.configurationManager.compareAndSet(cast(legacyManager), configurationManager), "configurationManager already set");
 

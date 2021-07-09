@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.base.classloader;
 
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -29,6 +28,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.function.ToIntFunction;
 
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public final class ClassLoaderSafeNodePartitioningProvider
@@ -52,32 +52,24 @@ public final class ClassLoaderSafeNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getBucketFunction(transactionHandle, session, partitioningHandle, partitionChannelTypes, bucketCount);
-        }
+        return withClassLoader(classLoader, () -> delegate.getBucketFunction(transactionHandle, session, partitioningHandle, partitionChannelTypes, bucketCount));
     }
 
     @Override
     public List<ConnectorPartitionHandle> listPartitionHandles(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.listPartitionHandles(transactionHandle, session, partitioningHandle);
-        }
+        return withClassLoader(classLoader, () -> delegate.listPartitionHandles(transactionHandle, session, partitioningHandle));
     }
 
     @Override
     public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getBucketNodeMap(transactionHandle, session, partitioningHandle);
-        }
+        return withClassLoader(classLoader, () -> delegate.getBucketNodeMap(transactionHandle, session, partitioningHandle));
     }
 
     @Override
     public ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSplitBucketFunction(transactionHandle, session, partitioningHandle);
-        }
+        return withClassLoader(classLoader, () -> delegate.getSplitBucketFunction(transactionHandle, session, partitioningHandle));
     }
 }

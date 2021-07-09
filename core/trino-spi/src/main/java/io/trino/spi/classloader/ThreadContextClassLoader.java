@@ -20,6 +20,10 @@ public class ThreadContextClassLoader
 {
     private final ClassLoader originalThreadContextClassLoader;
 
+    /**
+     * @deprecated Please use {@link #withClassLoader} or {@link #withClassLoaderOf} instead
+     */
+    @Deprecated
     public ThreadContextClassLoader(ClassLoader newThreadContextClassLoader)
     {
         this.originalThreadContextClassLoader = Thread.currentThread().getContextClassLoader();
@@ -30,5 +34,47 @@ public class ThreadContextClassLoader
     public void close()
     {
         Thread.currentThread().setContextClassLoader(originalThreadContextClassLoader);
+    }
+
+    public static void withClassLoaderOf(Class<?> clazz, Runnable runnable)
+    {
+        withClassLoader(clazz.getClassLoader(), runnable);
+    }
+
+    public static <T, E extends Exception> T withClassLoaderOf(Class<?> clazz, ThrowingSupplier<T, E> supplier)
+    {
+        return withClassLoader(clazz.getClassLoader(), supplier);
+    }
+
+    public static void withClassLoader(ClassLoader newThreadContextClassLoader, Runnable runnable)
+    {
+        withClassLoader(newThreadContextClassLoader, () -> {
+            runnable.run();
+            return null;
+        });
+    }
+
+    public static <T, E extends Exception> T withClassLoader(ClassLoader newThreadContextClassLoader, ThrowingSupplier<T, E> supplier)
+    {
+        final ClassLoader originalThreadContextClassLoader = Thread.currentThread().getContextClassLoader();
+        Thread.currentThread().setContextClassLoader(newThreadContextClassLoader);
+        try {
+            return supplier.get();
+        }
+        catch (RuntimeException e) {
+            throw e;
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        finally {
+            Thread.currentThread().setContextClassLoader(originalThreadContextClassLoader);
+        }
+    }
+
+    @FunctionalInterface
+    public interface ThrowingSupplier<T, E extends Exception>
+    {
+        T get() throws E;
     }
 }

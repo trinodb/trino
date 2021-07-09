@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.Session;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
 import io.trino.spi.session.SessionConfigurationContext;
@@ -37,6 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoaderOf;
 import static java.lang.String.format;
 
 public class SessionPropertyDefaults
@@ -87,10 +87,7 @@ public class SessionPropertyDefaults
         SessionPropertyConfigurationManagerFactory factory = factories.get(name);
         checkState(factory != null, "Session property configuration manager '%s' is not registered", name);
 
-        SessionPropertyConfigurationManager manager;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            manager = factory.create(properties, configurationManagerContext);
-        }
+        SessionPropertyConfigurationManager manager = withClassLoaderOf(factory.getClass(), () -> factory.create(properties, configurationManagerContext));
 
         checkState(delegate.compareAndSet(null, manager), "sessionPropertyConfigurationManager is already set");
 

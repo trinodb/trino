@@ -16,7 +16,6 @@ package io.trino.eventlistener;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
@@ -40,6 +39,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoaderOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -112,10 +112,7 @@ public class EventListenerManager
         EventListenerFactory factory = eventListenerFactories.get(name);
         checkArgument(factory != null, "Event listener factory '%s' is not registered. Available factories: %s", name, eventListenerFactories.keySet());
 
-        EventListener eventListener;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            eventListener = factory.create(properties);
-        }
+        EventListener eventListener = withClassLoaderOf(factory.getClass(), () -> factory.create(properties));
 
         log.info("-- Loaded event listener %s --", configFile);
         return eventListener;
