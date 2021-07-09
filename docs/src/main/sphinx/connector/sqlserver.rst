@@ -114,14 +114,56 @@ Complete list of `SQL Server data types
 
 .. include:: jdbc-type-mapping.fragment
 
+.. _sqlserver-sql-support:
+
 SQL support
 -----------
 
-The following SQL statements are not yet supported:
+The connector provides **read access and limited write access** to data and
+metadata in SQL Server. The following section lists all supported SQL statements
+and provides further details.
 
+.. important::
+  No other SQL statements are supported.
+
+Read access:
+
+* :doc:`/sql/select` including:
+
+ * :doc:`/sql/match-recognize`
+ * :doc:`/sql/values`
+
+* :doc:`/sql/show-catalogs`
+* :doc:`/sql/show-columns`
+* :doc:`/sql/show-schemas`
+* :doc:`/sql/show-tables`
+* :doc:`/sql/describe`
+
+Write access:
+
+* :doc:`/sql/create-schema`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
 * :doc:`/sql/delete`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
+* :doc:`/sql/drop-schema`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/insert`
+* :doc:`/sql/show-create-table`
+
+Other supported commands:
+
+* :doc:`/sql/deallocate-prepare`
+* :doc:`/sql/describe-input`
+* :doc:`/sql/describe-output`
+* :doc:`/sql/execute`
+* :doc:`/sql/explain`
+* :doc:`/sql/explain-analyze`
+* :doc:`/sql/prepare`
+* :doc:`/sql/reset-session`
+* :doc:`/sql/set-session`
+* :doc:`/sql/show-functions`
+* :doc:`/sql/show-session`
+* :doc:`/sql/use`
 
 .. _sqlserver-pushdown:
 

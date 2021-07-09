@@ -49,14 +49,19 @@ import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingSession;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
+import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
 import static io.trino.server.DynamicFilterService.getSourceStageInnerLazyDynamicFilters;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.none;
@@ -76,6 +81,7 @@ import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestDynamicFilterService
@@ -633,6 +639,127 @@ public class TestDynamicFilterService
     }
 
     @Test
+    public void testDynamicFilterConsumer()
+    {
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, typeOperators, newDirectExecutorService());
+        DynamicFilterId filterId1 = new DynamicFilterId("df1");
+        DynamicFilterId filterId2 = new DynamicFilterId("df2");
+        Set<DynamicFilterId> dynamicFilters = ImmutableSet.of(filterId1, filterId2);
+        QueryId queryId = new QueryId("query");
+        StageId stageId = new StageId(queryId, 0);
+
+        dynamicFilterService.registerQuery(queryId, session, dynamicFilters, dynamicFilters, ImmutableSet.of());
+        dynamicFilterService.stageCannotScheduleMoreTasks(stageId, 2);
+
+        Map<DynamicFilterId, Domain> consumerCollectedFilters = new HashMap<>();
+        dynamicFilterService.registerDynamicFilterConsumer(
+                queryId,
+                dynamicFilters,
+                (domains) -> domains.forEach((filter, domain) -> assertNull(consumerCollectedFilters.put(filter, domain))));
+        assertTrue(consumerCollectedFilters.isEmpty());
+
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId, 0),
+                ImmutableMap.of(filterId1, singleValue(INTEGER, 1L)));
+        assertTrue(consumerCollectedFilters.isEmpty());
+
+        // complete only filterId1
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId, 1),
+                ImmutableMap.of(
+                        filterId1, singleValue(INTEGER, 3L),
+                        filterId2, singleValue(INTEGER, 2L)));
+        assertEquals(consumerCollectedFilters, ImmutableMap.of(filterId1, multipleValues(INTEGER, ImmutableList.of(1L, 3L))));
+
+        // register another consumer only for filterId1 after completion of filterId1
+        Map<DynamicFilterId, Domain> secondConsumerCollectedFilters = new HashMap<>();
+        dynamicFilterService.registerDynamicFilterConsumer(
+                queryId,
+                ImmutableSet.of(filterId1),
+                (domains) -> domains.forEach((filter, domain) -> assertNull(secondConsumerCollectedFilters.put(filter, domain))));
+        assertEquals(secondConsumerCollectedFilters, ImmutableMap.of(filterId1, multipleValues(INTEGER, ImmutableList.of(1L, 3L))));
+
+        // complete filterId2
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId, 0),
+                ImmutableMap.of(filterId2, singleValue(INTEGER, 4L)));
+        assertEquals(
+                consumerCollectedFilters,
+                ImmutableMap.of(
+                        filterId1, multipleValues(INTEGER, ImmutableList.of(1L, 3L)),
+                        filterId2, multipleValues(INTEGER, ImmutableList.of(2L, 4L))));
+        assertEquals(
+                secondConsumerCollectedFilters,
+                ImmutableMap.of(filterId1, multipleValues(INTEGER, ImmutableList.of(1L, 3L))));
+    }
+
+    @Test
+    public void testDynamicFilterConsumerCallbackCount()
+    {
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, typeOperators, newDirectExecutorService());
+        DynamicFilterId filterId1 = new DynamicFilterId("df1");
+        DynamicFilterId filterId2 = new DynamicFilterId("df2");
+        Set<DynamicFilterId> dynamicFilters = ImmutableSet.of(filterId1, filterId2);
+        QueryId queryId = new QueryId("query");
+        StageId stageId = new StageId(queryId, 0);
+
+        dynamicFilterService.registerQuery(queryId, session, dynamicFilters, dynamicFilters, ImmutableSet.of());
+        dynamicFilterService.stageCannotScheduleMoreTasks(stageId, 2);
+
+        Map<DynamicFilterId, Domain> consumerCollectedFilters = new HashMap<>();
+        AtomicInteger callbackCount = new AtomicInteger();
+        dynamicFilterService.registerDynamicFilterConsumer(
+                queryId,
+                dynamicFilters,
+                (domains) -> {
+                    callbackCount.getAndIncrement();
+                    domains.forEach((filter, domain) -> assertNull(consumerCollectedFilters.put(filter, domain)));
+                });
+        assertTrue(consumerCollectedFilters.isEmpty());
+
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId, 0),
+                ImmutableMap.of(
+                        filterId1, singleValue(INTEGER, 1L),
+                        filterId2, singleValue(INTEGER, 2L)));
+        assertTrue(consumerCollectedFilters.isEmpty());
+
+        // complete both filterId1 and filterId2
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId, 1),
+                ImmutableMap.of(
+                        filterId1, singleValue(INTEGER, 3L),
+                        filterId2, singleValue(INTEGER, 4L)));
+        assertEquals(
+                consumerCollectedFilters,
+                ImmutableMap.of(
+                        filterId1, multipleValues(INTEGER, ImmutableList.of(1L, 3L)),
+                        filterId2, multipleValues(INTEGER, ImmutableList.of(2L, 4L))));
+        // both filters should be received in single callback
+        assertEquals(callbackCount.get(), 1);
+
+        // register another consumer after both filters have been collected
+        Map<DynamicFilterId, Domain> secondConsumerCollectedFilters = new HashMap<>();
+        AtomicInteger secondCallbackCount = new AtomicInteger();
+        dynamicFilterService.registerDynamicFilterConsumer(
+                queryId,
+                dynamicFilters,
+                (domains) -> {
+                    secondCallbackCount.getAndIncrement();
+                    domains.forEach((filter, domain) -> assertNull(secondConsumerCollectedFilters.put(filter, domain)));
+                });
+        assertEquals(
+                secondConsumerCollectedFilters,
+                ImmutableMap.of(
+                        filterId1, multipleValues(INTEGER, ImmutableList.of(1L, 3L)),
+                        filterId2, multipleValues(INTEGER, ImmutableList.of(2L, 4L))));
+        // both filters should be received by second consumer in single callback
+        assertEquals(secondCallbackCount.get(), 1);
+        // first consumer should not receive callback again since it already got the completed filter
+        assertEquals(callbackCount.get(), 1);
+    }
+
+    @Test
     public void testSourceStageInnerLazyDynamicFilters()
     {
         DynamicFilterId dynamicFilterId = new DynamicFilterId("filterId");
@@ -641,7 +768,27 @@ public class TestDynamicFilterService
         assertEquals(getSourceStageInnerLazyDynamicFilters(createPlan(dynamicFilterId, SOURCE_DISTRIBUTION, REPARTITION)), ImmutableSet.of());
     }
 
+    @Test
+    public void testOutboundDynamicFilters()
+    {
+        DynamicFilterId filterId1 = new DynamicFilterId("filterId1");
+        DynamicFilterId filterId2 = new DynamicFilterId("filterId2");
+        assertEquals(getOutboundDynamicFilters(createPlan(filterId1, filterId1, FIXED_HASH_DISTRIBUTION, REPLICATE)), ImmutableSet.of());
+        assertEquals(getOutboundDynamicFilters(createPlan(filterId1, filterId1, FIXED_HASH_DISTRIBUTION, REPARTITION)), ImmutableSet.of());
+        assertEquals(getOutboundDynamicFilters(createPlan(filterId1, filterId2, FIXED_HASH_DISTRIBUTION, REPLICATE)), ImmutableSet.of(filterId1));
+        assertEquals(getOutboundDynamicFilters(createPlan(filterId1, filterId2, FIXED_HASH_DISTRIBUTION, REPARTITION)), ImmutableSet.of(filterId1));
+    }
+
     private static PlanFragment createPlan(DynamicFilterId dynamicFilterId, PartitioningHandle stagePartitioning, ExchangeNode.Type exchangeType)
+    {
+        return createPlan(dynamicFilterId, dynamicFilterId, stagePartitioning, exchangeType);
+    }
+
+    private static PlanFragment createPlan(
+            DynamicFilterId consumedDynamicFilterId,
+            DynamicFilterId producedDynamicFilterId,
+            PartitioningHandle stagePartitioning,
+            ExchangeNode.Type exchangeType)
     {
         Symbol symbol = new Symbol("column");
         Symbol buildSymbol = new Symbol("buildColumn");
@@ -657,7 +804,7 @@ public class TestDynamicFilterService
         FilterNode filterNode = new FilterNode(
                 new PlanNodeId("filter_node_id"),
                 tableScan,
-                createDynamicFilterExpression(createTestMetadataManager(), dynamicFilterId, VARCHAR, symbol.toSymbolReference()));
+                createDynamicFilterExpression(createTestMetadataManager(), consumedDynamicFilterId, VARCHAR, symbol.toSymbolReference()));
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of(buildSymbol), Optional.empty(), exchangeType);
         return new PlanFragment(
@@ -675,7 +822,7 @@ public class TestDynamicFilterService
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableMap.of(dynamicFilterId, buildSymbol),
+                        ImmutableMap.of(producedDynamicFilterId, buildSymbol),
                         Optional.empty()),
                 ImmutableMap.of(symbol, VARCHAR),
                 stagePartitioning,

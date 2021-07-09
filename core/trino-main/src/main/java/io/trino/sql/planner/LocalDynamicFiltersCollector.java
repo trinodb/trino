@@ -49,18 +49,14 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-class LocalDynamicFiltersCollector
+public class LocalDynamicFiltersCollector
 {
-    private final Metadata metadata;
-    private final TypeOperators typeOperators;
     private final Session session;
     // Each future blocks until its dynamic filter is collected.
     private final Map<DynamicFilterId, SettableFuture<Domain>> futures = new HashMap<>();
 
-    public LocalDynamicFiltersCollector(Metadata metadata, TypeOperators typeOperators, Session session)
+    public LocalDynamicFiltersCollector(Session session)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
     }
 
@@ -72,23 +68,33 @@ class LocalDynamicFiltersCollector
                 "LocalDynamicFiltersCollector: duplicate filter %s", filterId));
     }
 
+    public Set<DynamicFilterId> getRegisteredDynamicFilterIds()
+    {
+        return futures.keySet();
+    }
+
     // Used during execution (after build-side dynamic filter collection is over).
     // No need to be synchronized as the futures map doesn't change.
     public void collectDynamicFilterDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
-        dynamicFilterDomains
-                .entrySet()
-                .forEach(entry -> {
-                    SettableFuture<Domain> future = futures.get(entry.getKey());
-                    // Skip dynamic filters that are not applied locally.
-                    if (future != null) {
-                        verify(future.set(entry.getValue()), "Dynamic filter %s already collected", entry.getKey());
-                    }
-                });
+        dynamicFilterDomains.forEach((key, value) -> {
+            SettableFuture<Domain> future = futures.get(key);
+            // Skip dynamic filters that are not applied locally.
+            if (future != null) {
+                // Coordinator may re-send dynamicFilterDomain if sendUpdate request fails
+                // It's possible that the request failed after the DF was already collected here
+                future.set(value);
+            }
+        });
     }
 
     // Called during TableScan planning (no need to be synchronized as local planning is single threaded)
-    public DynamicFilter createDynamicFilter(List<Descriptor> descriptors, Map<Symbol, ColumnHandle> columnsMap, TypeProvider typeProvider)
+    public DynamicFilter createDynamicFilter(
+            List<Descriptor> descriptors,
+            Map<Symbol, ColumnHandle> columnsMap,
+            TypeProvider typeProvider,
+            Metadata metadata,
+            TypeOperators typeOperators)
     {
         Multimap<DynamicFilterId, Descriptor> descriptorMap = extractSourceSymbols(descriptors);
 

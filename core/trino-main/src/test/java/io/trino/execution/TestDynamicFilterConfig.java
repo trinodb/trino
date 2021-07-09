@@ -31,6 +31,7 @@ public class TestDynamicFilterConfig
     {
         assertRecordedDefaults(recordDefaults(DynamicFilterConfig.class)
                 .setEnableDynamicFiltering(true)
+                .setEnableCoordinatorDynamicFiltersDistribution(true)
                 .setEnableLargeDynamicFilters(false)
                 .setServiceThreadCount(2)
                 .setSmallBroadcastMaxDistinctValuesPerDriver(200)
@@ -52,6 +53,7 @@ public class TestDynamicFilterConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("enable-dynamic-filtering", "false")
+                .put("enable-coordinator-dynamic-filters-distribution", "false")
                 .put("enable-large-dynamic-filters", "true")
                 .put("dynamic-filtering.service-thread-count", "4")
                 .put("dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "256")
@@ -70,6 +72,7 @@ public class TestDynamicFilterConfig
 
         DynamicFilterConfig expected = new DynamicFilterConfig()
                 .setEnableDynamicFiltering(false)
+                .setEnableCoordinatorDynamicFiltersDistribution(false)
                 .setEnableLargeDynamicFilters(true)
                 .setServiceThreadCount(4)
                 .setSmallBroadcastMaxDistinctValuesPerDriver(256)
