@@ -57,10 +57,10 @@ public class TestIcebergConnectorSmokeTest
 
     @Test
     @Override
-    public void testDelete()
+    public void testRowLevelDelete()
     {
         // Deletes are covered AbstractTestIcebergConnectorTest
-        assertThatThrownBy(super::testDelete)
+        assertThatThrownBy(super::testRowLevelDelete)
                 .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
     }
 

@@ -77,7 +77,7 @@ public class TestCassandraLatestConnectorSmokeTest
 
     @Test
     @Override
-    public void testDelete()
+    public void testRowLevelDelete()
     {
         String keyspaceAndTable = format("%s.%s", KEYSPACE, TABLE_DELETE_DATA);
         assertQuery("SELECT COUNT(*) FROM " + keyspaceAndTable, "VALUES 15");
