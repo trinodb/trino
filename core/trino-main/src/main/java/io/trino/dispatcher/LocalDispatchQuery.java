@@ -31,6 +31,7 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.sql.tree.Statement;
 import org.joda.time.DateTime;
 
 import java.util.Optional;
@@ -268,6 +269,14 @@ public class LocalDispatchQuery
         return tryGetQueryExecution()
                 .map(QueryExecution::getQueryInfo)
                 .orElseGet(() -> stateMachine.updateQueryInfo(Optional.empty()));
+    }
+
+    @Override
+    public Optional<Statement> getStatement()
+    {
+        return tryGetQueryExecution()
+                .map(QueryExecution::getStatement)
+                .orElseGet(() -> Optional.empty());
     }
 
     @Override

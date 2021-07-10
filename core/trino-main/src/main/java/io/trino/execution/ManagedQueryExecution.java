@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
+import io.trino.sql.tree.Statement;
 
 import java.util.Optional;
 
@@ -46,6 +47,11 @@ public interface ManagedQueryExecution
     BasicQueryInfo getBasicQueryInfo();
 
     QueryInfo getFullQueryInfo();
+
+    default Optional<Statement> getStatement()
+    {
+        return Optional.empty();
+    }
 
     QueryState getState();
 

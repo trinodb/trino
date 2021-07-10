@@ -250,6 +250,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public Optional<Statement> getStatement()
+    {
+        return Optional.of(statement);
+    }
+
+    @Override
     public void pruneInfo()
     {
         // no-op
