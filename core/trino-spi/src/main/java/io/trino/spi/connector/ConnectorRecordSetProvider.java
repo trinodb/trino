@@ -25,7 +25,7 @@ public interface ConnectorRecordSetProvider
             List<? extends ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
-        return getRecordSet(transaction, session, split, columns);
+        return getRecordSet(transaction, session, split, columns, dynamicFilter);
     }
 
     @Deprecated
@@ -33,7 +33,8 @@ public interface ConnectorRecordSetProvider
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorSplit split,
-            List<? extends ColumnHandle> columns)
+            List<? extends ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
     {
         throw new UnsupportedOperationException("getRecordSet() must be implemented");
     }
