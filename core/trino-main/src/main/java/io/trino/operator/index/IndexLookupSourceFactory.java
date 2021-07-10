@@ -44,7 +44,7 @@ public class IndexLookupSourceFactory
     private final List<Type> outputTypes;
     private final Supplier<IndexLoader> indexLoaderSupplier;
     private TaskContext taskContext;
-    private final SettableFuture<Void> whenTaskContextSet = SettableFuture.create();
+    private final SettableFuture<?> whenTaskContextSet = SettableFuture.create();
 
     public IndexLookupSourceFactory(
             Set<Integer> lookupSourceInputChannels,
@@ -100,7 +100,7 @@ public class IndexLookupSourceFactory
     }
 
     @Override
-    public ListenableFuture<Void> whenBuildFinishes()
+    public ListenableFuture<?> whenBuildFinishes()
     {
         return Futures.transformAsync(
                 whenTaskContextSet,

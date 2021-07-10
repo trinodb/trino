@@ -139,7 +139,7 @@ class ContinuousTaskStatusFetcher
         }
 
         // if throttled due to error, asynchronously wait for timeout and try again
-        ListenableFuture<Void> errorRateLimit = errorTracker.acquireRequestPermit();
+        ListenableFuture<?> errorRateLimit = errorTracker.acquireRequestPermit();
         if (!errorRateLimit.isDone()) {
             errorRateLimit.addListener(this::scheduleNextRequest, executor);
             return;

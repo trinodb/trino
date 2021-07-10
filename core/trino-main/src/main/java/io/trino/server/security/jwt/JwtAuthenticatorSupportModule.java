@@ -15,14 +15,9 @@ package io.trino.server.security.jwt;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.jsonwebtoken.SigningKeyResolver;
-
-import javax.inject.Singleton;
-
-import java.net.URI;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -66,16 +61,7 @@ public class JwtAuthenticatorSupportModule
                             .setKeyStorePath(null)
                             .setKeyStorePassword(null)
                             .setTrustStorePath(null)
-                            .setTrustStorePassword(null)
-                            .setAutomaticHttpsSharedSecret(null));
-        }
-
-        @Provides
-        @Singleton
-        @ForJwk
-        public static URI createJwkAddress(JwtAuthenticatorConfig config)
-        {
-            return URI.create(config.getKeyFile());
+                            .setTrustStorePassword(null));
         }
 
         // this module can be added multiple times, and this prevents multiple processing by Guice

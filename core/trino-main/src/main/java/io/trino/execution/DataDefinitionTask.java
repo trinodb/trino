@@ -28,7 +28,7 @@ public interface DataDefinitionTask<T extends Statement>
 {
     String getName();
 
-    ListenableFuture<Void> execute(
+    ListenableFuture<?> execute(
             T statement,
             TransactionManager transactionManager,
             Metadata metadata,

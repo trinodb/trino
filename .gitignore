@@ -24,4 +24,3 @@ benchmark_outputs
 .mvn/timing.properties
 node_modules
 product-test-reports
-.vscode/

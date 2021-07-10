@@ -30,7 +30,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.List;
 
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
@@ -64,7 +63,6 @@ public class TestPhoenixConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
-            case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -308,13 +306,6 @@ public class TestPhoenixConnectorTest
         assertQuery("SELECT * FROM test_col_insert", "SELECT 1, 'val1', 'val2'");
     }
 
-    @Override
-    protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
-    {
-        return new TestTable(onRemoteDatabase(), name, "(t_double double primary key, u_double double, v_real float, w_real float)", rows);
-    }
-
-    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return sql -> {

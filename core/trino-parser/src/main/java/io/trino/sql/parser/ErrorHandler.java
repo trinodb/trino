@@ -14,6 +14,7 @@
 package io.trino.sql.parser;
 
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.NoViableAltException;
 import org.antlr.v4.runtime.Parser;
@@ -41,18 +42,16 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.String.format;
-import static java.util.logging.Level.SEVERE;
 import static org.antlr.v4.runtime.atn.ATNState.RULE_START;
 
 class ErrorHandler
         extends BaseErrorListener
 {
-    private static final Logger LOG = Logger.getLogger(ErrorHandler.class.getName());
+    private static final Logger LOG = Logger.get(ErrorHandler.class);
 
     private final Map<Integer, String> specialRules;
     private final Map<Integer, String> specialTokens;
@@ -103,7 +102,7 @@ class ErrorHandler
             message = format("mismatched input '%s'. Expecting: %s", parser.getTokenStream().get(result.getErrorTokenIndex()).getText(), expected);
         }
         catch (Exception exception) {
-            LOG.log(SEVERE, "Unexpected failure when handling parsing error. This is likely a bug in the implementation", exception);
+            LOG.error(exception, "Unexpected failure when handling parsing error. This is likely a bug in the implementation");
         }
 
         throw new ParsingException(message, e, line, charPositionInLine + 1);

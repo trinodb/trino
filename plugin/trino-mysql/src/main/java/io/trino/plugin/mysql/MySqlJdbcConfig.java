@@ -13,17 +13,13 @@
  */
 package io.trino.plugin.mysql;
 
-import com.mysql.cj.conf.ConnectionUrlParser;
-import com.mysql.cj.exceptions.CJException;
 import com.mysql.jdbc.Driver;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 
 import javax.validation.constraints.AssertTrue;
 
 import java.sql.SQLException;
-
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.mysql.cj.conf.ConnectionUrlParser.parseConnectionString;
+import java.util.Properties;
 
 public class MySqlJdbcConfig
         extends BaseJdbcConfig
@@ -33,7 +29,8 @@ public class MySqlJdbcConfig
     {
         try {
             Driver driver = new Driver();
-            return driver.acceptsURL(getConnectionUrl());
+            Properties properties = driver.parseURL(getConnectionUrl(), null);
+            return properties != null;
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
@@ -44,11 +41,12 @@ public class MySqlJdbcConfig
     public boolean isUrlWithoutDatabase()
     {
         try {
-            ConnectionUrlParser parser = parseConnectionString(getConnectionUrl());
-            return isNullOrEmpty(parser.getPath());
+            Driver driver = new Driver();
+            Properties properties = driver.parseURL(getConnectionUrl(), null);
+            return (properties == null) || (driver.database(properties) == null);
         }
-        catch (CJException ignore) {
-            return false;
+        catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 }

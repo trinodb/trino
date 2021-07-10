@@ -120,7 +120,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
@@ -130,7 +129,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
-import static io.trino.spi.type.Chars.trimTrailingSpaces;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -294,7 +292,7 @@ public class ExpressionInterpreter
             try {
                 return process(expression, context);
             }
-            catch (TrinoException e) {
+            catch (RuntimeException e) {
                 if (optimize) {
                     // Certain operations like 0 / 0 or likeExpression may throw exceptions.
                     // When optimizing, do not throw the exception, but delay it until the expression is actually executed.
@@ -302,8 +300,10 @@ public class ExpressionInterpreter
                     // expression from the plan.
                     return expression;
                 }
-                // Do not suppress exceptions during expression execution.
-                throw e;
+                else {
+                    // Do not suppress exceptions during expression execution.
+                    throw e;
+                }
             }
         }
 
@@ -456,10 +456,12 @@ public class ExpressionInterpreter
                         toExpression(trueValue, type(node.getTrueValue())),
                         (falseValue == null) ? null : toExpression(falseValue, type(node.getFalseValue().get())));
             }
-            if (Boolean.TRUE.equals(condition)) {
+            else if (Boolean.TRUE.equals(condition)) {
                 return processWithExceptionHandling(node.getTrueValue(), context);
             }
-            return processWithExceptionHandling(node.getFalseValue().orElse(null), context);
+            else {
+                return processWithExceptionHandling(node.getFalseValue().orElse(null), context);
+            }
         }
 
         @Override
@@ -612,7 +614,11 @@ public class ExpressionInterpreter
                 return set.contains(value);
             }
 
-            boolean hasUnresolvedValue = value instanceof Expression;
+            boolean hasUnresolvedValue = false;
+            if (value instanceof Expression) {
+                hasUnresolvedValue = true;
+            }
+
             boolean hasNullValue = false;
             boolean found = false;
             List<Object> values = new ArrayList<>(valueList.getValues().size());
@@ -922,7 +928,9 @@ public class ExpressionInterpreter
             if (equal) {
                 return null;
             }
-            return first;
+            else {
+                return first;
+            }
         }
 
         @Override
@@ -1132,30 +1140,19 @@ public class ExpressionInterpreter
 
             // if pattern is a constant without % or _ replace with a comparison
             if (pattern instanceof Slice && (escape == null || escape instanceof Slice) && !isLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape))) {
-                Type valueType = type(node.getValue());
                 Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape));
-                VarcharType patternType = createVarcharType(countCodePoints(unescapedPattern));
-
-                Expression valueExpression;
-                Expression patternExpression;
-                if (valueType instanceof CharType) {
-                    if (((CharType) valueType).getLength() != patternType.getBoundedLength()) {
-                        return false;
-                    }
-                    valueExpression = toExpression(value, valueType);
-                    patternExpression = toExpression(trimTrailingSpaces(unescapedPattern), valueType);
+                Type valueType = type(node.getValue());
+                Type patternType = createVarcharType(unescapedPattern.length());
+                Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(valueType, patternType);
+                checkArgument(commonSuperType.isPresent(), "Missing super type when optimizing %s", node);
+                Expression valueExpression = toExpression(value, valueType);
+                Expression patternExpression = toExpression(unescapedPattern, patternType);
+                Type superType = commonSuperType.get();
+                if (!valueType.equals(superType)) {
+                    valueExpression = new Cast(valueExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
                 }
-                else if (valueType instanceof VarcharType) {
-                    Type superType = typeCoercion.getCommonSuperType(valueType, patternType)
-                            .orElseThrow(() -> new IllegalArgumentException("Missing super type when optimizing " + node));
-                    valueExpression = toExpression(value, valueType);
-                    if (!valueType.equals(superType)) {
-                        valueExpression = new Cast(valueExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
-                    }
-                    patternExpression = toExpression(unescapedPattern, superType);
-                }
-                else {
-                    throw new IllegalStateException("Unsupported valueType for LIKE: " + valueType);
+                if (!patternType.equals(superType)) {
+                    patternExpression = new Cast(patternExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(patternType, superType));
                 }
                 return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, valueExpression, patternExpression);
             }
@@ -1300,13 +1297,15 @@ public class ExpressionInterpreter
             if (hasUnresolvedValue(values)) {
                 return new Row(toExpressions(values, parameterTypes));
             }
-            BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
-            BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
-            for (int i = 0; i < cardinality; ++i) {
-                writeNativeValue(parameterTypes.get(i), singleRowBlockWriter, values.get(i));
+            else {
+                BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
+                BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
+                for (int i = 0; i < cardinality; ++i) {
+                    writeNativeValue(parameterTypes.get(i), singleRowBlockWriter, values.get(i));
+                }
+                blockBuilder.closeEntry();
+                return rowType.getObject(blockBuilder, 0);
             }
-            blockBuilder.closeEntry();
-            return rowType.getObject(blockBuilder, 0);
         }
 
         @Override

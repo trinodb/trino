@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class TestingTransactionManager
         implements TransactionManager
@@ -137,17 +137,17 @@ public class TestingTransactionManager
     }
 
     @Override
-    public ListenableFuture<Void> asyncCommit(TransactionId transactionId)
+    public ListenableFuture<?> asyncCommit(TransactionId transactionId)
     {
         checkState(transactions.remove(transactionId) != null, "Transaction is already finished");
-        return immediateVoidFuture();
+        return immediateFuture(new Object());
     }
 
     @Override
-    public ListenableFuture<Void> asyncAbort(TransactionId transactionId)
+    public ListenableFuture<?> asyncAbort(TransactionId transactionId)
     {
         checkState(transactions.remove(transactionId) != null, "Transaction is already finished");
-        return immediateVoidFuture();
+        return immediateFuture(new Object());
     }
 
     @Override

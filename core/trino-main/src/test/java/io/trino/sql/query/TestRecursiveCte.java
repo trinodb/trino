@@ -185,12 +185,12 @@ public class TestRecursiveCte
 
         // result of step relation coerced from varchar(5) to varchar
         assertThat(assertions.query("WITH RECURSIVE t(n) AS (" +
-                "          SELECT VARCHAR 'ABCDE'" +
+                "          SELECT CAST('ABCDE' AS varchar)" +
                 "          UNION ALL" +
                 "          SELECT CAST(substr(n, 2) AS varchar(5)) FROM t WHERE n < 'E'" +
                 "          )" +
                 "          SELECT * from t"))
-                .matches("VALUES (VARCHAR 'ABCDE'), (VARCHAR 'BCDE'), (VARCHAR 'CDE'), (VARCHAR 'DE'), (VARCHAR 'E')");
+                .matches("VALUES (CAST('ABCDE' AS varchar)), (CAST('BCDE' AS varchar)), (CAST('CDE' AS varchar)), (CAST('DE' AS varchar)), (CAST('E' AS varchar))");
 
         //multiple coercions
         assertThat(assertions.query("WITH RECURSIVE t(n, m) AS (" +

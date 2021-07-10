@@ -405,13 +405,6 @@ public final class PlanMatchPattern
         return builder.build();
     }
 
-    public static PlanMatchPattern patternRecognition(Consumer<PatternRecognitionMatcher.Builder> handler, PlanMatchPattern source)
-    {
-        PatternRecognitionMatcher.Builder builder = new PatternRecognitionMatcher.Builder(source);
-        handler.accept(builder);
-        return builder.build();
-    }
-
     public static PlanMatchPattern sort(PlanMatchPattern source)
     {
         return node(SortNode.class, source);

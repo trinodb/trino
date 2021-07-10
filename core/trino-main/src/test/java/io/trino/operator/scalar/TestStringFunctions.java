@@ -861,7 +861,7 @@ public class TestStringFunctions
     @Test
     public void testVarcharToVarcharX()
     {
-        assertFunction("LOWER(VARCHAR 'HELLO')", createUnboundedVarcharType(), "hello");
+        assertFunction("LOWER(CAST('HELLO' AS VARCHAR))", createUnboundedVarcharType(), "hello");
     }
 
     @Test

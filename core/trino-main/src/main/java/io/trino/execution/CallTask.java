@@ -51,7 +51,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -74,7 +74,7 @@ public class CallTask
     }
 
     @Override
-    public ListenableFuture<Void> execute(
+    public ListenableFuture<?> execute(
             Call call,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -201,7 +201,7 @@ public class CallTask
             throw new TrinoException(PROCEDURE_CALL_FAILED, t);
         }
 
-        return immediateVoidFuture();
+        return immediateFuture(null);
     }
 
     private static Object toTypeObjectValue(Session session, Type type, Object value)

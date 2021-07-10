@@ -27,7 +27,7 @@ public enum TransactionalTableType
         }
 
         @Override
-        List<String> getTrinoTableProperties()
+        List<String> getPrestoTableProperties()
         {
             return ImmutableList.of("transactional = true");
         }
@@ -40,7 +40,7 @@ public enum TransactionalTableType
         }
 
         @Override
-        List<String> getTrinoTableProperties()
+        List<String> getPrestoTableProperties()
         {
             throw new RuntimeException("insert_only tables not supported");
         }
@@ -49,5 +49,5 @@ public enum TransactionalTableType
 
     abstract List<String> getHiveTableProperties();
 
-    abstract List<String> getTrinoTableProperties();
+    abstract List<String> getPrestoTableProperties();
 }

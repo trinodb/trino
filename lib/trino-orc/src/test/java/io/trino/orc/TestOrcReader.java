@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 import static io.trino.orc.OrcTester.fullOrcTester;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 
+@Test
 public class TestOrcReader
         extends AbstractTestOrcReader
 {

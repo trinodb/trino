@@ -16,6 +16,7 @@ package io.trino.server.remotetask;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableFutureTask;
 import io.airlift.event.client.ServiceUnavailableException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -36,7 +37,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
@@ -68,15 +68,17 @@ class RequestErrorTracker
         this.jobDescription = requireNonNull(jobDescription, "jobDescription is null");
     }
 
-    public ListenableFuture<Void> acquireRequestPermit()
+    public ListenableFuture<?> acquireRequestPermit()
     {
         long delayNanos = backoff.getBackoffDelayNanos();
 
         if (delayNanos == 0) {
-            return immediateVoidFuture();
+            return Futures.immediateFuture(null);
         }
 
-        return Futures.scheduleAsync(Futures::immediateVoidFuture, delayNanos, NANOSECONDS, scheduledExecutor);
+        ListenableFutureTask<Object> futureTask = ListenableFutureTask.create(() -> null);
+        scheduledExecutor.schedule(futureTask, delayNanos, NANOSECONDS);
+        return futureTask;
     }
 
     public void startRequest()

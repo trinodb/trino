@@ -164,7 +164,7 @@ public class TestExpressionCompiler
     private long start;
     private ListeningExecutorService executor;
     private FunctionAssertions functionAssertions;
-    private List<ListenableFuture<Void>> futures;
+    private List<ListenableFuture<?>> futures;
 
     @BeforeClass
     public void setupClass()
@@ -888,7 +888,7 @@ public class TestExpressionCompiler
         assertExecute("try_cast(bound_long / 13  as bigint)", BIGINT, 94L);
         assertExecute("coalesce(try_cast('123' as bigint), 456)", BIGINT, 123L);
         assertExecute("coalesce(try_cast('foo' as bigint), 456)", BIGINT, 456L);
-        assertExecute("concat('foo', VARCHAR 'bar')", VARCHAR, "foobar");
+        assertExecute("concat('foo', cast('bar' as varchar))", VARCHAR, "foobar");
         assertExecute("try_cast(try_cast(123 as varchar) as bigint)", BIGINT, 123L);
         assertExecute("try_cast('foo' as varchar) || try_cast('bar' as varchar)", VARCHAR, "foobar");
 
@@ -1930,7 +1930,7 @@ public class TestExpressionCompiler
     private void addCallable(Runnable runnable)
     {
         if (PARALLEL) {
-            futures.add(Futures.submit(runnable, executor));
+            futures.add(executor.submit(runnable));
         }
         else {
             runnable.run();

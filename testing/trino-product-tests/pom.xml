@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>359-SNAPSHOT</version>
+        <version>358</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -168,6 +168,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.zeroturnaround</groupId>
+            <artifactId>zt-exec</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino.hive</groupId>
             <artifactId>hive-apache-jdbc</artifactId>
             <scope>runtime</scope>
@@ -176,13 +181,6 @@
         <dependency>
             <groupId>com.microsoft.sqlserver</groupId>
             <artifactId>mssql-jdbc</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-jdbc</artifactId>
-            <version>350</version>
             <scope>runtime</scope>
         </dependency>
 

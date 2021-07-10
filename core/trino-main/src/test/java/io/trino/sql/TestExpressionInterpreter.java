@@ -58,7 +58,6 @@ import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -86,7 +85,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestExpressionInterpreter
 {
-    private static final int TEST_CHAR_TYPE_LENGTH = 17;
     private static final int TEST_VARCHAR_TYPE_LENGTH = 17;
     private static final TypeProvider SYMBOL_TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("bound_integer"), INTEGER)
@@ -107,7 +105,6 @@ public class TestExpressionInterpreter
             .put(new Symbol("unbound_long"), BIGINT)
             .put(new Symbol("unbound_long2"), BIGINT)
             .put(new Symbol("unbound_long3"), BIGINT)
-            .put(new Symbol("unbound_char"), createCharType(TEST_CHAR_TYPE_LENGTH))
             .put(new Symbol("unbound_string"), VARCHAR)
             .put(new Symbol("unbound_double"), DOUBLE)
             .put(new Symbol("unbound_boolean"), BOOLEAN)
@@ -612,7 +609,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("CAST(false AS varchar)", "'false'");
 
         // string
-        assertOptimizedEquals("VARCHAR 'xyz'", "'xyz'");
+        assertOptimizedEquals("CAST('xyz' AS varchar)", "'xyz'");
 
         // NULL
         assertOptimizedEquals("CAST(NULL AS varchar)", "NULL");
@@ -1380,36 +1377,15 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testLikeChar()
-    {
-        assertOptimizedEquals("CAST('abc' AS char(3)) LIKE 'abc'", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE 'abc'", "false");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE 'abc '", "true");
-
-        assertOptimizedEquals("CAST('abc' AS char(3)) LIKE '%abc'", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%abc'", "false");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%abc '", "true");
-
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%c'", "false");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%c '", "true");
-
-        assertOptimizedEquals("CAST('abc' AS char(3)) LIKE '%a%b%c'", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c'", "false");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c '", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c_'", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c%'", "true");
-    }
-
-    @Test
     public void testLikeOptimization()
     {
-        assertOptimizedEquals("unbound_string LIKE 'abc'", "unbound_string = VARCHAR 'abc'");
+        assertOptimizedEquals("unbound_string LIKE 'abc'", "unbound_string = CAST('abc' AS varchar)");
 
         assertOptimizedEquals("unbound_string LIKE '' ESCAPE '#'", "unbound_string LIKE '' ESCAPE '#'");
-        assertOptimizedEquals("unbound_string LIKE 'abc' ESCAPE '#'", "unbound_string = VARCHAR 'abc'");
-        assertOptimizedEquals("unbound_string LIKE 'a#_b' ESCAPE '#'", "unbound_string = VARCHAR 'a_b'");
-        assertOptimizedEquals("unbound_string LIKE 'a#%b' ESCAPE '#'", "unbound_string = VARCHAR 'a%b'");
-        assertOptimizedEquals("unbound_string LIKE 'a#_##b' ESCAPE '#'", "unbound_string = VARCHAR 'a_#b'");
+        assertOptimizedEquals("unbound_string LIKE 'abc' ESCAPE '#'", "unbound_string = CAST('abc' AS varchar)");
+        assertOptimizedEquals("unbound_string LIKE 'a#_b' ESCAPE '#'", "unbound_string = CAST('a_b' AS varchar)");
+        assertOptimizedEquals("unbound_string LIKE 'a#%b' ESCAPE '#'", "unbound_string = CAST('a%b' AS varchar)");
+        assertOptimizedEquals("unbound_string LIKE 'a#_##b' ESCAPE '#'", "unbound_string = CAST('a_#b' AS varchar)");
         assertOptimizedEquals("unbound_string LIKE 'a#__b' ESCAPE '#'", "unbound_string LIKE 'a#__b' ESCAPE '#'");
         assertOptimizedEquals("unbound_string LIKE 'a##%b' ESCAPE '#'", "unbound_string LIKE 'a##%b' ESCAPE '#'");
 
@@ -1419,61 +1395,6 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("unbound_string LIKE bound_pattern", "unbound_string LIKE bound_pattern");
 
         assertOptimizedEquals("unbound_string LIKE unbound_pattern ESCAPE unbound_string", "unbound_string LIKE unbound_pattern ESCAPE unbound_string");
-    }
-
-    @Test
-    public void testLikeCharOptimization()
-    {
-        // constant literal pattern of length shorter than value length
-        assertOptimizedEquals("unbound_char LIKE 'abc'", "false");
-        assertOptimizedEquals("unbound_char LIKE 'abc' ESCAPE '#'", "false");
-        assertOptimizedEquals("unbound_char LIKE 'ab#_' ESCAPE '#'", "false");
-        assertOptimizedEquals("unbound_char LIKE 'ab#%' ESCAPE '#'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abc'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abc' ESCAPE '#'", "false");
-
-        // constant non-literal pattern of length shorter than value length
-        assertOptimizedEquals("unbound_char LIKE 'ab_'", "unbound_char LIKE 'ab_'");
-        assertOptimizedEquals("unbound_char LIKE 'ab%'", "unbound_char LIKE 'ab%'");
-        assertOptimizedEquals("unbound_char LIKE 'ab%' ESCAPE '#'", "unbound_char LIKE 'ab%' ESCAPE '#'");
-
-        // constant literal pattern of length equal to value length
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcd'", "CAST(unbound_char AS char(4)) = CAST('abcd' AS char(4))");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcd' ESCAPE '#'", "CAST(unbound_char AS char(4)) = CAST('abcd' AS char(4))");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'jaźń'", "CAST(unbound_char AS char(4)) = CAST('jaźń' AS char(4))");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'ab#_' ESCAPE '#'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'ab#%' ESCAPE '#'", "false");
-
-        // constant non-literal pattern of length equal to value length
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'ab#%' ESCAPE '\\'", "CAST(unbound_char AS char(4)) LIKE 'ab#%' ESCAPE '\\'");
-
-        // constant pattern of length longer than value length
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcde'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcde' ESCAPE '#'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE '#%a#%b#%c#%d#%' ESCAPE '#'", "false");
-
-        // constant non-literal pattern of length longer than value length
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%'", "CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%'");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%' ESCAPE '#'", "CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%' ESCAPE '#'");
-
-        // without explicit CAST on value, constant pattern of equal length
-        assertOptimizedEquals(
-                "unbound_char LIKE CAST(CAST('abc' AS char( " + TEST_CHAR_TYPE_LENGTH + ")) AS varchar(" + TEST_CHAR_TYPE_LENGTH + "))",
-                "unbound_char = CAST('abc' AS char(17))");
-        assertOptimizedEquals(
-                "unbound_char LIKE CAST(CAST('abc' AS char( " + TEST_CHAR_TYPE_LENGTH + ")) AS varchar)",
-                "unbound_char = CAST('abc' AS char(17))");
-
-        assertOptimizedEquals(
-                "unbound_char LIKE CAST(CAST('' AS char(" + TEST_CHAR_TYPE_LENGTH + ")) AS varchar(" + TEST_CHAR_TYPE_LENGTH + ")) ESCAPE '#'",
-                "unbound_char LIKE CAST('                 ' AS varchar(17)) ESCAPE '#'");
-        assertOptimizedEquals(
-                "unbound_char LIKE CAST(CAST('' AS char(" + TEST_CHAR_TYPE_LENGTH + ")) AS varchar) ESCAPE '#'",
-                "unbound_char LIKE CAST('                 ' AS varchar(17)) ESCAPE '#'");
-
-        assertOptimizedEquals("unbound_char LIKE bound_pattern", "unbound_char LIKE VARCHAR '%el%'");
-        assertOptimizedEquals("unbound_char LIKE unbound_pattern", "unbound_char LIKE unbound_pattern");
-        assertOptimizedEquals("unbound_char LIKE unbound_pattern ESCAPE unbound_string", "unbound_char LIKE unbound_pattern ESCAPE unbound_string");
     }
 
     @Test

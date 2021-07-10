@@ -206,7 +206,7 @@ public interface AccessControl
     void checkCanShowTables(SecurityContext context, CatalogSchemaName schema);
 
     /**
-     * Filter the list of tables, materialized views and views to those visible to the identity.
+     * Filter the list of tables and views to those visible to the identity.
      */
     Set<SchemaTableName> filterTables(SecurityContext context, String catalogName, Set<SchemaTableName> tableNames);
 

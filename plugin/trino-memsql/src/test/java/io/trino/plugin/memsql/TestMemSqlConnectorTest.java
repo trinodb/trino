@@ -154,6 +154,15 @@ public class TestMemSqlConnectorTest
     }
 
     @Override
+    public void testLargeIn(int valuesCount)
+    {
+        // Running this tests on MemSQL results in
+        // "Available disk space is below the value of 'minimal_disk_space' global variable (100 MB). This query cannot be executed"
+        // on followup tests
+        throw new SkipException("Running testLargeIn on MemSQL results in out-of-disk space errors");
+    }
+
+    @Override
     public void testInsertUnicode()
     {
         // MemSQL's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
@@ -360,7 +369,6 @@ public class TestMemSqlConnectorTest
         memSqlServer.execute(sql);
     }
 
-    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return memSqlServer::execute;

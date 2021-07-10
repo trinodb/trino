@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+@Test
 public abstract class AbstractTestSessionPropertyManager
 {
     protected static final SessionConfigurationContext CONTEXT = new SessionConfigurationContext(

@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
@@ -31,8 +32,6 @@ import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -111,14 +110,12 @@ public class TableFinishOperator
 
     private State state = State.RUNNING;
     private long rowCount;
-    private final AtomicReference<Optional<ConnectorOutputMetadata>> outputMetadata = new AtomicReference<>(Optional.empty());
+    private Optional<ConnectorOutputMetadata> outputMetadata = Optional.empty();
     private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
     private final ImmutableList.Builder<ComputedStatistics> computedStatisticsBuilder = ImmutableList.builder();
 
     private final OperationTiming statisticsTiming = new OperationTiming();
     private final boolean statisticsCpuTimerEnabled;
-
-    private final Supplier<TableFinishInfo> tableFinishInfoSupplier;
 
     public TableFinishOperator(
             OperatorContext operatorContext,
@@ -132,8 +129,8 @@ public class TableFinishOperator
         this.statisticsAggregationOperator = requireNonNull(statisticsAggregationOperator, "statisticsAggregationOperator is null");
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
-        this.tableFinishInfoSupplier = createTableFinishInfoSupplier(outputMetadata, statisticsTiming);
-        operatorContext.setInfoSupplier(tableFinishInfoSupplier);
+
+        operatorContext.setInfoSupplier(this::getInfo);
     }
 
     @Override
@@ -165,7 +162,7 @@ public class TableFinishOperator
     }
 
     @Override
-    public ListenableFuture<Void> isBlocked()
+    public ListenableFuture<?> isBlocked()
     {
         return statisticsAggregationOperator.isBlocked();
     }
@@ -297,7 +294,7 @@ public class TableFinishOperator
         }
         state = State.FINISHED;
 
-        this.outputMetadata.set(tableFinisher.finishTable(fragmentBuilder.build(), computedStatisticsBuilder.build()));
+        outputMetadata = tableFinisher.finishTable(fragmentBuilder.build(), computedStatisticsBuilder.build());
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
@@ -326,12 +323,11 @@ public class TableFinishOperator
         return statistics.build();
     }
 
-    private static Supplier<TableFinishInfo> createTableFinishInfoSupplier(AtomicReference<Optional<ConnectorOutputMetadata>> outputMetadata, OperationTiming statisticsTiming)
+    @VisibleForTesting
+    TableFinishInfo getInfo()
     {
-        requireNonNull(outputMetadata, "outputMetadata is null");
-        requireNonNull(statisticsTiming, "statisticsTiming is null");
-        return () -> new TableFinishInfo(
-                outputMetadata.get(),
+        return new TableFinishInfo(
+                outputMetadata,
                 new Duration(statisticsTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(statisticsTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit());
     }

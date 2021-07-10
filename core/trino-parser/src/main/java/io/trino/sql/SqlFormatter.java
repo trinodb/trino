@@ -99,7 +99,6 @@ import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetTableAuthorization;
-import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
@@ -133,13 +132,13 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.trino.sql.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ExpressionFormatter.formatGroupBy;
 import static io.trino.sql.ExpressionFormatter.formatOrderBy;
-import static io.trino.sql.ExpressionFormatter.formatSkipTo;
 import static io.trino.sql.ExpressionFormatter.formatStringLiteral;
 import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
 import static io.trino.sql.RowPatternFormatter.formatPattern;
@@ -566,7 +565,25 @@ public final class SqlFormatter
                         .append("\n");
             }
             if (node.getAfterMatchSkipTo().isPresent()) {
-                String skipTo = formatSkipTo(node.getAfterMatchSkipTo().get());
+                String skipTo;
+                switch (node.getAfterMatchSkipTo().get().getPosition()) {
+                    case PAST_LAST:
+                        skipTo = "AFTER MATCH SKIP PAST LAST ROW";
+                        break;
+                    case NEXT:
+                        skipTo = "AFTER MATCH SKIP TO NEXT ROW";
+                        break;
+                    case LAST:
+                        checkState(node.getAfterMatchSkipTo().get().getIdentifier().isPresent(), "missing identifier in AFTER MATCH SKIP TO LAST");
+                        skipTo = "AFTER MATCH SKIP TO LAST " + formatExpression(node.getAfterMatchSkipTo().get().getIdentifier().get());
+                        break;
+                    case FIRST:
+                        checkState(node.getAfterMatchSkipTo().get().getIdentifier().isPresent(), "missing identifier in AFTER MATCH SKIP TO FIRST");
+                        skipTo = "AFTER MATCH SKIP TO FIRST " + formatExpression(node.getAfterMatchSkipTo().get().getIdentifier().get());
+                        break;
+                    default:
+                        throw new IllegalStateException("unexpected skipTo: " + node.getAfterMatchSkipTo().get());
+                }
                 append(indent + 1, skipTo)
                         .append("\n");
             }
@@ -1731,14 +1748,6 @@ public final class SqlFormatter
         {
             builder.append("SET PATH ");
             builder.append(Joiner.on(", ").join(node.getPathSpecification().getPath()));
-            return null;
-        }
-
-        @Override
-        public Void visitSetTimeZone(SetTimeZone node, Integer indent)
-        {
-            builder.append("SET TIME ZONE ");
-            builder.append(node.getTimeZone().map(ExpressionFormatter::formatExpression).orElse("LOCAL"));
             return null;
         }
 

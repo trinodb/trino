@@ -144,32 +144,32 @@ public class TestShowQueries
     {
         assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable"))
                 .matches("VALUES " +
-                        "(VARCHAR 'colaa', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')," +
-                        "(VARCHAR 'cola_', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')," +
-                        "(VARCHAR 'colabc', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
+                        "(CAST('colaa' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))," +
+                        "(CAST('cola_' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))," +
+                        "(CAST('colabc' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
     }
 
     @Test
     public void testShowColumnsLike()
     {
         assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable like 'colabc'"))
-                .matches("VALUES (VARCHAR 'colabc', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
+                .matches("VALUES (CAST('colabc' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
         assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable like 'cola%'"))
                 .matches("VALUES " +
-                        "(VARCHAR 'colaa', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')," +
-                        "(VARCHAR 'cola_', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')," +
-                        "(VARCHAR 'colabc', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
+                        "(CAST('colaa' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))," +
+                        "(CAST('cola_' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))," +
+                        "(CAST('colabc' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
         assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable like 'cola_'"))
                 .matches("VALUES " +
-                        "(VARCHAR 'colaa', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')," +
-                        "(VARCHAR 'cola_', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
+                        "(CAST('colaa' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))," +
+                        "(CAST('cola_' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
 
         assertThat(assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 'node%'"))
                 .matches("VALUES " +
-                        "(VARCHAR 'node_id', VARCHAR 'varchar' , VARCHAR '', VARCHAR '')," +
-                        "(VARCHAR 'node_version', VARCHAR 'varchar' , VARCHAR '', VARCHAR '')");
+                        "(CAST('node_id' AS VARCHAR), CAST('varchar' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))," +
+                        "(CAST('node_version' AS VARCHAR), CAST('varchar' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
         assertThat(assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 'node_id'"))
-                .matches("VALUES (VARCHAR 'node_id', VARCHAR 'varchar' , VARCHAR '', VARCHAR '')");
+                .matches("VALUES (CAST('node_id' AS VARCHAR), CAST('varchar' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
         assertEquals(assertions.execute("SHOW COLUMNS FROM system.runtime.nodes LIKE ''").getRowCount(), 0);
     }
 
@@ -181,6 +181,6 @@ public class TestShowQueries
         assertThatThrownBy(() -> assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 't$_%' ESCAPE '$$'"))
                 .hasMessage("Escape string must be a single character");
         assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable LIKE 'cola$_' ESCAPE '$'"))
-                .matches("VALUES (VARCHAR 'cola_', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
+                .matches("VALUES (CAST('cola_' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
     }
 }

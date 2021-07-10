@@ -36,12 +36,9 @@ import static io.trino.tests.product.ImmutableLdapObjectDefinitions.CHILD_GROUP;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.CHILD_GROUP_USER;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.DEFAULT_GROUP;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.DEFAULT_GROUP_USER;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.EUROPE_ORG;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.ORPHAN_USER;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.PARENT_GROUP;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_AMERICA;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_EUROPE;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -78,9 +75,9 @@ public abstract class BaseLdapJdbcTest
     {
         return new LdapObjectRequirement(
                 Arrays.asList(
-                        AMERICA_ORG, ASIA_ORG, EUROPE_ORG,
+                        AMERICA_ORG, ASIA_ORG,
                         DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
-                        DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, USER_IN_AMERICA, USER_IN_EUROPE));
+                        DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER));
     }
 
     protected void expectQueryToFail(String user, String password, String message)

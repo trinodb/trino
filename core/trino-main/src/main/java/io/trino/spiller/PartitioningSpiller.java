@@ -56,16 +56,16 @@ public interface PartitioningSpiller
 
     class PartitioningSpillResult
     {
-        private final ListenableFuture<Void> spillingFuture;
+        private final ListenableFuture<?> spillingFuture;
         private final Page retained;
 
-        public PartitioningSpillResult(ListenableFuture<Void> spillingFuture, Page retained)
+        public PartitioningSpillResult(ListenableFuture<?> spillingFuture, Page retained)
         {
             this.spillingFuture = requireNonNull(spillingFuture, "spillingFuture is null");
             this.retained = requireNonNull(retained, "retained is null");
         }
 
-        public ListenableFuture<Void> getSpillingFuture()
+        public ListenableFuture<?> getSpillingFuture()
         {
             return spillingFuture;
         }

@@ -23,25 +23,18 @@ import static java.util.Objects.requireNonNull;
 public class OutputColumnMetadata
 {
     private final String columnName;
-    private final String columnType;
     private final Set<ColumnDetail> sourceColumns;
 
     @JsonCreator
-    public OutputColumnMetadata(String columnName, String columnType, Set<ColumnDetail> sourceColumns)
+    public OutputColumnMetadata(String columnName, Set<ColumnDetail> sourceColumns)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
-        this.columnType = requireNonNull(columnType, "columnType is null");
         this.sourceColumns = requireNonNull(sourceColumns, "sourceColumns is null");
     }
 
     public String getColumnName()
     {
         return columnName;
-    }
-
-    public String getColumnType()
-    {
-        return columnType;
     }
 
     public Set<ColumnDetail> getSourceColumns()
@@ -52,7 +45,7 @@ public class OutputColumnMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnName, columnType, sourceColumns);
+        return Objects.hash(columnName, sourceColumns);
     }
 
     @Override
@@ -66,7 +59,6 @@ public class OutputColumnMetadata
         }
         OutputColumnMetadata other = (OutputColumnMetadata) obj;
         return Objects.equals(columnName, other.columnName) &&
-                Objects.equals(columnType, other.columnType) &&
                 Objects.equals(sourceColumns, other.sourceColumns);
     }
 }

@@ -701,11 +701,11 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT * FROM (" +
                         "  SELECT t2.x || t2.z cc FROM (" +
                         "    SELECT *" +
-                        "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) t(x, z)" +
+                        "    FROM (VALUES (CAST('a' AS VARCHAR), CAST('c' AS VARCHAR))) t(x, z)" +
                         "  ) t2" +
                         "  JOIN (" +
                         "    SELECT *" +
-                        "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) u(x, z)" +
+                        "    FROM (VALUES (CAST('a' AS VARCHAR), CAST('c' AS VARCHAR))) u(x, z)" +
                         "    WHERE z='c'" +
                         "  ) u2" +
                         "  ON t2.z = u2.z" +
@@ -1294,7 +1294,7 @@ public abstract class AbstractTestEngineOnlyQueries
                                 "FROM" +
                                 "  (" +
                                 " VALUES " +
-                                "     (CHAR 'Pi', VARCHAR 'PI', TIMESTAMP '2012-03-14 1:59:26.535', TIMESTAMP '2012-03-14 1:59:26.535897', DECIMAL '3.14')" +
+                                "     (CHAR 'Pi', CAST('PI' AS VARCHAR), TIMESTAMP '2012-03-14 1:59:26.535', TIMESTAMP '2012-03-14 1:59:26.535897', DECIMAL '3.14')" +
                                 ")  AS t (t_char, t_varchar, t_timestamp, t_timestamp_2, t_decimal)" +
                                 "WHERE t_char = ? AND t_varchar = ? AND t_timestamp = ? AND t_timestamp_2 = ? AND t_decimal = ?")
                 .build();
@@ -3192,8 +3192,6 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT CAST(row(true, array[0, 2]) AS row(aa boolean, bb array(boolean))).bb[1]", "SELECT false");
         assertQuery("SELECT CAST(row(0.1, array[0, 2], row(1, 0.5)) AS row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))).cc.ee", "SELECT '0.5'");
         assertQuery("SELECT CAST(array[row(0.1, array[0, 2], row(1, 0.5))] AS array<row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))>)[1].cc.ee", "SELECT '0.5'");
-        assertQuery("SELECT CAST(ROW(1, 2, 3) AS ROW(a BIGINT, A DOUBLE, c BIGINT)).c", "SELECT 3");
-        assertQueryFails("SELECT CAST(ROW(1, 2) AS ROW(a BIGINT, A DOUBLE)).a", "line 1:51: Ambiguous row field reference: a");
     }
 
     @Test

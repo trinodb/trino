@@ -13,10 +13,6 @@
  */
 package io.trino.spi.connector;
 
-/**
- * Represents a handle to a relation returned from the connector to the engine.
- * It will be used by the engine whenever given relation will be accessed.
- */
 public interface ConnectorTableHandle
 {
 }

@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Test
 public class TestBigQueryIntegrationSmokeTest
         // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
@@ -314,26 +315,6 @@ public class TestBigQueryIntegrationSmokeTest
         assertQuery("SELECT count(*) FROM " + viewName, "VALUES (1)");
 
         onBigQuery("DROP VIEW " + viewName);
-    }
-
-    /**
-     * https://github.com/trinodb/trino/issues/8183
-     */
-    @Test
-    public void testColumnPositionMismatch()
-    {
-        String tableName = "test.test_column_position_mismatch";
-
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        assertUpdate(format("CREATE TABLE %s (c_varchar VARCHAR, c_int INT, c_date DATE)", tableName));
-        onBigQuery(format("INSERT INTO %s VALUES ('a', 1, '2021-01-01')", tableName));
-
-        // Adding a CAST makes BigQuery return columns in a different order
-        assertQuery(
-                "SELECT c_varchar, CAST(c_int AS SMALLINT), c_date FROM " + tableName,
-                "VALUES ('a', 1, '2021-01-01')");
-
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

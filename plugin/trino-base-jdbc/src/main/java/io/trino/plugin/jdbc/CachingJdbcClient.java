@@ -239,9 +239,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public boolean isTopNGuaranteed(ConnectorSession session)
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
     {
-        return delegate.isTopNGuaranteed(session);
+        return delegate.isTopNLimitGuaranteed(session);
     }
 
     @Override
@@ -289,7 +289,7 @@ public class CachingJdbcClient
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.finishInsertTable(session, handle);
-        onDataChanged(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        invalidateTableCaches(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
     }
 
     @Override
@@ -435,22 +435,6 @@ public class CachingJdbcClient
         return delegate.getTableScanRedirection(session, tableHandle);
     }
 
-    public void onDataChanged(SchemaTableName table)
-    {
-        invalidateCache(statisticsCache, key -> key.tableHandle.references(table));
-    }
-
-    /**
-     * @deprecated {@link JdbcTableHandle}  is not a good representation of the table. For example, we don't want
-     * to distinguish between "a plan table" and "table with selected columns", or "a table with a constraint" here.
-     * Use {@link #onDataChanged(SchemaTableName)}, which avoids these ambiguities.
-     */
-    @Deprecated
-    public void onDataChanged(JdbcTableHandle handle)
-    {
-        invalidateCache(statisticsCache, key -> key.tableHandle.equals(handle));
-    }
-
     private JdbcIdentityCacheKey getIdentityKey(ConnectorSession session)
     {
         return identityMapping.getRemoteUserCacheKey(JdbcIdentity.from(session));
@@ -511,6 +495,11 @@ public class CachingJdbcClient
                 .collect(toImmutableSet());
 
         cache.invalidateAll(cacheKeys);
+    }
+
+    public void onDataChanged(JdbcTableHandle handle)
+    {
+        invalidateCache(statisticsCache, key -> key.tableHandle.equals(handle));
     }
 
     private static final class ColumnsCacheKey

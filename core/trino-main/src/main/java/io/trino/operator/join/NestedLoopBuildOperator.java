@@ -79,7 +79,7 @@ public class NestedLoopBuildOperator
     // Initially, probeDoneWithPages is not present.
     // Once finish is called, probeDoneWithPages will be set to a future that completes when the pages are no longer needed by the probe side.
     // When the pages are no longer needed, the isFinished method on this operator will return true.
-    private Optional<ListenableFuture<Void>> probeDoneWithPages = Optional.empty();
+    private Optional<ListenableFuture<?>> probeDoneWithPages = Optional.empty();
 
     public NestedLoopBuildOperator(OperatorContext operatorContext, NestedLoopJoinBridge nestedLoopJoinBridge)
     {
@@ -114,7 +114,7 @@ public class NestedLoopBuildOperator
     }
 
     @Override
-    public ListenableFuture<Void> isBlocked()
+    public ListenableFuture<?> isBlocked()
     {
         return probeDoneWithPages.orElse(NOT_BLOCKED);
     }

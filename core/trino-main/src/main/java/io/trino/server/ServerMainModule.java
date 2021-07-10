@@ -18,6 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServerConfig;
@@ -32,20 +33,26 @@ import io.trino.PagesIndexPageSorter;
 import io.trino.SystemSessionProperties;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
+import io.trino.client.ServerInfo;
 import io.trino.connector.ConnectorManager;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.event.SplitMonitor;
 import io.trino.execution.DynamicFilterConfig;
+import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.MemoryRevokingScheduler;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
+import io.trino.execution.StageInfo;
+import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskManagementExecutor;
 import io.trino.execution.TaskManager;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.TaskStatus;
 import io.trino.execution.executor.MultilevelSplitQueue;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.scheduler.NodeScheduler;
@@ -80,6 +87,7 @@ import io.trino.operator.ExchangeClientFactory;
 import io.trino.operator.ExchangeClientSupplier;
 import io.trino.operator.ForExchange;
 import io.trino.operator.OperatorFactories;
+import io.trino.operator.OperatorStats;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
@@ -302,6 +310,12 @@ public class ServerMainModule
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
         newOptionalBinder(binder, OperatorFactories.class).setDefault().to(TrinoOperatorFactories.class).in(Scopes.SINGLETON);
 
+        jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
+        jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);
+        jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
+        jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
         jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
         // exchange client
@@ -325,6 +339,7 @@ public class ServerMainModule
 
         // memory manager
         jaxrsBinder(binder).bind(MemoryResource.class);
+
         jsonCodecBinder(binder).bindJsonCodec(MemoryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(MemoryPoolAssignmentsRequest.class);
 
@@ -393,9 +408,11 @@ public class ServerMainModule
 
         // server info resource
         jaxrsBinder(binder).bind(ServerInfoResource.class);
+        jsonCodecBinder(binder).bindJsonCodec(ServerInfo.class);
 
         // node status resource
         jaxrsBinder(binder).bind(StatusResource.class);
+        jsonCodecBinder(binder).bindJsonCodec(NodeStatus.class);
 
         // plugin manager
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
@@ -435,11 +452,11 @@ public class ServerMainModule
 
         // dispatcher
         // TODO remove dispatcher fromm ServerMainModule, and bind dependent components only on coordinators
-        newOptionalBinder(binder, DispatchManager.class);
+        OptionalBinder.newOptionalBinder(binder, DispatchManager.class);
 
         // Added for RuleStatsSystemTable
         // TODO: remove this when system tables are bound separately for coordinator and worker
-        newOptionalBinder(binder, RuleStatsRecorder.class);
+        OptionalBinder.newOptionalBinder(binder, RuleStatsRecorder.class);
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);

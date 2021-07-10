@@ -14,15 +14,13 @@
 
 package io.trino.type.setdigest;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
-import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
-import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.StandardTypes;
 
 @AggregationFunction("make_set_digest")
 public final class BuildSetDigestAggregation
@@ -32,18 +30,7 @@ public final class BuildSetDigestAggregation
     private BuildSetDigestAggregation() {}
 
     @InputFunction
-    @TypeParameter("T")
-    public static void input(@AggregationState SetDigestState state, @SqlType("T") long value)
-    {
-        if (state.getDigest() == null) {
-            state.setDigest(new SetDigest());
-        }
-        state.getDigest().add(value);
-    }
-
-    @InputFunction
-    @TypeParameter("T")
-    public static void input(@AggregationState SetDigestState state, @SqlType("T") Slice value)
+    public static void input(SetDigestState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         if (state.getDigest() == null) {
             state.setDigest(new SetDigest());

@@ -73,13 +73,9 @@ public class TestGracefulShutdown
                 .build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
-            List<ListenableFuture<Void>> queryFutures = new ArrayList<>();
+            List<ListenableFuture<?>> queryFutures = new ArrayList<>();
             for (int i = 0; i < 5; i++) {
-                queryFutures.add(Futures.submit(
-                        () -> {
-                            queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
-                        },
-                        executor));
+                queryFutures.add(executor.submit(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
             }
 
             TestingTrinoServer worker = queryRunner.getServers()

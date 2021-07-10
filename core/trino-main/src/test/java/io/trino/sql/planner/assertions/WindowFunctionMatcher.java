@@ -17,7 +17,6 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Function;
@@ -58,26 +57,20 @@ public class WindowFunctionMatcher
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         Optional<Symbol> result = Optional.empty();
-
-        Map<Symbol, Function> assignments;
-        if (node instanceof WindowNode) {
-            assignments = ((WindowNode) node).getWindowFunctions();
-        }
-        else if (node instanceof PatternRecognitionNode) {
-            assignments = ((PatternRecognitionNode) node).getWindowFunctions();
-        }
-        else {
+        if (!(node instanceof WindowNode)) {
             return result;
         }
+
+        WindowNode windowNode = (WindowNode) node;
 
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
         Optional<WindowNode.Frame> expectedFrame = frameMaker.map(maker -> maker.getExpectedValue(symbolAliases));
 
-        for (Map.Entry<Symbol, Function> assignment : assignments.entrySet()) {
+        for (Map.Entry<Symbol, Function> assignment : windowNode.getWindowFunctions().entrySet()) {
             Function function = assignment.getValue();
             boolean signatureMatches = resolvedFunction.map(assignment.getValue().getResolvedFunction()::equals).orElse(true);
             if (signatureMatches && windowFunctionMatches(function, expectedCall, expectedFrame)) {
-                checkState(result.isEmpty(), "Ambiguous function calls in %s", node);
+                checkState(result.isEmpty(), "Ambiguous function calls in %s", windowNode);
                 result = Optional.of(assignment.getKey());
             }
         }

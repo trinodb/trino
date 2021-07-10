@@ -18,7 +18,6 @@ import io.trino.tempto.BeforeTestWithContext;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -100,7 +99,7 @@ public class TestHiveMaterializedView
             return;
         }
 
-        assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO test_materialized_view_view(x, c) VALUES ('x', 42)"))
-                .hasMessageContaining("Cannot write to Hive materialized view");
+        assertThat(() -> onTrino().executeQuery("INSERT INTO test_materialized_view_view(x, c) VALUES ('x', 42)"))
+                .failsWithMessage("Cannot write to Hive materialized view");
     }
 }

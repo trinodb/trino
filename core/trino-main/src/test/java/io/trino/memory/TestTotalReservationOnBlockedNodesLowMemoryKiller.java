@@ -25,6 +25,7 @@ import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
 import static io.trino.memory.LowMemoryKillerTestingUtils.toQueryMemoryInfoList;
 import static io.trino.testing.assertions.Assert.assertEquals;
 
+@Test
 public class TestTotalReservationOnBlockedNodesLowMemoryKiller
 {
     private final LowMemoryKiller lowMemoryKiller = new TotalReservationOnBlockedNodesLowMemoryKiller();

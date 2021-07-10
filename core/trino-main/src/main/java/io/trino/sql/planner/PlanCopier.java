@@ -181,7 +181,6 @@ public final class PlanCopier
                     node.getHashSymbol(),
                     node.getPrePartitionedInputs(),
                     node.getPreSortedOrderPrefix(),
-                    node.getWindowFunctions(),
                     node.getMeasures(),
                     node.getCommonBaseFrame(),
                     node.getRowsPerMatch(),

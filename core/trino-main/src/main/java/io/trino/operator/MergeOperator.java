@@ -205,7 +205,7 @@ public class MergeOperator
     }
 
     @Override
-    public ListenableFuture<Void> isBlocked()
+    public ListenableFuture<?> isBlocked()
     {
         if (!blockedOnSplits.isDone()) {
             return blockedOnSplits;

@@ -15,32 +15,32 @@ and the :doc:`SQL statement and syntax reference</sql>`.
 .. toctree::
     :maxdepth: 1
 
-    Aggregate           <functions/aggregate>
-    Array               <functions/array>
-    Binary              <functions/binary>
-    Bitwise             <functions/bitwise>
-    Color               <functions/color>
+    Logical             <functions/logical>
     Comparison          <functions/comparison>
     Conditional         <functions/conditional>
+    Lambda              <functions/lambda>
     Conversion          <functions/conversion>
-    Date and time       <functions/datetime>
+    Math                <functions/math>
+    Bitwise             <functions/bitwise>
     Decimal             <functions/decimal>
+    String              <functions/string>
+    Regular expression  <functions/regexp>
+    Binary              <functions/binary>
+    JSON                <functions/json>
+    Date and time       <functions/datetime>
+    Aggregate           <functions/aggregate>
+    Window              <functions/window>
+    Array               <functions/array>
+    Map                 <functions/map>
+    URL                 <functions/url>
     Geospatial          <functions/geospatial>
     HyperLogLog         <functions/hyperloglog>
-    JSON                <functions/json>
-    Lambda              <functions/lambda>
-    Logical             <functions/logical>
-    Machine learning    <functions/ml>
-    Map                 <functions/map>
-    Math                <functions/math>
     Quantile digest     <functions/qdigest>
-    Regular expression  <functions/regexp>
+    T-Digest            <functions/tdigest>
+    UUID                <functions/uuid>
+    Color               <functions/color>
     Session             <functions/session>
-    String              <functions/string>
     System              <functions/system>
     Teradata            <functions/teradata>
-    T-Digest            <functions/tdigest>
-    URL                 <functions/url>
-    UUID                <functions/uuid>
-    Window              <functions/window>
+    Machine learning    <functions/ml>
     functions/list

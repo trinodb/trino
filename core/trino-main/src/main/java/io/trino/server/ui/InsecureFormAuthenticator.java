@@ -13,28 +13,20 @@
  */
 package io.trino.server.ui;
 
-import io.trino.server.security.InsecureAuthenticatorConfig;
 import io.trino.server.security.SecurityConfig;
-import io.trino.server.security.UserMapping;
-import io.trino.server.security.UserMappingException;
 
 import javax.inject.Inject;
 
-import java.util.Optional;
-
-import static io.trino.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
 
 public class InsecureFormAuthenticator
         implements FormAuthenticator
 {
-    private final UserMapping userMapping;
     private final boolean insecureAuthenticationOverHttpAllowed;
 
     @Inject
-    public InsecureFormAuthenticator(InsecureAuthenticatorConfig config, SecurityConfig securityConfig)
+    public InsecureFormAuthenticator(SecurityConfig securityConfig)
     {
-        userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
         insecureAuthenticationOverHttpAllowed = requireNonNull(securityConfig, "securityConfig is null").isInsecureAuthenticationOverHttpAllowed();
     }
 
@@ -51,19 +43,12 @@ public class InsecureFormAuthenticator
     }
 
     @Override
-    public Optional<String> isValidCredential(String username, String password, boolean secure)
+    public boolean isValidCredential(String username, String password, boolean secure)
     {
         if (username == null) {
-            return Optional.empty();
+            return false;
         }
 
-        if (isLoginEnabled(secure) && password == null) {
-            try {
-                return Optional.of(userMapping.mapUser(username));
-            }
-            catch (UserMappingException ignored) {
-            }
-        }
-        return Optional.empty();
+        return isLoginEnabled(secure) && password == null;
     }
 }

@@ -214,7 +214,7 @@ public class QueuedStatementResource
         Query query = getQuery(queryId, slug, token);
 
         // wait for query to be dispatched, up to the wait timeout
-        ListenableFuture<Void> futureStateChange = addTimeout(
+        ListenableFuture<?> futureStateChange = addTimeout(
                 query.waitForDispatched(),
                 () -> null,
                 WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait),
@@ -335,7 +335,7 @@ public class QueuedStatementResource
         private final AtomicLong lastToken = new AtomicLong();
 
         @GuardedBy("this")
-        private ListenableFuture<Void> querySubmissionFuture;
+        private ListenableFuture<?> querySubmissionFuture;
 
         public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, QueryInfoUrlFactory queryInfoUrlFactory)
         {
@@ -367,7 +367,7 @@ public class QueuedStatementResource
             return querySubmissionFuture != null && querySubmissionFuture.isDone();
         }
 
-        private ListenableFuture<Void> waitForDispatched()
+        private ListenableFuture<?> waitForDispatched()
         {
             // if query submission has not finished, wait for it to finish
             synchronized (this) {

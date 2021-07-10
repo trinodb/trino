@@ -21,8 +21,8 @@ import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
+import io.trino.client.ServerInfo;
 import io.trino.client.StatementClient;
-import okhttp3.OkHttpClient;
 
 import javax.annotation.Nullable;
 
@@ -63,7 +63,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.fromProperties;
-import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.jdbc.ClientInfoProperty.APPLICATION_NAME;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_INFO;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_TAGS;
@@ -89,6 +88,7 @@ public class TrinoConnection
     private final AtomicReference<ZoneId> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
+    private final AtomicReference<ServerInfo> serverInfo = new AtomicReference<>();
     private final AtomicLong nextStatementId = new AtomicLong(1);
 
     private final URI jdbcUri;
@@ -105,10 +105,10 @@ public class TrinoConnection
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
     private final Map<String, ClientSelectedRole> roles = new ConcurrentHashMap<>();
     private final AtomicReference<String> transactionId = new AtomicReference<>();
-    private final OkHttpClient httpClient;
+    private final QueryExecutor queryExecutor;
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
 
-    TrinoConnection(TrinoDriverUri uri, OkHttpClient httpClient)
+    TrinoConnection(TrinoDriverUri uri, QueryExecutor queryExecutor)
             throws SQLException
     {
         requireNonNull(uri, "uri is null");
@@ -123,7 +123,7 @@ public class TrinoConnection
         this.extraCredentials = uri.getExtraCredentials();
         this.compressionDisabled = uri.isCompressionDisabled();
         this.assumeLiteralNamesInMetadataCallsForNonConformingClients = uri.isAssumeLiteralNamesInMetadataCallsForNonConformingClients();
-        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
         uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, tags));
         uri.getTraceToken().ifPresent(tags -> clientInfo.put(TRACE_TOKEN, tags));
@@ -697,6 +697,20 @@ public class TrinoConnection
         return ImmutableMap.copyOf(sessionProperties);
     }
 
+    ServerInfo getServerInfo()
+            throws SQLException
+    {
+        if (serverInfo.get() == null) {
+            try {
+                serverInfo.set(queryExecutor.getServerInfo(httpUri));
+            }
+            catch (RuntimeException e) {
+                throw new SQLException("Error fetching version from server", e);
+            }
+        }
+        return serverInfo.get();
+    }
+
     boolean shouldStartTransaction()
     {
         return !autoCommit.get() && (transactionId.get() == null);
@@ -747,7 +761,7 @@ public class TrinoConnection
                 timeout,
                 compressionDisabled);
 
-        return newStatementClient(httpClient, session, sql);
+        return queryExecutor.startQuery(session, sql);
     }
 
     void updateSession(StatementClient client)

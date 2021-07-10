@@ -25,6 +25,7 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
 import org.openjdk.jol.info.ClassLayout;
+import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
@@ -54,6 +55,7 @@ import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+@Test
 public abstract class AbstractTestBlock
 {
     private static final Metadata METADATA = createTestMetadataManager();

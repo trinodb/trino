@@ -20,9 +20,7 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
-import io.trino.plugin.hive.statistics.HiveStatisticsProvider;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
 import io.trino.spi.type.TypeManager;
 
@@ -171,11 +169,9 @@ public class HiveMetadataFactory
     @Override
     public TransactionalMetadata create()
     {
-        HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(
-                memoizeMetastore(this.metastore, perTransactionCacheMaximumSize)); // per-transaction cache
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
-                hiveMetastoreClosure,
+                new HiveMetastoreClosure(memoizeMetastore(this.metastore, perTransactionCacheMaximumSize)), // per-transaction cache
                 renameExecution,
                 dropExecutor,
                 updateExecutor,
@@ -184,7 +180,7 @@ public class HiveMetadataFactory
                 hiveTransactionHeartbeatInterval,
                 heartbeatService);
 
-        return create(
+        return new HiveMetadata(
                 catalogName,
                 metastore,
                 hdfsEnvironment,
@@ -199,44 +195,7 @@ public class HiveMetadataFactory
                 trinoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
                 hiveRedirectionsProvider,
-                hiveMaterializedViewMetadataFactory.create(hiveMetastoreClosure),
+                hiveMaterializedViewMetadataFactory.create(metastore),
                 accessControlMetadataFactory.create(metastore));
-    }
-
-    protected TransactionalMetadata create(
-            CatalogName catalogName,
-            SemiTransactionalHiveMetastore metastore,
-            HdfsEnvironment hdfsEnvironment,
-            HivePartitionManager partitionManager,
-            boolean writesToNonManagedTablesEnabled,
-            boolean createsOfNonManagedTablesEnabled,
-            boolean translateHiveViews,
-            boolean hideDeltaLakeTables,
-            TypeManager typeManager,
-            LocationService locationService,
-            JsonCodec<PartitionUpdate> partitionUpdateCodec,
-            String trinoVersion,
-            HiveStatisticsProvider hiveStatisticsProvider,
-            HiveRedirectionsProvider hiveRedirectionsProvider,
-            HiveMaterializedViewMetadata hiveMaterializedViewMetadata,
-            AccessControlMetadata accessControlMetadata)
-    {
-        return new HiveMetadata(
-                catalogName,
-                metastore,
-                hdfsEnvironment,
-                partitionManager,
-                writesToNonManagedTablesEnabled,
-                createsOfNonManagedTablesEnabled,
-                translateHiveViews,
-                hideDeltaLakeTables,
-                typeManager,
-                locationService,
-                partitionUpdateCodec,
-                trinoVersion,
-                hiveStatisticsProvider,
-                hiveRedirectionsProvider,
-                hiveMaterializedViewMetadata,
-                accessControlMetadata);
     }
 }

@@ -51,13 +51,14 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 import static java.util.Objects.requireNonNull;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 public class TestingHydraIdentityProvider
         implements AutoCloseable
@@ -133,8 +134,8 @@ public class TestingHydraIdentityProvider
                         "--id", clientId,
                         "--secret", clientSecret,
                         "--audience", String.join(",", audiences),
-                        "--grant-types", "authorization_code,refresh_token,client_credentials",
-                        "--response-types", "token,code,id_token",
+                        "-g", "authorization_code,refresh_token,client_credentials",
+                        "-r", "token,code,id_token",
                         "--scope", "openid,offline",
                         "--token-endpoint-auth-method", tokenEndpointAuthMethod.getValue(),
                         "--callbacks", callbackUrl)
@@ -156,8 +157,8 @@ public class TestingHydraIdentityProvider
                                         .build())
                                 .build())
                 .execute()) {
-            checkState(response.code() == SC_OK);
-            requireNonNull(response.body());
+            assertEquals(response.code(), SC_OK);
+            assertNotNull(response.body());
             return mapper.readTree(response.body().byteStream())
                     .get("access_token")
                     .textValue();
@@ -259,7 +260,7 @@ public class TestingHydraIdentityProvider
                             .get()
                             .build())
                     .execute()) {
-                requireNonNull(response.body());
+                assertNotNull(response.body());
                 return mapper.readTree(response.body().byteStream());
             }
         }
@@ -282,7 +283,7 @@ public class TestingHydraIdentityProvider
         private void sendRedirect(Response redirectResponse, HttpServletResponse response)
                 throws IOException
         {
-            requireNonNull(redirectResponse.body());
+            assertNotNull(redirectResponse.body());
             response.sendRedirect(
                     toHostUrl(mapper.readTree(redirectResponse.body().byteStream())
                             .get("redirect_to")

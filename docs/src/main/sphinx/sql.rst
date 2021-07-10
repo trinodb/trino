@@ -47,7 +47,6 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
     sql/select
     sql/set-role
     sql/set-session
-    sql/set-time-zone
     sql/show-catalogs
     sql/show-columns
     sql/show-create-schema

@@ -13,9 +13,7 @@
  */
 package io.trino.operator;
 
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.Session;
@@ -43,7 +41,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
@@ -146,7 +143,7 @@ public class TableScanOperator
     private final List<ColumnHandle> columns;
     private final DynamicFilter dynamicFilter;
     private final LocalMemoryContext systemMemoryContext;
-    private final SettableFuture<Void> blocked = SettableFuture.create();
+    private final SettableFuture<?> blocked = SettableFuture.create();
 
     @Nullable
     private Split split;
@@ -201,7 +198,7 @@ public class TableScanOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogName(), splitInfo)));
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(split.getCatalogName(), splitInfo));
         }
 
         blocked.set(null);
@@ -264,21 +261,16 @@ public class TableScanOperator
     }
 
     @Override
-    public ListenableFuture<Void> isBlocked()
+    public ListenableFuture<?> isBlocked()
     {
         if (!blocked.isDone()) {
             return blocked;
         }
         if (source != null) {
             CompletableFuture<?> pageSourceBlocked = source.isBlocked();
-            return pageSourceBlocked.isDone() ? NOT_BLOCKED : asVoid(toListenableFuture(pageSourceBlocked));
+            return pageSourceBlocked.isDone() ? NOT_BLOCKED : toListenableFuture(pageSourceBlocked);
         }
         return NOT_BLOCKED;
-    }
-
-    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
-    {
-        return Futures.transform(future, v -> null, directExecutor());
     }
 
     @Override

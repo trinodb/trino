@@ -93,7 +93,7 @@ public class MatchAssert
 
         public IdentityEvaluator(int[] input, WindowIndex dummy)
         {
-            super(0, 0, 0, 0, 1, ImmutableList.of(), dummy);
+            super(0, 0, 0, 1, ImmutableList.of(), dummy);
             this.input = input;
         }
 

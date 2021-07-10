@@ -47,7 +47,6 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = SpatialJoinNode.class, name = "spatialjoin"),
         @JsonSubTypes.Type(value = IndexJoinNode.class, name = "indexjoin"),
         @JsonSubTypes.Type(value = IndexSourceNode.class, name = "indexsource"),
-        @JsonSubTypes.Type(value = RefreshMaterializedViewNode.class, name = "refreshmaterializedview"),
         @JsonSubTypes.Type(value = TableWriterNode.class, name = "tablewriter"),
         @JsonSubTypes.Type(value = DeleteNode.class, name = "delete"),
         @JsonSubTypes.Type(value = UpdateNode.class, name = "update"),

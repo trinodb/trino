@@ -38,7 +38,7 @@ public class CommitTask
     }
 
     @Override
-    public ListenableFuture<Void> execute(
+    public ListenableFuture<?> execute(
             Commit statement,
             TransactionManager transactionManager,
             Metadata metadata,

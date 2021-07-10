@@ -17,7 +17,6 @@ import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.KAFKA;
@@ -62,11 +61,11 @@ public class TestKafkaAvroWritesSmokeTest
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     public void testInsertStructuralDataType()
     {
-        assertQueryFailure(() -> query(format(
+        assertThat(() -> query(format(
                 "INSERT INTO %s.%s VALUES " +
                         "(ARRAY[100, 102], map_from_entries(ARRAY[('key1', 'value1')]))",
                 KAFKA_CATALOG,
                 STRUCTURAL_AVRO_TABLE_NAME)))
-                .hasMessageMatching("Query failed \\(.+\\): Unsupported column type 'array\\(bigint\\)' for column 'c_array'");
+                .failsWithMessageMatching("java.sql.SQLException: Query failed \\(.+\\): Unsupported column type 'array\\(bigint\\)' for column 'c_array'");
     }
 }

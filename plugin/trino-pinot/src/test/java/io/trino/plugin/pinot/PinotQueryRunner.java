@@ -28,8 +28,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class PinotQueryRunner
 {
-    public static final String PINOT_CATALOG = "pinot";
-
     private PinotQueryRunner()
     {
     }
@@ -42,7 +40,7 @@ public class PinotQueryRunner
                 .setExtraProperties(extraProperties)
                 .build();
         queryRunner.installPlugin(new PinotPlugin(extension));
-        queryRunner.createCatalog(PINOT_CATALOG, "pinot", extraPinotProperties);
+        queryRunner.createCatalog("pinot", "pinot", extraPinotProperties);
         return queryRunner;
     }
 
@@ -50,7 +48,7 @@ public class PinotQueryRunner
     {
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
         return testSessionBuilder(sessionPropertyManager)
-                .setCatalog(PINOT_CATALOG)
+                .setCatalog("pinot")
                 .setSchema(schema)
                 .build();
     }

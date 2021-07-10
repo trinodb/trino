@@ -41,8 +41,6 @@ import java.util.function.Predicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
@@ -115,7 +113,7 @@ public class GenericPartitioningSpiller
 
         checkState(!readingStarted, "reading already started");
         IntArrayList unspilledPositions = partitionPage(page, spillPartitionMask);
-        ListenableFuture<Void> future = flushFullBuilders();
+        ListenableFuture<?> future = flushFullBuilders();
 
         return new PartitioningSpillResult(future, page.getPositions(unspilledPositions.elements(), 0, unspilledPositions.size()));
     }
@@ -144,21 +142,21 @@ public class GenericPartitioningSpiller
         return unspilledPositions;
     }
 
-    private ListenableFuture<Void> flushFullBuilders()
+    private ListenableFuture<?> flushFullBuilders()
     {
         return flush(PageBuilder::isFull);
     }
 
     @VisibleForTesting
-    ListenableFuture<Void> flush()
+    ListenableFuture<?> flush()
     {
         return flush(pageBuilder -> true);
     }
 
-    private synchronized ListenableFuture<Void> flush(Predicate<PageBuilder> flushCondition)
+    private synchronized ListenableFuture<?> flush(Predicate<PageBuilder> flushCondition)
     {
         requireNonNull(flushCondition, "flushCondition is null");
-        ImmutableList.Builder<ListenableFuture<Void>> futures = ImmutableList.builder();
+        ImmutableList.Builder<ListenableFuture<?>> futures = ImmutableList.builder();
 
         for (int partition = 0; partition < spillers.size(); partition++) {
             PageBuilder pageBuilder = pageBuilders.get(partition);
@@ -167,19 +165,14 @@ public class GenericPartitioningSpiller
             }
         }
 
-        return asVoid(Futures.allAsList(futures.build()));
+        return Futures.allAsList(futures.build());
     }
 
-    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
-    {
-        return Futures.transform(future, v -> null, directExecutor());
-    }
-
-    private synchronized ListenableFuture<Void> flush(int partition)
+    private synchronized ListenableFuture<?> flush(int partition)
     {
         PageBuilder pageBuilder = pageBuilders.get(partition);
         if (pageBuilder.isEmpty()) {
-            return immediateVoidFuture();
+            return Futures.immediateFuture(null);
         }
         Page page = pageBuilder.build();
         pageBuilder.reset();

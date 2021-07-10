@@ -16,7 +16,6 @@ package io.trino.testng.services;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.jvm.Threads;
 import org.testng.IClassListener;
 import org.testng.IExecutionListener;
 import org.testng.IInvokedMethod;
@@ -26,6 +25,7 @@ import org.testng.ITestResult;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.lang.management.ThreadInfo;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -158,7 +158,8 @@ public class LogTestDurationListener
     {
         LOG.warn("%s\n\nFull Thread Dump:\n%s", message,
                 Arrays.stream(getThreadMXBean().dumpAllThreads(true, true))
-                        .map(Threads::fullToString)
+                        // TODO ThreadInfo.toString truncates stacktrace to java.lang.management.ThreadInfo#MAX_FRAMES
+                        .map(ThreadInfo::toString)
                         .collect(joining("\n")));
     }
 

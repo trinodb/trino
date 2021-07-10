@@ -19,7 +19,6 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK_BUCKETING;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -92,8 +91,8 @@ public class TestSparkCompatibility
         assertThat(onTrino().executeQuery(format("SHOW CREATE TABLE %s.default.%s", TRINO_CATALOG, baseTableName)))
                 .containsOnly(row(format(trinoTableDefinition, TRINO_CATALOG, baseTableName)));
 
-        assertQueryFailure(() -> onTrino().executeQuery(format("%s, \"$bucket\" FROM %s", startOfSelect, format("%s.default.%s", TRINO_CATALOG, baseTableName))))
-                .hasMessageContaining("Column '$bucket' cannot be resolved");
+        assertThat(() -> onTrino().executeQuery(format("%s, \"$bucket\" FROM %s", startOfSelect, format("%s.default.%s", TRINO_CATALOG, baseTableName))))
+                .failsWithMessage("Column '$bucket' cannot be resolved");
 
         onSpark().executeQuery("DROP TABLE " + baseTableName);
     }

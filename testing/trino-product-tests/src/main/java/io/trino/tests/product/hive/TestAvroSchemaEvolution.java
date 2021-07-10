@@ -19,7 +19,6 @@ import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.AVRO;
@@ -93,8 +92,8 @@ public class TestAvroSchemaEvolution
                 .containsExactly(row("string0", 0));
 
         alterTableSchemaTo(INCOMPATIBLE_TYPE_SCHEMA);
-        assertQueryFailure(() -> query(SELECT_STAR))
-                .hasMessageContaining("Found int, expecting string");
+        assertThat(() -> query(SELECT_STAR))
+                .failsWithMessage("Found int, expecting string");
     }
 
     @Test(groups = AVRO)

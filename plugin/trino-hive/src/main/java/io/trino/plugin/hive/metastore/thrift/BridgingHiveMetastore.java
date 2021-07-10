@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
@@ -350,6 +351,10 @@ public class BridgingHiveMetastore
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
+        if (partitionKeysFilter.isNone()) {
+            return Optional.of(ImmutableList.of());
+        }
+
         return delegate.getPartitionNamesByFilter(identity, databaseName, tableName, columnNames, partitionKeysFilter);
     }
 

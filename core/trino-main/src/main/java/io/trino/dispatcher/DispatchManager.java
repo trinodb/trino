@@ -14,7 +14,6 @@
 package io.trino.dispatcher;
 
 import com.google.common.util.concurrent.AbstractFuture;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.execution.QueryIdGenerator;
@@ -50,6 +49,7 @@ import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
@@ -134,7 +134,7 @@ public class DispatchManager
         return queryIdGenerator.createNextQueryId();
     }
 
-    public ListenableFuture<Void> createQuery(QueryId queryId, Slug slug, SessionContext sessionContext, String query)
+    public ListenableFuture<?> createQuery(QueryId queryId, Slug slug, SessionContext sessionContext, String query)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionContext is null");
@@ -142,9 +142,6 @@ public class DispatchManager
         checkArgument(!query.isEmpty(), "query must not be empty string");
         checkArgument(queryTracker.tryGetQuery(queryId).isEmpty(), "query %s already exists", queryId);
 
-        // It is important to return a future implementation which ignores cancellation request.
-        // Using NonCancellationPropagatingFuture is not enough; it does not propagate cancel to wrapped future
-        // but it would still return true on call to isCancelled() after cancel() is called on it.
         DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
         dispatchExecutor.execute(() -> {
             try {
@@ -249,14 +246,14 @@ public class DispatchManager
         return queryAdded;
     }
 
-    public ListenableFuture<Void> waitForDispatched(QueryId queryId)
+    public ListenableFuture<?> waitForDispatched(QueryId queryId)
     {
         return queryTracker.tryGetQuery(queryId)
                 .map(dispatchQuery -> {
                     dispatchQuery.recordHeartbeat();
                     return dispatchQuery.getDispatchedFuture();
                 })
-                .orElseGet(Futures::immediateVoidFuture);
+                .orElseGet(() -> immediateFuture(null));
     }
 
     public List<BasicQueryInfo> getQueries()
@@ -326,10 +323,10 @@ public class DispatchManager
     }
 
     private static class DispatchQueryCreationFuture
-            extends AbstractFuture<Void>
+            extends AbstractFuture<QueryInfo>
     {
         @Override
-        protected boolean set(Void value)
+        protected boolean set(QueryInfo value)
         {
             return super.set(value);
         }

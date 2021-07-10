@@ -58,7 +58,7 @@ public interface LookupSourceFactory
     @Override
     void destroy();
 
-    default ListenableFuture<Void> isDestroyed()
+    default ListenableFuture<?> isDestroyed()
     {
         throw new UnsupportedOperationException();
     }

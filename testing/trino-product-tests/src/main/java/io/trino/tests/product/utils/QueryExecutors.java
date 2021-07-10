@@ -36,11 +36,6 @@ public final class QueryExecutors
         return connectToPresto("presto");
     }
 
-    public static QueryExecutor onCompatibilityTestServer()
-    {
-        return connectToPresto("compatibility-test-server");
-    }
-
     public static QueryExecutor connectToPresto(String prestoConfig)
     {
         return new QueryExecutor()

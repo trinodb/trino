@@ -486,7 +486,7 @@ public class SqlServerClient
     }
 
     @Override
-    public boolean isTopNGuaranteed(ConnectorSession session)
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
     {
         return true;
     }

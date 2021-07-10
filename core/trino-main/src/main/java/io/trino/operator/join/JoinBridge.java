@@ -29,5 +29,5 @@ public interface JoinBridge
 
     void destroy();
 
-    ListenableFuture<Void> whenBuildFinishes();
+    ListenableFuture<?> whenBuildFinishes();
 }

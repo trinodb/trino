@@ -26,7 +26,7 @@ public interface Spiller
     /**
      * Initiate spilling of pages stream. Returns completed future once spilling has finished.
      */
-    ListenableFuture<Void> spill(Iterator<Page> pageIterator);
+    ListenableFuture<?> spill(Iterator<Page> pageIterator);
 
     /**
      * Returns list of previously spilled Pages streams.

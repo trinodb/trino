@@ -90,7 +90,7 @@ public class TestHiveViews
         onTrino().executeQuery("DROP TABLE IF EXISTS pageAds");
         onTrino().executeQuery("CREATE TABLE pageAds(pageid, adid_list) WITH (format='TEXTFILE') AS " +
                 "VALUES " +
-                "  (VARCHAR 'two', ARRAY[11, 22]), " +
+                "  (CAST('two' AS varchar), ARRAY[11, 22]), " +
                 "  ('nothing', NULL), " +
                 "  ('zero', ARRAY[]), " +
                 "  ('one', ARRAY[42])");

@@ -68,7 +68,7 @@ public class MeasureComputation
     // TODO This method allocates an intermediate block and passes it as the input to the pre-compiled expression.
     //  Instead, the expression should be compiled directly against the row navigations.
     //  The same applies to LabelEvaluator.Evaluation.test()
-    public Block compute(int currentRow, ArrayView matchedLabels, int partitionStart, int searchStart, int searchEnd, int patternStart, long matchNumber, WindowIndex windowIndex)
+    public Block compute(int currentRow, ArrayView matchedLabels, int partitionStart, int partitionEnd, int patternStart, long matchNumber, WindowIndex windowIndex)
     {
         // get values at appropriate positions and prepare input for the projection as an array of single-value blocks
         Block[] blocks = new Block[expectedLayout.size()];
@@ -79,7 +79,7 @@ public class MeasureComputation
                 blocks[i] = nativeValueToBlock(BIGINT, matchNumber);
             }
             else {
-                int position = pointer.getLogicalIndexNavigation().resolvePosition(currentRow, matchedLabels, searchStart, searchEnd, patternStart);
+                int position = pointer.getLogicalIndexNavigation().resolvePosition(currentRow, matchedLabels, partitionStart, partitionEnd, patternStart);
                 if (position >= 0) {
                     if (channel == CLASSIFIER) {
                         Type type = VARCHAR;

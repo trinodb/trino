@@ -174,13 +174,13 @@ Configuration
 -------------
 
 Create ``etc/catalog/hive.properties`` with the following contents
-to mount the ``hive`` connector as the ``hive`` catalog,
+to mount the ``hive-hadoop2`` connector as the ``hive`` catalog,
 replacing ``example.net:9083`` with the correct host and port
 for your Hive metastore Thrift service:
 
 .. code-block:: text
 
-    connector.name=hive
+    connector.name=hive-hadoop2
     hive.metastore.uri=thrift://example.net:9083
 
 Multiple Hive clusters
@@ -454,8 +454,7 @@ Property Name                                      Description                  
 ``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered ``0s``
                                         valid.
 
-``hive.metastore-cache-maximum-size``   Maximum number of metastore data objects in the Hive         10000
-                                        metastore cache.
+``hive.metastore-cache-maximum-size``   Hive metastore cache maximum size.                            10000
 
 ``hive.metastore-refresh-interval``     Asynchronously refresh cached metastore data after access
                                         if it is older than this but is not yet expired, allowing
@@ -712,8 +711,6 @@ before re-analyzing just a subset::
 You can also drop statistics for selected partitions only::
 
     CALL system.drop_stats(schema_name, table_name, ARRAY[ARRAY['p2_value1', 'p2_value2']])
-
-.. _hive_dynamic_filtering:
 
 Dynamic filtering
 -----------------

@@ -35,12 +35,10 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.OutputNode;
-import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
@@ -314,13 +312,6 @@ public class PlanFragmenter
                     .orElse(SOURCE_DISTRIBUTION);
 
             context.get().addSourceDistribution(node.getId(), partitioning, metadata, session);
-            return context.defaultRewrite(node, context.get());
-        }
-
-        @Override
-        public PlanNode visitRefreshMaterializedView(RefreshMaterializedViewNode node, RewriteContext<FragmentProperties> context)
-        {
-            context.get().setCoordinatorOnlyDistribution();
             return context.defaultRewrite(node, context.get());
         }
 
@@ -671,12 +662,6 @@ public class PlanFragmenter
             if (groupedExecutionEnabled && properties.isCurrentNodeCapable()) {
                 return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes);
             }
-            return GroupedExecutionProperties.notCapable();
-        }
-
-        @Override
-        public GroupedExecutionProperties visitPatternRecognition(PatternRecognitionNode node, Void context)
-        {
             return GroupedExecutionProperties.notCapable();
         }
 

@@ -101,7 +101,7 @@ public class ValidateLimitWithPresortedInput
                     .flatMap(property -> property.getColumns().stream())
                     .collect(toImmutableList());
 
-            if (sortedColumns.size() < node.getPreSortedInputs().size() ||
+            if (sortedColumns.size() > node.getPreSortedInputs().size() ||
                     !sortedColumns.subList(0, node.getPreSortedInputs().size()).equals(node.getPreSortedInputs())) {
                 throw new VerifyException(format("Expected Limit input to be sorted by: %s, but was %s", node.getPreSortedInputs(), sortedColumns));
             }

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
@@ -66,11 +67,11 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.SqlPath;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
+import io.trino.sql.analyzer.Analysis.Range;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
 import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
-import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalysis;
 import io.trino.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
@@ -103,6 +104,7 @@ import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Except;
+import io.trino.sql.tree.ExcludedPattern;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainType;
@@ -140,6 +142,7 @@ import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
+import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.RenameColumn;
@@ -151,7 +154,6 @@ import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.Rollup;
 import io.trino.sql.tree.Row;
-import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
@@ -159,15 +161,16 @@ import io.trino.sql.tree.SetOperation;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetTableAuthorization;
-import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.SimpleGroupBy;
 import io.trino.sql.tree.SingleColumn;
+import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Union;
@@ -180,7 +183,6 @@ import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.WindowFrame;
-import io.trino.sql.tree.WindowOperation;
 import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
 import io.trino.sql.tree.With;
@@ -228,11 +230,15 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LABEL;
 import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_PARTITION_BY;
+import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
+import static io.trino.spi.StandardErrorCode.INVALID_RANGE;
 import static io.trino.spi.StandardErrorCode.INVALID_RECURSIVE_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
+import static io.trino.spi.StandardErrorCode.INVALID_ROW_PATTERN;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_REFERENCE;
@@ -273,9 +279,7 @@ import static io.trino.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
-import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
-import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowMeasures;
 import static io.trino.sql.analyzer.Scope.BasisType.TABLE;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -287,6 +291,7 @@ import static io.trino.sql.tree.Join.Type.FULL;
 import static io.trino.sql.tree.Join.Type.INNER;
 import static io.trino.sql.tree.Join.Type.LEFT;
 import static io.trino.sql.tree.Join.Type.RIGHT;
+import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
 import static io.trino.sql.util.AstUtils.preOrder;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.MoreLists.mappedCopy;
@@ -525,16 +530,6 @@ class StatementAnalyzer
             }
 
             accessControl.checkCanRefreshMaterializedView(session.toSecurityContext(), name);
-
-            if (metadata.delegateMaterializedViewRefreshToConnector(session, name)) {
-                analysis.setDelegatedRefreshMaterializedView(name);
-                analysis.setUpdateType(
-                        "REFRESH MATERIALIZED VIEW",
-                        name,
-                        Optional.empty(),
-                        Optional.empty());
-                return createAndAssignScope(refreshMaterializedView, scope);
-            }
 
             Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalView.get());
 
@@ -1084,12 +1079,6 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope);
         }
 
-        @Override
-        protected Scope visitSetTimeZone(SetTimeZone node, Optional<Scope> scope)
-        {
-            return createAndAssignScope(node, scope);
-        }
-
         private void validateProperties(List<Property> properties, Optional<Scope> scope)
         {
             Set<String> propertyNames = new HashSet<>();
@@ -1400,20 +1389,23 @@ class StatementAnalyzer
                     .withRelationType(RelationId.anonymous(), new RelationType(fields))
                     .build();
 
+            ImmutableMap.Builder<Field, List<ViewExpression>> columnMasks = ImmutableMap.builder();
             for (Field field : fields) {
                 if (field.getName().isPresent()) {
                     List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType());
 
                     if (!masks.isEmpty() && checkCanSelectFromColumn(name, field.getName().orElseThrow())) {
+                        columnMasks.put(field, masks);
+
                         masks.forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
                     }
                 }
             }
 
-            accessControl.getRowFilters(session.toSecurityContext(), name)
-                    .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
+            List<ViewExpression> filters = accessControl.getRowFilters(session.toSecurityContext(), name);
+            filters.forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
 
-            analysis.registerTable(table, tableHandle, name, authorization, accessControlScope);
+            analysis.registerTable(table, tableHandle, name, filters, columnMasks.build(), authorization, accessControlScope);
         }
 
         private boolean checkCanSelectFromColumn(QualifiedObjectName name, String column)
@@ -1572,6 +1564,7 @@ class StatementAnalyzer
             analyzeFiltersAndMasks(table, name, storageTable, outputFields, session.getIdentity().getUser());
             outputFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
             analysis.registerNamedQuery(table, query);
+            analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
             return createAndAssignScope(table, scope, outputFields);
         }
 
@@ -1700,19 +1693,47 @@ class StatementAnalyzer
                 }
             }
 
-            // analyze pattern recognition clauses
-            PatternRecognitionAnalysis patternRecognitionAnalysis = PatternRecognitionAnalyzer.analyze(
-                    relation.getSubsets(),
-                    relation.getVariableDefinitions(),
-                    relation.getMeasures(),
-                    relation.getPattern(),
-                    relation.getAfterMatchSkipTo());
+            // extract label names (Identifiers) from PATTERN and SUBSET clauses. create labels respecting SQL identifier semantics
+            Set<String> primaryLabels = extractExpressions(ImmutableList.of(relation.getPattern()), Identifier.class).stream()
+                    .map(this::label)
+                    .collect(toImmutableSet());
+            List<String> unionLabels = relation.getSubsets().stream()
+                    .map(SubsetDefinition::getName)
+                    .map(this::label)
+                    .collect(toImmutableList());
 
-            analysis.setUndefinedLabels(relation.getPattern(), patternRecognitionAnalysis.getUndefinedLabels());
-            analysis.setRanges(patternRecognitionAnalysis.getRanges());
+            // analyze SUBSET
+            Set<String> unique = new HashSet<>();
+            for (SubsetDefinition subset : relation.getSubsets()) {
+                String label = label(subset.getName());
+                if (primaryLabels.contains(label)) {
+                    throw semanticException(INVALID_LABEL, subset.getName(), "union pattern variable name: %s is a duplicate of primary pattern variable name", subset.getName());
+                }
+                if (!unique.add(label)) {
+                    throw semanticException(INVALID_LABEL, subset.getName(), "union pattern variable name: %s is declared twice", subset.getName());
+                }
+                for (Identifier element : subset.getIdentifiers()) {
+                    // TODO can there be repetitions in the list of subset elements? (currently repetitions are supported)
+                    if (!primaryLabels.contains(label(element))) {
+                        throw semanticException(INVALID_LABEL, element, "subset element: %s is not a primary pattern variable", element);
+                    }
+                }
+            }
 
-            PatternRecognitionAnalyzer.validateNoPatternSearchMode(relation.getPatternSearchMode());
-            PatternRecognitionAnalyzer.validatePatternExclusions(relation.getRowsPerMatch(), relation.getPattern());
+            // analyze DEFINE
+            unique = new HashSet<>();
+            for (VariableDefinition definition : relation.getVariableDefinitions()) {
+                String label = label(definition.getName());
+                if (!primaryLabels.contains(label)) {
+                    throw semanticException(INVALID_LABEL, definition.getName(), "defined variable: %s is not a primary pattern variable", definition.getName());
+                }
+                if (!unique.add(label)) {
+                    throw semanticException(INVALID_LABEL, definition.getName(), "pattern variable with name: %s is defined twice", definition.getName());
+                }
+            }
+            // record primary labels without definitions. they are implicitly associated with `true` condition
+            Set<String> undefinedLabels = Sets.difference(primaryLabels, unique);
+            analysis.setUndefinedLabels(relation, undefinedLabels);
 
             // Notes on potential name ambiguity between pattern labels and other identifiers:
             // Labels are allowed in expressions of MEASURES and DEFINE clauses. In those expressions, qualifying column names with table name is not allowed.
@@ -1724,9 +1745,20 @@ class StatementAnalyzer
             // appear as column name's prefix, and column names in pattern recognition context cannot be dereferenced.
 
             // analyze expressions in MEASURES and DEFINE (with set of all labels passed as context)
+            Set<String> allLabels = ImmutableSet.<String>builder()
+                    .addAll(primaryLabels)
+                    .addAll(unionLabels)
+                    .build();
             for (VariableDefinition variableDefinition : relation.getVariableDefinitions()) {
                 Expression expression = variableDefinition.getExpression();
-                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.getAllLabels());
+                // DEFINE clause only supports RUNNING semantics which is default
+                extractExpressions(ImmutableList.of(expression), FunctionCall.class).stream()
+                        .filter(functionCall -> functionCall.getProcessingMode().map(mode -> mode.getMode() == FINAL).orElse(false))
+                        .findFirst()
+                        .ifPresent(functionCall -> {
+                            throw semanticException(INVALID_PROCESSING_MODE, functionCall.getProcessingMode().get(), "FINAL semantics is not supported in DEFINE clause");
+                        });
+                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, allLabels);
                 Type type = expressionAnalysis.getType(expression);
                 if (!type.equals(BOOLEAN)) {
                     throw semanticException(TYPE_MISMATCH, expression, "Expression defining a label must be boolean (actual type: %s)", type);
@@ -1734,11 +1766,84 @@ class StatementAnalyzer
             }
             ImmutableMap.Builder<NodeRef<Node>, Type> measureTypesBuilder = ImmutableMap.builder();
             for (MeasureDefinition measureDefinition : relation.getMeasures()) {
+                // TODO should measure names be unique? Currently it is not required. Ambiguous measure names are not an issue in MATCH_RECOGNIZE,
+                //  but cannot be supported in WINDOW where they are exposed as function names to be called over the window.
                 Expression expression = measureDefinition.getExpression();
-                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.getAllLabels());
+                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, allLabels);
                 measureTypesBuilder.put(NodeRef.of(expression), expressionAnalysis.getType(expression));
             }
             Map<NodeRef<Node>, Type> measureTypes = measureTypesBuilder.build();
+
+            // INITIAL or SEEK modifier is not supported in MATCH_RECOGNIZE clause
+            relation.getPatternSearchMode().ifPresent(mode -> {
+                throw semanticException(NOT_SUPPORTED, mode, "Pattern search modifier: %s is not allowed in MATCH_RECOGNIZE clause", mode.getMode());
+            });
+
+            // validate pattern quantifiers
+            preOrder(relation.getPattern())
+                    .filter(RangeQuantifier.class::isInstance)
+                    .map(RangeQuantifier.class::cast)
+                    .forEach(quantifier -> {
+                        Optional<Long> atLeast = quantifier.getAtLeast().map(LongLiteral::getValue);
+                        atLeast.ifPresent(value -> {
+                            if (value < 0) {
+                                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, quantifier, "Pattern quantifier lower bound must be greater than or equal to 0");
+                            }
+                            if (value > Integer.MAX_VALUE) {
+                                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, quantifier, "Pattern quantifier lower bound must not exceed " + Integer.MAX_VALUE);
+                            }
+                        });
+                        Optional<Long> atMost = quantifier.getAtMost().map(LongLiteral::getValue);
+                        atMost.ifPresent(value -> {
+                            if (value < 1) {
+                                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, quantifier, "Pattern quantifier upper bound must be greater than or equal to 1");
+                            }
+                            if (value > Integer.MAX_VALUE) {
+                                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, quantifier, "Pattern quantifier upper bound must not exceed " + Integer.MAX_VALUE);
+                            }
+                        });
+                        if (atLeast.isPresent() && atMost.isPresent()) {
+                            if (atLeast.get() > atMost.get()) {
+                                throw semanticException(INVALID_RANGE, quantifier, "Pattern quantifier lower bound must not exceed upper bound");
+                            }
+                        }
+                        analysis.setRange(quantifier, new Range(atLeast.map(Math::toIntExact), atMost.map(Math::toIntExact)));
+                    });
+
+            // validate pattern exclusions
+            // exclusion syntax is not allowed in row pattern if ALL ROWS PER MATCH WITH UNMATCHED ROWS is specified
+            if (relation.getRowsPerMatch().isPresent() && relation.getRowsPerMatch().get().isUnmatchedRows()) {
+                preOrder(relation.getPattern())
+                        .filter(ExcludedPattern.class::isInstance)
+                        .findFirst()
+                        .ifPresent(exclusion -> {
+                            throw semanticException(INVALID_ROW_PATTERN, exclusion, "Pattern exclusion syntax is not allowed when ALL ROWS PER MATCH WITH UNMATCHED ROWS is specified");
+                        });
+            }
+
+            // validate AFTER MATCH SKIP
+            relation.getAfterMatchSkipTo()
+                    .flatMap(SkipTo::getIdentifier)
+                    .ifPresent(identifier -> {
+                        String label = label(identifier);
+                        if (!allLabels.contains(label)) {
+                            throw semanticException(INVALID_LABEL, identifier, "%s is not a primary or union pattern variable", identifier);
+                        }
+                    });
+
+            // check no prohibited nesting: cannot nest one row pattern recognition within another
+            List<Expression> expressions = Streams.concat(
+                    relation.getMeasures().stream()
+                            .map(MeasureDefinition::getExpression),
+                    relation.getVariableDefinitions().stream()
+                            .map(VariableDefinition::getExpression))
+                    .collect(toImmutableList());
+            expressions.forEach(expression -> preOrder(expression)
+                    .filter(PatternRecognitionRelation.class::isInstance)
+                    .findFirst()
+                    .ifPresent(nested -> {
+                        throw semanticException(NESTED_ROW_PATTERN_RECOGNITION, nested, "nested row pattern recognition in row pattern recognition");
+                    }));
 
             // create output scope
             // ONE ROW PER MATCH: PARTITION BY columns, then MEASURES columns in order of declaration
@@ -1828,11 +1933,6 @@ class StatementAnalyzer
 
         private ExpressionAnalysis analyzePatternRecognitionExpression(Expression expression, Scope scope, Set<String> labels)
         {
-            List<Expression> nestedWindowExpressions = extractWindowExpressions(ImmutableList.of(expression));
-            if (!nestedWindowExpressions.isEmpty()) {
-                throw semanticException(NESTED_WINDOW, nestedWindowExpressions.get(0), "Cannot nest window functions or row pattern measures inside pattern recognition expressions");
-            }
-
             return ExpressionAnalyzer.analyzePatternRecognitionExpression(
                     session,
                     metadata,
@@ -1844,6 +1944,11 @@ class StatementAnalyzer
                     expression,
                     warningCollector,
                     labels);
+        }
+
+        private String label(Identifier identifier)
+        {
+            return identifier.getCanonicalValue();
         }
 
         @Override
@@ -1946,7 +2051,7 @@ class StatementAnalyzer
             Scope sourceScope = analyzeFrom(node, scope);
 
             analyzeWindowDefinitions(node, sourceScope);
-            resolveFunctionCallAndMeasureWindows(node);
+            resolveFunctionCallWindows(node);
 
             node.getWhere().ifPresent(where -> analyzeWhere(node, sourceScope, where));
 
@@ -1994,25 +2099,19 @@ class StatementAnalyzer
                 getSortItemsFromOrderBy(window.getOrderBy()).stream()
                         .map(SortItem::getSortKey)
                         .forEach(sourceExpressions::add);
-                if (window.getFrame().isPresent()) {
-                    WindowFrame frame = window.getFrame().get();
-                    frame.getStart().getValue()
-                            .ifPresent(sourceExpressions::add);
-                    frame.getEnd()
-                            .flatMap(FrameBound::getValue)
-                            .ifPresent(sourceExpressions::add);
-                    frame.getMeasures().stream()
-                            .map(MeasureDefinition::getExpression)
-                            .forEach(sourceExpressions::add);
-                    frame.getVariableDefinitions().stream()
-                            .map(VariableDefinition::getExpression)
-                            .forEach(sourceExpressions::add);
-                }
+                window.getFrame()
+                        .map(WindowFrame::getStart)
+                        .flatMap(FrameBound::getValue)
+                        .ifPresent(sourceExpressions::add);
+                window.getFrame()
+                        .flatMap(WindowFrame::getEnd)
+                        .flatMap(FrameBound::getValue)
+                        .ifPresent(sourceExpressions::add);
             }
 
             analyzeGroupingOperations(node, sourceExpressions, orderByExpressions);
             analyzeAggregations(node, sourceScope, orderByScope, groupByAnalysis, sourceExpressions, orderByExpressions);
-            analyzeWindowFunctionsAndMeasures(node, outputExpressions, orderByExpressions);
+            analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
             if (analysis.isAggregation(node) && node.getOrderBy().isPresent()) {
                 ImmutableList.Builder<Expression> aggregates = ImmutableList.<Expression>builder()
@@ -2103,14 +2202,6 @@ class StatementAnalyzer
                         oldField.getOriginTable(),
                         oldField.getOriginColumnName(),
                         oldField.isAliased());
-
-                int index = i; // Variable used in Lambda should be final
-                analysis.addSourceColumns(
-                        outputDescriptorFields[index],
-                        childrenTypes.stream()
-                                .map(relationType -> relationType.getFieldByIndex(index))
-                                .flatMap(field -> analysis.getSourceColumns(field).stream())
-                                .collect(toImmutableSet()));
             }
 
             for (int i = 0; i < node.getRelations().size(); i++) {
@@ -2589,7 +2680,7 @@ class StatementAnalyzer
             analysis.recordSubqueries(querySpecification, expressionAnalysis);
         }
 
-        private void resolveFunctionCallAndMeasureWindows(QuerySpecification querySpecification)
+        private void resolveFunctionCallWindows(QuerySpecification querySpecification)
         {
             ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
 
@@ -2610,21 +2701,13 @@ class StatementAnalyzer
                 ResolvedWindow resolvedWindow = resolveWindowSpecification(querySpecification, windowFunction.getWindow().get());
                 analysis.setWindow(windowFunction, resolvedWindow);
             }
-
-            for (WindowOperation measure : extractWindowMeasures(expressions.build())) {
-                ResolvedWindow resolvedWindow = resolveWindowSpecification(querySpecification, measure.getWindow());
-                analysis.setWindow(measure, resolvedWindow);
-            }
         }
 
-        private void analyzeWindowFunctionsAndMeasures(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
+        private void analyzeWindowFunctions(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
         {
             analysis.setWindowFunctions(node, analyzeWindowFunctions(node, outputExpressions));
-            analysis.setWindowMeasures(node, extractWindowMeasures(outputExpressions));
             if (node.getOrderBy().isPresent()) {
-                OrderBy orderBy = node.getOrderBy().get();
-                analysis.setOrderByWindowFunctions(orderBy, analyzeWindowFunctions(node, orderByExpressions));
-                analysis.setOrderByWindowMeasures(orderBy, extractWindowMeasures(orderByExpressions));
+                analysis.setOrderByWindowFunctions(node.getOrderBy().get(), analyzeWindowFunctions(node, orderByExpressions));
             }
         }
 
@@ -2646,9 +2729,9 @@ class StatementAnalyzer
                     throw semanticException(NOT_SUPPORTED, windowFunction, "Window function with ORDER BY is not supported");
                 }
 
-                List<Expression> nestedWindowExpressions = extractWindowExpressions(windowFunction.getArguments());
-                if (!nestedWindowExpressions.isEmpty()) {
-                    throw semanticException(NESTED_WINDOW, nestedWindowExpressions.get(0), "Cannot nest window functions or row pattern measures inside window function arguments");
+                List<FunctionCall> nestedWindowFunctions = extractWindowFunctions(windowFunction.getArguments());
+                if (!nestedWindowFunctions.isEmpty()) {
+                    throw semanticException(NESTED_WINDOW, nestedWindowFunctions.get(0), "Cannot nest window functions inside window function arguments");
                 }
 
                 if (windowFunction.isDistinct()) {
@@ -2688,9 +2771,9 @@ class StatementAnalyzer
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
 
-                List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate));
-                if (!windowExpressions.isEmpty()) {
-                    throw semanticException(NESTED_WINDOW, windowExpressions.get(0), "HAVING clause cannot contain window functions or row pattern measures");
+                List<FunctionCall> windowFunctions = extractWindowFunctions(ImmutableList.of(predicate));
+                if (!windowFunctions.isEmpty()) {
+                    throw semanticException(NESTED_WINDOW, windowFunctions.get(0), "HAVING clause cannot contain window functions");
                 }
 
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
@@ -2765,7 +2848,6 @@ class StatementAnalyzer
                                 }
 
                                 column = outputExpressions.get(toIntExact(ordinal - 1));
-                                verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");
                             }
                             else {
                                 verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");
@@ -3495,7 +3577,7 @@ class StatementAnalyzer
                 if (with.isRecursive()) {
                     // cannot nest pattern recognition within recursive query
                     preOrder(withQuery.getQuery())
-                            .filter(child -> child instanceof PatternRecognitionRelation || child instanceof RowPattern)
+                            .filter(PatternRecognitionRelation.class::isInstance)
                             .findFirst()
                             .ifPresent(nested -> {
                                 throw semanticException(NESTED_ROW_PATTERN_RECOGNITION, nested, "nested row pattern recognition in recursive query");

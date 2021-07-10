@@ -151,7 +151,7 @@ public class DynamicFilterService
             Set<DynamicFilterId> lazyDynamicFilters,
             Set<DynamicFilterId> replicatedDynamicFilters)
     {
-        Map<DynamicFilterId, SettableFuture<Void>> lazyDynamicFilterFutures = lazyDynamicFilters.stream()
+        Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilterFutures = lazyDynamicFilters.stream()
                 .collect(toImmutableMap(filter -> filter, filter -> SettableFuture.create()));
         dynamicFilterContexts.putIfAbsent(queryId, new DynamicFilterContext(
                 session,
@@ -245,7 +245,7 @@ public class DynamicFilterService
             return EMPTY;
         }
 
-        List<ListenableFuture<Void>> lazyDynamicFilterFutures = dynamicFilters.stream()
+        List<ListenableFuture<?>> lazyDynamicFilterFutures = dynamicFilters.stream()
                 .map(context.getLazyDynamicFilters()::get)
                 .filter(Objects::nonNull)
                 .collect(toImmutableList());
@@ -257,7 +257,7 @@ public class DynamicFilterService
             public CompletableFuture<?> isBlocked()
             {
                 // wait for any of the requested dynamic filter domains to be completed
-                List<ListenableFuture<Void>> undoneFutures = lazyDynamicFilterFutures.stream()
+                List<ListenableFuture<?>> undoneFutures = lazyDynamicFilterFutures.stream()
                         .filter(future -> !future.isDone())
                         .collect(toImmutableList());
 
@@ -624,7 +624,7 @@ public class DynamicFilterService
         private final Map<DynamicFilterId, Domain> dynamicFilterSummaries = new ConcurrentHashMap<>();
         private final Map<DynamicFilterId, Long> dynamicFilterCollectionTime = new ConcurrentHashMap<>();
         private final Set<DynamicFilterId> dynamicFilters;
-        private final Map<DynamicFilterId, SettableFuture<Void>> lazyDynamicFilters;
+        private final Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilters;
         private final Set<DynamicFilterId> replicatedDynamicFilters;
         private final Map<StageId, Set<DynamicFilterId>> stageDynamicFilters = new ConcurrentHashMap<>();
         private final Map<StageId, Integer> stageNumberOfTasks = new ConcurrentHashMap<>();
@@ -636,7 +636,7 @@ public class DynamicFilterService
         private DynamicFilterContext(
                 Session session,
                 Set<DynamicFilterId> dynamicFilters,
-                Map<DynamicFilterId, SettableFuture<Void>> lazyDynamicFilters,
+                Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilters,
                 Set<DynamicFilterId> replicatedDynamicFilters)
         {
             this.session = requireNonNull(session, "session is null");
@@ -715,7 +715,7 @@ public class DynamicFilterService
             return dynamicFilterSummaries;
         }
 
-        private Map<DynamicFilterId, SettableFuture<Void>> getLazyDynamicFilters()
+        private Map<DynamicFilterId, SettableFuture<?>> getLazyDynamicFilters()
         {
             return lazyDynamicFilters;
         }

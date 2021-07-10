@@ -17,15 +17,13 @@ import io.airlift.configuration.Config;
 
 public class EmbeddedDiscoveryConfig
 {
-    private boolean enabled = true;
+    private boolean enabled;
 
-    @Deprecated
     public boolean isEnabled()
     {
         return enabled;
     }
 
-    @Deprecated
     @Config("discovery-server.enabled")
     public EmbeddedDiscoveryConfig setEnabled(boolean enabled)
     {

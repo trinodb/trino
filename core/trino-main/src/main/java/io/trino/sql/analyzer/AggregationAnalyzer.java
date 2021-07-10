@@ -46,7 +46,6 @@ import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalBinaryExpression;
-import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -60,12 +59,9 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.TryExpression;
-import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowFrame;
-import io.trino.sql.tree.WindowOperation;
-import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
 
 import javax.annotation.Nullable;
@@ -90,7 +86,7 @@ import static io.trino.spi.StandardErrorCode.NESTED_AGGREGATION;
 import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
-import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static io.trino.sql.analyzer.FreeLambdaReferenceExtractor.hasFreeReferencesToLambdaArgument;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
@@ -340,7 +336,7 @@ class AggregationAnalyzer
             if (metadata.isAggregationFunction(node.getName())) {
                 if (node.getWindow().isEmpty()) {
                     List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), metadata);
-                    List<Expression> windowExpressions = extractWindowExpressions(node.getArguments());
+                    List<FunctionCall> windowFunctions = extractWindowFunctions(node.getArguments());
 
                     if (!aggregateFunctions.isEmpty()) {
                         throw semanticException(NESTED_AGGREGATION,
@@ -350,12 +346,12 @@ class AggregationAnalyzer
                                 aggregateFunctions);
                     }
 
-                    if (!windowExpressions.isEmpty()) {
+                    if (!windowFunctions.isEmpty()) {
                         throw semanticException(NESTED_WINDOW,
                                 node,
-                                "Cannot nest window functions or row pattern measures inside aggregation '%s': %s",
+                                "Cannot nest window functions inside aggregation '%s': %s",
                                 node.getName(),
-                                windowExpressions);
+                                windowFunctions);
                     }
 
                     if (node.getOrderBy().isPresent()) {
@@ -427,12 +423,6 @@ class AggregationAnalyzer
         }
 
         @Override
-        protected Boolean visitWindowOperation(WindowOperation node, Void context)
-        {
-            return node.getWindow() instanceof WindowReference || process((WindowSpecification) node.getWindow(), context);
-        }
-
-        @Override
         protected Boolean visitLambdaExpression(LambdaExpression node, Void context)
         {
             return process(node.getBody(), context);
@@ -493,16 +483,6 @@ class AggregationAnalyzer
                     throw semanticException(EXPRESSION_NOT_AGGREGATE, endValue, "Window frame end must be an aggregate expression or appear in GROUP BY clause");
                 }
             }
-            for (MeasureDefinition measure : node.getMeasures()) {
-                if (!process(measure.getExpression(), context)) {
-                    throw semanticException(EXPRESSION_NOT_AGGREGATE, measure, "Row pattern measure must be an aggregate expression or appear in GROUP BY clause");
-                }
-            }
-            for (VariableDefinition variableDefinition : node.getVariableDefinitions()) {
-                if (!process(variableDefinition.getExpression(), context)) {
-                    throw semanticException(EXPRESSION_NOT_AGGREGATE, variableDefinition, "Row pattern variable definition must be an aggregate expression or appear in GROUP BY clause");
-                }
-            }
 
             return true;
         }
@@ -525,11 +505,6 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitDereferenceExpression(DereferenceExpression node, Void context)
         {
-            ExpressionAnalyzer.LabelPrefixedReference labelDereference = analysis.getLabelDereference(node);
-            if (labelDereference != null) {
-                return process(labelDereference.getColumn());
-            }
-
             if (!hasReferencesToScope(node, analysis, sourceScope)) {
                 // reference to outer scope is group-invariant
                 return true;

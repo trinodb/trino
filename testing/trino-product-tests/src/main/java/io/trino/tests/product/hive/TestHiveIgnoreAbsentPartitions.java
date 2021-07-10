@@ -23,7 +23,6 @@ import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
@@ -66,7 +65,7 @@ public class TestHiveIgnoreAbsentPartitions
         query("SET SESSION hive.ignore_absent_partitions = false");
         hdfsClient.delete(partitionPath);
         assertFalse(hdfsClient.exist(partitionPath), format("Expected partition %s to not exist", partitionPath));
-        assertQueryFailure(() -> query("SELECT count(*) FROM " + tableNameInDatabase)).hasMessageContaining("Partition location does not exist");
+        assertThat(() -> query("SELECT count(*) FROM " + tableNameInDatabase)).failsWithMessage("Partition location does not exist");
 
         query("SET SESSION hive.ignore_absent_partitions = true");
         assertThat(query("SELECT count(*) FROM " + tableNameInDatabase)).containsOnly(row(15));
@@ -88,10 +87,10 @@ public class TestHiveIgnoreAbsentPartitions
         hdfsClient.delete(tablePath);
 
         query("SET SESSION hive.ignore_absent_partitions = false");
-        assertQueryFailure(() -> query("SELECT count(*) FROM " + tableName)).hasMessageContaining("Partition location does not exist");
+        assertThat(() -> query("SELECT count(*) FROM " + tableName)).failsWithMessage("Partition location does not exist");
 
         query("SET SESSION hive.ignore_absent_partitions = true");
-        assertQueryFailure(() -> query("SELECT count(*) FROM " + tableName)).hasMessageContaining("Partition location does not exist");
+        assertThat(() -> query("SELECT count(*) FROM " + tableName)).failsWithMessage("Partition location does not exist");
 
         assertThat(query("DROP TABLE " + tableName));
     }

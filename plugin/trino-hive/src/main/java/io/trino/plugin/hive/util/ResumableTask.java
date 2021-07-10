@@ -13,9 +13,8 @@
  */
 package io.trino.plugin.hive.util;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 public interface ResumableTask
 {
@@ -30,9 +29,9 @@ public interface ResumableTask
     class TaskStatus
     {
         private final boolean finished;
-        private final ListenableFuture<Void> continuationFuture;
+        private final ListenableFuture<?> continuationFuture;
 
-        private TaskStatus(boolean finished, ListenableFuture<Void> continuationFuture)
+        private TaskStatus(boolean finished, ListenableFuture<?> continuationFuture)
         {
             this.finished = finished;
             this.continuationFuture = continuationFuture;
@@ -40,10 +39,10 @@ public interface ResumableTask
 
         public static TaskStatus finished()
         {
-            return new TaskStatus(true, immediateVoidFuture());
+            return new TaskStatus(true, Futures.immediateFuture(null));
         }
 
-        public static TaskStatus continueOn(ListenableFuture<Void> continuationFuture)
+        public static TaskStatus continueOn(ListenableFuture<?> continuationFuture)
         {
             return new TaskStatus(false, continuationFuture);
         }
@@ -53,7 +52,7 @@ public interface ResumableTask
             return finished;
         }
 
-        public ListenableFuture<Void> getContinuationFuture()
+        public ListenableFuture<?> getContinuationFuture()
         {
             return continuationFuture;
         }

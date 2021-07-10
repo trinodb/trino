@@ -15,7 +15,6 @@ package io.trino.jdbc;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Streams;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.trino.client.Column;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
@@ -36,6 +35,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -106,8 +106,7 @@ public class TrinoResultSet
             extends AbstractIterator<T>
     {
         private static final int MAX_QUEUED_ROWS = 50_000;
-        private static final ExecutorService executorService = newCachedThreadPool(
-                new ThreadFactoryBuilder().setNameFormat("Trino JDBC worker-%s").setDaemon(true).build());
+        private static final ExecutorService executorService = newCachedThreadPool(daemonThreadsNamed("Trino JDBC worker-%d"));
 
         private final StatementClient client;
         private final BlockingQueue<T> rowQueue = new ArrayBlockingQueue<>(MAX_QUEUED_ROWS);

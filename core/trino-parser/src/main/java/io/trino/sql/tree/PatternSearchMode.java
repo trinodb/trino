@@ -86,16 +86,6 @@ public final class PatternSearchMode
                 .toString();
     }
 
-    @Override
-    public boolean shallowEquals(Node other)
-    {
-        if (!sameClass(this, other)) {
-            return false;
-        }
-
-        return mode == ((PatternSearchMode) other).mode;
-    }
-
     public enum Mode
     {
         INITIAL, SEEK

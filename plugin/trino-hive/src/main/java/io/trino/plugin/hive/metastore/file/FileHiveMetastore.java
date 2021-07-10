@@ -98,18 +98,18 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.trino.plugin.hive.HiveMetadata.DELTA_LAKE_PROVIDER;
+import static io.trino.plugin.hive.HiveMetadata.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VERSION_COMPATIBILITY_CONFIG;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.UNSAFE_ASSUME_COMPATIBILITY;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
-import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
-import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
-import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -122,7 +122,6 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.MATERIALIZED_VIEW;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 @ThreadSafe
@@ -135,12 +134,15 @@ public class FileHiveMetastore
     private static final String TRINO_PERMISSIONS_DIRECTORY_NAME = ".trinoPermissions";
     // todo there should be a way to manage the admins list
     private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
+    private static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
+    private static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
     private final String currentVersion;
     private final VersionCompatibility versionCompatibility;
     private final HdfsEnvironment hdfsEnvironment;
     private final Path catalogDirectory;
     private final HdfsContext hdfsContext;
+    private final boolean assumeCanonicalPartitionKeys;
     private final boolean hideDeltaLakeTables;
     private final FileSystem metadataFileSystem;
 
@@ -176,6 +178,7 @@ public class FileHiveMetastore
         requireNonNull(metastoreConfig, "metastoreConfig is null");
         this.catalogDirectory = new Path(requireNonNull(config.getCatalogDirectory(), "catalogDirectory is null"));
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
+        this.assumeCanonicalPartitionKeys = config.isAssumeCanonicalPartitionKeys();
         this.hideDeltaLakeTables = metastoreConfig.isHideDeltaLakeTables();
         try {
             metadataFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
@@ -308,7 +311,7 @@ public class FileHiveMetastore
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Could not validate external location", e);
             }
         }
-        else if (!table.getTableType().equals(MATERIALIZED_VIEW.name())) {
+        else {
             throw new TrinoException(NOT_SUPPORTED, "Table type not supported: " + table.getTableType());
         }
 
@@ -556,7 +559,7 @@ public class FileHiveMetastore
         Table table = getRequiredTable(databaseName, tableName);
         getRequiredDatabase(newDatabaseName);
 
-        if (isIcebergTable(table)) {
+        if (isIcebergTable(table.getParameters())) {
             throw new TrinoException(NOT_SUPPORTED, "Rename not supported for Iceberg tables");
         }
 
@@ -1060,7 +1063,33 @@ public class FileHiveMetastore
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
-        return getAllPartitionNames(identity, databaseName, tableName);
+        if (partitionKeysFilter.isNone()) {
+            return Optional.of(ImmutableList.of());
+        }
+        Optional<List<String>> parts = partitionKeyFilterToStringList(columnNames, partitionKeysFilter, assumeCanonicalPartitionKeys);
+
+        if (parts.isEmpty()) {
+            return Optional.of(ImmutableList.of());
+        }
+
+        return getAllPartitionNames(identity, databaseName, tableName).map(partitionNames -> partitionNames.stream()
+                .filter(partitionName -> partitionMatches(partitionName, parts.get()))
+                .collect(toImmutableList()));
+    }
+
+    private static boolean partitionMatches(String partitionName, List<String> parts)
+    {
+        List<String> values = toPartitionValues(partitionName);
+        if (values.size() != parts.size()) {
+            return false;
+        }
+        for (int i = 0; i < values.size(); i++) {
+            String part = parts.get(i);
+            if (!part.isEmpty() && !values.get(i).equals(part)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -1366,6 +1395,11 @@ public class FileHiveMetastore
             return false;
         }
         return isChildDirectory(parentDirectory, childDirectory.getParent());
+    }
+
+    private static boolean isIcebergTable(Map<String, String> parameters)
+    {
+        return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(parameters.get(ICEBERG_TABLE_TYPE_NAME));
     }
 
     private static class RoleGranteeTuple

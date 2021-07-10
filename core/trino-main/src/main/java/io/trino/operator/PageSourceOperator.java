@@ -13,7 +13,6 @@
  */
 package io.trino.operator;
 
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -22,7 +21,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.concurrent.CompletableFuture;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
@@ -64,15 +62,10 @@ public class PageSourceOperator
     }
 
     @Override
-    public ListenableFuture<Void> isBlocked()
+    public ListenableFuture<?> isBlocked()
     {
         CompletableFuture<?> pageSourceBlocked = pageSource.isBlocked();
-        return pageSourceBlocked.isDone() ? NOT_BLOCKED : asVoid(toListenableFuture(pageSourceBlocked));
-    }
-
-    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
-    {
-        return Futures.transform(future, v -> null, directExecutor());
+        return pageSourceBlocked.isDone() ? NOT_BLOCKED : toListenableFuture(pageSourceBlocked);
     }
 
     @Override

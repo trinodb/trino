@@ -84,13 +84,7 @@ public class TestMergeWindows
     private static final Optional<WindowFrame> COMMON_FRAME = Optional.of(new WindowFrame(
             WindowFrame.Type.ROWS,
             new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING),
-            Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW)),
-            ImmutableList.of(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            ImmutableList.of(),
-            ImmutableList.of()));
+            Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW))));
 
     private static final Optional<WindowFrame> UNSPECIFIED_FRAME = Optional.empty();
 
@@ -332,13 +326,7 @@ public class TestMergeWindows
         Optional<WindowFrame> frameC = Optional.of(new WindowFrame(
                 WindowFrame.Type.ROWS,
                 new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING),
-                Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW)),
-                ImmutableList.of(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableList.of(),
-                ImmutableList.of()));
+                Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW))));
 
         ExpectedValueProvider<WindowNode.Specification> specificationC = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
@@ -348,13 +336,7 @@ public class TestMergeWindows
         Optional<WindowFrame> frameD = Optional.of(new WindowFrame(
                 WindowFrame.Type.ROWS,
                 new FrameBound(FrameBound.Type.CURRENT_ROW),
-                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING)),
-                ImmutableList.of(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableList.of(),
-                ImmutableList.of()));
+                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING))));
 
         @Language("SQL") String sql = "SELECT " +
                 "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_C, " +
@@ -378,13 +360,7 @@ public class TestMergeWindows
         Optional<WindowFrame> frameD = Optional.of(new WindowFrame(
                 WindowFrame.Type.ROWS,
                 new FrameBound(FrameBound.Type.CURRENT_ROW),
-                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING)),
-                ImmutableList.of(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableList.of(),
-                ImmutableList.of()));
+                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING))));
 
         ExpectedValueProvider<WindowNode.Specification> specificationD = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),

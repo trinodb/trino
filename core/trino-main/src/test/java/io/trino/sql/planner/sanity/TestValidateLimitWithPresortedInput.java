@@ -120,20 +120,6 @@ public class TestValidateLimitWithPresortedInput
                                         p.symbol(COLUMN_NAME_A, VARCHAR), COLUMN_HANDLE_A,
                                         p.symbol(COLUMN_NAME_B, VARCHAR), COLUMN_HANDLE_B,
                                         p.symbol(COLUMN_NAME_C, VARCHAR), COLUMN_HANDLE_C))));
-
-        validatePlan(
-                p -> p.limit(
-                        10,
-                        ImmutableList.of(),
-                        true,
-                        ImmutableList.of(p.symbol(COLUMN_NAME_A, VARCHAR)),
-                        p.tableScan(
-                                MOCK_TABLE_HANDLE,
-                                ImmutableList.of(p.symbol(COLUMN_NAME_A, VARCHAR), p.symbol(COLUMN_NAME_B, VARCHAR), p.symbol(COLUMN_NAME_C, VARCHAR)),
-                                ImmutableMap.of(
-                                        p.symbol(COLUMN_NAME_A, VARCHAR), COLUMN_HANDLE_A,
-                                        p.symbol(COLUMN_NAME_B, VARCHAR), COLUMN_HANDLE_B,
-                                        p.symbol(COLUMN_NAME_C, VARCHAR), COLUMN_HANDLE_C))));
     }
 
     @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Expected Limit input to be sorted by: \\[col_b], but was \\[col_a]")

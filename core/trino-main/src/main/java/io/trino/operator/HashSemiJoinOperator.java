@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
@@ -35,7 +34,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
@@ -175,7 +173,7 @@ public class HashSemiJoinOperator
                 if (!channelSetFuture.isDone()) {
                     // This will materialize page but it shouldn't matter for the first page
                     localMemoryContext.setBytes(inputPage.getSizeInBytes());
-                    return blocked(asVoid(channelSetFuture));
+                    return blocked(channelSetFuture);
                 }
                 checkSuccess(channelSetFuture, "ChannelSet building failed");
                 channelSet = getFutureValue(channelSetFuture);
@@ -219,10 +217,5 @@ public class HashSemiJoinOperator
             // add the new boolean column to the page
             return ofResult(inputPage.appendColumn(blockBuilder.build()));
         }
-    }
-
-    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
-    {
-        return Futures.transform(future, v -> null, directExecutor());
     }
 }

@@ -14,7 +14,7 @@
 package io.trino.plugin.mysql;
 
 import com.google.common.collect.ImmutableSet;
-import com.mysql.cj.jdbc.JdbcStatement;
+import com.mysql.jdbc.Statement;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -53,7 +53,6 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -76,8 +75,8 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_ER_TABLE_EXISTS_ERROR;
-import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_SYNTAX_ERROR;
+import static com.mysql.jdbc.SQLError.SQL_STATE_ER_TABLE_EXISTS_ERROR;
+import static com.mysql.jdbc.SQLError.SQL_STATE_SYNTAX_ERROR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
@@ -100,14 +99,12 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunctionUsingSqlTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryReadFunction;
@@ -123,7 +120,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -135,13 +132,6 @@ import static java.util.stream.Collectors.joining;
 public class MySqlClient
         extends BaseJdbcClient
 {
-    private static final int MAX_SUPPORTED_TIMESTAMP_PRECISION = 6;
-    // MySQL driver returns width of timestamp types instead of precision.
-    // 19 characters are used for zero-precision timestamps while others
-    // require 19 + precision + 1 characters with the additional character
-    // required for the decimal separator.
-    private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
-
     private final Type jsonType;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
 
@@ -225,8 +215,8 @@ public class MySqlClient
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
-        if (statement.isWrapperFor(JdbcStatement.class)) {
-            statement.unwrap(JdbcStatement.class).enableStreamingResults();
+        if (statement.isWrapperFor(Statement.class)) {
+            statement.unwrap(Statement.class).enableStreamingResults();
         }
         return statement;
     }
@@ -323,22 +313,12 @@ public class MySqlClient
                 return Optional.of(dateColumnMapping());
 
             case Types.TIMESTAMP:
-                TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.getRequiredColumnSize()));
-                return Optional.of(timestampColumnMapping(timestampType));
+                // TODO support higher precisions (https://github.com/trinodb/trino/issues/6910)
+                break; // currently handled by the default mappings
         }
 
         // TODO add explicit mappings
         return legacyColumnMapping(session, connection, typeHandle);
-    }
-
-    private static int getTimestampPrecision(int timestampColumnSize)
-    {
-        if (timestampColumnSize == ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE) {
-            return 0;
-        }
-        int timestampPrecision = timestampColumnSize - ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE - 1;
-        verify(1 <= timestampPrecision && timestampPrecision <= MAX_SUPPORTED_TIMESTAMP_PRECISION, "Unexpected timestamp precision %s calculated from timestamp column size %s", timestampPrecision, timestampColumnSize);
-        return timestampPrecision;
     }
 
     @Override
@@ -379,16 +359,10 @@ public class MySqlClient
         if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
         }
-
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
-            if (timestampType.getPrecision() <= MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-                verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
-                return WriteMapping.longMapping(format("datetime(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
-            }
-            return WriteMapping.objectMapping(format("datetime(%s)", MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWriteFunction(timestampType));
+        if (TIMESTAMP_MILLIS.equals(type)) {
+            // TODO use `timestampWriteFunction` (https://github.com/trinodb/trino/issues/6910)
+            return WriteMapping.longMapping("datetime(3)", timestampWriteFunctionUsingSqlTimestamp(TIMESTAMP_MILLIS));
         }
-
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("mediumblob", varbinaryWriteFunction());
         }
@@ -539,7 +513,7 @@ public class MySqlClient
     }
 
     @Override
-    public boolean isTopNGuaranteed(ConnectorSession session)
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
     {
         return true;
     }

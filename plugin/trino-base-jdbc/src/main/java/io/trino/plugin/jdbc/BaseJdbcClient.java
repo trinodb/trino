@@ -954,7 +954,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public boolean isTopNGuaranteed(ConnectorSession session)
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
     {
         throw new UnsupportedOperationException("topNFunction() implemented without implementing isTopNLimitGuaranteed()");
     }

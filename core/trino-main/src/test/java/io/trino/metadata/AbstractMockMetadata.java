@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
@@ -355,18 +354,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();
     }
@@ -861,18 +848,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void dropMaterializedView(Session session, QualifiedObjectName viewName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Map<QualifiedObjectName, ConnectorMaterializedViewDefinition> getMaterializedViews(Session session, QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();
     }

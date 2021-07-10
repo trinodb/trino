@@ -27,7 +27,6 @@ import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -101,9 +100,11 @@ public final class PinotQueryBuilder
         ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
         timePredicate.ifPresent(conjunctsBuilder::add);
         if (!tupleDomain.equals(TupleDomain.all())) {
-            Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-                conjunctsBuilder.add(toPredicate(((PinotColumnHandle) entry.getKey()).getColumnName(), entry.getValue()));
+            for (PinotColumnHandle columnHandle : columnHandles) {
+                Domain domain = tupleDomain.getDomains().get().get(columnHandle);
+                if (domain != null) {
+                    conjunctsBuilder.add(toPredicate(columnHandle.getColumnName(), domain));
+                }
             }
         }
         List<String> conjuncts = conjunctsBuilder.build();

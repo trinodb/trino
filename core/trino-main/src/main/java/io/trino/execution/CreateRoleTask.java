@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.getSessionCatalog;
 import static io.trino.spi.StandardErrorCode.ROLE_ALREADY_EXISTS;
@@ -46,7 +46,7 @@ public class CreateRoleTask
     }
 
     @Override
-    public ListenableFuture<Void> execute(
+    public ListenableFuture<?> execute(
             CreateRole statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -68,6 +68,6 @@ public class CreateRoleTask
             throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", grantor.get().getName());
         }
         metadata.createRole(session, role, grantor, catalog);
-        return immediateVoidFuture();
+        return immediateFuture(null);
     }
 }

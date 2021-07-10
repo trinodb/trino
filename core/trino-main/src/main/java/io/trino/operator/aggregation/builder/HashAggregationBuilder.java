@@ -35,7 +35,7 @@ public interface HashAggregationBuilder
     @Override
     void close();
 
-    ListenableFuture<Void> startMemoryRevoke();
+    ListenableFuture<?> startMemoryRevoke();
 
     void finishMemoryRevoke();
 }

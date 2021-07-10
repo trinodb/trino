@@ -33,7 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -52,7 +52,7 @@ public class RevokeTask
     }
 
     @Override
-    public ListenableFuture<Void> execute(
+    public ListenableFuture<?> execute(
             Revoke statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -67,7 +67,7 @@ public class RevokeTask
         else {
             executeRevokeOnTable(stateMachine.getSession(), statement, metadata, accessControl);
         }
-        return immediateVoidFuture();
+        return immediateFuture(null);
     }
 
     private void executeRevokeOnSchema(Session session, Revoke statement, Metadata metadata, AccessControl accessControl)

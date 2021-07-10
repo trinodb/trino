@@ -52,7 +52,6 @@ public class TestJdbcConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
-            case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
@@ -129,8 +128,7 @@ public class TestJdbcConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Override
-    protected JdbcSqlExecutor onRemoteDatabase()
+    private JdbcSqlExecutor onRemoteDatabase()
     {
         return new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
     }

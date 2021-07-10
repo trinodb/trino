@@ -27,7 +27,7 @@ import io.trino.transaction.TransactionManager;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
@@ -49,7 +49,7 @@ public class DropSchemaTask
     }
 
     @Override
-    public ListenableFuture<Void> execute(
+    public ListenableFuture<?> execute(
             DropSchema statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -69,13 +69,13 @@ public class DropSchemaTask
             if (!statement.isExists()) {
                 throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", schema);
             }
-            return immediateVoidFuture();
+            return immediateFuture(null);
         }
 
         accessControl.checkCanDropSchema(session.toSecurityContext(), schema);
 
         metadata.dropSchema(session, schema);
 
-        return immediateVoidFuture();
+        return immediateFuture(null);
     }
 }

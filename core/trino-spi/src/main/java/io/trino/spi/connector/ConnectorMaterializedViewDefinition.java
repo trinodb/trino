@@ -51,11 +51,11 @@ public class ConnectorMaterializedViewDefinition
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
         this.comment = requireNonNull(comment, "comment is null");
         this.owner = requireNonNull(owner, "owner is null");
-        this.properties = requireNonNull(properties, "properties are null");
 
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
         }
+        this.properties = requireNonNull(properties, "properties are null");
         if (columns.isEmpty()) {
             throw new IllegalArgumentException("columns list is empty");
         }

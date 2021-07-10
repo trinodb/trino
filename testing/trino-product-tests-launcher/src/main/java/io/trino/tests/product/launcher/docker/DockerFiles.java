@@ -40,8 +40,6 @@ import static java.util.UUID.randomUUID;
 public final class DockerFiles
         implements AutoCloseable
 {
-    public static final String ROOT_PATH = "docker/presto-product-tests/";
-
     private static final Logger log = Logger.get(DockerFiles.class);
 
     @GuardedBy("this")
@@ -99,10 +97,10 @@ public final class DockerFiles
             Path dockerFilesHostPath = createTemporaryDirectoryForDocker();
             ClassPath.from(Thread.currentThread().getContextClassLoader())
                     .getResources().stream()
-                    .filter(resourceInfo -> resourceInfo.getResourceName().startsWith(ROOT_PATH))
+                    .filter(resourceInfo -> resourceInfo.getResourceName().startsWith("docker/presto-product-tests/"))
                     .forEach(resourceInfo -> {
                         try {
-                            Path target = dockerFilesHostPath.resolve(resourceInfo.getResourceName().replaceFirst("^" + ROOT_PATH, ""));
+                            Path target = dockerFilesHostPath.resolve(resourceInfo.getResourceName().replaceFirst("^docker/presto-product-tests/", ""));
                             Files.createDirectories(target.getParent());
 
                             try (InputStream inputStream = resourceInfo.asByteSource().openStream()) {

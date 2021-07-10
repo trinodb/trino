@@ -146,7 +146,7 @@ public class DriverContext
         operationTimer.end(overallTiming);
     }
 
-    public void recordBlocked(ListenableFuture<Void> blocked)
+    public void recordBlocked(ListenableFuture<?> blocked)
     {
         requireNonNull(blocked, "blocked is null");
 
@@ -183,7 +183,7 @@ public class DriverContext
         return finished.get() || pipelineContext.isDone();
     }
 
-    public ListenableFuture<Void> reserveSpill(long bytes)
+    public ListenableFuture<?> reserveSpill(long bytes)
     {
         return pipelineContext.reserveSpill(bytes);
     }

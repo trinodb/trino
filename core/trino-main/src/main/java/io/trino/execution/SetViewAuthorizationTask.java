@@ -29,7 +29,7 @@ import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -47,7 +47,7 @@ public class SetViewAuthorizationTask
     }
 
     @Override
-    public ListenableFuture<Void> execute(
+    public ListenableFuture<?> execute(
             SetViewAuthorization statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -60,9 +60,8 @@ public class SetViewAuthorizationTask
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
         CatalogName catalogName = metadata.getCatalogHandle(session, viewName.getCatalogName())
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + viewName.getCatalogName()));
-        if (metadata.getView(session, viewName).isEmpty()) {
-            throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
-        }
+        metadata.getView(session, viewName)
+                .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName));
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
         if (principal.getType() == PrincipalType.ROLE
@@ -74,6 +73,6 @@ public class SetViewAuthorizationTask
 
         metadata.setViewAuthorization(session, viewName.asCatalogSchemaTableName(), principal);
 
-        return immediateVoidFuture();
+        return immediateFuture(null);
     }
 }

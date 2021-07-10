@@ -134,7 +134,7 @@ public class TestLocalExchange
             assertSource(source, 0);
 
             // add the first page which should cause the reader to unblock
-            ListenableFuture<Void> readFuture = source.waitForReading();
+            ListenableFuture<?> readFuture = source.waitForReading();
             assertFalse(readFuture.isDone());
             sink.addPage(createPage(0));
             assertTrue(readFuture.isDone());
@@ -630,8 +630,8 @@ public class TestLocalExchange
             assertSource(sourceB, 0);
 
             sinkA.addPage(createPage(0));
-            ListenableFuture<Void> sinkAFuture = assertSinkWriteBlocked(sinkA);
-            ListenableFuture<Void> sinkBFuture = assertSinkWriteBlocked(sinkB);
+            ListenableFuture<?> sinkAFuture = assertSinkWriteBlocked(sinkA);
+            ListenableFuture<?> sinkBFuture = assertSinkWriteBlocked(sinkB);
 
             assertSource(sourceA, 1);
             assertSource(sourceB, 1);
@@ -779,10 +779,10 @@ public class TestLocalExchange
         assertTrue(sink.waitForWriting().isDone());
     }
 
-    private static ListenableFuture<Void> assertSinkWriteBlocked(LocalExchangeSink sink)
+    private static ListenableFuture<?> assertSinkWriteBlocked(LocalExchangeSink sink)
     {
         assertFalse(sink.isFinished());
-        ListenableFuture<Void> writeFuture = sink.waitForWriting();
+        ListenableFuture<?> writeFuture = sink.waitForWriting();
         assertFalse(writeFuture.isDone());
         return writeFuture;
     }

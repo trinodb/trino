@@ -12,8 +12,8 @@ env:
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
-  MAVEN_TEST: "-B --strict-checksums -Dair.check.skip-all --fail-at-end"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
+  MAVEN_TEST: "-B -Dair.check.skip-all --fail-at-end"
   RETRY: .github/bin/retry
 
 # Cancel previous PR builds.
@@ -47,16 +47,13 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+          $RETRY ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY bash -c './mvnw verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +'
+          $RETRY bash -c './mvnw verify -B -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +'
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!:trino-server,!:trino-cli'
-      - uses: docker/setup-qemu-action@v1
-        with:
-          platforms: arm64
       - name: Test Docker Image
         run: core/docker/build-local.sh
 
@@ -254,8 +251,7 @@ jobs:
           - ":trino-cassandra"
           - ":trino-hive,:trino-orc"
           - ":trino-hive,:trino-parquet -P test-parquet"
-          - ":trino-mongodb,:trino-kafka,:trino-elasticsearch"
-          - ":trino-elasticsearch -P test-stats"
+          - ":trino-mongodb,:trino-kafka,:trino-elasticsearch,:trino-elasticsearch -P test-stats"
           - ":trino-redis"
           - ":trino-sqlserver,:trino-postgresql,:trino-mysql"
           - ":trino-oracle"
@@ -372,24 +368,21 @@ jobs:
           #   value of the property, and the exclusion will apply normally.
           - false
         include:
-          # this suite is not meant to be run with different configs
+          # this suite ignores is not meant to be run with different configs
           - config: default
             suite: suite-6-non-generic
-          # this suite is not meant to be run with different configs
+          # this suite ignores is not meant to be run with different configs
           - config: default
             suite: suite-7-non-generic
-          # this suite is not meant to be run with different configs
+          # this suite ignores is not meant to be run with different configs
           - config: default
             suite: suite-8-non-generic
-          # this suite is not meant to be run with different configs
+          # this suite ignores is not meant to be run with different configs
           - config: default
             suite: suite-tpcds
-          # this suite is not meant to be run with different configs
+          # this suite ignores is not meant to be run with different configs
           - config: default
             suite: suite-oauth2
-          # this suite is not meant to be run with different configs
-          - config: default
-            suite: suite-compatibility
     # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
     timeout-minutes: 140
     steps:

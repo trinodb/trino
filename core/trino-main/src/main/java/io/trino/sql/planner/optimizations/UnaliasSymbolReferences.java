@@ -58,7 +58,6 @@ import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -618,12 +617,6 @@ public class UnaliasSymbolReferences
             StatisticsWriterNode rewrittenStatisticsWriter = mapper.map(node, rewrittenSource.getRoot());
 
             return new PlanAndMappings(rewrittenStatisticsWriter, mapping);
-        }
-
-        @Override
-        public PlanAndMappings visitRefreshMaterializedView(RefreshMaterializedViewNode node, UnaliasContext context)
-        {
-            return new PlanAndMappings(node, ImmutableMap.of());
         }
 
         @Override

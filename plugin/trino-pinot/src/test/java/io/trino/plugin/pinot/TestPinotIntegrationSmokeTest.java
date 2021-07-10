@@ -20,8 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.trino.plugin.pinot.client.PinotHostMapper;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.LimitNode;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -48,6 +46,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -429,9 +428,9 @@ public class TestPinotIntegrationSmokeTest
     @Test
     public void testIntegerType()
     {
-        assertThat(query("SELECT lucky_number FROM " + JSON_TABLE + " WHERE vendor = 'vendor1'"))
-                .matches("VALUES (INTEGER '5')")
-                .isFullyPushedDown();
+        MaterializedResult result = computeActual("SELECT lucky_number FROM " + JSON_TABLE + " WHERE vendor = 'vendor1'");
+        assertEquals(getOnlyElement(result.getTypes()), INTEGER);
+        assertEquals(result.getOnlyValue(), 5);
     }
 
     @Test
@@ -521,21 +520,19 @@ public class TestPinotIntegrationSmokeTest
                         "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE + "\"",
                 mixedCaseColumnNamesTableValues);
 
-        String singleRowValues = "VALUES (VARCHAR 'string_3', BIGINT '3', BIGINT '1620604803')";
+        String singleRowValues = "VALUES ('string_3', '3', '1620604803')";
 
         // Test segment query single row
-        assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
+        assertQuery("SELECT stringcol, longcol, updatedatseconds" +
                         "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
-                        "  WHERE longcol = 3"))
-                .matches(singleRowValues)
-                .isFullyPushedDown();
+                        "  WHERE longcol = 3",
+                singleRowValues);
 
         // Test broker query single row
-        assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
+        assertQuery("SELECT stringcol, longcol, updatedatseconds" +
                         "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
-                        "\" WHERE longcol = 3"))
-                .matches(singleRowValues)
-                .isFullyPushedDown();
+                        "\" WHERE longcol = 3",
+                singleRowValues);
     }
 
     @Test
@@ -592,126 +589,110 @@ public class TestPinotIntegrationSmokeTest
         // Verify the null behavior of pinot:
 
         // Default null value for long single value columns is 0
-        assertThat(query("SELECT long_col" +
+        assertQuery("SELECT long_col" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
-                .matches("VALUES(BIGINT '0')")
-                .isFullyPushedDown();
+                        "  WHERE string_col = 'array_null'",
+                "VALUES(0)");
 
         // Default null value for long array values is Long.MIN_VALUE,
-        assertThat(query("SELECT element_at(long_array_col, 1)" +
+        assertQuery("SELECT element_at(long_array_col, 1)" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
-                .matches("VALUES(BIGINT '" + Long.MIN_VALUE + "')")
-                .isNotFullyPushedDown(ProjectNode.class);
+                        "  WHERE string_col = 'array_null'",
+                "VALUES(" + Long.MIN_VALUE + ")");
 
         // Default null value for int single value columns is 0
-        assertThat(query("SELECT int_col" +
+        assertQuery("SELECT int_col" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
-                .matches("VALUES(INTEGER '0')")
-                .isFullyPushedDown();
+                        "  WHERE string_col = 'null'",
+                "VALUES(0)");
 
         // Default null value for int array values is Integer.MIN_VALUE,
-        assertThat(query("SELECT element_at(int_array_col, 1)" +
+        assertQuery("SELECT element_at(int_array_col, 1)" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
-                .matches("VALUES(INTEGER '" + Integer.MIN_VALUE + "')")
-                .isNotFullyPushedDown(ProjectNode.class);
+                        "  WHERE string_col = 'null'",
+                "VALUES(" + Integer.MIN_VALUE + ")");
 
         // Verify a null value for an array with all null values is a single element.
         // The original value inserted from kafka is 5 null elements.
-        assertThat(query("SELECT element_at(int_array_col, 1)" +
+        assertQuery("SELECT element_at(int_array_col, 1)" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
-                .matches("VALUES(INTEGER '" + Integer.MIN_VALUE + "')")
-                .isNotFullyPushedDown(ProjectNode.class);
+                        "  WHERE string_col = 'array_null'",
+                "VALUES(" + Integer.MIN_VALUE + ")");
 
         // Verify default null value for array matches expected result
-        assertThat(query("SELECT element_at(int_array_col_with_pinot_default, 1)" +
+        assertQuery("SELECT element_at(int_array_col_with_pinot_default, 1)" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
-                .matches("VALUES(INTEGER '7')")
-                .isNotFullyPushedDown(ProjectNode.class);
+                        "  WHERE string_col = 'null'",
+                "VALUES(7)");
 
         // Verify an array with null and non-null values omits the null values
-        assertThat(query("SELECT int_array_col_with_pinot_default" +
+        assertQuery("SELECT int_array_col_with_pinot_default" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
-                .matches("VALUES(CAST(ARRAY[-1112, 753, -9238] AS ARRAY(INTEGER)))")
-                .isFullyPushedDown();
+                        "  WHERE string_col = 'array_null'",
+                "VALUES(ARRAY[-1112, 753, -9238])");
 
         // Default null value for strings is the string 'null'
-        assertThat(query("SELECT string_col" +
+        assertQuery("SELECT string_col" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE bytes_col = X'' AND element_at(bool_array_col, 1) = 'null'"))
-                .matches("VALUES (VARCHAR 'null')")
-                .isNotFullyPushedDown(FilterNode.class);
+                        "  WHERE bytes_col = X'' AND element_at(bool_array_col, 1) = 'null'",
+                "VALUES ('null')");
 
         // Default array null value for strings is the string 'null'
-        assertThat(query("SELECT element_at(string_array_col, 1)" +
+        assertQuery("SELECT element_at(string_array_col, 1)" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE bytes_col = X'' AND element_at(bool_array_col, 1) = 'null'"))
-                .matches("VALUES (VARCHAR 'null')")
-                .isNotFullyPushedDown(FilterNode.class);
+                        "  WHERE bytes_col = X'' AND element_at(bool_array_col, 1) = 'null'",
+                "VALUES ('null')");
 
         // Default null value for booleans is the string 'null'
         // Booleans are treated as a string
-        assertThat(query("SELECT bool_col" +
+        assertQuery("SELECT bool_col" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
-                .matches("VALUES (VARCHAR 'null')")
-                .isFullyPushedDown();
+                        "  WHERE string_col = 'null'",
+                "VALUES ('null')");
 
         // Default array null value for booleans is the string 'null'
         // Boolean are treated as a string
-        assertThat(query("SELECT element_at(bool_array_col, 1)" +
+        assertQuery("SELECT element_at(bool_array_col, 1)" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
-                .matches("VALUES (VARCHAR 'null')")
-                .isNotFullyPushedDown(ProjectNode.class);
+                        "  WHERE string_col = 'null'",
+                "VALUES ('null')");
 
         // Default null value for pinot BYTES type (varbinary) is the string 'null'
         // BYTES values are treated as a strings
         // BYTES arrays are not supported
-        assertThat(query("SELECT bytes_col" +
+        assertQuery("SELECT bytes_col" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
-                .matches("VALUES (VARBINARY '')")
-                .isFullyPushedDown();
+                        "  WHERE string_col = 'null'",
+                "VALUES ('')");
 
         // Default null value for float single value columns is 0.0F
-        assertThat(query("SELECT float_col" +
+        assertQuery("SELECT float_col" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
-                .matches("VALUES(REAL '0.0')")
-                .isFullyPushedDown();
+                        "  WHERE string_col = 'array_null'",
+                "VALUES(0.0)");
 
         // Default null value for float array values is -INFINITY,
-        assertThat(query("SELECT element_at(float_array_col, 1)" +
+        assertQuery("SELECT element_at(float_array_col, 1)" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
-                .matches("VALUES(CAST(-POWER(0, -1) AS REAL))")
-                .isNotFullyPushedDown(ProjectNode.class);
+                        "  WHERE string_col = 'array_null'",
+                "VALUES(-POWER(0, -1))");
 
         // Default null value for double single value columns is 0.0D
-        assertThat(query("SELECT double_col" +
+        assertQuery("SELECT double_col" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
-                .matches("VALUES(DOUBLE '0.0')")
-                .isFullyPushedDown();
+                        "  WHERE string_col = 'array_null'",
+                "VALUES(0.0)");
 
         // Default null value for double array values is -INFINITY,
-        assertThat(query("SELECT element_at(double_array_col, 1)" +
+        assertQuery("SELECT element_at(double_array_col, 1)" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
-                .matches("VALUES(-POWER(0, -1))")
-                .isNotFullyPushedDown(ProjectNode.class);
+                        "  WHERE string_col = 'array_null'",
+                "VALUES(-POWER(0, -1))");
 
         // Null behavior for arrays:
         // Default value for a "null" array is 1 element with default null array value,
         // Values are tested above, this test is to verify pinot returns an array with 1 element.
-        assertThat(query("SELECT CARDINALITY(string_array_col)," +
+        assertQuery("SELECT CARDINALITY(string_array_col)," +
                         "  CARDINALITY(bool_array_col)," +
                         "  CARDINALITY(int_array_col_with_pinot_default)," +
                         "  CARDINALITY(int_array_col)," +
@@ -719,13 +700,12 @@ public class TestPinotIntegrationSmokeTest
                         "  CARDINALITY(long_array_col)," +
                         "  CARDINALITY(long_array_col)" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
-                .matches("VALUES (BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
-                .isNotFullyPushedDown(ProjectNode.class);
+                        "  WHERE string_col = 'null'",
+                "VALUES (1, 1, 1, 1, 1, 1, 1)");
 
         // If an array contains both null and non-null values, the null values are omitted:
         // There are 5 values in the avro records, but only the 3 non-null values are in pinot
-        assertThat(query("SELECT CARDINALITY(string_array_col)," +
+        assertQuery("SELECT CARDINALITY(string_array_col)," +
                         "  CARDINALITY(bool_array_col)," +
                         "  CARDINALITY(int_array_col_with_pinot_default)," +
                         "  CARDINALITY(int_array_col)," +
@@ -733,9 +713,8 @@ public class TestPinotIntegrationSmokeTest
                         "  CARDINALITY(long_array_col)," +
                         "  CARDINALITY(long_array_col)" +
                         "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
-                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '3', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
-                .isNotFullyPushedDown(ProjectNode.class);
+                        "  WHERE string_col = 'array_null'",
+                "VALUES (3, 3, 3, 1, 1, 1, 1)");
     }
 
     @Test
@@ -753,47 +732,35 @@ public class TestPinotIntegrationSmokeTest
     @Test
     public void testFilterWithRealLiteral()
     {
-        String expectedSingleValue = "VALUES (REAL '3.5', VARCHAR 'vendor1')";
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price = 3.5")).matches(expectedSingleValue).isFullyPushedDown();
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price <= 3.5")).matches(expectedSingleValue).isFullyPushedDown();
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price BETWEEN 3 AND 4")).matches(expectedSingleValue).isFullyPushedDown();
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price > 3 AND price < 4")).matches(expectedSingleValue).isFullyPushedDown();
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price >= 3.5 AND price <= 4")).matches(expectedSingleValue).isFullyPushedDown();
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price < 3.6")).matches(expectedSingleValue).isFullyPushedDown();
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price IN (3.5)")).matches(expectedSingleValue).isFullyPushedDown();
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price IN (3.5, 4)")).matches(expectedSingleValue).isFullyPushedDown();
+        String expectedSingleValue = "VALUES ('3.5', 'vendor1')";
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price = 3.5", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price <= 3.5", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price BETWEEN 3 AND 4", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price > 3 AND price < 4", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price >= 3.5 AND price <= 4", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price < 3.6", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price IN (3.5)", expectedSingleValue);
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price IN (3.5, 4)", expectedSingleValue);
         // NOT IN is not pushed down
         assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price NOT IN (4.5, 5.5, 6.5, 7.5, 8.5, 9.5)")).isNotFullyPushedDown(FilterNode.class);
 
         String expectedMultipleValues = "VALUES" +
-                "  (REAL '3.5', VARCHAR 'vendor1')," +
-                "  (REAL '4.5', VARCHAR 'vendor2')";
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price < 4.6")).matches(expectedMultipleValues).isFullyPushedDown();
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price BETWEEN 3.5 AND 4.5")).matches(expectedMultipleValues).isFullyPushedDown();
+                "  ('3.5', 'vendor1')," +
+                "  ('4.5', 'vendor2')";
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price < 4.6", expectedMultipleValues);
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price BETWEEN 3.5 AND 4.5", expectedMultipleValues);
 
-        String expectedMaxValue = "VALUES (REAL '9.5', VARCHAR 'vendor7')";
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price > 9")).matches(expectedMaxValue).isFullyPushedDown();
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price >= 9")).matches(expectedMaxValue).isFullyPushedDown();
+        String expectedMaxValue = "VALUES ('9.5', 'vendor7')";
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price > 9", expectedMaxValue);
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE price >= 9", expectedMaxValue);
     }
 
     @Test
     public void testArrayFilter()
     {
-        assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE vendor != 'vendor7' AND prices = ARRAY[3.5, 5.5]"))
-                .matches("VALUES (REAL '3.5', VARCHAR 'vendor1')")
-                .isNotFullyPushedDown(FilterNode.class);
+        assertQuery("SELECT price, vendor FROM " + JSON_TABLE + " WHERE vendor != 'vendor7' AND prices = ARRAY[3.5, 5.5]", "VALUES ('3.5', 'vendor1')");
 
         // Array filters are not pushed down, as there are no array literals in pinot
         assertThat(query("SELECT price, vendor FROM " + JSON_TABLE + " WHERE prices = ARRAY[3.5, 5.5]")).isNotFullyPushedDown(FilterNode.class);
-    }
-
-    @Test
-    public void testLimitPushdown()
-    {
-        assertThat(query("SELECT string_col, long_col FROM " + "\"SELECT string_col, long_col, bool_col FROM " + ALL_TYPES_TABLE + " WHERE int_col > 0\" " +
-                "  WHERE bool_col = 'false' LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
-                .isFullyPushedDown();
-        assertThat(query("SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + "  WHERE int_col >0 AND bool_col = 'false' LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
-                .isNotFullyPushedDown(LimitNode.class);
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.operator.index;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.spi.Page;
@@ -24,16 +25,15 @@ import java.util.Queue;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 @ThreadSafe
 public class PageBuffer
 {
-    private static final ListenableFuture<Void> NOT_FULL = immediateVoidFuture();
+    private static final ListenableFuture<?> NOT_FULL = Futures.immediateFuture(null);
 
     private final int maxBufferedPages;
     private final Queue<Page> pages;
-    private SettableFuture<Void> settableFuture;
+    private SettableFuture<?> settableFuture;
 
     public PageBuffer(int maxBufferedPages)
     {
@@ -51,7 +51,7 @@ public class PageBuffer
      * Adds a page to the buffer.
      * Returns a ListenableFuture that is marked as done when the next page can be added.
      */
-    public synchronized ListenableFuture<Void> add(Page page)
+    public synchronized ListenableFuture<?> add(Page page)
     {
         checkState(!isFull(), "PageBuffer is full!");
         pages.offer(page);

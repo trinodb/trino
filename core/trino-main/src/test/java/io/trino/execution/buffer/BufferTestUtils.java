@@ -111,18 +111,18 @@ public final class BufferTestUtils
         buffer.acknowledge(bufferId, sequenceId);
     }
 
-    static ListenableFuture<Void> enqueuePage(OutputBuffer buffer, Page page)
+    static ListenableFuture<?> enqueuePage(OutputBuffer buffer, Page page)
     {
         buffer.enqueue(ImmutableList.of(serializePage(page)));
-        ListenableFuture<Void> future = buffer.isFull();
+        ListenableFuture<?> future = buffer.isFull();
         assertFalse(future.isDone());
         return future;
     }
 
-    static ListenableFuture<Void> enqueuePage(OutputBuffer buffer, Page page, int partition)
+    static ListenableFuture<?> enqueuePage(OutputBuffer buffer, Page page, int partition)
     {
         buffer.enqueue(partition, ImmutableList.of(serializePage(page)));
-        ListenableFuture<Void> future = buffer.isFull();
+        ListenableFuture<?> future = buffer.isFull();
         assertFalse(future.isDone());
         return future;
     }

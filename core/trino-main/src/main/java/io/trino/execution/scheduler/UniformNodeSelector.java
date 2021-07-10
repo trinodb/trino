@@ -205,7 +205,7 @@ public class UniformNodeSelector
             }
         }
 
-        ListenableFuture<Void> blocked;
+        ListenableFuture<?> blocked;
         if (splitWaitingForAnyNode) {
             blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
         }

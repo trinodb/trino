@@ -305,7 +305,7 @@ public class PhoenixClient
     }
 
     @Override
-    public boolean isTopNGuaranteed(ConnectorSession session)
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
     {
         return false;
     }

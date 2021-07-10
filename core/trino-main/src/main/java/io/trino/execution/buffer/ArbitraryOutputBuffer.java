@@ -201,7 +201,7 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public ListenableFuture<Void> isFull()
+    public ListenableFuture<?> isFull()
     {
         return memoryManager.getBufferBlockedFuture();
     }

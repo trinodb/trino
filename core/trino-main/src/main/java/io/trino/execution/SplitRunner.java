@@ -23,7 +23,7 @@ public interface SplitRunner
 {
     boolean isFinished();
 
-    ListenableFuture<Void> processFor(Duration duration);
+    ListenableFuture<?> processFor(Duration duration);
 
     String getInfo();
 

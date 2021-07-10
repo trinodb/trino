@@ -192,7 +192,7 @@ public class BroadcastOutputBuffer
     }
 
     @Override
-    public ListenableFuture<Void> isFull()
+    public ListenableFuture<?> isFull()
     {
         return memoryManager.getBufferBlockedFuture();
     }

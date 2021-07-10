@@ -239,7 +239,7 @@ public class PipelineContext
         return taskContext.isDone();
     }
 
-    public synchronized ListenableFuture<Void> reserveSpill(long bytes)
+    public synchronized ListenableFuture<?> reserveSpill(long bytes)
     {
         return taskContext.reserveSpill(bytes);
     }

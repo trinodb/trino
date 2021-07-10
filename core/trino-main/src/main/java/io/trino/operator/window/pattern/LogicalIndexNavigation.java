@@ -48,7 +48,7 @@ public class LogicalIndexNavigation
      *
      * @return position within partition, or -1 if matching position was not found
      */
-    public int resolvePosition(ArrayView matchedLabels, int newLabel, int searchStart, int searchEnd, int patternStart)
+    public int resolvePosition(ArrayView matchedLabels, int newLabel, int partitionStart, int partitionEnd, int patternStart)
     {
         int relativePosition;
         if (last) {
@@ -57,7 +57,7 @@ public class LogicalIndexNavigation
         else {
             relativePosition = findFirstAndForward(matchedLabels, newLabel);
         }
-        return adjustPosition(relativePosition, patternStart, searchStart, searchEnd);
+        return adjustPosition(relativePosition, patternStart, partitionStart, partitionEnd);
     }
 
     // LAST(A.price, 3): find the last occurrence of label "A" and go 3 occurrences backwards
@@ -108,14 +108,14 @@ public class LogicalIndexNavigation
     // adjust position by patternStart to reflect position within partition
     // adjust position by physical offset: skip a certain number of rows, regardless of labels
     // check if the new position is within partition bound by: partitionStart - inclusive, partitionEnd - exclusive
-    private int adjustPosition(int relativePosition, int patternStart, int searchStart, int searchEnd)
+    private int adjustPosition(int relativePosition, int patternStart, int partitionStart, int partitionEnd)
     {
         if (relativePosition == -1) {
             return -1;
         }
         int start = relativePosition + patternStart;
         int target = start + physicalOffset;
-        if (target < searchStart || target >= searchEnd) {
+        if (target < partitionStart || target >= partitionEnd) {
             return -1;
         }
         return target;
@@ -127,25 +127,25 @@ public class LogicalIndexNavigation
      *
      * @return position within partition, or -1 if matching position was not found
      */
-    public int resolvePosition(int currentRow, ArrayView matchedLabels, int searchStart, int searchEnd, int patternStart)
+    public int resolvePosition(int currentRow, ArrayView matchedLabels, int partitionStart, int partitionEnd, int patternStart)
     {
         checkArgument(currentRow >= patternStart && currentRow < patternStart + matchedLabels.length(), "current row is out of bounds of the match");
 
         int relativePosition;
         if (last) {
-            int start;
+            int searchStart;
             if (running) {
-                start = currentRow - patternStart;
+                searchStart = currentRow - patternStart;
             }
             else {
-                start = matchedLabels.length() - 1;
+                searchStart = matchedLabels.length() - 1;
             }
-            relativePosition = findLastAndBackwards(start, matchedLabels);
+            relativePosition = findLastAndBackwards(searchStart, matchedLabels);
         }
         else {
             relativePosition = findFirstAndForward(matchedLabels);
         }
-        return adjustPosition(relativePosition, patternStart, searchStart, searchEnd);
+        return adjustPosition(relativePosition, patternStart, partitionStart, partitionEnd);
     }
 
     // LAST(A.price, 3): find the last occurrence of label "A" and go 3 occurrences backwards

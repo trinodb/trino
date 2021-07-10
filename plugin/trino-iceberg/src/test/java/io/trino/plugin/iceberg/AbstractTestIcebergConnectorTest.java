@@ -209,6 +209,30 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Override
+    protected void checkShowColumnsForMaterializedView(String schemaName, String viewName)
+    {
+        // TODO The query should not fail, obviously. It should return all the columns in the view
+        assertThatThrownBy(() -> super.checkShowColumnsForMaterializedView(schemaName, viewName))
+                .hasMessageContaining(format("Table 'iceberg.%s.%s' does not exist", schemaName, viewName));
+    }
+
+    @Override
+    protected void checkInformationSchemaColumnsForMaterializedView(String schemaName, String viewName)
+    {
+        // TODO The query should not fail, obviously. It should return columns for all tables, views, and materialized views
+        assertThatThrownBy(() -> super.checkInformationSchemaColumnsForMaterializedView(schemaName, viewName))
+                .hasMessageFindingMatch("(?s)Expecting.*to contain:.*, nationkey\\).*, name\\).*, regionkey\\).*, comment\\)");
+    }
+
+    @Override
+    protected void checkInformationSchemaColumnsForPointedQueryForMaterializedView(String schemaName, String viewName)
+    {
+        // TODO The query should not fail, obviously. It should return columns for the materialized view
+        assertThatThrownBy(() -> super.checkInformationSchemaColumnsForPointedQueryForMaterializedView(schemaName, viewName))
+                .hasMessageFindingMatch("(?s)Expecting.*to contain:.*, nationkey\\).*, name\\).*, regionkey\\).*, comment\\)");
+    }
+
+    @Override
     protected void checkInformationSchemaViewsForMaterializedView(String schemaName, String viewName)
     {
         // TODO should probably return materialized view, as it's also a view -- to be double checked

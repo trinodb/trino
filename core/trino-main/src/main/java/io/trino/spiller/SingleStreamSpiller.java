@@ -30,13 +30,13 @@ public interface SingleStreamSpiller
      * Initiate spilling of pages stream. Returns completed future once spilling has finished.
      * Next spill can be initiated as soon as previous one completes.
      */
-    ListenableFuture<Void> spill(Iterator<Page> page);
+    ListenableFuture<?> spill(Iterator<Page> page);
 
     /**
      * Initiate spilling of single page. Returns completed future once spilling has finished.
      * Next spill can be initiated as soon as previous one completes.
      */
-    default ListenableFuture<Void> spill(Page page)
+    default ListenableFuture<?> spill(Page page)
     {
         return spill(singletonIterator(page));
     }

@@ -28,18 +28,18 @@ public class TestEmbeddedDiscoveryConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(EmbeddedDiscoveryConfig.class)
-                .setEnabled(true));
+                .setEnabled(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("discovery-server.enabled", "false")
+                .put("discovery-server.enabled", "true")
                 .build();
 
         EmbeddedDiscoveryConfig expected = new EmbeddedDiscoveryConfig()
-                .setEnabled(false);
+                .setEnabled(true);
 
         assertFullMapping(properties, expected);
     }

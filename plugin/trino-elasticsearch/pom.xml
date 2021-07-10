@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>359-SNAPSHOT</version>
+        <version>358</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -232,10 +232,6 @@
                 <exclusion>
                     <groupId>org.apache.lucene</groupId>
                     <artifactId>lucene-suggest</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.yaml</groupId>
-                    <artifactId>snakeyaml</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

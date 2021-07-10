@@ -82,7 +82,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 Transform.of(Optional.of(split), TransformationState.ofResult(page1, false)),
                 Transform.of(Optional.of(split), TransformationState.ofResult(page2, true))));
 
-        SettableFuture<Void> firstBlockedFuture = SettableFuture.create();
+        SettableFuture<?> firstBlockedFuture = SettableFuture.create();
         Transformation<Page, Page> firstOperatorPages = transformationFrom(ImmutableList.of(
                 Transform.of(Optional.of(page1), TransformationState.blocked(firstBlockedFuture)),
                 Transform.of(Optional.of(page1), TransformationState.ofResult(page3, true)),
@@ -90,7 +90,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 Transform.of(Optional.of(page2), TransformationState.finished())),
                 (left, right) -> left.getPositionCount() == right.getPositionCount());
 
-        SettableFuture<Void> secondBlockedFuture = SettableFuture.create();
+        SettableFuture<?> secondBlockedFuture = SettableFuture.create();
         Transformation<Page, Page> secondOperatorPages = transformationFrom(ImmutableList.of(
                 Transform.of(Optional.of(page3), TransformationState.ofResult(page5, true)),
                 Transform.of(Optional.of(page4), TransformationState.needsMoreData()),

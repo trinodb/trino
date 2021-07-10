@@ -67,7 +67,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.SystemSessionProperties.getInitialSplitsPerNode;
 import static io.trino.SystemSessionProperties.getMaxDriversPerTask;
 import static io.trino.SystemSessionProperties.getSplitConcurrencyAdjustmentInterval;
@@ -546,12 +545,12 @@ public class SqlTaskExecution
     private synchronized void enqueueDriverSplitRunner(boolean forceRunSplit, List<DriverSplitRunner> runners)
     {
         // schedule driver to be executed
-        List<ListenableFuture<Void>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
+        List<ListenableFuture<?>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
         checkState(finishedFutures.size() == runners.size(), "Expected %s futures but got %s", runners.size(), finishedFutures.size());
 
         // when driver completes, update state and fire events
         for (int i = 0; i < finishedFutures.size(); i++) {
-            ListenableFuture<Void> finishedFuture = finishedFutures.get(i);
+            ListenableFuture<?> finishedFuture = finishedFutures.get(i);
             DriverSplitRunner splitRunner = runners.get(i);
 
             // record new driver
@@ -1057,13 +1056,13 @@ public class SqlTaskExecution
         }
 
         @Override
-        public ListenableFuture<Void> processFor(Duration duration)
+        public ListenableFuture<?> processFor(Duration duration)
         {
             Driver driver;
             synchronized (this) {
                 // if close() was called before we get here, there's not point in even creating the driver
                 if (closed) {
-                    return immediateVoidFuture();
+                    return Futures.immediateFuture(null);
                 }
 
                 if (this.driver == null) {

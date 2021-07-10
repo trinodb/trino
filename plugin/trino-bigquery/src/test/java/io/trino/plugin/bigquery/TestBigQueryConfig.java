@@ -44,8 +44,7 @@ public class TestBigQueryConfig
                 .setViewMaterializationDataset("vmdataset")
                 .setMaxReadRowsRetries(10)
                 .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
-                .setViewsCacheTtl(new Duration(15, MINUTES));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES));
 
         assertEquals(config.getCredentialsKey(), Optional.of("key"));
         assertEquals(config.getCredentialsFile(), Optional.of("cfile"));
@@ -57,7 +56,6 @@ public class TestBigQueryConfig
         assertEquals(config.getMaxReadRowsRetries(), 10);
         assertEquals(config.isCaseInsensitiveNameMatching(), false);
         assertEquals(config.getCaseInsensitiveNameMatchingCacheTtl(), new Duration(1, MINUTES));
-        assertEquals(config.getViewsCacheTtl(), new Duration(15, MINUTES));
     }
 
     @Test
@@ -74,7 +72,6 @@ public class TestBigQueryConfig
                 .put("bigquery.max-read-rows-retries", "10")
                 .put("bigquery.case-insensitive-name-matching", "true")
                 .put("bigquery.case-insensitive-name-matching.cache-ttl", "1s")
-                .put("bigquery.views-cache-ttl", "1m")
                 .build();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
@@ -90,7 +87,6 @@ public class TestBigQueryConfig
         assertEquals(config.getMaxReadRowsRetries(), 10);
         assertEquals(config.isCaseInsensitiveNameMatching(), true);
         assertEquals(config.getCaseInsensitiveNameMatchingCacheTtl(), new Duration(1, SECONDS));
-        assertEquals(config.getViewsCacheTtl(), new Duration(1, MINUTES));
     }
 
     @Test

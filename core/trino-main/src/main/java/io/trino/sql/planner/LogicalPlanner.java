@@ -55,7 +55,6 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableFinishNode;
@@ -266,6 +265,7 @@ public class LogicalPlanner
             return createInsertPlan(analysis, (Insert) statement);
         }
         if (statement instanceof RefreshMaterializedView) {
+            checkState(analysis.getRefreshMaterializedView().isPresent(), "RefreshMaterializedViewAnalysis handle is missing");
             return createRefreshMaterializedViewPlan(analysis);
         }
         if (statement instanceof Delete) {
@@ -481,16 +481,6 @@ public class LogicalPlanner
 
     private RelationPlan createRefreshMaterializedViewPlan(Analysis analysis)
     {
-        Optional<QualifiedObjectName> delegatedRefreshMaterializedView = analysis.getDelegatedRefreshMaterializedView();
-        if (delegatedRefreshMaterializedView.isPresent()) {
-            return new RelationPlan(
-                    new RefreshMaterializedViewNode(idAllocator.getNextId(), delegatedRefreshMaterializedView.get()),
-                    analysis.getRootScope(),
-                    ImmutableList.of(),
-                    Optional.empty());
-        }
-
-        checkState(analysis.getRefreshMaterializedView().isPresent(), "RefreshMaterializedViewAnalysis handle is missing");
         Analysis.RefreshMaterializedViewAnalysis viewAnalysis = analysis.getRefreshMaterializedView().get();
         TableHandle tableHandle = viewAnalysis.getTarget();
         Query query = viewAnalysis.getQuery();

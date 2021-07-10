@@ -13,7 +13,6 @@
  */
 package io.trino.metadata;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
@@ -121,17 +120,17 @@ public interface Metadata
      * Return table schema definition for the specified table handle.
      * Table schema definition is a set of information
      * required by semantic analyzer to analyze the query.
+     * @see {@link #getTableMetadata(Session, TableHandle)}
      *
      * @throws RuntimeException if table handle is no longer valid
-     * @see {@link #getTableMetadata(Session, TableHandle)}
      */
     TableSchema getTableSchema(Session session, TableHandle tableHandle);
 
     /**
      * Return the metadata for the specified table handle.
+     * @see {@link #getTableSchema(Session, TableHandle)} which is less expsensive.
      *
      * @throws RuntimeException if table handle is no longer valid
-     * @see {@link #getTableSchema(Session, TableHandle)} which is less expensive.
      */
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
@@ -290,16 +289,6 @@ public interface Metadata
      * Finish insert query
      */
     Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
-
-    /**
-     * Returns true if materialized view refresh should be delegated to connector
-     */
-    boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName);
-
-    /**
-     * Refresh materialized view
-     */
-    ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName);
 
     /**
      * Begin refresh materialized view query
@@ -638,16 +627,6 @@ public interface Metadata
     void dropMaterializedView(Session session, QualifiedObjectName viewName);
 
     /**
-     * Get the names that match the specified table prefix (never null).
-     */
-    List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix);
-
-    /**
-     * Get the materialized view definitions that match the specified table prefix (never null).
-     */
-    Map<QualifiedObjectName, ConnectorMaterializedViewDefinition> getMaterializedViews(Session session, QualifiedTablePrefix prefix);
-
-    /**
      * Returns the materialized view definition for the specified view name.
      */
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
@@ -667,6 +646,7 @@ public interface Metadata
 
     /**
      * Get the target table handle after performing redirection.
+     *
      */
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName);
 }

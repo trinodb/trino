@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -236,7 +235,6 @@ public interface ConnectorMetadata
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
-     *
      * @deprecated use {@link #streamTableColumns} which handles redirected tables
      */
     @Deprecated
@@ -489,22 +487,6 @@ public interface ConnectorMetadata
     default Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginInsert() is implemented without finishInsert()");
-    }
-
-    /**
-     * Returns true if materialized view refresh should be delegated to connector using {@link ConnectorMetadata#refreshMaterializedView}
-     */
-    default boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
-    }
-
-    /**
-     * Refresh materialized view
-     */
-    default CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
 
     /**
@@ -1167,28 +1149,6 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Get the names that match the specified table prefix (never null).
-     */
-    default List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
-    {
-        return List.of();
-    }
-
-    /**
-     * Gets the definitions of materialized views, possibly filtered by schema.
-     * This optional method may be implemented by connectors that can support fetching
-     * view data in bulk. It is used to populate {@code information_schema.columns}.
-     */
-    default Map<SchemaTableName, ConnectorMaterializedViewDefinition> getMaterializedViews(ConnectorSession session, Optional<String> schemaName)
-    {
-        Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = new HashMap<>();
-        for (SchemaTableName name : listMaterializedViews(session, schemaName)) {
-            getMaterializedView(session, name).ifPresent(view -> materializedViews.put(name, view));
-        }
-        return materializedViews;
-    }
-
-    /**
      * Gets the materialized view data for the specified materialized view name. Returns {@link Optional#empty()}
      * if {@code viewName} relation does not or is not a materialized view (e.g. is a table, or a view).
      *
@@ -1216,7 +1176,7 @@ public interface ConnectorMetadata
     /**
      * Redirects table to other table which may or may not be in the same catalog.
      * Currently the engine tries to do redirection only for table reads and metadata listing.
-     * <p>
+     *
      * Also consider implementing streamTableColumns to support redirection for listing.
      */
     default Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)

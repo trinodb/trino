@@ -17,12 +17,10 @@ import com.google.common.primitives.Shorts;
 import io.trino.hadoop.HadoopNative;
 import io.trino.plugin.hive.authentication.GenericExceptionAction;
 import io.trino.plugin.hive.authentication.HdfsAuthentication;
-import io.trino.plugin.hive.fs.TrinoFileSystemCache;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.FileSystemManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 
@@ -38,7 +36,6 @@ public class HdfsEnvironment
 {
     static {
         HadoopNative.requireHadoopNative();
-        FileSystemManager.registerCache(TrinoFileSystemCache.INSTANCE);
     }
 
     private final HdfsConfiguration hdfsConfiguration;

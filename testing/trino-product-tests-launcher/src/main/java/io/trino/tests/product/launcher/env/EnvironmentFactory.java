@@ -34,12 +34,12 @@ public final class EnvironmentFactory
         this.environmentProviders = requireNonNull(environmentProviders, "environmentProviders is null");
     }
 
-    public Environment.Builder get(String environmentName, EnvironmentConfig config, Map<String, String> extraOptions)
+    public Environment.Builder get(String environmentName, EnvironmentConfig config)
     {
         environmentName = canonicalName(environmentName);
         checkArgument(environmentProviders.containsKey(environmentName), "No environment with name '%s'. Those do exist, however: %s", environmentName, list());
         return environmentProviders.get(environmentName)
-                .createEnvironment(environmentName, config, extraOptions);
+                .createEnvironment(environmentName, config);
     }
 
     public List<String> list()

@@ -15,7 +15,6 @@ package io.trino.tests.product.launcher.cli;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -41,9 +40,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
@@ -114,9 +111,6 @@ public final class TestRun
         @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start", required = true)
         public String environment;
 
-        @Option(names = "--option", paramLabel = "<option>", description = "Extra options to provide to environment (property can be used multiple times; format is key=value)")
-        public Map<String, String> extraOptions = new HashMap<>();
-
         @Option(names = "--attach", description = "attach to an existing environment")
         public boolean attach;
 
@@ -158,7 +152,6 @@ public final class TestRun
         private final Path reportsDirBase;
         private final Optional<Path> logsDirBase;
         private final EnvironmentConfig environmentConfig;
-        private final Map<String, String> extraOptions;
 
         @Inject
         public Execution(EnvironmentFactory environmentFactory, EnvironmentOptions environmentOptions, EnvironmentConfig environmentConfig, TestRunOptions testRunOptions)
@@ -177,7 +170,6 @@ public final class TestRun
             this.reportsDirBase = requireNonNull(testRunOptions.reportsDir, "testRunOptions.reportsDirBase is empty");
             this.logsDirBase = requireNonNull(testRunOptions.logsDirBase, "testRunOptions.logsDirBase is empty");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
-            this.extraOptions = ImmutableMap.copyOf(requireNonNull(testRunOptions.extraOptions, "testRunOptions.extraOptions is null"));
         }
 
         @Override
@@ -233,7 +225,7 @@ public final class TestRun
                         .collect(toImmutableList());
                 testsContainer.dependsOn(environmentContainers);
 
-                log.info("Starting environment '%s' with config '%s' and options '%s'", this.environment, environmentConfig.getConfigName(), extraOptions);
+                log.info("Starting environment '%s' with config '%s'", this.environment, environmentConfig.getConfigName());
                 environment.start();
             }
             else {
@@ -247,7 +239,7 @@ public final class TestRun
 
         private Environment getEnvironment()
         {
-            Environment.Builder builder = environmentFactory.get(environment, environmentConfig, extraOptions)
+            Environment.Builder builder = environmentFactory.get(environment, environmentConfig)
                     .setContainerOutputMode(outputMode)
                     .setStartupRetries(startupRetries)
                     .setLogsBaseDir(logsDirBase);

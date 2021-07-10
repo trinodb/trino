@@ -351,7 +351,6 @@ public class ElasticsearchMetadata
                 .filter(entry -> indexes.contains(entry.getKey()))
                 .flatMap(entry -> entry.getValue().stream()
                         .map(alias -> new SchemaTableName(this.schemaName, alias)))
-                .distinct()
                 .forEach(result::add);
 
         return result.build();

@@ -36,7 +36,7 @@ public enum BucketingType
         }
 
         @Override
-        public List<String> getTrinoTableProperties(String columnName, int buckets)
+        public List<String> getPrestoTableProperties(String columnName, int buckets)
         {
             return ImmutableList.of();
         }
@@ -56,7 +56,7 @@ public enum BucketingType
         }
 
         @Override
-        public List<String> getTrinoTableProperties(String columnName, int buckets)
+        public List<String> getPrestoTableProperties(String columnName, int buckets)
         {
             return ImmutableList.of(
                     "bucketed_by = ARRAY['" + columnName + "']",
@@ -78,7 +78,7 @@ public enum BucketingType
         }
 
         @Override
-        public List<String> getTrinoTableProperties(String columnName, int buckets)
+        public List<String> getPrestoTableProperties(String columnName, int buckets)
         {
             return ImmutableList.of(
                     "bucketing_version = 1",
@@ -101,7 +101,7 @@ public enum BucketingType
         }
 
         @Override
-        public List<String> getTrinoTableProperties(String columnName, int buckets)
+        public List<String> getPrestoTableProperties(String columnName, int buckets)
         {
             return ImmutableList.of(
                     "bucketing_version = 2",
@@ -115,7 +115,7 @@ public enum BucketingType
 
     public abstract List<String> getHiveTableProperties();
 
-    public abstract List<String> getTrinoTableProperties(String columnName, int buckets);
+    public abstract List<String> getPrestoTableProperties(String columnName, int buckets);
 
     private static String defaultHiveClustering(String columnName, int buckets)
     {

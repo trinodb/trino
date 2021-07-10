@@ -90,14 +90,4 @@ public class LabelDereference
     {
         return Objects.hash(label, reference);
     }
-
-    @Override
-    public boolean shallowEquals(Node other)
-    {
-        if (!sameClass(this, other)) {
-            return false;
-        }
-
-        return label.equals(((LabelDereference) other).label);
-    }
 }

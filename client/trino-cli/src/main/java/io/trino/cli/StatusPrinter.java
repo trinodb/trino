@@ -15,6 +15,7 @@ package io.trino.cli;
 
 import com.google.common.base.Strings;
 import com.google.common.primitives.Ints;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.QueryStatusInfo;
@@ -53,6 +54,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class StatusPrinter
 {
+    private static final Logger log = Logger.get(StatusPrinter.class);
+
     private static final int CTRL_C = 3;
     private static final int CTRL_P = 16;
 
@@ -132,6 +135,7 @@ Spilled: 20GB
                     client.advance();
                 }
                 catch (RuntimeException e) {
+                    log.debug(e, "error printing status");
                     if (debug) {
                         e.printStackTrace(out);
                     }

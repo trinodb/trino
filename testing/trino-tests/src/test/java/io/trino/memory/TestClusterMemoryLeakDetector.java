@@ -38,6 +38,7 @@ import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 
+@Test
 public class TestClusterMemoryLeakDetector
 {
     @Test

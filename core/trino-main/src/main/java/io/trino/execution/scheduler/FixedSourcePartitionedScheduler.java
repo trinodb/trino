@@ -183,7 +183,7 @@ public class FixedSourcePartitionedScheduler
         }
 
         boolean allBlocked = true;
-        List<ListenableFuture<Void>> blocked = new ArrayList<>();
+        List<ListenableFuture<?>> blocked = new ArrayList<>();
         BlockedReason blockedReason = BlockedReason.NO_ACTIVE_DRIVER_GROUP;
 
         if (groupedLifespanScheduler.isPresent()) {

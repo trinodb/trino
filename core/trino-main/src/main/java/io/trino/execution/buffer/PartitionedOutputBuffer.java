@@ -155,7 +155,7 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public ListenableFuture<Void> isFull()
+    public ListenableFuture<?> isFull()
     {
         return memoryManager.getBufferBlockedFuture();
     }

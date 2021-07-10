@@ -293,9 +293,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public boolean isTopNGuaranteed(ConnectorSession session)
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
     {
-        return delegate().isTopNGuaranteed(session);
+        return delegate().isTopNLimitGuaranteed(session);
     }
 
     @Override

@@ -74,7 +74,7 @@ public class LocalExchangeSink
         exchanger.accept(page);
     }
 
-    public ListenableFuture<Void> waitForWriting()
+    public ListenableFuture<?> waitForWriting()
     {
         if (isFinished()) {
             return NOT_BLOCKED;

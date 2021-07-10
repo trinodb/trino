@@ -133,14 +133,11 @@ public class LdapAuthenticator
                 log.debug("Authentication successful for user [%s]", user);
                 return new BasicPrincipal(user);
             }
-            catch (NamingException | AccessDeniedException e) {
+            catch (NamingException e) {
                 lastException = e;
             }
         }
         log.debug(lastException, "Authentication failed for user [%s], %s", user, lastException.getMessage());
-        if (lastException instanceof AccessDeniedException) {
-            throw (AccessDeniedException) lastException;
-        }
         throw new RuntimeException("Authentication error");
     }
 

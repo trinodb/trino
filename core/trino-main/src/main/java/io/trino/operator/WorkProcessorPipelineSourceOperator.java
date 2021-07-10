@@ -13,7 +13,6 @@
  */
 package io.trino.operator;
 
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -71,9 +70,9 @@ public class WorkProcessorPipelineSourceOperator
     private final List<WorkProcessorOperatorContext> workProcessorOperatorContexts = new ArrayList<>();
     private final List<Split> pendingSplits = new ArrayList<>();
 
-    private ListenableFuture<Void> blockedFuture;
+    private ListenableFuture<?> blockedFuture;
     private WorkProcessorSourceOperator sourceOperator;
-    private SettableFuture<Void> blockedOnSplits = SettableFuture.create();
+    private SettableFuture<?> blockedOnSplits = SettableFuture.create();
     private boolean operatorFinishing;
 
     public static List<OperatorFactory> convertOperators(
@@ -386,7 +385,7 @@ public class WorkProcessorPipelineSourceOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogName(), splitInfo)));
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(split.getCatalogName(), splitInfo));
         }
 
         pendingSplits.add(split);
@@ -435,7 +434,7 @@ public class WorkProcessorPipelineSourceOperator
     }
 
     @Override
-    public ListenableFuture<Void> startMemoryRevoke()
+    public ListenableFuture<?> startMemoryRevoke()
     {
         // TODO: support spill
         throw new UnsupportedOperationException();
@@ -464,7 +463,7 @@ public class WorkProcessorPipelineSourceOperator
     }
 
     @Override
-    public ListenableFuture<Void> isBlocked()
+    public ListenableFuture<?> isBlocked()
     {
         if (!pages.isBlocked()) {
             return NOT_BLOCKED;
@@ -588,9 +587,9 @@ public class WorkProcessorPipelineSourceOperator
         }
 
         @Override
-        public ListenableFuture<Void> setBytes(long bytes)
+        public ListenableFuture<?> setBytes(long bytes)
         {
-            ListenableFuture<Void> blocked = delegate.setBytes(bytes);
+            ListenableFuture<?> blocked = delegate.setBytes(bytes);
             allocationListener.run();
             return blocked;
         }

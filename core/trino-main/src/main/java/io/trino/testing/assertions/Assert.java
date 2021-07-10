@@ -15,7 +15,6 @@ package io.trino.testing.assertions;
 
 import io.airlift.units.Duration;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
@@ -60,11 +59,6 @@ public class Assert
 
     public static void assertEventually(Duration timeout, Runnable assertion)
     {
-        assertEventually(timeout, new Duration(50, MILLISECONDS), assertion);
-    }
-
-    public static void assertEventually(Duration timeout, Duration retryFrequency, Runnable assertion)
-    {
         long start = System.nanoTime();
         while (!Thread.currentThread().isInterrupted()) {
             try {
@@ -77,7 +71,7 @@ public class Assert
                 }
             }
             try {
-                Thread.sleep(retryFrequency.toMillis());
+                Thread.sleep(50);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

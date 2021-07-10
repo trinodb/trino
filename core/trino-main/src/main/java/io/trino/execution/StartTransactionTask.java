@@ -31,7 +31,7 @@ import io.trino.transaction.TransactionManager;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
@@ -45,7 +45,7 @@ public class StartTransactionTask
     }
 
     @Override
-    public ListenableFuture<Void> execute(
+    public ListenableFuture<?> execute(
             StartTransaction statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -76,7 +76,7 @@ public class StartTransactionTask
         // when this statement completes.
         transactionManager.trySetInactive(transactionId);
 
-        return immediateVoidFuture();
+        return immediateFuture(null);
     }
 
     private static Optional<IsolationLevel> extractIsolationLevel(StartTransaction startTransaction)

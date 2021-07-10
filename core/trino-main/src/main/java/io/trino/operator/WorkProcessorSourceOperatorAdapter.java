@@ -13,7 +13,6 @@
  */
 package io.trino.operator;
 
-import com.google.common.base.Suppliers;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.Session;
@@ -103,7 +102,7 @@ public class WorkProcessorSourceOperatorAdapter
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogName(), splitInfo)));
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(split.getCatalogName(), splitInfo));
         }
 
         splitBuffer.add(split);
@@ -123,7 +122,7 @@ public class WorkProcessorSourceOperatorAdapter
     }
 
     @Override
-    public ListenableFuture<Void> isBlocked()
+    public ListenableFuture<?> isBlocked()
     {
         if (!pages.isBlocked()) {
             return NOT_BLOCKED;
@@ -236,7 +235,7 @@ public class WorkProcessorSourceOperatorAdapter
     {
         private final List<Split> pendingSplits = new ArrayList<>();
 
-        private SettableFuture<Void> blockedOnSplits = SettableFuture.create();
+        private SettableFuture<?> blockedOnSplits = SettableFuture.create();
         private boolean noMoreSplits;
 
         @Override

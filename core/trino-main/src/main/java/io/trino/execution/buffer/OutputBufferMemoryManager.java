@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 class OutputBufferMemoryManager
 {
-    private static final ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
+    private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
 
     private final long maxBufferedBytes;
     private final AtomicLong bufferedBytes = new AtomicLong();
@@ -50,9 +50,9 @@ class OutputBufferMemoryManager
     private boolean closed;
     @Nullable
     @GuardedBy("this")
-    private SettableFuture<Void> bufferBlockedFuture;
+    private SettableFuture<?> bufferBlockedFuture; // null indicates "no listener registered"
     @GuardedBy("this")
-    private ListenableFuture<Void> blockedOnMemory = NOT_BLOCKED;
+    private ListenableFuture<?> blockedOnMemory = NOT_BLOCKED;
 
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
@@ -77,8 +77,8 @@ class OutputBufferMemoryManager
             return;
         }
 
-        ListenableFuture<Void> waitForMemory = null;
-        SettableFuture<Void> notifyUnblocked = null;
+        ListenableFuture<?> waitForMemory = null;
+        SettableFuture<?> notifyUnblocked = null;
         long currentBufferedBytes;
         synchronized (this) {
             // If closed is true, that means the task is completed. In that state,
@@ -93,7 +93,7 @@ class OutputBufferMemoryManager
                 checkArgument(result >= 0, "bufferedBytes (%s) plus delta (%s) would be negative", bytes, bytesAdded);
                 return result;
             });
-            ListenableFuture<Void> blockedOnMemory = systemMemoryContext.setBytes(currentBufferedBytes);
+            ListenableFuture<?> blockedOnMemory = systemMemoryContext.setBytes(currentBufferedBytes);
             if (!blockedOnMemory.isDone()) {
                 if (this.blockedOnMemory != blockedOnMemory) {
                     this.blockedOnMemory = blockedOnMemory;
@@ -119,7 +119,7 @@ class OutputBufferMemoryManager
         }
     }
 
-    public synchronized ListenableFuture<Void> getBufferBlockedFuture()
+    public synchronized ListenableFuture<?> getBufferBlockedFuture()
     {
         if (bufferBlockedFuture == null) {
             if (blockedOnMemory.isDone() && !isBufferFull()) {
@@ -132,7 +132,7 @@ class OutputBufferMemoryManager
 
     public void setNoBlockOnFull()
     {
-        SettableFuture<Void> future = null;
+        SettableFuture<?> future = null;
         synchronized (this) {
             blockOnFull.set(false);
 
@@ -173,7 +173,7 @@ class OutputBufferMemoryManager
             return;
         }
 
-        SettableFuture<Void> future;
+        SettableFuture<?> future;
         synchronized (this) {
             // re-check after synchronizing and ensure the current memory future is completed
             if (isBufferFull() || !blockedOnMemory.isDone()) {
@@ -201,7 +201,7 @@ class OutputBufferMemoryManager
         closed = true;
     }
 
-    private void notifyListener(@Nullable SettableFuture<Void> future)
+    private void notifyListener(@Nullable SettableFuture<?> future)
     {
         if (future != null) {
             notificationExecutor.execute(() -> future.set(null));

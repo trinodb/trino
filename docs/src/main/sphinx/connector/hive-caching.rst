@@ -78,7 +78,7 @@ can be activated in the catalog properties file:
 
 .. code-block:: text
 
-    connector.name=hive
+    connector.name=hive-hadoop2
     hive.cache.enabled=true
     hive.cache.location=/opt/hive-cache
 

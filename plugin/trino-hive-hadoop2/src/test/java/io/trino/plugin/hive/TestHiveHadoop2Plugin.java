@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.qubole.rubix.core.CachingFileSystem;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.Connector;
@@ -29,8 +30,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static com.google.common.collect.MoreCollectors.toOptional;
-import static com.google.common.collect.Streams.stream;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
@@ -40,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true) // see @BeforeMethod
-public class TestHivePlugin
+public class TestHiveHadoop2Plugin
 {
     private Path tempDirectory;
 
@@ -69,21 +69,8 @@ public class TestHivePlugin
     @Test
     public void testCreateConnector()
     {
-        ConnectorFactory factory = getHiveConnectorFactory();
-
-        // simplest possible configuration
-        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext()).shutdown();
-    }
-
-    @Test
-    public void testCreateConnectorLegacyName()
-    {
-        Plugin plugin = new HivePlugin();
-        ConnectorFactory factory = stream(plugin.getConnectorFactories())
-                .filter(x -> x.getName().equals("hive-hadoop2"))
-                .collect(toOptional())
-                .orElseThrow();
-
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         // simplest possible configuration
         factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext()).shutdown();
     }
@@ -91,8 +78,8 @@ public class TestHivePlugin
     @Test
     public void testThriftMetastore()
     {
-        ConnectorFactory factory = getHiveConnectorFactory();
-
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create(
                 "test",
                 ImmutableMap.of(
@@ -105,8 +92,8 @@ public class TestHivePlugin
     @Test
     public void testGlueMetastore()
     {
-        ConnectorFactory factory = getHiveConnectorFactory();
-
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create(
                 "test",
                 ImmutableMap.of(
@@ -126,7 +113,8 @@ public class TestHivePlugin
     @Test
     public void testRecordingMetastore()
     {
-        ConnectorFactory factory = getHiveConnectorFactory();
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
 
         factory.create(
                 "test",
@@ -152,7 +140,8 @@ public class TestHivePlugin
             throws IOException
     {
         Path mappingConfig = Files.createTempFile(null, null);
-        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
 
         assertThatThrownBy(() -> connectorFactory.create(
                 "test",
@@ -169,7 +158,8 @@ public class TestHivePlugin
     @Test
     public void testGcsAccessTokenAndHiveCachingMutuallyExclusive()
     {
-        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
 
         assertThatThrownBy(() -> connectorFactory.create(
                 "test",
@@ -186,7 +176,8 @@ public class TestHivePlugin
     @Test
     public void testImmutablePartitionsAndInsertOverwriteMutuallyExclusive()
     {
-        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
 
         assertThatThrownBy(() -> connectorFactory.create(
                 "test",
@@ -202,7 +193,8 @@ public class TestHivePlugin
     @Test
     public void testInsertOverwriteIsSetToErrorWhenImmutablePartitionsIsTrue()
     {
-        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
 
         Connector connector = connectorFactory.create(
                 "test",
@@ -218,7 +210,8 @@ public class TestHivePlugin
     @Test
     public void testInsertOverwriteIsSetToAppendWhenImmutablePartitionsIsFalseByDefault()
     {
-        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
 
         Connector connector = connectorFactory.create(
                 "test",
@@ -242,7 +235,8 @@ public class TestHivePlugin
     @Test
     public void testHdfsImpersonationAndHiveCachingMutuallyExclusive()
     {
-        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
 
         assertThatThrownBy(() -> connectorFactory.create(
                 "test",
@@ -259,7 +253,8 @@ public class TestHivePlugin
     @Test
     public void testRubixCache()
     {
-        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
 
         connectorFactory.create(
                 "test",
@@ -275,7 +270,8 @@ public class TestHivePlugin
     @Test
     public void testRubixCacheWithNonExistingCacheDirectory()
     {
-        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
 
         assertThatThrownBy(() -> connectorFactory.create(
                 "test",
@@ -307,14 +303,5 @@ public class TestHivePlugin
                         .build(),
                 new TestingConnectorContext())
                 .shutdown();
-    }
-
-    private static ConnectorFactory getHiveConnectorFactory()
-    {
-        Plugin plugin = new HivePlugin();
-        return stream(plugin.getConnectorFactories())
-                .filter(factory -> factory.getName().equals("hive"))
-                .collect(toOptional())
-                .orElseThrow();
     }
 }

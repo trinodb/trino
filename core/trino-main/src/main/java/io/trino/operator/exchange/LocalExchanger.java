@@ -26,7 +26,7 @@ public interface LocalExchanger
         public void accept(Page page) {}
 
         @Override
-        public ListenableFuture<Void> waitForWriting()
+        public ListenableFuture<?> waitForWriting()
         {
             return NOT_BLOCKED;
         }
@@ -34,7 +34,7 @@ public interface LocalExchanger
 
     void accept(Page page);
 
-    ListenableFuture<Void> waitForWriting();
+    ListenableFuture<?> waitForWriting();
 
     default void finish() {}
 }

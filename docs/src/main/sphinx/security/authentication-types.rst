@@ -10,16 +10,11 @@ You can configure one or more authentication types with the
 ``http-server.authentication.type`` property. The following authentication types
 and authenticators are available:
 
-* ``PASSWORD`` for
-
-  *  :doc:`password-file`
-  *  :doc:`ldap`
-  *  :doc:`salesforce`
-
+* ``PASSSWORD`` for  :doc:`password-file`, :doc:`ldap`, and :doc:`salesforce`
 * ``OAUTH2`` for :doc:`oauth2`
-* ``KERBEROS`` for :doc:`kerberos`
-* ``JWT`` for :doc:`jwt`
 * ``CERTIFICATE`` for certificate authentication
+* ``JWT`` for Java Web Token (JWT) authentication
+* ``KERBEROS`` for :doc:`kerberos`
 
 Get started with a basic password authentication configuration backed by a
 :doc:`password file <password-file>`:

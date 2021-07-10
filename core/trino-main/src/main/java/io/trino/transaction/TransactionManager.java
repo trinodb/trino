@@ -63,9 +63,9 @@ public interface TransactionManager
 
     void trySetInactive(TransactionId transactionId);
 
-    ListenableFuture<Void> asyncCommit(TransactionId transactionId);
+    ListenableFuture<?> asyncCommit(TransactionId transactionId);
 
-    ListenableFuture<Void> asyncAbort(TransactionId transactionId);
+    ListenableFuture<?> asyncAbort(TransactionId transactionId);
 
     void fail(TransactionId transactionId);
 

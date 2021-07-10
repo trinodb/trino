@@ -63,7 +63,7 @@ public class LookupJoinOperator
         lookupSourceProviderFuture = lookupSourceFactory.createLookupSourceProvider();
         pageBuffer = new PageBuffer();
         PageJoinerFactory pageJoinerFactory = (lookupSourceProvider, joinerPartitioningSpillerFactory, savedRows) ->
-                new DefaultPageJoiner(
+                new PageJoiner(
                         processorContext,
                         probeTypes,
                         buildOutputTypes,

@@ -46,9 +46,6 @@ public class TestRevokeOnTable
     private static final Session admin = sessionOf("admin");
     private static final Session userWithAllPrivileges = sessionOf(randomUsername());
     private static final Session userWithSelect = sessionOf(randomUsername());
-    private static final Session userWithInsert = sessionOf(randomUsername());
-    private static final Session userWithUpdate = sessionOf(randomUsername());
-    private static final Session userWithDelete = sessionOf(randomUsername());
     private DistributedQueryRunner queryRunner;
     private QueryAssertions assertions;
 
@@ -62,9 +59,6 @@ public class TestRevokeOnTable
         tableGrants.grant(new TrinoPrincipal(USER, admin.getUser()), table, EnumSet.allOf(Privilege.class), true);
         tableGrants.grant(new TrinoPrincipal(USER, userWithAllPrivileges.getUser()), table, EnumSet.allOf(Privilege.class), true);
         tableGrants.grant(new TrinoPrincipal(USER, userWithSelect.getUser()), table, ImmutableSet.of(Privilege.SELECT), true);
-        tableGrants.grant(new TrinoPrincipal(USER, userWithInsert.getUser()), table, ImmutableSet.of(Privilege.INSERT), true);
-        tableGrants.grant(new TrinoPrincipal(USER, userWithUpdate.getUser()), table, ImmutableSet.of(Privilege.UPDATE), true);
-        tableGrants.grant(new TrinoPrincipal(USER, userWithDelete.getUser()), table, ImmutableSet.of(Privilege.DELETE), true);
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.of("default"))
                 .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName) ? ImmutableList.of(table) : ImmutableList.of())
@@ -119,9 +113,7 @@ public class TestRevokeOnTable
     public void testAccessDenied(String privilege)
     {
         assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE %s ON SCHEMA default FROM %s", privilege, randomUsername())))
-                .hasMessageContaining(format(
-                        "Access Denied: Cannot revoke privilege %s on schema default",
-                        privilege.equals("ALL PRIVILEGES") ? "SELECT" : privilege));
+                .hasMessageContaining("Access Denied: Cannot revoke privilege SELECT on schema default");
     }
 
     @DataProvider(name = "privilegesAndUsers")
@@ -129,9 +121,6 @@ public class TestRevokeOnTable
     {
         return new Object[][] {
                 {"SELECT", userWithSelect},
-                {"INSERT", userWithInsert},
-                {"UPDATE", userWithUpdate},
-                {"DELETE", userWithDelete},
                 {"ALL PRIVILEGES", userWithAllPrivileges}
         };
     }
@@ -141,9 +130,6 @@ public class TestRevokeOnTable
     {
         return new Object[][] {
                 {"SELECT"},
-                {"INSERT"},
-                {"UPDATE"},
-                {"DELETE"},
                 {"ALL PRIVILEGES"}
         };
     }

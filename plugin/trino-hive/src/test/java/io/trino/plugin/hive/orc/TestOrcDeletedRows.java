@@ -35,7 +35,6 @@ import java.util.Set;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.testng.Assert.assertEquals;
 
@@ -43,7 +42,6 @@ public class TestOrcDeletedRows
 {
     private Path partitionDirectory;
     private Block rowIdBlock;
-    private Block bucketBlock;
 
     @BeforeClass
     public void setUp()
@@ -51,9 +49,6 @@ public class TestOrcDeletedRows
         partitionDirectory = new Path(TestOrcDeletedRows.class.getClassLoader().getResource("fullacid_delete_delta_test") + "/");
         rowIdBlock = BIGINT.createFixedSizeBlockBuilder(1)
                 .writeLong(0)
-                .build();
-        bucketBlock = INTEGER.createFixedSizeBlockBuilder(1)
-                .writeInt(536870912)
                 .build();
     }
 
@@ -165,8 +160,7 @@ public class TestOrcDeletedRows
                 "test",
                 configuration,
                 HDFS_ENVIRONMENT,
-                acidInfo,
-                OptionalInt.of(0));
+                acidInfo);
     }
 
     private Page createTestPage(int originalTransactionStart, int originalTransactionEnd)
@@ -180,7 +174,6 @@ public class TestOrcDeletedRows
         return new Page(
                 size,
                 originalTransaction.build(),
-                new RunLengthEncodedBlock(bucketBlock, size),
                 new RunLengthEncodedBlock(rowIdBlock, size));
     }
 }

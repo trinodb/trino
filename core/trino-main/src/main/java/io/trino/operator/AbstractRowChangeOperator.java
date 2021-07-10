@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
@@ -29,7 +28,6 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -52,7 +50,6 @@ public abstract class AbstractRowChangeOperator
     protected long rowCount;
     private boolean closed;
     private ListenableFuture<Collection<Slice>> finishFuture;
-    private ListenableFuture<Void> blockedFutureView;
     private Supplier<Optional<UpdatablePageSource>> pageSource = Optional::empty;
 
     public AbstractRowChangeOperator(OperatorContext operatorContext)
@@ -72,13 +69,7 @@ public abstract class AbstractRowChangeOperator
         if (state == State.RUNNING) {
             state = State.FINISHING;
             finishFuture = toListenableFuture(pageSource().finish());
-            blockedFutureView = asVoid(finishFuture);
         }
-    }
-
-    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
-    {
-        return Futures.transform(future, v -> null, directExecutor());
     }
 
     @Override
@@ -97,12 +88,12 @@ public abstract class AbstractRowChangeOperator
     public abstract void addInput(Page page);
 
     @Override
-    public ListenableFuture<Void> isBlocked()
+    public ListenableFuture<?> isBlocked()
     {
-        if (blockedFutureView == null) {
+        if (finishFuture == null) {
             return NOT_BLOCKED;
         }
-        return blockedFutureView;
+        return finishFuture;
     }
 
     @Override

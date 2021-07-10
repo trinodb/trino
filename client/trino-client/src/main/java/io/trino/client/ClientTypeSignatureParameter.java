@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import io.airlift.json.ObjectMapperProvider;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -146,7 +147,7 @@ public class ClientTypeSignatureParameter
     public static class ClientTypeSignatureParameterDeserializer
             extends JsonDeserializer<ClientTypeSignatureParameter>
     {
-        private static final ObjectMapper MAPPER = JsonCodec.OBJECT_MAPPER_SUPPLIER.get();
+        private static final ObjectMapper MAPPER = new ObjectMapperProvider().get();
 
         @Override
         public ClientTypeSignatureParameter deserialize(JsonParser jp, DeserializationContext ctxt)

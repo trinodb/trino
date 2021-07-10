@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 
 public class Pager
         extends FilterOutputStream
@@ -118,7 +119,7 @@ public class Pager
                 result.complete(null);
             }
         }).start();
-        return result;
+        return unmodifiableFuture(result);
     }
 
     private static IOException propagateIOException(IOException e)

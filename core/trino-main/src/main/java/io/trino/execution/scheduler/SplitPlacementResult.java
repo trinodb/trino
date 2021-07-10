@@ -22,16 +22,16 @@ import static java.util.Objects.requireNonNull;
 
 public final class SplitPlacementResult
 {
-    private final ListenableFuture<Void> blocked;
+    private final ListenableFuture<?> blocked;
     private final Multimap<InternalNode, Split> assignments;
 
-    public SplitPlacementResult(ListenableFuture<Void> blocked, Multimap<InternalNode, Split> assignments)
+    public SplitPlacementResult(ListenableFuture<?> blocked, Multimap<InternalNode, Split> assignments)
     {
         this.blocked = requireNonNull(blocked, "blocked is null");
         this.assignments = requireNonNull(assignments, "assignments is null");
     }
 
-    public ListenableFuture<Void> getBlocked()
+    public ListenableFuture<?> getBlocked()
     {
         return blocked;
     }

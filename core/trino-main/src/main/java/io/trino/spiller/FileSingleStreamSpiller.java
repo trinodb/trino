@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.buffer.PagesSerdeUtil.writeSerializedPage;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
@@ -70,7 +69,7 @@ public class FileSingleStreamSpiller
 
     private boolean writable = true;
     private long spilledPagesInMemorySize;
-    private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
+    private ListenableFuture<?> spillInProgress = Futures.immediateFuture(null);
 
     private final Runnable fileSystemErrorHandler;
 
@@ -114,11 +113,11 @@ public class FileSingleStreamSpiller
     }
 
     @Override
-    public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
+    public ListenableFuture<?> spill(Iterator<Page> pageIterator)
     {
         requireNonNull(pageIterator, "pageIterator is null");
         checkNoSpillInProgress();
-        spillInProgress = Futures.submit(() -> writePages(pageIterator), executor);
+        spillInProgress = executor.submit(() -> writePages(pageIterator));
         return spillInProgress;
     }
 

@@ -182,7 +182,7 @@ public class NodePartitioningManager
         }
 
         Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
-        checkArgument(catalogName.isPresent(), "No connector ID for partitioning handle: %s", partitioningHandle);
+        catalogName.orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
         return new FixedBucketNodeMap(
                 getSplitToBucket(session, partitioningHandle),
                 createArbitraryBucketToNode(

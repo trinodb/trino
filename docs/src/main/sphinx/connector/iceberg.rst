@@ -8,8 +8,7 @@ Overview
 Apache Iceberg is an open table format for huge analytic datasets.
 The Iceberg connector allows querying data stored in
 files written in Iceberg format, as defined in the
-`Iceberg Table Spec <https://iceberg.apache.org/spec/>`_. It supports Apache
-Iceberg table spec version 1.
+`Iceberg Table Spec <https://iceberg.apache.org/spec/>`_.
 
 The Iceberg table state is maintained in metadata files. All changes to table state
 create a new metadata file and replace the old metadata with an atomic swap.
@@ -29,17 +28,6 @@ and then read metadata from each data file.
 
 Since Iceberg stores the paths to data files in the metadata files, it
 only consults the underlying file system for files that must be read.
-
-Requirements
-------------
-
-To use Iceberg, you need:
-
-* Network access from the Trino coordinator and workers to the distributed
-  object storage.
-* Access to a Hive metastore service (HMS).
-* Network access from the Trino coordinator to the HMS. Hive
-  metastore access with the Thrift protocol defaults to using port 9083.
 
 Configuration
 -------------
@@ -169,8 +157,8 @@ Migrating existing tables
 -------------------------
 
 The connector can read from or write to Hive tables that have been migrated to Iceberg.
-There is no Trino support for migrating Hive tables to Iceberg, so you need to either use
-the Iceberg API or Apache Spark.
+Currently, there is no Trino support to migrate Hive tables to Trino, so you will
+need to use either the Iceberg API or Spark.
 
 System tables and columns
 -------------------------

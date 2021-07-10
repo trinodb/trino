@@ -127,7 +127,7 @@ public class TaskExecutor
     /**
      * Splits blocked by the driver.
      */
-    private final Map<PrioritizedSplitRunner, Future<Void>> blockedSplits = new ConcurrentHashMap<>();
+    private final Map<PrioritizedSplitRunner, Future<?>> blockedSplits = new ConcurrentHashMap<>();
 
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
     private final AtomicLongArray completedSplitsPerLevel = new AtomicLongArray(5);
@@ -305,10 +305,10 @@ public class TaskExecutor
         log.debug("Task finished or failed " + taskHandle.getTaskId());
     }
 
-    public List<ListenableFuture<Void>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)
+    public List<ListenableFuture<?>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)
     {
         List<PrioritizedSplitRunner> splitsToDestroy = new ArrayList<>();
-        List<ListenableFuture<Void>> finishedFutures = new ArrayList<>(taskSplits.size());
+        List<ListenableFuture<?>> finishedFutures = new ArrayList<>(taskSplits.size());
         synchronized (this) {
             for (SplitRunner taskSplit : taskSplits) {
                 PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(
@@ -479,7 +479,7 @@ public class TaskExecutor
                         runningSplitInfos.add(splitInfo);
                         runningSplits.add(split);
 
-                        ListenableFuture<Void> blocked;
+                        ListenableFuture<?> blocked;
                         try {
                             blocked = split.process();
                         }

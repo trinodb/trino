@@ -79,7 +79,7 @@ the following:
 
 .. code-block:: text
 
-    connector.name=hive
+    connector.name=hive-hadoop2
     hive.metastore=alluxio
     hive.metastore.alluxio.master.address=HOSTNAME:PORT
 

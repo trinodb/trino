@@ -29,7 +29,6 @@ import java.util.Set;
 
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ContextDsl.executeWith;
 import static io.trino.tempto.sql.SqlContexts.createViewAs;
@@ -118,17 +117,17 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("GRANT INSERT, SELECT ON %s TO bob", tableName));
         assertThat(bobExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName))).hasRowsCount(1);
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("DELETE FROM %s WHERE day=3", tableName)))
-                .hasMessageContaining(format("Access Denied: Cannot delete from table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("DELETE FROM %s WHERE day=3", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot delete from table default.%s", tableName));
 
         // test REVOKE
         aliceExecutor.executeQuery(format("REVOKE INSERT ON %s FROM bob", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("INSERT INTO %s VALUES ('y', 5)", tableName)))
-                .hasMessageContaining(format("Access Denied: Cannot insert into table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("INSERT INTO %s VALUES ('y', 5)", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot insert into table default.%s", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
         aliceExecutor.executeQuery(format("REVOKE INSERT, SELECT ON %s FROM bob", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
-                .hasMessageContaining(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -168,8 +167,8 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE PUBLIC", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
         aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM ROLE PUBLIC", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
-                .hasMessageContaining(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
         assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
     }
 
@@ -181,8 +180,8 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE role1", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
         aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM ROLE role1", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
-                .hasMessageContaining(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
         assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
     }
 
@@ -196,8 +195,8 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE role2", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
         aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM ROLE role2", tableName));
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
-                .hasMessageContaining(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
         assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
     }
 
@@ -209,8 +208,8 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE role1", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
         onTrino().executeQuery("DROP ROLE role1");
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
-                .hasMessageContaining(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
         assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
     }
 
@@ -262,11 +261,11 @@ public class TestGrantRevoke
 
     private static void assertAccessDeniedOnAllOperationsOnTable(QueryExecutor queryExecutor, String tableName)
     {
-        assertQueryFailure(() -> queryExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
-                .hasMessageContaining(format("Access Denied: Cannot select from table default.%s", tableName));
-        assertQueryFailure(() -> queryExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName)))
-                .hasMessageContaining(format("Access Denied: Cannot insert into table default.%s", tableName));
-        assertQueryFailure(() -> queryExecutor.executeQuery(format("DELETE FROM %s WHERE day=3", tableName)))
-                .hasMessageContaining(format("Access Denied: Cannot delete from table default.%s", tableName));
+        assertThat(() -> queryExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(() -> queryExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot insert into table default.%s", tableName));
+        assertThat(() -> queryExecutor.executeQuery(format("DELETE FROM %s WHERE day=3", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot delete from table default.%s", tableName));
     }
 }

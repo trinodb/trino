@@ -80,7 +80,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -150,7 +149,6 @@ import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
@@ -721,23 +719,13 @@ public class PlanPrinter
 
             NodeRepresentation nodeOutput = addNode(node, "PatterRecognition", format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashSymbol())));
 
-            if (node.getCommonBaseFrame().isPresent()) {
-                nodeOutput.appendDetailsLine("base frame: " + formatFrame(node.getCommonBaseFrame().get()));
-            }
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
-                WindowNode.Function function = entry.getValue();
-                nodeOutput.appendDetailsLine("%s := %s(%s)", entry.getKey(), function.getResolvedFunction().getSignature().getName(), Joiner.on(", ").join(function.getArguments()));
-            }
-
             for (Map.Entry<Symbol, Measure> entry : node.getMeasures().entrySet()) {
                 nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), unresolveFunctions(entry.getValue().getExpressionAndValuePointers().getExpression()));
                 appendValuePointers(nodeOutput, entry.getValue().getExpressionAndValuePointers());
             }
-            if (node.getRowsPerMatch() != WINDOW) {
-                nodeOutput.appendDetailsLine(formatRowsPerMatch(node.getRowsPerMatch()));
-            }
+            nodeOutput.appendDetailsLine(formatRowsPerMatch(node.getRowsPerMatch()));
             nodeOutput.appendDetailsLine(formatSkipTo(node.getSkipToPosition(), node.getSkipToLabel()));
-            nodeOutput.appendDetailsLine(format("pattern[%s] (%s)", node.getPattern(), node.isInitial() ? "INITIAL" : "SEEK"));
+            nodeOutput.appendDetailsLine(format("pattern[%s]", node.getPattern()));
             nodeOutput.appendDetailsLine(format("subsets[%s]", node.getSubsets().entrySet().stream()
                     .map(subset -> subset.getKey().getName() +
                             " := " +
@@ -801,16 +789,17 @@ public class PlanPrinter
         {
             switch (rowsPerMatch) {
                 case ONE:
-                    return "ONE ROW PER MATCH";
+                    return "ALL ROWS PER MATCH";
                 case ALL_SHOW_EMPTY:
                     return "ALL ROWS PER MATCH SHOW EMPTY MATCHES";
                 case ALL_OMIT_EMPTY:
                     return "ALL ROWS PER MATCH OMIT EMPTY MATCHES";
                 case ALL_WITH_UNMATCHED:
                     return "ALL ROWS PER MATCH WITH UNMATCHED ROWS";
-                default:
-                    throw new IllegalArgumentException("unexpected rowsPer match value: " + rowsPerMatch.name());
+                case WINDOW:
+                    throw new UnsupportedOperationException("pattern matching in WINDOW is not supported");
             }
+            throw new UnsupportedOperationException("unsupported ROWS PER MATCH option");
         }
 
         private String formatSkipTo(Position position, Optional<IrLabel> label)
@@ -1199,14 +1188,6 @@ public class PlanPrinter
             addNode(node, "Except", node.isDistinct() ? " distinct" : " all");
 
             return processChildren(node, context);
-        }
-
-        @Override
-        public Void visitRefreshMaterializedView(RefreshMaterializedViewNode node, Void context)
-        {
-            addNode(node, "RefreshMaterializedView", format("[%s]", node.getViewName()));
-
-            return null;
         }
 
         @Override

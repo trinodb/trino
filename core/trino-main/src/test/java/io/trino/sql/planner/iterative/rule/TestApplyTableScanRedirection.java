@@ -253,7 +253,7 @@ public class TestApplyTableScanRedirection
                     .withSession(MOCK_SESSION)
                     .matches(
                             filter(
-                                    "DEST_COL = VARCHAR 'foo'",
+                                    "DEST_COL = CAST('foo' AS varchar)",
                                     tableScan(
                                             new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
@@ -273,7 +273,7 @@ public class TestApplyTableScanRedirection
                             project(
                                     ImmutableMap.of("expr", expression("DEST_COL_B")),
                                     filter(
-                                            "DEST_COL_A = VARCHAR 'foo'",
+                                            "DEST_COL_A = CAST('foo' AS varchar)",
                                             tableScan(
                                                     new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                                     TupleDomain.all(),

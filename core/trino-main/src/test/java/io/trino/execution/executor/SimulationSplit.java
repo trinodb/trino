@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.lang.String.format;
@@ -124,7 +124,7 @@ abstract class SimulationSplit
 
     abstract boolean process();
 
-    abstract ListenableFuture<Void> getProcessResult();
+    abstract ListenableFuture<?> getProcessResult();
 
     void setSplitReady()
     {
@@ -132,7 +132,7 @@ abstract class SimulationSplit
     }
 
     @Override
-    public ListenableFuture<Void> processFor(Duration duration)
+    public ListenableFuture<?> processFor(Duration duration)
     {
         calls.incrementAndGet();
 
@@ -154,10 +154,10 @@ abstract class SimulationSplit
                 task.splitComplete(this);
             }
 
-            return immediateVoidFuture();
+            return immediateFuture(null);
         }
 
-        ListenableFuture<Void> processResult = getProcessResult();
+        ListenableFuture<?> processResult = getProcessResult();
         if (processResult.isDone()) {
             setSplitReady();
         }
@@ -198,7 +198,7 @@ abstract class SimulationSplit
         }
 
         @Override
-        public ListenableFuture<Void> getProcessResult()
+        public ListenableFuture<?> getProcessResult()
         {
             return NOT_BLOCKED;
         }
@@ -225,8 +225,8 @@ abstract class SimulationSplit
 
         private final ScheduledExecutorService executorService;
 
-        private SettableFuture<Void> future = SettableFuture.create();
-        private final SettableFuture<Void> doneFuture = SettableFuture.create();
+        private SettableFuture<?> future = SettableFuture.create();
+        private final SettableFuture<?> doneFuture = SettableFuture.create();
 
         public IntermediateSplit(SimulationTask task, long scheduledTimeNanos, long wallTimeNanos, long numQuantas, long perQuantaNanos, long betweenQuantaNanos, ScheduledExecutorService executorService)
         {
@@ -258,7 +258,7 @@ abstract class SimulationSplit
         }
 
         @Override
-        public ListenableFuture<Void> getProcessResult()
+        public ListenableFuture<?> getProcessResult()
         {
             future = SettableFuture.create();
             try {

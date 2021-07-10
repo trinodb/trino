@@ -17,22 +17,18 @@ import io.trino.tempto.Requires;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
-import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableRegionTable;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.utils.QueryExecutors;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.function.Consumer;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
@@ -45,7 +41,6 @@ import static org.testng.Assert.assertEquals;
 @Requires({
         ImmutableNationTable.class,
         ImmutableOrdersTable.class,
-        ImmutableRegionTable.class,
 })
 public abstract class AbstractTestHiveViews
         extends HiveProductTest
@@ -119,8 +114,8 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_unsupported_coercion");
         onHive().executeQuery("CREATE VIEW view_with_unsupported_coercion AS SELECT length(n_comment) FROM nation");
 
-        assertQueryFailure(() -> query("SELECT COUNT(*) FROM view_with_unsupported_coercion"))
-                .hasMessageContaining("View 'hive.default.view_with_unsupported_coercion' is stale or in invalid state: a column of type bigint projected from query view at position 0 has no name");
+        assertThat(() -> query("SELECT COUNT(*) FROM view_with_unsupported_coercion"))
+                .failsWithMessage("View 'hive.default.view_with_unsupported_coercion' is stale or in invalid state: a column of type bigint projected from query view at position 0 has no name");
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -130,8 +125,8 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_repeat_function");
         onHive().executeQuery("CREATE VIEW view_with_repeat_function AS SELECT REPEAT(n_comment,2) FROM nation");
 
-        assertQueryFailure(() -> query("SELECT COUNT(*) FROM view_with_repeat_function"))
-                .hasMessageContaining("View 'hive.default.view_with_repeat_function' is stale or in invalid state: a column of type array(varchar(152)) projected from query view at position 0 has no name");
+        assertThat(() -> query("SELECT COUNT(*) FROM view_with_repeat_function"))
+                .failsWithMessage("View 'hive.default.view_with_repeat_function' is stale or in invalid state: a column of type array(varchar(152)) projected from query view at position 0 has no name");
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -140,8 +135,8 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW IF EXISTS hive_duplicate_view");
         onHive().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation");
 
-        assertQueryFailure(() -> query("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation"))
-                .hasMessageContaining("View already exists");
+        assertThat(() -> query("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation"))
+                .failsWithMessage("View already exists");
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -215,7 +210,7 @@ public abstract class AbstractTestHiveViews
     public void testIdentifierThatStartWithDigit()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS \"7_table_with_number\"");
-        onTrino().executeQuery("CREATE TABLE \"7_table_with_number\" WITH (format='TEXTFILE') AS SELECT VARCHAR 'abc' x");
+        onTrino().executeQuery("CREATE TABLE \"7_table_with_number\" WITH (format='TEXTFILE') AS SELECT CAST('abc' AS varchar) x");
 
         onHive().executeQuery("DROP VIEW IF EXISTS view_on_identifiers_starting_with_numbers");
         onHive().executeQuery("CREATE VIEW view_on_identifiers_starting_with_numbers AS SELECT * FROM 7_table_with_number");
@@ -287,20 +282,20 @@ public abstract class AbstractTestHiveViews
                 queryAssert -> queryAssert.containsOnly(row("KENYA")));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     public void testSelectFromHiveViewWithoutDefaultCatalogAndSchema()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS no_catalog_schema_view");
         onHive().executeQuery("CREATE VIEW no_catalog_schema_view AS SELECT * FROM nation WHERE n_nationkey = 1");
 
         QueryExecutor executor = connectToPresto("presto_no_default_catalog");
-        assertQueryFailure(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
-                .hasMessageMatching(".*Schema must be specified when session schema is not set.*");
+        assertThat(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
+                .failsWithMessageMatching(".*Schema must be specified when session schema is not set.*");
         assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
                 .containsOnly(row(1L));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     public void testTimestampHiveView()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS timestamp_hive_table");
@@ -340,7 +335,7 @@ public abstract class AbstractTestHiveViews
         ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
     public void testCurrentUser()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS current_user_hive_view");
@@ -349,92 +344,6 @@ public abstract class AbstractTestHiveViews
         String testQuery = "SELECT cu FROM current_user_hive_view";
         assertThat(query(testQuery)).containsOnly(row("hive"));
         assertThat(connectToPresto("alice@presto").executeQuery(testQuery)).containsOnly(row("alice"));
-    }
-
-    @Test(groups = HIVE_VIEWS)
-    public void testNestedGroupBy()
-    {
-        onHive().executeQuery("DROP VIEW IF EXISTS test_nested_group_by_view");
-        onHive().executeQuery("CREATE VIEW test_nested_group_by_view AS SELECT n_regionkey, count(1) count FROM (SELECT n_regionkey FROM nation GROUP BY n_regionkey ) t GROUP BY n_regionkey");
-
-        assertViewQuery(
-                "SELECT * FROM test_nested_group_by_view",
-                queryAssert -> queryAssert.containsOnly(
-                        row(0, 1),
-                        row(1, 1),
-                        row(2, 1),
-                        row(3, 1),
-                        row(4, 1)));
-    }
-
-    @Test(groups = HIVE_VIEWS)
-    public void testUnionAllViews()
-    {
-        onHive().executeQuery("DROP TABLE IF EXISTS union_helper");
-        onHive().executeQuery("CREATE TABLE union_helper (\n"
-                + "r_regionkey BIGINT,\n"
-                + "r_name VARCHAR(25),\n"
-                + "r_comment VARCHAR(152)\n"
-                + ")");
-        onHive().executeQuery("INSERT INTO union_helper\n"
-                + "SELECT r_regionkey % 3, r_name, r_comment FROM region");
-
-        onHive().executeQuery("DROP VIEW IF EXISTS union_all_view");
-        onHive().executeQuery("CREATE VIEW union_all_view AS\n"
-                + "SELECT r_regionkey FROM region\n"
-                + "UNION ALL\n"
-                + "SELECT r_regionkey FROM union_helper\n");
-
-        assertThat(query("SELECT r_regionkey FROM union_all_view"))
-                // Copy the keys 5 times because there are 5 nations per region
-                .containsOnly(
-                        // base rows
-                        row(0),
-                        row(1),
-                        row(2),
-                        row(3),
-                        row(4),
-                        // mod 3
-                        row(0),
-                        row(1),
-                        row(2),
-                        row(0),
-                        row(1));
-    }
-
-    @Test(groups = HIVE_VIEWS)
-    public void testUnionDistinctViews()
-    {
-        if (getHiveVersionMajor() < 1 || (getHiveVersionMajor() == 1 && getHiveVersionMinor() < 2)) {
-            throw new SkipException("UNION DISTINCT and plain UNION are not supported before Hive 1.2.0");
-        }
-
-        onHive().executeQuery("DROP TABLE IF EXISTS union_helper");
-        onHive().executeQuery("CREATE TABLE union_helper (\n"
-                + "r_regionkey BIGINT,\n"
-                + "r_name VARCHAR(25),\n"
-                + "r_comment VARCHAR(152)\n"
-                + ")");
-        onHive().executeQuery("INSERT INTO union_helper\n"
-                + "SELECT r_regionkey % 3, r_name, r_comment FROM region");
-
-        for (String operator : List.of("UNION", "UNION DISTINCT")) {
-            String name = format("%s_view", operator.replace(" ", "_"));
-            onHive().executeQuery(format("DROP VIEW IF EXISTS %s", name));
-            // Add mod to one side to add duplicate and non-overlapping values
-            onHive().executeQuery(format(
-                    "CREATE VIEW %s AS\n"
-                            + "SELECT r_regionkey FROM region\n"
-                            + "%s\n"
-                            + "SELECT r_regionkey FROM union_helper\n",
-                    name,
-                    operator));
-
-            assertViewQuery(
-                    format("SELECT r_regionkey FROM %s", name),
-                    assertion -> assertion.as("View with %s", operator)
-                            .containsOnly(row(0), row(1), row(2), row(3), row(4)));
-        }
     }
 
     protected static void assertViewQuery(String query, Consumer<QueryAssert> assertion)

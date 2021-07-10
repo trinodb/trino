@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
@@ -84,7 +84,7 @@ public class BufferingSplitSource
                 Lifespan lifespan)
         {
             GetNextBatch getNextBatch = new GetNextBatch(splitSource, min, max, partitionHandle, lifespan);
-            ListenableFuture<Void> future = getNextBatch.fetchSplits();
+            ListenableFuture<?> future = getNextBatch.fetchSplits();
             return Futures.transform(future, ignored -> new SplitBatch(getNextBatch.splits, getNextBatch.noMoreSplits), directExecutor());
         }
 
@@ -98,17 +98,17 @@ public class BufferingSplitSource
             this.lifespan = requireNonNull(lifespan, "lifespan is null");
         }
 
-        private ListenableFuture<Void> fetchSplits()
+        private ListenableFuture<?> fetchSplits()
         {
             if (splits.size() >= min) {
-                return immediateVoidFuture();
+                return immediateFuture(null);
             }
             ListenableFuture<SplitBatch> future = splitSource.getNextBatch(partitionHandle, lifespan, max - splits.size());
             return Futures.transformAsync(future, splitBatch -> {
                 splits.addAll(splitBatch.getSplits());
                 if (splitBatch.isLastBatch()) {
                     noMoreSplits = true;
-                    return immediateVoidFuture();
+                    return immediateFuture(null);
                 }
                 return fetchSplits();
             }, directExecutor());

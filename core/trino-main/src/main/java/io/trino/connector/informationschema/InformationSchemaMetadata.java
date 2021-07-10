@@ -357,9 +357,7 @@ public class InformationSchemaMetadata
                             .filter(this::isLowerCase)
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> {
-                        if (!isColumnsEnumeratingTable(informationSchemaTable) ||
-                                metadata.getMaterializedView(session, objectName).isPresent() ||
-                                metadata.getView(session, objectName).isPresent()) {
+                        if (!isColumnsEnumeratingTable(informationSchemaTable) || metadata.getView(session, objectName).isPresent()) {
                             return true;
                         }
 

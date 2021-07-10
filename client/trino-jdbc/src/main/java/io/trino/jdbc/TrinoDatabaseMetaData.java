@@ -131,10 +131,7 @@ public class TrinoDatabaseMetaData
     public String getDatabaseProductVersion()
             throws SQLException
     {
-        try (ResultSet rs = select("SELECT version()")) {
-            rs.next();
-            return rs.getString(1);
-        }
+        return connection.getServerInfo().getNodeVersion().getVersion();
     }
 
     @Override

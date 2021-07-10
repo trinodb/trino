@@ -195,7 +195,7 @@ public abstract class BaseSqlServerTypeMapping
     {
         // testing mapping char > 4000 -> varchar(max)
         SqlDataTypeTest.create()
-                .addRoundTrip("char(4001)", "'text_c'", createUnboundedVarcharType(), "VARCHAR 'text_c'")
+                .addRoundTrip("char(4001)", "'text_c'", createUnboundedVarcharType(), "CAST('text_c' AS varchar)")
                 .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_long_char"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_long_char"));
     }
@@ -238,7 +238,7 @@ public abstract class BaseSqlServerTypeMapping
     {
         // testing mapping varchar > 4000 -> varchar(max)
         SqlDataTypeTest.create()
-                .addRoundTrip("varchar(4001)", "'text_c'", createUnboundedVarcharType(), "VARCHAR 'text_c'")
+                .addRoundTrip("varchar(4001)", "'text_c'", createUnboundedVarcharType(), "CAST('text_c' AS varchar)")
                 .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_long_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_long_varchar"));
     }
@@ -247,15 +247,15 @@ public abstract class BaseSqlServerTypeMapping
     public void testTrinoUnboundedVarchar()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("varchar", "'text_a'", createUnboundedVarcharType(), "VARCHAR 'text_a'")
-                .addRoundTrip("varchar", "'text_b'", createUnboundedVarcharType(), "VARCHAR 'text_b'")
-                .addRoundTrip("varchar", "'text_d'", createUnboundedVarcharType(), "VARCHAR 'text_d'")
-                .addRoundTrip("varchar", "VARCHAR '攻殻機動隊'", createUnboundedVarcharType(), "VARCHAR '攻殻機動隊'")
-                .addRoundTrip("varchar", "VARCHAR '攻殻機動隊'", createUnboundedVarcharType(), "VARCHAR '攻殻機動隊'")
-                .addRoundTrip("varchar", "VARCHAR '攻殻機動隊'", createUnboundedVarcharType(), "VARCHAR '攻殻機動隊'")
-                .addRoundTrip("varchar", "VARCHAR '😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
-                .addRoundTrip("varchar", "VARCHAR 'Ну, погоди!'", createUnboundedVarcharType(), "VARCHAR 'Ну, погоди!'")
-                .addRoundTrip("varchar", "'text_f'", createUnboundedVarcharType(), "VARCHAR 'text_f'")
+                .addRoundTrip("varchar", "'text_a'", createUnboundedVarcharType(), "CAST('text_a' AS varchar)")
+                .addRoundTrip("varchar", "'text_b'", createUnboundedVarcharType(), "CAST('text_b' AS varchar)")
+                .addRoundTrip("varchar", "'text_d'", createUnboundedVarcharType(), "CAST('text_d' AS varchar)")
+                .addRoundTrip("varchar", "CAST('攻殻機動隊' AS varchar)", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "CAST('攻殻機動隊' AS varchar)", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "CAST('攻殻機動隊' AS varchar)", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "CAST('😂' AS varchar)", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
+                .addRoundTrip("varchar", "CAST('Ну, погоди!' AS varchar)", createUnboundedVarcharType(), "CAST('Ну, погоди!' AS varchar)")
+                .addRoundTrip("varchar", "'text_f'", createUnboundedVarcharType(), "CAST('text_f' AS varchar)")
                 .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_unbounded_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_unbounded_varchar"));
     }

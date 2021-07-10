@@ -386,7 +386,7 @@ public final class WorkProcessorUtils
         }
 
         @Override
-        public ListenableFuture<Void> getBlockedFuture()
+        public ListenableFuture<?> getBlockedFuture()
         {
             checkState(state.getType() == ProcessState.Type.BLOCKED, "Must be blocked to get blocked future");
             return state.getBlocked();

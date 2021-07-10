@@ -48,7 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +57,7 @@ public class ExchangeClient
         implements Closeable
 {
     private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, PageCodecMarker.MarkerSet.empty(), 0, 0);
-    private static final ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
+    private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
 
     private final String selfAddress;
     private final DataIntegrityVerification dataIntegrityVerification;
@@ -81,7 +81,7 @@ public class ExchangeClient
     private final LinkedBlockingDeque<SerializedPage> pageBuffer = new LinkedBlockingDeque<>();
 
     @GuardedBy("this")
-    private final List<SettableFuture<Void>> blockedCallers = new ArrayList<>();
+    private final List<SettableFuture<?>> blockedCallers = new ArrayList<>();
 
     @GuardedBy("this")
     private long bufferRetainedSizeInBytes;
@@ -195,7 +195,7 @@ public class ExchangeClient
                     return ProcessState.finished();
                 }
 
-                ListenableFuture<Void> blocked = isBlocked();
+                ListenableFuture<?> blocked = isBlocked();
                 if (!blocked.isDone()) {
                     return ProcessState.blocked(blocked);
                 }
@@ -321,7 +321,7 @@ public class ExchangeClient
         }
     }
 
-    public ListenableFuture<Void> isBlocked()
+    public ListenableFuture<?> isBlocked()
     {
         // Fast path pre-check
         if (isClosed() || isFailed() || pageBuffer.peek() != null) {
@@ -332,7 +332,7 @@ public class ExchangeClient
             if (isClosed() || isFailed() || pageBuffer.peek() != null) {
                 return NOT_BLOCKED;
             }
-            SettableFuture<Void> future = SettableFuture.create();
+            SettableFuture<?> future = SettableFuture.create();
             blockedCallers.add(future);
             return future;
         }
@@ -348,7 +348,7 @@ public class ExchangeClient
             responseSize += page.getSizeInBytes();
         }
 
-        List<SettableFuture<Void>> notify = ImmutableList.of();
+        List<SettableFuture<?>> notify = ImmutableList.of();
         synchronized (this) {
             if (isClosed() || isFailed()) {
                 return false;
@@ -379,7 +379,7 @@ public class ExchangeClient
 
     private void notifyBlockedCallers()
     {
-        List<SettableFuture<Void>> callers;
+        List<SettableFuture<?>> callers;
         synchronized (this) {
             callers = ImmutableList.copyOf(blockedCallers);
             blockedCallers.clear();
@@ -387,9 +387,9 @@ public class ExchangeClient
         notifyListeners(callers);
     }
 
-    private void notifyListeners(List<SettableFuture<Void>> blockedCallers)
+    private void notifyListeners(List<SettableFuture<?>> blockedCallers)
     {
-        for (SettableFuture<Void> blockedCaller : blockedCallers) {
+        for (SettableFuture<?> blockedCaller : blockedCallers) {
             // Notify callers in a separate thread to avoid callbacks while holding a lock
             scheduler.execute(() -> blockedCaller.set(null));
         }

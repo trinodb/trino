@@ -114,13 +114,13 @@ public class NoOpTransactionManager
     }
 
     @Override
-    public ListenableFuture<Void> asyncCommit(TransactionId transactionId)
+    public ListenableFuture<?> asyncCommit(TransactionId transactionId)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ListenableFuture<Void> asyncAbort(TransactionId transactionId)
+    public ListenableFuture<?> asyncAbort(TransactionId transactionId)
     {
         throw new UnsupportedOperationException();
     }

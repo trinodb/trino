@@ -183,7 +183,7 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
-    public ListenableFuture<Void> startMemoryRevoke()
+    public ListenableFuture<?> startMemoryRevoke()
     {
         throw new UnsupportedOperationException("startMemoryRevoke not supported for InMemoryHashAggregationBuilder");
     }
