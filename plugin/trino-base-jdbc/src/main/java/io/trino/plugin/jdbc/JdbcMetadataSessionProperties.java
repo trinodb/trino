@@ -36,6 +36,7 @@ public class JdbcMetadataSessionProperties
     public static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     public static final String TOPN_PUSHDOWN_ENABLED = "topn_pushdown_enabled";
     public static final String DOMAIN_COMPACTION_THRESHOLD = "domain_compaction_threshold";
+    public static final String IN_OPERATOR_LIMIT = "in_operator_limit";
 
     private final List<PropertyMetadata<?>> properties;
 
@@ -65,6 +66,11 @@ public class JdbcMetadataSessionProperties
                         "Enable TopN pushdown",
                         jdbcMetadataConfig.isTopNPushdownEnabled(),
                         false))
+                .add(integerProperty(
+                		IN_OPERATOR_LIMIT,
+                        "Maximum number of values per IN operator. A value of 0 means no limit",
+                        jdbcMetadataConfig.getInOperatorLimit(),
+                        false))                
                 .build();
     }
 
@@ -94,6 +100,11 @@ public class JdbcMetadataSessionProperties
         return session.getProperty(DOMAIN_COMPACTION_THRESHOLD, Integer.class);
     }
 
+    public static int getInOperatorLimit(ConnectorSession session)
+    {
+        return session.getProperty(IN_OPERATOR_LIMIT, Integer.class);
+    }
+    
     private static void validateDomainCompactionThreshold(int domainCompactionThreshold, Optional<Integer> maxDomainCompactionThreshold)
     {
         if (domainCompactionThreshold < 1) {

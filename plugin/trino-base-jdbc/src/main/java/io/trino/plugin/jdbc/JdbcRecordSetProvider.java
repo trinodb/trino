@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordSet;
+import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordSetProvider
@@ -63,6 +65,10 @@ public class JdbcRecordSetProvider
             handles.add((JdbcColumnHandle) handle);
         }
 
-        return new JdbcRecordSet(jdbcClient, executor, session, jdbcSplit, jdbcTable, handles.build(), dynamicFilter.getCurrentPredicate());
+        TupleDomain<ColumnHandle> simplifiedDynamicFilter = dynamicFilter
+                .getCurrentPredicate()
+                .transformKeys(ColumnHandle.class::cast).simplify(getDomainCompactionThreshold(session));
+        
+        return new JdbcRecordSet(jdbcClient, executor, session, jdbcSplit, jdbcTable, handles.build(), simplifiedDynamicFilter);
     }
 }
