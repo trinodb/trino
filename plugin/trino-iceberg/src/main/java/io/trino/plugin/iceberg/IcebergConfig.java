@@ -30,6 +30,20 @@ public class IcebergConfig
     private HiveCompressionCodec compressionCodec = GZIP;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
+    private boolean fetchSplitLocations;
+
+    public boolean isFetchSplitLocations()
+    {
+        return fetchSplitLocations;
+    }
+
+    @ConfigDescription("When true, we will get block locations for every datafile")
+    @Config("iceberg.fetch-split-locations")
+    public IcebergConfig setFetchSplitLocations(boolean fetchSplitLocations)
+    {
+        this.fetchSplitLocations = fetchSplitLocations;
+        return this;
+    }
 
     @NotNull
     public FileFormat getFileFormat()
