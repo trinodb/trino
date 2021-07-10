@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.decoder.DispatchingRowDecoderFactory;
 import io.trino.decoder.RowDecoder;
+import io.trino.plugin.localfile.DynamicFilter;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -54,7 +55,8 @@ public class KinesisRecordSetProvider
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorSplit split,
-            List<? extends ColumnHandle> columns)
+            List<? extends ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
     {
         KinesisSplit kinesisSplit = (KinesisSplit) split;
         List<KinesisColumnHandle> kinesisColumns = columns.stream()

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.google.sheets;
 
+import io.trino.plugin.localfile.DynamicFilter;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -30,7 +31,7 @@ public class SheetsRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
         requireNonNull(split, "split is null");
         SheetsSplit sheetsSplit = (SheetsSplit) split;

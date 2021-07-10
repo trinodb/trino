@@ -14,6 +14,7 @@
 package io.trino.plugin.example;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.localfile.DynamicFilter;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -28,7 +29,7 @@ public class ExampleRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
         ExampleSplit exampleSplit = (ExampleSplit) split;
 
