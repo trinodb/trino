@@ -26,7 +26,7 @@ import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 
 public class RollbackTask
@@ -39,7 +39,7 @@ public class RollbackTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             Rollback statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -56,6 +56,6 @@ public class RollbackTask
 
         stateMachine.clearTransactionId();
         transactionManager.asyncAbort(transactionId);
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

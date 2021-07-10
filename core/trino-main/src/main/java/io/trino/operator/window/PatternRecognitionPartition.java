@@ -28,6 +28,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowIndex;
 import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.SkipTo;
@@ -47,7 +48,7 @@ public final class PatternRecognitionPartition
     private final int partitionStart;
     private final int partitionEnd;
     private final int[] outputChannels;
-    private final List<FramedWindowFunction> windowFunctions;
+    private final List<WindowFunction> windowFunctions;
     private final PagesHashStrategy peerGroupHashStrategy;
 
     private int peerGroupStart;
@@ -74,7 +75,7 @@ public final class PatternRecognitionPartition
             int partitionStart,
             int partitionEnd,
             int[] outputChannels,
-            List<FramedWindowFunction> windowFunctions,
+            List<WindowFunction> windowFunctions,
             PagesHashStrategy peerGroupHashStrategy,
             List<MeasureComputation> measures,
             Optional<FrameInfo> commonBaseFrame,
@@ -106,8 +107,8 @@ public final class PatternRecognitionPartition
 
         // reset functions for new partition
         this.windowIndex = new PagesWindowIndex(pagesIndex, partitionStart, partitionEnd);
-        for (FramedWindowFunction framedWindowFunction : windowFunctions) {
-            framedWindowFunction.getFunction().reset(windowIndex);
+        for (WindowFunction windowFunction : windowFunctions) {
+            windowFunction.reset(windowIndex);
         }
 
         currentPosition = partitionStart;
@@ -159,16 +160,16 @@ public final class PatternRecognitionPartition
             if (framing.isPresent()) {
                 // the currentGroup parameter does not apply to frame type ROWS
                 Range baseRange = framing.get().getRange(currentPosition, -1, peerGroupStart, peerGroupEnd);
-                searchStart = baseRange.getStart();
-                searchEnd = baseRange.getEnd();
+                searchStart = partitionStart + baseRange.getStart();
+                searchEnd = partitionStart + baseRange.getEnd() + 1;
             }
-            LabelEvaluator labelEvaluator = new LabelEvaluator(matchNumber, patternStart, searchStart, searchEnd, labelEvaluations, windowIndex);
+            LabelEvaluator labelEvaluator = new LabelEvaluator(matchNumber, patternStart, partitionStart, searchStart, searchEnd, labelEvaluations, windowIndex);
             MatchResult matchResult = matcher.run(labelEvaluator);
 
             // 2. in case SEEK was specified (as opposite to INITIAL), try match pattern starting from subsequent rows until the first match is found
             while (!matchResult.isMatched() && !initial && patternStart < searchEnd - 1) {
                 patternStart++;
-                labelEvaluator = new LabelEvaluator(matchNumber, patternStart, searchStart, searchEnd, labelEvaluations, windowIndex);
+                labelEvaluator = new LabelEvaluator(matchNumber, patternStart, partitionStart, searchStart, searchEnd, labelEvaluations, windowIndex);
                 matchResult = matcher.run(labelEvaluator);
             }
 
@@ -191,7 +192,7 @@ public final class PatternRecognitionPartition
                     outputOneRowPerMatch(pageBuilder, matchResult, patternStart, searchStart, searchEnd);
                 }
                 else {
-                    outputAllRowsPerMatch(pageBuilder, matchResult);
+                    outputAllRowsPerMatch(pageBuilder, matchResult, searchStart, searchEnd);
                 }
                 updateLastMatchedPosition(matchResult, patternStart);
                 skipAfterMatch(matchResult, patternStart, searchStart, searchEnd);
@@ -228,9 +229,9 @@ public final class PatternRecognitionPartition
             channel++;
         }
         // window functions have empty frame
-        for (FramedWindowFunction framedFunction : windowFunctions) {
+        for (WindowFunction function : windowFunctions) {
             Range range = new Range(-1, -1);
-            framedFunction.getFunction().processRow(
+            function.processRow(
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
@@ -257,9 +258,9 @@ public final class PatternRecognitionPartition
             channel++;
         }
         // window functions have empty frame
-        for (FramedWindowFunction framedFunction : windowFunctions) {
+        for (WindowFunction function : windowFunctions) {
             Range range = new Range(-1, -1);
-            framedFunction.getFunction().processRow(
+            function.processRow(
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
@@ -281,13 +282,13 @@ public final class PatternRecognitionPartition
         // compute measures from the position of the last row of the match
         ArrayView labels = matchResult.getLabels();
         for (MeasureComputation measureComputation : measures) {
-            Block result = measureComputation.compute(patternStart + labels.length() - 1, labels, searchStart, searchEnd, patternStart, matchNumber, windowIndex);
+            Block result = measureComputation.compute(patternStart + labels.length() - 1, labels, partitionStart, searchStart, searchEnd, patternStart, matchNumber, windowIndex);
             measureComputation.getType().appendTo(result, 0, pageBuilder.getBlockBuilder(channel));
             channel++;
         }
         // window functions have frame consisting of all rows of the match
-        for (FramedWindowFunction framedFunction : windowFunctions) {
-            framedFunction.getFunction().processRow(
+        for (WindowFunction function : windowFunctions) {
+            function.processRow(
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
@@ -297,7 +298,7 @@ public final class PatternRecognitionPartition
         }
     }
 
-    private void outputAllRowsPerMatch(PageBuilder pageBuilder, MatchResult matchResult)
+    private void outputAllRowsPerMatch(PageBuilder pageBuilder, MatchResult matchResult, int searchStart, int searchEnd)
     {
         // window functions are not allowed with ALL ROWS PER MATCH
         checkState(windowFunctions.isEmpty(), "invalid node: window functions specified with ALL ROWS PER MATCH");
@@ -310,18 +311,18 @@ public final class PatternRecognitionPartition
             int end = exclusions.get(index);
 
             for (int i = start; i < end; i++) {
-                outputRow(pageBuilder, labels, currentPosition + i);
+                outputRow(pageBuilder, labels, currentPosition + i, searchStart, searchEnd);
             }
 
             start = exclusions.get(index + 1);
         }
 
         for (int i = start; i < labels.length(); i++) {
-            outputRow(pageBuilder, labels, currentPosition + i);
+            outputRow(pageBuilder, labels, currentPosition + i, searchStart, searchEnd);
         }
     }
 
-    private void outputRow(PageBuilder pageBuilder, ArrayView labels, int position)
+    private void outputRow(PageBuilder pageBuilder, ArrayView labels, int position, int searchStart, int searchEnd)
     {
         // copy output channels
         pageBuilder.declarePosition();
@@ -332,7 +333,7 @@ public final class PatternRecognitionPartition
         }
         // compute measures from the current position (the position from which measures are computed matters in RUNNING semantics)
         for (MeasureComputation measureComputation : measures) {
-            Block result = measureComputation.compute(position, labels, partitionStart, partitionEnd, currentPosition, matchNumber, windowIndex);
+            Block result = measureComputation.compute(position, labels, partitionStart, searchStart, searchEnd, currentPosition, matchNumber, windowIndex);
             measureComputation.getType().appendTo(result, 0, pageBuilder.getBlockBuilder(channel));
             channel++;
         }

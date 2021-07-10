@@ -20,20 +20,20 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.window.FrameInfo;
-import io.trino.operator.window.FramedWindowFunction;
 import io.trino.operator.window.Partitioner;
 import io.trino.operator.window.PartitionerSupplier;
+import io.trino.operator.window.PatternRecognitionPartitioner;
 import io.trino.operator.window.WindowPartition;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.function.WindowFunction;
 import io.trino.spi.type.Type;
 import io.trino.spiller.Spiller;
 import io.trino.spiller.SpillerFactory;
@@ -56,6 +56,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterators.peekingIterator;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
@@ -205,9 +206,10 @@ public class WindowOperator
     private final OperatorContext operatorContext;
     private final List<Type> outputTypes;
     private final int[] outputChannels;
-    private final List<FramedWindowFunction> windowFunctions;
+    private final List<WindowFunction> windowFunctions;
+    private final List<FrameInfo> frames;
     private final WindowInfo.DriverWindowInfoBuilder windowInfo;
-    private final AtomicReference<Optional<WindowInfo.DriverWindowInfo>> driverWindowInfo = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<WindowInfo> driverWindowInfo = new AtomicReference<>(WindowInfo.emptyInfo());
 
     private final Optional<SpillablePagesToPagesIndexes> spillablePagesToPagesIndexes;
 
@@ -237,6 +239,10 @@ public class WindowOperator
         requireNonNull(operatorContext, "operatorContext is null");
         requireNonNull(outputChannels, "outputChannels is null");
         requireNonNull(windowFunctionDefinitions, "windowFunctionDefinitions is null");
+        checkArgument(
+                windowFunctionDefinitions.stream().allMatch(definition -> definition.getFrameInfo().isPresent()) ||
+                        windowFunctionDefinitions.stream().allMatch(definition -> definition.getFrameInfo().isEmpty()),
+                "FrameInfo must be equally present or empty for all window functions");
         requireNonNull(partitionChannels, "partitionChannels is null");
         requireNonNull(preGroupedChannels, "preGroupedChannels is null");
         checkArgument(partitionChannels.containsAll(preGroupedChannels), "preGroupedChannels must be a subset of partitionChannels");
@@ -249,12 +255,23 @@ public class WindowOperator
         checkArgument(preSortedChannelPrefix == 0 || ImmutableSet.copyOf(preGroupedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedChannelPrefix can only be greater than zero if all partition channels are pre-grouped");
         requireNonNull(measureTypes, "measureTypes is null");
         requireNonNull(partitioner, "partitioner is null");
+        checkArgument(
+                windowFunctionDefinitions.stream().noneMatch(definition -> definition.getFrameInfo().isEmpty()) || partitioner instanceof PatternRecognitionPartitioner,
+                "Missing FrameInfo for a window function outside pattern recognition context");
 
         this.operatorContext = operatorContext;
         this.outputChannels = Ints.toArray(outputChannels);
         this.windowFunctions = windowFunctionDefinitions.stream()
-                .map(functionDefinition -> new FramedWindowFunction(functionDefinition.createWindowFunction(), functionDefinition.getFrameInfo()))
+                .map(WindowFunctionDefinition::createWindowFunction)
                 .collect(toImmutableList());
+        if (windowFunctionDefinitions.stream().anyMatch(definition -> definition.getFrameInfo().isPresent())) {
+            this.frames = windowFunctionDefinitions.stream()
+                    .map(functionDefinition -> functionDefinition.getFrameInfo().get())
+                    .collect(toImmutableList());
+        }
+        else {
+            this.frames = ImmutableList.of();
+        }
 
         ImmutableList.Builder<Type> outputTypes = ImmutableList.builder();
         outputTypes.addAll(outputChannels.stream()
@@ -335,14 +352,9 @@ public class WindowOperator
         }
 
         windowInfo = new WindowInfo.DriverWindowInfoBuilder();
-        operatorContext.setInfoSupplier(this::getWindowInfo);
+        operatorContext.setInfoSupplier(driverWindowInfo::get);
 
         this.partitioner = partitioner;
-    }
-
-    private OperatorInfo getWindowInfo()
-    {
-        return new WindowInfo(driverWindowInfo.get().map(ImmutableList::of).orElse(ImmutableList.of()));
     }
 
     @Override
@@ -364,7 +376,7 @@ public class WindowOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         // We can block e.g. because of self-triggered spill
         if (outputPages.isBlocked()) {
@@ -401,7 +413,7 @@ public class WindowOperator
     }
 
     @Override
-    public ListenableFuture<?> startMemoryRevoke()
+    public ListenableFuture<Void> startMemoryRevoke()
     {
         return spillablePagesToPagesIndexes.get().spill();
     }
@@ -452,8 +464,9 @@ public class WindowOperator
         ImmutableMap.Builder<FrameBoundKey, PagesIndexComparator> builder = ImmutableMap.builder();
 
         for (int i = 0; i < windowFunctionDefinitions.size(); i++) {
-            FrameInfo frameInfo = windowFunctionDefinitions.get(i).getFrameInfo();
-            if (frameInfo.getType() == RANGE) {
+            Optional<FrameInfo> frame = windowFunctionDefinitions.get(i).getFrameInfo();
+            if (frame.isPresent() && frame.get().getType() == RANGE) {
+                FrameInfo frameInfo = frame.get();
                 if (frameInfo.getStartType() == PRECEDING || frameInfo.getStartType() == FOLLOWING) {
                     PagesIndexComparator comparator = pagesIndex.createChannelComparator(frameInfo.getSortKeyChannelForStartComparison(), frameInfo.getStartChannel());
                     builder.put(new FrameBoundKey(i, FrameBoundKey.Type.START), comparator);
@@ -592,6 +605,7 @@ public class WindowOperator
                         partitionEnd,
                         outputChannels,
                         windowFunctions,
+                        frames,
                         pagesIndexWithHashStrategies.peerGroupHashStrategy,
                         pagesIndexWithHashStrategies.frameBoundComparators);
 
@@ -660,7 +674,7 @@ public class WindowOperator
         Optional<Page> currentSpillGroupRowPage;
         Optional<Spiller> spiller;
         // Spill can be trigger by Driver, by us or both. `spillInProgress` is not empty when spill was triggered but not `finishMemoryRevoke()` yet
-        Optional<ListenableFuture<?>> spillInProgress = Optional.empty();
+        Optional<ListenableFuture<Void>> spillInProgress = Optional.empty();
 
         SpillablePagesToPagesIndexes(
                 PagesIndexWithHashStrategies inMemoryPagesIndexWithHashStrategies,
@@ -758,7 +772,7 @@ public class WindowOperator
             return TransformationState.ofResult(unspill(), false);
         }
 
-        ListenableFuture<?> spill()
+        ListenableFuture<Void> spill()
         {
             if (spillInProgress.isPresent()) {
                 // Spill can be triggered first in SpillablePagesToPagesIndexes#process(..) and then by Driver (via WindowOperator#startMemoryRevoke)
@@ -767,7 +781,7 @@ public class WindowOperator
 
             if (localRevocableMemoryContext.getBytes() == 0) {
                 // This must be stale revoke request
-                spillInProgress = Optional.of(Futures.immediateFuture(null));
+                spillInProgress = Optional.of(immediateVoidFuture());
                 return spillInProgress.get();
             }
 
@@ -941,7 +955,7 @@ public class WindowOperator
     @Override
     public void close()
     {
-        driverWindowInfo.set(Optional.of(windowInfo.build()));
+        driverWindowInfo.set(new WindowInfo(ImmutableList.of(windowInfo.build())));
         spillablePagesToPagesIndexes.ifPresent(SpillablePagesToPagesIndexes::clearIndexes);
         spillablePagesToPagesIndexes.ifPresent(SpillablePagesToPagesIndexes::closeSpiller);
     }

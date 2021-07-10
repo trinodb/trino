@@ -297,6 +297,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitWindowOperation(WindowOperation node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitLambdaExpression(LambdaExpression node, C context)
     {
         return visitExpression(node, context);
@@ -760,6 +765,11 @@ public abstract class AstVisitor<R, C>
     protected R visitPathElement(PathElement node, C context)
     {
         return visitNode(node, context);
+    }
+
+    protected R visitSetTimeZone(SetTimeZone node, C context)
+    {
+        return visitStatement(node, context);
     }
 
     protected R visitTransactionMode(TransactionMode node, C context)

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.cloud.BaseServiceException;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Dataset;
@@ -31,6 +32,7 @@ import com.google.cloud.http.BaseHttpServiceException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.TableNotFoundException;
@@ -41,6 +43,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
@@ -50,6 +55,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_AMBIGUOUS_OBJECT_NAME;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
+import static io.trino.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -59,12 +66,15 @@ import static java.util.stream.Collectors.joining;
 
 class BigQueryClient
 {
+    private static final Logger log = Logger.get(BigQueryClient.class);
+
     private final BigQuery bigQuery;
     private final Optional<String> viewMaterializationProject;
     private final Optional<String> viewMaterializationDataset;
     private final boolean caseInsensitiveNameMatching;
     private final Cache<String, Optional<RemoteDatabaseObject>> remoteDatasets;
     private final Cache<TableId, Optional<RemoteDatabaseObject>> remoteTables;
+    private final Cache<String, TableInfo> destinationTableCache;
 
     BigQueryClient(BigQuery bigQuery, BigQueryConfig config)
     {
@@ -78,6 +88,10 @@ class BigQueryClient
                 .expireAfterWrite(caseInsensitiveNameMatchingCacheTtl.toMillis(), MILLISECONDS);
         this.remoteDatasets = remoteNamesCacheBuilder.build();
         this.remoteTables = remoteNamesCacheBuilder.build();
+        this.destinationTableCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(config.getViewsCacheTtl().toMillis(), MILLISECONDS)
+                .maximumSize(1000)
+                .build();
     }
 
     Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
@@ -173,6 +187,19 @@ class BigQueryClient
     {
         // TODO: Return Optional and make callers handle missing value
         return bigQuery.getTable(remoteTableId);
+    }
+
+    TableInfo getCachedTable(ReadSessionCreatorConfig config, TableId tableId, List<String> requiredColumns)
+    {
+        String query = selectSql(tableId, requiredColumns);
+        log.debug("query is %s", query);
+        try {
+            return destinationTableCache.get(query,
+                    new DestinationTableBuilder(this, config, query, tableId));
+        }
+        catch (ExecutionException e) {
+            throw new TrinoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
+        }
     }
 
     String getProjectId()
@@ -335,6 +362,65 @@ class BigQueryClient
         public boolean isAmbiguous()
         {
             return remoteNames.size() > 1;
+        }
+    }
+
+    static class DestinationTableBuilder
+            implements Callable<TableInfo>
+    {
+        private final BigQueryClient bigQueryClient;
+        private final ReadSessionCreatorConfig config;
+        private final String query;
+        private final TableId table;
+
+        DestinationTableBuilder(BigQueryClient bigQueryClient, ReadSessionCreatorConfig config, String query, TableId table)
+        {
+            this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient is null");
+            this.config = requireNonNull(config, "config is null");
+            this.query = requireNonNull(query, "query is null");
+            this.table = requireNonNull(table, "table is null");
+        }
+
+        @Override
+        public TableInfo call()
+        {
+            return createTableFromQuery();
+        }
+
+        TableInfo createTableFromQuery()
+        {
+            TableId destinationTable = bigQueryClient.createDestinationTable(table);
+            log.debug("destinationTable is %s", destinationTable);
+            JobInfo jobInfo = JobInfo.of(
+                    QueryJobConfiguration
+                            .newBuilder(query)
+                            .setDestinationTable(destinationTable)
+                            .build());
+            log.debug("running query %s", jobInfo);
+            Job job = waitForJob(bigQueryClient.create(jobInfo));
+            log.debug("job has finished. %s", job);
+            if (job.getStatus().getError() != null) {
+                throw convertToBigQueryException(job.getStatus().getError());
+            }
+            // add expiration time to the table
+            TableInfo createdTable = bigQueryClient.getTable(destinationTable);
+            long expirationTime = createdTable.getCreationTime() +
+                    TimeUnit.HOURS.toMillis(config.viewExpirationTimeInHours);
+            Table updatedTable = bigQueryClient.update(createdTable.toBuilder()
+                    .setExpirationTime(expirationTime)
+                    .build());
+            return updatedTable;
+        }
+
+        Job waitForJob(Job job)
+        {
+            try {
+                return job.waitFor();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new BigQueryException(BaseServiceException.UNKNOWN_CODE, format("Job %s has been interrupted", job.getJobId()), e);
+            }
         }
     }
 }

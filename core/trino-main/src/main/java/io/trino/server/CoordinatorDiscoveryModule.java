@@ -11,18 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.server;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.Plugin;
-import io.trino.spi.connector.ConnectorFactory;
+import com.google.inject.Binder;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 
-public class HiveHadoop2Plugin
-        implements Plugin
+public class CoordinatorDiscoveryModule
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    protected void setup(Binder binder)
     {
-        return ImmutableList.of(new HiveConnectorFactory("hive-hadoop2"));
+        if (buildConfigObject(ServerConfig.class).isCoordinator() &&
+                buildConfigObject(EmbeddedDiscoveryConfig.class).isEnabled()) {
+            install(new EmbeddedDiscoveryModule());
+        }
     }
 }

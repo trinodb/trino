@@ -25,6 +25,7 @@ import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.trino.tempto.query.QueryExecutor.query;
@@ -58,8 +59,8 @@ public class TestSyncPartitionMetadata
 
         query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD')");
         assertPartitions(tableName, row("a", "1"), row("b", "2"), row("f", "9"));
-        assertThat(() -> query("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC"))
-                .failsWithMessage(format("Partition location does not exist: hdfs://hadoop-master:9000%s/%s/col_x=b/col_y=2", warehouseDirectory, tableName));
+        assertQueryFailure(() -> query("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC"))
+                .hasMessageContaining(format("Partition location does not exist: hdfs://hadoop-master:9000%s/%s/col_x=b/col_y=2", warehouseDirectory, tableName));
         cleanup(tableName);
     }
 
@@ -98,8 +99,8 @@ public class TestSyncPartitionMetadata
         String tableName = "test_repair_invalid_mode";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
 
-        assertThat(() -> query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'INVALID')"))
-                .failsWithMessageMatching("java.sql.SQLException: Query failed (.*): Invalid partition metadata sync mode: INVALID");
+        assertQueryFailure(() -> query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'INVALID')"))
+                .hasMessageMatching("Query failed (.*): Invalid partition metadata sync mode: INVALID");
 
         cleanup(tableName);
     }

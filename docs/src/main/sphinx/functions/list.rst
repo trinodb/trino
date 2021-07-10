@@ -65,7 +65,7 @@ B
 - :func:`bing_tile_at`
 - :func:`bing_tile_coordinates`
 - :func:`bing_tile_polygon`
-- ``bing_tile_quadkey``
+- :func:`bing_tile_quadkey`
 - :func:`bing_tile_zoom_level`
 - :func:`bing_tiles_around`
 - :func:`bit_count`
@@ -263,7 +263,7 @@ L
 - :func:`lower`
 - :func:`lpad`
 - :func:`ltrim`
-- ``luhn_check``
+- :func:`luhn_check`
 
 M
 -
@@ -292,7 +292,7 @@ M
 - :func:`month`
 - :func:`multimap_agg`
 - :func:`multimap_from_entries`
-- ``murmur3``
+- :func:`murmur3`
 
 N
 -

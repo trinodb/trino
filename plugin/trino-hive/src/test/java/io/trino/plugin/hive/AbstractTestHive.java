@@ -257,6 +257,8 @@ import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
+import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
+import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createDirectory;
@@ -2863,7 +2865,7 @@ public abstract class AbstractTestHive
                 .setOwner(session.getUser())
                 .setTableType(MANAGED_TABLE.name())
                 .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())))
-                .setParameter(HiveMetadata.SPARK_TABLE_PROVIDER_KEY, HiveMetadata.DELTA_LAKE_PROVIDER);
+                .setParameter(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER);
         table.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(PARQUET))
                 .setLocation(getTableDefaultLocation(

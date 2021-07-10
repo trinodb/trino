@@ -471,8 +471,8 @@ public class JoinBridgeManager<T extends JoinBridge>
         private final ReferenceCount probeReferenceCount;
         private final ReferenceCount outerReferenceCount;
 
-        private final ListenableFuture<?> whenBuildAndProbeFinishes;
-        private final ListenableFuture<?> whenAllFinishes;
+        private final ListenableFuture<Void> whenBuildAndProbeFinishes;
+        private final ListenableFuture<Void> whenAllFinishes;
 
         public JoinLifecycle(JoinBridge joinBridge, int probeFactoryCount, int outerFactoryCount)
         {
@@ -492,7 +492,7 @@ public class JoinBridgeManager<T extends JoinBridge>
             whenAllFinishes.addListener(joinBridge::destroy, directExecutor());
         }
 
-        public ListenableFuture<?> whenBuildAndProbeFinishes()
+        public ListenableFuture<Void> whenBuildAndProbeFinishes()
         {
             return whenBuildAndProbeFinishes;
         }

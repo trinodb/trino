@@ -42,6 +42,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -199,7 +200,7 @@ public class PartitionedOutputOperator
     private final PagePartitioner partitionFunction;
     private final LocalMemoryContext systemMemoryContext;
     private final long partitionsInitialRetainedSize;
-    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
+    private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
     private boolean finished;
 
     public PartitionedOutputOperator(
@@ -229,7 +230,7 @@ public class PartitionedOutputOperator
                 maxMemory,
                 operatorContext);
 
-        operatorContext.setInfoSupplier(this::getInfo);
+        operatorContext.setInfoSupplier(this.partitionFunction.getOperatorInfoSupplier());
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
         this.partitionsInitialRetainedSize = this.partitionFunction.getRetainedSizeInBytes();
         this.systemMemoryContext.setBytes(partitionsInitialRetainedSize);
@@ -239,11 +240,6 @@ public class PartitionedOutputOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    public PartitionedOutputInfo getInfo()
-    {
-        return partitionFunction.getInfo();
     }
 
     @Override
@@ -260,7 +256,7 @@ public class PartitionedOutputOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         // Avoid re-synchronizing on the output buffer when operator is already blocked
         if (isBlocked.isDone()) {
@@ -370,7 +366,7 @@ public class PartitionedOutputOperator
             }
         }
 
-        public ListenableFuture<?> isFull()
+        public ListenableFuture<Void> isFull()
         {
             return outputBuffer.isFull();
         }
@@ -398,9 +394,18 @@ public class PartitionedOutputOperator
             return sizeInBytes;
         }
 
-        public PartitionedOutputInfo getInfo()
+        public Supplier<PartitionedOutputInfo> getOperatorInfoSupplier()
         {
-            return new PartitionedOutputInfo(rowsAdded.get(), pagesAdded.get(), outputBuffer.getPeakMemoryUsage());
+            return createPartitionedOutputOperatorInfoSupplier(rowsAdded, pagesAdded, outputBuffer);
+        }
+
+        private static Supplier<PartitionedOutputInfo> createPartitionedOutputOperatorInfoSupplier(AtomicLong rowsAdded, AtomicLong pagesAdded, OutputBuffer outputBuffer)
+        {
+            // Must be a separate static method to avoid embedding references to "this" in the supplier
+            requireNonNull(rowsAdded, "rowsAdded is null");
+            requireNonNull(pagesAdded, "pagesAdded is null");
+            requireNonNull(outputBuffer, "outputBuffer is null");
+            return () -> new PartitionedOutputInfo(rowsAdded.get(), pagesAdded.get(), outputBuffer.getPeakMemoryUsage());
         }
 
         public void partitionPage(Page page)

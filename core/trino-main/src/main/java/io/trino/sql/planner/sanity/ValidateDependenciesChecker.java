@@ -50,6 +50,7 @@ import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -181,6 +182,15 @@ public final class ValidateDependenciesChecker
                         node.getOrderingScheme().get().getOrderBy(),
                         "Invalid node. Order by symbols (%s) not in source plan output (%s)",
                         node.getOrderingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
+            }
+
+            node.getCommonBaseFrame()
+                    .flatMap(WindowNode.Frame::getEndValue)
+                    .ifPresent(value -> checkDependencies(inputs, ImmutableList.of(value), "Invalid node. Frame end symbol (%s) not in source plan output (%s)", value, node.getSource().getOutputSymbols()));
+
+            for (WindowNode.Function function : node.getWindowFunctions().values()) {
+                Set<Symbol> dependencies = extractUnique(function);
+                checkDependencies(inputs, dependencies, "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
             }
 
             Set<Symbol> measuresSymbols = node.getMeasures().values().stream()
@@ -598,6 +608,12 @@ public final class ValidateDependenciesChecker
 
             checkDependencies(node.getOutputSymbols(), node.getPartitioningScheme().getOutputLayout(), "EXCHANGE must provide all of the necessary symbols for partition function");
 
+            return null;
+        }
+
+        @Override
+        public Void visitRefreshMaterializedView(RefreshMaterializedViewNode node, Set<Symbol> boundSymbols)
+        {
             return null;
         }
 

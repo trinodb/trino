@@ -416,10 +416,25 @@ public abstract class BaseConnectorTest
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
         String viewName = "test_materialized_view_" + randomTableSuffix();
+        String viewNameWithComment = "test_materialized_view_with_comment_" + randomTableSuffix();
         assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewNameWithComment + " COMMENT 'mv_comment' AS SELECT * FROM nation");
+
+        // verify comment
+        MaterializedResult materializedRows = computeActual("SHOW CREATE MATERIALIZED VIEW " + viewNameWithComment);
+        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'mv_comment'");
+        assertThat(query(
+                "SELECT table_name, comment FROM system.metadata.table_comments " +
+                        "WHERE catalog_name = '" + catalogName + "' AND " +
+                        "schema_name = '" + schemaName + "'"))
+                .skippingTypesCheck()
+                .containsAll("VALUES ('" + viewName + "', null), ('" + viewNameWithComment + "', 'mv_comment')");
 
         // reading
         assertThat(query("SELECT * FROM " + viewName))
+                .skippingTypesCheck()
+                .matches("SELECT * FROM nation");
+        assertThat(query("SELECT * FROM " + viewNameWithComment))
                 .skippingTypesCheck()
                 .matches("SELECT * FROM nation");
 
@@ -432,7 +447,9 @@ public abstract class BaseConnectorTest
                 .skippingTypesCheck()
                 .containsAll("VALUES ('" + viewName + "', 'BASE TABLE')"); // TODO table_type should probably be "* VIEW"
         // information_schema.tables with table_name filter
-        checkInformationSchemaTablesForPointedQueryForMaterializedView(schemaName, viewName);
+        assertQuery(
+                "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '" + schemaName + "' and table_name = '" + viewName + "'",
+                "VALUES ('" + viewName + "', 'BASE TABLE')");
 
         // system.jdbc.tables without filter
         assertThat(query("SELECT table_schem, table_name, table_type FROM system.jdbc.tables"))
@@ -449,16 +466,53 @@ public abstract class BaseConnectorTest
                 "VALUES ('" + schemaName + "', '" + viewName + "', 'TABLE')");
 
         // column listing
-        checkShowColumnsForMaterializedView(schemaName, viewName);
+        assertThat(query("SHOW COLUMNS FROM " + viewName))
+                .projected(0) // column types can very between connectors
+                .skippingTypesCheck()
+                .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
+
+        assertThat(query("DESCRIBE " + viewName))
+                .projected(0) // column types can very between connectors
+                .skippingTypesCheck()
+                .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
 
         // information_schema.columns without table_name filter
-        checkInformationSchemaColumnsForMaterializedView(schemaName, viewName);
+        assertThat(query("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schemaName + "'"))
+                .skippingTypesCheck()
+                .containsAll("SELECT * FROM (VALUES '" + viewName + "') CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
         // information_schema.columns with table_name filter
-        checkInformationSchemaColumnsForPointedQueryForMaterializedView(schemaName, viewName);
+        assertThat(query("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schemaName + "' and table_name = '" + viewName + "'"))
+                .skippingTypesCheck()
+                .containsAll("SELECT * FROM (VALUES '" + viewName + "') CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
         // view-specific listings
         checkInformationSchemaViewsForMaterializedView(schemaName, viewName);
+
+        // system.jdbc.columns without filter
+        @Language("SQL") String expectedValues = "VALUES ('" + schemaName + "', '" + viewName + "', 'nationkey'), " +
+                "('" + schemaName + "', '" + viewName + "', 'name'), " +
+                "('" + schemaName + "', '" + viewName + "', 'regionkey'), " +
+                "('" + schemaName + "', '" + viewName + "', 'comment')";
+        assertThat(query(
+                "SELECT table_schem, table_name, column_name FROM system.jdbc.columns"))
+                .skippingTypesCheck()
+                .containsAll(expectedValues);
+
+        // system.jdbc.columns with schema filter
+        assertThat(query(
+                "SELECT table_schem, table_name, column_name " +
+                        "FROM system.jdbc.columns " +
+                        "WHERE table_schem LIKE '%" + schemaName + "%'"))
+                .skippingTypesCheck()
+                .containsAll(expectedValues);
+
+        // system.jdbc.columns with table filter
+        assertQuery(
+                "SELECT table_schem, table_name, column_name " +
+                        "FROM system.jdbc.columns " +
+                        "WHERE table_name LIKE '%" + viewName + "%'",
+                expectedValues);
 
         // details
         assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName)))
@@ -470,43 +524,7 @@ public abstract class BaseConnectorTest
                         "  nation");
 
         assertUpdate("DROP MATERIALIZED VIEW " + viewName);
-    }
-
-    // TODO inline when all implementations fixed
-    protected void checkInformationSchemaTablesForPointedQueryForMaterializedView(String schemaName, String viewName)
-    {
-        assertQuery(
-                "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '" + schemaName + "' and table_name = '" + viewName + "'",
-                "VALUES ('" + viewName + "', 'BASE TABLE')");
-    }
-
-    // TODO inline when all implementations fixed
-    protected void checkShowColumnsForMaterializedView(String schemaName, String viewName)
-    {
-        assertThat(query("SHOW COLUMNS FROM " + viewName))
-                .skippingTypesCheck()
-                .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
-
-        assertThat(query("DESCRIBE " + viewName))
-                .projected(1)
-                .skippingTypesCheck()
-                .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
-    }
-
-    // TODO inline when all implementations fixed
-    protected void checkInformationSchemaColumnsForMaterializedView(String schemaName, String viewName)
-    {
-        assertThat(query("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schemaName + "'"))
-                .skippingTypesCheck()
-                .containsAll("SELECT * FROM (VALUES '" + viewName + "') CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
-    }
-
-    // TODO inline when all implementations fixed
-    protected void checkInformationSchemaColumnsForPointedQueryForMaterializedView(String schemaName, String viewName)
-    {
-        assertThat(query("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schemaName + "' and table_name = '" + viewName + "'"))
-                .skippingTypesCheck()
-                .containsAll("SELECT * FROM (VALUES '" + viewName + "') CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
+        assertUpdate("DROP MATERIALIZED VIEW " + viewNameWithComment);
     }
 
     // TODO inline when all implementations fixed

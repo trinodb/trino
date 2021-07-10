@@ -76,6 +76,7 @@ public class BigQueryResultPageSource
 
     private final BigQueryStorageClient bigQueryStorageClient;
     private final BigQuerySplit split;
+    private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final AtomicLong readBytes;
     private final PageBuilder pageBuilder;
@@ -90,7 +91,11 @@ public class BigQueryResultPageSource
         this.bigQueryStorageClient = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory is null").createBigQueryStorageClient();
         this.split = requireNonNull(split, "split is null");
         this.readBytes = new AtomicLong();
-        this.columnTypes = requireNonNull(columns, "columns is null").stream()
+        requireNonNull(columns, "columns is null");
+        this.columnNames = columns.stream()
+                .map(BigQueryColumnHandle::getName)
+                .collect(toImmutableList());
+        this.columnTypes = columns.stream()
                 .map(BigQueryColumnHandle::getTrinoType)
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(columnTypes);
@@ -131,7 +136,7 @@ public class BigQueryResultPageSource
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
-                appendTo(columnTypes.get(column), record.get(column), output);
+                appendTo(columnTypes.get(column), record.get(columnNames.get(column)), output);
             }
         }
 

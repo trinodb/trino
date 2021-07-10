@@ -23,7 +23,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
@@ -282,6 +281,22 @@ public abstract class BaseOracleConnectorTest
                         ")");
     }
 
+    @Override
+    public void testAggregationWithUnsupportedResultType()
+    {
+        // Overridden because for approx_set(bigint) a ProjectNode is present above table scan because Oracle doesn't support bigint
+        // array_agg returns array, which is not supported
+        assertThat(query("SELECT array_agg(nationkey) FROM nation"))
+                .skipResultsCorrectnessCheckForPushdown() // array_agg doesn't have a deterministic order of elements in result array
+                .isNotFullyPushedDown(AggregationNode.class);
+        // histogram returns map, which is not supported
+        assertThat(query("SELECT histogram(regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        // multimap_agg returns multimap, which is not supported
+        assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        // approx_set returns HyperLogLog, which is not supported
+        assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
+    }
+
     @Test
     public void testDropTable()
     {
@@ -377,8 +392,8 @@ public abstract class BaseOracleConnectorTest
                 getUser() + ".test_pdown_",
                 "(c_clob CLOB, c_nclob NCLOB)",
                 ImmutableList.of("'my_clob', 'my_nclob'"))) {
-            assertThat(query(format("SELECT c_clob FROM %s WHERE c_clob = cast('my_clob' as varchar)", table.getName()))).isNotFullyPushedDown(FilterNode.class);
-            assertThat(query(format("SELECT c_nclob FROM %s WHERE c_nclob = cast('my_nclob' as varchar)", table.getName()))).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(format("SELECT c_clob FROM %s WHERE c_clob = VARCHAR 'my_clob'", table.getName()))).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(format("SELECT c_nclob FROM %s WHERE c_nclob = VARCHAR 'my_nclob'", table.getName()))).isNotFullyPushedDown(FilterNode.class);
         }
     }
 
@@ -407,6 +422,4 @@ public abstract class BaseOracleConnectorTest
     {
         return TEST_USER;
     }
-
-    protected abstract SqlExecutor onRemoteDatabase();
 }

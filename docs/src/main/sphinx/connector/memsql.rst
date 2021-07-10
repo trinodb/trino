@@ -7,6 +7,15 @@ creating tables in an external SingleStore database. The SingleStore connector
 is very similar to the MySQL connector with the only difference being the
 underlying driver.
 
+Requirements
+------------
+
+To connect to SingleStore, you need:
+
+* SingleStore version 7.3 or higher.
+* Network access from the Trino coordinator and workers to SingleStore. Port
+  3306 is the default port.
+
 Configuration
 -------------
 

@@ -392,21 +392,25 @@ final class ShowQueriesRewrite
                 throw semanticException(SCHEMA_NOT_FOUND, showColumns, "Schema '%s' does not exist", tableName.getSchemaName());
             }
 
-            Optional<ConnectorViewDefinition> view = metadata.getView(session, tableName);
+            boolean isMaterializedView = metadata.getMaterializedView(session, tableName).isPresent();
+            boolean isView = false;
             QualifiedObjectName targetTableName = tableName;
             Optional<TableHandle> tableHandle = Optional.empty();
-
-            // Check for table if view is not present
-            if (view.isEmpty()) {
-                RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
-                tableHandle = redirection.getTableHandle();
-                if (tableHandle.isEmpty()) {
-                    throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
+            // Check for view if materialized view is not present
+            if (!isMaterializedView) {
+                isView = metadata.getView(session, tableName).isPresent();
+                // Check for table if view is not present
+                if (!isView) {
+                    RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
+                    tableHandle = redirection.getTableHandle();
+                    if (tableHandle.isEmpty()) {
+                        throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
+                    }
+                    targetTableName = redirection.getRedirectedTableName().orElse(tableName);
                 }
-                targetTableName = redirection.getRedirectedTableName().orElse(tableName);
             }
 
-            if (view.isEmpty() && tableHandle.isPresent()) {
+            if (!isMaterializedView && !isView) {
                 // We are using information_schema which may ignore errors when getting the list
                 // of columns for a table, since listing columns is a requirement for some tools,
                 // and thus failing due to a single bad table would make the system unusable.

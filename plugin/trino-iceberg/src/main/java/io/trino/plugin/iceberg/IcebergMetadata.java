@@ -171,6 +171,7 @@ public class IcebergMetadata
         implements ConnectorMetadata
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
+    private static final String ICEBERG_MATERIALIZED_VIEW_COMMENT = "Presto Materialized View";
     public static final String DEPENDS_ON_TABLES = "dependsOnTables";
 
     private final CatalogName catalogName;
@@ -406,11 +407,7 @@ public class IcebergMetadata
                         .distinct())  // distinct() to avoid duplicates for case-insensitive HMS backends
                 .forEach(tablesListBuilder::add);
 
-        schemaName.map(Collections::singletonList)
-                .orElseGet(metastore::getAllDatabases).stream()
-                .flatMap(schema -> metastore.getAllViews(schema).stream()
-                        .map(table -> new SchemaTableName(schema, table)))
-                .forEach(tablesListBuilder::add);
+        tablesListBuilder.addAll(listMaterializedViews(session, schemaName));
         return tablesListBuilder.build();
     }
 
@@ -781,11 +778,6 @@ public class IcebergMetadata
         return false;
     }
 
-    public HiveMetastore getMetastore()
-    {
-        return metastore;
-    }
-
     public void rollback()
     {
         // TODO: cleanup open transaction
@@ -896,7 +888,7 @@ public class IcebergMetadata
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .put(STORAGE_TABLE, storageTableName)
                 .put(PRESTO_VIEW_FLAG, "true")
-                .put(TABLE_COMMENT, "Presto Materialized View")
+                .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)
                 .build();
 
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
@@ -949,6 +941,12 @@ public class IcebergMetadata
             }
         }
         metastore.dropTable(identity, viewName.getSchemaName(), viewName.getTableName(), true);
+    }
+
+    @Override
+    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
+    {
+        return false;
     }
 
     @Override
@@ -1030,6 +1028,18 @@ public class IcebergMetadata
         return table.getTableType().equals(VIRTUAL_VIEW.name())
                 && "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG))
                 && table.getParameters().containsKey(STORAGE_TABLE);
+    }
+
+    @Override
+    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        // Iceberg does not support VIEWs
+        // Filter on ICEBERG_MATERIALIZED_VIEW_COMMENT is used to avoid listing hive views in case of a shared HMS
+        return schemaName.map(Collections::singletonList)
+                .orElseGet(metastore::getAllDatabases).stream()
+                .flatMap(schema -> metastore.getTablesWithParameter(schema, TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT).stream()
+                        .map(table -> new SchemaTableName(schema, table)))
+                .collect(toImmutableList());
     }
 
     @Override

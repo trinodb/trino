@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
@@ -42,11 +43,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.allAsList;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.isStatisticsCpuTimerEnabled;
@@ -154,7 +157,7 @@ public class TableWriterOperator
     private final Operator statisticAggregationOperator;
     private final List<Type> types;
 
-    private ListenableFuture<?> blocked = NOT_BLOCKED;
+    private ListenableFuture<Void> blocked = NOT_BLOCKED;
     private CompletableFuture<Collection<Slice>> finishFuture;
     private State state = State.RUNNING;
     private long rowCount;
@@ -164,6 +167,8 @@ public class TableWriterOperator
 
     private final OperationTiming statisticsTiming = new OperationTiming();
     private final boolean statisticsCpuTimerEnabled;
+
+    private final Supplier<TableWriterInfo> tableWriterInfoSupplier;
 
     public TableWriterOperator(
             OperatorContext operatorContext,
@@ -180,10 +185,11 @@ public class TableWriterOperator
         this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
         this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
         checkArgument(columnChannels.size() == notNullChannelColumnNames.size(), "columnChannels and notNullColumnNames have different sizes");
-        this.operatorContext.setInfoSupplier(this::getInfo);
         this.statisticAggregationOperator = requireNonNull(statisticAggregationOperator, "statisticAggregationOperator is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
+        this.tableWriterInfoSupplier = createTableWriterInfoSupplier(pageSinkPeakMemoryUsage, statisticsTiming, pageSink);
+        this.operatorContext.setInfoSupplier(tableWriterInfoSupplier);
     }
 
     @Override
@@ -195,13 +201,13 @@ public class TableWriterOperator
     @Override
     public void finish()
     {
-        ListenableFuture<?> currentlyBlocked = blocked;
+        ListenableFuture<Void> currentlyBlocked = blocked;
 
         OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
         statisticAggregationOperator.finish();
         timer.end(statisticsTiming);
 
-        ListenableFuture<?> blockedOnAggregation = statisticAggregationOperator.isBlocked();
+        ListenableFuture<Void> blockedOnAggregation = statisticAggregationOperator.isBlocked();
         ListenableFuture<?> blockedOnFinish = NOT_BLOCKED;
         if (state == State.RUNNING) {
             state = State.FINISHING;
@@ -209,7 +215,7 @@ public class TableWriterOperator
             blockedOnFinish = toListenableFuture(finishFuture);
             updateWrittenBytes();
         }
-        this.blocked = allAsList(currentlyBlocked, blockedOnAggregation, blockedOnFinish);
+        this.blocked = asVoid(allAsList(currentlyBlocked, blockedOnAggregation, blockedOnFinish));
     }
 
     @Override
@@ -219,7 +225,7 @@ public class TableWriterOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         return blocked;
     }
@@ -253,11 +259,11 @@ public class TableWriterOperator
         statisticAggregationOperator.addInput(page);
         timer.end(statisticsTiming);
 
-        ListenableFuture<?> blockedOnAggregation = statisticAggregationOperator.isBlocked();
+        ListenableFuture<Void> blockedOnAggregation = statisticAggregationOperator.isBlocked();
         CompletableFuture<?> future = pageSink.appendPage(new Page(blocks));
         updateMemoryUsage();
         ListenableFuture<?> blockedOnWrite = toListenableFuture(future);
-        blocked = allAsList(blockedOnAggregation, blockedOnWrite);
+        blocked = asVoid(allAsList(blockedOnAggregation, blockedOnWrite));
         rowCount += page.getPositionCount();
         updateWrittenBytes();
     }
@@ -393,7 +399,15 @@ public class TableWriterOperator
     @VisibleForTesting
     TableWriterInfo getInfo()
     {
-        return new TableWriterInfo(
+        return tableWriterInfoSupplier.get();
+    }
+
+    private static Supplier<TableWriterInfo> createTableWriterInfoSupplier(AtomicLong pageSinkPeakMemoryUsage, OperationTiming statisticsTiming, ConnectorPageSink pageSink)
+    {
+        requireNonNull(pageSinkPeakMemoryUsage, "pageSinkPeakMemoryUsage is null");
+        requireNonNull(statisticsTiming, "statisticsTiming is null");
+        requireNonNull(pageSink, "pageSink is null");
+        return () -> new TableWriterInfo(
                 pageSinkPeakMemoryUsage.get(),
                 new Duration(statisticsTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(statisticsTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -471,5 +485,10 @@ public class TableWriterOperator
                     .add("validationCpuTime", validationCpuTime)
                     .toString();
         }
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 }

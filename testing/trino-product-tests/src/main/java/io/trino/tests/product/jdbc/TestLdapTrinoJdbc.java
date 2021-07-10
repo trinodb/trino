@@ -26,8 +26,11 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.CHILD_GROUP_USER;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.ORPHAN_USER;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_AMERICA;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_EUROPE;
 import static io.trino.tests.product.TestGroups.LDAP;
 import static io.trino.tests.product.TestGroups.LDAP_AND_FILE;
+import static io.trino.tests.product.TestGroups.LDAP_MULTIPLE_BINDS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.TRINO_JDBC;
 import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
@@ -59,6 +62,15 @@ public class TestLdapTrinoJdbc
         assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, ldapUserName, ldapUserPassword)).matches(PRESTO_NATION_RESULT);
     }
 
+    @Requires(ImmutableNationTable.class)
+    @Test(groups = {LDAP, LDAP_MULTIPLE_BINDS, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldRunQueryWithAlternativeBind()
+            throws SQLException
+    {
+        String name = USER_IN_AMERICA.getAttributes().get("cn");
+        assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, name, ldapUserPassword)).matches(PRESTO_NATION_RESULT);
+    }
+
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapUserInChildGroup()
     {
@@ -78,6 +90,13 @@ public class TestLdapTrinoJdbc
     {
         String name = ORPHAN_USER.getAttributes().get("cn");
         expectQueryToFailForUserNotInGroup(name);
+    }
+
+    @Test(groups = {LDAP, LDAP_MULTIPLE_BINDS, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldFailQueryForFailedBind()
+    {
+        String name = USER_IN_EUROPE.getAttributes().get("cn");
+        expectQueryToFail(name, ldapUserPassword, "Authentication failed: Access Denied: Invalid credentials");
     }
 
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -120,7 +139,7 @@ public class TestLdapTrinoJdbc
         String url = format("jdbc:trino://%s?SSL=true&SSLTrustStorePath=%s&SSLTrustStorePassword=%s", prestoServer(), ldapTruststorePath, "wrong_password");
         assertThatThrownBy(() -> DriverManager.getConnection(url, ldapUserName, ldapUserPassword))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Error setting up SSL: Keystore was tampered with, or password was incorrect");
+                .hasMessage("Error setting up SSL: keystore password was incorrect");
     }
 
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)

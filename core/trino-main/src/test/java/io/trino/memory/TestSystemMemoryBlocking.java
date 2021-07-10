@@ -115,7 +115,7 @@ public class TestSystemMemoryBlocking
         Split testSplit = new Split(new CatalogName("test"), new TestSplit(), Lifespan.taskWide());
         driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
-        ListenableFuture<?> blocked = driver.processFor(new Duration(1, NANOSECONDS));
+        ListenableFuture<Void> blocked = driver.processFor(new Duration(1, NANOSECONDS));
 
         // the driver shouldn't block in the first call as it will be able to move a page between source and the sink operator
         // but the operator should be blocked

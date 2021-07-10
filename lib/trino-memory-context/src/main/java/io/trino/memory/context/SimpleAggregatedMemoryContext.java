@@ -24,7 +24,7 @@ class SimpleAggregatedMemoryContext
         extends AbstractAggregatedMemoryContext
 {
     @Override
-    synchronized ListenableFuture<?> updateBytes(String allocationTag, long bytes)
+    synchronized ListenableFuture<Void> updateBytes(String allocationTag, long bytes)
     {
         checkState(!isClosed(), "SimpleAggregatedMemoryContext is already closed");
         addBytes(bytes);

@@ -3068,12 +3068,11 @@ public class SemiTransactionalHiveMetastore
 
         public void run(HiveMetastoreClosure metastore)
         {
-            boolean done = false;
             try {
                 metastore.createTable(identity, newTable, privileges);
-                done = true;
             }
             catch (RuntimeException e) {
+                boolean done = false;
                 try {
                     Optional<Table> existingTable = metastore.getTable(identity, newTable.getDatabaseName(), newTable.getTableName());
                     if (existingTable.isPresent()) {

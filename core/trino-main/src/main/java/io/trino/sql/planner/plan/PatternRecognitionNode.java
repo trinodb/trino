@@ -40,6 +40,11 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.concat;
+import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
+import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -51,7 +56,18 @@ public class PatternRecognitionNode
     private final Optional<Symbol> hashSymbol;
     private final Set<Symbol> prePartitionedInputs;
     private final int preSortedOrderPrefix;
+    private final Map<Symbol, WindowNode.Function> windowFunctions;
     private final Map<Symbol, Measure> measures;
+    /*
+    There is one pattern matching per one PatternRecognitionNode. So, it is required that all window functions present
+    in the node have the same frame, because the frame is a base for pattern matching. Operator takes the following steps:
+    - determine common base frame
+    - match the pattern in that frame
+    - compute all measures on the match
+    - compute all window functions in the reduced frame defined by the match
+    Because the base frame is common to all window functions (and measures), it is a top-level property of PatternRecognitionNode,
+    and not a property of particular window functions like in WindowNode.
+    */
     private final Optional<Frame> commonBaseFrame;
     private final RowsPerMatch rowsPerMatch;
     private final Optional<IrLabel> skipToLabel;
@@ -61,19 +77,6 @@ public class PatternRecognitionNode
     private final Map<IrLabel, Set<IrLabel>> subsets;
     private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions;
 
-    // TODO for pattern matching in window, we need to add regular window functions to the node.
-    //    We want to have one pattern matching per one PatternRecognitionNode. For that, it is required that all window functions present in the node
-    //    have the same frame, because the frame is a base for pattern matching. Operator takes the following steps:
-    //      - determine common base frame
-    //      - match the pattern in that frame
-    //      - compute all measures on the match
-    //      - compute all window functions in the reduced frame defined by the match
-    //   Because the base frame is common to all window functions (and measures), it is a top-level property of PatternRecognitionNode, and not a property
-    //   of particular window functions like in WindowNode. PatternRecognitionNodes can be merged as an optimization on the following conditions:
-    //      - they have the same specifications
-    //      - they have the same pattern recognition specification
-    //      - they have the same common base frame
-
     @JsonCreator
     public PatternRecognitionNode(
             @JsonProperty("id") PlanNodeId id,
@@ -82,6 +85,7 @@ public class PatternRecognitionNode
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("prePartitionedInputs") Set<Symbol> prePartitionedInputs,
             @JsonProperty("preSortedOrderPrefix") int preSortedOrderPrefix,
+            @JsonProperty("windowFunctions") Map<Symbol, WindowNode.Function> windowFunctions,
             @JsonProperty("measures") Map<Symbol, Measure> measures,
             @JsonProperty("commonBaseFrame") Optional<Frame> commonBaseFrame,
             @JsonProperty("rowsPerMatch") RowsPerMatch rowsPerMatch,
@@ -102,9 +106,15 @@ public class PatternRecognitionNode
         Optional<OrderingScheme> orderingScheme = specification.getOrderingScheme();
         checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().getOrderBy().size()), "Cannot have sorted more symbols than those requested");
         checkArgument(preSortedOrderPrefix == 0 || ImmutableSet.copyOf(prePartitionedInputs).equals(ImmutableSet.copyOf(specification.getPartitionBy())), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
+        requireNonNull(windowFunctions, "windowFunctions is null");
         requireNonNull(measures, "measures is null");
         requireNonNull(commonBaseFrame, "commonBaseFrame is null");
         requireNonNull(rowsPerMatch, "rowsPerMatch is null");
+        checkArgument(windowFunctions.isEmpty() || commonBaseFrame.isPresent(), "Common base frame is required for pattern recognition with window functions");
+        checkArgument(commonBaseFrame.isEmpty() || rowsPerMatch == WINDOW, "Invalid ROWS PER MATCH option for pattern recognition in window: %s", rowsPerMatch.name());
+        checkArgument(rowsPerMatch != WINDOW || commonBaseFrame.isPresent(), "Common base frame is required for pattern recognition in window");
+        checkArgument(initial || rowsPerMatch == WINDOW, "Pattern search mode SEEK is only supported in window");
+        commonBaseFrame.ifPresent(frame -> checkArgument(frame.getType() == ROWS && frame.getStartType() == CURRENT_ROW, "Invalid common base frame for pattern recognition in window"));
         requireNonNull(skipToLabel, "skipToLabel is null");
         requireNonNull(skipToPosition, "skipToPosition is null");
         requireNonNull(pattern, "pattern is null");
@@ -116,6 +126,7 @@ public class PatternRecognitionNode
         this.hashSymbol = hashSymbol;
         this.prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
         this.preSortedOrderPrefix = preSortedOrderPrefix;
+        this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
         this.measures = ImmutableMap.copyOf(measures);
         this.commonBaseFrame = commonBaseFrame;
         this.rowsPerMatch = rowsPerMatch;
@@ -138,20 +149,21 @@ public class PatternRecognitionNode
     public List<Symbol> getOutputSymbols()
     {
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
-        if (rowsPerMatch.isOneRow()) {
+        if (rowsPerMatch == ONE) {
             outputSymbols.addAll(getPartitionBy());
         }
         else {
             outputSymbols.addAll(source.getOutputSymbols());
         }
         outputSymbols.addAll(measures.keySet());
+        outputSymbols.addAll(windowFunctions.keySet());
 
         return outputSymbols.build();
     }
 
     public Set<Symbol> getCreatedSymbols()
     {
-        return ImmutableSet.copyOf(measures.keySet());
+        return ImmutableSet.copyOf(concat(measures.keySet(), windowFunctions.keySet()));
     }
 
     @JsonProperty
@@ -192,6 +204,12 @@ public class PatternRecognitionNode
     public int getPreSortedOrderPrefix()
     {
         return preSortedOrderPrefix;
+    }
+
+    @JsonProperty
+    public Map<Symbol, WindowNode.Function> getWindowFunctions()
+    {
+        return windowFunctions;
     }
 
     @JsonProperty
@@ -264,6 +282,7 @@ public class PatternRecognitionNode
                 hashSymbol,
                 prePartitionedInputs,
                 preSortedOrderPrefix,
+                windowFunctions,
                 measures,
                 commonBaseFrame,
                 rowsPerMatch,

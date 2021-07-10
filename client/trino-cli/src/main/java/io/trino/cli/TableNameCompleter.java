@@ -17,6 +17,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.trino.client.QueryData;
 import io.trino.client.StatementClient;
 import org.jline.reader.Candidate;
@@ -30,7 +31,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.cache.CacheLoader.asyncReloading;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -40,7 +40,9 @@ public class TableNameCompleter
 {
     private static final long RELOAD_TIME_MINUTES = 2;
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("completer-%s"));
+    private final ExecutorService executor = newCachedThreadPool(
+            new ThreadFactoryBuilder().setNameFormat("completer-%s").setDaemon(true).build());
+
     private final QueryRunner queryRunner;
     private final LoadingCache<String, List<String>> tableCache;
     private final LoadingCache<String, List<String>> functionCache;

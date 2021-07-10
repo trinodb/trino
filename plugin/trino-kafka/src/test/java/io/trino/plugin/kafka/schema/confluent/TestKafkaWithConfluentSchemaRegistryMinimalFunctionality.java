@@ -273,7 +273,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 }
             }
             else if (field.schema().getType().equals(Schema.Type.STRING)) {
-                columnsBuilder.add(format("CAST('%s' AS varchar)", value));
+                columnsBuilder.add(format("VARCHAR '%s'", value));
             }
             else if (field.schema().getType().equals(Schema.Type.LONG)) {
                 columnsBuilder.add(format("CAST(%s AS bigint)", value));

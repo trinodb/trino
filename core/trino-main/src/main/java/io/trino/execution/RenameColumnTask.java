@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
@@ -48,7 +48,7 @@ public class RenameColumnTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             RenameColumn statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -64,7 +64,7 @@ public class RenameColumnTask
             if (!statement.isTableExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
         TableHandle tableHandle = tableHandleOptional.get();
 
@@ -79,7 +79,7 @@ public class RenameColumnTask
             if (!statement.isColumnExists()) {
                 throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", source);
             }
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
 
         if (columnHandles.containsKey(target)) {
@@ -92,6 +92,6 @@ public class RenameColumnTask
 
         metadata.renameColumn(session, tableHandle, columnHandle, target);
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

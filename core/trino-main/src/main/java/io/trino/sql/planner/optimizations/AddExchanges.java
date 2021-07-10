@@ -59,6 +59,7 @@ import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SortNode;
@@ -580,6 +581,12 @@ public class AddExchanges
 
         @Override
         public PlanWithProperties visitTableScan(TableScanNode node, PreferredProperties preferredProperties)
+        {
+            return new PlanWithProperties(node, deriveProperties(node, ImmutableList.of()));
+        }
+
+        @Override
+        public PlanWithProperties visitRefreshMaterializedView(RefreshMaterializedViewNode node, PreferredProperties preferredProperties)
         {
             return new PlanWithProperties(node, deriveProperties(node, ImmutableList.of()));
         }

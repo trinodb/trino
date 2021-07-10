@@ -22,6 +22,10 @@ To enable OAuth 2.0 authentication for Trino, configuration changes are made on
 the Trino coordinator. No changes are required to the worker configuration;
 only the communication from the clients to the coordinator is authenticated.
 
+Set the callback/redirect URL to ``https://<trino-coordinator-domain-name>/oauth2/callback``,
+when configuring an OAuth 2.0 authorization server like an OpenID-connect
+provider.
+
 Trino server configuration
 --------------------------
 

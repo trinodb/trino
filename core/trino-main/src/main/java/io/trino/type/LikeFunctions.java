@@ -96,14 +96,6 @@ public final class LikeFunctions
         return compileLikePattern(pattern);
     }
 
-    @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
-    @LiteralParameters("x")
-    @SqlType(LikePatternType.NAME)
-    public static JoniRegexp likePattern(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
-    {
-        return compileLikePattern(padSpaces(pattern, charLength.intValue()));
-    }
-
     public static JoniRegexp compileLikePattern(Slice pattern)
     {
         return likePattern(pattern.toStringUtf8(), '0', false);

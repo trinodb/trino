@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
@@ -61,7 +61,7 @@ public class AddColumnTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             AddColumn statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -77,7 +77,7 @@ public class AddColumnTask
             if (!statement.isTableExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
 
         CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
@@ -102,7 +102,7 @@ public class AddColumnTask
             if (!statement.isColumnNotExists()) {
                 throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
             }
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
         if (!element.isNullable() && !metadata.getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
             throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogName.getCatalogName(), element.getName());
@@ -128,6 +128,6 @@ public class AddColumnTask
 
         metadata.addColumn(session, tableHandle.get(), column);
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

@@ -36,7 +36,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.transform;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.util.MergeSortedPages.mergeSortedPages;
@@ -156,7 +156,7 @@ public class OrderByOperator
     private final OrderingCompiler orderingCompiler;
 
     private Optional<Spiller> spiller = Optional.empty();
-    private ListenableFuture<?> spillInProgress = immediateFuture(null);
+    private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
     private Runnable finishMemoryRevoke = () -> {};
 
     private Iterator<Optional<Page>> sortedPages;
@@ -290,20 +290,20 @@ public class OrderByOperator
     }
 
     @Override
-    public ListenableFuture<?> startMemoryRevoke()
+    public ListenableFuture<Void> startMemoryRevoke()
     {
         verify(state == State.NEEDS_INPUT || revocableMemoryContext.getBytes() == 0, "Cannot spill in state: %s", state);
         return spillToDisk();
     }
 
-    private ListenableFuture<?> spillToDisk()
+    private ListenableFuture<Void> spillToDisk()
     {
         checkSuccess(spillInProgress, "spilling failed");
 
         if (revocableMemoryContext.getBytes() == 0) {
             verify(pageIndex.getPositionCount() == 0 || state == State.HAS_OUTPUT);
             finishMemoryRevoke = () -> {};
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
 
         // TODO try pageIndex.compact(); before spilling, as in HashBuilderOperator.startMemoryRevoke()
