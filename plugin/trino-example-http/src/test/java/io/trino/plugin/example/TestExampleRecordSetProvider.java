@@ -16,6 +16,7 @@ package io.trino.plugin.example;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import org.testng.annotations.AfterClass;
@@ -44,7 +45,7 @@ public class TestExampleRecordSetProvider
         ExampleRecordSetProvider recordSetProvider = new ExampleRecordSetProvider();
         RecordSet recordSet = recordSetProvider.getRecordSet(ExampleTransactionHandle.INSTANCE, SESSION, new ExampleSplit(dataUri), tableHandle, ImmutableList.of(
                 new ExampleColumnHandle("text", createUnboundedVarcharType(), 0),
-                new ExampleColumnHandle("value", BIGINT, 1)));
+                new ExampleColumnHandle("value", BIGINT, 1)), DynamicFilter.EMPTY);
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
