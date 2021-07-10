@@ -17,14 +17,11 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 
-import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 
 public class JdbcMetadataConfig
 {
-    static final int MAX_ALLOWED_INSERT_BATCH_SIZE = 1_000_000;
-
-    private boolean allowDropTable;
+     private boolean allowDropTable;
     /*
      * Join pushdown is disabled by default as this is the safer option.
      * Pushing down a join which substantially increases the row count vs
@@ -43,8 +40,6 @@ public class JdbcMetadataConfig
     // between performance and pushdown capabilities
     private int domainCompactionThreshold = 32;
     
-    private int insertBatchSize = 1000;
-
     // The limit of the vales per IN operator depends on the database. 
     // E.g. Oracle allows only up to 1,000 IN list values in a SQL statement.
     // A value of 0 means no limit
@@ -115,21 +110,6 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setDomainCompactionThreshold(int domainCompactionThreshold)
     {
         this.domainCompactionThreshold = domainCompactionThreshold;
-        return this;
-    }
-
-    @Min(1)
-    @Max(MAX_ALLOWED_INSERT_BATCH_SIZE)
-    public int getInsertBatchSize()
-    {
-        return insertBatchSize;
-    }
-
-    @Config("insert.batch-size")
-    @ConfigDescription("Maximum number of rows to insert in a single batch")
-    public JdbcMetadataConfig setInsertBatchSize(int insertBatchSize)
-    {
-        this.insertBatchSize = insertBatchSize;
         return this;
     }
 
