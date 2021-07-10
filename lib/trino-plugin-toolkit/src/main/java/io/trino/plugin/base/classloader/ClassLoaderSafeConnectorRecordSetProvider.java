@@ -52,10 +52,10 @@ public class ClassLoaderSafeConnectorRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return new ClassLoaderSafeRecordSet(delegate.getRecordSet(transactionHandle, session, split, columns), classLoader);
+            return new ClassLoaderSafeRecordSet(delegate.getRecordSet(transactionHandle, session, split, columns, dynamicFilter), classLoader);
         }
     }
 }
