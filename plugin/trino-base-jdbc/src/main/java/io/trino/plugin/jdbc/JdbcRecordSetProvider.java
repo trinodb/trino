@@ -63,7 +63,7 @@ public class JdbcRecordSetProvider
         for (ColumnHandle handle : columns) {
             handles.add((JdbcColumnHandle) handle);
         }
-        
+
         return new JdbcRecordSet(jdbcClient, executor, session, jdbcSplit, jdbcTable, handles.build(), dynamicFilter.getCurrentPredicate());
     }
 }
