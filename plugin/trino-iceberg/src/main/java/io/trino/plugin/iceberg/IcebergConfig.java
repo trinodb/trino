@@ -30,6 +30,7 @@ public class IcebergConfig
     private HiveCompressionCodec compressionCodec = GZIP;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
+    private boolean hadoopMode;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -54,6 +55,18 @@ public class IcebergConfig
     public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    public boolean isHadoopMode()
+    {
+        return hadoopMode;
+    }
+
+    @Config("iceberg.hadoopmode")
+    public IcebergConfig setHadoopMode(boolean hadoopMode)
+    {
+        this.hadoopMode = hadoopMode;
         return this;
     }
 
