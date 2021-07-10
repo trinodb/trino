@@ -91,7 +91,7 @@ public interface JdbcClient
             List<JdbcColumnHandle> columns,
             Map<String, String> columnExpressions);
 
-    PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+    PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> currentPredicate)
             throws SQLException;
 
     Optional<PreparedQuery> implementJoin(

@@ -14,9 +14,12 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -31,11 +34,12 @@ public class JdbcRecordSet
     private final ExecutorService executor;
     private final JdbcTableHandle table;
     private final List<JdbcColumnHandle> columnHandles;
+    private final TupleDomain<ColumnHandle> currentPredicate;
     private final List<Type> columnTypes;
     private final JdbcSplit split;
     private final ConnectorSession session;
 
-    public JdbcRecordSet(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordSet(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles, TupleDomain<ColumnHandle> currentPredicate)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.executor = requireNonNull(executor, "executor is null");
@@ -43,6 +47,7 @@ public class JdbcRecordSet
 
         this.table = requireNonNull(table, "table is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
+        this.currentPredicate = requireNonNull(currentPredicate, "currentPredicate is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (JdbcColumnHandle column : columnHandles) {
             types.add(column.getColumnType());
@@ -60,6 +65,6 @@ public class JdbcRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new JdbcRecordCursor(jdbcClient, executor, session, split, table, columnHandles);
+        return new JdbcRecordCursor(jdbcClient, executor, session, split, table, columnHandles, currentPredicate);
     }
 }

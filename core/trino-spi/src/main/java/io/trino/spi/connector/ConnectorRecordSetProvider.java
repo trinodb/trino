@@ -22,7 +22,8 @@ public interface ConnectorRecordSetProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            List<? extends ColumnHandle> columns)
+            List<? extends ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
     {
         return getRecordSet(transaction, session, split, columns);
     }

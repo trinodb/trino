@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
+
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -170,6 +172,6 @@ public class TestJdbcRecordSet
 
     private JdbcRecordSet createRecordSet(List<JdbcColumnHandle> columnHandles)
     {
-        return new JdbcRecordSet(jdbcClient, executor, SESSION, split, table, columnHandles);
+        return new JdbcRecordSet(jdbcClient, executor, SESSION, split, table, columnHandles, TupleDomain.none());
     }
 }

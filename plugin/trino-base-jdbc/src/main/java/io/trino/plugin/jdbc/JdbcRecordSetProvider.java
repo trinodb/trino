@@ -21,7 +21,9 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordSet;
+import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -45,7 +47,7 @@ public class JdbcRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
         JdbcSplit jdbcSplit = (JdbcSplit) split;
         JdbcTableHandle jdbcTable = (JdbcTableHandle) table;
@@ -61,7 +63,7 @@ public class JdbcRecordSetProvider
         for (ColumnHandle handle : columns) {
             handles.add((JdbcColumnHandle) handle);
         }
-
-        return new JdbcRecordSet(jdbcClient, executor, session, jdbcSplit, jdbcTable, handles.build());
+        
+        return new JdbcRecordSet(jdbcClient, executor, session, jdbcSplit, jdbcTable, handles.build(), dynamicFilter.getCurrentPredicate());
     }
 }
