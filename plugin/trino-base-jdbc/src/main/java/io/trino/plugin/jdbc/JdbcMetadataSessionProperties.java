@@ -24,6 +24,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.jdbc.JdbcMetadataConfig.MAX_ALLOWED_INSERT_BATCH_SIZE;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
@@ -37,6 +38,7 @@ public class JdbcMetadataSessionProperties
     public static final String TOPN_PUSHDOWN_ENABLED = "topn_pushdown_enabled";
     public static final String DOMAIN_COMPACTION_THRESHOLD = "domain_compaction_threshold";
     public static final String IN_OPERATOR_LIMIT = "in_operator_limit";
+    public static final String INSERT_BATCH_SIZE = "insert_batch_size";
 
     private final List<PropertyMetadata<?>> properties;
 
@@ -70,7 +72,14 @@ public class JdbcMetadataSessionProperties
                 		IN_OPERATOR_LIMIT,
                         "Maximum number of values per IN operator. A value of 0 means no limit",
                         jdbcMetadataConfig.getInOperatorLimit(),
-                        false))                
+                        value -> validateInOperatorLimit(value),
+                        false))
+                .add(integerProperty(
+                		INSERT_BATCH_SIZE,
+                		"Insert batch size",
+                        jdbcMetadataConfig.getInsertBatchSize(),
+                        value -> validateInsertBatchSize(value, MAX_ALLOWED_INSERT_BATCH_SIZE),
+                        false))
                 .build();
     }
 
@@ -104,7 +113,12 @@ public class JdbcMetadataSessionProperties
     {
         return session.getProperty(IN_OPERATOR_LIMIT, Integer.class);
     }
-    
+
+    public static int getInsertBatchSize(ConnectorSession session)
+    {
+        return session.getProperty(INSERT_BATCH_SIZE, Integer.class);
+    }
+
     private static void validateDomainCompactionThreshold(int domainCompactionThreshold, Optional<Integer> maxDomainCompactionThreshold)
     {
         if (domainCompactionThreshold < 1) {
@@ -116,5 +130,22 @@ public class JdbcMetadataSessionProperties
                 throw new TrinoException(INVALID_SESSION_PROPERTY, format("Domain compaction threshold (%s) cannot exceed %s", domainCompactionThreshold, max));
             }
         });
+    }
+
+    private static void validateInOperatorLimit(int inOperatorLimit)
+    {
+        if (inOperatorLimit < 0) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 0: %s", IN_OPERATOR_LIMIT, inOperatorLimit));
+        }
+    }
+
+    private static void validateInsertBatchSize(int maxBatchSize, int maxAllowedBatchSize)
+    {
+        if (maxBatchSize < 1) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", INSERT_BATCH_SIZE, maxBatchSize));
+        }
+        if (maxBatchSize > maxAllowedBatchSize) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot exceed %s: %s", INSERT_BATCH_SIZE, maxAllowedBatchSize, maxBatchSize));
+        }
     }
 }

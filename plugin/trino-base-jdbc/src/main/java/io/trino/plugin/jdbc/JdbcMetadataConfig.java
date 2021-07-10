@@ -17,10 +17,13 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 
 public class JdbcMetadataConfig
 {
+    static final int MAX_ALLOWED_INSERT_BATCH_SIZE = 1_000_000;
+
     private boolean allowDropTable;
     /*
      * Join pushdown is disabled by default as this is the safer option.
@@ -44,6 +47,8 @@ public class JdbcMetadataConfig
     // E.g. Oracle allows only up to 1,000 IN list values in a SQL statement.
     // A value of 0 means no limit
     private int inOperatorLimit = 0;
+    
+    private int insertBatchSize = 1000;
 
     public boolean isAllowDropTable()
     {
@@ -105,17 +110,40 @@ public class JdbcMetadataConfig
         return domainCompactionThreshold;
     }
     
+    @Config("domain-compaction-threshold")
+    @ConfigDescription("Maximum ranges to allow in a tuple domain without compacting it")
+    public JdbcMetadataConfig setDomainCompactionThreshold(int domainCompactionThreshold)
+    {
+        this.domainCompactionThreshold = domainCompactionThreshold;
+        return this;
+    }
+
     @Min(0)
     public int getInOperatorLimit()
     {
         return inOperatorLimit;
     }    
 
-    @Config("domain-compaction-threshold")
-    @ConfigDescription("Maximum ranges to allow in a tuple domain without compacting it")
-    public JdbcMetadataConfig setDomainCompactionThreshold(int domainCompactionThreshold)
+    @Config("in-operator-limit")
+    @ConfigDescription("Maximum number of values per IN operator. A value of 0 means no limit")
+    public JdbcMetadataConfig setInOperatorLimit(int inOperatorLimit)
     {
-        this.domainCompactionThreshold = domainCompactionThreshold;
+        this.inOperatorLimit = inOperatorLimit;
+        return this;
+    }
+
+    @Min(1)
+    @Max(MAX_ALLOWED_INSERT_BATCH_SIZE)
+    public int getInsertBatchSize()
+    {
+        return insertBatchSize;
+    }
+
+    @Config("insert.batch-size")
+    @ConfigDescription("Maximum number of rows to insert in a single batch")
+    public JdbcMetadataConfig setInsertBatchSize(int insertBatchSize)
+    {
+        this.insertBatchSize = insertBatchSize;
         return this;
     }
 }
