@@ -329,7 +329,7 @@ public class QueryBuilder
                 disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
             }
             else {
-                // The limit of the vales per IN operator depends on the database. E.g. Oracle allows only up to 1,000 IN list values in a SQL statement. 
+                // The limit of the values per IN operator depends on the database. E.g. Oracle allows only up to 1,000 IN list values in a SQL statement. 
             	int remainder = singleValues.size() % getInOperatorLimit(session);
             	for (int i = 0; i < (singleValues.size() - remainder) / getInOperatorLimit(session); i++) {
 	                String values = Joiner.on(",").join(nCopies(getInOperatorLimit(session), writeFunction.getBindExpression()));

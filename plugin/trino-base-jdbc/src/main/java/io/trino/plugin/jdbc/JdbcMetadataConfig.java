@@ -40,7 +40,7 @@ public class JdbcMetadataConfig
     // between performance and pushdown capabilities
     private int domainCompactionThreshold = 32;
 
-    // The limit of the vales per IN operator depends on the database. 
+    // The limit of the values per IN operator depends on the database. 
     // E.g. Oracle allows only up to 1,000 IN list values in a SQL statement.
     // A value of 0 means no limit
     private int inOperatorLimit = 0;
