@@ -20,6 +20,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordSet;
 import io.trino.tpcds.Results;
 import io.trino.tpcds.Session;
@@ -40,7 +41,8 @@ public class TpcdsRecordSetProvider
             ConnectorSession connectorSession,
             ConnectorSplit split,
             ConnectorTableHandle tableHandle,
-            List<? extends ColumnHandle> columns)
+            List<? extends ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
     {
         TpcdsSplit tpcdsSplit = (TpcdsSplit) split;
         TpcdsTableHandle tpcdsTable = (TpcdsTableHandle) tableHandle;
