@@ -297,7 +297,7 @@ public final class SqlStageExecution
         return stateMachine.getTotalMemoryReservation();
     }
 
-    public synchronized Duration getTotalCpuTime()
+    public Duration getTotalCpuTime()
     {
         long millis = getAllTasks().stream()
                 .mapToLong(task -> task.getTaskInfo().getStats().getTotalCpuTime().toMillis())
