@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordSet;
 
 import java.util.HashMap;
@@ -54,7 +55,8 @@ public class KinesisRecordSetProvider
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorSplit split,
-            List<? extends ColumnHandle> columns)
+            List<? extends ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
     {
         KinesisSplit kinesisSplit = (KinesisSplit) split;
         List<KinesisColumnHandle> kinesisColumns = columns.stream()
