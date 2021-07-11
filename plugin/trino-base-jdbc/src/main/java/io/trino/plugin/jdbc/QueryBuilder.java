@@ -40,6 +40,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getInOperatorLimit;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -323,8 +324,20 @@ public class QueryBuilder
             for (Object value : singleValues) {
                 accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
             }
-            String values = Joiner.on(",").join(nCopies(singleValues.size(), writeFunction.getBindExpression()));
-            disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
+            if (getInOperatorLimit(session) == 0) {
+                String values = Joiner.on(",").join(nCopies(singleValues.size(), writeFunction.getBindExpression()));
+                disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
+            }
+            else {
+                // The limit of the vales per IN operator depends on the database. E.g. Oracle allows only up to 1,000 IN list values in a SQL statement. 
+            	int remainder = singleValues.size() % getInOperatorLimit(session);
+            	for (int i = 0; i < (singleValues.size() - remainder) / getInOperatorLimit(session); i++) {
+	                String values = Joiner.on(",").join(nCopies(getInOperatorLimit(session), writeFunction.getBindExpression()));
+	                disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
+            	}
+                String values = Joiner.on(",").join(nCopies(remainder, writeFunction.getBindExpression()));
+                disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
+            }
         }
 
         checkState(!disjuncts.isEmpty());

@@ -36,6 +36,7 @@ public class JdbcMetadataSessionProperties
     public static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     public static final String TOPN_PUSHDOWN_ENABLED = "topn_pushdown_enabled";
     public static final String DOMAIN_COMPACTION_THRESHOLD = "domain_compaction_threshold";
+    public static final String IN_OPERATOR_LIMIT = "in_operator_limit";
 
     private final List<PropertyMetadata<?>> properties;
 
@@ -64,6 +65,12 @@ public class JdbcMetadataSessionProperties
                         TOPN_PUSHDOWN_ENABLED,
                         "Enable TopN pushdown",
                         jdbcMetadataConfig.isTopNPushdownEnabled(),
+                        false))
+                .add(integerProperty(
+                		IN_OPERATOR_LIMIT,
+                        "Maximum number of values per IN operator. A value of 0 means no limit",
+                        jdbcMetadataConfig.getInOperatorLimit(),
+                        value -> validateInOperatorLimit(value),
                         false))
                 .build();
     }
@@ -94,6 +101,11 @@ public class JdbcMetadataSessionProperties
         return session.getProperty(DOMAIN_COMPACTION_THRESHOLD, Integer.class);
     }
 
+    public static int getInOperatorLimit(ConnectorSession session)
+    {
+        return session.getProperty(IN_OPERATOR_LIMIT, Integer.class);
+    }
+
     private static void validateDomainCompactionThreshold(int domainCompactionThreshold, Optional<Integer> maxDomainCompactionThreshold)
     {
         if (domainCompactionThreshold < 1) {
@@ -105,5 +117,12 @@ public class JdbcMetadataSessionProperties
                 throw new TrinoException(INVALID_SESSION_PROPERTY, format("Domain compaction threshold (%s) cannot exceed %s", domainCompactionThreshold, max));
             }
         });
+    }
+
+    private static void validateInOperatorLimit(int inOperatorLimit)
+    {
+        if (inOperatorLimit < 0) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 0: %s", IN_OPERATOR_LIMIT, inOperatorLimit));
+        }
     }
 }
