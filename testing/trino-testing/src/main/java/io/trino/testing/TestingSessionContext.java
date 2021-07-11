@@ -13,161 +13,44 @@
  */
 package io.trino.testing;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.client.ProtocolHeaders;
-import io.trino.connector.CatalogName;
 import io.trino.server.SessionContext;
-import io.trino.spi.security.Identity;
-import io.trino.spi.session.ResourceEstimates;
-import io.trino.transaction.TransactionId;
 
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
-import static com.google.common.base.Strings.emptyToNull;
-import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 
-public class TestingSessionContext
-        implements SessionContext
+public final class TestingSessionContext
 {
-    private final Session session;
+    private TestingSessionContext() {}
 
-    public TestingSessionContext(Session session)
+    public static SessionContext fromSession(Session session)
     {
-        this.session = requireNonNull(session, "session is null");
-    }
-
-    @Override
-    public ProtocolHeaders getProtocolHeaders()
-    {
-        return TRINO_HEADERS;
-    }
-
-    @Override
-    public Optional<Identity> getAuthenticatedIdentity()
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public Identity getIdentity()
-    {
-        return session.getIdentity();
-    }
-
-    @Override
-    public Optional<String> getCatalog()
-    {
-        return session.getCatalog();
-    }
-
-    @Override
-    public Optional<String> getSchema()
-    {
-        return session.getSchema();
-    }
-
-    @Override
-    public Optional<String> getPath()
-    {
-        return Optional.ofNullable(emptyToNull(session.getPath().toString()));
-    }
-
-    @Override
-    public Optional<String> getSource()
-    {
-        return session.getSource();
-    }
-
-    @Override
-    public Optional<String> getTraceToken()
-    {
-        return session.getTraceToken();
-    }
-
-    @Override
-    public Optional<String> getRemoteUserAddress()
-    {
-        return session.getRemoteUserAddress();
-    }
-
-    @Override
-    public Optional<String> getUserAgent()
-    {
-        return session.getUserAgent();
-    }
-
-    @Override
-    public Optional<String> getClientInfo()
-    {
-        return session.getClientInfo();
-    }
-
-    @Override
-    public Set<String> getClientTags()
-    {
-        return session.getClientTags();
-    }
-
-    @Override
-    public Set<String> getClientCapabilities()
-    {
-        return session.getClientCapabilities();
-    }
-
-    @Override
-    public ResourceEstimates getResourceEstimates()
-    {
-        return session.getResourceEstimates();
-    }
-
-    @Override
-    public Optional<String> getTimeZoneId()
-    {
-        return Optional.of(session.getTimeZoneKey().getId());
-    }
-
-    @Override
-    public Optional<String> getLanguage()
-    {
-        return Optional.of(session.getLocale().getLanguage());
-    }
-
-    @Override
-    public Map<String, String> getSystemProperties()
-    {
-        return session.getSystemProperties();
-    }
-
-    @Override
-    public Map<String, Map<String, String>> getCatalogSessionProperties()
-    {
-        ImmutableMap.Builder<String, Map<String, String>> catalogSessionProperties = ImmutableMap.builder();
-        for (Entry<CatalogName, Map<String, String>> entry : session.getConnectorProperties().entrySet()) {
-            catalogSessionProperties.put(entry.getKey().getCatalogName(), entry.getValue());
-        }
-        return catalogSessionProperties.build();
-    }
-
-    @Override
-    public Map<String, String> getPreparedStatements()
-    {
-        return session.getPreparedStatements();
-    }
-
-    @Override
-    public Optional<TransactionId> getTransactionId()
-    {
-        return session.getTransactionId();
-    }
-
-    @Override
-    public boolean supportClientTransaction()
-    {
-        return session.isClientTransactionSupport();
+        requireNonNull(session, "session is null");
+        return new SessionContext(
+                session.getProtocolHeaders(),
+                session.getCatalog(),
+                session.getSchema(),
+                session.getPath().getRawPath(),
+                Optional.empty(),
+                session.getIdentity(),
+                session.getSource(),
+                session.getTraceToken(),
+                session.getUserAgent(),
+                session.getRemoteUserAddress(),
+                Optional.of(session.getTimeZoneKey().getId()),
+                Optional.of(session.getLocale().getLanguage()),
+                session.getClientTags(),
+                session.getClientCapabilities(),
+                session.getResourceEstimates(),
+                session.getSystemProperties(),
+                session.getConnectorProperties().entrySet().stream()
+                        .collect(toImmutableMap(entry -> entry.getKey().getCatalogName(), Entry::getValue)),
+                session.getPreparedStatements(),
+                session.getTransactionId(),
+                session.isClientTransactionSupport(),
+                session.getClientInfo());
     }
 }
