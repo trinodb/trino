@@ -76,6 +76,8 @@ public class OrcPageSource
     // Row ID relative to all the original files of the same bucket ID before this file in lexicographic order
     private Optional<Long> originalFileRowId = Optional.empty();
 
+    private long completedPositions;
+
     public OrcPageSource(
             OrcRecordReader recordReader,
             List<ColumnAdaptation> columnAdaptations,
@@ -98,6 +100,12 @@ public class OrcPageSource
     public long getCompletedBytes()
     {
         return orcDataSource.getReadBytes();
+    }
+
+    @Override
+    public OptionalLong getCompletedPositions()
+    {
+        return OptionalLong.of(completedPositions);
     }
 
     @Override
@@ -133,6 +141,8 @@ public class OrcPageSource
             close();
             return null;
         }
+
+        completedPositions += page.getPositionCount();
 
         OptionalLong startRowId = originalFileRowId.isPresent() ?
                 OptionalLong.of(originalFileRowId.get() + recordReader.getFilePosition()) : OptionalLong.empty();

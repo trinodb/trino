@@ -78,6 +78,7 @@ public class ScanFilterAndProjectOperator
     private long processedPositions;
     private long processedBytes;
     private long physicalBytes;
+    private long physicalPositions;
     private long readTimeNanos;
     private long dynamicFilterSplitsProcessed;
     private Metrics metrics = Metrics.EMPTY;
@@ -135,7 +136,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public long getPhysicalInputPositions()
     {
-        return processedPositions;
+        return physicalPositions;
     }
 
     @Override
@@ -339,6 +340,7 @@ public class ScanFilterAndProjectOperator
                 // TODO: derive better values for cursors
                 processedBytes = cursor.getCompletedBytes();
                 physicalBytes = cursor.getCompletedBytes();
+                physicalPositions = processedPositions;
                 readTimeNanos = cursor.getReadTimeNanos();
                 if (output.isNoMoreRows()) {
                     finished = true;
@@ -402,6 +404,7 @@ public class ScanFilterAndProjectOperator
             // update operator stats
             processedPositions += page.getPositionCount();
             physicalBytes = pageSource.getCompletedBytes();
+            physicalPositions = pageSource.getCompletedPositions().orElse(processedPositions);
             readTimeNanos = pageSource.getReadTimeNanos();
             metrics = pageSource.getMetrics();
 
