@@ -424,7 +424,7 @@ public abstract class BaseJdbcClient
             Map<String, String> columnExpressions)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            return prepareQuery(session, connection, table, groupingSets, columns, columnExpressions, TupleDomain.none(), Optional.empty());
+            return prepareQuery(session, connection, table, groupingSets, columns, columnExpressions, TupleDomain.all(), Optional.empty());
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
