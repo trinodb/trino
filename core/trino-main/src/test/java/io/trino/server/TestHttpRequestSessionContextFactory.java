@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
 import io.trino.client.ProtocolHeaders;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import org.testng.annotations.Test;
@@ -36,8 +37,10 @@ import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
-public class TestHttpRequestSessionContext
+public class TestHttpRequestSessionContextFactory
 {
+    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(ImmutableSet::of, new AllowAllAccessControl());
+
     @Test
     public void testSessionContext()
     {
@@ -67,12 +70,11 @@ public class TestHttpRequestSessionContext
                 .put(protocolHeaders.requestExtraCredential(), "test.token.abc=xyz")
                 .build());
 
-        SessionContext context = new HttpRequestSessionContext(
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(
                 headers,
                 Optional.of(protocolHeaders.getProtocolName()),
                 Optional.of("testRemote"),
-                Optional.empty(),
-                ImmutableSet::of);
+                Optional.empty());
         assertEquals(context.getSource().orElse(null), "testSource");
         assertEquals(context.getCatalog().orElse(null), "testCatalog");
         assertEquals(context.getSchema().orElse(null), "testSchema");
@@ -107,37 +109,33 @@ public class TestHttpRequestSessionContext
         MultivaluedMap<String, String> userHeaders = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(protocolHeaders.requestUser(), "testUser"));
         MultivaluedMap<String, String> emptyHeaders = new MultivaluedHashMap<>();
 
-        HttpRequestSessionContext context = new HttpRequestSessionContext(
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(
                 userHeaders,
                 Optional.of(protocolHeaders.getProtocolName()),
                 Optional.of("testRemote"),
-                Optional.empty(),
-                ImmutableSet::of);
+                Optional.empty());
         assertEquals(context.getIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
-        context = new HttpRequestSessionContext(
+        context = SESSION_CONTEXT_FACTORY.createSessionContext(
                 emptyHeaders,
                 Optional.of(protocolHeaders.getProtocolName()),
                 Optional.of("testRemote"),
-                Optional.of(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test")).build()),
-                ImmutableSet::of);
+                Optional.of(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test")).build()));
         assertEquals(context.getIdentity(), Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test", "mappedUser")).build());
 
-        context = new HttpRequestSessionContext(
+        context = SESSION_CONTEXT_FACTORY.createSessionContext(
                 userHeaders,
                 Optional.of(protocolHeaders.getProtocolName()),
                 Optional.of("testRemote"),
-                Optional.of(Identity.ofUser("mappedUser")),
-                ImmutableSet::of);
+                Optional.of(Identity.ofUser("mappedUser")));
         assertEquals(context.getIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
         assertThatThrownBy(
-                () -> new HttpRequestSessionContext(
+                () -> SESSION_CONTEXT_FACTORY.createSessionContext(
                         emptyHeaders,
                         Optional.of(protocolHeaders.getProtocolName()),
                         Optional.of("testRemote"),
-                        Optional.empty(),
-                        user -> ImmutableSet.of()))
+                        Optional.empty()))
                 .isInstanceOf(WebApplicationException.class)
                 .matches(e -> ((WebApplicationException) e).getResponse().getStatus() == 400);
     }
@@ -164,12 +162,11 @@ public class TestHttpRequestSessionContext
                 .build());
 
         assertThatThrownBy(
-                () -> new HttpRequestSessionContext(
+                () -> SESSION_CONTEXT_FACTORY.createSessionContext(
                         headers,
                         Optional.of(protocolHeaders.getProtocolName()),
                         Optional.of("testRemote"),
-                        Optional.empty(),
-                        user -> ImmutableSet.of()))
+                        Optional.empty()))
                 .isInstanceOf(WebApplicationException.class)
                 .hasMessageMatching("Invalid " + protocolHeaders.requestPreparedStatement() + " header: line 1:1: mismatched input 'abcdefg'. Expecting: .*");
     }

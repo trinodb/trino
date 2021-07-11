@@ -188,6 +188,7 @@ public class ServerMainModule
             httpServerConfig.setAdminEnabled(false);
         });
 
+        binder.bind(HttpRequestSessionContextFactory.class).in(Scopes.SINGLETON);
         install(new InternalCommunicationModule());
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
