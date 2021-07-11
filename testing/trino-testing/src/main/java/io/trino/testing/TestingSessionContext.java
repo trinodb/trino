@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Strings.emptyToNull;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
@@ -59,27 +60,27 @@ public class TestingSessionContext
     }
 
     @Override
-    public String getCatalog()
+    public Optional<String> getCatalog()
     {
-        return session.getCatalog().orElse(null);
+        return session.getCatalog();
     }
 
     @Override
-    public String getSchema()
+    public Optional<String> getSchema()
     {
-        return session.getSchema().orElse(null);
+        return session.getSchema();
     }
 
     @Override
-    public String getPath()
+    public Optional<String> getPath()
     {
-        return session.getPath().toString();
+        return Optional.ofNullable(emptyToNull(session.getPath().toString()));
     }
 
     @Override
-    public String getSource()
+    public Optional<String> getSource()
     {
-        return session.getSource().orElse(null);
+        return session.getSource();
     }
 
     @Override
@@ -89,21 +90,21 @@ public class TestingSessionContext
     }
 
     @Override
-    public String getRemoteUserAddress()
+    public Optional<String> getRemoteUserAddress()
     {
-        return session.getRemoteUserAddress().orElse(null);
+        return session.getRemoteUserAddress();
     }
 
     @Override
-    public String getUserAgent()
+    public Optional<String> getUserAgent()
     {
-        return session.getUserAgent().orElse(null);
+        return session.getUserAgent();
     }
 
     @Override
-    public String getClientInfo()
+    public Optional<String> getClientInfo()
     {
-        return session.getClientInfo().orElse(null);
+        return session.getClientInfo();
     }
 
     @Override
@@ -125,15 +126,15 @@ public class TestingSessionContext
     }
 
     @Override
-    public String getTimeZoneId()
+    public Optional<String> getTimeZoneId()
     {
-        return session.getTimeZoneKey().getId();
+        return Optional.of(session.getTimeZoneKey().getId());
     }
 
     @Override
-    public String getLanguage()
+    public Optional<String> getLanguage()
     {
-        return session.getLocale().getLanguage();
+        return Optional.of(session.getLocale().getLanguage());
     }
 
     @Override

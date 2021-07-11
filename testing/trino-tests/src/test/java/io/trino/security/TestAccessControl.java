@@ -132,8 +132,8 @@ public class TestAccessControl
     {
         Session viewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(Identity.ofUser("test_view_access_owner"))
-                .setCatalog(getSession().getCatalog().orElseThrow())
-                .setSchema(getSession().getSchema().orElseThrow())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
                 .build();
 
         String columnAccessViewName = "test_view_column_access_" + randomTableSuffix();
@@ -167,8 +167,8 @@ public class TestAccessControl
 
         Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(Identity.ofUser("test_nested_view_access_owner"))
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
                 .build();
 
         String nestedViewName = "test_nested_view_column_access_" + randomTableSuffix();
@@ -238,8 +238,8 @@ public class TestAccessControl
     {
         Session viewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(Identity.ofUser("test_view_access_owner"))
-                .setCatalog(getSession().getCatalog().orElseThrow())
-                .setSchema(getSession().getSchema().orElseThrow())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
                 .build();
 
         // TEST FUNCTION PRIVILEGES
