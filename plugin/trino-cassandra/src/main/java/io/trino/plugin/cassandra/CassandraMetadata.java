@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.datastax.driver.core.DataType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -54,6 +55,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.cassandra.CassandraType.toCassandraType;
+import static io.trino.plugin.cassandra.CassandraType.toTrinoType;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.ID_COLUMN_NAME;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.cqlNameToSqlName;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
@@ -341,7 +343,7 @@ public class CassandraMetadata
                 .collect(Collectors.toList());
         List<Type> columnTypes = columns.stream()
                 .filter(columnHandle -> !isHiddenIdColumn(columnHandle))
-                .map(CassandraColumnHandle::getType)
+                .map(columnHandle -> toTrinoType(columnHandle.getCassandraType()))
                 .collect(Collectors.toList());
         boolean generateUuid = columns.stream()
                 .filter(CassandraMetadata::isHiddenIdColumn)
@@ -370,7 +372,7 @@ public class CassandraMetadata
     @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new CassandraColumnHandle("$update_row_id", 0, CassandraType.TEXT, false, false, false, true);
+        return new CassandraColumnHandle("$update_row_id", 0, DataType.Name.TEXT, false, false, false, true);
     }
 
     @Override

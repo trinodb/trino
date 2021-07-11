@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.datastax.driver.core.DataType;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
@@ -26,7 +27,7 @@ public class TestCassandraColumnHandle
     @Test
     public void testRoundTrip()
     {
-        CassandraColumnHandle expected = new CassandraColumnHandle("name", 42, CassandraType.FLOAT, true, false, false, false);
+        CassandraColumnHandle expected = new CassandraColumnHandle("name", 42, DataType.Name.FLOAT, true, false, false, false);
 
         String json = codec.toJson(expected);
         CassandraColumnHandle actual = codec.fromJson(json);
@@ -44,7 +45,7 @@ public class TestCassandraColumnHandle
         CassandraColumnHandle expected = new CassandraColumnHandle(
                 "name2",
                 1,
-                CassandraType.MAP,
+                DataType.Name.MAP,
                 false,
                 true,
                 false,

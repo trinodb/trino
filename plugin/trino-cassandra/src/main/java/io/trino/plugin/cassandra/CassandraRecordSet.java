@@ -21,6 +21,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.function.Function;
 
+import static io.trino.plugin.cassandra.CassandraType.toTrinoType;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -29,7 +30,7 @@ public class CassandraRecordSet
 {
     private final CassandraSession cassandraSession;
     private final String cql;
-    private final List<CassandraType> cassandraTypes;
+    private final List<CassandraColumnHandle> cassandraColumns;
     private final List<Type> columnTypes;
 
     public CassandraRecordSet(CassandraSession cassandraSession, String cql, List<CassandraColumnHandle> cassandraColumns)
@@ -38,8 +39,8 @@ public class CassandraRecordSet
         this.cql = requireNonNull(cql, "cql is null");
 
         requireNonNull(cassandraColumns, "cassandraColumns is null");
-        this.cassandraTypes = transformList(cassandraColumns, CassandraColumnHandle::getCassandraType);
-        this.columnTypes = transformList(cassandraColumns, CassandraColumnHandle::getType);
+        this.cassandraColumns = cassandraColumns;
+        this.columnTypes = transformList(cassandraColumns, columnHandle -> toTrinoType(columnHandle.getCassandraType()));
     }
 
     @Override
@@ -51,7 +52,7 @@ public class CassandraRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new CassandraRecordCursor(cassandraSession, cassandraTypes, cql);
+        return new CassandraRecordCursor(cassandraSession, cassandraColumns, cql);
     }
 
     private static <T, R> List<R> transformList(List<T> list, Function<T, R> function)

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.datastax.driver.core.DataType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -132,7 +133,7 @@ public class TestJsonCassandraHandles
     public void testColumnHandleSerialize()
             throws Exception
     {
-        CassandraColumnHandle columnHandle = new CassandraColumnHandle("column", 42, CassandraType.BIGINT, false, true, false, false);
+        CassandraColumnHandle columnHandle = new CassandraColumnHandle("column", 42, DataType.Name.BIGINT, false, true, false, false);
 
         assertTrue(OBJECT_MAPPER.canSerialize(CassandraColumnHandle.class));
         String json = OBJECT_MAPPER.writeValueAsString(columnHandle);
@@ -146,7 +147,7 @@ public class TestJsonCassandraHandles
         CassandraColumnHandle columnHandle = new CassandraColumnHandle(
                 "column2",
                 0,
-                CassandraType.SET,
+                DataType.Name.SET,
                 false,
                 false,
                 false,
@@ -167,7 +168,7 @@ public class TestJsonCassandraHandles
 
         assertEquals(columnHandle.getName(), "column");
         assertEquals(columnHandle.getOrdinalPosition(), 42);
-        assertEquals(columnHandle.getCassandraType(), CassandraType.BIGINT);
+        assertEquals(columnHandle.getCassandraType(), DataType.Name.BIGINT);
         assertEquals(columnHandle.isPartitionKey(), false);
         assertEquals(columnHandle.isClusteringKey(), true);
     }
@@ -182,7 +183,7 @@ public class TestJsonCassandraHandles
 
         assertEquals(columnHandle.getName(), "column2");
         assertEquals(columnHandle.getOrdinalPosition(), 0);
-        assertEquals(columnHandle.getCassandraType(), CassandraType.SET);
+        assertEquals(columnHandle.getCassandraType(), DataType.Name.SET);
         assertEquals(columnHandle.isPartitionKey(), false);
         assertEquals(columnHandle.isClusteringKey(), false);
     }

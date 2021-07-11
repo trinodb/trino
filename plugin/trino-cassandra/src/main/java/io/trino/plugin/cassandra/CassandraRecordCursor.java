@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import io.airlift.slice.Slice;
@@ -23,20 +24,22 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
+import static com.datastax.driver.core.DataType.Name.TIMESTAMP;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.cassandra.CassandraType.TIMESTAMP;
+import static io.trino.plugin.cassandra.CassandraType.getColumnValue;
+import static io.trino.plugin.cassandra.CassandraType.toTrinoType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static java.lang.Float.floatToRawIntBits;
 
 public class CassandraRecordCursor
         implements RecordCursor
 {
-    private final List<CassandraType> cassandraTypes;
+    private final List<CassandraColumnHandle> cassandraTypes;
     private final ResultSet rs;
     private Row currentRow;
     private long count;
 
-    public CassandraRecordCursor(CassandraSession cassandraSession, List<CassandraType> cassandraTypes, String cql)
+    public CassandraRecordCursor(CassandraSession cassandraSession, List<CassandraColumnHandle> cassandraTypes, String cql)
     {
         this.cassandraTypes = cassandraTypes;
         rs = cassandraSession.execute(cql);
@@ -116,9 +119,9 @@ public class CassandraRecordCursor
         }
     }
 
-    private CassandraType getCassandraType(int i)
+    private DataType.Name getCassandraType(int i)
     {
-        return cassandraTypes.get(i);
+        return cassandraTypes.get(i).getCassandraType();
     }
 
     @Override
@@ -127,7 +130,7 @@ public class CassandraRecordCursor
         if (getCassandraType(i) == TIMESTAMP) {
             throw new IllegalArgumentException("Timestamp column can not be accessed with getSlice");
         }
-        NullableValue value = cassandraTypes.get(i).getColumnValue(currentRow, i);
+        NullableValue value = getColumnValue(cassandraTypes.get(i).getCassandraType(), currentRow, i);
         if (value.getValue() instanceof Slice) {
             return (Slice) value.getValue();
         }
@@ -143,7 +146,7 @@ public class CassandraRecordCursor
     @Override
     public Type getType(int i)
     {
-        return getCassandraType(i).getTrinoType();
+        return toTrinoType(cassandraTypes.get(i).getCassandraType());
     }
 
     @Override

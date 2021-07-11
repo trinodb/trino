@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.cassandra.util;
 
+import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.VersionNumber;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -20,7 +21,6 @@ import io.trino.plugin.cassandra.CassandraClusteringPredicatesExtractor;
 import io.trino.plugin.cassandra.CassandraColumnHandle;
 import io.trino.plugin.cassandra.CassandraTable;
 import io.trino.plugin.cassandra.CassandraTableHandle;
-import io.trino.plugin.cassandra.CassandraType;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -42,10 +42,10 @@ public class TestCassandraClusteringPredicatesExtractor
     @BeforeTest
     void setUp()
     {
-        col1 = new CassandraColumnHandle("partitionKey1", 1, CassandraType.BIGINT, true, false, false, false);
-        col2 = new CassandraColumnHandle("clusteringKey1", 2, CassandraType.BIGINT, false, true, false, false);
-        col3 = new CassandraColumnHandle("clusteringKey2", 3, CassandraType.BIGINT, false, true, false, false);
-        col4 = new CassandraColumnHandle("clusteringKe3", 4, CassandraType.BIGINT, false, true, false, false);
+        col1 = new CassandraColumnHandle("partitionKey1", 1, DataType.Name.BIGINT, true, false, false, false);
+        col2 = new CassandraColumnHandle("clusteringKey1", 2, DataType.Name.BIGINT, false, true, false, false);
+        col3 = new CassandraColumnHandle("clusteringKey2", 3, DataType.Name.BIGINT, false, true, false, false);
+        col4 = new CassandraColumnHandle("clusteringKe3", 4, DataType.Name.BIGINT, false, true, false, false);
 
         cassandraTable = new CassandraTable(
                 new CassandraTableHandle("test", "records"), ImmutableList.of(col1, col2, col3, col4));

@@ -73,8 +73,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
 import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static io.trino.plugin.cassandra.CassandraMetadata.PRESTO_COMMENT_METADATA;
+import static io.trino.plugin.cassandra.CassandraType.getColumnValue;
+import static io.trino.plugin.cassandra.CassandraType.getColumnValueForCql;
+import static io.trino.plugin.cassandra.CassandraType.getJavaValue;
 import static io.trino.plugin.cassandra.CassandraType.isFullySupported;
-import static io.trino.plugin.cassandra.CassandraType.toCassandraType;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.selectDistinctFrom;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -322,8 +324,7 @@ public class CassandraSession
 
     private Optional<CassandraColumnHandle> buildColumnHandle(AbstractTableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
-        Optional<CassandraType> cassandraType = toCassandraType(columnMeta.getType().getName());
-        if (cassandraType.isEmpty()) {
+        if (!CassandraType.isSupported(columnMeta.getType().getName())) {
             log.debug("Unsupported column type: %s", columnMeta.getType().getName());
             return Optional.empty();
         }
@@ -346,7 +347,7 @@ public class CassandraSession
                 }
             }
         }
-        return Optional.of(new CassandraColumnHandle(columnMeta.getName(), ordinalPosition, cassandraType.get(), partitionKey, clusteringKey, indexed, hidden));
+        return Optional.of(new CassandraColumnHandle(columnMeta.getName(), ordinalPosition, columnMeta.getType().getName(), partitionKey, clusteringKey, indexed, hidden));
     }
 
     /**
@@ -405,14 +406,14 @@ public class CassandraSession
                     buffer.put(component);
                 }
                 CassandraColumnHandle columnHandle = partitionKeyColumns.get(i);
-                NullableValue keyPart = columnHandle.getCassandraType().getColumnValue(row, i);
+                NullableValue keyPart = getColumnValue(columnHandle.getCassandraType(), row, i);
                 map.put(columnHandle, keyPart);
                 if (i > 0) {
                     stringBuilder.append(" AND ");
                 }
                 stringBuilder.append(CassandraCqlUtils.validColumnName(columnHandle.getName()));
                 stringBuilder.append(" = ");
-                stringBuilder.append(columnHandle.getCassandraType().getColumnValueForCql(row, i));
+                stringBuilder.append(getColumnValueForCql(columnHandle.getCassandraType(), row, i));
             }
             buffer.flip();
             byte[] key = new byte[buffer.limit()];
@@ -483,7 +484,7 @@ public class CassandraSession
             CassandraColumnHandle column = partitionKeyColumns.get(i);
             List<Object> values = filterPrefixes.get(i)
                     .stream()
-                    .map(value -> column.getCassandraType().getJavaValue(value))
+                    .map(value -> getJavaValue(column.getCassandraType(), value))
                     .collect(toList());
             Clause clause = QueryBuilder.in(CassandraCqlUtils.validColumnName(column.getName()), values);
             where.and(clause);
@@ -494,7 +495,7 @@ public class CassandraSession
     {
         for (int i = 0; i < filterPrefix.size(); i++) {
             CassandraColumnHandle column = partitionKeyColumns.get(i);
-            Object value = column.getCassandraType().getJavaValue(filterPrefix.get(i));
+            Object value = getJavaValue(column.getCassandraType(), filterPrefix.get(i));
             Clause clause = QueryBuilder.eq(CassandraCqlUtils.validColumnName(column.getName()), value);
             where.and(clause);
         }

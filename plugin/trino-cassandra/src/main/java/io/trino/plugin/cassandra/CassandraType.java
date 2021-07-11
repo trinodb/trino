@@ -42,7 +42,6 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -57,41 +56,10 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.util.Objects.requireNonNull;
 
-public enum CassandraType
+public class CassandraType
 {
-    BOOLEAN(BooleanType.BOOLEAN),
-
-    TINYINT(TinyintType.TINYINT),
-    SMALLINT(SmallintType.SMALLINT),
-    INT(IntegerType.INTEGER),
-    BIGINT(BigintType.BIGINT),
-
-    FLOAT(RealType.REAL),
-    DOUBLE(DoubleType.DOUBLE),
-    DECIMAL(DoubleType.DOUBLE),
-
-    DATE(DateType.DATE),
-    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS),
-
-    ASCII(createUnboundedVarcharType()),
-    TEXT(createUnboundedVarcharType()),
-    VARCHAR(createUnboundedVarcharType()),
-
-    BLOB(VarbinaryType.VARBINARY),
-
-    UUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH)),
-    TIMEUUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH)),
-    COUNTER(BigintType.BIGINT),
-    VARINT(createUnboundedVarcharType()),
-    INET(createVarcharType(Constants.IP_ADDRESS_STRING_MAX_LENGTH)),
-    CUSTOM(VarbinaryType.VARBINARY),
-
-    LIST(createUnboundedVarcharType()),
-    SET(createUnboundedVarcharType()),
-    MAP(createUnboundedVarcharType()),
-    /**/;
+    private CassandraType() {}
 
     private static final class Constants
     {
@@ -102,79 +70,102 @@ public enum CassandraType
         private static final int IP_ADDRESS_STRING_MAX_LENGTH = 45;
     }
 
-    private final Type trinoType;
-
-    CassandraType(Type trinoType)
-    {
-        this.trinoType = requireNonNull(trinoType, "trinoType is null");
-    }
-
-    public Type getTrinoType()
-    {
-        return trinoType;
-    }
-
-    public static Optional<CassandraType> toCassandraType(DataType.Name name)
+    public static Type toTrinoType(DataType.Name name)
     {
         switch (name) {
-            case ASCII:
-                return Optional.of(ASCII);
-            case BIGINT:
-                return Optional.of(BIGINT);
-            case BLOB:
-                return Optional.of(BLOB);
             case BOOLEAN:
-                return Optional.of(BOOLEAN);
-            case COUNTER:
-                return Optional.of(COUNTER);
-            case CUSTOM:
-                return Optional.of(CUSTOM);
-            case DATE:
-                return Optional.of(DATE);
-            case DECIMAL:
-                return Optional.of(DECIMAL);
-            case DOUBLE:
-                return Optional.of(DOUBLE);
-            case FLOAT:
-                return Optional.of(FLOAT);
-            case INET:
-                return Optional.of(INET);
-            case INT:
-                return Optional.of(INT);
-            case LIST:
-                return Optional.of(LIST);
-            case MAP:
-                return Optional.of(MAP);
-            case SET:
-                return Optional.of(SET);
-            case SMALLINT:
-                return Optional.of(SMALLINT);
-            case TEXT:
-                return Optional.of(TEXT);
-            case TIMESTAMP:
-                return Optional.of(TIMESTAMP);
-            case TIMEUUID:
-                return Optional.of(TIMEUUID);
+                return BooleanType.BOOLEAN;
+
             case TINYINT:
-                return Optional.of(TINYINT);
-            case UUID:
-                return Optional.of(UUID);
+                return TinyintType.TINYINT;
+            case SMALLINT:
+                return SmallintType.SMALLINT;
+            case INT:
+                return IntegerType.INTEGER;
+            case BIGINT:
+                return BigintType.BIGINT;
+
+            case FLOAT:
+                return RealType.REAL;
+            case DOUBLE:
+            case DECIMAL:
+                return DoubleType.DOUBLE;
+
+            case DATE:
+                return DateType.DATE;
+            case TIMESTAMP:
+                return TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+
+            case ASCII:
+            case TEXT:
             case VARCHAR:
-                return Optional.of(VARCHAR);
+                return createUnboundedVarcharType();
+
+            case BLOB:
+                return VarbinaryType.VARBINARY;
+
+            case UUID:
+            case TIMEUUID:
+                return createVarcharType(Constants.UUID_STRING_MAX_LENGTH);
+            case COUNTER:
+                return BigintType.BIGINT;
             case VARINT:
-                return Optional.of(VARINT);
+                return createUnboundedVarcharType();
+            case INET:
+                return createVarcharType(Constants.IP_ADDRESS_STRING_MAX_LENGTH);
+            case CUSTOM:
+                return VarbinaryType.VARBINARY;
+
+            case LIST:
+            case MAP:
+            case SET:
+                return createUnboundedVarcharType();
+
             default:
-                return Optional.empty();
+                throw new IllegalStateException("Unsupported type: " + name);
         }
     }
 
-    public NullableValue getColumnValue(Row row, int position)
+    public static boolean isSupported(DataType.Name name)
     {
+        switch (name) {
+            case ASCII:
+            case BIGINT:
+            case BLOB:
+            case BOOLEAN:
+            case COUNTER:
+            case CUSTOM:
+            case DATE:
+            case DECIMAL:
+            case DOUBLE:
+            case FLOAT:
+            case INET:
+            case INT:
+            case LIST:
+            case MAP:
+            case SET:
+            case SMALLINT:
+            case TEXT:
+            case TIMESTAMP:
+            case TIMEUUID:
+            case TINYINT:
+            case UUID:
+            case VARCHAR:
+            case VARINT:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    public static NullableValue getColumnValue(DataType.Name name, Row row, int position)
+    {
+        Type trinoType = toTrinoType(name);
         if (row.isNull(position)) {
             return NullableValue.asNull(trinoType);
         }
 
-        switch (this) {
+        switch (name) {
             case ASCII:
             case TEXT:
             case VARCHAR:
@@ -215,8 +206,9 @@ public enum CassandraType
                 return NullableValue.of(trinoType, utf8Slice(buildArrayValue(row, position)));
             case MAP:
                 return NullableValue.of(trinoType, utf8Slice(buildMapValue(row, position)));
+            default:
+                throw new IllegalStateException("Handling of type " + name + " is not implemented");
         }
-        throw new IllegalStateException("Handling of type " + this + " is not implemented");
     }
 
     private static String buildMapValue(Row row, int position)
@@ -267,13 +259,13 @@ public enum CassandraType
     }
 
     // TODO unify with toCqlLiteral
-    public String getColumnValueForCql(Row row, int position)
+    public static String getColumnValueForCql(DataType.Name name, Row row, int position)
     {
         if (row.isNull(position)) {
             return null;
         }
 
-        switch (this) {
+        switch (name) {
             case ASCII:
             case TEXT:
             case VARCHAR:
@@ -310,19 +302,19 @@ public enum CassandraType
             case CUSTOM:
                 return Bytes.toHexString(row.getBytesUnsafe(position));
 
+            // unsupported
             case LIST:
             case SET:
             case MAP:
-                // unsupported
-                break;
+            default:
+                throw new IllegalStateException("Handling of type " + name + " is not implemented");
         }
-        throw new IllegalStateException("Handling of type " + this + " is not implemented");
     }
 
     // TODO unify with getColumnValueForCql
-    public String toCqlLiteral(Object trinoNativeValue)
+    public static String toCqlLiteral(DataType.Name name, Object trinoNativeValue)
     {
-        if (this == TIMESTAMP) {
+        if (name == DataType.Name.TIMESTAMP) {
             return String.valueOf(unpackMillisUtc((Long) trinoNativeValue));
         }
 
@@ -334,7 +326,7 @@ public enum CassandraType
             value = trinoNativeValue.toString();
         }
 
-        switch (this) {
+        switch (name) {
             case ASCII:
             case TEXT:
             case VARCHAR:
@@ -349,10 +341,11 @@ public enum CassandraType
 
     private static String objectToJson(Object cassandraValue, DataType dataType)
     {
-        CassandraType cassandraType = toCassandraType(dataType.getName())
-                .orElseThrow(() -> new IllegalStateException("Unsupported type: " + dataType));
+        if (!isSupported(dataType.getName())) {
+            throw new IllegalStateException("Unsupported type: " + dataType);
+        }
 
-        switch (cassandraType) {
+        switch (dataType.getName()) {
             case ASCII:
             case TEXT:
             case VARCHAR:
@@ -383,13 +376,14 @@ public enum CassandraType
                 return buildArrayValue((Collection<?>) cassandraValue, getOnlyElement(dataType.getTypeArguments()));
             case MAP:
                 return buildMapValue((Map<?, ?>) cassandraValue, dataType.getTypeArguments().get(0), dataType.getTypeArguments().get(1));
+            default:
+                throw new IllegalStateException("Unsupported type: " + dataType.getName());
         }
-        throw new IllegalStateException("Unsupported type: " + cassandraType);
     }
 
-    public Object getJavaValue(Object trinoNativeValue)
+    public static Object getJavaValue(DataType.Name name, Object trinoNativeValue)
     {
-        switch (this) {
+        switch (name) {
             case ASCII:
             case TEXT:
             case VARCHAR:
@@ -428,13 +422,14 @@ public enum CassandraType
             case SET:
             case LIST:
             case MAP:
+            default:
+                throw new IllegalStateException("Back conversion not implemented for " + name);
         }
-        throw new IllegalStateException("Back conversion not implemented for " + this);
     }
 
-    public boolean isSupportedPartitionKey()
+    public static boolean isSupportedPartitionKey(DataType.Name name)
     {
-        switch (this) {
+        switch (name) {
             case ASCII:
             case TEXT:
             case VARCHAR:
@@ -463,7 +458,7 @@ public enum CassandraType
 
     public static boolean isFullySupported(DataType dataType)
     {
-        if (toCassandraType(dataType.getName()).isEmpty()) {
+        if (!isSupported(dataType.getName())) {
             return false;
         }
 
@@ -471,40 +466,40 @@ public enum CassandraType
                 .allMatch(CassandraType::isFullySupported);
     }
 
-    public static CassandraType toCassandraType(Type type, ProtocolVersion protocolVersion)
+    public static DataType.Name toCassandraType(Type type, ProtocolVersion protocolVersion)
     {
         if (type.equals(BooleanType.BOOLEAN)) {
-            return BOOLEAN;
+            return DataType.Name.BOOLEAN;
         }
         if (type.equals(BigintType.BIGINT)) {
-            return BIGINT;
+            return DataType.Name.BIGINT;
         }
         if (type.equals(IntegerType.INTEGER)) {
-            return INT;
+            return DataType.Name.INT;
         }
         if (type.equals(SmallintType.SMALLINT)) {
-            return SMALLINT;
+            return DataType.Name.SMALLINT;
         }
         if (type.equals(TinyintType.TINYINT)) {
-            return TINYINT;
+            return DataType.Name.TINYINT;
         }
         if (type.equals(DoubleType.DOUBLE)) {
-            return DOUBLE;
+            return DataType.Name.DOUBLE;
         }
         if (type.equals(RealType.REAL)) {
-            return FLOAT;
+            return DataType.Name.FLOAT;
         }
         if (type instanceof VarcharType) {
-            return TEXT;
+            return DataType.Name.TEXT;
         }
         if (type.equals(DateType.DATE)) {
-            return protocolVersion.toInt() <= ProtocolVersion.V3.toInt() ? TEXT : DATE;
+            return protocolVersion.toInt() <= ProtocolVersion.V3.toInt() ? DataType.Name.TEXT : DataType.Name.DATE;
         }
         if (type.equals(VarbinaryType.VARBINARY)) {
-            return BLOB;
+            return DataType.Name.BLOB;
         }
         if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
-            return TIMESTAMP;
+            return DataType.Name.TIMESTAMP;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }

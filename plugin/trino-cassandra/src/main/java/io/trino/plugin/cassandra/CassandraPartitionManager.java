@@ -33,6 +33,8 @@ import java.util.Set;
 
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
+import static io.trino.plugin.cassandra.CassandraType.isSupportedPartitionKey;
+import static io.trino.plugin.cassandra.CassandraType.toCqlLiteral;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -86,7 +88,7 @@ public class CassandraPartitionManager
                 if (column.isIndexed() && domain.isSingleValue()) {
                     sb.append(CassandraCqlUtils.validColumnName(column.getName()))
                             .append(" = ")
-                            .append(column.getCassandraType().toCqlLiteral(entry.getValue().getSingleValue()));
+                            .append(toCqlLiteral(column.getCassandraType(), entry.getValue().getSingleValue()));
                     indexedColumns.add(column);
                     // Only one indexed column predicate can be pushed down.
                     break;
@@ -146,8 +148,7 @@ public class CassandraPartitionManager
                             }
                             Object value = range.getSingleValue();
 
-                            CassandraType valueType = columnHandle.getCassandraType();
-                            if (valueType.isSupportedPartitionKey()) {
+                            if (isSupportedPartitionKey(columnHandle.getCassandraType())) {
                                 columnValues.add(value);
                             }
                         }

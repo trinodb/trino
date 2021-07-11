@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.datastax.driver.core.DataType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;
@@ -25,6 +26,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.cassandra.CassandraType.toTrinoType;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraColumnHandle
@@ -32,7 +34,7 @@ public class CassandraColumnHandle
 {
     private final String name;
     private final int ordinalPosition;
-    private final CassandraType cassandraType;
+    private final DataType.Name cassandraType;
     private final boolean partitionKey;
     private final boolean clusteringKey;
     private final boolean indexed;
@@ -42,7 +44,7 @@ public class CassandraColumnHandle
     public CassandraColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("ordinalPosition") int ordinalPosition,
-            @JsonProperty("cassandraType") CassandraType cassandraType,
+            @JsonProperty("cassandraType") DataType.Name cassandraType,
             @JsonProperty("partitionKey") boolean partitionKey,
             @JsonProperty("clusteringKey") boolean clusteringKey,
             @JsonProperty("indexed") boolean indexed,
@@ -71,7 +73,7 @@ public class CassandraColumnHandle
     }
 
     @JsonProperty
-    public CassandraType getCassandraType()
+    public DataType.Name getCassandraType()
     {
         return cassandraType;
     }
@@ -104,14 +106,14 @@ public class CassandraColumnHandle
     {
         return ColumnMetadata.builder()
                 .setName(CassandraCqlUtils.cqlNameToSqlName(name))
-                .setType(cassandraType.getTrinoType())
+                .setType(toTrinoType(cassandraType))
                 .setHidden(hidden)
                 .build();
     }
 
     public Type getType()
     {
-        return cassandraType.getTrinoType();
+        return toTrinoType(cassandraType);
     }
 
     @Override

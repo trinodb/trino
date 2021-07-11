@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.plugin.cassandra.CassandraType.toCqlLiteral;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -76,11 +77,11 @@ public class CassandraClusteringPredicatesExtractor
                                 return null;
                             }
                             if (range.isSingleValue()) {
-                                singleValues.add(columnHandle.getCassandraType().toCqlLiteral(range.getSingleValue()));
+                                singleValues.add(toCqlLiteral(columnHandle.getCassandraType(), range.getSingleValue()));
                             }
                             else {
                                 if (!range.isLowUnbounded()) {
-                                    String lowBound = columnHandle.getCassandraType().toCqlLiteral(range.getLowBoundedValue());
+                                    String lowBound = toCqlLiteral(columnHandle.getCassandraType(), range.getLowBoundedValue());
                                     rangeConjuncts.add(format(
                                             "%s %s %s",
                                             CassandraCqlUtils.validColumnName(columnHandle.getName()),
@@ -88,7 +89,7 @@ public class CassandraClusteringPredicatesExtractor
                                             lowBound));
                                 }
                                 if (!range.isHighUnbounded()) {
-                                    String highBound = columnHandle.getCassandraType().toCqlLiteral(range.getHighBoundedValue());
+                                    String highBound = toCqlLiteral(columnHandle.getCassandraType(), range.getHighBoundedValue());
                                     rangeConjuncts.add(format(
                                             "%s %s %s",
                                             CassandraCqlUtils.validColumnName(columnHandle.getName()),
@@ -118,7 +119,7 @@ public class CassandraClusteringPredicatesExtractor
                         if (discreteValues.isInclusive()) {
                             ImmutableList.Builder<Object> discreteValuesList = ImmutableList.builder();
                             for (Object discreteValue : discreteValues.getValues()) {
-                                discreteValuesList.add(columnHandle.getCassandraType().toCqlLiteral(discreteValue));
+                                discreteValuesList.add(toCqlLiteral(columnHandle.getCassandraType(), discreteValue));
                             }
                             String predicate = CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN ("
                                     + Joiner.on(",").join(discreteValuesList.build()) + ")";
