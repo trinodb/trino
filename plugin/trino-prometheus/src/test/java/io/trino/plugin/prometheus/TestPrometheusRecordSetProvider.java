@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.DoubleType;
@@ -75,7 +76,7 @@ public class TestPrometheusRecordSetProvider
                 new PrometheusSplit(dataUri), tableHandle, ImmutableList.of(
                         new PrometheusColumnHandle("labels", varcharMapType, 0),
                         new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 1),
-                        new PrometheusColumnHandle("value", DoubleType.DOUBLE, 2)));
+                        new PrometheusColumnHandle("value", DoubleType.DOUBLE, 2)), DynamicFilter.EMPTY);
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();

@@ -424,7 +424,7 @@ public abstract class BaseJdbcClient
             Map<String, String> columnExpressions)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            return prepareQuery(session, connection, table, groupingSets, columns, columnExpressions, Optional.empty());
+            return prepareQuery(session, connection, table, groupingSets, columns, columnExpressions, TupleDomain.none(), Optional.empty());
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -432,10 +432,10 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> currentPredicate)
             throws SQLException
     {
-        PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, ImmutableMap.of(), Optional.of(split));
+        PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, ImmutableMap.of(), currentPredicate, Optional.of(split));
         return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
     }
 
@@ -446,6 +446,7 @@ public abstract class BaseJdbcClient
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
             Map<String, String> columnExpressions,
+            TupleDomain<ColumnHandle> currentPredicate,
             Optional<JdbcSplit> split)
     {
         return applyQueryTransformations(table, new QueryBuilder(this).prepareQuery(
@@ -455,7 +456,7 @@ public abstract class BaseJdbcClient
                 groupingSets,
                 columns,
                 columnExpressions,
-                table.getConstraint(),
+                currentPredicate.isAll() ? table.getConstraint() : TupleDomain.<ColumnHandle>columnWiseUnion(table.getConstraint(), currentPredicate),
                 split.flatMap(JdbcSplit::getAdditionalPredicate)));
     }
 
