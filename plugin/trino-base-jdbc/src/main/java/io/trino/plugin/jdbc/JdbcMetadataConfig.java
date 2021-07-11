@@ -40,11 +40,6 @@ public class JdbcMetadataConfig
     // between performance and pushdown capabilities
     private int domainCompactionThreshold = 32;
 
-    // The limit of the vales per IN operator depends on the database. 
-    // E.g. Oracle allows only up to 1,000 IN list values in a SQL statement.
-    // A value of 0 means no limit
-    private int inOperatorLimit = 0;
-
     public boolean isAllowDropTable()
     {
         return allowDropTable;
@@ -113,17 +108,4 @@ public class JdbcMetadataConfig
         return this;
     }
 
-    @Min(0)
-    public int getInOperatorLimit()
-    {
-        return inOperatorLimit;
-    }    
-
-    @Config("in-operator-limit")
-    @ConfigDescription("Maximum number of values per IN operator. A value of 0 means no limit")
-    public JdbcMetadataConfig setInOperatorLimit(int inOperatorLimit)
-    {
-        this.inOperatorLimit = inOperatorLimit;
-        return this;
-    }
 }
