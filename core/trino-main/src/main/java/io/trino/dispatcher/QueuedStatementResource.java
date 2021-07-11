@@ -25,7 +25,7 @@ import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryState;
-import io.trino.server.HttpRequestSessionContext;
+import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
@@ -34,7 +34,6 @@ import io.trino.server.protocol.Slug;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
-import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 
 import javax.annotation.PreDestroy;
@@ -76,7 +75,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
-import static io.trino.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
 import static io.trino.server.protocol.QueryInfoUrlFactory.getQueryInfoUri;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.server.protocol.Slug.Context.QUEUED_QUERY;
@@ -100,7 +99,7 @@ public class QueuedStatementResource
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
     private static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
 
-    private final GroupProvider groupProvider;
+    private final HttpRequestSessionContextFactory sessionContextFactory;
     private final DispatchManager dispatchManager;
 
     private final QueryInfoUrlFactory queryInfoUrlFactory;
@@ -115,14 +114,14 @@ public class QueuedStatementResource
 
     @Inject
     public QueuedStatementResource(
-            GroupProvider groupProvider,
+            HttpRequestSessionContextFactory sessionContextFactory,
             DispatchManager dispatchManager,
             DispatchExecutor executor,
             QueryInfoUrlFactory queryInfoUrlTemplate,
             ServerConfig serverConfig,
             ProtocolConfig protocolConfig)
     {
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
 
         requireNonNull(dispatchManager, "dispatchManager is null");
@@ -190,7 +189,7 @@ public class QueuedStatementResource
         Optional<Identity> identity = Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY));
         MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
 
-        SessionContext sessionContext = new HttpRequestSessionContext(headers, alternateHeaderName, remoteAddress, identity, groupProvider);
+        SessionContext sessionContext = sessionContextFactory.createSessionContext(headers, alternateHeaderName, remoteAddress, identity);
         Query query = new Query(statement, sessionContext, dispatchManager, queryInfoUrlFactory);
         queries.put(query.getQueryId(), query);
 

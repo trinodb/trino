@@ -33,6 +33,7 @@ import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.transaction.TransactionId;
 
+import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.HttpHeaders;
@@ -63,72 +64,53 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public final class HttpRequestSessionContext
-        implements SessionContext
+public class HttpRequestSessionContextFactory
 {
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
     public static final String AUTHENTICATED_IDENTITY = "trino.authenticated-identity";
 
-    private final ProtocolHeaders protocolHeaders;
+    private final GroupProvider groupProvider;
+    private final AccessControl accessControl;
 
-    private final Optional<String> catalog;
-    private final Optional<String> schema;
-    private final Optional<String> path;
+    @Inject
+    public HttpRequestSessionContextFactory(GroupProvider groupProvider, AccessControl accessControl)
+    {
+        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
 
-    private final Optional<Identity> authenticatedIdentity;
-    private final Identity identity;
-
-    private final Optional<String> source;
-    private final Optional<String> traceToken;
-    private final Optional<String> userAgent;
-    private final Optional<String> remoteUserAddress;
-    private final Optional<String> timeZoneId;
-    private final Optional<String> language;
-    private final Set<String> clientTags;
-    private final Set<String> clientCapabilities;
-    private final ResourceEstimates resourceEstimates;
-
-    private final Map<String, String> systemProperties;
-    private final Map<String, Map<String, String>> catalogSessionProperties;
-
-    private final Map<String, String> preparedStatements;
-
-    private final Optional<TransactionId> transactionId;
-    private final boolean clientTransactionSupport;
-    private final Optional<String> clientInfo;
-
-    public HttpRequestSessionContext(
+    public SessionContext createSessionContext(
             MultivaluedMap<String, String> headers,
             Optional<String> alternateHeaderName,
             Optional<String> remoteAddress,
-            Optional<Identity> authenticatedIdentity,
-            GroupProvider groupProvider)
+            Optional<Identity> authenticatedIdentity)
             throws WebApplicationException
     {
+        ProtocolHeaders protocolHeaders;
         try {
             protocolHeaders = detectProtocol(alternateHeaderName, headers.keySet());
         }
         catch (ProtocolDetectionException e) {
             throw badRequest(e.getMessage());
         }
-        catalog = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestCatalog())));
-        schema = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestSchema())));
-        path = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestPath())));
+        Optional<String> catalog = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestCatalog())));
+        Optional<String> schema = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestSchema())));
+        Optional<String> path = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestPath())));
         assertRequest((catalog.isPresent()) || (schema.isEmpty()), "Schema is set but catalog is not");
 
-        this.authenticatedIdentity = requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
-        identity = buildSessionIdentity(authenticatedIdentity, protocolHeaders, headers, groupProvider);
+        requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
+        Identity identity = buildSessionIdentity(authenticatedIdentity, protocolHeaders, headers);
 
-        source = Optional.ofNullable(headers.getFirst(protocolHeaders.requestSource()));
-        traceToken = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestTraceToken())));
-        userAgent = Optional.ofNullable(headers.getFirst(USER_AGENT));
-        remoteUserAddress = requireNonNull(remoteAddress, "remoteAddress is null");
-        timeZoneId = Optional.ofNullable(headers.getFirst(protocolHeaders.requestTimeZone()));
-        language = Optional.ofNullable(headers.getFirst(protocolHeaders.requestLanguage()));
-        clientInfo = Optional.ofNullable(headers.getFirst(protocolHeaders.requestClientInfo()));
-        clientTags = parseClientTags(protocolHeaders, headers);
-        clientCapabilities = parseClientCapabilities(protocolHeaders, headers);
-        resourceEstimates = parseResourceEstimate(protocolHeaders, headers);
+        Optional<String> source = Optional.ofNullable(headers.getFirst(protocolHeaders.requestSource()));
+        Optional<String> traceToken = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestTraceToken())));
+        Optional<String> userAgent = Optional.ofNullable(headers.getFirst(USER_AGENT));
+        Optional<String> remoteUserAddress = requireNonNull(remoteAddress, "remoteAddress is null");
+        Optional<String> timeZoneId = Optional.ofNullable(headers.getFirst(protocolHeaders.requestTimeZone()));
+        Optional<String> language = Optional.ofNullable(headers.getFirst(protocolHeaders.requestLanguage()));
+        Optional<String> clientInfo = Optional.ofNullable(headers.getFirst(protocolHeaders.requestClientInfo()));
+        Set<String> clientTags = parseClientTags(protocolHeaders, headers);
+        Set<String> clientCapabilities = parseClientCapabilities(protocolHeaders, headers);
+        ResourceEstimates resourceEstimates = parseResourceEstimate(protocolHeaders, headers);
 
         // parse session properties
         ImmutableMap.Builder<String, String> systemProperties = ImmutableMap.builder();
@@ -159,38 +141,54 @@ public final class HttpRequestSessionContext
                 throw badRequest(format("Invalid %s header", protocolHeaders.requestSession()));
             }
         }
-        this.systemProperties = systemProperties.build();
-        this.catalogSessionProperties = catalogSessionProperties.entrySet().stream()
+        requireNonNull(catalogSessionProperties, "catalogSessionProperties is null");
+        catalogSessionProperties = catalogSessionProperties.entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
 
-        preparedStatements = parsePreparedStatementsHeaders(protocolHeaders, headers);
+        Map<String, String> preparedStatements = parsePreparedStatementsHeaders(protocolHeaders, headers);
 
         String transactionIdHeader = headers.getFirst(protocolHeaders.requestTransactionId());
-        clientTransactionSupport = transactionIdHeader != null;
-        transactionId = parseTransactionId(transactionIdHeader);
+        boolean clientTransactionSupport = transactionIdHeader != null;
+        Optional<TransactionId> transactionId = parseTransactionId(transactionIdHeader);
+        return new DefaultSessionContext(
+                protocolHeaders,
+                catalog,
+                schema,
+                path,
+                authenticatedIdentity,
+                identity,
+                source,
+                traceToken,
+                userAgent,
+                remoteUserAddress,
+                timeZoneId,
+                language,
+                clientTags,
+                clientCapabilities,
+                resourceEstimates,
+                systemProperties.build(),
+                catalogSessionProperties,
+                preparedStatements,
+                transactionId,
+                clientTransactionSupport,
+                clientInfo);
     }
 
-    public static Identity extractAuthorizedIdentity(
+    public Identity extractAuthorizedIdentity(
             HttpServletRequest servletRequest,
             HttpHeaders httpHeaders,
-            Optional<String> alternateHeaderName,
-            AccessControl accessControl,
-            GroupProvider groupProvider)
+            Optional<String> alternateHeaderName)
     {
         return extractAuthorizedIdentity(
                 Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY)),
                 httpHeaders.getRequestHeaders(),
-                alternateHeaderName,
-                accessControl,
-                groupProvider);
+                alternateHeaderName);
     }
 
-    public static Identity extractAuthorizedIdentity(
+    public Identity extractAuthorizedIdentity(
             Optional<Identity> optionalAuthenticatedIdentity,
             MultivaluedMap<String, String> headers,
-            Optional<String> alternateHeaderName,
-            AccessControl accessControl,
-            GroupProvider groupProvider)
+            Optional<String> alternateHeaderName)
             throws AccessDeniedException
     {
         ProtocolHeaders protocolHeaders;
@@ -201,7 +199,7 @@ public final class HttpRequestSessionContext
             throw badRequest(e.getMessage());
         }
 
-        Identity identity = buildSessionIdentity(optionalAuthenticatedIdentity, protocolHeaders, headers, groupProvider);
+        Identity identity = buildSessionIdentity(optionalAuthenticatedIdentity, protocolHeaders, headers);
 
         accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
 
@@ -216,7 +214,7 @@ public final class HttpRequestSessionContext
         return identity;
     }
 
-    private static Identity buildSessionIdentity(Optional<Identity> authenticatedIdentity, ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers, GroupProvider groupProvider)
+    private Identity buildSessionIdentity(Optional<Identity> authenticatedIdentity, ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         String trinoUser = trimEmptyToNull(headers.getFirst(protocolHeaders.requestUser()));
         String user = trinoUser != null ? trinoUser : authenticatedIdentity.map(Identity::getUser).orElse(null);
@@ -228,132 +226,6 @@ public final class HttpRequestSessionContext
                 .withAdditionalExtraCredentials(parseExtraCredentials(protocolHeaders, headers))
                 .withAdditionalGroups(groupProvider.getGroups(user))
                 .build();
-    }
-
-    @Override
-    public ProtocolHeaders getProtocolHeaders()
-    {
-        return protocolHeaders;
-    }
-
-    @Override
-    public Optional<Identity> getAuthenticatedIdentity()
-    {
-        return authenticatedIdentity;
-    }
-
-    @Override
-    public Identity getIdentity()
-    {
-        return identity;
-    }
-
-    @Override
-    public Optional<String> getCatalog()
-    {
-        return catalog;
-    }
-
-    @Override
-    public Optional<String> getSchema()
-    {
-        return schema;
-    }
-
-    @Override
-    public Optional<String> getPath()
-    {
-        return path;
-    }
-
-    @Override
-    public Optional<String> getSource()
-    {
-        return source;
-    }
-
-    @Override
-    public Optional<String> getRemoteUserAddress()
-    {
-        return remoteUserAddress;
-    }
-
-    @Override
-    public Optional<String> getUserAgent()
-    {
-        return userAgent;
-    }
-
-    @Override
-    public Optional<String> getClientInfo()
-    {
-        return clientInfo;
-    }
-
-    @Override
-    public Set<String> getClientTags()
-    {
-        return clientTags;
-    }
-
-    @Override
-    public Set<String> getClientCapabilities()
-    {
-        return clientCapabilities;
-    }
-
-    @Override
-    public ResourceEstimates getResourceEstimates()
-    {
-        return resourceEstimates;
-    }
-
-    @Override
-    public Optional<String> getTimeZoneId()
-    {
-        return timeZoneId;
-    }
-
-    @Override
-    public Optional<String> getLanguage()
-    {
-        return language;
-    }
-
-    @Override
-    public Map<String, String> getSystemProperties()
-    {
-        return systemProperties;
-    }
-
-    @Override
-    public Map<String, Map<String, String>> getCatalogSessionProperties()
-    {
-        return catalogSessionProperties;
-    }
-
-    @Override
-    public Map<String, String> getPreparedStatements()
-    {
-        return preparedStatements;
-    }
-
-    @Override
-    public Optional<TransactionId> getTransactionId()
-    {
-        return transactionId;
-    }
-
-    @Override
-    public boolean supportClientTransaction()
-    {
-        return clientTransactionSupport;
-    }
-
-    @Override
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
     }
 
     private static List<String> splitHttpHeader(MultivaluedMap<String, String> headers, String name)
