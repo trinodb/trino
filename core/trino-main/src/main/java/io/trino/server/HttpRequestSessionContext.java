@@ -71,19 +71,19 @@ public final class HttpRequestSessionContext
 
     private final ProtocolHeaders protocolHeaders;
 
-    private final String catalog;
-    private final String schema;
-    private final String path;
+    private final Optional<String> catalog;
+    private final Optional<String> schema;
+    private final Optional<String> path;
 
     private final Optional<Identity> authenticatedIdentity;
     private final Identity identity;
 
-    private final String source;
+    private final Optional<String> source;
     private final Optional<String> traceToken;
-    private final String userAgent;
-    private final String remoteUserAddress;
-    private final String timeZoneId;
-    private final String language;
+    private final Optional<String> userAgent;
+    private final Optional<String> remoteUserAddress;
+    private final Optional<String> timeZoneId;
+    private final Optional<String> language;
     private final Set<String> clientTags;
     private final Set<String> clientCapabilities;
     private final ResourceEstimates resourceEstimates;
@@ -95,12 +95,12 @@ public final class HttpRequestSessionContext
 
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
-    private final String clientInfo;
+    private final Optional<String> clientInfo;
 
     public HttpRequestSessionContext(
             MultivaluedMap<String, String> headers,
             Optional<String> alternateHeaderName,
-            String remoteAddress,
+            Optional<String> remoteAddress,
             Optional<Identity> authenticatedIdentity,
             GroupProvider groupProvider)
             throws WebApplicationException
@@ -111,21 +111,21 @@ public final class HttpRequestSessionContext
         catch (ProtocolDetectionException e) {
             throw badRequest(e.getMessage());
         }
-        catalog = trimEmptyToNull(headers.getFirst(protocolHeaders.requestCatalog()));
-        schema = trimEmptyToNull(headers.getFirst(protocolHeaders.requestSchema()));
-        path = trimEmptyToNull(headers.getFirst(protocolHeaders.requestPath()));
-        assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
+        catalog = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestCatalog())));
+        schema = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestSchema())));
+        path = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestPath())));
+        assertRequest((catalog.isPresent()) || (schema.isEmpty()), "Schema is set but catalog is not");
 
         this.authenticatedIdentity = requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
         identity = buildSessionIdentity(authenticatedIdentity, protocolHeaders, headers, groupProvider);
 
-        source = headers.getFirst(protocolHeaders.requestSource());
+        source = Optional.ofNullable(headers.getFirst(protocolHeaders.requestSource()));
         traceToken = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestTraceToken())));
-        userAgent = headers.getFirst(USER_AGENT);
-        remoteUserAddress = remoteAddress;
-        timeZoneId = headers.getFirst(protocolHeaders.requestTimeZone());
-        language = headers.getFirst(protocolHeaders.requestLanguage());
-        clientInfo = headers.getFirst(protocolHeaders.requestClientInfo());
+        userAgent = Optional.ofNullable(headers.getFirst(USER_AGENT));
+        remoteUserAddress = requireNonNull(remoteAddress, "remoteAddress is null");
+        timeZoneId = Optional.ofNullable(headers.getFirst(protocolHeaders.requestTimeZone()));
+        language = Optional.ofNullable(headers.getFirst(protocolHeaders.requestLanguage()));
+        clientInfo = Optional.ofNullable(headers.getFirst(protocolHeaders.requestClientInfo()));
         clientTags = parseClientTags(protocolHeaders, headers);
         clientCapabilities = parseClientCapabilities(protocolHeaders, headers);
         resourceEstimates = parseResourceEstimate(protocolHeaders, headers);
@@ -249,43 +249,43 @@ public final class HttpRequestSessionContext
     }
 
     @Override
-    public String getCatalog()
+    public Optional<String> getCatalog()
     {
         return catalog;
     }
 
     @Override
-    public String getSchema()
+    public Optional<String> getSchema()
     {
         return schema;
     }
 
     @Override
-    public String getPath()
+    public Optional<String> getPath()
     {
         return path;
     }
 
     @Override
-    public String getSource()
+    public Optional<String> getSource()
     {
         return source;
     }
 
     @Override
-    public String getRemoteUserAddress()
+    public Optional<String> getRemoteUserAddress()
     {
         return remoteUserAddress;
     }
 
     @Override
-    public String getUserAgent()
+    public Optional<String> getUserAgent()
     {
         return userAgent;
     }
 
     @Override
-    public String getClientInfo()
+    public Optional<String> getClientInfo()
     {
         return clientInfo;
     }
@@ -309,13 +309,13 @@ public final class HttpRequestSessionContext
     }
 
     @Override
-    public String getTimeZoneId()
+    public Optional<String> getTimeZoneId()
     {
         return timeZoneId;
     }
 
     @Override
-    public String getLanguage()
+    public Optional<String> getLanguage()
     {
         return language;
     }
