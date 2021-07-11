@@ -85,6 +85,7 @@ public class PhoenixSplitManager
                     connection,
                     tableHandle,
                     columns,
+                    dynamicFilter.getCurrentPredicate(),
                     Optional.empty());
 
             List<ConnectorSplit> splits = getSplits(inputQuery).stream()
