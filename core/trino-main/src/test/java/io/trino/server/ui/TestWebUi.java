@@ -45,6 +45,7 @@ import okhttp3.Response;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -1093,6 +1094,7 @@ public class TestWebUi
     private static class AuthenticatedIdentityCapturingFilter
             implements ContainerRequestFilter
     {
+        @GuardedBy("this")
         private Identity authenticatedIdentity;
 
         @Override
@@ -1108,7 +1110,7 @@ public class TestWebUi
             }
         }
 
-        public Identity getAuthenticatedIdentity()
+        public synchronized Identity getAuthenticatedIdentity()
         {
             return authenticatedIdentity;
         }
