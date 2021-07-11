@@ -35,6 +35,7 @@ import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -244,7 +245,7 @@ public class PhoenixClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles, TupleDomain<JdbcColumnHandle> currentPredicate)
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles, TupleDomain<ColumnHandle> currentPredicate)
             throws SQLException
     {
         PreparedStatement query = prepareStatement(
@@ -271,7 +272,7 @@ public class PhoenixClient
             Connection connection,
             JdbcTableHandle table,
             List<JdbcColumnHandle> columns,
-            TupleDomain<JdbcColumnHandle> currentPredicate,
+            TupleDomain<ColumnHandle> currentPredicate,
             Optional<JdbcSplit> split)
             throws SQLException
     {

@@ -65,9 +65,9 @@ public class JdbcRecordSetProvider
             handles.add((JdbcColumnHandle) handle);
         }
 
-        TupleDomain<JdbcColumnHandle> simplifiedDynamicFilter = dynamicFilter
+        TupleDomain<ColumnHandle> simplifiedDynamicFilter = dynamicFilter
                 .getCurrentPredicate()
-                .transformKeys(JdbcColumnHandle.class::cast).simplify(getDomainCompactionThreshold(session));
+                .transformKeys(ColumnHandle.class::cast).simplify(getDomainCompactionThreshold(session));
 
         return new JdbcRecordSet(jdbcClient, executor, session, jdbcSplit, jdbcTable, handles.build(), simplifiedDynamicFilter);
     }

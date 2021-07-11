@@ -17,6 +17,7 @@ import com.google.common.base.VerifyException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.predicate.TupleDomain;
@@ -62,7 +63,7 @@ public class JdbcRecordCursor
     private ResultSet resultSet;
     private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles, TupleDomain<JdbcColumnHandle> currentPredicate)
+    public JdbcRecordCursor(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles, TupleDomain<ColumnHandle> currentPredicate)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.executor = requireNonNull(executor, "executor is null");
