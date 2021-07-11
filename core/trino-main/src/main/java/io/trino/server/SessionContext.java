@@ -18,8 +18,6 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.transaction.TransactionId;
 
-import javax.annotation.Nullable;
-
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -32,25 +30,19 @@ public interface SessionContext
 
     Identity getIdentity();
 
-    @Nullable
-    String getCatalog();
+    Optional<String> getCatalog();
 
-    @Nullable
-    String getSchema();
+    Optional<String> getSchema();
 
-    @Nullable
-    String getPath();
+    Optional<String> getPath();
 
-    @Nullable
-    String getSource();
+    Optional<String> getSource();
 
-    String getRemoteUserAddress();
+    Optional<String> getRemoteUserAddress();
 
-    @Nullable
-    String getUserAgent();
+    Optional<String> getUserAgent();
 
-    @Nullable
-    String getClientInfo();
+    Optional<String> getClientInfo();
 
     Set<String> getClientTags();
 
@@ -58,11 +50,9 @@ public interface SessionContext
 
     ResourceEstimates getResourceEstimates();
 
-    @Nullable
-    String getTimeZoneId();
+    Optional<String> getTimeZoneId();
 
-    @Nullable
-    String getLanguage();
+    Optional<String> getLanguage();
 
     Map<String, String> getSystemProperties();
 

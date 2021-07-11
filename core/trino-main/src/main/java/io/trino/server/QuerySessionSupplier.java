@@ -44,7 +44,7 @@ public class QuerySessionSupplier
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
-    private final Optional<String> path;
+    private final Optional<String> defaultPath;
     private final Optional<TimeZoneKey> forcedSessionTimeZone;
     private final Optional<String> defaultCatalog;
     private final Optional<String> defaultSchema;
@@ -60,7 +60,7 @@ public class QuerySessionSupplier
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         requireNonNull(config, "config is null");
-        this.path = requireNonNull(config.getPath(), "path is null");
+        this.defaultPath = requireNonNull(config.getPath(), "path is null");
         this.forcedSessionTimeZone = requireNonNull(config.getForcedSessionTimeZone(), "forcedSessionTimeZone is null");
         this.defaultCatalog = requireNonNull(config.getDefaultCatalog(), "defaultCatalog is null");
         this.defaultSchema = requireNonNull(config.getDefaultSchema(), "defaultSchema is null");
@@ -85,8 +85,8 @@ public class QuerySessionSupplier
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
                 .setIdentity(identity)
+                .setPath(context.getPath().or(() -> defaultPath).map(SqlPath::new))
                 .setSource(context.getSource())
-                .setPath(new SqlPath(path))
                 .setRemoteUserAddress(context.getRemoteUserAddress())
                 .setUserAgent(context.getUserAgent())
                 .setClientInfo(context.getClientInfo())
@@ -96,19 +96,13 @@ public class QuerySessionSupplier
                 .setResourceEstimates(context.getResourceEstimates())
                 .setProtocolHeaders(context.getProtocolHeaders());
 
-        if (context.getCatalog() != null) {
+        if (context.getCatalog().isPresent()) {
             sessionBuilder.setCatalog(context.getCatalog());
-            if (context.getSchema() != null) {
-                sessionBuilder.setSchema(context.getSchema());
-            }
+            sessionBuilder.setSchema(context.getSchema());
         }
         else {
             defaultCatalog.ifPresent(sessionBuilder::setCatalog);
             defaultSchema.ifPresent(sessionBuilder::setSchema);
-        }
-
-        if (context.getPath() != null) {
-            sessionBuilder.setPath(new SqlPath(Optional.of(context.getPath())));
         }
 
         if (forcedSessionTimeZone.isPresent()) {
@@ -119,14 +113,12 @@ public class QuerySessionSupplier
             if (sessionTimeZoneId != null) {
                 sessionBuilder.setTimeZoneKey(getTimeZoneKey(sessionTimeZoneId));
             }
-            else if (context.getTimeZoneId() != null) {
-                sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId()));
+            else {
+                sessionBuilder.setTimeZoneKey(context.getTimeZoneId().map(TimeZoneKey::getTimeZoneKey));
             }
         }
 
-        if (context.getLanguage() != null) {
-            sessionBuilder.setLocale(Locale.forLanguageTag(context.getLanguage()));
-        }
+        context.getLanguage().ifPresent(s -> sessionBuilder.setLocale(Locale.forLanguageTag(s)));
 
         for (Entry<String, String> entry : context.getSystemProperties().entrySet()) {
             sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
