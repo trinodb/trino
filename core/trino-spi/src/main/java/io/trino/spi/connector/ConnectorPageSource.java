@@ -18,6 +18,7 @@ import io.trino.spi.metrics.Metrics;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
 public interface ConnectorPageSource
@@ -30,6 +31,16 @@ public interface ConnectorPageSource
      * If size is not available, this method should return zero.
      */
     long getCompletedBytes();
+
+    /**
+     * Gets the number of input rows processed by this page source so far.
+     * By default, the positions count of the page returned from getNextPage
+     * is used to calculate the number of input rows.
+     */
+    default OptionalLong getCompletedPositions()
+    {
+        return OptionalLong.empty();
+    }
 
     /**
      * Gets the wall time this page source spent reading data from the input.
