@@ -150,7 +150,7 @@ public class HttpRequestSessionContextFactory
         String transactionIdHeader = headers.getFirst(protocolHeaders.requestTransactionId());
         boolean clientTransactionSupport = transactionIdHeader != null;
         Optional<TransactionId> transactionId = parseTransactionId(transactionIdHeader);
-        return new DefaultSessionContext(
+        return new SessionContext(
                 protocolHeaders,
                 catalog,
                 schema,
