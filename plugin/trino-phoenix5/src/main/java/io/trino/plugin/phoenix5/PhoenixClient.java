@@ -40,6 +40,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -280,6 +281,7 @@ public class PhoenixClient
                 Optional.empty(),
                 columns,
                 ImmutableMap.of(),
+                TupleDomain.none(),
                 split);
         return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
     }
