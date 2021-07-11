@@ -22,27 +22,27 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public final class Explain
+public final class ExplainAnalyze
         extends Statement
 {
     private final Statement statement;
-    private final List<ExplainOption> options;
+    private final boolean verbose;
 
-    public Explain(Statement statement, List<ExplainOption> options)
+    public ExplainAnalyze(Statement statement, boolean verbose)
     {
-        this(Optional.empty(), statement, options);
+        this(Optional.empty(), statement, verbose);
     }
 
-    public Explain(NodeLocation location, Statement statement, List<ExplainOption> options)
+    public ExplainAnalyze(NodeLocation location, boolean verbose, Statement statement)
     {
-        this(Optional.of(location), statement, options);
+        this(Optional.of(location), statement, verbose);
     }
 
-    public Explain(Optional<NodeLocation> location, Statement statement, List<ExplainOption> options)
+    public ExplainAnalyze(Optional<NodeLocation> location, Statement statement, boolean verbose)
     {
         super(location);
         this.statement = requireNonNull(statement, "statement is null");
-        this.options = ImmutableList.copyOf(requireNonNull(options, "options is null"));
+        this.verbose = verbose;
     }
 
     public Statement getStatement()
@@ -50,15 +50,15 @@ public final class Explain
         return statement;
     }
 
-    public List<ExplainOption> getOptions()
+    public boolean isVerbose()
     {
-        return options;
+        return verbose;
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitExplain(this, context);
+        return visitor.visitExplainAnalyze(this, context);
     }
 
     @Override
@@ -66,14 +66,13 @@ public final class Explain
     {
         return ImmutableList.<Node>builder()
                 .add(statement)
-                .addAll(options)
                 .build();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(statement, options);
+        return Objects.hash(statement, verbose);
     }
 
     @Override
@@ -85,9 +84,8 @@ public final class Explain
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        Explain o = (Explain) obj;
-        return Objects.equals(statement, o.statement) &&
-                Objects.equals(options, o.options);
+        ExplainAnalyze o = (ExplainAnalyze) obj;
+        return Objects.equals(statement, o.statement);
     }
 
     @Override
@@ -95,7 +93,7 @@ public final class Explain
     {
         return toStringHelper(this)
                 .add("statement", statement)
-                .add("options", options)
+                .add("verbose", verbose)
                 .toString();
     }
 }

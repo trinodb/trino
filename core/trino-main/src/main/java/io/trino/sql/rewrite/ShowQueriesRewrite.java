@@ -57,6 +57,7 @@ import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikePredicate;
@@ -188,12 +189,14 @@ final class ShowQueriesRewrite
         protected Node visitExplain(Explain node, Void context)
         {
             Statement statement = (Statement) process(node.getStatement(), null);
-            return new Explain(
-                    node.getLocation().get(),
-                    node.isAnalyze(),
-                    node.isVerbose(),
-                    statement,
-                    node.getOptions());
+            return new Explain(node.getLocation(), statement, node.getOptions());
+        }
+
+        @Override
+        protected Node visitExplainAnalyze(ExplainAnalyze node, Void context)
+        {
+            Statement statement = (Statement) process(node.getStatement(), null);
+            return new ExplainAnalyze(node.getLocation(), statement, node.isVerbose());
         }
 
         @Override

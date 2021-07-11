@@ -37,6 +37,7 @@ import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GrantRoles;
 import io.trino.sql.tree.Insert;
@@ -95,6 +96,7 @@ public final class StatementUtils
             .put(Query.class, SELECT)
             // EXPLAIN
             .put(Explain.class, EXPLAIN)
+            .put(ExplainAnalyze.class, EXPLAIN)
             // DESCRIBE
             .put(DescribeInput.class, DESCRIBE)
             .put(DescribeOutput.class, DESCRIBE)

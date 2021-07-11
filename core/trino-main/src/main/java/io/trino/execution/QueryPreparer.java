@@ -20,7 +20,7 @@ import io.trino.spi.resourcegroups.QueryType;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Execute;
-import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Statement;
 import io.trino.util.StatementUtils;
@@ -66,8 +66,8 @@ public class QueryPreparer
             statement = sqlParser.createStatement(prepareSql.get(), createParsingOptions(session));
         }
 
-        if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
-            Statement innerStatement = ((Explain) statement).getStatement();
+        if (statement instanceof ExplainAnalyze) {
+            Statement innerStatement = ((ExplainAnalyze) statement).getStatement();
             Optional<QueryType> innerQueryType = StatementUtils.getQueryType(innerStatement.getClass());
             if (innerQueryType.isEmpty() || innerQueryType.get() == QueryType.DATA_DEFINITION) {
                 throw new TrinoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());

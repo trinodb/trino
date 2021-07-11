@@ -74,6 +74,7 @@ import io.trino.sql.tree.ExcludedPattern;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.ExplainFormat;
 import io.trino.sql.tree.ExplainOption;
 import io.trino.sql.tree.ExplainType;
@@ -1071,13 +1072,13 @@ class AstBuilder
     @Override
     public Node visitExplain(SqlBaseParser.ExplainContext context)
     {
-        return new Explain(getLocation(context), false, false, (Statement) visit(context.statement()), visit(context.explainOption(), ExplainOption.class));
+        return new Explain(getLocation(context), (Statement) visit(context.statement()), visit(context.explainOption(), ExplainOption.class));
     }
 
     @Override
     public Node visitExplainAnalyze(SqlBaseParser.ExplainAnalyzeContext context)
     {
-        return new Explain(getLocation(context), true, context.VERBOSE() != null, (Statement) visit(context.statement()), ImmutableList.of());
+        return new ExplainAnalyze(getLocation(context), context.VERBOSE() != null, (Statement) visit(context.statement()));
     }
 
     @Override
