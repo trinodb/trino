@@ -48,7 +48,7 @@ public class KuduPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
-        KuduRecordSet recordSet = (KuduRecordSet) recordSetProvider.getRecordSet(transaction, session, split, table, columns);
+        KuduRecordSet recordSet = (KuduRecordSet) recordSetProvider.getRecordSet(transaction, session, split, table, columns, dynamicFilter);
         if (columns.contains(KuduColumnHandle.ROW_ID_HANDLE)) {
             return new KuduUpdatablePageSource(recordSet);
         }
