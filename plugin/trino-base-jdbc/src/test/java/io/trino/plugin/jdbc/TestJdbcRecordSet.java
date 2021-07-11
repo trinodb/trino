@@ -171,6 +171,6 @@ public class TestJdbcRecordSet
 
     private JdbcRecordSet createRecordSet(List<JdbcColumnHandle> columnHandles)
     {
-        return new JdbcRecordSet(jdbcClient, executor, SESSION, split, table, columnHandles, TupleDomain.none());
+        return new JdbcRecordSet(jdbcClient, executor, SESSION, split, table, columnHandles, TupleDomain.all());
     }
 }
