@@ -99,7 +99,7 @@ public class JdbcMetadataConfig
     {
         return domainCompactionThreshold;
     }
-    
+
     @Config("domain-compaction-threshold")
     @ConfigDescription("Maximum ranges to allow in a tuple domain without compacting it")
     public JdbcMetadataConfig setDomainCompactionThreshold(int domainCompactionThreshold)
@@ -107,5 +107,4 @@ public class JdbcMetadataConfig
         this.domainCompactionThreshold = domainCompactionThreshold;
         return this;
     }
-
 }
