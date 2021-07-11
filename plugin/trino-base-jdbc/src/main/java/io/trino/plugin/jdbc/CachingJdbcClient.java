@@ -212,7 +212,7 @@ public class CachingJdbcClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> currentPredicate)
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns, TupleDomain<JdbcColumnHandle> currentPredicate)
             throws SQLException
     {
         return delegate.buildSql(session, connection, split, table, columns, currentPredicate);

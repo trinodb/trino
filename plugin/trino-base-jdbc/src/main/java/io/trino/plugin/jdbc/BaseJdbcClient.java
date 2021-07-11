@@ -432,7 +432,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> currentPredicate)
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns, TupleDomain<JdbcColumnHandle> currentPredicate)
             throws SQLException
     {
         PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, ImmutableMap.of(), currentPredicate, Optional.of(split));
@@ -446,7 +446,7 @@ public abstract class BaseJdbcClient
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
             Map<String, String> columnExpressions,
-            TupleDomain<ColumnHandle> currentPredicate,
+            TupleDomain<JdbcColumnHandle> currentPredicate,
             Optional<JdbcSplit> split)
     {
         return applyQueryTransformations(table, new QueryBuilder(this).prepareQuery(
