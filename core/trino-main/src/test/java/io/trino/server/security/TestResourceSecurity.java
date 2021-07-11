@@ -31,6 +31,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlManager;
+import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
@@ -80,7 +81,6 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
 import static io.trino.server.security.oauth2.OAuth2Service.hashNonce;
@@ -303,19 +303,19 @@ public class TestResourceSecurity
     @javax.ws.rs.Path("/username")
     public static class TestResource
     {
-        private final AccessControl accessControl;
+        private final HttpRequestSessionContextFactory sessionContextFactory;
 
         @Inject
         public TestResource(AccessControl accessControl)
         {
-            this.accessControl = accessControl;
+            this.sessionContextFactory = new HttpRequestSessionContextFactory(ImmutableSet::of, accessControl);
         }
 
         @ResourceSecurity(AUTHENTICATED_USER)
         @GET
         public javax.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
         {
-            Identity identity = extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty(), accessControl, user -> ImmutableSet.of());
+            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
             return javax.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
                     .build();
