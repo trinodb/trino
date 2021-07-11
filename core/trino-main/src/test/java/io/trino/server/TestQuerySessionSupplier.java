@@ -63,11 +63,12 @@ public class TestQuerySessionSupplier
             .put(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
             .put(TRINO_HEADERS.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
             .build());
+    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(ImmutableSet::of, new AllowAllAccessControl());
 
     @Test
     public void testCreateSession()
     {
-        SessionContext context = new HttpRequestSessionContext(TEST_HEADERS, Optional.empty(), Optional.of("testRemote"), Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(TEST_HEADERS, Optional.empty(), Optional.of("testRemote"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
         Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context);
 
@@ -99,14 +100,14 @@ public class TestQuerySessionSupplier
         MultivaluedMap<String, String> headers1 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .build());
-        SessionContext context1 = new HttpRequestSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context1.getClientTags(), ImmutableSet.of());
 
         MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .put(TRINO_HEADERS.requestClientTags(), "")
                 .build());
-        SessionContext context2 = new HttpRequestSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context2 = SESSION_CONTEXT_FACTORY.createSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context2.getClientTags(), ImmutableSet.of());
     }
 
@@ -117,13 +118,13 @@ public class TestQuerySessionSupplier
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .put(TRINO_HEADERS.requestClientCapabilities(), "foo, bar")
                 .build());
-        SessionContext context1 = new HttpRequestSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context1.getClientCapabilities(), ImmutableSet.of("foo", "bar"));
 
         MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .build());
-        SessionContext context2 = new HttpRequestSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context2 = SESSION_CONTEXT_FACTORY.createSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
 
@@ -134,7 +135,7 @@ public class TestQuerySessionSupplier
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .put(TRINO_HEADERS.requestTimeZone(), "unknown_timezone")
                 .build());
-        SessionContext context = new HttpRequestSessionContext(headers, Optional.empty(), Optional.of("remoteAddress"), Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headers, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
         sessionSupplier.createSession(new QueryId("test_query_id"), context);
     }
@@ -233,7 +234,7 @@ public class TestQuerySessionSupplier
     private static Session createSession(ListMultimap<String, String> headers, SqlEnvironmentConfig config)
     {
         MultivaluedMap<String, String> headerMap = new GuavaMultivaluedMap<>(headers);
-        SessionContext context = new HttpRequestSessionContext(headerMap, Optional.empty(), Optional.of("testRemote"), Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headerMap, Optional.empty(), Optional.of("testRemote"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(config);
         return sessionSupplier.createSession(new QueryId("test_query_id"), context);
     }
