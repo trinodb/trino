@@ -150,7 +150,10 @@ Transform                             Description
                                       partition value is an integer hash of ``x``, with a value between
                                       0 and ``nbuckets - 1`` inclusive.
 
-``truncate(s, nchars)``               The partition value is the first ``nchars`` characters of ``s``.
+``truncate(s, w)``                    If ``s`` is a string, the partition value is the first ``w`` 
+                                      characters of ``s`` for strings. If ``s`` is an integer, the 
+                                      partition value is rounded to the largest multiple of ``w`` less <=
+                                      to ``s``. `More details <https://iceberg.apache.org/spec/#truncate-transform-details>`_
 ===================================== ====================================================================
 
 In this example, the table is partitioned by the month of ``order_date``, a hash of
@@ -252,3 +255,12 @@ and a file system location of ``/var/my_tables/test_table``::
         format = 'PARQUET',
         partitioning = ARRAY['c1', 'c2'],
         location = '/var/my_tables/test_table')
+
+Limitations
+-----------
+
+The following SQL statements are not yet supported:
+
+* :doc:`/sql/create-view`
+  
+  - `Github Issue <https://github.com/trinodb/trino/issues/8216>`_
