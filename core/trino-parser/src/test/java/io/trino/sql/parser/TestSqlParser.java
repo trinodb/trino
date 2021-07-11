@@ -2181,20 +2181,12 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new ExplainType(ExplainType.Type.LOGICAL),
                                 new ExplainFormat(ExplainFormat.Type.TEXT))));
-    }
 
-    @Test
-    public void testExplainVerbose()
-    {
-        assertStatement("EXPLAIN VERBOSE SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false, true, ImmutableList.of()));
-    }
+        assertStatementIsInvalid("EXPLAIN VERBOSE SELECT * FROM t")
+                .withMessageStartingWith("line 1:9: mismatched input 'VERBOSE'. Expecting: '(', 'ALTER', 'ANALYZE', 'CALL',");
 
-    @Test
-    public void testExplainVerboseTypeLogical()
-    {
-        assertStatement("EXPLAIN VERBOSE (type LOGICAL) SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false, true, ImmutableList.of(new ExplainType(ExplainType.Type.LOGICAL))));
+        assertStatementIsInvalid("EXPLAIN VERBOSE (type LOGICAL) SELECT * FROM t")
+                .withMessageStartingWith("line 1:9: mismatched input 'VERBOSE'. Expecting: '(', 'ALTER', 'ANALYZE', 'CALL',");
     }
 
     @Test
@@ -2202,27 +2194,15 @@ public class TestSqlParser
     {
         assertStatement("EXPLAIN ANALYZE SELECT * FROM t",
                 new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, false, ImmutableList.of()));
-    }
 
-    @Test
-    public void testExplainAnalyzeTypeDistributed()
-    {
-        assertStatement("EXPLAIN ANALYZE (type DISTRIBUTED) SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, false, ImmutableList.of(new ExplainType(ExplainType.Type.DISTRIBUTED))));
-    }
-
-    @Test
-    public void testExplainAnalyzeVerbose()
-    {
         assertStatement("EXPLAIN ANALYZE VERBOSE SELECT * FROM t",
                 new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, true, ImmutableList.of()));
-    }
 
-    @Test
-    public void testExplainAnalyzeVerboseTypeDistributed()
-    {
-        assertStatement("EXPLAIN ANALYZE VERBOSE (type DISTRIBUTED) SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, true, ImmutableList.of(new ExplainType(ExplainType.Type.DISTRIBUTED))));
+        assertStatementIsInvalid("EXPLAIN ANALYZE (type DISTRIBUTED) SELECT * FROM t")
+                .withMessage("line 1:18: mismatched input 'type'. Expecting: '(', 'SELECT', 'TABLE', 'VALUES'");
+
+        assertStatementIsInvalid("EXPLAIN ANALYZE VERBOSE (type DISTRIBUTED) SELECT * FROM t")
+                .withMessage("line 1:26: mismatched input 'type'. Expecting: '(', 'SELECT', 'TABLE', 'VALUES'");
     }
 
     @Test
