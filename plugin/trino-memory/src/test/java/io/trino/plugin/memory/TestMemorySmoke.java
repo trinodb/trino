@@ -150,6 +150,21 @@ public class TestMemorySmoke
                 .getMetrics();
     }
 
+    @Test(timeOut = 30_000)
+    public void testPhysicalInputPositions()
+    {
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+                getSession(),
+                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey " +
+                        "AND supplier.name = 'Supplier#000000001'");
+        assertEquals(result.getResult().getRowCount(), 615);
+
+        OperatorStats probeStats = getScanOperatorStats(getDistributedQueryRunner(), result.getQueryId()).stream()
+                .findFirst().orElseThrow();
+        assertEquals(probeStats.getInputPositions(), 615);
+        assertEquals(probeStats.getPhysicalInputPositions(), LINEITEM_COUNT);
+    }
+
     @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
     public void testJoinDynamicFilteringNone(JoinDistributionType joinDistributionType)
     {
@@ -413,12 +428,18 @@ public class TestMemorySmoke
 
     private static List<Integer> getOperatorRowsRead(DistributedQueryRunner runner, QueryId queryId)
     {
+        return getScanOperatorStats(runner, queryId).stream()
+                .map(OperatorStats::getInputPositions)
+                .map(Math::toIntExact)
+                .collect(toImmutableList());
+    }
+
+    private static List<OperatorStats> getScanOperatorStats(DistributedQueryRunner runner, QueryId queryId)
+    {
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getOperatorSummaries()
                 .stream()
                 .filter(summary -> summary.getOperatorType().contains("Scan"))
-                .map(OperatorStats::getInputPositions)
-                .map(Math::toIntExact)
                 .collect(toImmutableList());
     }
 
