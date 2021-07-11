@@ -35,6 +35,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
@@ -93,6 +94,7 @@ public final class MemoryPageSourceProvider
         private final DynamicFilter dynamicFilter;
         private final boolean enableLazyDynamicFiltering;
         private long rows;
+        private long completedPositions;
 
         private DynamicFilteringPageSource(FixedPageSource delegate, List<ColumnHandle> columns, DynamicFilter dynamicFilter, boolean enableLazyDynamicFiltering)
         {
@@ -106,6 +108,12 @@ public final class MemoryPageSourceProvider
         public long getCompletedBytes()
         {
             return delegate.getCompletedBytes();
+        }
+
+        @Override
+        public OptionalLong getCompletedPositions()
+        {
+            return OptionalLong.of(completedPositions);
         }
 
         @Override
@@ -132,12 +140,15 @@ public final class MemoryPageSourceProvider
                 return null;
             }
             Page page = delegate.getNextPage();
-            if (page != null && !predicate.isAll()) {
+            if (page == null) {
+                return null;
+            }
+            completedPositions += page.getPositionCount();
+
+            if (!predicate.isAll()) {
                 page = applyFilter(page, predicate.transformKeys(columns::indexOf).getDomains().get());
             }
-            if (page != null) {
-                rows += page.getPositionCount();
-            }
+            rows += page.getPositionCount();
             return page;
         }
 
