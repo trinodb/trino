@@ -24,9 +24,12 @@ import io.trino.decoder.DecoderModule;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.kafka.encoder.EncoderModule;
 import io.trino.plugin.kafka.schema.ContentSchemaReader;
+import io.trino.plugin.kafka.schema.ForKafkaRead;
+import io.trino.plugin.kafka.schema.ForKafkaWrite;
 import io.trino.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.plugin.kafka.schema.file.FileContentSchemaReader;
+import io.trino.plugin.kafka.schema.file.FileWriterSchemaReader;
 import io.trino.plugin.kafka.util.CodecSupplier;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
@@ -128,7 +131,8 @@ public final class KafkaQueryRunner
                             kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
                             binder -> binder.bind(TableDescriptionSupplier.class)
                                     .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))),
-                    binder -> binder.bind(ContentSchemaReader.class).to(FileContentSchemaReader.class).in(Scopes.SINGLETON),
+                    binder -> binder.bind(ContentSchemaReader.class).annotatedWith(ForKafkaRead.class).to(FileContentSchemaReader.class).in(Scopes.SINGLETON),
+                    binder -> binder.bind(ContentSchemaReader.class).annotatedWith(ForKafkaWrite.class).to(FileWriterSchemaReader.class).in(Scopes.SINGLETON),
                     new DecoderModule(),
                     new EncoderModule()));
             Map<String, String> properties = new HashMap<>(extraKafkaProperties);

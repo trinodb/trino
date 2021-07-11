@@ -61,6 +61,7 @@ import java.util.Set;
 import static io.trino.decoder.avro.AvroDecoderTestUtil.checkArrayValues;
 import static io.trino.decoder.avro.AvroDecoderTestUtil.checkMapValues;
 import static io.trino.decoder.avro.AvroDecoderTestUtil.checkRowValues;
+import static io.trino.decoder.avro.AvroRowDecoderFactory.DATA_SCHEMA;
 import static io.trino.decoder.util.DecoderTestUtil.checkIsNull;
 import static io.trino.decoder.util.DecoderTestUtil.checkValue;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
@@ -84,7 +85,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestAvroDecoder
 {
-    private static final String DATA_SCHEMA = "dataSchema";
     private static final AvroRowDecoderFactory DECODER_FACTORY = new AvroRowDecoderFactory(new FixedSchemaAvroReaderSupplier.Factory(), new AvroFileDeserializer.Factory());
 
     private static final Metadata METADATA = createTestMetadataManager();
@@ -417,21 +417,12 @@ public class TestAvroDecoder
     }
 
     @Test
-    public void testFloatDecodedAsDouble()
-    {
-        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", DOUBLE, "float_field", null, null, false, false, false);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "float_field", "\"float\"", 10.2f);
-
-        checkValue(decodedRow, row, 10.2);
-    }
-
-    @Test
     public void testFloatDecodedAsReal()
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", REAL, "float_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "float_field", "\"float\"", 10.2f);
 
-        checkValue(decodedRow, row, 10.2);
+        checkValue(decodedRow, row, 10.2f);
     }
 
     @Test

@@ -28,7 +28,7 @@ public class AvroRowEncoderFactory
         implements RowEncoderFactory
 {
     @Override
-    public RowEncoder create(ConnectorSession session, Optional<String> dataSchema, List<EncoderColumnHandle> columnHandles)
+    public RowEncoder create(ConnectorSession session, Optional<String> dataSchema, List<EncoderColumnHandle> columnHandles, String topic, boolean isKey)
     {
         checkArgument(dataSchema.isPresent(), "dataSchema for Avro format is not present");
         Schema parsedSchema = new Schema.Parser().parse(dataSchema.get());

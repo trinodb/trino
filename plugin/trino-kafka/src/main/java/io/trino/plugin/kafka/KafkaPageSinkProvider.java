@@ -17,7 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.kafka.encoder.DispatchingRowEncoderFactory;
 import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.plugin.kafka.encoder.RowEncoder;
-import io.trino.spi.TrinoException;
+import io.trino.plugin.kafka.schema.ContentSchemaReader;
+import io.trino.plugin.kafka.schema.ForKafkaWrite;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -27,12 +28,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Optional;
-
-import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SCHEMA_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -41,12 +36,14 @@ public class KafkaPageSinkProvider
 {
     private final DispatchingRowEncoderFactory encoderFactory;
     private final KafkaProducerFactory producerFactory;
+    private final ContentSchemaReader schemaReader;
 
     @Inject
-    public KafkaPageSinkProvider(DispatchingRowEncoderFactory encoderFactory, KafkaProducerFactory producerFactory)
+    public KafkaPageSinkProvider(DispatchingRowEncoderFactory encoderFactory, KafkaProducerFactory producerFactory, @ForKafkaWrite ContentSchemaReader schemaReader)
     {
         this.encoderFactory = requireNonNull(encoderFactory, "encoderFactory is null");
         this.producerFactory = requireNonNull(producerFactory, "producerFactory is null");
+        this.schemaReader = requireNonNull(schemaReader, "writerSchemaResolver is null");
     }
 
     @Override
@@ -78,14 +75,18 @@ public class KafkaPageSinkProvider
         RowEncoder keyEncoder = encoderFactory.create(
                 session,
                 handle.getKeyDataFormat(),
-                getDataSchema(handle.getKeyDataSchemaLocation()),
-                keyColumns.build());
+                schemaReader.readKeyContentSchema(handle),
+                keyColumns.build(),
+                handle.getTopicName(),
+                true);
 
         RowEncoder messageEncoder = encoderFactory.create(
                 session,
                 handle.getMessageDataFormat(),
-                getDataSchema(handle.getMessageDataSchemaLocation()),
-                messageColumns.build());
+                schemaReader.readValueContentSchema(handle),
+                messageColumns.build(),
+                handle.getTopicName(),
+                false);
 
         return new KafkaPageSink(
                 handle.getTopicName(),
@@ -94,17 +95,5 @@ public class KafkaPageSinkProvider
                 messageEncoder,
                 producerFactory,
                 session);
-    }
-
-    private static Optional<String> getDataSchema(Optional<String> dataSchemaLocation)
-    {
-        return dataSchemaLocation.map(location -> {
-            try {
-                return Files.readString(Paths.get(location));
-            }
-            catch (IOException e) {
-                throw new TrinoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", location), e);
-            }
-        });
     }
 }
