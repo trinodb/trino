@@ -1071,7 +1071,13 @@ class AstBuilder
     @Override
     public Node visitExplain(SqlBaseParser.ExplainContext context)
     {
-        return new Explain(getLocation(context), context.ANALYZE() != null, context.VERBOSE() != null, (Statement) visit(context.statement()), visit(context.explainOption(), ExplainOption.class));
+        return new Explain(getLocation(context), false, false, (Statement) visit(context.statement()), visit(context.explainOption(), ExplainOption.class));
+    }
+
+    @Override
+    public Node visitExplainAnalyze(SqlBaseParser.ExplainAnalyzeContext context)
+    {
+        return new Explain(getLocation(context), true, context.VERBOSE() != null, (Statement) visit(context.statement()), ImmutableList.of());
     }
 
     @Override
