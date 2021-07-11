@@ -101,11 +101,6 @@ public class JdbcMetadataSessionProperties
         return session.getProperty(DOMAIN_COMPACTION_THRESHOLD, Integer.class);
     }
 
-    public static int getInsertBatchSize(ConnectorSession session)
-    {
-        return session.getProperty(INSERT_BATCH_SIZE, Integer.class);
-    }
-
     public static int getInOperatorLimit(ConnectorSession session)
     {
         return session.getProperty(IN_OPERATOR_LIMIT, Integer.class);
