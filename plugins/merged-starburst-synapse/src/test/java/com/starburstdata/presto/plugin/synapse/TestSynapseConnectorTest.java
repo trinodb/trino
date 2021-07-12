@@ -235,4 +235,48 @@ public class TestSynapseConnectorTest
 
         assertUpdate("DROP TABLE " + table);
     }
+
+    @Override
+    public void testDelete()
+    {
+        // TODO: Remove override once superclass uses smaller tables to test (because INSERTs to Synapse are slow)
+        skipTestUnlessSupportsDeletes();
+
+        String tableName = "test_delete_" + randomTableSuffix();
+
+        // delete successive parts of the table
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", "SELECT count(*) FROM nation");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey <= 5", "SELECT count(*) FROM nation WHERE nationkey <= 5");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE nationkey > 5");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey <= 10", "SELECT count(*) FROM nation WHERE nationkey > 5 AND nationkey <= 10");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE nationkey > 10");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey <= 20", "SELECT count(*) FROM nation WHERE nationkey > 10 AND nationkey <= 20");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE nationkey > 20");
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        // delete without matching any rows
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", "SELECT count(*) FROM nation");
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey < 0", 0);
+        assertUpdate("DROP TABLE " + tableName);
+
+        // delete with a predicate that optimizes to false
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", "SELECT count(*) FROM nation");
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey > 5 AND nationkey < 4", 0);
+        assertUpdate("DROP TABLE " + tableName);
+
+        // test EXPLAIN ANALYZE with CTAS
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT nationkey FROM nation");
+        assertQuery("SELECT * from " + tableName, "SELECT nationkey FROM nation");
+        // check that INSERT works also
+        assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO " + tableName + " SELECT regionkey FROM nation");
+        assertQuery("SELECT * from " + tableName, "SELECT nationkey FROM nation UNION ALL SELECT regionkey FROM nation");
+        // check DELETE works with EXPLAIN ANALYZE
+        assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE TRUE");
+        assertQuery("SELECT COUNT(*) from " + tableName, "SELECT 0");
+        assertUpdate("DROP TABLE " + tableName);
+    }
 }

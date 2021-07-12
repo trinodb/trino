@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import io.trino.testing.BaseConnectorSmokeTest;
+import io.trino.testing.TestingConnectorBehavior;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,6 +18,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseDistbutedSnowflakeConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+                return true;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
     @Test
     @Override
     public void testShowCreateTable()

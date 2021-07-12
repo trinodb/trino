@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import org.apache.hadoop.conf.Configuration;
@@ -38,13 +39,13 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.stream.IntStream;
 
 import static com.amazonaws.services.s3.internal.crypto.JceEncryptionConstants.SYMMETRIC_CIPHER_BLOCK_SIZE;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringSessionProperties.dynamicFilteringEnabled;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHdfsEnvironment;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHiveColumnHandles;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.validateStageType;
@@ -114,21 +115,22 @@ class SnowflakePageSourceProvider
 
         Map<ColumnHandle, Integer> columnIndex = IntStream.range(0, columns.size()).boxed()
                 .collect(toImmutableMap(columns::get, identity()));
-        TupleDomain<HiveColumnHandle> filePredicate = TupleDomain.withColumnDomains(
-                dynamicFilter.getCurrentPredicate().getDomains()
-                        .orElseThrow(() -> new IllegalArgumentException("NONE dynamic filter should be handled by engine"))
-                        .entrySet().stream()
-                        // TODO use https://github.com/trinodb/trino/pull/3538 APIs
-                        .filter(entry -> {
-                            // We transform the values, so the domain would need to be translated.
-                            return !(entry.getValue().getType() instanceof TimestampWithTimeZoneType);
-                        })
-                        .collect(toImmutableMap(Entry::getKey, Entry::getValue)))
-                .transform(handle -> {
-                    JdbcColumnHandle columnHandle = (JdbcColumnHandle) handle;
-                    int index = requireNonNull(columnIndex.get(columnHandle), () -> "Unexpected column: " + columnHandle);
-                    return transformedColumns.get(index);
-                });
+        TupleDomain<HiveColumnHandle> filePredicate = TupleDomain.all();
+        if (dynamicFilteringEnabled(session)) {
+            filePredicate = dynamicFilter.getCurrentPredicate()
+                    .filter((column, domain) -> {
+                        // We transform the values, so the domain would need to be translated.
+                        return !(domain.getType() instanceof TimestampWithTimeZoneType);
+                    })
+                    .transformKeys(handle -> {
+                        JdbcColumnHandle columnHandle = (JdbcColumnHandle) handle;
+                        int index = requireNonNull(columnIndex.get(columnHandle), () -> "Unexpected column: " + columnHandle);
+                        return transformedColumns.get(index);
+                    });
+            if (filePredicate.isNone()) {
+                return new EmptyPageSource();
+            }
+        }
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 path,
