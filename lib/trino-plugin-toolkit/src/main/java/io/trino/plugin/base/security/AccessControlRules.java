@@ -52,4 +52,11 @@ public class AccessControlRules
     {
         return sessionPropertyRules;
     }
+
+    public boolean hasRoleRules()
+    {
+        return schemaRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
+                tableRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
+                sessionPropertyRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent());
+    }
 }
