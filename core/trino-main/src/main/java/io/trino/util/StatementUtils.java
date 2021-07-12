@@ -77,7 +77,10 @@ import io.trino.sql.tree.Use;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.resourcegroups.QueryType.ANALYZE;
 import static io.trino.spi.resourcegroups.QueryType.DATA_DEFINITION;
 import static io.trino.spi.resourcegroups.QueryType.DELETE;
@@ -96,7 +99,6 @@ public final class StatementUtils
             .put(Query.class, SELECT)
             // EXPLAIN
             .put(Explain.class, EXPLAIN)
-            .put(ExplainAnalyze.class, EXPLAIN)
             // DESCRIBE
             .put(DescribeInput.class, DESCRIBE)
             .put(DescribeOutput.class, DESCRIBE)
@@ -157,14 +159,29 @@ public final class StatementUtils
             .put(Use.class, DATA_DEFINITION)
             .build();
 
-    public static Map<Class<? extends Statement>, QueryType> getAllQueryTypes()
+    public static Optional<QueryType> getQueryType(Statement statement)
     {
-        return STATEMENT_QUERY_TYPES;
+        if (statement instanceof ExplainAnalyze) {
+            return getQueryType(((ExplainAnalyze) statement).getStatement());
+        }
+        return Optional.ofNullable(STATEMENT_QUERY_TYPES.get(statement.getClass()));
     }
 
-    public static Optional<QueryType> getQueryType(Class<? extends Statement> statement)
+    public static Set<Class<? extends Statement>> getNonDataDefinitionStatements()
     {
-        return Optional.ofNullable(STATEMENT_QUERY_TYPES.get(statement));
+        // ExplainAnalyze is special because it has the type of the target query.
+        // It is thus not in STATEMENT_QUERY_TYPES and must be added here.
+        return Stream.concat(
+                Stream.of(ExplainAnalyze.class),
+                STATEMENT_QUERY_TYPES.entrySet().stream()
+                        .filter(entry -> entry.getValue() != DATA_DEFINITION)
+                        .map(Map.Entry::getKey))
+                .collect(toImmutableSet());
+    }
+
+    public static boolean isDataDefinitionStatement(Class<? extends Statement> statement)
+    {
+        return STATEMENT_QUERY_TYPES.get(statement) == DATA_DEFINITION;
     }
 
     public static boolean isTransactionControlStatement(Statement statement)
