@@ -84,7 +84,7 @@ Selector rules
 * ``queryType`` (optional): string to match against the type of the query submitted:
 
   * ``SELECT``: ``SELECT`` queries.
-  * ``EXPLAIN``: ``EXPLAIN`` queries.
+  * ``EXPLAIN``: ``EXPLAIN`` queries (but not ``EXPLAIN ANALYZE``).
   * ``DESCRIBE``: ``DESCRIBE``, ``DESCRIBE INPUT``, ``DESCRIBE OUTPUT``, and ``SHOW`` queries.
   * ``INSERT``: ``INSERT``, ``CREATE TABLE AS``, and ``REFRESH MATERIALIZED VIEW`` queries.
   * ``UPDATE``: ``UPDATE`` queries.
