@@ -23,7 +23,6 @@ import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Statement;
-import io.trino.util.StatementUtils;
 
 import javax.inject.Inject;
 
@@ -36,6 +35,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.util.StatementUtils.getQueryType;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 
@@ -68,7 +68,7 @@ public class QueryPreparer
 
         if (statement instanceof ExplainAnalyze) {
             Statement innerStatement = ((ExplainAnalyze) statement).getStatement();
-            Optional<QueryType> innerQueryType = StatementUtils.getQueryType(innerStatement.getClass());
+            Optional<QueryType> innerQueryType = getQueryType(innerStatement);
             if (innerQueryType.isEmpty() || innerQueryType.get() == QueryType.DATA_DEFINITION) {
                 throw new TrinoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
             }
