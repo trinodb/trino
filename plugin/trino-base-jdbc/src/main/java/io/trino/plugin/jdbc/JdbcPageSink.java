@@ -106,6 +106,7 @@ public class JdbcPageSink
             throw new TrinoException(JDBC_ERROR, e);
         }
 
+        // Making batch size configurable allows performance tuning for insert/write-heavy workloads over multiple connections.
         this.maxBatchSize = getWriteBatchSize(session);
     }
 
