@@ -1,7 +1,7 @@
 {
     "system_session_properties": [
         {
-            "user": "admin",
+            "role": "admin",
             "allow": true
         },
         {
@@ -26,7 +26,7 @@
     ],
     "catalog_session_properties": [
         {
-            "user": "admin",
+            "role": "admin",
             "allow": true
         },
         {
