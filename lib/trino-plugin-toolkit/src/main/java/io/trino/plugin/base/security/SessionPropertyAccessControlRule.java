@@ -28,10 +28,12 @@ public class SessionPropertyAccessControlRule
             true,
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty());
 
     private final boolean allow;
     private final Optional<Pattern> userRegex;
+    private final Optional<Pattern> roleRegex;
     private final Optional<Pattern> groupRegex;
     private final Optional<Pattern> propertyRegex;
 
@@ -39,11 +41,13 @@ public class SessionPropertyAccessControlRule
     public SessionPropertyAccessControlRule(
             @JsonProperty("allow") boolean allow,
             @JsonProperty("user") Optional<Pattern> userRegex,
+            @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
             @JsonProperty("property") Optional<Pattern> propertyRegex)
     {
         this.allow = allow;
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
         this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
         this.propertyRegex = requireNonNull(propertyRegex, "propertyRegex is null");
     }
@@ -58,14 +62,20 @@ public class SessionPropertyAccessControlRule
         return userRegex;
     }
 
+    public Optional<Pattern> getRoleRegex()
+    {
+        return roleRegex;
+    }
+
     Optional<Pattern> getGroupRegex()
     {
         return groupRegex;
     }
 
-    public Optional<Boolean> match(String user, Set<String> groups, String property)
+    public Optional<Boolean> match(String user, Set<String> roles, Set<String> groups, String property)
     {
         if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
+                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
                 groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
                 propertyRegex.map(regex -> regex.matcher(property).matches()).orElse(true)) {
             return Optional.of(allow);
