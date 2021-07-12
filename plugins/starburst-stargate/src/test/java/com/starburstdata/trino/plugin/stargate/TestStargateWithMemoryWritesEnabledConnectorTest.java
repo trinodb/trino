@@ -10,6 +10,7 @@
 
 package com.starburstdata.trino.plugin.stargate;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -139,5 +140,36 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
             throw new SkipException("skipped to save time");
         }
         super.testLargeIn(size);
+    }
+
+    @Override
+    protected void skipTestUnlessSupportsDeletes()
+    {
+        // Overridden because we get an error message with "Query failed (<query_id>):" prefixed instead of one expected by superclass
+        skipTestUnless(supportsCreateTable());
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'"))) {
+            if (!supportsDelete()) {
+                assertQueryFails("DELETE FROM " + table.getName(), ".*This connector does not support deletes");
+                throw new SkipException("This connector does not support deletes");
+            }
+        }
+    }
+
+    @Override
+    public void verifySupportsDeleteDeclaration()
+    {
+        // Overridden because we get an error message with "Query failed (<query_id>):" prefixed instead of one expected by superclass
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            assertQueryFails("DELETE FROM " + table.getName(), ".*This connector does not support deletes");
+        }
+    }
+
+    @Override
+    public void verifySupportsRowLevelDeleteDeclaration()
+    {
+        // Overridden because we get an error message with "Query failed (<query_id>):" prefixed instead of one expected by superclass
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", ".*This connector does not support deletes");
+        }
     }
 }
