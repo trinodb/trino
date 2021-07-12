@@ -1,7 +1,7 @@
 {
   "queries": [
     {
-      "user": "admin",
+      "role": "admin",
       "allow": ["execute", "kill", "view"]
     },
     {
