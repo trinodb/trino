@@ -35,7 +35,8 @@ public class TestIcebergConfig
                 .setFileFormat(ORC)
                 .setCompressionCodec(GZIP)
                 .setUseFileSizeFromMetadata(true)
-                .setMaxPartitionsPerWriter(100));
+                .setMaxPartitionsPerWriter(100)
+                .setHadoopMode(true));
     }
 
     @Test
