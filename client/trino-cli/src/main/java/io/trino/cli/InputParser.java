@@ -26,6 +26,7 @@ import java.util.Set;
 import static com.google.common.base.CharMatcher.whitespace;
 import static io.trino.cli.Console.STATEMENT_DELIMITERS;
 import static java.util.Locale.ENGLISH;
+import static org.jline.reader.Parser.ParseContext.COMPLETE;
 
 public class InputParser
         implements Parser
@@ -37,7 +38,7 @@ public class InputParser
             throws SyntaxError
     {
         String command = whitespace().trimFrom(line);
-        if (command.isEmpty() || SPECIAL.contains(command.toLowerCase(ENGLISH))) {
+        if (command.isEmpty() || SPECIAL.contains(command.toLowerCase(ENGLISH)) || context == COMPLETE) {
             return new DefaultParser().parse(line, cursor, context);
         }
 
