@@ -456,9 +456,10 @@ public abstract class BaseJdbcClient
                 groupingSets,
                 columns,
                 columnExpressions,
-                currentPredicate.isAll() ? table.getConstraint() :
-                    table.getConstraint().isAll() ? currentPredicate :
-                        TupleDomain.<ColumnHandle>columnWiseUnion(table.getConstraint(), currentPredicate),
+                table.getConstraint(),
+//                currentPredicate.isAll() ? table.getConstraint() :
+//                    table.getConstraint().isAll() ? currentPredicate :
+//                        TupleDomain.<ColumnHandle>columnWiseUnion(table.getConstraint(), currentPredicate),
                 split.flatMap(JdbcSplit::getAdditionalPredicate)));
     }
 
