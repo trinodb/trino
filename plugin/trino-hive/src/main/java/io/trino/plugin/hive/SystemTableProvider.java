@@ -21,5 +21,7 @@ import java.util.Optional;
 
 public interface SystemTableProvider
 {
+    Optional<SchemaTableName> getSourceTableName(SchemaTableName table);
+
     Optional<SystemTable> getSystemTable(HiveMetadata metadata, ConnectorSession session, SchemaTableName tableName);
 }

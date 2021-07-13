@@ -132,9 +132,7 @@ public final class InternalHiveConnectorFactory
             HiveTableProperties hiveTableProperties = injector.getInstance(HiveTableProperties.class);
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
             HiveMaterializedViewPropertiesProvider hiveMaterializedViewPropertiesProvider = injector.getInstance(HiveMaterializedViewPropertiesProvider.class);
-            ConnectorAccessControl accessControl = new ClassLoaderSafeConnectorAccessControl(
-                    new SystemTableAwareAccessControl(injector.getInstance(ConnectorAccessControl.class)),
-                    classLoader);
+            ConnectorAccessControl accessControl = new ClassLoaderSafeConnectorAccessControl(injector.getInstance(SystemTableAwareAccessControl.class), classLoader);
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
             Set<SystemTable> systemTables = injector.getInstance(Key.get(new TypeLiteral<Set<SystemTable>>() {}));
             Set<EventListener> eventListeners = injector.getInstance(Key.get(new TypeLiteral<Set<EventListener>>() {}))

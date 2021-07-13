@@ -132,7 +132,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -254,6 +253,7 @@ import static io.trino.plugin.hive.util.Statistics.createComputedStatisticsToPar
 import static io.trino.plugin.hive.util.Statistics.createEmptyPartitionStatistics;
 import static io.trino.plugin.hive.util.Statistics.fromComputedStatistics;
 import static io.trino.plugin.hive.util.Statistics.reduce;
+import static io.trino.plugin.hive.util.SystemTables.getSourceTableNameFromSystemTable;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -392,7 +392,7 @@ public class HiveMetadata
         }
 
         // we must not allow system tables due to how permissions are checked in SystemTableAwareAccessControl
-        if (getSourceTableNameFromSystemTable(tableName).isPresent()) {
+        if (getSourceTableNameFromSystemTable(systemTableProviders, tableName).isPresent()) {
             throw new TrinoException(HIVE_INVALID_METADATA, "Unexpected table present in Hive metastore: " + tableName);
         }
 
@@ -3006,14 +3006,6 @@ public class HiveMetadata
     public CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName name)
     {
         return hiveMaterializedViewMetadata.refreshMaterializedView(session, name);
-    }
-
-    public static Optional<SchemaTableName> getSourceTableNameFromSystemTable(SchemaTableName tableName)
-    {
-        return Stream.of(SystemTableHandler.values())
-                .filter(handler -> handler.matches(tableName))
-                .map(handler -> handler.getSourceTableName(tableName))
-                .findAny();
     }
 
     @SafeVarargs
