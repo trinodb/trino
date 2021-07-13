@@ -22,7 +22,6 @@ import org.jline.reader.impl.completer.StringsCompleter;
 import java.util.List;
 
 import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
 
 public final class Completion
 {
@@ -30,9 +29,10 @@ public final class Completion
 
     public static Completer commandCompleter()
     {
-        return new AggregateCompleter(buildArgumentCompleter("CREATE", singletonList("TABLE")),
+        return new AggregateCompleter(buildArgumentCompleter("ALTER", asList("SCHEMA", "TABLE")),
+                buildArgumentCompleter("CREATE", asList("SCHEMA", "TABLE")),
                 buildArgumentCompleter("DESCRIBE"),
-                buildArgumentCompleter("DROP", singletonList("TABLE")),
+                buildArgumentCompleter("DROP", asList("SCHEMA", "TABLE")),
                 buildArgumentCompleter("EXPLAIN"),
                 buildArgumentCompleter("HELP"),
                 buildArgumentCompleter("QUIT"),
