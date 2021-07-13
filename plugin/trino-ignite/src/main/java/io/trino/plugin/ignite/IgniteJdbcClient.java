@@ -14,7 +14,6 @@
 package io.trino.plugin.ignite;
 
 import com.google.common.base.Splitter;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -82,8 +81,14 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.wrappedLongArray;
+import static io.trino.plugin.ignite.IgniteTableProperties.AFFINITY_KEY_PROPERTY;
+import static io.trino.plugin.ignite.IgniteTableProperties.BACKUPS_PROPERTY;
+import static io.trino.plugin.ignite.IgniteTableProperties.CACHE_GROUP_PROPERTY;
 import static io.trino.plugin.ignite.IgniteTableProperties.CACHE_NAME_PROPERTY;
+import static io.trino.plugin.ignite.IgniteTableProperties.DATA_REGION_PROPERTY;
 import static io.trino.plugin.ignite.IgniteTableProperties.PRIMARY_KEY_PROPERTY;
+import static io.trino.plugin.ignite.IgniteTableProperties.TEMPLATE_PROPERTY;
+import static io.trino.plugin.ignite.IgniteTableProperties.WRITE_SYNCHRONIZATION_MODE_PROPERTY;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -229,7 +234,7 @@ public class IgniteJdbcClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.DECIMAL:
-                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                int decimalDigits = typeHandle.getRequiredDecimalDigits();
                 int precision = typeHandle.getRequiredColumnSize();
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
@@ -387,19 +392,19 @@ public class IgniteJdbcClient
             switch (propertyKey) {
                 case PRIMARY_KEY_PROPERTY:
                     break;
-                case IgniteTableProperties.AFFINITY_KEY_PROPERTY:
+                case AFFINITY_KEY_PROPERTY:
                     String affinityKey = IgniteTableProperties.getAffinityKey(tableProperties);
                     if (!isNullOrEmpty(affinityKey)) {
                         checkArgument(ImmutableSet.copyOf(primaryKeys).contains(affinityKey), "Affinity key should be one of the primary key");
                         tableOptions.add(propertyKey + " = " + affinityKey);
                     }
                     break;
-                case IgniteTableProperties.BACKUPS_PROPERTY:
-                case IgniteTableProperties.TEMPLATE_PROPERTY:
-                case IgniteTableProperties.CACHE_GROUP_PROPERTY:
+                case BACKUPS_PROPERTY:
+                case TEMPLATE_PROPERTY:
+                case CACHE_GROUP_PROPERTY:
                 case CACHE_NAME_PROPERTY:
-                case IgniteTableProperties.DATA_REGION_PROPERTY:
-                case IgniteTableProperties.WRITE_SYNCHRONIZATION_MODE_PROPERTY:
+                case DATA_REGION_PROPERTY:
+                case WRITE_SYNCHRONIZATION_MODE_PROPERTY:
                     tableOptions.add(propertyKey + " = " + propertyEntry.getValue());
                     break;
                 default:
@@ -494,7 +499,7 @@ public class IgniteJdbcClient
 
             for (String property : IgniteTableProperties.WITH_PROPERTIES) {
                 switch (property) {
-                    case IgniteTableProperties.AFFINITY_KEY_PROPERTY:
+                    case AFFINITY_KEY_PROPERTY:
                         List<String> affinityKeys = extractColumnNamesFromOrderingScheme(resultSet.getString("AFK"));
                         if (!affinityKeys.isEmpty()) {
                             String affinityKey = affinityKeys.get(0);
@@ -502,25 +507,25 @@ public class IgniteJdbcClient
                             properties.put(property, affinityKey);
                         }
                         break;
-                    case IgniteTableProperties.BACKUPS_PROPERTY:
+                    case BACKUPS_PROPERTY:
                         int backups = resultSet.getInt(property.toUpperCase(ENGLISH));
                         if (backups > 0) {
                             properties.put(property, backups);
                         }
                         break;
-                    case IgniteTableProperties.TEMPLATE_PROPERTY:
+                    case TEMPLATE_PROPERTY:
                         Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH)))
                                 .map(IgniteTableProperties.IgniteTemplateType::valueOf)
                                 .ifPresent(value -> properties.put(property, value));
                         break;
-                    case IgniteTableProperties.WRITE_SYNCHRONIZATION_MODE_PROPERTY:
+                    case WRITE_SYNCHRONIZATION_MODE_PROPERTY:
                         Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH)))
                                 .map(IgniteTableProperties.IgniteWriteSyncMode::valueOf)
                                 .ifPresent(value -> properties.put(property, value));
                         break;
                     case CACHE_NAME_PROPERTY:
-                    case IgniteTableProperties.CACHE_GROUP_PROPERTY:
-                    case IgniteTableProperties.DATA_REGION_PROPERTY:
+                    case CACHE_GROUP_PROPERTY:
+                    case DATA_REGION_PROPERTY:
                         Optional.ofNullable(resultSet.getString(property.toUpperCase(ENGLISH)))
                                 .ifPresent(value -> properties.put(property, value));
                         break;
