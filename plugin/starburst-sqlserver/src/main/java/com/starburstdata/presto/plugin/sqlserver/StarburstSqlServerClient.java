@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableList;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
@@ -17,11 +16,9 @@ import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
-import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
@@ -33,13 +30,11 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
-import io.trino.spi.type.Type;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
@@ -60,7 +55,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.isBulkCopyForWrite;
-import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.isNonTransactionalInsert;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.isBulkCopyForWriteLockDestinationTable;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
@@ -120,50 +114,9 @@ public class StarburstSqlServerClient
     @Override
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        JdbcOutputTableHandle table = createJdbcOutputTableHandle(session, tableHandle, columns);
+        JdbcOutputTableHandle table = super.beginInsertTable(session, tableHandle, columns);
         enableTableLockOnBulkLoadTableOption(session, table);
         return table;
-    }
-
-    private JdbcOutputTableHandle createJdbcOutputTableHandle(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
-    {
-        if (isNonTransactionalInsert(session)) {
-            return createJdbcOutputTableHandleWithoutTemporaryTable(session, tableHandle, columns);
-        }
-        return super.beginInsertTable(session, tableHandle, columns);
-    }
-
-    private JdbcOutputTableHandle createJdbcOutputTableHandleWithoutTemporaryTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
-    {
-        SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
-        JdbcIdentity identity = JdbcIdentity.from(session);
-
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            String remoteSchema = getIdentifierMapping().toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = getIdentifierMapping().toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
-            String catalog = connection.getCatalog();
-
-            ImmutableList.Builder<String> columnNames = ImmutableList.builder();
-            ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-            ImmutableList.Builder<JdbcTypeHandle> jdbcColumnTypes = ImmutableList.builder();
-            for (JdbcColumnHandle column : columns) {
-                columnNames.add(column.getColumnName());
-                columnTypes.add(column.getColumnType());
-                jdbcColumnTypes.add(column.getJdbcTypeHandle());
-            }
-
-            return new JdbcOutputTableHandle(
-                    catalog,
-                    remoteSchema,
-                    remoteTable,
-                    columnNames.build(),
-                    columnTypes.build(),
-                    Optional.of(jdbcColumnTypes.build()),
-                    remoteTable);
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
     }
 
     private void enableTableLockOnBulkLoadTableOption(ConnectorSession session, JdbcOutputTableHandle table)
@@ -181,15 +134,6 @@ public class StarburstSqlServerClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
-    }
-
-    @Override
-    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
-    {
-        if (isNonTransactionalInsert(session)) {
-            return;
-        }
-        super.finishInsertTable(session, handle);
     }
 
     @Override

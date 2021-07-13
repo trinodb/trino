@@ -25,10 +25,10 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.BULK_COPY_FOR_WRITE;
-import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.NON_TRANSACTIONAL_INSERT;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.CATALOG;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.NON_TRANSACTIONAL_INSERT;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;

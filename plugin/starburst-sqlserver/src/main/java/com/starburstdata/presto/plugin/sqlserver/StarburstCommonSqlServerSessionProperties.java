@@ -23,8 +23,6 @@ public final class StarburstCommonSqlServerSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String BULK_COPY_FOR_WRITE = "bulk_copy_for_write";
-    // TODO https://starburstdata.atlassian.net/browse/SEP-6376
-    public static final String NON_TRANSACTIONAL_INSERT = "non_transactional_insert";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -36,11 +34,6 @@ public final class StarburstCommonSqlServerSessionProperties
                         BULK_COPY_FOR_WRITE,
                         "Use SQL Server Bulk Copy API for writes",
                         config.isBulkCopyForWrite(),
-                        false),
-                booleanProperty(
-                        NON_TRANSACTIONAL_INSERT,
-                        "Write directly to the target table bypassing temporary table",
-                        config.isNonTransactionalInsert(),
                         false));
     }
 
@@ -53,10 +46,5 @@ public final class StarburstCommonSqlServerSessionProperties
     public static boolean isBulkCopyForWrite(ConnectorSession session)
     {
         return session.getProperty(BULK_COPY_FOR_WRITE, Boolean.class);
-    }
-
-    public static boolean isNonTransactionalInsert(ConnectorSession session)
-    {
-        return session.getProperty(NON_TRANSACTIONAL_INSERT, Boolean.class);
     }
 }

@@ -11,12 +11,12 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 
+@DefunctConfig("sqlserver.non-transactional-insert.enabled")
 public class StarburstCommonSqlServerConfig
 {
     private boolean bulkCopyForWrite;
-    // TODO https://starburstdata.atlassian.net/browse/SEP-6376
-    private boolean nonTransactionalInsert;
 
     public boolean isBulkCopyForWrite()
     {
@@ -28,19 +28,6 @@ public class StarburstCommonSqlServerConfig
     public StarburstCommonSqlServerConfig setBulkCopyForWrite(boolean bulkCopyForWrite)
     {
         this.bulkCopyForWrite = bulkCopyForWrite;
-        return this;
-    }
-
-    public boolean isNonTransactionalInsert()
-    {
-        return nonTransactionalInsert;
-    }
-
-    @Config("sqlserver.non-transactional-insert.enabled")
-    @ConfigDescription("Write directly to the target table bypassing temporary table")
-    public StarburstCommonSqlServerConfig setNonTransactionalInsert(boolean nonTransactionalInsert)
-    {
-        this.nonTransactionalInsert = nonTransactionalInsert;
         return this;
     }
 }

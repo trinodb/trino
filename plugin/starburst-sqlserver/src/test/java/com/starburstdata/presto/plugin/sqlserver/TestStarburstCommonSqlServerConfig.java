@@ -24,8 +24,7 @@ public class TestStarburstCommonSqlServerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(StarburstCommonSqlServerConfig.class)
-                .setBulkCopyForWrite(false)
-                .setNonTransactionalInsert(false));
+                .setBulkCopyForWrite(false));
     }
 
     @Test
@@ -33,12 +32,10 @@ public class TestStarburstCommonSqlServerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("sqlserver.bulk-copy-for-write.enabled", "true")
-                .put("sqlserver.non-transactional-insert.enabled", "true")
                 .build();
 
         StarburstCommonSqlServerConfig expected = new StarburstCommonSqlServerConfig()
-                .setBulkCopyForWrite(true)
-                .setNonTransactionalInsert(true);
+                .setBulkCopyForWrite(true);
 
         assertFullMapping(properties, expected);
     }
