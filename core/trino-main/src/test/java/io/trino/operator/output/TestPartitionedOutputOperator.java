@@ -23,7 +23,11 @@ import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DriverContext;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactories;
+import io.trino.operator.OutputFactory;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.TaskContext;
+import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.exchange.LocalPartitionGenerator;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -63,6 +67,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestPartitionedOutputOperator
 {
+    private static final TrinoOperatorFactories TRINO_OPERATOR_FACTORIES = new TrinoOperatorFactories();
     private static final DataSize MAX_MEMORY = DataSize.of(50, MEGABYTE);
     private static final DataSize PARTITION_MAX_MEMORY = DataSize.of(5, MEGABYTE);
 
@@ -80,8 +85,20 @@ public class TestPartitionedOutputOperator
     private static final Page TESTING_PAGE = new Page(TESTING_BLOCK);
     private static final Page TESTING_PAGE_WITH_NULL_BLOCK = new Page(POSITIONS_PER_PAGE, NULL_BLOCK, TESTING_BLOCK);
 
+    private final OperatorFactories operatorFactories;
+
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
+
+    public TestPartitionedOutputOperator()
+    {
+        this(TRINO_OPERATOR_FACTORIES);
+    }
+
+    protected TestPartitionedOutputOperator(OperatorFactories operatorFactories)
+    {
+        this.operatorFactories = operatorFactories;
+    }
 
     @BeforeClass
     public void setUp()
@@ -191,9 +208,10 @@ public class TestPartitionedOutputOperator
                 PARTITION_COUNT);
         PagesSerdeFactory serdeFactory = new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), false);
 
-        DriverContext driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
+        TaskContext taskContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setMemoryPoolSize(MAX_MEMORY)
-                .build()
+                .build();
+        DriverContext driverContext = taskContext
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
@@ -209,9 +227,10 @@ public class TestPartitionedOutputOperator
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 scheduledExecutor);
 
-        PartitionedOutputOperator.PartitionedOutputFactory operatorFactory;
+        OutputFactory operatorFactory;
         if (shouldReplicate) {
-            operatorFactory = new PartitionedOutputOperator.PartitionedOutputFactory(
+            operatorFactory = operatorFactories.partitionedOutput(
+                    taskContext,
                     partitionFunction,
                     ImmutableList.of(0),
                     ImmutableList.of(Optional.empty()),
@@ -224,7 +243,8 @@ public class TestPartitionedOutputOperator
                     .createOperator(driverContext);
         }
         else {
-            operatorFactory = new PartitionedOutputOperator.PartitionedOutputFactory(
+            operatorFactory = operatorFactories.partitionedOutput(
+                    taskContext,
                     partitionFunction,
                     ImmutableList.of(0),
                     ImmutableList.of(Optional.empty(), Optional.empty()),
