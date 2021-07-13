@@ -331,7 +331,7 @@ public abstract class BaseCaseInsensitiveMappingTest
         return identifierQuote + name + identifierQuote;
     }
 
-    private AutoCloseable withTable(String remoteTableName, String definition)
+    protected AutoCloseable withTable(String remoteTableName, String definition)
     {
         return withTable(getSession().getSchema().orElseThrow(), remoteTableName, definition);
     }

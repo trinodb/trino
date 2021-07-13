@@ -611,7 +611,7 @@ public abstract class BaseJdbcClient
                 jdbcColumnTypes.add(column.getJdbcTypeHandle());
             }
 
-            copyTableSchema(connection, catalog, remoteSchema, remoteTable, remoteTemporaryTableName, columnNames.build());
+            copyTableSchema(connection, catalog, remoteSchema, remoteTable, remoteTemporaryTableName, columnNames.build(), columns, tableHandle);
 
             return new JdbcOutputTableHandle(
                     catalog,
@@ -625,6 +625,19 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    protected void copyTableSchema(
+            Connection connection,
+            String catalogName,
+            String schemaName,
+            String tableName,
+            String newTableName,
+            List<String> columnNames,
+            List<JdbcColumnHandle> columns,
+            JdbcTableHandle tableHandle)
+    {
+        copyTableSchema(connection, catalogName, schemaName, tableName, newTableName, columnNames);
     }
 
     protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
