@@ -63,11 +63,11 @@ class TrinoSessionCatalogFactory
         this.tableOperationsProvider = tableOperationsProvider;
     }
 
-    public TrinoSessionCatalog create()
+    public TrinoCatalog create()
     {
         switch (catalogType) {
             case HIVE:
-                return new TrinoHiveSessionCatalog(catalogName, metastore, hdfsEnvironment, typeManager, tableOperationsProvider);
+                return new TrinoHiveCatalog(catalogName, metastore, hdfsEnvironment, typeManager, tableOperationsProvider);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "Unsupported Trino Iceberg catalog type " + catalogType);
         }

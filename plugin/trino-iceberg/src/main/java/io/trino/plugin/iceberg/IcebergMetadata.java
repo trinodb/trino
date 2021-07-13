@@ -123,7 +123,7 @@ public class IcebergMetadata
 
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
-    private final TrinoSessionCatalog catalog;
+    private final TrinoCatalog catalog;
 
     private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
 
