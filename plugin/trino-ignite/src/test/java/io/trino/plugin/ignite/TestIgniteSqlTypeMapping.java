@@ -16,11 +16,9 @@ package io.trino.plugin.ignite;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.DataSetup;
-import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TrinoSqlExecutor;
@@ -30,28 +28,28 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.ignite.IgniteQueryRunner.createIgniteQueryRunner;
 import static io.trino.plugin.ignite.IgniteQueryRunner.createSession;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.testing.datatype.DataType.bigintDataType;
-import static io.trino.testing.datatype.DataType.dateDataType;
 import static io.trino.type.UuidType.UUID;
 
 public class TestIgniteSqlTypeMapping
         extends AbstractTestQueryFramework
 {
     private TestingIgniteServer igniteServer;
+    private final ZoneId jvmZone = ZoneId.systemDefault();
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -185,34 +183,50 @@ public class TestIgniteSqlTypeMapping
     @Test
     public void testDate()
     {
-        ZoneId jvmZone = ZoneId.systemDefault();
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone =
+                LocalDate.of(1970, 1, 1);
+
+        verify(jvmZone.getRules().getValidOffsets(
+                dateOfLocalTimeChangeForwardAtMidnightInJvmZone
+                        .atStartOfDay()).isEmpty());
 
         ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
-        DataTypeTest testCases = DataTypeTest.create(true)
-                .addRoundTrip(bigintDataType(), 123L)
-                .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1)) // summer on northern hemisphere (possible DST)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1)) // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone =
+                LocalDate.of(1983, 4, 1);
 
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
+        verify(someZone.getRules().getValidOffsets(
+                dateOfLocalTimeChangeForwardAtMidnightInSomeZone
+                        .atStartOfDay()).isEmpty());
+
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone =
+                LocalDate.of(1983, 10, 1);
+
+        verify(someZone.getRules().getValidOffsets(
+                dateOfLocalTimeChangeBackwardAtMidnightInSomeZone
+                        .atStartOfDay().minusMinutes(1)).size() == 2);
+
+        SqlDataTypeTest dateTests = SqlDataTypeTest.create()
+                .addRoundTrip("BIGINT", "1231123123112", BIGINT)
+                // before epoch
+                .addRoundTrip("DATE", "NULL", DATE, "CAST(NULL AS DATE)")
+                .addRoundTrip("DATE", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'")
+                .addRoundTrip("DATE", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("DATE", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
+                // summer on northern hemisphere (possible DST)
+                .addRoundTrip("DATE", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'")
+                // winter on northern hemisphere
+                // (possible DST on southern hemisphere)
+                .addRoundTrip("DATE", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'")
+                .addRoundTrip("DATE", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
+                .addRoundTrip("DATE", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'");
+
+        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), ZoneId.systemDefault().getId(), ZoneId.of("Europe/Vilnius").getId())) {
             Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
+                    .setTimeZoneKey(getTimeZoneKey(timeZoneId))
                     .build();
-            testCases.execute(getQueryRunner(), session, igniteCreateAndInsert("test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
+            dateTests.execute(getQueryRunner(), session, igniteCreateAndInsert("test_date"));
+            dateTests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
         }
     }
 

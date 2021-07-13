@@ -14,6 +14,7 @@
 package io.trino.plugin.ignite;
 
 import com.google.common.base.Splitter;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -78,6 +79,7 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.plugin.ignite.IgniteTableProperties.CACHE_NAME_PROPERTY;
@@ -139,9 +141,9 @@ public class IgniteJdbcClient
 {
     private static final String IGNITE_CATALOG = "IGNITE";
     private static final String IGNITE_SCHEMA = "PUBLIC";
-    private final AggregateFunctionRewriter aggregateFunctionRewriter;
     private static final Splitter SPLITTER = Splitter.on(",").omitEmptyStrings().trimResults();
 
+    private final AggregateFunctionRewriter aggregateFunctionRewriter;
     private final Type uuidType;
 
     @Inject
@@ -178,6 +180,7 @@ public class IgniteJdbcClient
     public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
+        verify(schemaName.isEmpty() || schemaName.get().equals(IGNITE_SCHEMA), "Ignite user table should only allow under schema 'public'");
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getTables(
                 IGNITE_CATALOG,
