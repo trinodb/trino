@@ -241,7 +241,7 @@ final class ShowQueriesRewrite
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
 
                 if (metadata.getView(session, qualifiedTableName).isEmpty() &&
-                        metadata.getTableHandle(session, qualifiedTableName).isEmpty()) {
+                        metadata.getOriginalTableHandle(session, qualifiedTableName, Optional.of("SHOW GRANTS")).isEmpty()) {
                     throw semanticException(TABLE_NOT_FOUND, showGrants, "Table '%s' does not exist", tableName);
                 }
 
@@ -499,7 +499,7 @@ final class ShowQueriesRewrite
                         throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a materialized view", objectName);
                     }
 
-                    if (metadata.getTableHandle(session, objectName).isPresent()) {
+                    if (metadata.getOriginalTableHandle(session, objectName, Optional.ofNullable("SHOW CREATE MATERIALIZED VIEW")).isPresent()) {
                         throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a materialized view", objectName);
                     }
 
@@ -533,7 +533,7 @@ final class ShowQueriesRewrite
                 Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
                 if (viewDefinition.isEmpty()) {
-                    if (metadata.getTableHandle(session, objectName).isPresent()) {
+                    if (metadata.getOriginalTableHandle(session, objectName, Optional.of("SHOW CREATE VIEW")).isPresent()) {
                         throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
                     }
                     throw semanticException(TABLE_NOT_FOUND, node, "View '%s' does not exist", objectName);

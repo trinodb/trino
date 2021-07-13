@@ -374,8 +374,7 @@ public final class MetadataManager
         return ImmutableList.copyOf(schemaNames.build());
     }
 
-    @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table)
+    private Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table)
     {
         requireNonNull(table, "table is null");
 
@@ -410,6 +409,10 @@ public final class MetadataManager
             CatalogName catalogName = catalogMetadata.getConnectorId(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
+            QualifiedObjectName targetTableName = getRedirectedTableName(session, table);
+            if (!targetTableName.equals(table)) {
+                throw new TrinoException(NOT_SUPPORTED, format("Cannot collect statistics for table '%s', because it is redirected to '%s'", table, targetTableName));
+            }
             ConnectorTableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session.toConnectorSession(catalogName), table.asSchemaTableName(), analyzeProperties);
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(
@@ -646,7 +649,12 @@ public final class MetadataManager
             return true;
         }
 
-        return getTableHandle(session, name).isPresent();
+        if (!getRedirectedTableName(session, name).equals(name)) {
+            // If the table is redirected, we do not check for existence of the target table
+            return true;
+        }
+
+        return getOriginalTableHandle(session, name, Optional.empty()).isPresent();
     }
 
     @Override
@@ -1412,6 +1420,11 @@ public final class MetadataManager
         requireNonNull(session, "session is null");
         requireNonNull(originalTableName, "originalTableName is null");
 
+        if (originalTableName.getCatalogName().isEmpty() || originalTableName.getSchemaName().isEmpty() || originalTableName.getObjectName().isEmpty()) {
+            // table cannot exist
+            return originalTableName;
+        }
+
         QualifiedObjectName tableName = originalTableName;
         Set<QualifiedObjectName> visitedTableNames = new LinkedHashSet<>();
         visitedTableNames.add(tableName);
@@ -1470,6 +1483,22 @@ public final class MetadataManager
             throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target schema '%s' does not exist", tableName, targetTableName, targetTableName.getSchemaName()));
         }
         throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target table '%s' does not exist", tableName, targetTableName, targetTableName));
+    }
+
+    @Override
+    public Optional<TableHandle> getOriginalTableHandle(Session session, QualifiedObjectName tableName, Optional<String> invokerDescription)
+    {
+        RedirectionAwareTableHandle redirectionAwareTableHandle = getRedirectionAwareTableHandle(session, tableName);
+        Optional<QualifiedObjectName> redirected = redirectionAwareTableHandle.getRedirectedTableName();
+        if (redirected.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED,
+                    format("Failed to %s. It is not supported on table '%s' because the table is redirected to '%s'",
+                            invokerDescription.map(value -> format("perform operation '%s'", value)).orElse("get the table handle"),
+                            tableName,
+                            redirected.get()));
+        }
+
+        return redirectionAwareTableHandle.getTableHandle();
     }
 
     @Override

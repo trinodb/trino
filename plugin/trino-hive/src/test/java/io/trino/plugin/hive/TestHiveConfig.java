@@ -101,7 +101,8 @@ public class TestHiveConfig
                 .setDynamicFilteringProbeBlockingTimeout(new Duration(0, TimeUnit.MINUTES))
                 .setTimestampPrecision(HiveTimestampPrecision.DEFAULT_PRECISION)
                 .setOptimizeSymlinkListing(true)
-                .setLegacyHiveViewTranslation(false));
+                .setLegacyHiveViewTranslation(false)
+                .setIcebergCatalogName(null));
     }
 
     @Test
@@ -174,6 +175,7 @@ public class TestHiveConfig
                 .put("hive.timestamp-precision", "NANOSECONDS")
                 .put("hive.optimize-symlink-listing", "false")
                 .put("hive.legacy-hive-view-translation", "true")
+                .put("hive.iceberg-catalog-name", "iceberg")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -242,7 +244,8 @@ public class TestHiveConfig
                 .setDynamicFilteringProbeBlockingTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setTimestampPrecision(HiveTimestampPrecision.NANOSECONDS)
                 .setOptimizeSymlinkListing(false)
-                .setLegacyHiveViewTranslation(true);
+                .setLegacyHiveViewTranslation(true)
+                .setIcebergCatalogName("iceberg");
 
         assertFullMapping(properties, expected);
     }

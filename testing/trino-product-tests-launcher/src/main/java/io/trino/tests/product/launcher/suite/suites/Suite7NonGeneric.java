@@ -16,6 +16,7 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
+import io.trino.tests.product.launcher.env.environment.SinglenodeHiveRedirectionToIceberg;
 import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationCrossRealm;
 import io.trino.tests.product.launcher.env.environment.SinglenodeMysql;
 import io.trino.tests.product.launcher.env.environment.SinglenodePostgresql;
@@ -46,6 +47,7 @@ public class Suite7NonGeneric
                 testOnEnvironment(SinglenodeSqlserver.class).withGroups("sqlserver").build(),
                 testOnEnvironment(SinglenodeSparkHive.class).withGroups("hive_spark_bucketing").build(),
                 testOnEnvironment(SinglenodeSparkIceberg.class).withGroups("iceberg").withExcludedGroups("storage_formats").build(),
+                testOnEnvironment(SinglenodeHiveRedirectionToIceberg.class).withGroups("hive_redirection_to_iceberg").build(),
                 testOnEnvironment(SinglenodeKerberosHdfsImpersonationCrossRealm.class).withGroups("storage_formats", "cli", "hdfs_impersonation").build(),
                 testOnEnvironment(TwoMixedHives.class).withGroups("two_hives").build(),
                 testOnEnvironment(TwoKerberosHives.class).withGroups("two_hives").build());

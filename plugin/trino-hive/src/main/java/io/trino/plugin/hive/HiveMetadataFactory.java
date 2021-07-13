@@ -47,6 +47,7 @@ public class HiveMetadataFactory
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final boolean translateHiveViews;
+    private final Optional<String> icebergCatalogName;
     private final boolean hideDeltaLakeTables;
     private final long perTransactionCacheMaximumSize;
     private final HiveMetastore metastore;
@@ -100,6 +101,7 @@ public class HiveMetadataFactory
                 hiveConfig.isTranslateHiveViews(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
+                hiveConfig.getIcebergCatalogName(),
                 metastoreConfig.isHideDeltaLakeTables(),
                 typeManager,
                 locationService,
@@ -128,6 +130,7 @@ public class HiveMetadataFactory
             boolean translateHiveViews,
             long perTransactionCacheMaximumSize,
             Optional<Duration> hiveTransactionHeartbeatInterval,
+            Optional<String> icebergCatalogName,
             boolean hideDeltaLakeTables,
             TypeManager typeManager,
             LocationService locationService,
@@ -146,6 +149,7 @@ public class HiveMetadataFactory
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.translateHiveViews = translateHiveViews;
+        this.icebergCatalogName = requireNonNull(icebergCatalogName, "icebergCatalogName is null");
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
@@ -198,6 +202,7 @@ public class HiveMetadataFactory
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
                 translateHiveViews,
+                icebergCatalogName,
                 hideDeltaLakeTables,
                 typeManager,
                 locationService,
@@ -218,6 +223,7 @@ public class HiveMetadataFactory
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
             boolean translateHiveViews,
+            Optional<String> icebergCatalogName,
             boolean hideDeltaLakeTables,
             TypeManager typeManager,
             LocationService locationService,
@@ -237,6 +243,7 @@ public class HiveMetadataFactory
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
                 translateHiveViews,
+                icebergCatalogName,
                 hideDeltaLakeTables,
                 typeManager,
                 locationService,

@@ -143,7 +143,7 @@ public class TestMinimalFunctionality
         transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(SESSION, session -> {
-                    Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);
+                    Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getOriginalTableHandle(session, name, Optional.empty());
                     assertTrue(handle.isPresent());
                 });
     }

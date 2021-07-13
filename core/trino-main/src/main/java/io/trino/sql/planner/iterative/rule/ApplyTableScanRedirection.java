@@ -102,9 +102,10 @@ public class ApplyTableScanRedirection
             return Result.empty();
         }
 
-        Optional<TableHandle> destinationTableHandle = metadata.getTableHandle(
+        Optional<TableHandle> destinationTableHandle = metadata.getOriginalTableHandle(
                 context.getSession(),
-                convertFromSchemaTableName(destinationTable.getCatalogName()).apply(destinationTable.getSchemaTableName()));
+                convertFromSchemaTableName(destinationTable.getCatalogName()).apply(destinationTable.getSchemaTableName()),
+                Optional.empty());
         if (destinationTableHandle.isEmpty()) {
             throw new TrinoException(TABLE_NOT_FOUND, format("Destination table %s from table scan redirection not found", destinationTable));
         }

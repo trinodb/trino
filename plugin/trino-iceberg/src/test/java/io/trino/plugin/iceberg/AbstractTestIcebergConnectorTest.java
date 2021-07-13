@@ -1569,7 +1569,7 @@ public abstract class AbstractTestIcebergConnectorTest
         Metadata metadata = getQueryRunner().getMetadata();
 
         newTransaction().execute(getSession(), session -> {
-            TableHandle table = metadata.getTableHandle(session, tableName)
+            TableHandle table = metadata.getOriginalTableHandle(session, tableName, Optional.empty())
                     .orElseThrow(() -> new TableNotFoundException(tableName.asSchemaTableName()));
 
             Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, table);
@@ -1675,7 +1675,7 @@ public abstract class AbstractTestIcebergConnectorTest
         QualifiedObjectName qualifiedName = QualifiedObjectName.valueOf(tableName);
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .execute(getSession(), session -> {
-                    Optional<TableHandle> optionalHandle = metadata.getTableHandle(session, qualifiedName);
+                    Optional<TableHandle> optionalHandle = metadata.getOriginalTableHandle(session, qualifiedName, Optional.empty());
                     checkArgument(optionalHandle.isPresent(), "Could not create table handle for table %s", tableName);
                     return metadata.getTableStatistics(session, optionalHandle.get(), constraint);
                 });

@@ -28,6 +28,7 @@ import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.transaction.TransactionManager;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
@@ -61,7 +62,7 @@ public class SetTableAuthorizationTask
 
         CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
-        if (metadata.getTableHandle(session, tableName).isEmpty()) {
+        if (metadata.getOriginalTableHandle(session, tableName, Optional.of(getName())).isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
         }
 

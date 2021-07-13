@@ -81,7 +81,6 @@ import java.util.Set;
 
 import static io.trino.metadata.FunctionId.toFunctionId;
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 
@@ -115,12 +114,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public List<String> listSchemaNames(Session session, String catalogName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName)
     {
         throw new UnsupportedOperationException();
     }
@@ -898,6 +891,12 @@ public abstract class AbstractMockMetadata
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName)
     {
-        return noRedirection(getTableHandle(session, tableName));
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<TableHandle> getOriginalTableHandle(Session session, QualifiedObjectName tableName, Optional<String> invokerDescription)
+    {
+        throw new UnsupportedOperationException();
     }
 }

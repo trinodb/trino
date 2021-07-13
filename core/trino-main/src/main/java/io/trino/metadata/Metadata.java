@@ -87,11 +87,6 @@ public interface Metadata
 
     List<String> listSchemaNames(Session session, String catalogName);
 
-    /**
-     * Returns a table handle for the specified table name.
-     */
-    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName);
-
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
     Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
@@ -669,4 +664,9 @@ public interface Metadata
      * Get the target table handle after performing redirection.
      */
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName);
+
+    /**
+     * Get the table handle for {@param tableName} if it is not redirected. Throws an exception otherwise.
+     */
+    Optional<TableHandle> getOriginalTableHandle(Session session, QualifiedObjectName tableName, Optional<String> invokerDescription);
 }

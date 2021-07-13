@@ -56,7 +56,7 @@ public class RenameTableTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = metadata.getOriginalTableHandle(session, tableName, Optional.of(getName()));
         if (tableHandle.isEmpty()) {
             if (!statement.isExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
@@ -68,7 +68,7 @@ public class RenameTableTask
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
-        if (metadata.getTableHandle(session, target).isPresent()) {
+        if (metadata.getOriginalTableHandle(session, target, Optional.of(getName())).isPresent()) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
         }
         if (!tableName.getCatalogName().equals(target.getCatalogName())) {

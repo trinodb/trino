@@ -26,6 +26,7 @@ import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TablePropertyManager;
@@ -64,6 +65,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -372,7 +374,7 @@ public class TestCreateTableTask
         }
 
         @Override
-        public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName)
+        public Optional<TableHandle> getOriginalTableHandle(Session session, QualifiedObjectName tableName, Optional<String> invokerDescription)
         {
             if (tableName.asSchemaTableName().equals(PARENT_TABLE.getTable())) {
                 return Optional.of(
@@ -383,6 +385,12 @@ public class TestCreateTableTask
                                 Optional.empty()));
             }
             return Optional.empty();
+        }
+
+        @Override
+        public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName)
+        {
+            return noRedirection(getOriginalTableHandle(session, tableName, Optional.empty()));
         }
 
         @Override
