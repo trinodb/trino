@@ -23,7 +23,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.function.Function;
 
-public class SystemTables
+public final class SystemTables
 {
     private SystemTables() {}
 
