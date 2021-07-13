@@ -40,6 +40,16 @@ public class PropertiesSystemTableProvider
         implements SystemTableProvider
 {
     @Override
+    public Optional<SchemaTableName> getSourceTableName(SchemaTableName tableName)
+    {
+        if (!PROPERTIES.matches(tableName)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(PROPERTIES.getSourceTableName(tableName));
+    }
+
+    @Override
     public Optional<SystemTable> getSystemTable(HiveMetadata metadata, ConnectorSession session, SchemaTableName tableName)
     {
         if (!PROPERTIES.matches(tableName)) {
