@@ -56,6 +56,16 @@ public class PartitionsSystemTableProvider
     }
 
     @Override
+    public Optional<SchemaTableName> getSourceTableName(SchemaTableName tableName)
+    {
+        if (!PARTITIONS.matches(tableName)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(PARTITIONS.getSourceTableName(tableName));
+    }
+
+    @Override
     public Optional<SystemTable> getSystemTable(HiveMetadata metadata, ConnectorSession session, SchemaTableName tableName)
     {
         if (!PARTITIONS.matches(tableName)) {
