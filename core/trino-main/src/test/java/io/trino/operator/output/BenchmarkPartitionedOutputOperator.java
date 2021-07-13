@@ -22,9 +22,12 @@ import io.trino.execution.buffer.PartitionedOutputBuffer;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DriverContext;
 import io.trino.operator.InterpretedHashGenerator;
+import io.trino.operator.OperatorFactories;
+import io.trino.operator.OutputFactory;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.TaskContext;
+import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.exchange.LocalPartitionGenerator;
-import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -80,10 +83,24 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPartitionedOutputOperator
 {
+    private static final OperatorFactories OPERATOR_FACTORIES = new TrinoOperatorFactories();
+
+    private final OperatorFactories operatorFactories;
+
+    public BenchmarkPartitionedOutputOperator()
+    {
+        this(OPERATOR_FACTORIES);
+    }
+
+    protected BenchmarkPartitionedOutputOperator(OperatorFactories operatorFactories)
+    {
+        this.operatorFactories = operatorFactories;
+    }
+
     @Benchmark
     public void addPage(BenchmarkData data)
     {
-        PartitionedOutputOperator operator = data.createPartitionedOutputOperator();
+        PartitionedOutputOperator operator = data.createPartitionedOutputOperator(operatorFactories);
         for (int i = 0; i < data.getPageCount(); i++) {
             operator.addInput(data.getDataPage());
         }
@@ -114,7 +131,7 @@ public class BenchmarkPartitionedOutputOperator
             return dataPage;
         }
 
-        private PartitionedOutputOperator createPartitionedOutputOperator()
+        private PartitionedOutputOperator createPartitionedOutputOperator(OperatorFactories operatorFactories)
         {
             BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
             PartitionFunction partitionFunction = new LocalPartitionGenerator(
@@ -128,7 +145,10 @@ public class BenchmarkPartitionedOutputOperator
             PartitionedOutputBuffer buffer = createPartitionedBuffer(
                     buffers.withNoMoreBufferIds(),
                     DataSize.ofBytes(Long.MAX_VALUE)); // don't let output buffer block
-            PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(
+            TaskContext taskContext = createTaskContext();
+            DriverContext driverContext = createDriverContext(taskContext);
+            OutputFactory operatorFactory = operatorFactories.partitionedOutput(
+                    taskContext,
                     partitionFunction,
                     ImmutableList.of(0),
                     ImmutableList.of(Optional.empty()),
@@ -138,7 +158,7 @@ public class BenchmarkPartitionedOutputOperator
                     DataSize.of(1, GIGABYTE));
             return (PartitionedOutputOperator) operatorFactory
                     .createOutputOperator(0, new PlanNodeId("plan-node-0"), TYPES, Function.identity(), serdeFactory)
-                    .createOperator(createDriverContext());
+                    .createOperator(driverContext);
         }
 
         private Page createPage()
@@ -195,13 +215,18 @@ public class BenchmarkPartitionedOutputOperator
             return testRows;
         }
 
-        private DriverContext createDriverContext()
+        private DriverContext createDriverContext(TaskContext taskContext)
+        {
+            return taskContext
+                    .addPipelineContext(0, true, true, false)
+                    .addDriverContext();
+        }
+
+        private TaskContext createTaskContext()
         {
             return TestingTaskContext.builder(EXECUTOR, SCHEDULER, TEST_SESSION)
                     .setMemoryPoolSize(MAX_MEMORY)
-                    .build()
-                    .addPipelineContext(0, true, true, false)
-                    .addDriverContext();
+                    .build();
         }
 
         private PartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)
