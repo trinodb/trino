@@ -25,6 +25,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.SessionCatalogType.HIVE;
+import static io.trino.plugin.iceberg.SessionCatalogType.ICEBERG;
 
 public class TestIcebergConfig
 {
@@ -32,6 +34,7 @@ public class TestIcebergConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
+                .setSessionCatalogType(HIVE)
                 .setFileFormat(ORC)
                 .setCompressionCodec(GZIP)
                 .setUseFileSizeFromMetadata(true)
@@ -42,6 +45,7 @@ public class TestIcebergConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("iceberg.session-catalog-type", "ICEBERG")
                 .put("iceberg.file-format", "Parquet")
                 .put("iceberg.compression-codec", "NONE")
                 .put("iceberg.use-file-size-from-metadata", "false")
@@ -49,6 +53,7 @@ public class TestIcebergConfig
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
+                .setSessionCatalogType(ICEBERG)
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(HiveCompressionCodec.NONE)
                 .setUseFileSizeFromMetadata(false)
