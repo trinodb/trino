@@ -23,13 +23,27 @@ import javax.validation.constraints.NotNull;
 
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.iceberg.SessionCatalogType.HIVE;
 
 public class IcebergConfig
 {
+    private SessionCatalogType sessionCatalogType = HIVE;
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
+
+    public SessionCatalogType getSessionCatalogType()
+    {
+        return sessionCatalogType;
+    }
+
+    @Config("iceberg.session-catalog-type")
+    public IcebergConfig setSessionCatalogType(SessionCatalogType sessionCatalogType)
+    {
+        this.sessionCatalogType = sessionCatalogType;
+        return this;
+    }
 
     @NotNull
     public FileFormat getFileFormat()
