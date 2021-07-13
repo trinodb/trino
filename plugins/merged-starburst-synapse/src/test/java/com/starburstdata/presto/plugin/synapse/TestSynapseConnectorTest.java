@@ -24,8 +24,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.BULK_COPY_FOR_WRITE;
-import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.NON_TRANSACTIONAL_INSERT;
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.NON_TRANSACTIONAL_INSERT;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
