@@ -13,19 +13,28 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.amazonaws.services.glue.AWSGlueAsync;
+import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
+import com.amazonaws.services.glue.model.TableInput;
+import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.AbstractTestHiveLocal;
+import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTestUtils;
+import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnMetadata;
@@ -56,27 +65,37 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.Executor;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.decimalOf;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -90,12 +109,13 @@ import static org.testng.Assert.assertTrue;
 public class TestHiveGlueMetastore
         extends AbstractTestHiveLocal
 {
-    private static final HiveIdentity HIVE_CONTEXT = new HiveIdentity(SESSION);
+    private static final HiveIdentity HIVE_IDENTITY = new HiveIdentity(SESSION);
+    private static final String PARTITION_KEY = "part_key_1";
+    private static final String PARTITION_KEY2 = "part_key_2";
+
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .add(new ColumnMetadata("id", BigintType.BIGINT))
             .build();
-    private static final String PARTITION_KEY = "part_key_1";
-    private static final String PARTITION_KEY2 = "part_key_2";
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED_VARCHAR = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
             .add(new ColumnMetadata(PARTITION_KEY, VarcharType.VARCHAR))
@@ -131,9 +151,24 @@ public class TestHiveGlueMetastore
             .build();
     private static final List<String> VARCHAR_PARTITION_VALUES = ImmutableList.of("2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01");
 
+    protected static final HiveBasicStatistics HIVE_BASIC_STATISTICS = new HiveBasicStatistics(1000, 5000, 3000, 4000);
+    protected static final HiveColumnStatistics INTEGER_COLUMN_STATISTICS = createIntegerColumnStatistics(
+            OptionalLong.of(-1000),
+            OptionalLong.of(1000),
+            OptionalLong.of(1),
+            OptionalLong.of(2));
+
+    private HiveMetastoreClosure metastore;
+    private AWSGlueAsync glueClient;
+
     public TestHiveGlueMetastore()
     {
         super("test_glue" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
+    }
+
+    protected AWSGlueAsync getGlueClient()
+    {
+        return glueClient;
     }
 
     @BeforeClass(alwaysRun = true)
@@ -144,6 +179,13 @@ public class TestHiveGlueMetastore
         // uncomment to get extra AWS debug information
 //        Logging logging = Logging.initialize();
 //        logging.setLevel("com.amazonaws.request", Level.DEBUG);
+    }
+
+    @BeforeClass
+    public void setup()
+    {
+        metastore = new HiveMetastoreClosure(metastoreClient);
+        glueClient = AWSGlueAsyncClientBuilder.defaultClient();
     }
 
     @Override
@@ -209,7 +251,7 @@ public class TestHiveGlueMetastore
             createDummyPartitionedTable(tableName, CREATE_TABLE_COLUMNS_PARTITIONED);
             HiveMetastore metastoreClient = getMetastoreClient();
             Optional<List<String>> partitionNames = metastoreClient.getPartitionNamesByFilter(
-                    HIVE_CONTEXT,
+                    HIVE_IDENTITY,
                     tableName.getSchemaName(),
                     tableName.getTableName(),
                     ImmutableList.of("ds"), TupleDomain.all());
@@ -788,6 +830,224 @@ public class TestHiveGlueMetastore
         }
     }
 
+    @Test
+    public void testStatisticsLargeNumberOfColumns()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_statistics_large_number_of_columns");
+        try {
+            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+            ImmutableMap.Builder<String, HiveColumnStatistics> columnStatistics = ImmutableMap.builder();
+            for (int i = 1; i < 1500; ++i) {
+                String columnName = "t_bigint " + i + "_" + String.join("", Collections.nCopies(240, "x"));
+                columns.add(new ColumnMetadata(columnName, BIGINT));
+                columnStatistics.put(
+                        columnName,
+                        createIntegerColumnStatistics(
+                                OptionalLong.of(-1000 - i),
+                                OptionalLong.of(1000 + i),
+                                OptionalLong.of(i),
+                                OptionalLong.of(2 * i)));
+            }
+
+            PartitionStatistics partitionStatistics = PartitionStatistics.builder()
+                    .setBasicStatistics(HIVE_BASIC_STATISTICS)
+                    .setColumnStatistics(columnStatistics.build()).build();
+
+            doCreateEmptyTable(tableName, ORC, columns.build());
+            testUpdateTableStatistics(tableName, EMPTY_TABLE_STATISTICS, partitionStatistics);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testStatisticsLongColumnNames()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_statistics_long_column_name");
+        try {
+            String columnName1 = String.join("", Collections.nCopies(255, "x"));
+            String columnName2 = String.join("", Collections.nCopies(255, "ӆ"));
+            String columnName3 = String.join("", Collections.nCopies(255, "ö"));
+
+            List<ColumnMetadata> columns = List.of(
+                    new ColumnMetadata(columnName1, BIGINT),
+                    new ColumnMetadata(columnName2, BIGINT),
+                    new ColumnMetadata(columnName3, BIGINT));
+
+            Map<String, HiveColumnStatistics> columnStatistics = Map.of(
+                    columnName1, INTEGER_COLUMN_STATISTICS,
+                    columnName2, INTEGER_COLUMN_STATISTICS,
+                    columnName3, INTEGER_COLUMN_STATISTICS);
+            PartitionStatistics partitionStatistics = PartitionStatistics.builder()
+                    .setBasicStatistics(HIVE_BASIC_STATISTICS)
+                    .setColumnStatistics(columnStatistics).build();
+
+            doCreateEmptyTable(tableName, ORC, columns);
+
+            assertThat(metastore.getTableStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(EMPTY_TABLE_STATISTICS);
+            testUpdateTableStatistics(tableName, EMPTY_TABLE_STATISTICS, partitionStatistics);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testStatisticsColumnModification()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_statistics_column_modification");
+        try {
+            List<ColumnMetadata> columns = List.of(
+                    new ColumnMetadata("column1", BIGINT),
+                    new ColumnMetadata("column2", BIGINT),
+                    new ColumnMetadata("column3", BIGINT));
+
+            doCreateEmptyTable(tableName, ORC, columns);
+
+            Map<String, HiveColumnStatistics> columnStatistics = Map.of(
+                    "column1", INTEGER_COLUMN_STATISTICS,
+                    "column2", INTEGER_COLUMN_STATISTICS);
+            PartitionStatistics partitionStatistics = PartitionStatistics.builder()
+                    .setBasicStatistics(HIVE_BASIC_STATISTICS)
+                    .setColumnStatistics(columnStatistics).build();
+
+            // set table statistics for column1
+            metastore.updateTableStatistics(
+                    HIVE_IDENTITY,
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    NO_ACID_TRANSACTION,
+                    actualStatistics -> {
+                        assertThat(actualStatistics).isEqualTo(EMPTY_TABLE_STATISTICS);
+                        return partitionStatistics;
+                    });
+
+            assertThat(metastore.getTableStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(partitionStatistics);
+
+            metastore.renameColumn(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName(), "column1", "column4");
+            assertThat(metastore.getTableStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(new PartitionStatistics(
+                            HIVE_BASIC_STATISTICS,
+                            Map.of("column2", INTEGER_COLUMN_STATISTICS)));
+
+            metastore.dropColumn(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName(), "column2");
+            assertThat(metastore.getTableStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(new PartitionStatistics(HIVE_BASIC_STATISTICS, Map.of()));
+
+            metastore.addColumn(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName(), "column5", HiveType.HIVE_INT, "comment");
+            assertThat(metastore.getTableStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(new PartitionStatistics(HIVE_BASIC_STATISTICS, Map.of()));
+
+            // TODO: column1 stats should be removed on column delete. However this is tricky since stats can be stored in multiple partitions.
+            metastore.renameColumn(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName(), "column4", "column1");
+            assertThat(metastore.getTableStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(new PartitionStatistics(
+                            HIVE_BASIC_STATISTICS,
+                            Map.of("column1", INTEGER_COLUMN_STATISTICS)));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testStatisticsPartitionedTableColumnModification()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_partitioned_table_statistics_column_modification");
+        try {
+            List<ColumnMetadata> columns = List.of(
+                    new ColumnMetadata("column1", BIGINT),
+                    new ColumnMetadata("column2", BIGINT),
+                    new ColumnMetadata("ds", VARCHAR));
+
+            Map<String, HiveColumnStatistics> columnStatistics = Map.of(
+                    "column1", INTEGER_COLUMN_STATISTICS,
+                    "column2", INTEGER_COLUMN_STATISTICS);
+            PartitionStatistics partitionStatistics = PartitionStatistics.builder()
+                    .setBasicStatistics(HIVE_BASIC_STATISTICS)
+                    .setColumnStatistics(columnStatistics).build();
+
+            createDummyPartitionedTable(tableName, columns);
+            metastore.updatePartitionStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-01", actualStatistics -> partitionStatistics);
+
+            PartitionStatistics tableStatistics = new PartitionStatistics(createEmptyStatistics(), Map.of());
+            assertThat(metastore.getTableStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(tableStatistics);
+            assertThat(metastore.getPartitionStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName(), Set.of("ds=2016-01-01")))
+                    .isEqualTo(Map.of("ds=2016-01-01", partitionStatistics));
+
+            // renaming table column does not rename partition columns
+            metastore.renameColumn(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName(), "column1", "column4");
+            assertThat(metastore.getTableStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(tableStatistics);
+            assertThat(metastore.getPartitionStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName(), Set.of("ds=2016-01-01")))
+                    .isEqualTo(Map.of("ds=2016-01-01", partitionStatistics));
+
+            // dropping table column does not drop partition columns
+            metastore.dropColumn(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName(), "column2");
+            assertThat(metastore.getTableStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(tableStatistics);
+            assertThat(metastore.getPartitionStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName(), Set.of("ds=2016-01-01")))
+                    .isEqualTo(Map.of("ds=2016-01-01", partitionStatistics));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInvalidColumnStatisticsMetadata()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_statistics_invalid_column_metadata");
+        try {
+            List<ColumnMetadata> columns = List.of(
+                    new ColumnMetadata("column1", BIGINT));
+
+            Map<String, HiveColumnStatistics> columnStatistics = Map.of(
+                    "column1", INTEGER_COLUMN_STATISTICS);
+            PartitionStatistics partitionStatistics = PartitionStatistics.builder()
+                    .setBasicStatistics(HIVE_BASIC_STATISTICS)
+                    .setColumnStatistics(columnStatistics).build();
+
+            doCreateEmptyTable(tableName, ORC, columns);
+
+            // set table statistics for column1
+            metastore.updateTableStatistics(
+                    HIVE_IDENTITY,
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    NO_ACID_TRANSACTION,
+                    actualStatistics -> {
+                        assertThat(actualStatistics).isEqualTo(EMPTY_TABLE_STATISTICS);
+                        return partitionStatistics;
+                    });
+
+            Table table = metastore.getTable(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName()).get();
+            TableInput tableInput = GlueInputConverter.convertTable(table);
+            tableInput.setParameters(ImmutableMap.<String, String>builder()
+                    .putAll(tableInput.getParameters())
+                    .put("column_stats_bad_data", "bad data")
+                    .build());
+            getGlueClient().updateTable(new UpdateTableRequest()
+                    .withDatabaseName(tableName.getSchemaName())
+                    .withTableInput(tableInput));
+
+            assertThat(metastore.getTableStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName()))
+                    .isEqualTo(partitionStatistics);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     private Block singleValueBlock(long value)
     {
         return BigintType.BIGINT.createBlockBuilder(null, 1).writeLong(value).build();
@@ -838,7 +1098,7 @@ public class TestHiveGlueMetastore
                         .collect(toImmutableList());
 
                 Optional<List<String>> partitionNames = metastoreClient.getPartitionNamesByFilter(
-                        HIVE_CONTEXT,
+                        HIVE_IDENTITY,
                         tableName.getSchemaName(),
                         tableName.getTableName(),
                         partitionColumnNames,
