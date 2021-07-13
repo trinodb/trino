@@ -45,6 +45,9 @@ public class TestIcebergConnectorSmokeTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_CREATE_VIEW:
+                return true;
+
             case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return true;
 
