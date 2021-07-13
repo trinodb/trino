@@ -166,6 +166,7 @@ import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.Transactions.createTableTransaction;
+import static org.apache.iceberg.util.SerializationUtil.serializeToBytes;
 
 public class IcebergMetadata
         implements ConnectorMetadata
@@ -255,6 +256,7 @@ public class IcebergMetadata
                 name.getTableName(),
                 name.getTableType(),
                 snapshotId,
+                serializeToBytes(table.schema()),
                 TupleDomain.all(),
                 TupleDomain.all());
     }
@@ -814,6 +816,7 @@ public class IcebergMetadata
                         table.getTableName(),
                         table.getTableType(),
                         table.getSnapshotId(),
+                        serializeToBytes(icebergTable.schema()),
                         newUnenforcedConstraint,
                         newEnforcedConstraint),
                 newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast),

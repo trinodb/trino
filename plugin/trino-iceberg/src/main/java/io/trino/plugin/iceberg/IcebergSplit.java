@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.FileScanTask;
 
 import java.util.Collections;
 import java.util.List;
@@ -27,33 +28,24 @@ import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.util.SerializationUtil.deserializeFromBytes;
 
 public class IcebergSplit
         implements ConnectorSplit
 {
-    private final String path;
-    private final long start;
-    private final long length;
-    private final long fileSize;
-    private final FileFormat fileFormat;
+    private final byte[] serializedTask;
     private final List<HostAddress> addresses;
     private final Map<Integer, String> partitionKeys;
 
+    private transient FileScanTask task;
+
     @JsonCreator
     public IcebergSplit(
-            @JsonProperty("path") String path,
-            @JsonProperty("start") long start,
-            @JsonProperty("length") long length,
-            @JsonProperty("fileSize") long fileSize,
-            @JsonProperty("fileFormat") FileFormat fileFormat,
+            @JsonProperty("serializedTask") byte[] serializedTask,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("partitionKeys") Map<Integer, String> partitionKeys)
     {
-        this.path = requireNonNull(path, "path is null");
-        this.start = start;
-        this.length = length;
-        this.fileSize = fileSize;
-        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.serializedTask = requireNonNull(serializedTask, "serializedTask is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.partitionKeys = Collections.unmodifiableMap(requireNonNull(partitionKeys, "partitionKeys is null"));
     }
@@ -65,40 +57,49 @@ public class IcebergSplit
     }
 
     @JsonProperty
+    public byte[] getSerializedTask()
+    {
+        return serializedTask;
+    }
+
+    public FileScanTask getTask()
+    {
+        if (task == null) {
+            task = deserializeFromBytes(serializedTask);
+        }
+        return task;
+    }
+
+    @JsonProperty
     @Override
     public List<HostAddress> getAddresses()
     {
         return addresses;
     }
 
-    @JsonProperty
     public String getPath()
     {
-        return path;
+        return getTask().file().path().toString();
     }
 
-    @JsonProperty
     public long getStart()
     {
-        return start;
+        return getTask().start();
     }
 
-    @JsonProperty
     public long getLength()
     {
-        return length;
+        return getTask().length();
     }
 
-    @JsonProperty
     public long getFileSize()
     {
-        return fileSize;
+        return getTask().file().fileSizeInBytes();
     }
 
-    @JsonProperty
     public FileFormat getFileFormat()
     {
-        return fileFormat;
+        return getTask().file().format();
     }
 
     @JsonProperty
@@ -111,9 +112,9 @@ public class IcebergSplit
     public Object getInfo()
     {
         return ImmutableMap.builder()
-                .put("path", path)
-                .put("start", start)
-                .put("length", length)
+                .put("path", getPath())
+                .put("start", getStart())
+                .put("length", getLength())
                 .build();
     }
 
@@ -121,9 +122,9 @@ public class IcebergSplit
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(path)
-                .addValue(start)
-                .addValue(length)
+                .addValue(getPath())
+                .addValue(getStart())
+                .addValue(getLength())
                 .toString();
     }
 }
