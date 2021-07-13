@@ -462,7 +462,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <!-- This test must be run in isolation  -->
+                                <!-- You can only bind one statistics bean per JVM, otherwise you'll see problems with statistics being 0 despite backpressure handling -->
+                                <!-- This test should be run in isolation, to avoid the possibility of some other test also registering statistic beans -->
                                 <exclude>**/TestElasticsearchBackpressure*</exclude>
                             </excludes>
                         </configuration>
