@@ -52,7 +52,9 @@ import static org.apache.iceberg.CatalogUtil.loadCatalog;
 
 /**
  * Implementation of {@link TrinoCatalog} that allows plugin an Iceberg {@link Catalog}.
- * Because Iceberg catalog is single tenant, each session might be able to reuse the same catalog instance based on the authZ info of a session.
+ * Because Iceberg catalog is single tenant, each session should use a new catalog instance to enforce access control.
+ * However, it might be able to reuse the same catalog instance based on the authZ info of a session.
+ * See {@link #getSessionCacheKey(ConnectorSession)} and {@link #getSessionProperties(ConnectorSession)} for more details.
  */
 public class TrinoIcebergCatalog
         implements TrinoCatalog

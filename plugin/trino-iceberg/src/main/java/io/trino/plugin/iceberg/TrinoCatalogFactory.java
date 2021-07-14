@@ -32,7 +32,6 @@ import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeManager;
-import org.apache.iceberg.hadoop.HadoopCatalog;
 
 import javax.inject.Inject;
 
@@ -71,7 +70,7 @@ class TrinoCatalogFactory
             case HIVE:
                 return new TrinoHiveCatalog(catalogName, metastore, hdfsEnvironment, typeManager, tableOperationsProvider);
             case HADOOP:
-                return new TrinoIcebergCatalog(HadoopCatalog.class.getName(), catalogName, config, hdfsEnvironment);
+                return new TrinoIcebergHadoopCatalog(catalogName, config, hdfsEnvironment);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "Unsupported Trino Iceberg catalog type " + config.getCatalogType());
         }
