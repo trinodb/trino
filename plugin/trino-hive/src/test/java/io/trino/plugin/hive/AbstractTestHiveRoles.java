@@ -373,22 +373,22 @@ abstract class AbstractTestHiveRoles
                 .setIdentity(Identity.ofUser("set_user_1"))
                 .build();
         Session setRoleAll = Session.builder(getSession())
-                .setIdentity(Identity.forUser("set_user_1").withRole("hive", new SelectedRole(SelectedRole.Type.ALL, Optional.empty())).build())
+                .setIdentity(Identity.forUser("set_user_1").withConnectorRole("hive", new SelectedRole(SelectedRole.Type.ALL, Optional.empty())).build())
                 .build();
         Session setRoleNone = Session.builder(getSession())
-                .setIdentity(Identity.forUser("set_user_1").withRole("hive", new SelectedRole(SelectedRole.Type.NONE, Optional.empty())).build())
+                .setIdentity(Identity.forUser("set_user_1").withConnectorRole("hive", new SelectedRole(SelectedRole.Type.NONE, Optional.empty())).build())
                 .build();
         Session setRole1 = Session.builder(getSession())
-                .setIdentity(Identity.forUser("set_user_1").withRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_1"))).build())
+                .setIdentity(Identity.forUser("set_user_1").withConnectorRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_1"))).build())
                 .build();
         Session setRole2 = Session.builder(getSession())
-                .setIdentity(Identity.forUser("set_user_1").withRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_2"))).build())
+                .setIdentity(Identity.forUser("set_user_1").withConnectorRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_2"))).build())
                 .build();
         Session setRole3 = Session.builder(getSession())
-                .setIdentity(Identity.forUser("set_user_1").withRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_3"))).build())
+                .setIdentity(Identity.forUser("set_user_1").withConnectorRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_3"))).build())
                 .build();
         Session setRole4 = Session.builder(getSession())
-                .setIdentity(Identity.forUser("set_user_1").withRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_4"))).build())
+                .setIdentity(Identity.forUser("set_user_1").withConnectorRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("set_role_4"))).build())
                 .build();
 
         MaterializedResult actual = getQueryRunner().execute(unsetRole, "SELECT * FROM hive.information_schema.applicable_roles");
@@ -511,7 +511,7 @@ abstract class AbstractTestHiveRoles
     private Session createAdminSession()
     {
         return Session.builder(getSession())
-                .setIdentity(Identity.forUser("admin").withRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin"))).build())
+                .setIdentity(Identity.forUser("admin").withConnectorRole("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin"))).build())
                 .build();
     }
 

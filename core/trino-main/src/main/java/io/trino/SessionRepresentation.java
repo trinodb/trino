@@ -63,7 +63,7 @@ public final class SessionRepresentation
     private final Map<String, String> systemProperties;
     private final Map<CatalogName, Map<String, String>> catalogProperties;
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
-    private final Map<String, SelectedRole> roles;
+    private final Map<String, SelectedRole> catalogRoles;
     private final Map<String, String> preparedStatements;
     private final String protocolName;
 
@@ -92,7 +92,7 @@ public final class SessionRepresentation
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
             @JsonProperty("catalogProperties") Map<CatalogName, Map<String, String>> catalogProperties,
             @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
-            @JsonProperty("roles") Map<String, SelectedRole> roles,
+            @JsonProperty("catalogRoles") Map<String, SelectedRole> catalogRoles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
             @JsonProperty("protocolName") String protocolName)
     {
@@ -117,7 +117,7 @@ public final class SessionRepresentation
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.start = start;
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
-        this.roles = ImmutableMap.copyOf(roles);
+        this.catalogRoles = ImmutableMap.copyOf(catalogRoles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
         this.protocolName = requireNonNull(protocolName, "protocolName is null");
 
@@ -273,9 +273,9 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public Map<String, SelectedRole> getRoles()
+    public Map<String, SelectedRole> getCatalogRoles()
     {
-        return roles;
+        return catalogRoles;
     }
 
     @JsonProperty
@@ -310,7 +310,7 @@ public final class SessionRepresentation
                 Identity.forUser(user)
                         .withGroups(groups)
                         .withPrincipal(principal.map(BasicPrincipal::new))
-                        .withRoles(roles)
+                        .withConnectorRoles(catalogRoles)
                         .withExtraCredentials(extraCredentials)
                         .build(),
                 source,

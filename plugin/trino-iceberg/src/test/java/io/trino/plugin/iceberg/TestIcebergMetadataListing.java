@@ -60,7 +60,7 @@ public class TestIcebergMetadataListing
     {
         Session session = testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
