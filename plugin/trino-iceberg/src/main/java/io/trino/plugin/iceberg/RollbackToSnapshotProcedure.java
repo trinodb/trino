@@ -41,10 +41,10 @@ public class RollbackToSnapshotProcedure
             String.class,
             Long.class);
 
-    private final TrinoSessionCatalog catalog;
+    private final TrinoCatalog catalog;
 
     @Inject
-    public RollbackToSnapshotProcedure(TrinoSessionCatalogFactory catalogFactory)
+    public RollbackToSnapshotProcedure(TrinoCatalogFactory catalogFactory)
     {
         this.catalog = requireNonNull(catalogFactory, "catalogFactory is null").create();
     }

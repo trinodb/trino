@@ -27,10 +27,10 @@
  */
 package io.trino.plugin.iceberg;
 
-public enum SessionCatalogType
+public enum CatalogType
 {
     HIVE,
-    ICEBERG
+    HADOOP
 
     /**/;
 }

@@ -23,10 +23,10 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.iceberg.CatalogType.HADOOP;
+import static io.trino.plugin.iceberg.CatalogType.HIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
-import static io.trino.plugin.iceberg.SessionCatalogType.HIVE;
-import static io.trino.plugin.iceberg.SessionCatalogType.ICEBERG;
 
 public class TestIcebergConfig
 {
@@ -34,30 +34,36 @@ public class TestIcebergConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
-                .setSessionCatalogType(HIVE)
                 .setFileFormat(ORC)
                 .setCompressionCodec(GZIP)
                 .setUseFileSizeFromMetadata(true)
-                .setMaxPartitionsPerWriter(100));
+                .setMaxPartitionsPerWriter(100)
+                .setCatalogType(HIVE)
+                .setCatalogWarehouse(null)
+                .setCatalogCacheSize(10));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("iceberg.session-catalog-type", "ICEBERG")
                 .put("iceberg.file-format", "Parquet")
                 .put("iceberg.compression-codec", "NONE")
                 .put("iceberg.use-file-size-from-metadata", "false")
                 .put("iceberg.max-partitions-per-writer", "222")
+                .put("iceberg.catalog.type", "HADOOP")
+                .put("iceberg.catalog.warehouse", "s3://bucket/root")
+                .put("iceberg.catalog.cache-size", "3")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
-                .setSessionCatalogType(ICEBERG)
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(HiveCompressionCodec.NONE)
                 .setUseFileSizeFromMetadata(false)
-                .setMaxPartitionsPerWriter(222);
+                .setMaxPartitionsPerWriter(222)
+                .setCatalogType(HADOOP)
+                .setCatalogWarehouse("s3://bucket/root")
+                .setCatalogCacheSize(3);
 
         assertFullMapping(properties, expected);
     }

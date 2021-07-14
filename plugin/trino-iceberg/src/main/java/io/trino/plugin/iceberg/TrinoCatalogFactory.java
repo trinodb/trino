@@ -32,14 +32,15 @@ import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.hadoop.HadoopCatalog;
 
 import javax.inject.Inject;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
-class TrinoSessionCatalogFactory
+class TrinoCatalogFactory
 {
-    private final SessionCatalogType catalogType;
+    private final IcebergConfig config;
     private final CatalogName catalogName;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -47,7 +48,7 @@ class TrinoSessionCatalogFactory
     private final HiveTableOperationsProvider tableOperationsProvider;
 
     @Inject
-    public TrinoSessionCatalogFactory(
+    public TrinoCatalogFactory(
             CatalogName catalogName,
             IcebergConfig config,
             HiveMetastore metastore,
@@ -55,7 +56,7 @@ class TrinoSessionCatalogFactory
             TypeManager typeManager,
             HiveTableOperationsProvider tableOperationsProvider)
     {
-        this.catalogType = config.getSessionCatalogType();
+        this.config = config;
         this.catalogName = catalogName;
         this.metastore = metastore;
         this.hdfsEnvironment = hdfsEnvironment;
@@ -63,13 +64,15 @@ class TrinoSessionCatalogFactory
         this.tableOperationsProvider = tableOperationsProvider;
     }
 
-    public TrinoSessionCatalog create()
+    public TrinoCatalog create()
     {
-        switch (catalogType) {
+        switch (config.getCatalogType()) {
             case HIVE:
-                return new TrinoHiveSessionCatalog(catalogName, metastore, hdfsEnvironment, typeManager, tableOperationsProvider);
+                return new TrinoHiveCatalog(catalogName, metastore, hdfsEnvironment, typeManager, tableOperationsProvider);
+            case HADOOP:
+                return new TrinoIcebergCatalog(HadoopCatalog.class.getName(), "trino-hadoop", config, hdfsEnvironment);
             default:
-                throw new TrinoException(NOT_SUPPORTED, "Unsupported Trino Iceberg catalog type " + catalogType);
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported Trino Iceberg catalog type " + config.getCatalogType());
         }
     }
 }

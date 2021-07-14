@@ -61,6 +61,13 @@ public final class IcebergQueryRunner
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, FileFormat format, List<TpchTable<?>> tables)
             throws Exception
     {
+        return createIcebergQueryRunner(extraProperties, CatalogType.HIVE, format, tables);
+    }
+
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, CatalogType catalogType,
+            FileFormat format, List<TpchTable<?>> tables)
+            throws Exception
+    {
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema("tpch")
@@ -80,6 +87,8 @@ public final class IcebergQueryRunner
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", dataDir.toString())
                 .put("iceberg.file-format", format.name())
+                .put("iceberg.catalog.type", catalogType.name())
+                .put("iceberg.catalog.warehouse", queryRunner.getCoordinator().getBaseDataDir().toString())
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);

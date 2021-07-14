@@ -73,7 +73,6 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.UpdateProperties;
-import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NamespaceNotEmptyException;
@@ -85,7 +84,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -116,7 +114,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.schemaFromTableId;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Collections.emptyList;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -125,8 +122,8 @@ import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.Transactions.createTableTransaction;
 
-class TrinoHiveSessionCatalog
-        implements TrinoSessionCatalog
+class TrinoHiveCatalog
+        implements TrinoCatalog
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
 
@@ -138,7 +135,7 @@ class TrinoHiveSessionCatalog
 
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
 
-    public TrinoHiveSessionCatalog(
+    public TrinoHiveCatalog(
             CatalogName catalogName,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
@@ -150,6 +147,12 @@ class TrinoHiveSessionCatalog
         this.hdfsEnvironment = hdfsEnvironment;
         this.typeManager = typeManager;
         this.tableOperationsProvider = tableOperationsProvider;
+    }
+
+    @Override
+    public String getName(ConnectorSession session)
+    {
+        return "trino-hive";
     }
 
     @Override
@@ -298,7 +301,7 @@ class TrinoHiveSessionCatalog
     }
 
     @Override
-    public String tableDefaultLocation(TableIdentifier tableIdentifier, ConnectorSession session)
+    public String defaultTableLocation(TableIdentifier tableIdentifier, ConnectorSession session)
     {
         String schemaName = schemaFromTableId(tableIdentifier);
         Database database = metastore.getDatabase(schemaName)
@@ -465,141 +468,10 @@ class TrinoHiveSessionCatalog
     }
 
     @Override
-    public boolean dropTable(TableIdentifier identifier, ConnectorSession session)
-    {
-        return dropTable(identifier, true, session);
-    }
-
-    @Override
     public void renameTable(TableIdentifier tableIdentifier, TableIdentifier newTableIdentifier, ConnectorSession session)
     {
         metastore.renameTable(new HiveIdentity(session), schemaFromTableId(tableIdentifier), tableIdentifier.name(),
                 schemaFromTableId(newTableIdentifier), newTableIdentifier.name());
-    }
-
-    @Override
-    public Table createTable(TableIdentifier tableIdentifier, Schema schema, PartitionSpec partitionSpec, String location, Map<String, String> properties, ConnectorSession session)
-    {
-        newCreateTableTransaction(tableIdentifier, schema, partitionSpec, location, properties, session).commitTransaction();
-        return loadTable(tableIdentifier, session);
-    }
-
-    @Override
-    public void createNamespace(Namespace namespace, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public void createNamespace(Namespace namespace, Map<String, String> metadata, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public List<Namespace> listNamespaces(Namespace namespace, ConnectorSession session)
-            throws NoSuchNamespaceException
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public Map<String, String> loadNamespaceMetadata(Namespace namespace, ConnectorSession session)
-            throws NoSuchNamespaceException
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public boolean setProperties(Namespace namespace, Map<String, String> properties, ConnectorSession session)
-            throws NoSuchNamespaceException
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public boolean removeProperties(Namespace namespace, Set<String> properties, ConnectorSession session)
-            throws NoSuchNamespaceException
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public boolean namespaceExists(Namespace namespace, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public String name(ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public Table createTable(TableIdentifier identifier, Schema schema, PartitionSpec spec, Map<String, String> properties, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public Table createTable(TableIdentifier identifier, Schema schema, PartitionSpec spec, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public Table createTable(TableIdentifier identifier, Schema schema, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public Transaction newCreateTableTransaction(TableIdentifier identifier, Schema schema, PartitionSpec spec, Map<String, String> properties, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public Transaction newCreateTableTransaction(TableIdentifier identifier, Schema schema, PartitionSpec spec, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public Transaction newCreateTableTransaction(TableIdentifier identifier, Schema schema, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public Transaction newReplaceTableTransaction(TableIdentifier identifier, Schema schema, PartitionSpec spec, String location, Map<String, String> properties, boolean orCreate, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public Transaction newReplaceTableTransaction(TableIdentifier identifier, Schema schema, PartitionSpec spec, Map<String, String> properties, boolean orCreate, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public Transaction newReplaceTableTransaction(TableIdentifier identifier, Schema schema, PartitionSpec spec, boolean orCreate, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public Transaction newReplaceTableTransaction(TableIdentifier identifier, Schema schema, boolean orCreate, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
-    }
-
-    @Override
-    public Catalog.TableBuilder buildTable(TableIdentifier identifier, Schema schema, ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Not supported by TrinoHiveSessionCatalog");
     }
 
     private static boolean isIcebergTable(io.trino.plugin.hive.metastore.Table hiveTable)

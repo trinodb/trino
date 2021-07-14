@@ -123,7 +123,7 @@ public class IcebergMetadata
 
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
-    private final TrinoSessionCatalog catalog;
+    private final TrinoCatalog catalog;
 
     private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
 
@@ -132,7 +132,7 @@ public class IcebergMetadata
     public IcebergMetadata(
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            TrinoSessionCatalogFactory catalogFactory)
+            TrinoCatalogFactory catalogFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
@@ -510,7 +510,7 @@ public class IcebergMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        catalog.dropTable(toTableId(tableHandle), session);
+        catalog.dropTable(toTableId(tableHandle), true, session);
     }
 
     @Override
