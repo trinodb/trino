@@ -45,7 +45,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
     private static final String CATALOG = "test";
     private static final String SCHEMA = "test";
     private static final Session ADMIN = getTestSession(Identity.forUser("admin")
-            .withRole(CATALOG, new SelectedRole(ROLE, Optional.of("admin")))
+            .withConnectorRole(CATALOG, new SelectedRole(ROLE, Optional.of("admin")))
             .build());
     private static final String ALICE_NAME = "alice";
     private static final Session ALICE = getTestSession(new Identity.Builder(ALICE_NAME).build());
