@@ -60,6 +60,11 @@ public class JdbcPageSink
         }
 
         try {
+            // According to JDBC javaodcs "If a connection is in auto-commit mode, then all its SQL statements will be
+            // executed and committed as individual transactions." Notably MySQL and SQL Server respect this which
+            // leads to multiple commits when we close the connection leading to slow performance. Explicit commits
+            // where needed ensure that all of the submitted statements are committed as a single transaction and
+            // performs better.
             connection.setAutoCommit(false);
         }
         catch (SQLException e) {
