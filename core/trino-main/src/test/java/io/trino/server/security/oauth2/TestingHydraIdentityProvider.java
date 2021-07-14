@@ -148,7 +148,7 @@ public class TestingHydraIdentityProvider
         try (Response response = httpClient
                 .newCall(
                         new Request.Builder()
-                                .url("https://localhost:" + getAuthPort() + "/oauth2/token")
+                                .url("https://" + getIpAddress() + ":" + getAuthPort() + "/oauth2/token")
                                 .addHeader(OAuthConstants.HEADER, Credentials.basic(clientId, clientSecret))
                                 .post(new FormBody.Builder()
                                         .add(OAuthConstants.GRANT_TYPE, OAuthConstants.CLIENT_CREDENTIALS)
@@ -162,6 +162,11 @@ public class TestingHydraIdentityProvider
                     .get("access_token")
                     .textValue();
         }
+    }
+
+    public String getIpAddress()
+    {
+        return hydraContainer.getContainerIpAddress();
     }
 
     public int getAuthPort()
@@ -242,7 +247,7 @@ public class TestingHydraIdentityProvider
         {
             return httpClient.newCall(
                     new Request.Builder()
-                            .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/login/accept?login_challenge=" + loginChallenge)
+                            .url("https://" + getIpAddress() + ":" + getAdminPort() + "/oauth2/auth/requests/login/accept?login_challenge=" + loginChallenge)
                             .put(RequestBody.create(
                                     MediaType.get(APPLICATION_JSON),
                                     mapper.writeValueAsString(mapper.createObjectNode().put("subject", "foo@bar.com"))))
@@ -255,7 +260,7 @@ public class TestingHydraIdentityProvider
         {
             try (Response response = httpClient.newCall(
                     new Request.Builder()
-                            .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/consent?consent_challenge=" + consentChallenge)
+                            .url("https://" + getIpAddress() + ":" + getAdminPort() + "/oauth2/auth/requests/consent?consent_challenge=" + consentChallenge)
                             .get()
                             .build())
                     .execute()) {
@@ -269,7 +274,7 @@ public class TestingHydraIdentityProvider
         {
             return httpClient.newCall(
                     new Request.Builder()
-                            .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/consent/accept?consent_challenge=" + consentChallenge)
+                            .url("https://" + getIpAddress() + ":" + getAdminPort() + "/oauth2/auth/requests/consent/accept?consent_challenge=" + consentChallenge)
                             .put(RequestBody.create(
                                     MediaType.get(APPLICATION_JSON),
                                     mapper.writeValueAsString(mapper.createObjectNode()
@@ -303,7 +308,7 @@ public class TestingHydraIdentityProvider
     {
         try (TestingHydraIdentityProvider service = new TestingHydraIdentityProvider()) {
             service.start();
-            String authServerUrl = "https://localhost:" + service.getAuthPort();
+            String authServerUrl = "https://" + service.getIpAddress() + ":" + service.getAuthPort();
             service.createClient(
                     "trino-client",
                     "trino-secret",

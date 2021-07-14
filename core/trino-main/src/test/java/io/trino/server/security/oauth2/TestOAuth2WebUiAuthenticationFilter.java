@@ -106,7 +106,7 @@ public class TestOAuth2WebUiAuthenticationFilter
 
         hydraIdP = new TestingHydraIdentityProvider(TTL_ACCESS_TOKEN_IN_SECONDS);
         hydraIdP.start();
-        String idpUrl = "https://localhost:" + hydraIdP.getAuthPort();
+        String idpUrl = "https://" + hydraIdP.getIpAddress() + ":" + hydraIdP.getAuthPort();
 
         server = TestingTrinoServer.builder()
                 .setCoordinator(true)
@@ -314,7 +314,7 @@ public class TestOAuth2WebUiAuthenticationFilter
         assertThat(cookie.getValue()).isNotBlank();
         Jws<Claims> jwt = Jwts.parser()
                 .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
-                        URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
+                        URI.create("https://" + hydraIdP.getIpAddress() + ":" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
                         new JettyHttpClient(new HttpClientConfig()
                                 .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath())))))
                 .parseClaimsJws(cookie.getValue());
@@ -395,7 +395,7 @@ public class TestOAuth2WebUiAuthenticationFilter
         HttpUrl url = HttpUrl.parse(redirectUrl);
         assertThat(url).isNotNull();
         assertThat(location.getProtocol()).isEqualTo("https");
-        assertThat(location.getHost()).isEqualTo("localhost");
+        assertThat(location.getHost()).isEqualTo(hydraIdP.getIpAddress());
         assertThat(location.getPort()).isEqualTo(hydraIdP.getAuthPort());
         assertThat(location.getPath()).isEqualTo("/oauth2/auth");
         assertThat(url.queryParameterValues("response_type")).isEqualTo(ImmutableList.of("code"));
