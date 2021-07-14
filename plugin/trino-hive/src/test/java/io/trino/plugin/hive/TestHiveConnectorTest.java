@@ -263,7 +263,7 @@ public class TestHiveConnectorTest
     {
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
@@ -309,7 +309,7 @@ public class TestHiveConnectorTest
     {
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
@@ -386,7 +386,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
                 .build();
@@ -404,7 +404,7 @@ public class TestHiveConnectorTest
     {
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
@@ -424,7 +424,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
@@ -472,7 +472,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
@@ -520,7 +520,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
@@ -557,7 +557,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
@@ -573,7 +573,7 @@ public class TestHiveConnectorTest
                 .setCatalog(getSession().getCatalog())
                 .setSchema("test_createschema_authorization_role")
                 .setIdentity(Identity.forUser("user")
-                        .withRoles(Collections.emptyMap())
+                        .withConnectorRoles(Collections.emptyMap())
                         .build())
                 .build();
 
@@ -611,7 +611,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
@@ -643,7 +643,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setCatalog(getSession().getCatalog())
-                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .setIdentity(Identity.forUser("hive").withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
 
         Session alice = testSessionBuilder()
@@ -670,7 +670,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setCatalog(getSession().getCatalog())
-                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .setIdentity(Identity.forUser("hive").withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
 
         Session alice = testSessionBuilder()
@@ -701,7 +701,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setCatalog(getSession().getCatalog())
-                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .setIdentity(Identity.forUser("hive").withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
 
         Session alice = testSessionBuilder()
@@ -730,7 +730,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setCatalog(getSession().getCatalog())
-                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .setIdentity(Identity.forUser("hive").withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
 
         Session alice = testSessionBuilder()
@@ -761,7 +761,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setCatalog(getSession().getCatalog())
-                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .setIdentity(Identity.forUser("hive").withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
 
         Session alice = testSessionBuilder()
@@ -792,7 +792,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setCatalog(getSession().getCatalog())
-                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .setIdentity(Identity.forUser("hive").withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
 
         Session alice = testSessionBuilder()
@@ -828,7 +828,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
@@ -1127,7 +1127,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
@@ -1172,7 +1172,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
