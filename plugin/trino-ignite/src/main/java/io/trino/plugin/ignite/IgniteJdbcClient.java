@@ -79,7 +79,6 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.plugin.ignite.IgniteTableProperties.AFFINITY_KEY_PROPERTY;
@@ -197,17 +196,9 @@ public class IgniteJdbcClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        String jdbcTypeName = typeHandle.getJdbcTypeName()
-                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
-
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
         if (mapping.isPresent()) {
             return mapping;
-        }
-
-        switch (jdbcTypeName) {
-            case "OTHER":
-                return Optional.of(uuidColumnMapping());
         }
 
         switch (typeHandle.getJdbcType()) {

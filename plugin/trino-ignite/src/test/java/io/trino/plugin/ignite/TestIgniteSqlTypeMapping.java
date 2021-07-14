@@ -170,17 +170,6 @@ public class TestIgniteSqlTypeMapping
     }
 
     @Test
-    public void testUuid()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("uuid", "CAST ('114514ea-0601-1981-1142-e9b55b0abd6d' as uuid)", UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS uuid)")
-                .addRoundTrip("uuid", "CAST ('114514ea-0601-1981-1142-e9b55b0abd6e' as uuid)", UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6e' AS uuid)")
-                .addRoundTrip("uuid", "CAST(NULL AS uuid)", UUID, "cast(NULL as uuid)")
-                .execute(getQueryRunner(), igniteCreateAndInsert("test_uuid"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_uuid"));
-    }
-
-    @Test
     public void testDate()
     {
         LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone =
@@ -243,20 +232,5 @@ public class TestIgniteSqlTypeMapping
     private DataSetup igniteCreateAndInsert(String tableNamePrefix)
     {
         return new IgniteCreateAndInsertDataSetup(new JdbcSqlExecutor(igniteServer.getJdbcUrl()), tableNamePrefix);
-    }
-
-    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
-    }
-
-    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        return zone.getRules().getValidOffsets(dateTime).isEmpty();
-    }
-
-    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 }

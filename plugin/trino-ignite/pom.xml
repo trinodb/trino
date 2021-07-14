@@ -15,7 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.ignite.version>2.10.0</dep.ignite.version>
+        <dep.ignite.version>2.8.0</dep.ignite.version>
     </properties>
 
     <dependencies>
