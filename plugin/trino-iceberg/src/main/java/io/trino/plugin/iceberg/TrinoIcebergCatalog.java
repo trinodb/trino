@@ -93,9 +93,9 @@ public class TrinoIcebergCatalog
 
     /**
      * Convert a session to a properties map that is used to initialize a new catalog
-     * together with other catalog properties configured at connector level
+     * together with other catalog properties configured at connector level.
      * The default behavior is to return an empty map.
-     * Implementations can override this method to add information such as session user.
+     * Implementations can override this method to pass session properties or session identity information to the catalog.
      * @param session session
      * @return catalog properties derived from session
      */

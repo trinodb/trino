@@ -37,6 +37,7 @@ import org.apache.iceberg.hadoop.HadoopCatalog;
 import javax.inject.Inject;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.util.Objects.requireNonNull;
 
 class TrinoCatalogFactory
 {
@@ -56,12 +57,12 @@ class TrinoCatalogFactory
             TypeManager typeManager,
             HiveTableOperationsProvider tableOperationsProvider)
     {
-        this.config = config;
-        this.catalogName = catalogName;
-        this.metastore = metastore;
-        this.hdfsEnvironment = hdfsEnvironment;
-        this.typeManager = typeManager;
-        this.tableOperationsProvider = tableOperationsProvider;
+        this.config = requireNonNull(config, "config is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationProvider is null");
     }
 
     public TrinoCatalog create()

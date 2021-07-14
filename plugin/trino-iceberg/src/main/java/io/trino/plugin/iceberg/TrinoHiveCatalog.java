@@ -116,6 +116,7 @@ import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
@@ -128,7 +129,7 @@ class TrinoHiveCatalog
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
 
-    private final CatalogName catalogName;
+    private final String catalogName;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
@@ -143,17 +144,17 @@ class TrinoHiveCatalog
             TypeManager typeManager,
             HiveTableOperationsProvider tableOperationsProvider)
     {
-        this.catalogName = catalogName;
-        this.metastore = metastore;
-        this.hdfsEnvironment = hdfsEnvironment;
-        this.typeManager = typeManager;
-        this.tableOperationsProvider = tableOperationsProvider;
+        this.catalogName = requireNonNull(catalogName, "catalogName is null").toString();
+        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
     }
 
     @Override
     public String getName(ConnectorSession session)
     {
-        return "trino-hive";
+        return catalogName;
     }
 
     @Override
