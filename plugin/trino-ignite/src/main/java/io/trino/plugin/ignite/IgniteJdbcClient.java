@@ -73,6 +73,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.function.BiFunction;
 
@@ -185,7 +186,6 @@ public class IgniteJdbcClient
     public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
-        verify(schemaName.isEmpty() || schemaName.get().equals(IGNITE_SCHEMA), "Ignite user table should only allow under schema 'public'");
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getTables(
                 IGNITE_CATALOG,
@@ -197,9 +197,17 @@ public class IgniteJdbcClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
+        String jdbcTypeName = typeHandle.getJdbcTypeName()
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
         if (mapping.isPresent()) {
             return mapping;
+        }
+
+        switch (jdbcTypeName) {
+            case "OTHER":
+                return Optional.of(uuidColumnMapping());
         }
 
         switch (typeHandle.getJdbcType()) {
@@ -248,9 +256,6 @@ public class IgniteJdbcClient
 
             case Types.BINARY:
                 return Optional.of(varbinaryColumnMapping());
-
-            case Types.OTHER:
-                return Optional.of(uuidColumnMapping());
         }
         return Optional.empty();
     }
@@ -625,6 +630,12 @@ public class IgniteJdbcClient
 
         String createTableSql = createTableSql(newTableName, columnList.build(), properties.build());
         execute(connection, createTableSql);
+    }
+
+    @Override
+    public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
 
     @Override
