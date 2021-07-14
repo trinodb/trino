@@ -16,6 +16,7 @@ package io.trino;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.QueryId;
@@ -46,6 +47,7 @@ public final class SessionRepresentation
     private final String user;
     private final Set<String> groups;
     private final Optional<String> principal;
+    private final Set<String> enabledRoles;
     private final Optional<String> source;
     private final Optional<String> catalog;
     private final Optional<String> schema;
@@ -75,6 +77,7 @@ public final class SessionRepresentation
             @JsonProperty("user") String user,
             @JsonProperty("groups") Set<String> groups,
             @JsonProperty("principal") Optional<String> principal,
+            @JsonProperty("enabledRoles") Set<String> enabledRoles,
             @JsonProperty("source") Optional<String> source,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
@@ -102,6 +105,7 @@ public final class SessionRepresentation
         this.user = requireNonNull(user, "user is null");
         this.groups = requireNonNull(groups, "groups is null");
         this.principal = requireNonNull(principal, "principal is null");
+        this.enabledRoles = ImmutableSet.copyOf(requireNonNull(enabledRoles, "enabledRoles is null"));
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -168,6 +172,12 @@ public final class SessionRepresentation
     public Optional<String> getPrincipal()
     {
         return principal;
+    }
+
+    @JsonProperty
+    public Set<String> getEnabledRoles()
+    {
+        return enabledRoles;
     }
 
     @JsonProperty
@@ -310,6 +320,7 @@ public final class SessionRepresentation
                 Identity.forUser(user)
                         .withGroups(groups)
                         .withPrincipal(principal.map(BasicPrincipal::new))
+                        .withEnabledRoles(enabledRoles)
                         .withConnectorRoles(catalogRoles)
                         .withExtraCredentials(extraCredentials)
                         .build(),

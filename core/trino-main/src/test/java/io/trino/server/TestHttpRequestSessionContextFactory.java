@@ -34,12 +34,13 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestHttpRequestSessionContextFactory
 {
-    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(ImmutableSet::of, new AllowAllAccessControl());
+    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, new AllowAllAccessControl());
 
     @Test
     public void testSessionContext()
@@ -63,9 +64,10 @@ public class TestHttpRequestSessionContextFactory
                 .put(protocolHeaders.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
                 .put(protocolHeaders.requestSession(), "some_session_property=some value with %2C comma")
                 .put(protocolHeaders.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
+                .put(protocolHeaders.requestRole(), "system=ROLE{system-role}")
                 .put(protocolHeaders.requestRole(), "foo_connector=ALL")
                 .put(protocolHeaders.requestRole(), "bar_connector=NONE")
-                .put(protocolHeaders.requestRole(), "foobar_connector=ROLE{role}")
+                .put(protocolHeaders.requestRole(), "foobar_connector=ROLE{catalog-role}")
                 .put(protocolHeaders.requestExtraCredential(), "test.token.foo=bar")
                 .put(protocolHeaders.requestExtraCredential(), "test.token.abc=xyz")
                 .build());
@@ -89,10 +91,11 @@ public class TestHttpRequestSessionContextFactory
                 HASH_PARTITION_COUNT, "43",
                 "some_session_property", "some value with , comma"));
         assertEquals(context.getPreparedStatements(), ImmutableMap.of("query1", "select * from foo", "query2", "select * from bar"));
+        assertEquals(context.getSelectedRole(), new SelectedRole(SelectedRole.Type.ROLE, Optional.of("system-role")));
         assertEquals(context.getIdentity().getConnectorRoles(), ImmutableMap.of(
                 "foo_connector", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
                 "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
-                "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role"))));
+                "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("catalog-role"))));
         assertEquals(context.getIdentity().getExtraCredentials(), ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
         assertEquals(context.getIdentity().getGroups(), ImmutableSet.of("testUser"));
     }

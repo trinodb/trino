@@ -53,6 +53,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
@@ -538,7 +539,13 @@ public interface Metadata
     Set<RoleGrant> listApplicableRoles(Session session, TrinoPrincipal principal, Optional<String> catalog);
 
     /**
-     * List applicable roles, including the transitive grants, in given session
+     * List applicable system roles, including the transitive grants, for the given identity.
+     */
+    Set<String> listEnabledRoles(Identity identity);
+
+    /**
+     * List applicable roles, including the transitive grants, in given catalog
+     *
      * @param catalog if present, the role catalog; otherwise the role is a system role
      */
     Set<String> listEnabledRoles(Session session, String catalog);

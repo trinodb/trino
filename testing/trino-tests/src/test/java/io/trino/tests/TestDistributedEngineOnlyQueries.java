@@ -110,12 +110,18 @@ public class TestDistributedEngineOnlyQueries
     public void testRoles()
     {
         Session invalid = Session.builder(getSession()).setCatalog("invalid").build();
-        assertQueryFails(invalid, "CREATE ROLE test", "System roles are not supported yet");
-        assertQueryFails(invalid, "CREATE ROLE test", "System roles are not supported yet");
-        assertQueryFails(invalid, "DROP ROLE test", "System roles are not supported yet");
-        assertQueryFails(invalid, "GRANT test TO USER foo", "System roles are not supported yet");
-        assertQueryFails(invalid, "REVOKE test FROM USER foo", "System roles are not supported yet");
-        assertQueryFails(invalid, "SET ROLE test", "System roles are not supported yet");
+        assertQueryFails(invalid, "CREATE ROLE test", "System roles are not enabled");
+        assertQueryFails(invalid, "CREATE ROLE test", "System roles are not enabled");
+        assertQueryFails(invalid, "DROP ROLE test", "line 1:1: Role 'test' does not exist");
+        assertQueryFails(invalid, "GRANT test TO USER foo", "line 1:1: Role 'test' does not exist");
+        assertQueryFails(invalid, "REVOKE test FROM USER foo", "line 1:1: Role 'test' does not exist");
+        assertQueryFails(invalid, "SET ROLE test", "line 1:1: Role 'test' does not exist");
+
+        assertQueryFails(invalid, "CREATE ROLE test IN invalid", "line 1:1: Catalog 'invalid' does not exist");
+        assertQueryFails(invalid, "DROP ROLE test IN invalid", "line 1:1: Catalog 'invalid' does not exist");
+        assertQueryFails(invalid, "GRANT test TO USER foo IN invalid", "line 1:1: Catalog 'invalid' does not exist");
+        assertQueryFails(invalid, "REVOKE test FROM USER foo IN invalid", "line 1:1: Catalog 'invalid' does not exist");
+        assertQueryFails(invalid, "SET ROLE test IN invalid", "line 1:1: Catalog 'invalid' does not exist");
     }
 
     @Test

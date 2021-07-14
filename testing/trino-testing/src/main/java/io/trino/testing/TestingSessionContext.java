@@ -15,8 +15,11 @@ package io.trino.testing;
 
 import io.trino.Session;
 import io.trino.server.SessionContext;
+import io.trino.spi.security.SelectedRole;
+import io.trino.spi.security.SelectedRole.Type;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Map.Entry;
@@ -29,6 +32,19 @@ public final class TestingSessionContext
     public static SessionContext fromSession(Session session)
     {
         requireNonNull(session, "session is null");
+
+        Set<String> enabledRoles = session.getIdentity().getEnabledRoles();
+        SelectedRole selectedRole;
+        if (enabledRoles.isEmpty()) {
+            selectedRole = new SelectedRole(Type.NONE, Optional.empty());
+        }
+        else if (enabledRoles.size() == 1) {
+            selectedRole = new SelectedRole(Type.ROLE, Optional.of(enabledRoles.iterator().next()));
+        }
+        else {
+            selectedRole = new SelectedRole(Type.ALL, Optional.empty());
+        }
+
         return new SessionContext(
                 session.getProtocolHeaders(),
                 session.getCatalog(),
@@ -36,6 +52,7 @@ public final class TestingSessionContext
                 session.getPath().getRawPath(),
                 Optional.empty(),
                 session.getIdentity(),
+                selectedRole,
                 session.getSource(),
                 session.getTraceToken(),
                 session.getUserAgent(),
