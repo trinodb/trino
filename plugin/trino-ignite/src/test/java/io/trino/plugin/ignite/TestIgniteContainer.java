@@ -43,7 +43,7 @@ public class TestIgniteContainer
     public TestIgniteContainer(DockerImageName dockerImageName)
     {
         super(dockerImageName);
-        this.databaseName = "default";
+        this.databaseName = "public";
         this.username = "default";
         this.password = "";
         dockerImageName.assertCompatibleWith(new DockerImageName[] {DEFAULT_IMAGE_NAME});

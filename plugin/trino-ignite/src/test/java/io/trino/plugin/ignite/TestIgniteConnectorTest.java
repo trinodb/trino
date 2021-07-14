@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.ignite;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
@@ -431,6 +432,33 @@ public class TestIgniteConnectorTest
             assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a DESC NULLS LAST LIMIT 5"))
                     .ordered()
                     .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testDeleteWithVarcharEqualityPredicate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete",
+                "(col varchar(1), ignore int) with (primary_key = ARRAY['col'])", ImmutableList.of("'a', 1", "'A', 2", "'B', null"))) {
+            assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+        }
+    }
+
+    @Test
+    public void testDeleteWithVarcharInequalityPredicate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete",
+                "(col varchar(1), ignore int) with (primary_key = ARRAY['col'])", ImmutableList.of("'a', 1", "'A', 2", "'B', null"))) {
+            assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+        }
+    }
+
+    @Test
+    public void testDeleteWithVarcharGreaterAndLowerPredicate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete",
+                "(col varchar(1), ignore int) with (primary_key = ARRAY['col'])", ImmutableList.of("'a', 1", "'A', 2", "'B', null"))) {
+            assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
         }
     }
 

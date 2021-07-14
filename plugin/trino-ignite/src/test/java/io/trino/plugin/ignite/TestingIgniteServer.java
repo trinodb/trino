@@ -24,7 +24,7 @@ import static java.lang.String.format;
 public class TestingIgniteServer
         implements Closeable
 {
-    private static final String IGNITE_IMAGE = "apacheignite/ignite:2.10.0";
+    private static final String IGNITE_IMAGE = "apacheignite/ignite:2.8.0";
     private final TestIgniteContainer dockerContainer;
 
     public TestingIgniteServer()
