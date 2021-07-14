@@ -124,7 +124,7 @@ public class TestOAuth2WebUiAuthenticationFilter
                         .put("http-server.authentication.oauth2.client-secret", TRINO_CLIENT_SECRET)
                         .put("http-server.authentication.oauth2.audience", TRINO_AUDIENCE)
                         .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)(@.*)?")
-                        .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
+                        .put("oauth2-jwk.http-client.trust-store-path", hydraIdP.getCertPath())
                         .build())
                 .build();
         server.waitForNodeRefresh(Duration.ofSeconds(10));
@@ -316,7 +316,7 @@ public class TestOAuth2WebUiAuthenticationFilter
                 .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
                         URI.create("https://" + hydraIdP.getIpAddress() + ":" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
                         new JettyHttpClient(new HttpClientConfig()
-                                .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath())))))
+                                .setTrustStorePath(hydraIdP.getCertPath())))))
                 .parseClaimsJws(cookie.getValue());
         assertThat(cookie.getMaxAge()).isLessThanOrEqualTo(TTL_ACCESS_TOKEN_IN_SECONDS.getSeconds());
         assertAccessToken(jwt);
@@ -326,7 +326,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     {
         assertThat(jwt.getBody().getSubject()).isEqualTo("foo@bar.com");
         assertThat(jwt.getBody().get("client_id")).isEqualTo(TRINO_CLIENT_ID);
-        assertThat(jwt.getBody().getIssuer()).isEqualTo("https://localhost:4444/");
+        assertThat(jwt.getBody().getIssuer()).isEqualTo("https://" + hydraIdP.getIpAddress() + ":4444/");
     }
 
     private void assertUICallWithCookie(String cookieValue)
