@@ -166,8 +166,6 @@ Ignite SQL data type name       Map to Trino type           Description
 ``DATE``                        DateType                    Possible values: The date data type. The format is yyyy-MM-dd. Mapped to Java/JDBC ``java.sql.Date``.
 
 ``BINARY``                      VarbinaryType               Possible values: Represents a byte array. Mapped to Java/JDBC ``byte[]``.
-
-``UUID``                        UuidType                    Possible values: Universally unique identifier. This is a 128 bit value. Mapped to Java/JDBC ``java.lang.UUID``.
 =============================== =========================== ===================================================================================
 
 
