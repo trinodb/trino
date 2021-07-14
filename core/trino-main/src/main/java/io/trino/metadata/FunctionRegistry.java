@@ -38,6 +38,10 @@ import io.trino.operator.aggregation.BooleanAndAggregation;
 import io.trino.operator.aggregation.BooleanOrAggregation;
 import io.trino.operator.aggregation.CentralMomentsAggregation;
 import io.trino.operator.aggregation.ChecksumAggregationFunction;
+import io.trino.operator.aggregation.ClassificationMissRateAggregation;
+import io.trino.operator.aggregation.ClassificationPrecisionAggregation;
+import io.trino.operator.aggregation.ClassificationRecallAggregation;
+import io.trino.operator.aggregation.ClassificationThresholdsAggregation;
 import io.trino.operator.aggregation.CountAggregation;
 import io.trino.operator.aggregation.CountIfAggregation;
 import io.trino.operator.aggregation.DefaultApproximateCountDistinctAggregation;
@@ -460,6 +464,10 @@ public class FunctionRegistry
                 .aggregates(RealCorrelationAggregation.class)
                 .aggregates(BitwiseOrAggregation.class)
                 .aggregates(BitwiseAndAggregation.class)
+                .aggregates(ClassificationMissRateAggregation.class)
+                .aggregates(ClassificationPrecisionAggregation.class)
+                .aggregates(ClassificationRecallAggregation.class)
+                .aggregates(ClassificationThresholdsAggregation.class)
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(SessionFunctions.class)
