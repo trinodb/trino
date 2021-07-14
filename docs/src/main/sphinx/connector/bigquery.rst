@@ -124,9 +124,9 @@ a few caveats:
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-===================================================== ============================================================== ==============================================
+===================================================== ============================================================== ======================================================
 Property                                              Description                                                    Default
-===================================================== ============================================================== ==============================================
+===================================================== ============================================================== ======================================================
 ``bigquery.project-id``                               The Google Cloud Project ID where the data reside              Taken from the service account
 ``bigquery.parent-project-id``                        The project ID Google Cloud Project to bill for the export     Taken from the service account
 ``bigquery.parallelism``                              The number of partitions to split the data into                The number of executors
@@ -136,15 +136,15 @@ Property                                              Description               
 ``bigquery.view-materialization-project``             The project where the materialized view is going to be created The view's project
 ``bigquery.view-materialization-dataset``             The dataset where the materialized view is going to be created The view's dataset
 ``bigquery.max-read-rows-retries``                    The number of retries in case of retryable server issues       ``3``
-``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See `authentication <#authentication>`_
-``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See `authentication <#authentication>`_
+``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See the `requirements <#requirements>`_ section.
+``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See the `requirements <#requirements>`_ section.
 ``bigquery.case-insensitive-name-matching``           Match dataset and table names case-insensitively               ``false``
 ``bigquery.case-insensitive-name-matching.cache-ttl`` Duration for which remote dataset and table names will be      ``1m``
                                                       cached. Higher values reduce the number of API calls to
                                                       BigQuery but can cause newly created dataset or tables to not
                                                       be visible until the configured duration. Set to ``0ms`` to
                                                       disable the cache.
-===================================================== ============================================================== ==============================================
+===================================================== ============================================================== ======================================================
 
 Data types
 ----------
