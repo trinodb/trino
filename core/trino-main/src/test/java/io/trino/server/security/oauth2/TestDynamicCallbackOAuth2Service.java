@@ -33,7 +33,6 @@ import java.net.URI;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,8 +43,7 @@ public class TestDynamicCallbackOAuth2Service
     private static final String CLIENT_SECRET = "secret";
 
     private final TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider();
-    private final HttpClient httpClient = new JettyHttpClient(new HttpClientConfig()
-            .setTrustStorePath(getResource("cert/localhost.pem").getPath()));
+    private HttpClient httpClient;
     private String hydraUrl;
     private SigningKeyResolver signingKeyResolver;
 
@@ -61,6 +59,8 @@ public class TestDynamicCallbackOAuth2Service
                 CLIENT_SECRET_BASIC,
                 ImmutableList.of("https://localhost:8080"),
                 "https://localhost:8080/oauth2/callback");
+        httpClient = new JettyHttpClient(new HttpClientConfig()
+                .setTrustStorePath(hydraIdP.getCertPath()));
         signingKeyResolver = new JwkSigningKeyResolver(new JwkService(
                 URI.create(hydraUrl + "/.well-known/jwks.json"),
                 httpClient,
