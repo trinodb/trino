@@ -49,7 +49,7 @@
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.9</dep.antlr.version>
-        <dep.airlift.version>207</dep.airlift.version>
+        <dep.airlift.version>208</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.11.946</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
@@ -64,6 +64,8 @@
         <dep.docker-java.version>3.2.8</dep.docker-java.version>
         <dep.coral.version>1.0.60</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
+        <!-- TODO: update after moving to Airbase 112 -->
+        <dep.jackson.version>2.12.3</dep.jackson.version>
 
         <!--
           America/Bahia_Banderas has:
