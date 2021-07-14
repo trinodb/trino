@@ -411,6 +411,17 @@ Statistical aggregate functions
 
         kurtosis(x) = n(n+1)/((n-1)(n-2)(n-3))sum[(x_i-mean)^4]/stddev(x)^4-3(n-1)^2/((n-2)(n-3))
 
+.. function:: classification_fall_out(buckets, y, x, weight) -> array<double>
+
+    Computes the fall-out part of the receiver operator curve with up to ``buckets`` number of buckets. Returns
+    an array of miss-rate values. ``y`` should be a boolean outcome value; ``x`` should be predictions, each
+    between 0 and 1; ``weight`` should be non-negative values, indicating the weight of the instance.
+    To get an ROC map, use this in conjunction with :func:`classification_recall`:
+
+    .. code-block:: none
+
+        MAP(classification_fall_out(1000, outcome, prediction), classification_recall(1000, outcome, prediction))
+
 .. function:: classification_miss_rate(buckets, y, x, weight) -> array<double>
 
     Computes the miss-rate part of the receiver operator curve with up to ``buckets`` number of buckets. Returns
@@ -421,7 +432,7 @@ Statistical aggregate functions
 
     .. code-block:: none
 
-        MAP(classification_recall(200, outcome, prediction), classification_miss_rate(200, outcome, prediction))
+        MAP(classification_recall(1000, outcome, prediction), classification_miss_rate(1000, outcome, prediction))
 
 .. function:: classification_precision(buckets, y, x, weight) -> array<double>
 
@@ -433,7 +444,7 @@ Statistical aggregate functions
 
     .. code-block:: none
 
-        MAP(classification_recall(200, outcome, prediction), classification_precision(200, outcome, prediction))
+        MAP(classification_recall(1000, outcome, prediction), classification_precision(1000, outcome, prediction))
 
 .. function:: classification_precision(buckets, y, x) -> array<double>
 
@@ -451,7 +462,7 @@ Statistical aggregate functions
 
     .. code-block:: none
 
-        MAP(classification_recall(200, outcome, prediction), classification_precision(200, outcome, prediction))
+        MAP(classification_recall(1000, outcome, prediction), classification_precision(1000, outcome, prediction))
 
 .. function:: classification_recall(buckets, y, x) -> array<double>
 
@@ -468,7 +479,7 @@ Statistical aggregate functions
 
     .. code-block:: none
 
-        MAP(classification_thresholds(200, outcome, prediction), classification_precision(200, outcome, prediction))
+        MAP(classification_thresholds(1000, outcome, prediction), classification_precision(1000, outcome, prediction))
 
     To get a map of thresholds to recall, use this in conjunction with :func:`classification_recall`:
 

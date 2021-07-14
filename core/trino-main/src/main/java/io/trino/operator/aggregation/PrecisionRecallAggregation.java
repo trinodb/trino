@@ -34,10 +34,12 @@ public abstract class PrecisionRecallAggregation
     private static final double DEFAULT_WEIGHT = 1.0;
     private static final double MIN_PREDICTION_VALUE = 0.0;
     private static final double MAX_PREDICTION_VALUE = 1.0;
+    // Effective maximum prediction, in order to ensure bin corresponding exactly to 1 is not reached.
+    private static final double MAX_PREDICTION_VALUE_FOR_HISTOGRAM = 0.99999999999;
     private static final String ILLEGAL_PREDICTION_VALUE_MESSAGE = String.format(
             "Prediction value must be between %s and %s",
-            PrecisionRecallAggregation.MIN_PREDICTION_VALUE,
-            PrecisionRecallAggregation.MAX_PREDICTION_VALUE);
+            MIN_PREDICTION_VALUE,
+            MAX_PREDICTION_VALUE);
     private static final String NEGATIVE_WEIGHT_MESSAGE = "Weights must be non-negative";
     private static final String INCONSISTENT_BUCKET_COUNT_MESSAGE = "Bucket count must be constant";
 
@@ -54,28 +56,29 @@ public abstract class PrecisionRecallAggregation
         if (state.getTrueWeights() == null) {
             state.setTrueWeights(new FixedDoubleHistogram(
                     (int) (bucketCount),
-                    PrecisionRecallAggregation.MIN_PREDICTION_VALUE,
-                    PrecisionRecallAggregation.MAX_PREDICTION_VALUE));
+                    MIN_PREDICTION_VALUE,
+                    MAX_PREDICTION_VALUE));
             state.setFalseWeights(new FixedDoubleHistogram(
                     (int) (bucketCount),
-                    PrecisionRecallAggregation.MIN_PREDICTION_VALUE,
-                    PrecisionRecallAggregation.MAX_PREDICTION_VALUE));
+                    MIN_PREDICTION_VALUE,
+                    MAX_PREDICTION_VALUE));
         }
 
-        if (pred < MIN_PREDICTION_VALUE || pred > PrecisionRecallAggregation.MAX_PREDICTION_VALUE) {
+        if (pred < MIN_PREDICTION_VALUE || pred > MAX_PREDICTION_VALUE) {
             throw new TrinoException(
                     INVALID_FUNCTION_ARGUMENT,
-                    PrecisionRecallAggregation.ILLEGAL_PREDICTION_VALUE_MESSAGE);
+                    ILLEGAL_PREDICTION_VALUE_MESSAGE);
         }
+        pred = Math.min(pred, MAX_PREDICTION_VALUE_FOR_HISTOGRAM);
         if (weight < 0) {
             throw new TrinoException(
                     INVALID_FUNCTION_ARGUMENT,
-                    PrecisionRecallAggregation.NEGATIVE_WEIGHT_MESSAGE);
+                    NEGATIVE_WEIGHT_MESSAGE);
         }
         if (bucketCount != state.getTrueWeights().getBucketCount()) {
             throw new TrinoException(
                     INVALID_FUNCTION_ARGUMENT,
-                    PrecisionRecallAggregation.INCONSISTENT_BUCKET_COUNT_MESSAGE);
+                    INCONSISTENT_BUCKET_COUNT_MESSAGE);
         }
 
         if (outcome) {
@@ -93,7 +96,7 @@ public abstract class PrecisionRecallAggregation
             @SqlType(StandardTypes.BOOLEAN) boolean outcome,
             @SqlType(StandardTypes.DOUBLE) double pred)
     {
-        PrecisionRecallAggregation.input(state, bucketCount, outcome, pred, PrecisionRecallAggregation.DEFAULT_WEIGHT);
+        PrecisionRecallAggregation.input(state, bucketCount, outcome, pred, DEFAULT_WEIGHT);
     }
 
     @CombineFunction
@@ -102,8 +105,8 @@ public abstract class PrecisionRecallAggregation
             @AggregationState PrecisionRecallState otherState)
     {
         if (state.getTrueWeights() == null && otherState.getTrueWeights() != null) {
-            state.setTrueWeights(new FixedDoubleHistogram(otherState.getTrueWeights().clone()));
-            state.setFalseWeights(new FixedDoubleHistogram(otherState.getFalseWeights().clone()));
+            state.setTrueWeights(otherState.getTrueWeights().clone());
+            state.setFalseWeights(otherState.getFalseWeights().clone());
             return;
         }
         if (state.getTrueWeights() != null && otherState.getTrueWeights() != null) {
@@ -114,27 +117,65 @@ public abstract class PrecisionRecallAggregation
 
     protected static class BucketResult
     {
-        public final double totalTrueWeight;
-        public final double totalFalseWeight;
-        public final double runningTrueWeight;
-        public final double runningFalseWeight;
-        public final double left;
-        public final double right;
+        private final double threshold;
+        private final double positive;
+        private final double negative;
+        private final double truePositive;
+        private final double trueNegative;
+        private final double falsePositive;
+        private final double falseNegative;
+
+        public double getThreshold()
+        {
+            return threshold;
+        }
+
+        public double getPositive()
+        {
+            return positive;
+        }
+
+        public double getNegative()
+        {
+            return negative;
+        }
+
+        public double getTruePositive()
+        {
+            return truePositive;
+        }
+
+        public double getTrueNegative()
+        {
+            return trueNegative;
+        }
+
+        public double getFalsePositive()
+        {
+            return falsePositive;
+        }
+
+        public double getFalseNegative()
+        {
+            return falseNegative;
+        }
 
         public BucketResult(
-                double left,
-                double right,
-                double totalTrueWeight,
-                double totalFalseWeight,
-                double runningTrueWeight,
-                double runningFalseWeight)
+                double threshold,
+                double positive,
+                double negative,
+                double truePositive,
+                double trueNegative,
+                double falsePositive,
+                double falseNegative)
         {
-            this.left = left;
-            this.right = right;
-            this.totalTrueWeight = totalTrueWeight;
-            this.totalFalseWeight = totalFalseWeight;
-            this.runningTrueWeight = runningTrueWeight;
-            this.runningFalseWeight = runningFalseWeight;
+            this.threshold = threshold;
+            this.positive = positive;
+            this.negative = negative;
+            this.truePositive = truePositive;
+            this.trueNegative = trueNegative;
+            this.falsePositive = falsePositive;
+            this.falseNegative = falseNegative;
         }
     }
 
@@ -144,45 +185,46 @@ public abstract class PrecisionRecallAggregation
             return Collections.<BucketResult>emptyList().iterator();
         }
 
-        final double totalTrueWeight = Streams.stream(state.getTrueWeights().iterator())
-                .mapToDouble(c -> c.weight)
+        double totalTrueWeight = Streams.stream(state.getTrueWeights().iterator())
+                .mapToDouble(FixedDoubleHistogram.Bucket::getWeight)
                 .sum();
-        final double totalFalseWeight = Streams.stream(state.getFalseWeights().iterator())
-                .mapToDouble(c -> c.weight)
+        double totalFalseWeight = Streams.stream(state.getFalseWeights().iterator())
+                .mapToDouble(FixedDoubleHistogram.Bucket::getWeight)
                 .sum();
 
         return new Iterator<BucketResult>()
         {
-            Iterator<FixedDoubleHistogram.Bin> trueIt = state.getTrueWeights().iterator();
-            Iterator<FixedDoubleHistogram.Bin> falseIt = state.getFalseWeights().iterator();
+            Iterator<FixedDoubleHistogram.Bucket> trueIterator = state.getTrueWeights().iterator();
+            Iterator<FixedDoubleHistogram.Bucket> falseIterator = state.getFalseWeights().iterator();
             double runningFalseWeight;
             double runningTrueWeight;
 
             @Override
             public boolean hasNext()
             {
-                return trueIt.hasNext() && totalTrueWeight > runningTrueWeight;
+                return trueIterator.hasNext() && totalTrueWeight > runningTrueWeight;
             }
 
             @Override
             public BucketResult next()
             {
-                if (!trueIt.hasNext() || !falseIt.hasNext()) {
+                if (!trueIterator.hasNext() || !falseIterator.hasNext()) {
                     throw new NoSuchElementException();
                 }
-                final FixedDoubleHistogram.Bin trueResult = trueIt.next();
-                final FixedDoubleHistogram.Bin falseResult = falseIt.next();
+                FixedDoubleHistogram.Bucket trueResult = trueIterator.next();
+                FixedDoubleHistogram.Bucket falseResult = falseIterator.next();
 
-                final BucketResult result = new BucketResult(
-                        trueResult.left,
-                        trueResult.right,
+                BucketResult result = new BucketResult(
+                        trueResult.getLeft(),
                         totalTrueWeight,
                         totalFalseWeight,
+                        totalTrueWeight - runningTrueWeight,
+                        runningFalseWeight,
                         runningTrueWeight,
-                        runningFalseWeight);
+                        totalFalseWeight - runningFalseWeight);
 
-                runningTrueWeight += trueResult.weight;
-                runningFalseWeight += falseResult.weight;
+                runningTrueWeight += trueResult.getWeight();
+                runningFalseWeight += falseResult.getWeight();
 
                 return result;
             }
