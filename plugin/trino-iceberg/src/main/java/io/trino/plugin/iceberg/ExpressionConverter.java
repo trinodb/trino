@@ -76,7 +76,7 @@ public final class ExpressionConverter
         for (Map.Entry<IcebergColumnHandle, Domain> entry : domainMap.entrySet()) {
             IcebergColumnHandle columnHandle = entry.getKey();
             Domain domain = entry.getValue();
-            expression = and(expression, toIcebergExpression(columnHandle.getName(), columnHandle.getType(), domain));
+            expression = and(expression, toIcebergExpression(columnHandle.getQualifiedName(), columnHandle.getType(), domain));
         }
         return expression;
     }

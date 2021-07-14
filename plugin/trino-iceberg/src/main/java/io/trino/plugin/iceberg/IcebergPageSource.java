@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.plugin.hive.ReaderProjectionsAdapter;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -26,6 +27,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -38,12 +40,14 @@ public class IcebergPageSource
     private final Block[] prefilledBlocks;
     private final int[] delegateIndexes;
     private final ConnectorPageSource delegate;
+    private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
 
     public IcebergPageSource(
             List<IcebergColumnHandle> columns,
             Map<Integer, String> partitionKeys,
             ConnectorPageSource delegate,
-            TimeZoneKey timeZoneKey)
+            TimeZoneKey timeZoneKey,
+            Optional<ReaderProjectionsAdapter> projectionsAdapter)
     {
         int size = requireNonNull(columns, "columns is null").size();
         requireNonNull(partitionKeys, "partitionKeys is null");
@@ -51,6 +55,7 @@ public class IcebergPageSource
 
         this.prefilledBlocks = new Block[size];
         this.delegateIndexes = new int[size];
+        this.projectionsAdapter = requireNonNull(projectionsAdapter, "projectionsAdapter is null");
 
         int outputIndex = 0;
         int delegateIndex = 0;
@@ -93,6 +98,9 @@ public class IcebergPageSource
     {
         try {
             Page dataPage = delegate.getNextPage();
+            if (projectionsAdapter.isPresent()) {
+                dataPage = projectionsAdapter.get().adaptPage(dataPage);
+            }
             if (dataPage == null) {
                 return null;
             }

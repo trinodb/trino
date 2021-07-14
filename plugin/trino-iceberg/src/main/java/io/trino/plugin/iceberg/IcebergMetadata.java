@@ -18,6 +18,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -26,6 +27,7 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.HiveApplyProjectionUtil;
 import io.trino.plugin.hive.HiveSchemaProperties;
 import io.trino.plugin.hive.HiveWrittenPartitions;
 import io.trino.plugin.hive.TableAlreadyExistsException;
@@ -37,6 +39,7 @@ import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -56,11 +59,14 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
+import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -115,6 +121,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
+import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
@@ -131,6 +139,7 @@ import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMa
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.getSchemaLocation;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getFileFormat;
@@ -256,7 +265,8 @@ public class IcebergMetadata
                 name.getTableType(),
                 snapshotId,
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                Optional.empty());
     }
 
     @Override
@@ -643,7 +653,7 @@ public class IcebergMetadata
     @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return primitiveIcebergColumnHandle(0, "$row_id", BIGINT, Optional.empty());
+        return primitiveIcebergColumnHandle(0, "$row_id", BIGINT, Optional.empty(), ImmutableList.of());
     }
 
     @Override
@@ -815,7 +825,8 @@ public class IcebergMetadata
                         table.getTableType(),
                         table.getSnapshotId(),
                         newUnenforcedConstraint,
-                        newEnforcedConstraint),
+                        newEnforcedConstraint,
+                        table.getProjectedColumns()),
                 newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast),
                 false));
     }
@@ -828,6 +839,112 @@ public class IcebergMetadata
                 .filter(field -> table.specs().values().stream().allMatch(spec -> spec.fields().contains(field)))
                 .map(PartitionField::sourceId)
                 .collect(toImmutableSet());
+    }
+
+    @Override
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            List<ConnectorExpression> projections,
+            Map<String, ColumnHandle> assignments)
+    {
+        if (!isProjectionPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
+        // Create projected column representations for supported sub expressions. Simple column references and chain of
+        // dereferences on a variable are supported right now.
+        Set<ConnectorExpression> projectedExpressions = projections.stream()
+                .flatMap(expression -> extractSupportedProjectedColumns(expression).stream())
+                .collect(toImmutableSet());
+
+        Map<ConnectorExpression, HiveApplyProjectionUtil.ProjectedColumnRepresentation> columnProjections = projectedExpressions.stream()
+                .collect(toImmutableMap(Function.identity(), HiveApplyProjectionUtil::createProjectedColumnRepresentation));
+
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) handle;
+
+        // all references are simple variables
+        if (columnProjections.values().stream().allMatch(HiveApplyProjectionUtil.ProjectedColumnRepresentation::isVariable)) {
+            Set<ColumnHandle> projectedColumns = ImmutableSet.copyOf(assignments.values());
+            if (icebergTableHandle.getProjectedColumns().isPresent()
+                    && icebergTableHandle.getProjectedColumns().get().equals(projectedColumns)) {
+                return Optional.empty();
+            }
+            List<Assignment> assignmentsList = assignments.entrySet().stream()
+                    .map(assignment -> new Assignment(
+                            assignment.getKey(),
+                            assignment.getValue(),
+                            ((IcebergColumnHandle) assignment.getValue()).getType()))
+                    .collect(toImmutableList());
+            IcebergTableHandle newTableHandle = new IcebergTableHandle(
+                    icebergTableHandle.getSchemaName(),
+                    icebergTableHandle.getTableName(),
+                    icebergTableHandle.getTableType(),
+                    icebergTableHandle.getSnapshotId(),
+                    icebergTableHandle.getUnenforcedPredicate(),
+                    icebergTableHandle.getEnforcedPredicate(),
+                    Optional.of(projectedColumns));
+
+            return Optional.of(new ProjectionApplicationResult<>(
+                    newTableHandle,
+                    projections,
+                    assignmentsList,
+                    false));
+        }
+
+        ImmutableMap.Builder<String, Assignment> newAssignments = ImmutableMap.builder();
+        ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
+        ImmutableSet.Builder<ColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
+
+        for (Map.Entry<ConnectorExpression, HiveApplyProjectionUtil.ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
+            ConnectorExpression expression = entry.getKey();
+            HiveApplyProjectionUtil.ProjectedColumnRepresentation projectedColumn = entry.getValue();
+
+            // Create a new column handle
+            IcebergColumnHandle baseColumnHandle = (IcebergColumnHandle) assignments.get(projectedColumn.getVariable().getName());
+            IcebergColumnHandle projectedColumnHandle = createProjectedColumnHandle(baseColumnHandle, projectedColumn.getDereferenceIndices(), expression.getType());
+            String projectedColumnName = projectedColumnHandle.getQualifiedName();
+
+            Variable projectedColumnVariable = new Variable(projectedColumnName, expression.getType());
+            Assignment newAssignment = new Assignment(projectedColumnName, projectedColumnHandle, expression.getType());
+            newAssignments.put(projectedColumnName, newAssignment);
+
+            newVariablesBuilder.put(expression, projectedColumnVariable);
+            projectedColumnsBuilder.add(projectedColumnHandle);
+        }
+
+        // Modify projections to refer to new variables
+        Map<ConnectorExpression, Variable> newVariables = newVariablesBuilder.build();
+        List<ConnectorExpression> newProjections = projections.stream()
+                .map(expression -> replaceWithNewVariables(expression, newVariables))
+                .collect(toImmutableList());
+
+        List<Assignment> outputAssignments = newAssignments.build().values().stream().collect(toImmutableList());
+        IcebergTableHandle newTableHandle = new IcebergTableHandle(
+                icebergTableHandle.getSchemaName(),
+                icebergTableHandle.getTableName(),
+                icebergTableHandle.getTableType(),
+                icebergTableHandle.getSnapshotId(),
+                icebergTableHandle.getUnenforcedPredicate(),
+                icebergTableHandle.getEnforcedPredicate(),
+                Optional.of(projectedColumnsBuilder.build()));
+        return Optional.of(new ProjectionApplicationResult<>(
+                newTableHandle,
+                newProjections,
+                outputAssignments,
+                false));
+    }
+
+    private IcebergColumnHandle createProjectedColumnHandle(IcebergColumnHandle column, List<Integer> indices, io.trino.spi.type.Type projectedColumnType)
+    {
+        ColumnIdentity projectedColumnIdentity = column.getColumnIdentity();
+        ImmutableList.Builder<String> path = ImmutableList.builder();
+        path.addAll(column.getPath());
+        for (int index : indices) {
+            path.add(projectedColumnIdentity.getName());
+            projectedColumnIdentity = projectedColumnIdentity.getChildren().get(index);
+        }
+        return new IcebergColumnHandle(projectedColumnIdentity, projectedColumnType, column.getBaseColumnIdentity(), column.getBaseType(), Optional.empty(), path.build());
     }
 
     @Override

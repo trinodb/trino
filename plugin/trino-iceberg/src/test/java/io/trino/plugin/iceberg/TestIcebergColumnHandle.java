@@ -39,22 +39,30 @@ public class TestIcebergColumnHandle
     @Test
     public void testRoundTrip()
     {
-        testRoundTrip(primitiveIcebergColumnHandle(12, "blah", BIGINT, Optional.of("this is a comment")));
+        testRoundTrip(primitiveIcebergColumnHandle(12, "blah", BIGINT, Optional.of("this is a comment"), ImmutableList.of()));
 
         // Nested column
         ColumnIdentity foo1 = new ColumnIdentity(1, "foo1", PRIMITIVE, ImmutableList.of());
         ColumnIdentity foo2 = new ColumnIdentity(2, "foo2", PRIMITIVE, ImmutableList.of());
         ColumnIdentity foo3 = new ColumnIdentity(3, "foo3", ARRAY, ImmutableList.of(foo1));
+        Type nestedColumnType = RowType.from(ImmutableList.of(
+                RowType.field("foo2", BIGINT),
+                RowType.field("foo3", new ArrayType(BIGINT))));
         IcebergColumnHandle nestedColumn = new IcebergColumnHandle(
                 new ColumnIdentity(
                         5,
                         "foo5",
                         STRUCT,
                         ImmutableList.of(foo2, foo3)),
-                RowType.from(ImmutableList.of(
-                        RowType.field("foo2", BIGINT),
-                        RowType.field("foo3", new ArrayType(BIGINT)))),
-                Optional.empty());
+                nestedColumnType,
+                new ColumnIdentity(
+                        5,
+                        "foo5",
+                        STRUCT,
+                        ImmutableList.of(foo2, foo3)),
+                nestedColumnType,
+                Optional.empty(),
+                ImmutableList.of());
         testRoundTrip(nestedColumn);
     }
 

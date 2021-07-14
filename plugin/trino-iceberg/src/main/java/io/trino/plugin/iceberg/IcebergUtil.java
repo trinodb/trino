@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
@@ -142,7 +143,7 @@ final class IcebergUtil
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
     {
         return schema.columns().stream()
-                .map(column -> IcebergColumnHandle.create(column, typeManager))
+                .map(column -> IcebergColumnHandle.create(column, typeManager, ImmutableList.of()))
                 .collect(toImmutableList());
     }
 

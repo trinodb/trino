@@ -30,6 +30,7 @@ public class IcebergConfig
     private HiveCompressionCodec compressionCodec = GZIP;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
+    private boolean projectionPushdownEnabled = true;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -89,6 +90,19 @@ public class IcebergConfig
     public IcebergConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
+        return this;
+    }
+
+    public boolean isProjectionPushdownEnabled()
+    {
+        return projectionPushdownEnabled;
+    }
+
+    @Config("iceberg.projection-pushdown-enabled")
+    @ConfigDescription("Projection pushdown into Iceberg is enabled")
+    public IcebergConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
+    {
+        this.projectionPushdownEnabled = projectionPushdownEnabled;
         return this;
     }
 }

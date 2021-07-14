@@ -15,11 +15,14 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -34,6 +37,7 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.transaction.TransactionBuilder;
@@ -56,6 +60,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
@@ -67,8 +72,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.predicate.Domain.multipleValues;
@@ -1831,5 +1838,138 @@ public abstract class AbstractTestIcebergConnectorTest
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
         return Optional.of(dataMappingTestSetup);
+    }
+
+    @Test
+    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
+    public void testSchemaEvolutionWithDereferenceProjections()
+    {
+        // Fields are identified uniquely based on unique id's. If a column is dropped and recreated with the same name it should not return dropped data.
+        try {
+            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar))");
+            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'))", 1);
+            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b varchar, c bigint)");
+            assertQuery("SELECT a.b FROM evolve_test", "VALUES NULL");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+        }
+
+        // Very changing subfield ordering does not revive dropped data
+        try {
+            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (partitioning=array['d'])");
+            assertUpdate("INSERT INTO evolve_test values (1, row(2, 'abc'), 3)", 1);
+            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
+            assertUpdate("INSERT INTO evolve_test values (4, 5, row('def', 6))", 1);
+            assertQuery("SELECT a.b FROM evolve_test where d = 3", "VALUES NULL");
+            assertQuery("SELECT a.b FROM evolve_test where d = 5", "VALUES 6");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+        }
+    }
+
+    @Test
+    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
+    public void testHighlyNestedData()
+    {
+        try {
+            assertUpdate("CREATE TABLE nested_data (id int, row_t ROW(f1 int, f2 int, row_t ROW (f1 int, f2 int, row_t ROW(f1 int, f2 int))))");
+            assertUpdate("INSERT INTO nested_data VALUES (1, ROW(2, 3, ROW(4, 5, ROW(6, 7)))), (11, ROW(12, 13, ROW(14, 15, ROW(16, 17))))", 2);
+            assertUpdate("INSERT INTO nested_data VALUES (21, ROW(22, 23, ROW(24, 25, ROW(26, 27))))", 1);
+
+            // Test select projected columns, with and without their parent column
+            assertQuery("SELECT id, row_t.row_t.row_t.f2 FROM nested_data", "VALUES (1, 7), (11, 17), (21, 27)");
+            assertQuery("SELECT id, row_t.row_t.row_t.f2, CAST(row_t AS JSON) FROM nested_data",
+                    "VALUES (1, 7, '{\"f1\":2,\"f2\":3,\"row_t\":{\"f1\":4,\"f2\":5,\"row_t\":{\"f1\":6,\"f2\":7}}}'), " +
+                            "(11, 17, '{\"f1\":12,\"f2\":13,\"row_t\":{\"f1\":14,\"f2\":15,\"row_t\":{\"f1\":16,\"f2\":17}}}'), " +
+                            "(21, 27, '{\"f1\":22,\"f2\":23,\"row_t\":{\"f1\":24,\"f2\":25,\"row_t\":{\"f1\":26,\"f2\":27}}}')");
+
+            // Test predicates on immediate child column and deeper nested column
+            assertQuery("SELECT id, CAST(row_t.row_t.row_t AS JSON) FROM nested_data WHERE row_t.row_t.row_t.f2 = 27", "VALUES (21, '{\"f1\":26,\"f2\":27}')");
+            assertQuery("SELECT id, CAST(row_t.row_t.row_t AS JSON) FROM nested_data WHERE row_t.row_t.row_t.f2 > 20", "VALUES (21, '{\"f1\":26,\"f2\":27}')");
+            assertQuery("SELECT id, CAST(row_t AS JSON) FROM nested_data WHERE row_t.row_t.row_t.f2 = 27",
+                    "VALUES (21, '{\"f1\":22,\"f2\":23,\"row_t\":{\"f1\":24,\"f2\":25,\"row_t\":{\"f1\":26,\"f2\":27}}}')");
+            assertQuery("SELECT id, CAST(row_t AS JSON) FROM nested_data WHERE row_t.row_t.row_t.f2 > 20",
+                    "VALUES (21, '{\"f1\":22,\"f2\":23,\"row_t\":{\"f1\":24,\"f2\":25,\"row_t\":{\"f1\":26,\"f2\":27}}}')");
+
+            // Test predicates on parent columns
+            assertQuery("SELECT id, row_t.row_t.row_t.f1 FROM nested_data WHERE row_t.row_t.row_t = ROW(16, 17)", "VALUES (11, 16)");
+            assertQuery("SELECT id, row_t.row_t.row_t.f1 FROM nested_data WHERE row_t = ROW(22, 23, ROW(24, 25, ROW(26, 27)))", "VALUES (21, 26)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS nested_data");
+        }
+    }
+
+    @Test
+    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
+    public void testProjectionPushdownAfterRename()
+    {
+        String tableName = "projection_pushdown_after_rename";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(id int, a ROW(b INT, c ROW (d int)))");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(2, ROW(3))), (11, ROW(12, ROW(13)))", 2);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (21, ROW(22, ROW(23)))", 1);
+
+            @Language("SQL") String expected = "VALUES (11, JSON '{\"b\":12,\"c\":{\"d\":13}}', 13)";
+            assertQuery("SELECT id, CAST(a AS JSON), a.c.d FROM " + tableName + " WHERE a.b = 12", expected);
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN a TO row_t");
+            assertQuery("SELECT id, CAST(row_t AS JSON), row_t.c.d FROM " + tableName + " WHERE row_t.b = 12", expected);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
+    public void testProjectionPushdownReadsLessData()
+    {
+        String tableName = "projection_pushdown_reads_less_data";
+        String largeVarchar = "ZZZ".repeat(1000);
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(id int, a ROW(b VARCHAR, c int))");
+            assertUpdate(
+                    format("INSERT INTO %s VALUES (1, ROW('%s', 3)), (11, ROW('%2$s', 13)), (21, ROW('%2$s', 23)), (31, ROW('%2$s', 33))", tableName, largeVarchar),
+                    4);
+
+            @Language("SQL") String selectQuery = "SELECT a.c FROM " + tableName;
+            Set<Integer> expected = ImmutableSet.of(3, 13, 23, 33);
+
+            ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(getSession(), selectQuery);
+            assertEquals(result.getResult().getOnlyColumnAsSet(), expected);
+            DataSize sizeWithPushdown = getOperatorStats(result.getQueryId()).getInputDataSize();
+
+            Session sessionWithoutPushdown = Session.builder(getSession())
+                    .setCatalogSessionProperty(ICEBERG_CATALOG, "projection_pushdown_enabled", "false")
+                    .build();
+            result = getDistributedQueryRunner().executeWithQueryId(sessionWithoutPushdown, selectQuery);
+            assertEquals(result.getResult().getOnlyColumnAsSet(), expected);
+            DataSize sizeWithOutPushdown = getOperatorStats(result.getQueryId()).getInputDataSize();
+
+            assertThat(sizeWithOutPushdown).isGreaterThan(sizeWithPushdown);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    private OperatorStats getOperatorStats(QueryId queryId)
+    {
+        return getDistributedQueryRunner().getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(queryId)
+                .getQueryStats()
+                .getOperatorSummaries()
+                .stream()
+                .filter(summary -> summary.getOperatorType().contains("Scan"))
+                .collect(onlyElement());
     }
 }
