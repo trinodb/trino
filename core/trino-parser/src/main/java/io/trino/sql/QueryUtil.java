@@ -162,7 +162,7 @@ public final class QueryUtil
                 relation,
                 identifier(alias),
                 columnAliases.stream()
-                        .map(QueryUtil::identifier)
+                        .map(QueryUtil::quotedIdentifier)
                         .collect(Collectors.toList()));
     }
 

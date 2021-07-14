@@ -48,10 +48,12 @@ import java.util.Optional;
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.QueryUtil.aliased;
-import static io.trino.sql.QueryUtil.identifier;
+import static io.trino.sql.QueryUtil.query;
+import static io.trino.sql.QueryUtil.quotedIdentifier;
 import static io.trino.sql.QueryUtil.row;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
+import static io.trino.sql.QueryUtil.subquery;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
@@ -132,15 +134,15 @@ final class DescribeOutputRewrite
             }
             return simpleQuery(
                     selectList(
-                            identifier("Column Name"),
-                            identifier("Catalog"),
-                            identifier("Schema"),
-                            identifier("Table"),
-                            identifier("Type"),
-                            identifier("Type Size"),
-                            identifier("Aliased")),
+                            quotedIdentifier("Column Name"),
+                            quotedIdentifier("Catalog"),
+                            quotedIdentifier("Schema"),
+                            quotedIdentifier("Table"),
+                            quotedIdentifier("Type"),
+                            quotedIdentifier("Type Size"),
+                            quotedIdentifier("Aliased")),
                     aliased(
-                            values(rows),
+                            subquery(query(values(rows))),
                             "Statement Output",
                             ImmutableList.of("Column Name", "Catalog", "Schema", "Table", "Type", "Type Size", "Aliased")),
                     Optional.empty(),
