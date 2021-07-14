@@ -54,7 +54,7 @@ public class TestDynamicCallbackOAuth2Service
             throws Exception
     {
         hydraIdP.start();
-        hydraUrl = "https://localhost:" + hydraIdP.getAuthPort();
+        hydraUrl = "https://" + hydraIdP.getIpAddress() + ":" + hydraIdP.getAuthPort();
         hydraIdP.createClient(
                 CLIENT_ID,
                 CLIENT_SECRET,
