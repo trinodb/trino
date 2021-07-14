@@ -30,7 +30,7 @@ package io.trino.plugin.iceberg;
 public enum CatalogType
 {
     HIVE,
-    HADOOP
+    HADOOP,
 
     /**/;
 }

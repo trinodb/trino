@@ -109,6 +109,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERT
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.fromTableId;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
+import static io.trino.plugin.iceberg.IcebergUtil.getNewCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromTableId;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
@@ -355,7 +356,7 @@ class TrinoHiveCatalog
                 .collect(toImmutableList());
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, storageTableProperties, Optional.empty());
-        Transaction transaction = newCreateTableTransaction(tableMetadata, session);
+        Transaction transaction = getNewCreateTableTransaction(this, tableMetadata, session);
         transaction.newAppend().commit();
         transaction.commitTransaction();
 

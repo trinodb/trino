@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -49,6 +50,10 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogUtil.loadCatalog;
 
+/**
+ * Implementation of {@link TrinoCatalog} that allows plugin an Iceberg {@link Catalog}.
+ * Because Iceberg catalog is single tenant, each session might be able to reuse the same catalog instance based on the authZ info of a session.
+ */
 public class TrinoIcebergCatalog
         implements TrinoCatalog
 {
@@ -61,10 +66,10 @@ public class TrinoIcebergCatalog
     private final HdfsEnvironment hdfsEnvironment;
     private final Cache<String, Catalog> catalogCache;
 
-    public TrinoIcebergCatalog(String catalogImpl, String catalogName, IcebergConfig config, HdfsEnvironment hdfsEnvironment)
+    public TrinoIcebergCatalog(String catalogImpl, CatalogName catalogName, IcebergConfig config, HdfsEnvironment hdfsEnvironment)
     {
         this.catalogImpl = requireNonNull(catalogImpl, "catalogImpl is null");
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null").toString();
         requireNonNull(config, "config is null");
         this.catalogProperties = convertToCatalogProperties(config);
         this.warehouse = requireNonNull(config.getCatalogWarehouse(), "warehouse is null");
@@ -73,9 +78,11 @@ public class TrinoIcebergCatalog
     }
 
     /**
-     * generate a unique string that represents the session.
+     * generate a unique string that represents the session information.
      * The string is used as the cache key, if the session key is the same, it means the same catalog can be reused.
-     *
+     * The default behavior is to use {@link ConnectorSession#getQueryId()} as the cache key,
+     * which means catalog is not shared across queries.
+     * Implementations can override this method to use for example the authZ user information of the session instead.
      * @param session session
      * @return session cache key
      */
@@ -87,7 +94,8 @@ public class TrinoIcebergCatalog
     /**
      * Convert a session to a properties map that is used to initialize a new catalog
      * together with other catalog properties configured at connector level
-     *
+     * The default behavior is to return an empty map.
+     * Implementations can override this method to add information such as session user.
      * @param session session
      * @return catalog properties derived from session
      */

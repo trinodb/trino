@@ -23,6 +23,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -42,8 +43,10 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
@@ -66,6 +69,9 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
+import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -142,25 +148,6 @@ final class IcebergUtil
                 Optional.empty(),
                 Optional.empty());
         return new BaseTable(operations, quotedTableName(table));
-    }
-
-    public static Schema toIcebergSchema(List<ColumnMetadata> columns)
-    {
-        List<Types.NestedField> icebergColumns = new ArrayList<>();
-        for (ColumnMetadata column : columns) {
-            if (!column.isHidden()) {
-                int index = icebergColumns.size();
-                org.apache.iceberg.types.Type type = toIcebergType(column.getType());
-                Types.NestedField field = column.isNullable()
-                        ? Types.NestedField.optional(index, column.getName(), type, column.getComment())
-                        : Types.NestedField.required(index, column.getName(), type, column.getComment());
-                icebergColumns.add(field);
-            }
-        }
-        org.apache.iceberg.types.Type icebergSchema = Types.StructType.of(icebergColumns);
-        AtomicInteger nextFieldId = new AtomicInteger(1);
-        icebergSchema = TypeUtil.assignFreshIds(icebergSchema, nextFieldId::getAndIncrement);
-        return new Schema(icebergSchema.asStructType().fields());
     }
 
     public static Table getIcebergTableWithMetadata(
@@ -350,5 +337,52 @@ final class IcebergUtil
         });
 
         return Collections.unmodifiableMap(partitionKeys);
+    }
+
+    public static Schema toIcebergSchema(List<ColumnMetadata> columns)
+    {
+        List<Types.NestedField> icebergColumns = new ArrayList<>();
+        for (ColumnMetadata column : columns) {
+            if (!column.isHidden()) {
+                int index = icebergColumns.size();
+                org.apache.iceberg.types.Type type = toIcebergType(column.getType());
+                Types.NestedField field = column.isNullable()
+                        ? Types.NestedField.optional(index, column.getName(), type, column.getComment())
+                        : Types.NestedField.required(index, column.getName(), type, column.getComment());
+                icebergColumns.add(field);
+            }
+        }
+        org.apache.iceberg.types.Type icebergSchema = Types.StructType.of(icebergColumns);
+        AtomicInteger nextFieldId = new AtomicInteger(1);
+        icebergSchema = TypeUtil.assignFreshIds(icebergSchema, nextFieldId::getAndIncrement);
+        return new Schema(icebergSchema.asStructType().fields());
+    }
+
+    public static Transaction getNewCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session)
+    {
+        SchemaTableName schemaTableName = tableMetadata.getTable();
+        TableIdentifier tableId = toTableId(schemaTableName);
+
+        if (catalog.tableExists(tableId, session)) {
+            throw new AlreadyExistsException("Table already exists: %s", tableId);
+        }
+
+        Schema schema = toIcebergSchema(tableMetadata.getColumns());
+
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+
+        String targetPath = getTableLocation(tableMetadata.getProperties());
+        if (targetPath == null) {
+            targetPath = catalog.defaultTableLocation(tableId, session);
+        }
+
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
+        FileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
+        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
+        if (tableMetadata.getComment().isPresent()) {
+            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
+        }
+
+        return catalog.newCreateTableTransaction(tableId, schema, partitionSpec, targetPath, propertiesBuilder.build(), session);
     }
 }

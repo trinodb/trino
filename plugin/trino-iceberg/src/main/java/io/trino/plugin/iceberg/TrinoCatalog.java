@@ -13,34 +13,21 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.NamespaceNotEmptyException;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
-import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
-import static io.trino.plugin.iceberg.IcebergUtil.toIcebergSchema;
-import static io.trino.plugin.iceberg.IcebergUtil.toTableId;
-import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
-import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 
 public interface TrinoCatalog
 {
@@ -64,34 +51,6 @@ public interface TrinoCatalog
 
     Transaction newCreateTableTransaction(TableIdentifier tableIdentifier, Schema schema, PartitionSpec partitionSpec, String location,
             Map<String, String> properties, ConnectorSession session);
-
-    default Transaction newCreateTableTransaction(ConnectorTableMetadata tableMetadata, ConnectorSession session)
-    {
-        SchemaTableName schemaTableName = tableMetadata.getTable();
-        TableIdentifier tableId = toTableId(schemaTableName);
-
-        if (tableExists(tableId, session)) {
-            throw new AlreadyExistsException("Table already exists: %s", tableId);
-        }
-
-        Schema schema = toIcebergSchema(tableMetadata.getColumns());
-
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
-
-        String targetPath = getTableLocation(tableMetadata.getProperties());
-        if (targetPath == null) {
-            targetPath = defaultTableLocation(tableId, session);
-        }
-
-        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
-        FileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
-        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
-        if (tableMetadata.getComment().isPresent()) {
-            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
-        }
-
-        return newCreateTableTransaction(tableId, schema, partitionSpec, targetPath, propertiesBuilder.build(), session);
-    }
 
     boolean tableExists(TableIdentifier identifier, ConnectorSession session);
 

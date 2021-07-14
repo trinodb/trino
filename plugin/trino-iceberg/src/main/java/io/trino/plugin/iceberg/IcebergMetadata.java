@@ -99,6 +99,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getDataPath;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
+import static io.trino.plugin.iceberg.IcebergUtil.getNewCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.toNamespace;
@@ -419,7 +420,7 @@ public class IcebergMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        transaction = catalog.newCreateTableTransaction(tableMetadata, session);
+        transaction = getNewCreateTableTransaction(catalog, tableMetadata, session);
         return new IcebergWritableTableHandle(
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),

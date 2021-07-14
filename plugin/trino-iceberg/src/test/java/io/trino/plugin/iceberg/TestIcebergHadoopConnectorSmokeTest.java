@@ -84,7 +84,7 @@ public class TestIcebergHadoopConnectorSmokeTest
     public void testMaterializedView()
     {
         assertThatThrownBy(super::testMaterializedView)
-                .hasStackTraceContaining("createMaterializedView is not supported by trino-hadoop");
+                .hasStackTraceContaining("createMaterializedView is not supported by iceberg");
     }
 
     @Test
