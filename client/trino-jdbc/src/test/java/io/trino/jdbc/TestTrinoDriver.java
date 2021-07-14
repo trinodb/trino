@@ -13,7 +13,9 @@
  */
 package io.trino.jdbc;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
+import io.trino.client.ClientSelectedRole;
 import io.trino.execution.QueryState;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -741,13 +743,18 @@ public class TestTrinoDriver
     {
         try (TrinoConnection connection = createConnection(TEST_CATALOG, "tiny").unwrap(TrinoConnection.class)) {
             try (Statement statement = connection.createStatement()) {
-                // Global roles are not supported yet
-                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE ALL"))
-                        .hasMessageMatching(".* System roles are not supported yet");
-                assertThatThrownBy(() -> statement.executeUpdate("SET ROLE NONE"))
-                        .hasMessageMatching(".* System roles are not supported yet");
+                statement.executeUpdate("SET ROLE ALL");
+            }
+            assertEquals(connection.getRoles(), ImmutableMap.of("system", new ClientSelectedRole(ClientSelectedRole.Type.ALL, Optional.empty())));
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("SET ROLE NONE");
+            }
+            assertEquals(connection.getRoles(), ImmutableMap.of("system", new ClientSelectedRole(ClientSelectedRole.Type.NONE, Optional.empty())));
+
+            try (Statement statement = connection.createStatement()) {
+                // There is no way to create system roles right now
                 assertThatThrownBy(() -> statement.executeUpdate("SET ROLE bar"))
-                        .hasMessageMatching(".* System roles are not supported yet");
+                        .hasMessageMatching(".* Role 'bar' does not exist");
 
                 // Only hive connector supports roles
                 assertThatThrownBy(() -> statement.executeUpdate("SET ROLE ALL IN " + TEST_CATALOG))

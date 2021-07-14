@@ -58,6 +58,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
@@ -612,6 +613,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Set<RoleGrant> listApplicableRoles(Session session, TrinoPrincipal principal, Optional<String> catalog)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<String> listEnabledRoles(Identity identity)
     {
         throw new UnsupportedOperationException();
     }

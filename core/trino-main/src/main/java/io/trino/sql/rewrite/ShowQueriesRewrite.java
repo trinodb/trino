@@ -291,13 +291,12 @@ final class ShowQueriesRewrite
         protected Node visitShowRoles(ShowRoles node, Void context)
         {
             Optional<String> catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH));
-            if (catalog.isEmpty()) {
-                throw new TrinoException(NOT_SUPPORTED, "System roles are not supported yet");
-            }
 
             if (node.isCurrent()) {
                 accessControl.checkCanShowCurrentRoles(session.toSecurityContext(), catalog);
-                List<Expression> rows = metadata.listEnabledRoles(session, catalog.orElseThrow()).stream()
+                Set<String> enabledRoles = catalog.map(c -> metadata.listEnabledRoles(session, c))
+                        .orElseGet(() -> session.getIdentity().getEnabledRoles());
+                List<Expression> rows = enabledRoles.stream()
                         .map(role -> row(new StringLiteral(role)))
                         .collect(toList());
                 return simpleQuery(
