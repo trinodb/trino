@@ -288,6 +288,8 @@ public class HiveMetadata
     public static final String TABLE_COMMENT = "comment";
     public static final String STORAGE_TABLE = "storage_table";
     private static final String TRANSACTIONAL = "transactional";
+    public static final String PRESTO_VIEW_COMMENT = "Presto View";
+    public static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = "/* Presto View */";
 
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
@@ -1848,7 +1850,7 @@ public class HiveMetadata
     {
         HiveIdentity identity = new HiveIdentity(session);
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put(TABLE_COMMENT, "Presto View")
+                .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(PRESTO_VERSION_NAME, prestoVersion)
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
@@ -1865,7 +1867,7 @@ public class HiveMetadata
                 .setPartitionColumns(ImmutableList.of())
                 .setParameters(properties)
                 .setViewOriginalText(Optional.of(encodeViewData(definition)))
-                .setViewExpandedText(Optional.of("/* Presto View */"));
+                .setViewExpandedText(Optional.of(PRESTO_VIEW_EXPANDED_TEXT_MARKER));
 
         tableBuilder.getStorageBuilder()
                 .setStorageFormat(VIEW_STORAGE_FORMAT)
