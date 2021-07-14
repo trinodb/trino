@@ -32,6 +32,7 @@ public class Identity
     private final String user;
     private final Set<String> groups;
     private final Optional<Principal> principal;
+    private final Set<String> enabledRoles;
     private final Map<String, SelectedRole> connectorRoles;
     private final Map<String, String> extraCredentials;
     private final Optional<Runnable> onDestroy;
@@ -40,6 +41,7 @@ public class Identity
             String user,
             Set<String> groups,
             Optional<Principal> principal,
+            Set<String> enabledRoles,
             Map<String, SelectedRole> connectorRoles,
             Map<String, String> extraCredentials,
             Optional<Runnable> onDestroy)
@@ -47,6 +49,7 @@ public class Identity
         this.user = requireNonNull(user, "user is null");
         this.groups = Set.copyOf(requireNonNull(groups, "groups is null"));
         this.principal = requireNonNull(principal, "principal is null");
+        this.enabledRoles = Set.copyOf(requireNonNull(enabledRoles, "enabledRoles is null"));
         this.connectorRoles = Map.copyOf(requireNonNull(connectorRoles, "connectorRoles is null"));
         this.extraCredentials = Map.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.onDestroy = requireNonNull(onDestroy, "onDestroy is null");
@@ -65,6 +68,11 @@ public class Identity
     public Optional<Principal> getPrincipal()
     {
         return principal;
+    }
+
+    public Set<String> getEnabledRoles()
+    {
+        return enabledRoles;
     }
 
     /**
@@ -91,6 +99,7 @@ public class Identity
         return ConnectorIdentity.forUser(user)
                 .withGroups(groups)
                 .withPrincipal(principal)
+                .withEnabledSystemRoles(enabledRoles)
                 .withExtraCredentials(extraCredentials)
                 .build();
     }
@@ -100,6 +109,7 @@ public class Identity
         return ConnectorIdentity.forUser(user)
                 .withGroups(groups)
                 .withPrincipal(principal)
+                .withEnabledSystemRoles(enabledRoles)
                 .withConnectorRole(Optional.ofNullable(connectorRoles.get(catalog)))
                 .withExtraCredentials(extraCredentials)
                 .build();
@@ -164,6 +174,7 @@ public class Identity
         return new Builder(identity.getUser())
                 .withGroups(identity.getGroups())
                 .withPrincipal(identity.getPrincipal())
+                .withEnabledRoles(identity.enabledRoles)
                 .withConnectorRoles(identity.getConnectorRoles())
                 .withExtraCredentials(identity.getExtraCredentials());
     }
@@ -173,6 +184,7 @@ public class Identity
         private String user;
         private Set<String> groups = new HashSet<>();
         private Optional<Principal> principal = Optional.empty();
+        private Set<String> enabledRoles = new HashSet<>();
         private Map<String, SelectedRole> connectorRoles = new HashMap<>();
         private Map<String, String> extraCredentials = new HashMap<>();
         private Optional<Runnable> onDestroy = Optional.empty();
@@ -196,6 +208,13 @@ public class Identity
         public Builder withPrincipal(Optional<Principal> principal)
         {
             this.principal = requireNonNull(principal, "principal is null");
+            return this;
+        }
+
+        public Builder withEnabledRoles(Set<String> enabledRoles)
+        {
+            enabledRoles = new HashSet<>(requireNonNull(enabledRoles, "enabledRoles is null"));
+            this.enabledRoles = new HashSet<>(requireNonNull(enabledRoles, "enabledRoles is null"));
             return this;
         }
 
@@ -283,7 +302,7 @@ public class Identity
 
         public Identity build()
         {
-            return new Identity(user, groups, principal, connectorRoles, extraCredentials, onDestroy);
+            return new Identity(user, groups, principal, enabledRoles, connectorRoles, extraCredentials, onDestroy);
         }
     }
 

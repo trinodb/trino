@@ -82,6 +82,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.trino.client.OkHttpUtil.setupSsl;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
@@ -389,7 +390,7 @@ public class TestWebUi
         @Inject
         public TestResource(AccessControl accessControl)
         {
-            this.sessionContextFactory = new HttpRequestSessionContextFactory(ImmutableSet::of, accessControl);
+            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, accessControl);
         }
 
         @ResourceSecurity(WEB_UI)

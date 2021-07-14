@@ -148,6 +148,9 @@ public class TestSetRoleTask
         assertSetRole("SET ROLE ALL IN " + CATALOG_NAME, ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.ALL, Optional.empty())));
         assertSetRole("SET ROLE NONE IN " + CATALOG_NAME, ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.NONE, Optional.empty())));
         assertSetRole("SET ROLE " + ROLE_NAME + " IN " + CATALOG_NAME, ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.ROLE, Optional.of(ROLE_NAME))));
+
+        assertSetRole("SET ROLE ALL", ImmutableMap.of("system", new SelectedRole(SelectedRole.Type.ALL, Optional.empty())));
+        assertSetRole("SET ROLE NONE", ImmutableMap.of("system", new SelectedRole(SelectedRole.Type.NONE, Optional.empty())));
     }
 
     @Test

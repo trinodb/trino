@@ -19,8 +19,9 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
-import io.trino.spi.TrinoException;
+import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
@@ -31,11 +32,13 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
+import static io.trino.spi.security.AccessDeniedException.denySetRole;
+import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
 
@@ -68,18 +71,23 @@ public class SetRoleTask
     {
         Session session = stateMachine.getSession();
         Optional<String> catalog = processRoleCommandCatalog(metadata, session, statement, statement.getCatalog().map(Identifier::getValue), legacyCatalogRoles);
-        if (catalog.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "System roles are not supported yet");
-        }
         if (statement.getType() == SetRole.Type.ROLE) {
             String role = statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseThrow();
             if (!metadata.roleExists(session, role, catalog)) {
                 throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", role);
             }
-            accessControl.checkCanSetCatalogRole(SecurityContext.of(session), role, catalog.get());
+            if (catalog.isPresent()) {
+                accessControl.checkCanSetCatalogRole(SecurityContext.of(session), role, catalog.get());
+            }
+            else {
+                Set<RoleGrant> roleGrants = metadata.listApplicableRoles(session, new TrinoPrincipal(USER, session.getUser()), Optional.empty());
+                if (roleGrants.stream().map(RoleGrant::getRoleName).noneMatch(role::equals)) {
+                    denySetRole(role);
+                }
+            }
         }
         SelectedRole.Type type = toSelectedRoleType(statement.getType());
-        stateMachine.addSetRole(catalog.get(), new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
+        stateMachine.addSetRole(catalog.orElse("system"), new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
         return immediateVoidFuture();
     }
 
