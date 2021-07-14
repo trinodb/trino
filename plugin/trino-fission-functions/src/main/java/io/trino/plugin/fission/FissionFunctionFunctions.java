@@ -26,6 +26,8 @@ import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.IOException;
 
@@ -41,22 +43,34 @@ public class FissionFunctionFunctions
 
     @ScalarFunction("fission_dnsdb")
     @Description("Converts the string to alternating case")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice dnsdb(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    @SqlType(StandardTypes.BIGINT)
+    public static long dnsdb(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         CloseableHttpClient httpClient;
         HttpClientBuilder builder = HttpClientBuilder.create().setDefaultCookieStore(cookieStore);
         httpClient = builder.build();
         String result = "";
+        int count = 0;
         try {
             HttpGet getRequest = new HttpGet(String.format("%s/dnsdb?lookup=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), slice.toStringUtf8()));
             HttpResponse response = httpClient.execute(getRequest);
             result = EntityUtils.toString(response.getEntity());
+            JSONObject myObject = new JSONObject(result);
+
+            if (myObject.has("Message")) {
+                count = 0;
+            }
+            else if (myObject.has("total_count")) {
+                count = Integer.parseInt(myObject.getString("total_count"));
+            }
         }
         catch (IOException e) {
-            result = e.getMessage();
+            count = 0;
         }
-        return Slices.utf8Slice(result);
+        catch (JSONException e) {
+            count = 0;
+        }
+        return count;
     }
 
     @ScalarFunction("fission_listdatalake")
@@ -76,7 +90,7 @@ public class FissionFunctionFunctions
         // catch (IOException e) {
         //     result = e.getMessage();
         // }
-        System.out.println(session.getIdentity().toString());
-        return Slices.utf8Slice(session.getIdentity().toString());
+        System.out.println(session.getIdentity().getExtraCredentials().toString());
+        return Slices.utf8Slice(session.getIdentity().getExtraCredentials().toString());
     }
 }
