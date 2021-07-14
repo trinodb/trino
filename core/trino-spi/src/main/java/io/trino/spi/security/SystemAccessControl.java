@@ -30,6 +30,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyCreateView;
@@ -37,6 +38,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSele
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
@@ -44,6 +46,7 @@ import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
@@ -53,6 +56,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterialize
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
+import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
@@ -65,6 +69,9 @@ import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorizati
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.trino.spi.security.AccessDeniedException.denyShowCurrentRoles;
+import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
+import static io.trino.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
@@ -587,13 +594,83 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to show roles on the specified catalog.
+     * Check if identity is allowed to show roles.
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanShowRoles(SystemSecurityContext context, String catalogName)
+    default void checkCanShowRoles(SystemSecurityContext context)
     {
         denyShowRoles();
+    }
+
+    /**
+     * Check if identity is allowed to create the specified role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateRole(SystemSecurityContext context, String role, Optional<TrinoPrincipal> grantor)
+    {
+        denyCreateRole(role);
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDropRole(SystemSecurityContext context, String role)
+    {
+        denyDropRole(role);
+    }
+
+    /**
+     * Check if identity is allowed to grant the specified roles to the specified principals.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanGrantRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
+    {
+        denyGrantRoles(roles, grantees);
+    }
+
+    /**
+     * Check if identity is allowed to revoke the specified roles from the specified principals.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanRevokeRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
+    {
+        denyRevokeRoles(roles, grantees);
+    }
+
+    /**
+     * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanShowRoleAuthorizationDescriptors(SystemSecurityContext context)
+    {
+        denyShowRoleAuthorizationDescriptors();
+    }
+
+    /**
+     * Check if identity is allowed to show current roles.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanShowCurrentRoles(SystemSecurityContext context)
+    {
+        denyShowCurrentRoles();
+    }
+
+    /**
+     * Check if identity is allowed to show its own role grants.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanShowRoleGrants(SystemSecurityContext context)
+    {
+        denyShowRoleGrants();
     }
 
     /**
