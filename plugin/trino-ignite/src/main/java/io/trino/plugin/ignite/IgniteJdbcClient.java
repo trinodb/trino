@@ -144,7 +144,6 @@ import static java.util.stream.Collectors.joining;
 public class IgniteJdbcClient
         extends BaseJdbcClient
 {
-    private static final String IGNITE_CATALOG = "IGNITE";
     private static final String IGNITE_SCHEMA = "PUBLIC";
     private static final Splitter SPLITTER = Splitter.on(",").omitEmptyStrings().trimResults();
 
@@ -187,9 +186,10 @@ public class IgniteJdbcClient
     {
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getTables(
-                IGNITE_CATALOG,
+                null, // no catalogs in Ignite
+                // TODO: https://github.com/trinodb/trino/issues/8552 support user custom schemas.
                 IGNITE_SCHEMA,
-                tableName.orElse(null),
+                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
                 new String[] {"TABLE", "VIEW"});
     }
 
