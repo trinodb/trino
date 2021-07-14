@@ -104,7 +104,9 @@ public class TestHiveConfig
                 .setDynamicFilteringProbeBlockingTimeout(new Duration(0, TimeUnit.MINUTES))
                 .setTimestampPrecision(HiveTimestampPrecision.DEFAULT_PRECISION)
                 .setOptimizeSymlinkListing(true)
-                .setLegacyHiveViewTranslation(false));
+                .setLegacyHiveViewTranslation(false)
+                .setPreferMetadataToListHudiFiles(false)
+                .setHudiMetadataVerificationEnabled(false));
     }
 
     @Test
@@ -180,6 +182,8 @@ public class TestHiveConfig
                 .put("hive.timestamp-precision", "NANOSECONDS")
                 .put("hive.optimize-symlink-listing", "false")
                 .put("hive.legacy-hive-view-translation", "true")
+                .put("hive.prefer-metadata-to-list-hudi-files", "true")
+                .put("hive.hudi-metadata-verification-enabled", "true")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -251,7 +255,9 @@ public class TestHiveConfig
                 .setDynamicFilteringProbeBlockingTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setTimestampPrecision(HiveTimestampPrecision.NANOSECONDS)
                 .setOptimizeSymlinkListing(false)
-                .setLegacyHiveViewTranslation(true);
+                .setLegacyHiveViewTranslation(true)
+                .setPreferMetadataToListHudiFiles(true)
+                .setHudiMetadataVerificationEnabled(true);
 
         assertFullMapping(properties, expected);
     }

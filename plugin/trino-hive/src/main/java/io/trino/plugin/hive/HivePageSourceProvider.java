@@ -78,6 +78,7 @@ import static io.trino.plugin.hive.orc.OrcTypeToHiveTypeTranslator.fromOrcTypeTo
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
+import static io.trino.plugin.hive.util.HiveUtil.shouldUseRecordReaderFromInputFormat;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -195,7 +196,8 @@ public class HivePageSourceProvider
                 hiveSplit.isS3SelectPushdownEnabled(),
                 hiveSplit.getAcidInfo(),
                 originalFile,
-                hiveTable.getTransaction());
+                hiveTable.getTransaction(),
+                hiveSplit.getCustomSplitInfo());
 
         if (pageSource.isPresent()) {
             ConnectorPageSource source = pageSource.get();
@@ -259,7 +261,8 @@ public class HivePageSourceProvider
             boolean s3SelectPushdownEnabled,
             Optional<AcidInfo> acidInfo,
             boolean originalFile,
-            AcidTransaction transaction)
+            AcidTransaction transaction,
+            Map<String, String> customSplitInfo)
     {
         if (effectivePredicate.isNone()) {
             return Optional.of(new EmptyPageSource());
@@ -280,40 +283,42 @@ public class HivePageSourceProvider
         Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, bucketNumber, regularAndInterimColumnMappings);
         Optional<BucketValidator> bucketValidator = createBucketValidator(path, bucketValidation, bucketNumber, regularAndInterimColumnMappings);
 
-        for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
-            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, true, typeManager);
+        if (!shouldUseRecordReaderFromInputFormat(configuration, schema, customSplitInfo)) {
+            for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
+                List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, true, typeManager);
 
-            Optional<ReaderPageSource> readerWithProjections = pageSourceFactory.createPageSource(
-                    configuration,
-                    session,
-                    path,
-                    start,
-                    length,
-                    estimatedFileSize,
-                    schema,
-                    desiredColumns,
-                    effectivePredicate,
-                    acidInfo,
-                    bucketNumber,
-                    originalFile,
-                    transaction);
+                Optional<ReaderPageSource> readerWithProjections = pageSourceFactory.createPageSource(
+                        configuration,
+                        session,
+                        path,
+                        start,
+                        length,
+                        estimatedFileSize,
+                        schema,
+                        desiredColumns,
+                        effectivePredicate,
+                        acidInfo,
+                        bucketNumber,
+                        originalFile,
+                        transaction);
 
-            if (readerWithProjections.isPresent()) {
-                ConnectorPageSource pageSource = readerWithProjections.get().get();
+                if (readerWithProjections.isPresent()) {
+                    ConnectorPageSource pageSource = readerWithProjections.get().get();
 
-                Optional<ReaderColumns> readerProjections = readerWithProjections.get().getReaderColumns();
-                Optional<ReaderProjectionsAdapter> adapter = Optional.empty();
-                if (readerProjections.isPresent()) {
-                    adapter = Optional.of(hiveProjectionsAdapter(desiredColumns, readerProjections.get()));
+                    Optional<ReaderColumns> readerProjections = readerWithProjections.get().getReaderColumns();
+                    Optional<ReaderProjectionsAdapter> adapter = Optional.empty();
+                    if (readerProjections.isPresent()) {
+                        adapter = Optional.of(hiveProjectionsAdapter(desiredColumns, readerProjections.get()));
+                    }
+
+                    return Optional.of(new HivePageSource(
+                            columnMappings,
+                            bucketAdaptation,
+                            bucketValidator,
+                            adapter,
+                            typeManager,
+                            pageSource));
                 }
-
-                return Optional.of(new HivePageSource(
-                        columnMappings,
-                        bucketAdaptation,
-                        bucketValidator,
-                        adapter,
-                        typeManager,
-                        pageSource));
             }
         }
 
@@ -333,7 +338,8 @@ public class HivePageSourceProvider
                     desiredColumns,
                     effectivePredicate,
                     typeManager,
-                    s3SelectPushdownEnabled);
+                    s3SelectPushdownEnabled,
+                    customSplitInfo);
 
             if (readerWithProjections.isPresent()) {
                 RecordCursor delegate = readerWithProjections.get().getRecordCursor();

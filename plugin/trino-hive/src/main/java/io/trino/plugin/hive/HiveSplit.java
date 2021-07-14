@@ -22,6 +22,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -55,6 +56,7 @@ public class HiveSplit
     private final boolean s3SelectPushdownEnabled;
     private final Optional<AcidInfo> acidInfo;
     private final long splitNumber;
+    private final Map<String, String> customSplitInfo;
 
     @JsonCreator
     public HiveSplit(
@@ -77,7 +79,8 @@ public class HiveSplit
             @JsonProperty("bucketValidation") Optional<BucketValidation> bucketValidation,
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo,
-            @JsonProperty("splitNumber") long splitNumber)
+            @JsonProperty("splitNumber") long splitNumber,
+            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -94,6 +97,7 @@ public class HiveSplit
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
         requireNonNull(acidInfo, "acidInfo is null");
+        requireNonNull(customSplitInfo, "customSplitInfo is null");
 
         this.database = database;
         this.table = table;
@@ -115,6 +119,7 @@ public class HiveSplit
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.acidInfo = acidInfo;
         this.splitNumber = splitNumber;
+        this.customSplitInfo = ImmutableMap.copyOf(customSplitInfo);
     }
 
     @JsonProperty
@@ -242,6 +247,12 @@ public class HiveSplit
     public long getSplitNumber()
     {
         return splitNumber;
+    }
+
+    @JsonProperty
+    public Map<String, String> getCustomSplitInfo()
+    {
+        return customSplitInfo;
     }
 
     @Override

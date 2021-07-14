@@ -290,9 +290,9 @@ public class ParquetPageSourceFactory
 
         Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
         List<HiveColumnHandle> baseColumns = readerProjections.map(projection ->
-                projection.get().stream()
-                        .map(HiveColumnHandle.class::cast)
-                        .collect(toUnmodifiableList()))
+                        projection.get().stream()
+                                .map(HiveColumnHandle.class::cast)
+                                .collect(toUnmodifiableList()))
                 .orElse(columns);
 
         for (HiveColumnHandle column : baseColumns) {

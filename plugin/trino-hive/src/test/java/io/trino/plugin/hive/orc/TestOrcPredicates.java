@@ -227,7 +227,8 @@ public class TestOrcPredicates
                 false,
                 Optional.empty(),
                 false,
-                NO_ACID_TRANSACTION);
+                NO_ACID_TRANSACTION,
+                ImmutableMap.of());
 
         assertTrue(pageSource.isPresent());
         return pageSource.get();

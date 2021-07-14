@@ -15,6 +15,9 @@ package io.trino.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Strings;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -48,6 +51,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.hive.common.ValidWriteIdList;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
@@ -60,15 +64,14 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobConfigurable;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.mapreduce.MRConfig;
+import org.apache.hudi.hadoop.HoodieROTablePathFilter;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -118,6 +121,8 @@ import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
 import static io.trino.plugin.hive.util.HiveUtil.getHeaderCount;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormat;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
+import static io.trino.plugin.hive.util.HiveUtil.isHudiParquetInputFormat;
+import static io.trino.plugin.hive.util.HiveUtil.shouldUseFileSplitsFromInputFormat;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Integer.parseInt;
 import static java.lang.Math.max;
@@ -164,6 +169,7 @@ public class BackgroundHiveSplitLoader
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
     private final Optional<ValidWriteIdList> validWriteIds;
+    private final Supplier<HoodieROTablePathFilter> hoodiePathFilterSupplier;
 
     // Purpose of this lock:
     // * Write lock: when you need a consistent view across partitions, fileIterators, and hiveSplitSource.
@@ -218,7 +224,6 @@ public class BackgroundHiveSplitLoader
         this.session = session;
         this.hdfsEnvironment = hdfsEnvironment;
         this.namenodeStats = namenodeStats;
-        this.directoryLister = directoryLister;
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
         this.optimizeSymlinkListing = optimizeSymlinkListing;
@@ -226,6 +231,20 @@ public class BackgroundHiveSplitLoader
         this.partitions = new ConcurrentLazyQueue<>(partitions);
         this.hdfsContext = new HdfsContext(session);
         this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
+        this.hoodiePathFilterSupplier = Suppliers.memoize(HoodieROTablePathFilter::new);
+        DirectoryLister directoryListerOverride = null;
+
+        if (!Strings.isNullOrEmpty(table.getStorage().getLocation())) {
+            Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext,
+                    new Path(table.getStorage().getLocation()));
+            InputFormat<?, ?> inputFormat = getInputFormat(configuration, getHiveSchema(table), false);
+            if (isHudiParquetInputFormat(inputFormat)) {
+                directoryListerOverride = new HudiDirectoryLister(configuration, session, table);
+            }
+        }
+
+        this.directoryLister = directoryListerOverride != null ? directoryListerOverride :
+                requireNonNull(directoryLister, "directoryLister is null");
     }
 
     @Override
@@ -383,6 +402,7 @@ public class BackgroundHiveSplitLoader
         // therefore we must not split files when it is enabled.
         // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
         boolean splittable = !s3SelectPushdownEnabled && getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
+        PathFilter pathFilter = isHudiParquetInputFormat(inputFormat) ? hoodiePathFilterSupplier.get() : path1 -> true;
 
         if (inputFormat instanceof SymlinkTextInputFormat) {
             if (tableBucketInfo.isPresent()) {
@@ -408,7 +428,8 @@ public class BackgroundHiveSplitLoader
                         partition.getTableToPartitionMapping(),
                         getOnlyElement(parents),
                         targetPaths,
-                        splittable);
+                        splittable,
+                        pathFilter);
                 if (manifestFileIterator.isPresent()) {
                     fileIterators.addLast(manifestFileIterator.get());
                     return COMPLETED_FUTURE;
@@ -469,7 +490,7 @@ public class BackgroundHiveSplitLoader
 
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
-        if (shouldUseFileSplitsFromInputFormat(inputFormat)) {
+        if (shouldUseFileSplitsFromInputFormat(session, inputFormat, configuration, table.getStorage().getLocation())) {
             if (tableBucketInfo.isPresent()) {
                 throw new TrinoException(NOT_SUPPORTED, "Trino cannot read bucketed partition in an input format with UseFileSplitsFromInputFormat annotation: " + inputFormat.getClass().getSimpleName());
             }
@@ -569,7 +590,7 @@ public class BackgroundHiveSplitLoader
                 // list all files in the partition
                 List<LocatedFileStatus> files = new ArrayList<>();
                 try {
-                    Iterators.addAll(files, new HiveFileIterator(table, readPath, fs, directoryLister, namenodeStats, FAIL, ignoreAbsentPartitions));
+                    Iterators.addAll(files, new HiveFileIterator(table, readPath, fs, directoryLister, namenodeStats, FAIL, ignoreAbsentPartitions, pathFilter));
                 }
                 catch (HiveFileIterator.NestedDirectoryNotAllowedException e) {
                     // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -597,7 +618,7 @@ public class BackgroundHiveSplitLoader
 
         for (Path readPath : readPaths) {
             Optional<AcidInfo> acidInfo = isFullAcid ? acidInfoBuilder.build() : Optional.empty();
-            fileIterators.addLast(createInternalHiveSplitIterator(readPath, fs, splitFactory, splittable, acidInfo));
+            fileIterators.addLast(createInternalHiveSplitIterator(readPath, fs, splitFactory, splittable, acidInfo, pathFilter));
         }
 
         if (!fileStatusOriginalFiles.isEmpty()) {
@@ -674,13 +695,14 @@ public class BackgroundHiveSplitLoader
             TableToPartitionMapping tableToPartitionMapping,
             Path parent,
             List<Path> paths,
-            boolean splittable)
+            boolean splittable,
+            PathFilter pathFilter)
             throws IOException
     {
         FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, parent);
 
         Map<Path, LocatedFileStatus> fileStatuses = new HashMap<>();
-        HiveFileIterator fileStatusIterator = new HiveFileIterator(table, parent, targetFilesystem, directoryLister, namenodeStats, IGNORED, false);
+        HiveFileIterator fileStatusIterator = new HiveFileIterator(table, parent, targetFilesystem, directoryLister, namenodeStats, IGNORED, false, pathFilter);
         fileStatusIterator.forEachRemaining(status -> fileStatuses.put(getPathWithoutSchemeAndAuthority(status.getPath()), status));
 
         List<LocatedFileStatus> locatedFileStatuses = new ArrayList<>();
@@ -757,17 +779,9 @@ public class BackgroundHiveSplitLoader
         return lastResult;
     }
 
-    private static boolean shouldUseFileSplitsFromInputFormat(InputFormat<?, ?> inputFormat)
+    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<AcidInfo> acidInfo, PathFilter pathFilter)
     {
-        return Arrays.stream(inputFormat.getClass().getAnnotations())
-                .map(Annotation::annotationType)
-                .map(Class::getSimpleName)
-                .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
-    }
-
-    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<AcidInfo> acidInfo)
-    {
-        return Streams.stream(new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, ignoreAbsentPartitions))
+        return Streams.stream(new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, ignoreAbsentPartitions, pathFilter))
                 .map(status -> splitFactory.createInternalHiveSplit(status, OptionalInt.empty(), splittable, acidInfo))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
