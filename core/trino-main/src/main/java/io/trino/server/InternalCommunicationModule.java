@@ -16,7 +16,7 @@ package io.trino.server;
 import com.google.inject.Binder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.server.HttpServerConfig;
+import io.airlift.http.server.HttpsConfig;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -37,7 +37,7 @@ public class InternalCommunicationModule
         if (internalCommunicationConfig.isHttpsRequired() && internalCommunicationConfig.getKeyStorePath() == null && internalCommunicationConfig.getTrustStorePath() == null) {
             String sharedSecret = internalCommunicationConfig.getSharedSecret()
                     .orElseThrow(() -> new IllegalArgumentException("Internal shared secret must be set when internal HTTPS is enabled"));
-            configBinder(binder).bindConfigDefaults(HttpServerConfig.class, config -> config.setAutomaticHttpsSharedSecret(sharedSecret));
+            configBinder(binder).bindConfigDefaults(HttpsConfig.class, config -> config.setAutomaticHttpsSharedSecret(sharedSecret));
             configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
                 config.setHttp2Enabled(internalCommunicationConfig.isHttp2Enabled());
                 config.setAutomaticHttpsSharedSecret(sharedSecret);
