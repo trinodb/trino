@@ -164,7 +164,7 @@ public abstract class AbstractTestingTrinoClient<T>
                 resourceEstimates.build(),
                 properties.build(),
                 session.getPreparedStatements(),
-                session.getIdentity().getRoles().entrySet().stream()
+                session.getIdentity().getConnectorRoles().entrySet().stream()
                         .collect(toImmutableMap(Entry::getKey, entry ->
                                 new ClientSelectedRole(
                                         ClientSelectedRole.Type.valueOf(entry.getValue().getType().toString()),

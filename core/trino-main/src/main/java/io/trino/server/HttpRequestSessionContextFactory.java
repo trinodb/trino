@@ -222,7 +222,7 @@ public class HttpRequestSessionContextFactory
         return authenticatedIdentity
                 .map(identity -> Identity.from(identity).withUser(user))
                 .orElseGet(() -> Identity.forUser(user))
-                .withAdditionalRoles(parseRoleHeaders(protocolHeaders, headers))
+                .withAdditionalConnectorRoles(parseRoleHeaders(protocolHeaders, headers))
                 .withAdditionalExtraCredentials(parseExtraCredentials(protocolHeaders, headers))
                 .withAdditionalGroups(groupProvider.getGroups(user))
                 .build();

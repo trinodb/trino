@@ -337,8 +337,8 @@ public final class Session
             connectorProperties.put(catalog, catalogProperties);
         }
 
-        ImmutableMap.Builder<String, SelectedRole> roles = ImmutableMap.builder();
-        for (Entry<String, SelectedRole> entry : identity.getRoles().entrySet()) {
+        ImmutableMap.Builder<String, SelectedRole> connectorRoles = ImmutableMap.builder();
+        for (Entry<String, SelectedRole> entry : identity.getConnectorRoles().entrySet()) {
             String catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
             CatalogName catalog = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
@@ -347,16 +347,16 @@ public final class Session
             if (role.getType() == SelectedRole.Type.ROLE) {
                 accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId), role.getRole().orElseThrow(), catalogName);
             }
-            roles.put(catalog.getCatalogName(), role);
+            connectorRoles.put(catalog.getCatalogName(), role);
 
             String informationSchemaCatalogName = createInformationSchemaCatalogName(catalog).getCatalogName();
             if (transactionManager.getCatalogNames(transactionId).containsKey(informationSchemaCatalogName)) {
-                roles.put(informationSchemaCatalogName, role);
+                connectorRoles.put(informationSchemaCatalogName, role);
             }
 
             String systemTablesCatalogName = createSystemTablesCatalogName(catalog).getCatalogName();
             if (transactionManager.getCatalogNames(transactionId).containsKey(systemTablesCatalogName)) {
-                roles.put(systemTablesCatalogName, role);
+                connectorRoles.put(systemTablesCatalogName, role);
             }
         }
 
@@ -365,7 +365,7 @@ public final class Session
                 Optional.of(transactionId),
                 clientTransactionSupport,
                 Identity.from(identity)
-                        .withRoles(roles.build())
+                        .withConnectorRoles(connectorRoles.build())
                         .build(),
                 source,
                 catalog,
@@ -490,7 +490,7 @@ public final class Session
                 systemProperties,
                 connectorProperties,
                 unprocessedCatalogProperties,
-                identity.getRoles(),
+                identity.getConnectorRoles(),
                 preparedStatements,
                 protocolHeaders.getProtocolName());
     }
