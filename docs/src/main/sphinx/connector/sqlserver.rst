@@ -150,20 +150,7 @@ Write access:
 * :doc:`/sql/insert`
 * :doc:`/sql/show-create-table`
 
-Other supported commands:
-
-* :doc:`/sql/deallocate-prepare`
-* :doc:`/sql/describe-input`
-* :doc:`/sql/describe-output`
-* :doc:`/sql/execute`
-* :doc:`/sql/explain`
-* :doc:`/sql/explain-analyze`
-* :doc:`/sql/prepare`
-* :doc:`/sql/reset-session`
-* :doc:`/sql/set-session`
-* :doc:`/sql/show-functions`
-* :doc:`/sql/show-session`
-* :doc:`/sql/use`
+.. include:: sql-support-others.fragment
 
 .. _sqlserver-pushdown:
 
