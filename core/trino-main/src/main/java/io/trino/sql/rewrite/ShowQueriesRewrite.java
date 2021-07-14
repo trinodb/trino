@@ -297,7 +297,9 @@ final class ShowQueriesRewrite
 
             if (node.isCurrent()) {
                 accessControl.checkCanShowCurrentRoles(session.toSecurityContext(), catalog);
-                List<Expression> rows = metadata.listEnabledRoles(session, catalog.orElseThrow()).stream()
+                Set<String> enabledRoles = catalog.map(c -> metadata.listEnabledRoles(session, c))
+                        .orElseGet(() -> session.getIdentity().getEnabledRoles());
+                List<Expression> rows = enabledRoles.stream()
                         .map(role -> row(new StringLiteral(role)))
                         .collect(toList());
                 return simpleQuery(

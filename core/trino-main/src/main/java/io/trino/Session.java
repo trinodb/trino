@@ -473,6 +473,7 @@ public final class Session
                 identity.getUser(),
                 identity.getGroups(),
                 identity.getPrincipal().map(Principal::toString),
+                identity.getEnabledRoles(),
                 source,
                 catalog,
                 schema,

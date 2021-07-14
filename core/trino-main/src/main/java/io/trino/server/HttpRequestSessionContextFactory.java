@@ -22,11 +22,13 @@ import io.airlift.units.Duration;
 import io.trino.Session.ResourceEstimateBuilder;
 import io.trino.client.ProtocolDetectionException;
 import io.trino.client.ProtocolHeaders;
+import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
+import io.trino.spi.security.SelectedRole.Type;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.ParsingOptions;
@@ -58,6 +60,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.ProtocolHeaders.detectProtocol;
+import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -69,12 +72,14 @@ public class HttpRequestSessionContextFactory
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
     public static final String AUTHENTICATED_IDENTITY = "trino.authenticated-identity";
 
+    private final Metadata metadata;
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
 
     @Inject
-    public HttpRequestSessionContextFactory(GroupProvider groupProvider, AccessControl accessControl)
+    public HttpRequestSessionContextFactory(Metadata metadata, GroupProvider groupProvider, AccessControl accessControl)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
@@ -100,6 +105,7 @@ public class HttpRequestSessionContextFactory
 
         requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
         Identity identity = buildSessionIdentity(authenticatedIdentity, protocolHeaders, headers);
+        SelectedRole selectedRole = parseSystemRoleHeaders(protocolHeaders, headers).orElse(new SelectedRole(Type.ALL, Optional.empty()));
 
         Optional<String> source = Optional.ofNullable(headers.getFirst(protocolHeaders.requestSource()));
         Optional<String> traceToken = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestTraceToken())));
@@ -157,6 +163,7 @@ public class HttpRequestSessionContextFactory
                 path,
                 authenticatedIdentity,
                 identity,
+                selectedRole,
                 source,
                 traceToken,
                 userAgent,
@@ -207,11 +214,33 @@ public class HttpRequestSessionContextFactory
         optionalAuthenticatedIdentity.ifPresent(authenticatedIdentity -> {
             // only check impersonation if authenticated user is not the same as the explicitly set user
             if (!authenticatedIdentity.getUser().equals(identity.getUser())) {
+                // load enabled roles for authenticated identity, so impersonation permissions can be assigned to roles
+                authenticatedIdentity = Identity.from(authenticatedIdentity)
+                        .withEnabledRoles(metadata.listEnabledRoles(authenticatedIdentity))
+                        .build();
                 accessControl.checkCanImpersonateUser(authenticatedIdentity, identity.getUser());
             }
         });
 
-        return identity;
+        return addEnabledRoles(identity, parseSystemRoleHeaders(protocolHeaders, headers).orElse(new SelectedRole(Type.ALL, Optional.empty())), metadata);
+    }
+
+    public static Identity addEnabledRoles(Identity identity, SelectedRole selectedRole, Metadata metadata)
+    {
+        if (selectedRole.getType() == Type.NONE) {
+            return identity;
+        }
+        Set<String> enabledRoles = metadata.listEnabledRoles(identity);
+        if (selectedRole.getType() == Type.ROLE) {
+            String role = selectedRole.getRole().orElseThrow();
+            if (!enabledRoles.contains(role)) {
+                denySetRole(role);
+            }
+            enabledRoles = ImmutableSet.of(role);
+        }
+        return Identity.from(identity)
+                .withEnabledRoles(enabledRoles)
+                .build();
     }
 
     private Identity buildSessionIdentity(Optional<Identity> authenticatedIdentity, ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
@@ -222,7 +251,7 @@ public class HttpRequestSessionContextFactory
         return authenticatedIdentity
                 .map(identity -> Identity.from(identity).withUser(user))
                 .orElseGet(() -> Identity.forUser(user))
-                .withAdditionalConnectorRoles(parseRoleHeaders(protocolHeaders, headers))
+                .withAdditionalConnectorRoles(parseConnectorRoleHeaders(protocolHeaders, headers))
                 .withAdditionalExtraCredentials(parseExtraCredentials(protocolHeaders, headers))
                 .withAdditionalGroups(groupProvider.getGroups(user))
                 .build();
@@ -243,20 +272,37 @@ public class HttpRequestSessionContextFactory
         return parseProperty(headers, protocolHeaders.requestSession());
     }
 
-    private static Map<String, SelectedRole> parseRoleHeaders(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
+    private static Optional<SelectedRole> parseSystemRoleHeaders(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
+    {
+        return parseProperty(headers, protocolHeaders.requestRole()).entrySet().stream()
+                .filter(entry -> entry.getKey().equalsIgnoreCase("system"))
+                .map(Entry::getValue)
+                .map(role -> toSelectedRole(protocolHeaders, role))
+                .findFirst();
+    }
+
+    private static Map<String, SelectedRole> parseConnectorRoleHeaders(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         ImmutableMap.Builder<String, SelectedRole> roles = ImmutableMap.builder();
         parseProperty(headers, protocolHeaders.requestRole()).forEach((key, value) -> {
-            SelectedRole role;
-            try {
-                role = SelectedRole.valueOf(value);
+            if (key.equalsIgnoreCase("system")) {
+                return;
             }
-            catch (IllegalArgumentException e) {
-                throw badRequest(format("Invalid %s header", protocolHeaders.requestRole()));
-            }
-            roles.put(key, role);
+            roles.put(key, toSelectedRole(protocolHeaders, value));
         });
         return roles.build();
+    }
+
+    private static SelectedRole toSelectedRole(ProtocolHeaders protocolHeaders, String value)
+    {
+        SelectedRole role;
+        try {
+            role = SelectedRole.valueOf(value);
+        }
+        catch (IllegalArgumentException e) {
+            throw badRequest(format("Invalid %s header", protocolHeaders.requestRole()));
+        }
+        return role;
     }
 
     private static Map<String, String> parseExtraCredentials(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)

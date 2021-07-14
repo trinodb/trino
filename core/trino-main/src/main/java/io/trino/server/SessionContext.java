@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.client.ProtocolHeaders;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.SelectedRole;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.transaction.TransactionId;
 
@@ -38,6 +39,7 @@ public class SessionContext
 
     private final Optional<Identity> authenticatedIdentity;
     private final Identity identity;
+    private final SelectedRole selectedRole;
 
     private final Optional<String> source;
     private final Optional<String> traceToken;
@@ -65,6 +67,7 @@ public class SessionContext
             Optional<String> path,
             Optional<Identity> authenticatedIdentity,
             Identity identity,
+            SelectedRole selectedRole,
             Optional<String> source,
             Optional<String> traceToken,
             Optional<String> userAgent,
@@ -87,6 +90,7 @@ public class SessionContext
         this.path = requireNonNull(path, "path is null");
         this.authenticatedIdentity = requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
         this.identity = requireNonNull(identity, "identity is null");
+        this.selectedRole = requireNonNull(selectedRole, "selectedRole is null");
         this.source = requireNonNull(source, "source is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
@@ -119,6 +123,11 @@ public class SessionContext
     public Identity getIdentity()
     {
         return identity;
+    }
+
+    public SelectedRole getSelectedRole()
+    {
+        return selectedRole;
     }
 
     public Optional<String> getCatalog()

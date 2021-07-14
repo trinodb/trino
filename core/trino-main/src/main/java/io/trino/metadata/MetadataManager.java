@@ -105,6 +105,7 @@ import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
@@ -1886,6 +1887,12 @@ public final class MetadataManager
         }
 
         return globalSecurityMetadata.listApplicableRoles(session, principal);
+    }
+
+    @Override
+    public Set<String> listEnabledRoles(Identity identity)
+    {
+        return globalSecurityMetadata.listEnabledRoles(identity);
     }
 
     @Override

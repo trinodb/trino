@@ -34,6 +34,7 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
 import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
+import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
 
@@ -71,10 +72,15 @@ public class SetRoleTask
             if (!metadata.roleExists(session, role, catalog)) {
                 throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", role);
             }
-            accessControl.checkCanSetCatalogRole(SecurityContext.of(session), role, catalog.get());
+            if (catalog.isPresent()) {
+                accessControl.checkCanSetCatalogRole(SecurityContext.of(session), role, catalog.get());
+            }
+            else if (!metadata.listEnabledRoles(session.getIdentity()).contains(role)) {
+                denySetRole(role);
+            }
         }
         SelectedRole.Type type = toSelectedRoleType(statement.getType());
-        stateMachine.addSetRole(catalog.get(), new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
+        stateMachine.addSetRole(catalog.orElse("system"), new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
         return immediateVoidFuture();
     }
 
