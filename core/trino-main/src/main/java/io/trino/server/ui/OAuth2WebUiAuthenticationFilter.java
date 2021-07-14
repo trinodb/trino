@@ -15,8 +15,6 @@ package io.trino.server.ui;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
@@ -33,6 +31,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -87,7 +86,7 @@ public class OAuth2WebUiAuthenticationFilter
             request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
             return;
         }
-        Optional<Claims> claims = getAccessToken(request).map(Jws::getBody);
+        Optional<Map<String, Object>> claims = getAccessToken(request);
         if (claims.isEmpty()) {
             needAuthentication(request);
             return;
@@ -115,12 +114,12 @@ public class OAuth2WebUiAuthenticationFilter
         }
     }
 
-    private Optional<Jws<Claims>> getAccessToken(ContainerRequestContext request)
+    private Optional<Map<String, Object>> getAccessToken(ContainerRequestContext request)
     {
         return OAuthWebUiCookie.read(request.getCookies().get(OAUTH2_COOKIE))
                 .flatMap(token -> {
                     try {
-                        return Optional.ofNullable(service.parseClaimsJws(token));
+                        return Optional.ofNullable(service.convertTokenToClaims(token));
                     }
                     catch (JwtException | IllegalArgumentException e) {
                         LOG.debug("Unable to parse JWT token: " + e.getMessage(), e);
