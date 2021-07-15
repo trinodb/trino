@@ -225,6 +225,7 @@ TEXT              VARCHAR
 TIMESTAMP         TIMESTAMP(3) WITH TIME ZONE
 TIMEUUID          VARCHAR
 TINYINT           TINYINT
+TUPLE             ROW with anonymous fields
 VARCHAR           VARCHAR
 VARIANT           VARCHAR
 ================  ======
