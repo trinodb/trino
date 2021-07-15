@@ -16,6 +16,7 @@ package io.trino.plugin.mongodb;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClient;
+import com.mongodb.ServerAddress;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -23,6 +24,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
 
+import java.util.Arrays;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -57,7 +59,8 @@ public final class MongoQueryRunner
             Map<String, String> properties = ImmutableMap.of(
                     "mongodb.case-insensitive-name-matching", "true",
                     "mongodb.seeds", server.getAddress().toString(),
-                    "mongodb.socket-keep-alive", "true");
+                    "mongodb.socket-keep-alive", "true",
+                    "mongodb.credentials", "default");
 
             queryRunner.installPlugin(new MongoPlugin());
             queryRunner.createCatalog("mongodb", "mongodb", properties);
@@ -81,7 +84,8 @@ public final class MongoQueryRunner
 
     public static MongoClient createMongoClient(MongoServer server)
     {
-        return new MongoClient(server.getAddress().getHost(), server.getAddress().getPort());
+        return new MongoClient(new ServerAddress(server.getAddress().getHost(), server.getAddress().getPort()),
+                Arrays.asList(server.getDefaultCredentials()));
     }
 
     public static void main(String[] args)
