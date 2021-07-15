@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestRaptorIntegrationSmokeTestBucketed
+public class TestRaptorBucketedConnectorTest
         extends TestRaptorConnectorTest
 {
     @Override

@@ -18,19 +18,22 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.SetMultimap;
 import io.trino.spi.type.ArrayType;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
-import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
@@ -57,15 +60,26 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 
-public class TestRaptorIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+public class TestRaptorConnectorTest
+        extends BaseConnectorTest
 {
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRaptorQueryRunner(ImmutableMap.of(), TpchTable.getTables(), false, ImmutableMap.of());
+        return createRaptorQueryRunner(ImmutableMap.of(), REQUIRED_TPCH_TABLES, false, ImmutableMap.of());
     }
 
     @Test
@@ -777,5 +791,45 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate("DELETE FROM test_alter_table WHERE c1 = 22", 3);
 
         assertUpdate("DROP TABLE test_alter_table");
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Raptor connector does not support column default values");
+    }
+
+    @Override
+    public void testCreateSchema()
+    {
+        throw new SkipException("Raptor connector does not support creating schemas");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("tinyint")
+                || typeName.equals("real")
+                || typeName.startsWith("decimal(")
+                || typeName.equals("time")
+                || typeName.equals("timestamp(3) with time zone")
+                || typeName.startsWith("char(")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("char(1)")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+        return Optional.of(dataMappingTestSetup);
     }
 }
