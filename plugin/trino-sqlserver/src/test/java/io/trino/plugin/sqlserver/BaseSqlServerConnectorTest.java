@@ -15,13 +15,8 @@ package io.trino.plugin.sqlserver;
 
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
-import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.MarkDistinctNode;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -29,7 +24,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.plugin.sqlserver.DataCompression.NONE;
 import static io.trino.plugin.sqlserver.DataCompression.PAGE;
 import static io.trino.plugin.sqlserver.DataCompression.ROW;
@@ -51,6 +45,10 @@ public abstract class BaseSqlServerConnectorTest
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
                 return false;
+
+            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
+                return true;
 
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
@@ -118,210 +116,6 @@ public abstract class BaseSqlServerConnectorTest
         assertTrue(getQueryRunner().tableExists(getSession(), "test_view"));
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS test_view");
-    }
-
-    @Test
-    public void testAggregationPushdown()
-            throws Exception
-    {
-        // TODO support aggregation pushdown with GROUPING SETS
-        // TODO support aggregation over expressions
-
-        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-
-        assertThat(query("SELECT count(*) FROM orders")).isFullyPushedDown();
-        assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT min(totalprice) FROM orders")).isFullyPushedDown();
-
-        // GROUP BY
-        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-
-        Session withMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(USE_MARK_DISTINCT, "true")
-                .build();
-
-        // distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
-        // distinct aggregation with GROUP BY
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        // distinct aggregation with varchar
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
-        // two distinct aggregations
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
-                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
-        // distinct aggregation and a non-distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
-                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
-
-        Session withoutMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(USE_MARK_DISTINCT, "false")
-                .build();
-
-        // distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
-        // distinct aggregation with GROUP BY
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        // distinct aggregation with varchar
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
-        // two distinct aggregations
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
-        // distinct aggregation and a non-distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
-
-        // GROUP BY and WHERE on bigint column
-        // GROUP BY and WHERE on aggregation key
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
-
-        // GROUP BY and WHERE on varchar column
-        // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey"))
-                // SQL Server is case insensitive by default
-                .isNotFullyPushedDown(FilterNode.class);
-
-        // GROUP BY above WHERE and LIMIT
-        assertThat(query("" +
-                "SELECT regionkey, sum(nationkey) " +
-                "FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) " +
-                "GROUP BY regionkey"))
-                .isFullyPushedDown();
-
-        // decimals
-        try (TestTable testTable = new TestTable(
-                onRemoteDatabase(),
-                "test_aggregation_pushdown",
-                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10), bigint_column bigint)",
-                List.of(
-                        "100.000, 100000000.000000000, 'ala', 1",
-                        "123.321, 123456789.987654321, 'kot', 2"))) {
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-
-            // WHERE on aggregation column
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 AND long_decimal < 124")).isFullyPushedDown();
-            // WHERE on non-aggregation column
-            assertThat(query("SELECT min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110")).isFullyPushedDown();
-            // GROUP BY
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " GROUP BY short_decimal")).isFullyPushedDown();
-            // GROUP BY with WHERE on both grouping and aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 AND long_decimal < 124" + " GROUP BY short_decimal")).isFullyPushedDown();
-            // GROUP BY with WHERE on grouping column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 GROUP BY short_decimal")).isFullyPushedDown();
-            // GROUP BY with WHERE on aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
-            // GROUP BY with WHERE on neither grouping nor aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE bigint_column = 1 GROUP BY short_decimal"))
-                    .isFullyPushedDown();
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE varchar_column = 'ala' GROUP BY short_decimal"))
-                    // SQL Server is case insensitive by default
-                    .isNotFullyPushedDown(FilterNode.class);
-            // aggregation on varchar column
-            assertThat(query("SELECT min(varchar_column) FROM " + testTable.getName())).isFullyPushedDown();
-            // aggregation on varchar column with GROUPING
-            assertThat(query("SELECT short_decimal, min(varchar_column) FROM " + testTable.getName() + " GROUP BY short_decimal")).isFullyPushedDown();
-            // aggregation on varchar column with WHERE
-            assertThat(query("SELECT min(varchar_column) FROM " + testTable.getName() + " WHERE varchar_column ='ala'"))
-                    // SQL Server is case insensitive by default
-                    .isNotFullyPushedDown(FilterNode.class);
-
-            // not supported yet
-            assertThat(query("SELECT min(DISTINCT short_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM " + testTable.getName() + " GROUP BY short_decimal"))
-                    .isFullyPushedDown();
-        }
-
-        // array_agg returns array, which is not supported
-        assertThat(query("SELECT array_agg(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        // histogram returns map, which is not supported
-        assertThat(query("SELECT histogram(regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        // multimap_agg returns multimap, which is not supported
-        assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        // approx_set returns HyperLogLog, which is not supported
-        assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-    }
-
-    @Test
-    public void testStddevAggregationPushdown()
-    {
-        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
-                "(t_double DOUBLE PRECISION)")) {
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
-
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
-                "(t_double DOUBLE PRECISION)")) {
-            // Test non-whole number results
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (2)");
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (4)");
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
-
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-    }
-
-    @Test
-    public void testVarianceAggregationPushdown()
-    {
-        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
-                "(t_double DOUBLE PRECISION)")) {
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
-
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
-
-        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
-                "(t_double DOUBLE PRECISION)")) {
-            // Test non-whole number results
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (2)");
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (4)");
-            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
-
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-        }
     }
 
     @Test
@@ -432,31 +226,6 @@ public abstract class BaseSqlServerConnectorTest
     }
 
     @Test
-    public void testLimitPushdown()
-    {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
-
-        // with filter over numeric column
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
-
-        // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5"))
-                // SQL Server is case insensitive by default
-                .isNotFullyPushedDown(FilterNode.class);
-
-        // with aggregation
-        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
-        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isFullyPushedDown();
-        assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
-
-        // with filter and aggregation
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3"))
-                // SQL Server is case insensitive by default
-                .isNotFullyPushedDown(FilterNode.class);
-    }
-
-    @Test
     public void testTooLargeDomainCompactionThreshold()
     {
         assertQueryFails(
@@ -556,12 +325,12 @@ public abstract class BaseSqlServerConnectorTest
                 "('2013-01-01', '2014-01-01', '2015-01-01')");
         onRemoteDatabase().execute("CREATE PARTITION SCHEME psSales\n" +
                 "AS PARTITION pfSales \n" +
-                "ALL TO ([Primary])");
-        onRemoteDatabase().execute("CREATE TABLE partitionedSales (\n" +
+                "ALL TO ([PRIMARY])");
+        onRemoteDatabase().execute("CREATE TABLE partitionedsales (\n" +
                 "   SalesDate DATE,\n" +
                 "   Quantity INT\n" +
                 ") ON psSales(SalesDate) WITH (DATA_COMPRESSION = PAGE)");
-        assertThat((String) computeActual("SHOW CREATE TABLE partitionedSales").getOnlyValue())
+        assertThat((String) computeActual("SHOW CREATE TABLE partitionedsales").getOnlyValue())
                 .matches("CREATE TABLE \\w+\\.\\w+\\.partitionedsales \\Q(\n" +
                         "   salesdate date,\n" +
                         "   quantity integer\n" +
@@ -633,6 +402,4 @@ public abstract class BaseSqlServerConnectorTest
                 .collect(joining(", "));
         return "orderkey IN (" + longValues + ")";
     }
-
-    protected abstract SqlExecutor onRemoteDatabase();
 }

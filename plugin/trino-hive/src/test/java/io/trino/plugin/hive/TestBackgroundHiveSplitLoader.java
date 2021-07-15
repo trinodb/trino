@@ -111,7 +111,6 @@ import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -123,6 +122,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -306,7 +306,7 @@ public class TestBackgroundHiveSplitLoader
                 RETURNED_PATH_DOMAIN,
                 Optional.of(new HiveBucketFilter(ImmutableSet.of(0, 1))),
                 PARTITIONED_TABLE,
-                Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKETING_V1, BUCKET_COUNT, BUCKET_COUNT)));
+                Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKETING_V1, BUCKET_COUNT, BUCKET_COUNT, ImmutableList.of())));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -329,7 +329,8 @@ public class TestBackgroundHiveSplitLoader
                                 getRegularColumnHandles(PARTITIONED_TABLE, TYPE_MANAGER, DEFAULT_PRECISION),
                                 BUCKETING_V1,
                                 BUCKET_COUNT,
-                                BUCKET_COUNT)));
+                                BUCKET_COUNT,
+                                ImmutableList.of())));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -579,7 +580,7 @@ public class TestBackgroundHiveSplitLoader
                 TupleDomain.all(),
                 Optional.empty(),
                 SIMPLE_TABLE,
-                Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKETING_V1, BUCKET_COUNT, BUCKET_COUNT)));
+                Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKETING_V1, BUCKET_COUNT, BUCKET_COUNT, ImmutableList.of())));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -677,7 +678,7 @@ public class TestBackgroundHiveSplitLoader
     }
 
     @Test
-    public void testHive2VersionedFullAcidTableFails()
+    public void testVersionValidationNoOrcAcidVersionFile()
             throws Exception
     {
         java.nio.file.Path tablePath = Files.createTempDirectory("TestBackgroundHiveSplitLoader");
@@ -688,7 +689,8 @@ public class TestBackgroundHiveSplitLoader
                 ImmutableMap.of("transactional", "true"));
 
         List<String> filePaths = ImmutableList.of(
-                tablePath + "/000000_1", // _orc_acid_version does not exist so it's assumed to be "ORC ACID version 0"
+                tablePath + "/000000_1",
+                // no /delta_0000002_0000002_0000/_orc_acid_version file
                 tablePath + "/delta_0000002_0000002_0000/bucket_00000");
 
         for (String path : filePaths) {
@@ -711,10 +713,103 @@ public class TestBackgroundHiveSplitLoader
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
-        assertThatThrownBy(() -> drain(hiveSplitSource))
-                .isInstanceOfSatisfying(TrinoException.class, e -> assertEquals(NOT_SUPPORTED.toErrorCode(), e.getErrorCode()))
-                .hasMessage("Hive transactional tables are supported since Hive 3.0. " +
-                        "If you have upgraded from an older version of Hive, make sure a major compaction has been run at least once after the upgrade.");
+
+        // We should have it marked in all splits that further ORC ACID validation is required
+        assertThat(drainSplits(hiveSplitSource)).extracting(HiveSplit::getAcidInfo)
+                .allMatch(Optional::isPresent)
+                .extracting(Optional::get)
+                .noneMatch(AcidInfo::isOrcAcidVersionValidated);
+
+        deleteRecursively(tablePath, ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testVersionValidationOrcAcidVersionFileHasVersion2()
+            throws Exception
+    {
+        java.nio.file.Path tablePath = Files.createTempDirectory("TestBackgroundHiveSplitLoader");
+        Table table = table(
+                tablePath.toString(),
+                ImmutableList.of(),
+                Optional.empty(),
+                ImmutableMap.of("transactional", "true"));
+
+        List<String> filePaths = ImmutableList.of(
+                tablePath + "/000000_1", // _orc_acid_version does not exist so it's assumed to be "ORC ACID version 0"
+                tablePath + "/delta_0000002_0000002_0000/_orc_acid_version",
+                tablePath + "/delta_0000002_0000002_0000/bucket_00000");
+
+        for (String path : filePaths) {
+            File file = new File(path);
+            assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
+            createOrcAcidFile(file, 2);
+        }
+
+        // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
+        // This writeId list has high watermark transaction=3
+        ValidReaderWriteIdList validWriteIdsList = new ValidReaderWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                HDFS_ENVIRONMENT,
+                TupleDomain.all(),
+                Optional.empty(),
+                table,
+                Optional.empty(),
+                Optional.of(validWriteIdsList));
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        // We should have it marked in all splits that NO further ORC ACID validation is required
+        assertThat(drainSplits(hiveSplitSource)).extracting(HiveSplit::getAcidInfo)
+                .allMatch(acidInfo -> acidInfo.isEmpty() || acidInfo.get().isOrcAcidVersionValidated());
+
+        deleteRecursively(tablePath, ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testVersionValidationOrcAcidVersionFileHasVersion1()
+            throws Exception
+    {
+        java.nio.file.Path tablePath = Files.createTempDirectory("TestBackgroundHiveSplitLoader");
+        Table table = table(
+                tablePath.toString(),
+                ImmutableList.of(),
+                Optional.empty(),
+                ImmutableMap.of("transactional", "true"));
+
+        List<String> filePaths = ImmutableList.of(
+                tablePath + "/000000_1",
+                tablePath + "/delta_0000002_0000002_0000/_orc_acid_version",
+                tablePath + "/delta_0000002_0000002_0000/bucket_00000");
+
+        for (String path : filePaths) {
+            File file = new File(path);
+            assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
+            // _orc_acid_version_exists but has version 1
+            createOrcAcidFile(file, 1);
+        }
+
+        // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
+        // This writeId list has high watermark transaction=3
+        ValidReaderWriteIdList validWriteIdsList = new ValidReaderWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                HDFS_ENVIRONMENT,
+                TupleDomain.all(),
+                Optional.empty(),
+                table,
+                Optional.empty(),
+                Optional.of(validWriteIdsList));
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        // We should have it marked in all splits that further ORC ACID validation is required
+        assertThat(drainSplits(hiveSplitSource)).extracting(HiveSplit::getAcidInfo)
+                .allMatch(Optional::isPresent)
+                .extracting(Optional::get)
+                .noneMatch(AcidInfo::isOrcAcidVersionValidated);
 
         deleteRecursively(tablePath, ALLOW_INSECURE);
     }
@@ -824,8 +919,14 @@ public class TestBackgroundHiveSplitLoader
     private static void createOrcAcidFile(File file)
             throws IOException
     {
+        createOrcAcidFile(file, 2);
+    }
+
+    private static void createOrcAcidFile(File file, int orcAcidVersion)
+            throws IOException
+    {
         if (file.getName().equals("_orc_acid_version")) {
-            Files.write(file.toPath(), "2".getBytes(UTF_8));
+            Files.write(file.toPath(), String.valueOf(orcAcidVersion).getBytes(UTF_8));
             return;
         }
         checkState(file.createNewFile(), "Failed to create file %s", file);

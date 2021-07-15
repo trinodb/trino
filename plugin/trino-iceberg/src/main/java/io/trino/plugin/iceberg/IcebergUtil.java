@@ -16,6 +16,8 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
+import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -26,6 +28,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
@@ -34,6 +37,8 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableOperations;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -50,7 +55,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.reverse;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.trino.plugin.iceberg.IcebergCatalogType.HIVE;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
@@ -91,9 +95,35 @@ final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static boolean useMetastore(ConnectorSession session)
+    public static Table loadIcebergTable(HiveTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
     {
-        return IcebergSessionProperties.getCatalogType(session) == HIVE;
+        TableOperations operations = tableOperationsProvider.createTableOperations(
+                new HdfsContext(session),
+                session.getQueryId(),
+                new HiveIdentity(session),
+                table.getSchemaName(),
+                table.getTableName(),
+                Optional.empty(),
+                Optional.empty());
+        return new BaseTable(operations, quotedTableName(table));
+    }
+
+    public static Table getIcebergTableWithMetadata(
+            HiveTableOperationsProvider tableOperationsProvider,
+            ConnectorSession session,
+            SchemaTableName table,
+            TableMetadata tableMetadata)
+    {
+        HiveTableOperations operations = (HiveTableOperations) tableOperationsProvider.createTableOperations(
+                new HdfsContext(session),
+                session.getQueryId(),
+                new HiveIdentity(session),
+                table.getSchemaName(),
+                table.getTableName(),
+                Optional.empty(),
+                Optional.empty());
+        operations.initializeFromMetadata(tableMetadata);
+        return new BaseTable(operations, quotedTableName(table));
     }
 
     public static long resolveSnapshotId(Table table, long snapshotId)
@@ -149,7 +179,7 @@ final class IcebergUtil
         return Optional.ofNullable(table.properties().get(TABLE_COMMENT));
     }
 
-    public static String quotedTableName(SchemaTableName name)
+    private static String quotedTableName(SchemaTableName name)
     {
         return quotedName(name.getSchemaName()) + "." + quotedName(name.getTableName());
     }

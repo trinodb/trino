@@ -16,6 +16,7 @@ package io.trino.server.security;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
 import io.airlift.http.server.HttpServerConfig;
@@ -28,11 +29,13 @@ import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
+import io.trino.security.AccessControl;
 import io.trino.security.AccessControlManager;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemSecurityContext;
 import okhttp3.Credentials;
 import okhttp3.Headers;
@@ -43,9 +46,13 @@ import okhttp3.Response;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import javax.inject.Inject;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.GET;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.HttpHeaders;
 
 import java.io.File;
 import java.io.IOException;
@@ -69,8 +76,12 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
+import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
+import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
@@ -85,7 +96,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public class TestResourceSecurity
 {
     private static final String LOCALHOST_KEYSTORE = Resources.getResource("cert/localhost.pem").getPath();
@@ -149,7 +159,7 @@ public class TestResourceSecurity
                         .put("http-server.authentication.insecure.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .build())
                 .build()) {
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertInsecureAuthentication(httpServerInfo.getHttpUri());
         }
@@ -162,7 +172,7 @@ public class TestResourceSecurity
         try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(SECURE_PROPERTIES)
                 .build()) {
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertInsecureAuthentication(httpServerInfo.getHttpUri());
             assertInsecureAuthentication(httpServerInfo.getHttpsUri());
@@ -179,7 +189,7 @@ public class TestResourceSecurity
                         .put("http-server.authentication.allow-insecure-over-http", "false")
                         .build())
                 .build()) {
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
             assertInsecureAuthentication(httpServerInfo.getHttpsUri());
@@ -199,7 +209,7 @@ public class TestResourceSecurity
                         .build())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
             assertPasswordAuthentication(httpServerInfo.getHttpsUri());
@@ -219,7 +229,7 @@ public class TestResourceSecurity
                         .build())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate, TestResourceSecurity::authenticate2);
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
             assertPasswordAuthentication(httpServerInfo.getHttpsUri(), TEST_PASSWORD, TEST_PASSWORD2);
@@ -239,7 +249,7 @@ public class TestResourceSecurity
                         .build())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate, TestResourceSecurity::authenticate2);
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             Request request = new Request.Builder()
                     .url(getAuthorizedUserLocation(httpServerInfo.getHttpsUri()))
@@ -248,6 +258,60 @@ public class TestResourceSecurity
             try (Response response = client.newCall(request).execute()) {
                 assertThat(response.message()).isEqualTo("Access Denied: Invalid credentials | Access Denied: Invalid credentials2");
             }
+        }
+    }
+
+    @Test
+    public void testPasswordAuthenticatorUserMapping()
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
+                        .put("http-server.authentication.type", "password")
+                        .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
+                        .build())
+                .setAdditionalModule(binder -> jaxrsBinder(binder).bind(TestResource.class))
+                .build()) {
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            // Test sets basic auth user and X-Trino-User, and the authenticator is performing user mapping.
+            // Normally this would result in an impersonation check to the X-Trino-User, but the password
+            // authenticator has a hack to clear X-Trino-User in this case.
+            Request request = new Request.Builder()
+                    .url(getLocation(httpServerInfo.getHttpsUri(), "/username"))
+                    .addHeader("Authorization", Credentials.basic(TEST_USER_LOGIN, TEST_PASSWORD))
+                    .addHeader("X-Trino-User", TEST_USER_LOGIN)
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertEquals(response.code(), SC_OK);
+                assertEquals(response.header("user"), TEST_USER);
+            }
+        }
+    }
+
+    @javax.ws.rs.Path("/username")
+    public static class TestResource
+    {
+        private final AccessControl accessControl;
+
+        @Inject
+        public TestResource(AccessControl accessControl)
+        {
+            this.accessControl = accessControl;
+        }
+
+        @ResourceSecurity(AUTHENTICATED_USER)
+        @GET
+        public javax.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+        {
+            Identity identity = extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty(), accessControl, user -> ImmutableSet.of());
+            return javax.ws.rs.core.Response.ok()
+                    .header("user", identity.getUser())
+                    .build();
         }
     }
 
@@ -265,7 +329,7 @@ public class TestResourceSecurity
                         .build())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertInsecureAuthentication(httpServerInfo.getHttpUri());
             assertPasswordAuthentication(httpServerInfo.getHttpsUri());
@@ -287,7 +351,7 @@ public class TestResourceSecurity
                         .build())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
 
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertFixedManagementUser(httpServerInfo.getHttpUri(), true);
@@ -310,7 +374,7 @@ public class TestResourceSecurity
                         .build())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
 
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertResponseCode(client, getPublicLocation(httpServerInfo.getHttpUri()), SC_OK);
@@ -337,7 +401,7 @@ public class TestResourceSecurity
                         .build())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
 
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertFixedManagementUser(httpServerInfo.getHttpUri(), true);
@@ -357,7 +421,7 @@ public class TestResourceSecurity
                         .put("http-server.https.truststore.key", "")
                         .build())
                 .build()) {
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
@@ -395,7 +459,7 @@ public class TestResourceSecurity
                         .put("http-server.authentication.jwt.principal-field", principalField.orElse("sub"))
                         .build())
                 .build()) {
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
@@ -434,7 +498,7 @@ public class TestResourceSecurity
                         .put("http-server.authentication.jwt.key-file", jwkServer.getBaseUrl().toString())
                         .build())
                 .build()) {
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
@@ -525,7 +589,7 @@ public class TestResourceSecurity
                             }
                         }))
                 .build()) {
-            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
@@ -817,6 +881,24 @@ public class TestResourceSecurity
     private static class TestSystemAccessControl
             extends AllowAllSystemAccessControl
     {
+        public static final TestSystemAccessControl WITH_IMPERSONATION = new TestSystemAccessControl(false);
+        public static final TestSystemAccessControl NO_IMPERSONATION = new TestSystemAccessControl(true);
+
+        private final boolean allowImpersonation;
+
+        private TestSystemAccessControl(boolean allowImpersonation)
+        {
+            this.allowImpersonation = allowImpersonation;
+        }
+
+        @Override
+        public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
+        {
+            if (!allowImpersonation) {
+                denyImpersonateUser(context.getIdentity().getUser(), userName);
+            }
+        }
+
         @Override
         public void checkCanReadSystemInformation(SystemSecurityContext context)
         {

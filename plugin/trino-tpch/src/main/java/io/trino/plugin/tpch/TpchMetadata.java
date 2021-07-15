@@ -513,7 +513,8 @@ public class TpchMetadata
                         handle.getTableName(),
                         handle.getScaleFactor(),
                         oldDomain.intersect(predicate)),
-                unenforcedConstraint));
+                unenforcedConstraint,
+                false));
     }
 
     @Override
@@ -533,8 +534,8 @@ public class TpchMetadata
                         destinationTable,
                         ImmutableBiMap.copyOf(getColumnHandles(session, table)).inverse(),
                         handle.getConstraint()
-                                .transform(TpchColumnHandle.class::cast)
-                                .transform(TpchColumnHandle::getColumnName)));
+                                .transformKeys(TpchColumnHandle.class::cast)
+                                .transformKeys(TpchColumnHandle::getColumnName)));
     }
 
     private TupleDomain<ColumnHandle> toTupleDomain(Map<TpchColumnHandle, Set<NullableValue>> predicate)

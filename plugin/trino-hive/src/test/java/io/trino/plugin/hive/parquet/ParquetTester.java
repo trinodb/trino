@@ -29,6 +29,7 @@ import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.benchmark.FileFormat;
+import io.trino.plugin.hive.benchmark.StandardFileFormats;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.write.MapKeyValuesSchemaConverter;
@@ -119,6 +120,7 @@ import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosFromTypeString;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
@@ -139,37 +141,52 @@ public class ParquetTester
 {
     private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
 
-    private static final boolean OPTIMIZED = true;
-    private static final ConnectorSession SESSION = getHiveSession(createHiveConfig(false));
-    private static final ConnectorSession SESSION_USE_NAME = getHiveSession(createHiveConfig(true));
-    private static final List<String> TEST_COLUMN = singletonList("test");
+    public static final ConnectorSession SESSION = getHiveSession(createHiveConfig(false));
+    public static final ConnectorSession SESSION_USE_NAME = getHiveSession(createHiveConfig(true));
+    public static final List<String> TEST_COLUMN = singletonList("test");
 
-    private Set<CompressionCodecName> compressions = ImmutableSet.of();
+    private final Set<CompressionCodecName> compressions;
 
-    private Set<CompressionCodecName> writerCompressions = ImmutableSet.of();
+    private final Set<CompressionCodecName> writerCompressions;
 
-    private Set<WriterVersion> versions = ImmutableSet.of();
+    private final Set<WriterVersion> versions;
 
-    private Set<ConnectorSession> sessions = ImmutableSet.of();
+    private final Set<ConnectorSession> sessions;
+
+    private final FileFormat fileFormat;
 
     public static ParquetTester quickParquetTester()
     {
-        ParquetTester parquetTester = new ParquetTester();
-        parquetTester.compressions = ImmutableSet.of(GZIP);
-        parquetTester.writerCompressions = ImmutableSet.of(GZIP);
-        parquetTester.versions = ImmutableSet.of(PARQUET_1_0);
-        parquetTester.sessions = ImmutableSet.of(SESSION);
-        return parquetTester;
+        return new ParquetTester(
+                ImmutableSet.of(GZIP),
+                ImmutableSet.of(GZIP),
+                ImmutableSet.of(PARQUET_1_0),
+                ImmutableSet.of(SESSION),
+                StandardFileFormats.TRINO_PARQUET);
     }
 
     public static ParquetTester fullParquetTester()
     {
-        ParquetTester parquetTester = new ParquetTester();
-        parquetTester.compressions = ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZO, LZ4, ZSTD);
-        parquetTester.writerCompressions = ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, ZSTD);
-        parquetTester.versions = ImmutableSet.copyOf(WriterVersion.values());
-        parquetTester.sessions = ImmutableSet.of(SESSION, SESSION_USE_NAME);
-        return parquetTester;
+        return new ParquetTester(
+                ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZO, LZ4, ZSTD),
+                ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, ZSTD),
+                ImmutableSet.copyOf(WriterVersion.values()),
+                ImmutableSet.of(SESSION, SESSION_USE_NAME),
+                StandardFileFormats.TRINO_PARQUET);
+    }
+
+    public ParquetTester(
+            Set<CompressionCodecName> compressions,
+            Set<CompressionCodecName> writerCompressions,
+            Set<WriterVersion> versions,
+            Set<ConnectorSession> sessions,
+            FileFormat fileFormat)
+    {
+        this.compressions = requireNonNull(compressions, "compressions is null");
+        this.writerCompressions = requireNonNull(writerCompressions, "writerCompressions is null");
+        this.versions = requireNonNull(versions, "writerCompressions is null");
+        this.sessions = requireNonNull(sessions, "sessions is null");
+        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
     }
 
     public void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<?> writeValues, Type parameterType)
@@ -358,7 +375,7 @@ public class ParquetTester
         }
     }
 
-    static void testMaxReadBytes(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, DataSize maxReadBlockSize)
+    void testMaxReadBytes(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, DataSize maxReadBlockSize)
             throws Exception
     {
         assertMaxReadBytes(
@@ -371,7 +388,7 @@ public class ParquetTester
                 maxReadBlockSize);
     }
 
-    static void assertMaxReadBytes(
+    void assertMaxReadBytes(
             List<ObjectInspector> objectInspectors,
             Iterable<?>[] writeValues,
             Iterable<?>[] readValues,
@@ -411,7 +428,7 @@ public class ParquetTester
                     false);
 
             Iterator<?>[] expectedValues = getIterators(readValues);
-            try (ConnectorPageSource pageSource = getFileFormat().createFileFormatReader(
+            try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(
                     session,
                     HDFS_ENVIRONMENT,
                     tempFile.getFile(),
@@ -427,7 +444,7 @@ public class ParquetTester
         }
     }
 
-    private static void assertFileContents(
+    private void assertFileContents(
             ConnectorSession session,
             File dataFile,
             Iterator<?>[] expectedValues,
@@ -435,7 +452,7 @@ public class ParquetTester
             List<Type> columnTypes)
             throws IOException
     {
-        try (ConnectorPageSource pageSource = getFileFormat().createFileFormatReader(
+        try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(
                 session,
                 HDFS_ENVIRONMENT,
                 dataFile,
@@ -562,11 +579,6 @@ public class ParquetTester
         return new HiveConfig()
                 .setHiveStorageFormat(HiveStorageFormat.PARQUET)
                 .setUseParquetColumnNames(useParquetColumnNames);
-    }
-
-    private static FileFormat getFileFormat()
-    {
-        return OPTIMIZED ? FileFormat.TRINO_PARQUET : FileFormat.HIVE_PARQUET;
     }
 
     public static void writeParquetColumn(

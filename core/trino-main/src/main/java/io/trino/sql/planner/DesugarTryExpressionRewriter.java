@@ -17,6 +17,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
@@ -29,8 +30,6 @@ import io.trino.sql.tree.TryExpression;
 import io.trino.type.FunctionType;
 
 import java.util.Map;
-
-import static io.trino.operator.scalar.TryFunction.NAME;
 
 public final class DesugarTryExpressionRewriter
 {
@@ -69,7 +68,7 @@ public final class DesugarTryExpressionRewriter
             Expression expression = treeRewriter.rewrite(node.getInnerExpression(), context);
 
             return new FunctionCallBuilder(metadata)
-                    .setName(QualifiedName.of(NAME))
+                    .setName(QualifiedName.of(TryFunction.NAME))
                     .addArgument(new FunctionType(ImmutableList.of(), type), new LambdaExpression(ImmutableList.of(), expression))
                     .build();
         }

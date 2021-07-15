@@ -29,6 +29,7 @@ import io.trino.server.HttpRequestSessionContext;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
+import io.trino.server.protocol.QueryInfoUrlFactory;
 import io.trino.server.protocol.Slug;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.ErrorCode;
@@ -101,6 +102,8 @@ public class QueuedStatementResource
     private final GroupProvider groupProvider;
     private final DispatchManager dispatchManager;
 
+    private final QueryInfoUrlFactory queryInfoUrlFactory;
+
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
@@ -114,6 +117,7 @@ public class QueuedStatementResource
             GroupProvider groupProvider,
             DispatchManager dispatchManager,
             DispatchExecutor executor,
+            QueryInfoUrlFactory queryInfoUrlTemplate,
             ServerConfig serverConfig,
             ProtocolConfig protocolConfig)
     {
@@ -123,6 +127,9 @@ public class QueuedStatementResource
         requireNonNull(dispatchManager, "dispatchManager is null");
         this.responseExecutor = requireNonNull(executor, "executor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "executor is null").getScheduledExecutor();
+
+        this.queryInfoUrlFactory = requireNonNull(queryInfoUrlTemplate, "queryInfoUrlTemplate is null");
+
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
         this.alternateHeaderName = requireNonNull(protocolConfig, "protocolConfig is null").getAlternateHeaderName();
 
@@ -183,7 +190,7 @@ public class QueuedStatementResource
         MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
 
         SessionContext sessionContext = new HttpRequestSessionContext(headers, alternateHeaderName, remoteAddress, identity, groupProvider);
-        Query query = new Query(statement, sessionContext, dispatchManager);
+        Query query = new Query(statement, sessionContext, dispatchManager, queryInfoUrlFactory);
         queries.put(query.getQueryId(), query);
 
         // let authentication filter know that identity lifecycle has been handed off
@@ -207,7 +214,7 @@ public class QueuedStatementResource
         Query query = getQuery(queryId, slug, token);
 
         // wait for query to be dispatched, up to the wait timeout
-        ListenableFuture<?> futureStateChange = addTimeout(
+        ListenableFuture<Void> futureStateChange = addTimeout(
                 query.waitForDispatched(),
                 () -> null,
                 WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait),
@@ -259,12 +266,13 @@ public class QueuedStatementResource
         return builder.build();
     }
 
-    private static URI getQueryHtmlUri(QueryId queryId, UriInfo uriInfo)
+    private static URI getQueryHtmlUri(QueryId queryId, UriInfo uriInfo, Optional<URI> queryInfoUrl)
     {
-        return uriInfo.getRequestUriBuilder()
-                .replacePath("ui/query.html")
-                .replaceQuery(queryId.toString())
-                .build();
+        return queryInfoUrl.orElseGet(() ->
+                uriInfo.getRequestUriBuilder()
+                        .replacePath("ui/query.html")
+                        .replaceQuery(queryId.toString())
+                        .build());
     }
 
     private static URI getQueuedUri(QueryId queryId, Slug slug, long token, UriInfo uriInfo)
@@ -283,13 +291,14 @@ public class QueuedStatementResource
             URI nextUri,
             Optional<QueryError> queryError,
             UriInfo uriInfo,
+            Optional<URI> queryInfoUrl,
             Duration elapsedTime,
             Duration queuedTime)
     {
         QueryState state = queryError.map(error -> FAILED).orElse(QUEUED);
         return new QueryResults(
                 queryId.toString(),
-                getQueryHtmlUri(queryId, uriInfo),
+                getQueryHtmlUri(queryId, uriInfo, queryInfoUrl),
                 null,
                 nextUri,
                 null,
@@ -321,18 +330,21 @@ public class QueuedStatementResource
         private final SessionContext sessionContext;
         private final DispatchManager dispatchManager;
         private final QueryId queryId;
+        private final Optional<URI> queryInfoUrl;
         private final Slug slug = Slug.createNew();
         private final AtomicLong lastToken = new AtomicLong();
 
         @GuardedBy("this")
-        private ListenableFuture<?> querySubmissionFuture;
+        private ListenableFuture<Void> querySubmissionFuture;
 
-        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager)
+        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, QueryInfoUrlFactory queryInfoUrlFactory)
         {
             this.query = requireNonNull(query, "query is null");
             this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
             this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
             this.queryId = dispatchManager.createQueryId();
+            requireNonNull(queryInfoUrlFactory, "queryInfoUrlFactory is null");
+            this.queryInfoUrl = queryInfoUrlFactory.getQueryInfoUrl(queryId);
         }
 
         public QueryId getQueryId()
@@ -355,7 +367,7 @@ public class QueuedStatementResource
             return querySubmissionFuture != null && querySubmissionFuture.isDone();
         }
 
-        private ListenableFuture<?> waitForDispatched()
+        private ListenableFuture<Void> waitForDispatched()
         {
             // if query submission has not finished, wait for it to finish
             synchronized (this) {
@@ -424,6 +436,7 @@ public class QueuedStatementResource
                     nextUri,
                     queryError,
                     uriInfo,
+                    queryInfoUrl,
                     dispatchInfo.getElapsedTime(),
                     dispatchInfo.getQueuedTime());
         }

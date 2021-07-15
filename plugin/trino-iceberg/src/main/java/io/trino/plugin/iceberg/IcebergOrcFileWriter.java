@@ -72,14 +72,13 @@ public class IcebergOrcFileWriter
             ColumnMetadata<OrcType> fileColumnOrcTypes,
             CompressionKind compression,
             OrcWriterOptions options,
-            boolean writeLegacyVersion,
             int[] fileInputColumnIndexes,
             Map<String, String> metadata,
             Optional<Supplier<OrcDataSource>> validationInputFactory,
             OrcWriteValidation.OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
     {
-        super(orcDataSink, WriterKind.INSERT, NO_ACID_TRANSACTION, false, OptionalInt.empty(), rollbackAction, columnNames, fileColumnTypes, fileColumnOrcTypes, compression, options, writeLegacyVersion, fileInputColumnIndexes, metadata, validationInputFactory, validationMode, stats);
+        super(orcDataSink, WriterKind.INSERT, NO_ACID_TRANSACTION, false, OptionalInt.empty(), rollbackAction, columnNames, fileColumnTypes, fileColumnOrcTypes, compression, options, fileInputColumnIndexes, metadata, validationInputFactory, validationMode, stats);
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
         orcColumns = fileColumnOrcTypes;
     }

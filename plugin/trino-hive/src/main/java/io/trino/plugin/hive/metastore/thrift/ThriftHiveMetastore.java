@@ -189,7 +189,7 @@ public class ThriftHiveMetastore
     private final CoalescingCounter metastoreSetDateStatisticsFailures = new CoalescingCounter(new Duration(1, SECONDS));
 
     private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
-    private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9]*$");
+    private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
     private final boolean assumeCanonicalPartitionKeys;
 
     @Inject
@@ -1188,8 +1188,9 @@ public class ThriftHiveMetastore
     @Override
     public Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter)
     {
-        Optional<List<String>> parts = partitionKeyFilterToStringList(columnNames, partitionKeysFilter, assumeCanonicalPartitionKeys);
         checkArgument(!columnNames.isEmpty() || partitionKeysFilter.isAll(), "must pass in all columnNames or the filter must be all");
+
+        Optional<List<String>> parts = partitionKeyFilterToStringList(columnNames, partitionKeysFilter, assumeCanonicalPartitionKeys);
         if (parts.isEmpty()) {
             return Optional.of(ImmutableList.of());
         }
@@ -1412,7 +1413,7 @@ public class ThriftHiveMetastore
     public List<Partition> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames)
     {
         requireNonNull(partitionNames, "partitionNames is null");
-        checkArgument(!Iterables.isEmpty(partitionNames), "partitionNames is empty");
+        checkArgument(!partitionNames.isEmpty(), "partitionNames is empty");
 
         try {
             return retry()
@@ -1760,7 +1761,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getConfigValueFromServer", () -> {
                         try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            return Optional.ofNullable(metastoreClient.get_config_value(name, null));
+                            return Optional.ofNullable(metastoreClient.getConfigValue(name, null));
                         }
                     });
         }

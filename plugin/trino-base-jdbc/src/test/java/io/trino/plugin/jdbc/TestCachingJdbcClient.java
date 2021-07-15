@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
+import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -26,6 +27,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -65,7 +67,7 @@ public class TestCachingJdbcClient
                     null,
                     false));
 
-    public static final Set<SessionPropertiesProvider> SESSION_PROPERTIES_PROVIDERS = Set.of(() -> PROPERTY_METADATA);
+    private static final Set<SessionPropertiesProvider> SESSION_PROPERTIES_PROVIDERS = Set.of(() -> PROPERTY_METADATA);
 
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(PROPERTY_METADATA)
@@ -92,7 +94,7 @@ public class TestCachingJdbcClient
 
     private CachingJdbcClient createCachingJdbcClient(Duration cacheTtl, boolean cacheMissing)
     {
-        return new CachingJdbcClient(database.getJdbcClient(), SESSION_PROPERTIES_PROVIDERS, cacheTtl, cacheMissing);
+        return new CachingJdbcClient(database.getJdbcClient(), SESSION_PROPERTIES_PROVIDERS, new SingletonJdbcIdentityCacheMapping(), cacheTtl, cacheMissing);
     }
 
     private CachingJdbcClient createCachingJdbcClient(boolean cacheMissing)
@@ -441,7 +443,7 @@ public class TestCachingJdbcClient
                 return NON_EMPTY_STATS;
             }
         };
-        return new CachingJdbcClient(statsAwareJdbcClient, SESSION_PROPERTIES_PROVIDERS, duration, cacheMissing);
+        return new CachingJdbcClient(statsAwareJdbcClient, SESSION_PROPERTIES_PROVIDERS, new SingletonJdbcIdentityCacheMapping(), duration, cacheMissing);
     }
 
     @Test
@@ -482,6 +484,36 @@ public class TestCachingJdbcClient
         this.jdbcClient.dropTable(SESSION, table);
     }
 
+    @Test
+    public void testDifferentIdentityKeys()
+    {
+        CachingJdbcClient cachingJdbcClient = new CachingJdbcClient(
+                database.getJdbcClient(),
+                SESSION_PROPERTIES_PROVIDERS,
+                new ExtraCredentialsBasedJdbcIdentityCacheMapping(new ExtraCredentialConfig()
+                        .setUserCredentialName("user")
+                        .setPasswordCredentialName("password")),
+                FOREVER,
+                true);
+        ConnectorSession alice = createUserSession("alice");
+        ConnectorSession bob = createUserSession("bob");
+
+        JdbcTableHandle table = createTable(new SchemaTableName(schema, "table"));
+
+        assertTableNamesCache(cachingJdbcClient).loads(2).misses(2).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableNames(alice, Optional.empty())).contains(table.getRequiredNamedRelation().getSchemaTableName());
+            assertThat(cachingJdbcClient.getTableNames(bob, Optional.empty())).contains(table.getRequiredNamedRelation().getSchemaTableName());
+        });
+
+        assertTableNamesCache(cachingJdbcClient).hits(2).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableNames(alice, Optional.empty())).contains(table.getRequiredNamedRelation().getSchemaTableName());
+            assertThat(cachingJdbcClient.getTableNames(bob, Optional.empty())).contains(table.getRequiredNamedRelation().getSchemaTableName());
+        });
+
+        // Drop tables by not using caching jdbc client
+        jdbcClient.dropTable(SESSION, table);
+    }
+
     private JdbcTableHandle getAnyTable(String schema)
     {
         SchemaTableName tableName = jdbcClient.getTableNames(SESSION, Optional.of(schema))
@@ -516,6 +548,15 @@ public class TestCachingJdbcClient
                 .build();
     }
 
+    private static ConnectorSession createUserSession(String userName)
+    {
+        return builder()
+                .setIdentity(ConnectorIdentity.forUser(userName)
+                        .withExtraCredentials(ImmutableMap.of("user", userName))
+                        .build())
+                .build();
+    }
+
     @Test
     public void testEverythingImplemented()
     {
@@ -532,6 +573,11 @@ public class TestCachingJdbcClient
         catch (NoSuchMethodException e) {
             throw new AssertionError(e);
         }
+    }
+
+    private static CacheStatsAssertions assertTableNamesCache(CachingJdbcClient cachingJdbcClient)
+    {
+        return new CacheStatsAssertions(cachingJdbcClient::getTableNamesCacheStats);
     }
 
     private static CacheStatsAssertions assertColumnCacheStats(CachingJdbcClient client)

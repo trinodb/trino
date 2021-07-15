@@ -24,10 +24,10 @@ import io.trino.execution.TaskSource;
 import io.trino.metadata.Split;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverFactory;
-import io.trino.operator.LookupSource;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
+import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
@@ -346,7 +346,7 @@ public class IndexLoader
                 ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(recordSetForLookupSource), Lifespan.taskWide()));
                 driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(split), true));
                 while (!driver.isFinished()) {
-                    ListenableFuture<?> process = driver.process();
+                    ListenableFuture<Void> process = driver.process();
                     checkState(process.isDone(), "Driver should never block");
                 }
             }

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.memory;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.trino.Session;
@@ -37,10 +38,16 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.PART;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -57,13 +64,14 @@ public class TestMemorySmoke
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return MemoryQueryRunner.createQueryRunner(
+        return createMemoryQueryRunner(
                 // Adjust DF limits to test edge cases
                 ImmutableMap.of(
                         "dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "100",
                         "dynamic-filtering.small-broadcast.range-row-limit-per-driver", "100",
                         "dynamic-filtering.large-broadcast.max-distinct-values-per-driver", "100",
-                        "dynamic-filtering.large-broadcast.range-row-limit-per-driver", "100000"));
+                        "dynamic-filtering.large-broadcast.range-row-limit-per-driver", "100000"),
+                ImmutableList.of(NATION, CUSTOMER, ORDERS, LINE_ITEM, PART));
     }
 
     @Test
@@ -350,14 +358,14 @@ public class TestMemorySmoke
 
     private Session withBroadcastJoin()
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .build();
     }
 
     private Session withLargeDynamicFilters()
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "true")
                 .build();
@@ -365,7 +373,7 @@ public class TestMemorySmoke
 
     private Session withBroadcastJoinNonReordering()
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .build();
@@ -373,7 +381,7 @@ public class TestMemorySmoke
 
     private Session withPartitionedJoin()
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .build();
     }

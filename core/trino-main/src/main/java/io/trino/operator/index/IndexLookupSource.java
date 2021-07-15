@@ -13,7 +13,7 @@
  */
 package io.trino.operator.index;
 
-import io.trino.operator.LookupSource;
+import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 

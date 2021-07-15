@@ -351,6 +351,7 @@ public class ElasticsearchMetadata
                 .filter(entry -> indexes.contains(entry.getKey()))
                 .flatMap(entry -> entry.getValue().stream()
                         .map(alias -> new SchemaTableName(this.schemaName, alias)))
+                .distinct()
                 .forEach(result::add);
 
         return result.build();
@@ -449,7 +450,7 @@ public class ElasticsearchMetadata
                 handle.getQuery(),
                 OptionalLong.of(limit));
 
-        return Optional.of(new LimitApplicationResult<>(handle, false));
+        return Optional.of(new LimitApplicationResult<>(handle, false, false));
     }
 
     @Override
@@ -491,7 +492,7 @@ public class ElasticsearchMetadata
                 handle.getQuery(),
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported)));
+        return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), false));
     }
 
     private static boolean isPassthroughQuery(ElasticsearchTableHandle table)

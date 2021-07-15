@@ -20,11 +20,9 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.client.QueryResults;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostCalculator.EstimatedExchanges;
 import io.trino.cost.CostCalculatorUsingExchanges;
@@ -42,19 +40,22 @@ import io.trino.dispatcher.QueuedStatementResource;
 import io.trino.event.QueryMonitor;
 import io.trino.event.QueryMonitorConfig;
 import io.trino.execution.ClusterSizeMonitor;
+import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryExecutionMBean;
 import io.trino.execution.QueryIdGenerator;
-import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryPerformanceFetcher;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SqlQueryManager;
+import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.TaskStatus;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
@@ -73,21 +74,23 @@ import io.trino.memory.TotalReservationLowMemoryKiller;
 import io.trino.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import io.trino.metadata.CatalogManager;
 import io.trino.operator.ForScheduler;
+import io.trino.operator.OperatorStats;
 import io.trino.server.protocol.ExecutingStatementResource;
+import io.trino.server.protocol.QueryInfoUrlFactory;
 import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
+import io.trino.spi.VersionEmbedder;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
-import io.trino.spi.security.SelectedRole;
 import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.planner.OptimizerStatsMBeanExporter;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
-import io.trino.sql.planner.RuleStatsRecorder;
+import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.transaction.ForTransactionManager;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerConfig;
-import io.trino.version.EmbedVersion;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -98,9 +101,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -121,21 +125,16 @@ public class CoordinatorModule
     {
         install(new WebUiModule());
 
-        // discovery server
-        install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
-
         // coordinator announcement
         discoveryBinder(binder).bindHttpAnnouncement("trino-coordinator");
 
         // statement resource
-        jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
-        jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
-        jsonCodecBinder(binder).bindJsonCodec(SelectedRole.class);
         jaxrsBinder(binder).bind(QueuedStatementResource.class);
         jaxrsBinder(binder).bind(ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
+        binder.bind(QueryInfoUrlFactory.class).in(Scopes.SINGLETON);
 
         // allow large prepared statements in headers
         configBinder(binder).bindConfigDefaults(HttpServerConfig.class, config -> {
@@ -150,6 +149,9 @@ public class CoordinatorModule
         httpClientBinder(binder).bindHttpClient("workerInfo", ForWorkerInfo.class);
 
         // query monitor
+        jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
+        jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(StatsAndCosts.class);
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
@@ -209,10 +211,11 @@ public class CoordinatorModule
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
-        binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, PlanOptimizersFactory.class)
+                .setDefault().to(PlanOptimizers.class).in(Scopes.SINGLETON);
 
-        // Rule Stats Recorder
-        binder.bind(RuleStatsRecorder.class).in(Scopes.SINGLETON);
+        // Optimizer/Rule Stats exporter
+        binder.bind(OptimizerStatsMBeanExporter.class).in(Scopes.SINGLETON);
 
         // query explainer
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
@@ -221,7 +224,10 @@ public class CoordinatorModule
         binder.bind(ExplainAnalyzeContext.class).in(Scopes.SINGLETON);
 
         // execution scheduler
+        jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
+        jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskFactory.class).withGeneratedName();
 
@@ -319,16 +325,16 @@ public class CoordinatorModule
     public static TransactionManager createTransactionManager(
             TransactionManagerConfig config,
             CatalogManager catalogManager,
-            EmbedVersion embedVersion,
+            VersionEmbedder versionEmbedder,
             @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
             @ForTransactionManager ExecutorService finishingExecutor)
     {
-        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, embedVersion.embedVersion(finishingExecutor));
+        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, versionEmbedder.embedVersion(finishingExecutor));
     }
 
     private void bindLowMemoryKiller(LowMemoryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 MemoryManagerConfig.class,
                 config -> policy == config.getLowMemoryKillerPolicy(),
                 binder -> binder.bind(LowMemoryKiller.class).to(clazz).in(Scopes.SINGLETON)));

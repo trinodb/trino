@@ -26,22 +26,18 @@ import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class ConnectorExpressionTranslator
@@ -82,10 +78,7 @@ public final class ConnectorExpressionTranslator
 
             if (expression instanceof FieldDereference) {
                 FieldDereference dereference = (FieldDereference) expression;
-
-                RowType type = (RowType) dereference.getTarget().getType();
-                String name = type.getFields().get(dereference.getField()).getName().get();
-                return new DereferenceExpression(translate(dereference.getTarget()), new Identifier(name));
+                return new SubscriptExpression(translate(dereference.getTarget()), new LongLiteral(Long.toString(dereference.getField() + 1)));
             }
 
             throw new UnsupportedOperationException("Expression type not supported: " + expression.getClass().getName());
@@ -157,28 +150,18 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitDereferenceExpression(DereferenceExpression node, Void context)
+        protected Optional<ConnectorExpression> visitSubscriptExpression(SubscriptExpression node, Void context)
         {
+            if (!(typeOf(node.getBase()) instanceof RowType)) {
+                return Optional.empty();
+            }
+
             Optional<ConnectorExpression> translatedBase = process(node.getBase());
             if (translatedBase.isEmpty()) {
                 return Optional.empty();
             }
 
-            RowType rowType = (RowType) typeOf(node.getBase());
-            String fieldName = node.getField().getValue();
-            List<RowType.Field> fields = rowType.getFields();
-            int index = -1;
-            for (int i = 0; i < fields.size(); i++) {
-                RowType.Field field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
-                    checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
-                    index = i;
-                }
-            }
-
-            checkState(index >= 0, "could not find field name: %s", node.getField());
-
-            return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), index));
+            return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), (int) (((LongLiteral) node.getIndex()).getValue() - 1)));
         }
 
         @Override

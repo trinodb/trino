@@ -32,6 +32,7 @@ import io.trino.tpch.NationGenerator;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -83,7 +84,7 @@ public class TestOrcPageSourceFactory
     @Test
     public void testFullFileRead()
     {
-        assertRead(ALL_COLUMNS, OptionalLong.empty(), Optional.empty(), nationKey -> false);
+        assertRead(ImmutableMap.of(NATION_KEY, 0, NAME, 1, REGION_KEY, 2, COMMENT, 3), OptionalLong.empty(), Optional.empty(), nationKey -> false);
     }
 
     @Test
@@ -123,6 +124,36 @@ public class TestOrcPageSourceFactory
     }
 
     @Test
+    public void testReadWithAcidVersionValidationHive3()
+    {
+        File tableFile = new File(TestOrcPageSourceFactory.class.getClassLoader().getResource("acid_version_validation/acid_version_hive_3/00000_0").getPath());
+        String tablePath = tableFile.getParent();
+
+        Optional<AcidInfo> acidInfo = AcidInfo.builder(new Path(tablePath))
+                .setOrcAcidVersionValidated(false)
+                .build();
+
+        List<Nation> result = readFile(Map.of(), OptionalLong.empty(), acidInfo, tableFile.getPath(), 625);
+        assertEquals(result.size(), 1);
+    }
+
+    @Test
+    public void testReadWithAcidVersionValidationNoVersionInMetadata()
+    {
+        File tableFile = new File(TestOrcPageSourceFactory.class.getClassLoader().getResource("acid_version_validation/no_orc_acid_version_in_metadata/00000_0").getPath());
+        String tablePath = tableFile.getParent();
+
+        Optional<AcidInfo> acidInfo = AcidInfo.builder(new Path(tablePath))
+                .setOrcAcidVersionValidated(false)
+                .build();
+
+        Assertions.assertThatThrownBy(() -> readFile(Map.of(), OptionalLong.empty(), acidInfo, tableFile.getPath(), 730))
+                .hasMessageMatching("Hive transactional tables are supported since Hive 3.0. Expected `hive.acid.version` in ORC metadata" +
+                        " in .*/acid_version_validation/no_orc_acid_version_in_metadata/00000_0 to be >=2 but was <empty>." +
+                        " If you have upgraded from an older version of Hive, make sure a major compaction has been run at least once after the upgrade.");
+    }
+
+    @Test
     public void testFullFileReadOriginalFilesTable()
     {
         File tableFile = new File(TestOrcPageSourceFactory.class.getClassLoader().getResource("fullacidNationTableWithOriginalFiles/000000_0").getPath());
@@ -131,6 +162,7 @@ public class TestOrcPageSourceFactory
         AcidInfo acidInfo = AcidInfo.builder(new Path(tablePath))
                 .addDeleteDelta(new Path(tablePath, deleteDeltaSubdir(10000001, 10000001, 0)))
                 .addOriginalFile(new Path(tablePath, "000000_0"), 1780, 0)
+                .setOrcAcidVersionValidated(true)
                 .buildWithRequiredOriginalFiles(0);
 
         List<Nation> expected = expectedResult(OptionalLong.empty(), nationKey -> nationKey == 24, 1);

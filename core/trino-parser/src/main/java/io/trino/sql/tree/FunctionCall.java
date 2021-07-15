@@ -31,16 +31,17 @@ public class FunctionCall
     private final Optional<OrderBy> orderBy;
     private final boolean distinct;
     private final Optional<NullTreatment> nullTreatment;
+    private final Optional<ProcessingMode> processingMode;
     private final List<Expression> arguments;
 
     public FunctionCall(QualifiedName name, List<Expression> arguments)
     {
-        this(Optional.empty(), name, Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty(), arguments);
+        this(Optional.empty(), name, Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty(), Optional.empty(), arguments);
     }
 
     public FunctionCall(NodeLocation location, QualifiedName name, List<Expression> arguments)
     {
-        this(Optional.of(location), name, Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty(), arguments);
+        this(Optional.of(location), name, Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty(), Optional.empty(), arguments);
     }
 
     public FunctionCall(
@@ -51,6 +52,7 @@ public class FunctionCall
             Optional<OrderBy> orderBy,
             boolean distinct,
             Optional<NullTreatment> nullTreatment,
+            Optional<ProcessingMode> processingMode,
             List<Expression> arguments)
     {
         super(location);
@@ -60,6 +62,7 @@ public class FunctionCall
         requireNonNull(filter, "filter is null");
         requireNonNull(orderBy, "orderBy is null");
         requireNonNull(nullTreatment, "nullTreatment is null");
+        requireNonNull(processingMode, "processingMode is null");
         requireNonNull(arguments, "arguments is null");
 
         this.name = name;
@@ -68,6 +71,7 @@ public class FunctionCall
         this.orderBy = orderBy;
         this.distinct = distinct;
         this.nullTreatment = nullTreatment;
+        this.processingMode = processingMode;
         this.arguments = arguments;
     }
 
@@ -94,6 +98,11 @@ public class FunctionCall
     public Optional<NullTreatment> getNullTreatment()
     {
         return nullTreatment;
+    }
+
+    public Optional<ProcessingMode> getProcessingMode()
+    {
+        return processingMode;
     }
 
     public List<Expression> getArguments()
@@ -139,13 +148,14 @@ public class FunctionCall
                 Objects.equals(orderBy, o.orderBy) &&
                 Objects.equals(distinct, o.distinct) &&
                 Objects.equals(nullTreatment, o.nullTreatment) &&
+                Objects.equals(processingMode, o.processingMode) &&
                 Objects.equals(arguments, o.arguments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, distinct, nullTreatment, window, filter, orderBy, arguments);
+        return Objects.hash(name, distinct, nullTreatment, processingMode, window, filter, orderBy, arguments);
     }
 
     // TODO: make this a proper Tree node so that we can report error
@@ -166,6 +176,7 @@ public class FunctionCall
 
         return name.equals(otherFunction.name) &&
                 distinct == otherFunction.distinct &&
-                nullTreatment.equals(otherFunction.nullTreatment);
+                nullTreatment.equals(otherFunction.nullTreatment) &&
+                processingMode.equals(otherFunction.processingMode);
     }
 }

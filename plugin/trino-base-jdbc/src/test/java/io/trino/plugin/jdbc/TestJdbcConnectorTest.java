@@ -50,17 +50,19 @@ public class TestJdbcConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_LIMIT_PUSHDOWN:
+            case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
+                return false;
+
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
             case SUPPORTS_ARRAY:
-                return false;
-
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
             default:
@@ -127,7 +129,8 @@ public class TestJdbcConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    private JdbcSqlExecutor onRemoteDatabase()
+    @Override
+    protected JdbcSqlExecutor onRemoteDatabase()
     {
         return new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
     }

@@ -42,10 +42,12 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -321,6 +323,12 @@ public class DistributedExecutionPlanner
         }
 
         @Override
+        public Map<PlanNodeId, SplitSource> visitPatternRecognition(PatternRecognitionNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
         public Map<PlanNodeId, SplitSource> visitRowNumber(RowNumberNode node, Void context)
         {
             return node.getSource().accept(this, context);
@@ -384,6 +392,13 @@ public class DistributedExecutionPlanner
         public Map<PlanNodeId, SplitSource> visitSort(SortNode node, Void context)
         {
             return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitRefreshMaterializedView(RefreshMaterializedViewNode node, Void context)
+        {
+            // RefreshMaterializedViewNode does not have splits
+            return ImmutableMap.of();
         }
 
         @Override

@@ -32,6 +32,7 @@ import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.avro.TrinoAvroSerDe;
 import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
@@ -126,6 +127,8 @@ import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITI
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.HiveType.toHiveTypes;
+import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
+import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.util.ConfigurationUtils.copy;
 import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.util.HiveBucketing.bucketedOnTimestamp;
@@ -152,6 +155,7 @@ import static java.lang.Long.parseLong;
 import static java.lang.Short.parseShort;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
@@ -165,6 +169,9 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Cate
 
 public final class HiveUtil
 {
+    public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
+    public static final String DELTA_LAKE_PROVIDER = "delta";
+
     private static final DateTimeFormatter HIVE_DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
     private static final Field COMPRESSION_CODECS_FIELD;
@@ -176,6 +183,8 @@ public final class HiveUtil
     private static final String BIG_DECIMAL_POSTFIX = "BD";
 
     private static final Splitter COLUMN_NAMES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    private static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
+    private static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -1025,5 +1034,50 @@ public final class HiveUtil
             }
         }
         return orcWriterOptions;
+    }
+
+    public static SortingColumn sortingColumnFromString(String name)
+    {
+        SortingColumn.Order order = ASCENDING;
+        String lower = name.toUpperCase(ENGLISH);
+        if (lower.endsWith(" ASC")) {
+            name = name.substring(0, name.length() - 4).trim();
+        }
+        else if (lower.endsWith(" DESC")) {
+            name = name.substring(0, name.length() - 5).trim();
+            order = DESCENDING;
+        }
+        return new SortingColumn(name, order);
+    }
+
+    public static String sortingColumnToString(SortingColumn column)
+    {
+        return column.getColumnName() + ((column.getOrder() == DESCENDING) ? " DESC" : "");
+    }
+
+    public static boolean isHiveSystemSchema(String schemaName)
+    {
+        if ("information_schema".equals(schemaName)) {
+            // For things like listing columns in information_schema.columns table, we need to explicitly filter out Hive's own information_schema.
+            // TODO https://github.com/trinodb/trino/issues/1559 this should be filtered out in engine.
+            return true;
+        }
+        if ("sys".equals(schemaName)) {
+            // Hive 3's `sys` schema contains no objects we can handle, so there is no point in exposing it.
+            // Also, exposing it may require proper handling in access control.
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean isDeltaLakeTable(Table table)
+    {
+        return table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)
+                && table.getParameters().get(SPARK_TABLE_PROVIDER_KEY).toLowerCase(ENGLISH).equals(DELTA_LAKE_PROVIDER);
+    }
+
+    public static boolean isIcebergTable(Table table)
+    {
+        return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(ICEBERG_TABLE_TYPE_NAME));
     }
 }

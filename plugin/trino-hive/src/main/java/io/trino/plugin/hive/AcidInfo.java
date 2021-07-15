@@ -39,18 +39,21 @@ public class AcidInfo
     private final List<DeleteDeltaInfo> deleteDeltas;
     private final List<OriginalFileInfo> originalFiles;
     private final int bucketId;
+    private final boolean orcAcidVersionValidated;
 
     @JsonCreator
     public AcidInfo(
             @JsonProperty("partitionLocation") String partitionLocation,
             @JsonProperty("deleteDeltas") List<DeleteDeltaInfo> deleteDeltas,
             @JsonProperty("originalFiles") List<OriginalFileInfo> originalFiles,
-            @JsonProperty("bucketId") int bucketId)
+            @JsonProperty("bucketId") int bucketId,
+            @JsonProperty("orcAcidVersionValidated") boolean orcAcidVersionValidated)
     {
         this.partitionLocation = requireNonNull(partitionLocation, "partitionLocation is null");
         this.deleteDeltas = ImmutableList.copyOf(requireNonNull(deleteDeltas, "deleteDeltas is null"));
         this.originalFiles = ImmutableList.copyOf(requireNonNull(originalFiles, "originalFiles is null"));
         this.bucketId = bucketId;
+        this.orcAcidVersionValidated = orcAcidVersionValidated;
     }
 
     @JsonProperty
@@ -77,6 +80,12 @@ public class AcidInfo
         return deleteDeltas;
     }
 
+    @JsonProperty
+    public boolean isOrcAcidVersionValidated()
+    {
+        return orcAcidVersionValidated;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -88,6 +97,7 @@ public class AcidInfo
         }
         AcidInfo that = (AcidInfo) o;
         return bucketId == that.bucketId &&
+                orcAcidVersionValidated == that.orcAcidVersionValidated &&
                 Objects.equals(partitionLocation, that.partitionLocation) &&
                 Objects.equals(deleteDeltas, that.deleteDeltas) &&
                 Objects.equals(originalFiles, that.originalFiles);
@@ -96,7 +106,7 @@ public class AcidInfo
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitionLocation, deleteDeltas, originalFiles, bucketId);
+        return Objects.hash(partitionLocation, deleteDeltas, originalFiles, bucketId, orcAcidVersionValidated);
     }
 
     @Override
@@ -107,6 +117,7 @@ public class AcidInfo
                 .add("deleteDeltas", deleteDeltas)
                 .add("originalFiles", originalFiles)
                 .add("bucketId", bucketId)
+                .add("orcAcidVersionValidated", orcAcidVersionValidated)
                 .toString();
     }
 
@@ -225,6 +236,7 @@ public class AcidInfo
         private final Path partitionLocation;
         private final List<DeleteDeltaInfo> deleteDeltaInfos = new ArrayList<>();
         private final ListMultimap<Integer, OriginalFileInfo> bucketIdToOriginalFileInfoMap = ArrayListMultimap.create();
+        private boolean orcAcidVersionValidated;
 
         private Builder(Path partitionPath)
         {
@@ -265,6 +277,12 @@ public class AcidInfo
             return this;
         }
 
+        public Builder setOrcAcidVersionValidated(boolean orcAcidVersionValidated)
+        {
+            this.orcAcidVersionValidated = orcAcidVersionValidated;
+            return this;
+        }
+
         public AcidInfo buildWithRequiredOriginalFiles(int bucketId)
         {
             checkState(
@@ -272,16 +290,18 @@ public class AcidInfo
                     "Bucket Id to OriginalFileInfo map should have entry for requested bucket id: %s",
                     bucketId);
             List<DeleteDeltaInfo> deleteDeltas = ImmutableList.copyOf(deleteDeltaInfos);
-            return new AcidInfo(partitionLocation.toString(), deleteDeltas, bucketIdToOriginalFileInfoMap.get(bucketId), bucketId);
+            return new AcidInfo(partitionLocation.toString(), deleteDeltas, bucketIdToOriginalFileInfoMap.get(bucketId), bucketId, orcAcidVersionValidated);
         }
 
         public Optional<AcidInfo> build()
         {
             List<DeleteDeltaInfo> deleteDeltas = ImmutableList.copyOf(deleteDeltaInfos);
-            if (deleteDeltas.isEmpty()) {
+            if (deleteDeltas.isEmpty() && orcAcidVersionValidated) {
+                // We do not want to bail out with `Optional.empty()` if ORC ACID version was not validated based on _orc_acid_version file.
+                // If we did so extra validation in OrcPageSourceFactory (based on file metadata) would not be performed.
                 return Optional.empty();
             }
-            return Optional.of(new AcidInfo(partitionLocation.toString(), deleteDeltas, ImmutableList.of(), -1));
+            return Optional.of(new AcidInfo(partitionLocation.toString(), deleteDeltas, ImmutableList.of(), -1, orcAcidVersionValidated));
         }
     }
 }

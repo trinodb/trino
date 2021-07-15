@@ -861,7 +861,7 @@ public class TestStringFunctions
     @Test
     public void testVarcharToVarcharX()
     {
-        assertFunction("LOWER(CAST('HELLO' AS VARCHAR))", createUnboundedVarcharType(), "hello");
+        assertFunction("LOWER(VARCHAR 'HELLO')", createUnboundedVarcharType(), "hello");
     }
 
     @Test
@@ -1072,5 +1072,24 @@ public class TestStringFunctions
         assertFunction("translate('abcd', 'a', 'zy')", VARCHAR, "zbcd");
         assertFunction("translate('abcd', 'ac', 'z')", VARCHAR, "zbd");
         assertFunction("translate('abcd', 'aac', 'zq')", VARCHAR, "zbd");
+    }
+
+    @Test
+    public void testSoundex()
+    {
+        assertFunction("soundex('jim')", createVarcharType(4), "J500");
+        assertFunction("soundex('jIM')", createVarcharType(4), "J500");
+        assertFunction("soundex('JIM')", createVarcharType(4), "J500");
+        assertFunction("soundex('Jim')", createVarcharType(4), "J500");
+        assertFunction("soundex('John')", createVarcharType(4), "J500");
+        assertFunction("soundex('johannes')", createVarcharType(4), "J520");
+        assertFunction("soundex('Sarah')", createVarcharType(4), "S600");
+        assertFunction("soundex(null)", createVarcharType(4), null);
+        assertFunction("soundex('')", createVarcharType(4), "");
+        assertFunction("soundex('123')", createVarcharType(4), "");
+        assertFunction("soundex('\uD83D\uDE80')", createVarcharType(4), "");
+        assertFunction("soundex('j~im')", createVarcharType(4), "J500");
+        assertInvalidFunction("soundex('jąmes')", "The character is not mapped: Ą (index=195)");
+        assertFunction("soundex('x123')", createVarcharType(4), "X000");
     }
 }

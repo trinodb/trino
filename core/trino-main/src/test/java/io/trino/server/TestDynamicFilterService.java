@@ -27,7 +27,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.Partitioning;
@@ -62,7 +61,6 @@ import static io.trino.server.DynamicFilterService.getSourceStageInnerLazyDynami
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.none;
 import static io.trino.spi.predicate.Domain.singleValue;
-import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -75,6 +73,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -133,7 +132,9 @@ public class TestDynamicFilterService
         assertEquals(stats.getReplicatedDynamicFilters(), 0);
         assertEquals(
                 stats.getDynamicFilterDomainStats(),
-                ImmutableList.of(new DynamicFilterDomainStats(filterId, getExpectedDomainString(1L, 3L), 3, 0)));
+                ImmutableList.of(new DynamicFilterDomainStats(
+                        filterId,
+                        getSimplifiedDomainString(1L, 3L, 3, INTEGER))));
     }
 
     @Test
@@ -304,9 +305,9 @@ public class TestDynamicFilterService
         assertEquals(stats.getLazyDynamicFilters(), 3);
         assertEquals(stats.getReplicatedDynamicFilters(), 0);
         assertEquals(ImmutableSet.copyOf(stats.getDynamicFilterDomainStats()), ImmutableSet.of(
-                new DynamicFilterDomainStats(filterId1, getExpectedDomainString(1L, 2L), 2, 0),
-                new DynamicFilterDomainStats(filterId2, getExpectedDomainString(2L, 3L), 2, 0),
-                new DynamicFilterDomainStats(filterId3, Domain.none(INTEGER).toString(session.toConnectorSession()), 0, 0)));
+                new DynamicFilterDomainStats(filterId1, getSimplifiedDomainString(1L, 2L, 2, INTEGER)),
+                new DynamicFilterDomainStats(filterId2, getSimplifiedDomainString(2L, 3L, 2, INTEGER)),
+                new DynamicFilterDomainStats(filterId3, Domain.none(INTEGER).toString(session.toConnectorSession()))));
 
         // all dynamic filters have been collected, no need for more requests
         assertTrue(dynamicFilter.isComplete());
@@ -454,9 +455,7 @@ public class TestDynamicFilterService
                 ImmutableList.of(
                         new DynamicFilterDomainStats(
                                 filterId1,
-                                Domain.singleValue(INTEGER, 1L).toString(session.toConnectorSession()),
-                                1,
-                                0)));
+                                Domain.singleValue(INTEGER, 1L).toString(session.toConnectorSession()))));
     }
 
     @Test
@@ -685,11 +684,5 @@ public class TestDynamicFilterService
                 ungroupedExecution(),
                 StatsAndCosts.empty(),
                 Optional.empty());
-    }
-
-    private static String getExpectedDomainString(long low, long high)
-    {
-        return Domain.create(ValueSet.ofRanges(range(INTEGER, low, true, high, true)), false)
-                .toString(session.toConnectorSession());
     }
 }

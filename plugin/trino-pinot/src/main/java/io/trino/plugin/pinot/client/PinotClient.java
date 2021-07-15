@@ -64,8 +64,10 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
@@ -73,7 +75,9 @@ import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.UnaryOperator.identity;
 import static org.apache.pinot.spi.utils.builder.TableNameBuilder.extractRawTableName;
 
 public class PinotClient
@@ -417,15 +421,6 @@ public class PinotClient
         }
     }
 
-    private static Map<String, Integer> getColumnIndices(String[] columnNames)
-    {
-        ImmutableMap.Builder<String, Integer> columnIndicesBuilder = ImmutableMap.builder();
-        for (int index = 0; index < columnNames.length; index++) {
-            columnIndicesBuilder.put(columnNames[index], index);
-        }
-        return columnIndicesBuilder.build();
-    }
-
     private BrokerResponseNative submitBrokerQueryJson(ConnectorSession session, PinotQuery query)
     {
         return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), retryNumber -> {
@@ -476,10 +471,13 @@ public class PinotClient
         requireNonNull(resultTable, "resultTable is null");
         requireNonNull(columnHandles, "columnHandles is null");
         String[] columnNames = resultTable.getDataSchema().getColumnNames();
-        Map<String, Integer> columnIndices = getColumnIndices(columnNames);
+        Map<String, Integer> columnIndices = IntStream.range(0, columnNames.length)
+                .boxed()
+                // Pinot lower cases column names which use aggregate functions, ex. min(my_Col) becomes min(my_col)
+                .collect(toImmutableMap(i -> columnNames[i].toLowerCase(ENGLISH), identity()));
         int[] indices = new int[columnNames.length];
         for (int i = 0; i < columnHandles.size(); i++) {
-            indices[i] = columnIndices.get(columnHandles.get(i).getColumnName());
+            indices[i] = columnIndices.get(columnHandles.get(i).getColumnName().toLowerCase(ENGLISH));
         }
         return new ResultsIterator(resultTable, indices);
     }

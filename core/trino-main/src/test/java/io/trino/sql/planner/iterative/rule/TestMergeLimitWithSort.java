@@ -18,6 +18,8 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -60,5 +62,18 @@ public class TestMergeLimitWithSort
                                     p.values(a)));
                 })
                 .doesNotFire();
+    }
+
+    @Test
+    public void testLimitWithPreSortedInputs()
+    {
+        tester().assertThat(new MergeLimitWithSort())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    List<Symbol> orderBy = ImmutableList.of(a);
+                    return p.limit(2, false, orderBy, p.sort(orderBy, p.values(a)));
+                })
+                .matches(
+                        topN(2, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a")));
     }
 }

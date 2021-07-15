@@ -28,12 +28,12 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.Chars;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
@@ -159,9 +159,10 @@ public class OracleClient
     public OracleClient(
             BaseJdbcConfig config,
             OracleConfig oracleConfig,
-            ConnectionFactory connectionFactory)
+            ConnectionFactory connectionFactory,
+            IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory);
+        super(config, "\"", connectionFactory, identifierMapping);
 
         requireNonNull(oracleConfig, "oracleConfig is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
@@ -306,7 +307,7 @@ public class OracleClient
                 return Optional.of(ColumnMapping.sliceMapping(
                         charType,
                         charReadFunction(charType),
-                        oracleCharWriteFunction(charType),
+                        oracleCharWriteFunction(),
                         FULL_PUSHDOWN));
 
             case OracleTypes.VARCHAR:
@@ -420,11 +421,10 @@ public class OracleClient
         return ((statement, index, value) -> ((OraclePreparedStatement) statement).setBinaryDouble(index, value));
     }
 
-    private SliceWriteFunction oracleCharWriteFunction(CharType charType)
+    private SliceWriteFunction oracleCharWriteFunction()
     {
-        return (statement, index, value) -> {
-            statement.setString(index, Chars.padSpaces(value, charType).toStringUtf8());
-        };
+        return (statement, index, value) ->
+                ((OraclePreparedStatement) statement).setFixedCHAR(index, value.toStringUtf8());
     }
 
     @Override

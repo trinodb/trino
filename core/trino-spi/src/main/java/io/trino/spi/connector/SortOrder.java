@@ -13,6 +13,8 @@
  */
 package io.trino.spi.connector;
 
+import static java.lang.String.format;
+
 public enum SortOrder
 {
     ASC_NULLS_FIRST(true, true),
@@ -37,5 +39,13 @@ public enum SortOrder
     public boolean isNullsFirst()
     {
         return nullsFirst;
+    }
+
+    @Override
+    public String toString()
+    {
+        return format("%s %s",
+                ascending ? "ASC" : "DESC",
+                nullsFirst ? "NULLS FIRST" : "NULLS LAST");
     }
 }

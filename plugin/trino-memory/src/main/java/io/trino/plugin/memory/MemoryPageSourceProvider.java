@@ -129,7 +129,7 @@ public final class MemoryPageSourceProvider
             }
             Page page = delegate.getNextPage();
             if (page != null && !predicate.isAll()) {
-                page = applyFilter(page, predicate.transform(columns::indexOf).getDomains().get());
+                page = applyFilter(page, predicate.transformKeys(columns::indexOf).getDomains().get());
             }
             return page;
         }

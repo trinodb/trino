@@ -391,7 +391,7 @@ public class SqlQueryScheduler
                 // contains local source
                 List<PlanNodeId> schedulingOrder = plan.getFragment().getPartitionedSources();
                 Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
-                catalogName.orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
+                checkArgument(catalogName.isPresent(), "No connector ID for partitioning handle: %s", partitioningHandle);
                 List<ConnectorPartitionHandle> connectorPartitionHandles;
                 boolean groupedExecutionForStage = plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution();
                 if (groupedExecutionForStage) {
@@ -541,7 +541,7 @@ public class SqlQueryScheduler
             Set<StageId> completedStages = new HashSet<>();
             ExecutionSchedule executionSchedule = executionPolicy.createExecutionSchedule(stages.values());
             while (!executionSchedule.isFinished()) {
-                List<ListenableFuture<?>> blockedStages = new ArrayList<>();
+                List<ListenableFuture<Void>> blockedStages = new ArrayList<>();
                 for (SqlStageExecution stage : executionSchedule.getStagesToSchedule()) {
                     stage.beginScheduling();
 
@@ -593,7 +593,7 @@ public class SqlQueryScheduler
                     try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
                         tryGetFutureValue(whenAnyComplete(blockedStages), 1, SECONDS);
                     }
-                    for (ListenableFuture<?> blockedStage : blockedStages) {
+                    for (ListenableFuture<Void> blockedStage : blockedStages) {
                         blockedStage.cancel(true);
                     }
                 }
@@ -646,13 +646,13 @@ public class SqlQueryScheduler
         }
     }
 
-    private static ListenableFuture<?> whenAllStages(Collection<SqlStageExecution> stages, Predicate<StageState> predicate)
+    private static ListenableFuture<Void> whenAllStages(Collection<SqlStageExecution> stages, Predicate<StageState> predicate)
     {
         checkArgument(!stages.isEmpty(), "stages is empty");
         Set<StageId> stageIds = stages.stream()
                 .map(SqlStageExecution::getStageId)
                 .collect(toCollection(Sets::newConcurrentHashSet));
-        SettableFuture<?> future = SettableFuture.create();
+        SettableFuture<Void> future = SettableFuture.create();
 
         for (SqlStageExecution stage : stages) {
             stage.addStateChangeListener(state -> {

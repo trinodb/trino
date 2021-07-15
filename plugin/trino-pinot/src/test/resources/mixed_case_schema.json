@@ -1,0 +1,25 @@
+{
+    "schemaName": "mixed_case",
+    "dimensionFieldSpecs": [
+        {
+            "name": "stringCol",
+            "dataType": "STRING"
+        }
+    ],
+    "metricFieldSpecs": [
+        {
+            "name": "longCol",
+            "dataType": "LONG"
+        }
+    ],
+    "dateTimeFieldSpecs": [
+        {
+            "name": "updatedAtSeconds",
+            "dataType": "LONG",
+            "defaultNullValue" : 0,
+            "format": "1:SECONDS:EPOCH",
+            "transformFunction": "toEpochSeconds(updatedAt)",
+            "granularity" : "1:SECONDS"
+        }
+    ]
+}

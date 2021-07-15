@@ -27,10 +27,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collector;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -43,6 +43,7 @@ import static java.lang.String.format;
 import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -99,7 +100,7 @@ public class EquatableValueSet
         return new EquatableValueSet(type, true, set);
     }
 
-    static EquatableValueSet copyOf(Type type, Collection<Object> values)
+    static EquatableValueSet copyOf(Type type, Collection<?> values)
     {
         return new EquatableValueSet(type, true, values.stream()
                 .map(value -> ValueEntry.create(type, value))
@@ -297,18 +298,33 @@ public class EquatableValueSet
     @Override
     public String toString()
     {
-        return format(
-                "%s[... (%d elements) ...]",
-                inclusive ? "" : "EXCLUDES",
-                entries.size());
+        return toString(ToStringSession.INSTANCE);
     }
 
     @Override
     public String toString(ConnectorSession session)
     {
-        return (inclusive ? "[ " : "EXCLUDES[ ") + entries.stream()
-                .map(entry -> type.getObjectValue(session, entry.getBlock(), 0).toString())
-                .collect(Collectors.joining(", ")) + " ]";
+        return toString(session, 10);
+    }
+
+    @Override
+    public String toString(ConnectorSession session, int limit)
+    {
+        return new StringJoiner(", ", EquatableValueSet.class.getSimpleName() + "[", "]")
+                .add("type=" + type)
+                .add("values=" + getValuesCount())
+                .add(formatValues(session, limit))
+                .toString();
+    }
+
+    private String formatValues(ConnectorSession session, int limit)
+    {
+        return Stream.concat(
+                entries.stream()
+                        .map(entry -> type.getObjectValue(session, entry.getBlock(), 0).toString())
+                        .limit(limit),
+                limit < getValuesCount() ? Stream.of("...") : Stream.of())
+                .collect(joining(", ", inclusive ? "{" : "EXCLUDES{", "}"));
     }
 
     private static <T> Set<T> intersect(Set<T> set1, Set<T> set2)

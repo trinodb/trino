@@ -1,0 +1,40 @@
+General configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following properties can be used to configure how data types from the
+connected data source are mapped to Trino data types and how the metadata is
+cached in Trino.
+
+.. list-table::
+  :widths: 30, 40, 30
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default value
+  * - ``unsupported-type-handling``
+    - Configure how unsupported column data types are handled:
+
+      * ``IGNORE``, column is not accessible.
+      * ``CONVERT_TO_VARCHAR``, column is converted to unbounded ``VARCHAR``.
+
+      The respective catalog session property is ``unsupported_type_handling``.
+    - ``IGNORE``
+  * - ``jdbc-types-mapped-to-varchar``
+    - Allow forced mapping of comma separated lists of data types to convert to
+      unbounded ``VARCHAR``
+    -
+  * - ``case-insensitive-name-matching``
+    - Support case insensitive database and collection names
+    - False
+  * - ``case-insensitive-name-matching.cache-ttl``
+    -
+    - 1 minute
+  * - ``metadata.cache-ttl``
+    - Duration for which metadata, including table and column statistics, is
+      cached
+    - 0 (disabled caching)
+  * - ``metadata.cache-missing``
+    - Cache the fact that metadata, including table and column statistics, is
+      not available
+    - False

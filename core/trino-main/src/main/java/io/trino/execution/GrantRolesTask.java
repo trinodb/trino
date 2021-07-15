@@ -31,7 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.getSessionCatalog;
 import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
@@ -48,7 +48,7 @@ public class GrantRolesTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             GrantRoles statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -87,6 +87,6 @@ public class GrantRolesTask
         accessControl.checkCanGrantRoles(session.toSecurityContext(), roles, grantees, adminOption, grantor, catalog);
         metadata.grantRoles(session, roles, grantees, adminOption, grantor, catalog);
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

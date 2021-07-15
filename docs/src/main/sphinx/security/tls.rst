@@ -8,9 +8,9 @@ using URLs that specify the HTTP protocol when using the Trino :doc:`CLI
 clients.
 
 This topic describes how to configure your Trino server to use :ref:`TLS
-<glossTLS>` to require clients to use the HTTPS connection protocol. All
-authentication technologies supported by Trino require configuring TLS as the
-foundational layer.
+<glossTLS>` to require clients to use the HTTPS connection protocol.
+All authentication technologies supported by Trino require configuring TLS as
+the foundational layer.
 
 When configured to use TLS, a Trino server responds to client connections using
 TLS 1.2 and TLS 1.3 certificates. The server rejects TLS 1.1, TLS 1.0, and all
@@ -21,7 +21,7 @@ SSL format certificates.
     This page discusses only how to prepare the Trino server for secure client
     connections from outside of the Trino cluster to its coordinator.
 
-See the :ref:`TLS Glossary <tlsglossary>` to clarify unfamiliar terms.
+See the :doc:`Glossary </appendix/glossary>` to clarify unfamiliar terms.
 
 Approaches
 ----------
@@ -51,11 +51,7 @@ typically runs with default HTTP configuration on the default port, 8080.
 When a load balancer accepts a TLS encrypted connection, it adds a
 `forwarded
 <https://developer.mozilla.org/en-US/docs/Web/HTTP/Proxy_servers_and_tunneling#forwarding_client_information_through_proxies>`_
-HTTP header to the request, such as:
-
-.. code-block:: text
-
-    X-Forwarded-Proto: https
+HTTP header to the request, such as ``X-Forwarded-Proto: https``.
 
 This tells the Trino coordinator to process the connection as if a TLS
 connection has already been successfully negotiated for it. This is why you do
@@ -248,75 +244,3 @@ There is a difference between self-signed and unsigned certificates. Both types
 are created with the same tools, but unsigned certificates are meant to be
 forwarded to a CA with a Certificate Signing Request (CSR). The CA returns the
 certificate signed by the CA and now globally trusted.
-
-.. _tlsglossary:
-
-TLS Glossary
-------------
-
-.. _glossCA:
-
-CA
-    Certificate Authority, a trusted organization that examines and validates
-    organizations and their proposed server URIs, and issues digital
-    certificates verified as valid for the requesting organization.
-
-.. _glossCert:
-
-Certificate
-    A public key `certificate
-    <https://en.wikipedia.org/wiki/Public_key_certificate>`_ issued by a CA,
-    sometimes abbreviated as *cert*, that verifies the ownership of a server's
-    keys. Certificate format is specified in the `X.509
-    <https://en.wikipedia.org/wiki/X.509>`_ standard.
-
-.. _glossJKS:
-
-JKS
-    Java KeyStore, the system of public key cryptography supported as one part
-    of the Java security APIs. The legacy JKS system recognizes keys and
-    certificates stored in *keystore* files, typically with the ``.jks``
-    extension, and relies on a system-level list of CAs in *truststore* files
-    installed as part of the current Java installation.
-
-.. _glossKey:
-
-Key
-    A cryptographic key specified as a pair of public and private keys.
-
-.. _glossLB:
-
-Load Balancer (LB)
-    Software or a hardware device that sits on a network's outer edge or
-    firewall and accepts network connections on behalf of servers behind that
-    wall. Load balancers carefully manage network traffic, and can accept TLS
-    connections from incoming clients and pass those connections transparently
-    to servers behind the wall.
-
-.. _glossPEM:
-
-PEM
-    Privacy-Enhanced Mail, a syntax for private key information, and a content
-    type used to store and send cryptographic keys and certificates. PEM format
-    can contain both a key and its certificate, plus the chain of certificates
-    from authorities back to the root :ref:`CA <glossCA>`, or back to a CA
-    vendor's intermediate CA.
-
-.. _glossPKCS12:
-
-PKCS #12
-    A binary archive used to store keys and certificates or certificate chains
-    that validate a key. `PKCS #12 <https://en.wikipedia.org/wiki/PKCS_12>`_
-    files have ``.p12`` or ``.pfx`` extensions.
-
-SSL
-    Secure Sockets Layer, now superceded by TLS, but still recognized as the
-    term for what TLS does now.
-
-.. _glossTLS:
-
-TLS
-    `Transport Layer Security
-    <https://en.wikipedia.org/wiki/Transport_Layer_Security>`_ is the successor
-    to SSL. These security topics use the term TLS to refer to both TLS and SSL.
-

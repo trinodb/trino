@@ -25,6 +25,8 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RowNumberNode;
@@ -35,6 +37,9 @@ import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ValuePointer;
+import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
@@ -236,6 +241,74 @@ public class SymbolMapper
                 specification.getOrderingScheme().map(this::map));
     }
 
+    public PatternRecognitionNode map(PatternRecognitionNode node, PlanNode source)
+    {
+        ImmutableMap.Builder<Symbol, WindowNode.Function> newFunctions = ImmutableMap.builder();
+        node.getWindowFunctions().forEach((symbol, function) -> {
+            List<Expression> newArguments = function.getArguments().stream()
+                    .map(this::map)
+                    .collect(toImmutableList());
+            WindowNode.Frame newFrame = map(function.getFrame());
+
+            newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, newFrame, function.isIgnoreNulls()));
+        });
+
+        ImmutableMap.Builder<Symbol, Measure> newMeasures = ImmutableMap.builder();
+        node.getMeasures().forEach((symbol, measure) -> {
+            ExpressionAndValuePointers newExpression = map(measure.getExpressionAndValuePointers());
+            newMeasures.put(map(symbol), new Measure(newExpression, measure.getType()));
+        });
+
+        ImmutableMap.Builder<IrLabel, ExpressionAndValuePointers> newVariableDefinitions = ImmutableMap.builder();
+        node.getVariableDefinitions().forEach((label, expression) -> newVariableDefinitions.put(label, map(expression)));
+
+        return new PatternRecognitionNode(
+                node.getId(),
+                source,
+                mapAndDistinct(node.getSpecification()),
+                node.getHashSymbol().map(this::map),
+                node.getPrePartitionedInputs().stream()
+                        .map(this::map)
+                        .collect(toImmutableSet()),
+                node.getPreSortedOrderPrefix(),
+                newFunctions.build(),
+                newMeasures.build(),
+                node.getCommonBaseFrame().map(this::map),
+                node.getRowsPerMatch(),
+                node.getSkipToLabel(),
+                node.getSkipToPosition(),
+                node.isInitial(),
+                node.getPattern(),
+                node.getSubsets(),
+                newVariableDefinitions.build());
+    }
+
+    private ExpressionAndValuePointers map(ExpressionAndValuePointers expressionAndValuePointers)
+    {
+        // Map only the input symbols of ValuePointers. These are the symbols produced by the source node.
+        // Other symbols present in the ExpressionAndValuePointers structure are synthetic unique symbols
+        // with no outer usage or dependencies.
+        Set<Symbol> syntheticClassifierSymbols = expressionAndValuePointers.getClassifierSymbols();
+        Set<Symbol> syntheticMatchNumberSymbols = expressionAndValuePointers.getMatchNumberSymbols();
+
+        List<ValuePointer> newValuePointers = expressionAndValuePointers.getValuePointers().stream()
+                .map(pointer -> {
+                    Symbol inputSymbol = pointer.getInputSymbol();
+                    if (syntheticClassifierSymbols.contains(inputSymbol) || syntheticMatchNumberSymbols.contains(inputSymbol)) {
+                        return pointer;
+                    }
+                    return new ValuePointer(pointer.getLogicalIndexPointer(), map(inputSymbol));
+                })
+                .collect(toImmutableList());
+
+        return new ExpressionAndValuePointers(
+                expressionAndValuePointers.getExpression(),
+                expressionAndValuePointers.getLayout(),
+                newValuePointers,
+                syntheticClassifierSymbols,
+                syntheticMatchNumberSymbols);
+    }
+
     public LimitNode map(LimitNode node, PlanNode source)
     {
         return new LimitNode(
@@ -243,7 +316,10 @@ public class SymbolMapper
                 source,
                 node.getCount(),
                 node.getTiesResolvingScheme().map(this::map),
-                node.isPartial());
+                node.isPartial(),
+                node.getPreSortedInputs().stream()
+                        .map(this::map)
+                        .collect(toImmutableList()));
     }
 
     public OrderingScheme map(OrderingScheme orderingScheme)

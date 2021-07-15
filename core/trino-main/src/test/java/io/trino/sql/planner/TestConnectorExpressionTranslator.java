@@ -21,9 +21,9 @@ import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingSession;
 import org.testng.annotations.Test;
@@ -64,9 +64,9 @@ public class TestConnectorExpressionTranslator
         assertTranslationToConnectorExpression(new SymbolReference("double_symbol_1"), Optional.of(new Variable("double_symbol_1", DOUBLE)));
 
         assertTranslationToConnectorExpression(
-                new DereferenceExpression(
+                new SubscriptExpression(
                         new SymbolReference("row_symbol_1"),
-                        new Identifier("int_symbol_1")),
+                        new LongLiteral("1")),
                 Optional.of(
                         new FieldDereference(
                                 INTEGER,
@@ -84,9 +84,9 @@ public class TestConnectorExpressionTranslator
                         INTEGER,
                         new Variable("row_symbol_1", ROW_TYPE),
                         0),
-                new DereferenceExpression(
+                new SubscriptExpression(
                         new SymbolReference("row_symbol_1"),
-                        new Identifier("int_symbol_1")));
+                        new LongLiteral("1")));
     }
 
     private void assertTranslationToConnectorExpression(Expression expression, Optional<ConnectorExpression> connectorExpression)

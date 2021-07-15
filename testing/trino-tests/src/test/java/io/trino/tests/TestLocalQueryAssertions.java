@@ -49,7 +49,7 @@ public class TestLocalQueryAssertions
     {
         assertThatThrownBy(() -> assertThat(query("SELECT name FROM nation")).isFullyPushedDown())
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("testIsFullyPushedDown() currently does not work with LocalQueryRunner");
+                .hasMessage("isFullyPushedDown() currently does not work with LocalQueryRunner");
     }
 
     @Override
@@ -61,7 +61,7 @@ public class TestLocalQueryAssertions
 
         assertThatThrownBy(() -> assertThat(query(baseSession, "SELECT name FROM nation")).isFullyPushedDown())
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("testIsFullyPushedDown() currently does not work with LocalQueryRunner");
+                .hasMessage("isFullyPushedDown() currently does not work with LocalQueryRunner");
     }
 
     @Test

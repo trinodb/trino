@@ -52,6 +52,10 @@ import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
+// Use io.trino.tests.product.launcher.env.common.StandardMultinode instead
+// Product tests should mimic production like use case.
+// Single node environment does not do it well enough and some issues are only exposed with multi node installations.
+@Deprecated
 public final class Standard
         implements EnvironmentExtender
 {
@@ -109,7 +113,7 @@ public final class Standard
     @SuppressWarnings("resource")
     private DockerContainer createTestsContainer()
     {
-        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/centos6-oj8:" + imagesVersion, TESTS)
+        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/centos7-oj8:" + imagesVersion, TESTS)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
                 .waitingFor(new WaitAllStrategy()) // don't wait

@@ -33,6 +33,11 @@ public final class SchemaTableName
         this.tableName = checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH);
     }
 
+    public static SchemaTableName schemaTableName(String schemaName, String tableName)
+    {
+        return new SchemaTableName(schemaName, tableName);
+    }
+
     @JsonProperty("schema")
     public String getSchemaName()
     {

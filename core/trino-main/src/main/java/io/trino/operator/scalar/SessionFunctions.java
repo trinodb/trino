@@ -14,14 +14,20 @@
 package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.FullConnectorSession;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import java.util.Set;
+
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public final class SessionFunctions
 {
@@ -42,5 +48,38 @@ public final class SessionFunctions
     {
         // this function is a language construct and has special access to internals
         return utf8Slice(((FullConnectorSession) session).getSession().getPath().toString());
+    }
+
+    @ScalarFunction(value = "$current_catalog", hidden = true)
+    @Description("Current catalog")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice currentCatalog(ConnectorSession session)
+    {
+        return ((FullConnectorSession) session).getSession().getCatalog()
+                .map(Slices::utf8Slice)
+                .orElse(null);
+    }
+
+    @ScalarFunction(value = "$current_schema", hidden = true)
+    @Description("Current schema")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice currentSchema(ConnectorSession session)
+    {
+        return ((FullConnectorSession) session).getSession().getSchema()
+                .map(Slices::utf8Slice)
+                .orElse(null);
+    }
+
+    @ScalarFunction("current_groups")
+    @Description("Current groups of current user")
+    @SqlType("array(varchar)")
+    public static Block currentGroups(ConnectorSession session)
+    {
+        Set<String> groups = session.getIdentity().getGroups();
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, groups.size());
+        for (String group : groups) {
+            VARCHAR.writeSlice(blockBuilder, utf8Slice(group));
+        }
+        return blockBuilder.build();
     }
 }

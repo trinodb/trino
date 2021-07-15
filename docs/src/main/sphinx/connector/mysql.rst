@@ -6,6 +6,15 @@ The MySQL connector allows querying and creating tables in an external
 `MySQL <https://www.mysql.com/>`_ instance. This can be used to join data between different
 systems like MySQL and Hive, or between two different MySQL instances.
 
+Requirements
+------------
+
+To connect to MySQL, you need:
+
+* MySQL 5.7, 8.0 or higher.
+* Network access from the Trino coordinator and workers to MySQL.
+  Port 3306 is the default port.
+
 Configuration
 -------------
 
@@ -31,8 +40,13 @@ with a different name, making sure it ends in ``.properties``. For
 example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
+.. _mysql-type-mapping:
+
+Type mapping
+------------
+
 Decimal type handling
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 ``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
 by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
@@ -44,6 +58,8 @@ is controlled via the ``decimal-rounding-mode`` configuration property or the ``
 property, which can be set to ``UNNECESSARY`` (the default),
 ``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
 (see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+
+.. include:: jdbc-type-mapping.fragment
 
 Querying MySQL
 --------------
@@ -71,11 +87,19 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``mysql`` in the above examples.
 
+
+.. _mysql-pushdown:
+
 Pushdown
 --------
 
-The connector supports :doc:`pushdown </optimizer/pushdown>` for processing the
-following aggregate functions:
+The connector supports pushdown for a number of operations:
+
+* :ref:`join-pushdown`
+* :ref:`limit-pushdown`
+* :ref:`topn-pushdown`
+
+:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
 
 * :func:`avg`
 * :func:`count`

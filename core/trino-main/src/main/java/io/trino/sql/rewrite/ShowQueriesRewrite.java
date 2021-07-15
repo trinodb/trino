@@ -28,6 +28,7 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.SessionPropertyManager.SessionPropertyValue;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
@@ -84,7 +85,6 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TableElement;
 import io.trino.sql.tree.Values;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -106,6 +106,7 @@ import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
@@ -231,6 +232,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowGrants(ShowGrants showGrants, Void context)
         {
+            // TODO: make this method redirection aware
             String catalogName = session.getCatalog().orElse(null);
             Optional<Expression> predicate = Optional.empty();
 
@@ -389,13 +391,26 @@ final class ShowQueriesRewrite
             if (!metadata.schemaExists(session, new CatalogSchemaName(tableName.getCatalogName(), tableName.getSchemaName()))) {
                 throw semanticException(SCHEMA_NOT_FOUND, showColumns, "Schema '%s' does not exist", tableName.getSchemaName());
             }
-            Optional<ConnectorViewDefinition> view = metadata.getView(session, tableName);
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-            if (view.isEmpty() && tableHandle.isEmpty()) {
-                throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
+
+            boolean isMaterializedView = metadata.getMaterializedView(session, tableName).isPresent();
+            boolean isView = false;
+            QualifiedObjectName targetTableName = tableName;
+            Optional<TableHandle> tableHandle = Optional.empty();
+            // Check for view if materialized view is not present
+            if (!isMaterializedView) {
+                isView = metadata.getView(session, tableName).isPresent();
+                // Check for table if view is not present
+                if (!isView) {
+                    RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
+                    tableHandle = redirection.getTableHandle();
+                    if (tableHandle.isEmpty()) {
+                        throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
+                    }
+                    targetTableName = redirection.getRedirectedTableName().orElse(tableName);
+                }
             }
 
-            if (view.isEmpty() && tableHandle.isPresent()) {
+            if (!isMaterializedView && !isView) {
                 // We are using information_schema which may ignore errors when getting the list
                 // of columns for a table, since listing columns is a requirement for some tools,
                 // and thus failing due to a single bad table would make the system unusable.
@@ -411,11 +426,12 @@ final class ShowQueriesRewrite
                 // and we need to perform security filtering of the returned columns.
                 metadata.getTableMetadata(session, tableHandle.get());
             }
-            accessControl.checkCanShowColumns(session.toSecurityContext(), tableName.asCatalogSchemaTableName());
+
+            accessControl.checkCanShowColumns(session.toSecurityContext(), targetTableName.asCatalogSchemaTableName());
 
             Expression predicate = logicalAnd(
-                    equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
-                    equal(identifier("table_name"), new StringLiteral(tableName.getObjectName())));
+                    equal(identifier("table_schema"), new StringLiteral(targetTableName.getSchemaName())),
+                    equal(identifier("table_name"), new StringLiteral(targetTableName.getObjectName())));
             Optional<String> likePattern = showColumns.getLikePattern();
             if (likePattern.isPresent()) {
                 Expression likePredicate = new LikePredicate(
@@ -431,7 +447,7 @@ final class ShowQueriesRewrite
                             aliasedName("data_type", "Type"),
                             aliasedNullToEmpty("extra_info", "Extra"),
                             aliasedNullToEmpty("comment", "Comment")),
-                    from(tableName.getCatalogName(), COLUMNS.getSchemaTableName()),
+                    from(targetTableName.getCatalogName(), COLUMNS.getSchemaTableName()),
                     predicate,
                     ordering(ascending("ordinal_position")));
         }
@@ -474,6 +490,39 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowCreate(ShowCreate node, Void context)
         {
+            if (node.getType() == MATERIALIZED_VIEW) {
+                QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+                Optional<ConnectorMaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
+
+                if (viewDefinition.isEmpty()) {
+                    if (metadata.getView(session, objectName).isPresent()) {
+                        throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a materialized view", objectName);
+                    }
+
+                    if (metadata.getTableHandle(session, objectName).isPresent()) {
+                        throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a materialized view", objectName);
+                    }
+
+                    throw semanticException(TABLE_NOT_FOUND, node, "Materialized view '%s' does not exist", objectName);
+                }
+
+                Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
+                List<Identifier> parts = Lists.reverse(node.getName().getOriginalParts());
+                Identifier tableName = parts.get(0);
+                Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
+                Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());
+
+                accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+
+                Map<String, Object> properties = viewDefinition.get().getProperties();
+                Map<String, PropertyMetadata<?>> allMaterializedViewProperties = metadata.getMaterializedViewPropertyManager().getAllProperties().get(new CatalogName(catalogName.getValue()));
+                List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
+
+                String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
+                        query, false, false, propertyNodes, viewDefinition.get().getComment())).trim();
+                return singleValueQuery("Create Materialized View", sql);
+            }
+
             if (node.getType() == VIEW) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
 
@@ -503,44 +552,25 @@ final class ShowQueriesRewrite
                 return singleValueQuery("Create View", sql);
             }
 
-            if (node.getType() == MATERIALIZED_VIEW) {
-                QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
-                Optional<ConnectorMaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
-
-                if (viewDefinition.isEmpty()) {
-                    if (metadata.getTableHandle(session, objectName).isPresent()) {
-                        throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a materialized view", objectName);
-                    }
-                    throw semanticException(TABLE_NOT_FOUND, node, "View '%s' does not exist", objectName);
-                }
-
-                Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-                List<Identifier> parts = Lists.reverse(node.getName().getOriginalParts());
-                Identifier tableName = parts.get(0);
-                Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
-                Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());
-
-                accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
-
-                String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
-                        query, false, false, new ArrayList<>(), viewDefinition.get().getComment())).trim();
-                return singleValueQuery("Create Materialized View", sql);
-            }
-
             if (node.getType() == TABLE) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
-                Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
-                if (viewDefinition.isPresent()) {
+                if (metadata.getMaterializedView(session, objectName).isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a table", objectName);
+                }
+
+                if (metadata.getView(session, objectName).isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
                 }
 
-                Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);
+                RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, objectName);
+                Optional<TableHandle> tableHandle = redirection.getTableHandle();
                 if (tableHandle.isEmpty()) {
                     throw semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", objectName);
                 }
 
-                accessControl.checkCanShowCreateTable(session.toSecurityContext(), objectName);
+                QualifiedObjectName targetTableName = redirection.getRedirectedTableName().orElse(objectName);
+                accessControl.checkCanShowCreateTable(session.toSecurityContext(), targetTableName);
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
@@ -548,14 +578,14 @@ final class ShowQueriesRewrite
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .map(column -> {
-                            List<Property> propertyNodes = buildProperties(objectName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
+                            List<Property> propertyNodes = buildProperties(targetTableName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
                             return new ColumnDefinition(new Identifier(column.getName()), toSqlType(column.getType()), column.isNullable(), propertyNodes, Optional.ofNullable(column.getComment()));
                         })
                         .collect(toImmutableList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
                 Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
-                List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
+                List<Property> propertyNodes = buildProperties(targetTableName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateTable createTable = new CreateTable(
                         QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),

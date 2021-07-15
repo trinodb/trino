@@ -701,11 +701,11 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT * FROM (" +
                         "  SELECT t2.x || t2.z cc FROM (" +
                         "    SELECT *" +
-                        "    FROM (VALUES (CAST('a' AS VARCHAR), CAST('c' AS VARCHAR))) t(x, z)" +
+                        "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) t(x, z)" +
                         "  ) t2" +
                         "  JOIN (" +
                         "    SELECT *" +
-                        "    FROM (VALUES (CAST('a' AS VARCHAR), CAST('c' AS VARCHAR))) u(x, z)" +
+                        "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) u(x, z)" +
                         "    WHERE z='c'" +
                         "  ) u2" +
                         "  ON t2.z = u2.z" +
@@ -1294,7 +1294,7 @@ public abstract class AbstractTestEngineOnlyQueries
                                 "FROM" +
                                 "  (" +
                                 " VALUES " +
-                                "     (CHAR 'Pi', CAST('PI' AS VARCHAR), TIMESTAMP '2012-03-14 1:59:26.535', TIMESTAMP '2012-03-14 1:59:26.535897', DECIMAL '3.14')" +
+                                "     (CHAR 'Pi', VARCHAR 'PI', TIMESTAMP '2012-03-14 1:59:26.535', TIMESTAMP '2012-03-14 1:59:26.535897', DECIMAL '3.14')" +
                                 ")  AS t (t_char, t_varchar, t_timestamp, t_timestamp_2, t_decimal)" +
                                 "WHERE t_char = ? AND t_varchar = ? AND t_timestamp = ? AND t_timestamp_2 = ? AND t_decimal = ?")
                 .build();
@@ -2156,17 +2156,19 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testRows()
     {
         // Using JSON_FORMAT(CAST(_ AS JSON)) because H2 does not support ROW type
-        assertQuery("SELECT JSON_FORMAT(CAST(ROW(1 + 2, CONCAT('a', 'b')) AS JSON))", "SELECT '[3,\"ab\"]'");
-        assertQuery("SELECT JSON_FORMAT(CAST(ROW(a + b) AS JSON)) FROM (VALUES (1, 2)) AS t(a, b)", "SELECT '[3]'");
-        assertQuery("SELECT JSON_FORMAT(CAST(ROW(1, ROW(9, a, ARRAY[], NULL), ROW(1, 2)) AS JSON)) FROM (VALUES ('a')) t(a)", "SELECT '[1,[9,\"a\",[],null],[1,2]]'");
+        assertQuery("SELECT JSON_FORMAT(CAST(ROW(1 + 2, CONCAT('a', 'b')) AS JSON))", "SELECT '{\"\":3,\"\":\"ab\"}'");
+        assertQuery("SELECT JSON_FORMAT(CAST(ROW(a + b) AS JSON)) FROM (VALUES (1, 2)) AS t(a, b)", "SELECT '{\"\":3}'");
+        assertQuery("SELECT JSON_FORMAT(CAST(ROW(1, ROW(9, a, ARRAY[], NULL), ROW(1, 2)) AS JSON)) FROM (VALUES ('a')) t(a)",
+                "SELECT '{\"\":1,\"\":{\"\":9,\"\":\"a\",\"\":[],\"\":null},\"\":{\"\":1,\"\":2}}'");
         assertQuery("SELECT JSON_FORMAT(CAST(ROW(ROW(ROW(ROW(ROW(a, b), c), d), e), f) AS JSON)) FROM (VALUES (ROW(0, 1), 2, '3', NULL, ARRAY[5], ARRAY[])) t(a, b, c, d, e, f)",
-                "SELECT '[[[[[[0,1],2],\"3\"],null],[5]],[]]'");
-        assertQuery("SELECT JSON_FORMAT(CAST(ARRAY_AGG(ROW(a, b)) AS JSON)) FROM (VALUES (1, 2), (3, 4), (5, 6)) t(a, b)", "SELECT '[[1,2],[3,4],[5,6]]'");
+                "SELECT '{\"\":{\"\":{\"\":{\"\":{\"\":{\"\":0,\"\":1},\"\":2},\"\":\"3\"},\"\":null},\"\":[5]},\"\":[]}'");
+        assertQuery("SELECT JSON_FORMAT(CAST(ARRAY_AGG(ROW(a, b)) AS JSON)) FROM (VALUES (1, 2), (3, 4), (5, 6)) t(a, b)",
+                "SELECT '[{\"\":1,\"\":2},{\"\":3,\"\":4},{\"\":5,\"\":6}]'");
         assertQuery("SELECT CONTAINS(ARRAY_AGG(ROW(a, b)), ROW(1, 2)) FROM (VALUES (1, 2), (3, 4), (5, 6)) t(a, b)", "SELECT TRUE");
         assertQuery("SELECT JSON_FORMAT(CAST(ARRAY_AGG(ROW(c, d)) AS JSON)) FROM (VALUES (ARRAY[1, 3, 5], ARRAY[2, 4, 6])) AS t(a, b) CROSS JOIN UNNEST(a, b) AS u(c, d)",
-                "SELECT '[[1,2],[3,4],[5,6]]'");
-        assertQuery("SELECT JSON_FORMAT(CAST(ROW(x, y, z) AS JSON)) FROM (VALUES ROW(1, NULL, '3')) t(x,y,z)", "SELECT '[1,null,\"3\"]'");
-        assertQuery("SELECT JSON_FORMAT(CAST(ROW(x, y, z) AS JSON)) FROM (VALUES ROW(1, CAST(NULL AS INTEGER), '3')) t(x,y,z)", "SELECT '[1,null,\"3\"]'");
+                "SELECT '[{\"\":1,\"\":2},{\"\":3,\"\":4},{\"\":5,\"\":6}]'");
+        assertQuery("SELECT JSON_FORMAT(CAST(ROW(x, y, z) AS JSON)) FROM (VALUES ROW(1, NULL, '3')) t(x,y,z)", "SELECT '{\"\":1,\"\":null,\"\":\"3\"}'");
+        assertQuery("SELECT JSON_FORMAT(CAST(ROW(x, y, z) AS JSON)) FROM (VALUES ROW(1, CAST(NULL AS INTEGER), '3')) t(x,y,z)", "SELECT '{\"\":1,\"\":null,\"\":\"3\"}'");
     }
 
     @Test
@@ -2333,9 +2335,6 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         assertQuery("SELECT count(*) FROM (SELECT (SELECT 1))");
         assertQuery("SELECT * FROM (SELECT (SELECT 1))");
-        assertQueryFails(
-                "SELECT * FROM (SELECT (SELECT 1, 2))",
-                "line 1:23: Multiple columns returned by subquery are not yet supported. Found 2");
     }
 
     @Test
@@ -3193,6 +3192,8 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT CAST(row(true, array[0, 2]) AS row(aa boolean, bb array(boolean))).bb[1]", "SELECT false");
         assertQuery("SELECT CAST(row(0.1, array[0, 2], row(1, 0.5)) AS row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))).cc.ee", "SELECT '0.5'");
         assertQuery("SELECT CAST(array[row(0.1, array[0, 2], row(1, 0.5))] AS array<row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))>)[1].cc.ee", "SELECT '0.5'");
+        assertQuery("SELECT CAST(ROW(1, 2, 3) AS ROW(a BIGINT, A DOUBLE, c BIGINT)).c", "SELECT 3");
+        assertQueryFails("SELECT CAST(ROW(1, 2) AS ROW(a BIGINT, A DOUBLE)).a", "line 1:51: Ambiguous row field reference: a");
     }
 
     @Test
@@ -3583,9 +3584,6 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryOrdered(
                 "SELECT (SELECT t.* FROM (VALUES 1)) FROM (SELECT name FROM nation ORDER BY regionkey, name LIMIT 5) t(a)",
                 "SELECT name FROM nation ORDER BY regionkey, name LIMIT 5");
-        assertQueryFails(
-                "SELECT (SELECT t.* FROM (VALUES 1)) FROM (SELECT name, regionkey FROM nation) t(a, b)",
-                ".* Multiple columns returned by subquery are not yet supported. Found 2");
         // alias/table name shadowing
         assertQuery("SELECT(SELECT region.* FROM (VALUES 1) region) FROM region", "SELECT 1 FROM region");
         assertQuery("SELECT(SELECT r.* FROM (VALUES 1) r) FROM region r", "SELECT 1 FROM region");
@@ -5004,6 +5002,149 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testMatchRecognize()
+    {
+        // find customers with a sequence of 6+ orders with rising prices
+        assertQuery(
+                "SELECT m.custkey, m.matchno, m.lowest_price, m.highest_price " +
+                        "          FROM orders " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   PARTITION BY custkey " +
+                        "                   ORDER BY orderdate " +
+                        "                   MEASURES " +
+                        "                            A.totalprice AS lowest_price, " +
+                        "                            FINAL LAST(R.totalprice) AS highest_price, " +
+                        "                            MATCH_NUMBER() AS matchno " +
+                        "                   ONE ROW PER MATCH " +
+                        "                   PATTERN (A R{5,}) " +
+                        "                   DEFINE R AS R.totalprice > PREV(R.totalprice) " +
+                        "                ) AS m",
+                " VALUES " +
+                        "(223, 1, 35243.42, 272842.24), " +
+                        "(364, 1, 98466.62, 190993.28), " +
+                        "(806, 1, 67625.86, 265458.02), " +
+                        "(874, 1, 57276.82, 300848.95), " +
+                        "(1180, 1, 28357.41, 222579.79), " +
+                        "(1198, 1, 29882.15, 170142.7), " +
+                        "(1411, 1, 5618.66, 178192.17) ");
+
+        // find customers doing small orders after a big order
+        assertQuery(
+                "SELECT m.custkey, m.matchno, m.classy, m.totalprice, m.time_since_last " +
+                        "          FROM orders " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   PARTITION BY custkey " +
+                        "                   ORDER BY orderdate " +
+                        "                   MEASURES " +
+                        "                            CAST(SMALL.orderdate - PREV(orderdate) AS varchar) AS time_since_last, " +
+                        "                            CLASSIFIER() AS classy, " +
+                        "                            MATCH_NUMBER() AS matchno " +
+                        "                   ALL ROWS PER MATCH " +
+                        "                   PATTERN (BIG SMALL+) " +
+                        "                   DEFINE SMALL AS SMALL.totalprice < BIG.totalprice * 0.005 " +
+                        "                ) AS m",
+                "VALUES " +
+                        "(1436, 1, 'BIG', 291066.38, null), " +
+                        "(1436, 1, 'SMALL', 1258.33, '28 00:00:00.000'), " +
+                        "(1400, 1, 'BIG', 319491.64, null), " +
+                        "(1400, 1, 'SMALL', 1301.08, '85 00:00:00.000') ");
+    }
+
+    @Test
+    public void testLongPatternMatch()
+    {
+        // test the capacity of pattern matching algorithm with a big table and a trivial pattern that matches all rows
+        assertQuery(
+                "SELECT count() " +
+                        "          FROM (SELECT * FROM lineitem " +
+                        "                UNION ALL " +
+                        "                SELECT * FROM lineitem) big_input " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   MEASURES CLASSIFIER() AS classy " +
+                        "                   ALL ROWS PER MATCH " +
+                        "                   PATTERN (A*) " +
+                        "                   DEFINE A AS true " +
+                        "                ) ",
+                "SELECT 120350 ");
+    }
+
+    @Test
+    public void testUnsuccessfulPatternMatch()
+    {
+        // test a pattern which potential of exponential backtracking
+        assertQueryReturnsEmptyResult(
+                "SELECT match " +
+                        "          FROM (SELECT * FROM lineitem " +
+                        "                UNION ALL " +
+                        "                SELECT * FROM lineitem) big_input " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   MEASURES MATCH_NUMBER() AS match " +
+                        "                   ONE ROW PER MATCH " +
+                        "                   PATTERN (^(A+)+B$) " +
+                        "                   DEFINE " +
+                        "                       A AS true, " +
+                        "                       B AS false " +
+                        "                ) ");
+    }
+
+    @Test
+    public void testJoinedPatternMatch()
+    {
+        assertQuery(
+                "SELECT m.custkey, c.name, m.highest_price " +
+                        "          FROM orders " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   PARTITION BY custkey " +
+                        "                   ORDER BY orderdate " +
+                        "                   MEASURES FINAL LAST(R.totalprice) AS highest_price " +
+                        "                   ONE ROW PER MATCH " +
+                        "                   PATTERN (A R{5,}) " +
+                        "                   DEFINE R AS R.totalprice > PREV(R.totalprice) " +
+                        "                ) AS m" +
+                        "                JOIN customer c ON c.custkey = m.custkey ",
+                "VALUES " +
+                        "(223, 'Customer#000000223', 272842.24), " +
+                        "(364, 'Customer#000000364', 190993.28), " +
+                        "(806, 'Customer#000000806', 265458.02), " +
+                        "(874, 'Customer#000000874', 300848.95), " +
+                        "(1180, 'Customer#000001180', 222579.79), " +
+                        "(1198, 'Customer#000001198', 170142.7), " +
+                        "(1411, 'Customer#000001411', 178192.17) ");
+    }
+
+    @Test
+    public void testChainedPatternMatch()
+    {
+        assertQuery(
+                "SELECT lowest_delta, highest_delta, date " +
+                        "           FROM (SELECT * FROM orders " +
+                        "                 MATCH_RECOGNIZE ( " + // find customers with a sequence of 6+ orders with rising prices
+                        "                       PARTITION BY custkey " +
+                        "                       ORDER BY orderdate " +
+                        "                       MEASURES " +
+                        "                                FINAL LAST(R.orderdate) AS final_date, " +
+                        "                                A.totalprice AS lowest_price, " +
+                        "                                FINAL LAST(R.totalprice) AS highest_price " +
+                        "                       ONE ROW PER MATCH " +
+                        "                       PATTERN (A R{5,}) " +
+                        "                       DEFINE R AS R.totalprice > PREV(R.totalprice) " +
+                        "                       ) " +
+                        "                ) MATCH_RECOGNIZE ( " + // among those sequences find sequences of rising delta price
+                        "                        ORDER BY final_date " +
+                        "                        MEASURES " +
+                        "                                 FINAL LAST(D.highest_price - D.lowest_price) AS highest_delta, " +
+                        "                                 A.highest_price - A.lowest_price AS lowest_delta, " +
+                        "                                 CAST(FINAL LAST(D.final_date) AS varchar) AS date " +
+                        "                        ONE ROW PER MATCH " +
+                        "                        PATTERN (A D+) " +
+                        "                        DEFINE D AS D.highest_price - D.lowest_price > PREV(D.highest_price - D.lowest_price) " +
+                        "                        ) ",
+                "VALUES " +
+                        "     (172573.51, 237598.82, '1995-02-25'), " +
+                        "     (92526.66, 140260.55000000002, '1998-06-23') ");
+    }
+
+    @Test
     public void testShowSession()
     {
         Session session = new Session(
@@ -5883,39 +6024,29 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testLargePivot()
     {
-        int columns = 254;
+        int arrayConstructionLimit = 254;
 
-        MaterializedResult result = computeActual(pivotQuery(columns));
+        MaterializedResult result = computeActual(pivotQuery(arrayConstructionLimit));
         assertThat(result.getRowCount())
                 .as("row count")
-                .isEqualTo(columns);
+                .isEqualTo(arrayConstructionLimit);
 
         MaterializedRow row = result.getMaterializedRows().get(0);
         assertThat(row.getFieldCount())
                 .as("field count")
-                .isEqualTo(columns + 2);
-    }
+                .isEqualTo(arrayConstructionLimit + 2);
 
-    @Test
-    public void testPivotExceedingMaximumArraySize()
-    {
-        assertQueryFails(pivotQuery(255), "Too many arguments for array constructor");
-    }
-
-    @Test(timeOut = 30_000)
-    public void testLateMaterializationOuterJoin()
-    {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(LATE_MATERIALIZATION, "true")
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.toString())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.toString())
-                .build();
-        assertQuery(session, "SELECT * FROM (SELECT * FROM nation WHERE nationkey < -1) a RIGHT JOIN nation b ON a.nationkey = b.nationkey");
+        // Verify that arrayConstructionLimit is the current limit so that the test stays relevant and prevents regression if we improve in the future.
+        assertQueryFails(pivotQuery(arrayConstructionLimit + 1), "Too many arguments for array constructor");
     }
 
     private static String pivotQuery(int columnsCount)
     {
-        String values = IntStream.range(0, columnsCount)
+        String fields = IntStream.range(0, columnsCount)
+                .mapToObj(columnNumber -> "lower(name)")
+                .collect(joining(", "));
+
+        String literals = IntStream.range(0, columnsCount)
                 .mapToObj(columnNumber -> format("%d", columnNumber))
                 .collect(joining(", "));
 
@@ -5923,7 +6054,33 @@ public abstract class AbstractTestEngineOnlyQueries
                 .mapToObj(columnNumber -> format("a%d", columnNumber))
                 .collect(joining(", "));
 
-        return format("SELECT * FROM (SELECT %s) a(%s) INNER JOIN unnest(ARRAY[%1$s], ARRAY[%2$s]) b(b1, b2) ON true", values, columns);
+        return format("SELECT * FROM (SELECT %s FROM region LIMIT 1) a(%s) INNER JOIN unnest(ARRAY[%s], ARRAY[%2$s]) b(b1, b2) ON true", fields, columns, literals);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testLateMaterializationOuterJoin()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(LATE_MATERIALIZATION, "true")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.toString())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.toString())
+                .build();
+        assertQuery(session, "SELECT * FROM (SELECT * FROM nation WHERE nationkey < -1) a RIGHT JOIN nation b ON a.nationkey = b.nationkey");
+    }
+
+    /**
+     * Regression test for https://github.com/trinodb/trino/pull/7723.
+     */
+    @Test
+    public void testJoinWithNonOrderableType()
+    {
+        assertThat(query("SELECT b.mapped FROM (SELECT 'trino' AS name) a " +
+                "LEFT JOIN ( " +
+                "  SELECT " +
+                "    split(CAST(JSON '{\"key\": {\"name\": \"trino\"}}' AS map(varchar, map(varchar, varchar)))['key']['name'], ',') AS names, " +
+                "    CAST(JSON '{\"key\": {\"name\": \"trino\"}}' AS map(varchar, map(varchar, varchar)))['key'] mapped " +
+                ") b ON contains(b.names, a.name)"))
+                .matches("SELECT CAST(map(ARRAY['name'], ARRAY['trino']) AS map(varchar, varchar))");
     }
 
     private static ZonedDateTime zonedDateTime(String value)

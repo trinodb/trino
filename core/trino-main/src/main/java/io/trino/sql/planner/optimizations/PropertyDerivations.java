@@ -28,7 +28,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
-import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -57,9 +56,11 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
@@ -96,6 +97,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSingleStreamPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
@@ -103,6 +105,10 @@ import static io.trino.sql.planner.optimizations.ActualProperties.Global.singleS
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
+import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -278,10 +284,61 @@ public final class PropertyDerivations
                 localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
 
-            orderingScheme.ifPresent(scheme ->
-                    scheme.getOrderBy().stream()
-                            .map(column -> new SortingProperty<>(column, scheme.getOrdering(column)))
-                            .forEach(localProperties::add));
+            orderingScheme.ifPresent(ordering -> localProperties.addAll(ordering.toLocalProperties()));
+
+            return ActualProperties.builderFrom(properties)
+                    .local(LocalProperties.normalizeAndPrune(localProperties.build()))
+                    .build();
+        }
+
+        @Override
+        public ActualProperties visitPatternRecognition(PatternRecognitionNode node, List<ActualProperties> inputProperties)
+        {
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            // If the input is completely pre-partitioned and sorted, then the original input properties will be respected is some cases.
+            // ALL ROW PER MATCH with overlapping matches might shuffle rows and break the order.
+            // Otherwise, partitioning and sorting will be respected.
+            Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
+            if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs())
+                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().getOrderBy().size())) {
+                if (node.getRowsPerMatch() == WINDOW || (!node.getRowsPerMatch().isOneRow() && node.getSkipToPosition() == PAST_LAST)) {
+                    return properties;
+                }
+                if (node.getRowsPerMatch() == ONE) {
+                    // Crop properties to output columns.
+                    return properties.translate(symbol -> node.getOutputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+                }
+            }
+
+            ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
+
+            // If the PatternRecognitionNode has pre-partitioned inputs, then it will not change the order of those inputs at output,
+            // so we should just propagate those underlying local properties that guarantee the pre-partitioning.
+            // TODO: come up with a more general form of this operation for other streaming operators
+            if (!node.getPrePartitionedInputs().isEmpty()) {
+                GroupingProperty<Symbol> prePartitionedProperty = new GroupingProperty<>(node.getPrePartitionedInputs());
+                for (LocalProperty<Symbol> localProperty : properties.getLocalProperties()) {
+                    if (!prePartitionedProperty.isSimplifiedBy(localProperty)) {
+                        break;
+                    }
+                    localProperties.add(localProperty);
+                }
+            }
+
+            if (!node.getPartitionBy().isEmpty()) {
+                localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            }
+
+            // Sorted properties should be propagated only in certain cases.
+            // ALL ROW PER MATCH with overlapping matches might shuffle rows.
+            if (node.getRowsPerMatch().isOneRow() || node.getSkipToPosition() == PAST_LAST) {
+                Set<Symbol> outputs = ImmutableSet.copyOf(node.getOutputSymbols());
+                orderingScheme.ifPresent(ordering ->
+                        ordering.toLocalProperties().stream()
+                                .filter(property -> outputs.containsAll(property.getColumns()))
+                                .forEach(localProperties::add));
+            }
 
             return ActualProperties.builderFrom(properties)
                     .local(LocalProperties.normalizeAndPrune(localProperties.build()))
@@ -334,9 +391,7 @@ public final class PropertyDerivations
 
             ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
             localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
-            for (Symbol column : node.getOrderingScheme().getOrderBy()) {
-                localProperties.add(new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)));
-            }
+            localProperties.addAll(node.getOrderingScheme().toLocalProperties());
 
             return ActualProperties.builderFrom(properties)
                     .local(localProperties.build())
@@ -348,12 +403,8 @@ public final class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            List<SortingProperty<Symbol>> localProperties = node.getOrderingScheme().getOrderBy().stream()
-                    .map(column -> new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)))
-                    .collect(toImmutableList());
-
             return ActualProperties.builderFrom(properties)
-                    .local(localProperties)
+                    .local(node.getOrderingScheme().toLocalProperties())
                     .build();
         }
 
@@ -362,12 +413,8 @@ public final class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            List<SortingProperty<Symbol>> localProperties = node.getOrderingScheme().getOrderBy().stream()
-                    .map(column -> new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)))
-                    .collect(toImmutableList());
-
             return ActualProperties.builderFrom(properties)
-                    .local(localProperties)
+                    .local(node.getOrderingScheme().toLocalProperties())
                     .build();
         }
 
@@ -565,12 +612,8 @@ public final class PropertyDerivations
             Map<Symbol, NullableValue> constants = entries.stream()
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-            ImmutableList.Builder<SortingProperty<Symbol>> localProperties = ImmutableList.builder();
-            if (node.getOrderingScheme().isPresent()) {
-                node.getOrderingScheme().get().getOrderBy().stream()
-                        .map(column -> new SortingProperty<>(column, node.getOrderingScheme().get().getOrdering(column)))
-                        .forEach(localProperties::add);
-            }
+            ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
+            node.getOrderingScheme().ifPresent(orderingScheme -> localProperties.addAll(orderingScheme.toLocalProperties()));
 
             // Local exchanges are only created in AddLocalExchanges, at the end of optimization, and
             // local exchanges do not produce all global properties as represented by ActualProperties.
@@ -580,6 +623,15 @@ public final class PropertyDerivations
             // are computed for local exchanges.
             // TODO: implement full properties for local exchanges
             if (node.getScope() == LOCAL) {
+                if (inputProperties.size() == 1) {
+                    ActualProperties inputProperty = inputProperties.get(0);
+                    if (inputProperty.isEffectivelySingleStream() && node.getOrderingScheme().isEmpty()) {
+                        // Single stream input's local sorting and grouping properties are preserved
+                        // In case of merging exchange, it's orderingScheme takes precedence
+                        localProperties.addAll(inputProperty.getLocalProperties());
+                    }
+                }
+
                 ActualProperties.Builder builder = ActualProperties.builder();
                 builder.local(localProperties.build());
                 builder.constants(constants);
@@ -589,6 +641,13 @@ public final class PropertyDerivations
                 }
                 else if (inputProperties.stream().anyMatch(ActualProperties::isSingleNode)) {
                     builder.global(coordinatorSingleStreamPartition());
+                }
+                else if (node.getOrderingScheme().isPresent() && node.getType() == GATHER) {
+                    // Local merging exchange uses passthrough distribution
+                    builder.global(partitionedOn(
+                            FIXED_PASSTHROUGH_DISTRIBUTION,
+                            ImmutableList.of(),
+                            Optional.of(ImmutableList.of())));
                 }
 
                 return builder.build();
@@ -680,6 +739,14 @@ public final class PropertyDerivations
 
             return ActualProperties.builderFrom(translatedProperties)
                     .constants(constants)
+                    .build();
+        }
+
+        @Override
+        public ActualProperties visitRefreshMaterializedView(RefreshMaterializedViewNode node, List<ActualProperties> inputProperties)
+        {
+            return ActualProperties.builder()
+                    .global(coordinatorSingleStreamPartition())
                     .build();
         }
 

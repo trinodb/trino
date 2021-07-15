@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.type.TypeManager;
@@ -24,47 +25,44 @@ import static java.util.Objects.requireNonNull;
 
 public class IcebergMetadataFactory
 {
+    private final CatalogName catalogName;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
-    private IcebergCatalogType type = IcebergCatalogType.HIVE;
+    private final HiveTableOperationsProvider tableOperationsProvider;
 
     @Inject
     public IcebergMetadataFactory(
+            CatalogName catalogName,
             IcebergConfig config,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            JsonCodec<CommitTaskData> commitTaskDataJsonCodec)
+            JsonCodec<CommitTaskData> commitTaskDataJsonCodec,
+            HiveTableOperationsProvider tableOperationsProvider)
     {
-        this(metastore, hdfsEnvironment, typeManager, commitTaskDataJsonCodec);
+        this(catalogName, metastore, hdfsEnvironment, typeManager, commitTaskDataJsonCodec, tableOperationsProvider);
     }
 
     public IcebergMetadataFactory(
+            CatalogName catalogName,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            JsonCodec<CommitTaskData> commitTaskCodec)
+            JsonCodec<CommitTaskData> commitTaskCodec,
+            HiveTableOperationsProvider tableOperationsProvider)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
+        this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
     }
 
     public IcebergMetadata create()
     {
-        if (type == IcebergCatalogType.HIVE) {
-            return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
-        }
-        else {
-            return new IcebergHadoopMetadata(hdfsEnvironment, typeManager, commitTaskCodec);
-        }
-    }
-
-    public void setCatalogType(IcebergCatalogType type)
-    {
-        this.type = type;
+        return new IcebergMetadata(catalogName, metastore, hdfsEnvironment, typeManager, commitTaskCodec, tableOperationsProvider);
     }
 }

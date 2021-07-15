@@ -15,16 +15,19 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
@@ -34,7 +37,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
-import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractDereferences;
+import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractRowSubscripts;
 import static io.trino.sql.planner.iterative.rule.DereferencePushdown.getBase;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.project;
@@ -80,14 +83,18 @@ public class PushDownDereferencesThroughLimit
         LimitNode limitNode = captures.get(CHILD);
 
         // Extract dereferences from project node assignments for pushdown
-        Set<DereferenceExpression> dereferences = extractDereferences(projectNode.getAssignments().getExpressions(), false);
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
 
-        // Exclude dereferences on symbols being used in tiesResolvingScheme
-        if (limitNode.getTiesResolvingScheme().isPresent()) {
-            dereferences = dereferences.stream()
-                    .filter(expression -> !limitNode.getTiesResolvingScheme().get().getOrderBy().contains(getBase(expression)))
-                    .collect(toImmutableSet());
-        }
+        // Exclude dereferences on symbols being used in tiesResolvingScheme and requiresPreSortedInputs
+        Set<Symbol> excludedSymbols = ImmutableSet.<Symbol>builder()
+                .addAll(limitNode.getTiesResolvingScheme()
+                        .map(OrderingScheme::getOrderBy)
+                        .orElse(ImmutableList.of()))
+                .addAll(limitNode.getPreSortedInputs())
+                .build();
+        dereferences = dereferences.stream()
+                .filter(expression -> !excludedSymbols.contains(getBase(expression)))
+                .collect(toImmutableSet());
 
         if (dereferences.isEmpty()) {
             return Result.empty();

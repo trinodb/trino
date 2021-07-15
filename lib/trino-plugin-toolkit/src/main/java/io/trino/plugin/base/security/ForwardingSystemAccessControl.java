@@ -297,6 +297,24 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        delegate().checkCanCreateMaterializedView(context, materializedView);
+    }
+
+    @Override
+    public void checkCanRefreshMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        delegate().checkCanRefreshMaterializedView(context, materializedView);
+    }
+
+    @Override
+    public void checkCanDropMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        delegate().checkCanDropMaterializedView(context, materializedView);
+    }
+
+    @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
     {
         delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);

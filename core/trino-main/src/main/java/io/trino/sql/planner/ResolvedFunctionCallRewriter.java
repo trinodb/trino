@@ -59,6 +59,7 @@ public final class ResolvedFunctionCallRewriter
                     rewritten.getOrderBy(),
                     rewritten.isDistinct(),
                     rewritten.getNullTreatment(),
+                    rewritten.getProcessingMode(),
                     rewritten.getArguments());
         }
     }

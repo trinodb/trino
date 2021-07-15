@@ -308,12 +308,26 @@ public final class Domain
     @Override
     public String toString()
     {
-        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString() + " ]";
+        return toString(ToStringSession.INSTANCE);
     }
 
     public String toString(ConnectorSession session)
     {
-        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session) + " ]";
+        return toString(session, 10);
+    }
+
+    public String toString(ConnectorSession session, int limit)
+    {
+        if (isAll()) {
+            return "ALL";
+        }
+        if (isNone()) {
+            return "NONE";
+        }
+        if (isOnlyNull()) {
+            return "[NULL]";
+        }
+        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session, limit) + " ]";
     }
 
     static class DiscreteSet

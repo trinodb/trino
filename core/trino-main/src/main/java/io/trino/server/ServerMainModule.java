@@ -18,7 +18,6 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServerConfig;
@@ -33,26 +32,20 @@ import io.trino.PagesIndexPageSorter;
 import io.trino.SystemSessionProperties;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
-import io.trino.client.ServerInfo;
 import io.trino.connector.ConnectorManager;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.event.SplitMonitor;
 import io.trino.execution.DynamicFilterConfig;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
-import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.MemoryRevokingScheduler;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
-import io.trino.execution.StageInfo;
-import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskManagementExecutor;
 import io.trino.execution.TaskManager;
 import io.trino.execution.TaskManagerConfig;
-import io.trino.execution.TaskStatus;
 import io.trino.execution.executor.MultilevelSplitQueue;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.scheduler.NodeScheduler;
@@ -74,6 +67,7 @@ import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.SchemaPropertyManager;
@@ -85,9 +79,9 @@ import io.trino.operator.ExchangeClientConfig;
 import io.trino.operator.ExchangeClientFactory;
 import io.trino.operator.ExchangeClientSupplier;
 import io.trino.operator.ForExchange;
-import io.trino.operator.LookupJoinOperators;
-import io.trino.operator.OperatorStats;
+import io.trino.operator.OperatorFactories;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
 import io.trino.server.ExpressionSerialization.ExpressionSerializer;
@@ -97,6 +91,7 @@ import io.trino.server.SliceSerialization.SliceSerializer;
 import io.trino.server.remotetask.HttpLocationFactory;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
+import io.trino.spi.VersionEmbedder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
@@ -150,7 +145,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -222,6 +217,9 @@ public class ServerMainModule
         // table properties
         binder.bind(TablePropertyManager.class).in(Scopes.SINGLETON);
 
+        // materialized view properties
+        binder.bind(MaterializedViewPropertyManager.class).in(Scopes.SINGLETON);
+
         // column properties
         binder.bind(ColumnPropertyManager.class).in(Scopes.SINGLETON);
 
@@ -249,11 +247,11 @@ public class ServerMainModule
 
         // network topology
         // TODO: move to CoordinatorModule when NodeScheduler is moved
-        install(installModuleIf(
+        install(conditionalModule(
                 NodeSchedulerConfig.class,
                 config -> UNIFORM == config.getNodeSchedulerPolicy(),
                 new UniformNodeSelectorModule()));
-        install(installModuleIf(
+        install(conditionalModule(
                 NodeSchedulerConfig.class,
                 config -> TOPOLOGY == config.getNodeSchedulerPolicy(),
                 new TopologyAwareNodeSelectorModule()));
@@ -278,7 +276,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(NodeMemoryConfig.class);
         binder.bind(LocalMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
-        binder.bind(EmbedVersion.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, VersionEmbedder.class).setDefault().to(EmbedVersion.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskManager.class).withGeneratedName();
         binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
@@ -302,14 +300,8 @@ public class ServerMainModule
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
-        binder.bind(LookupJoinOperators.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, OperatorFactories.class).setDefault().to(TrinoOperatorFactories.class).in(Scopes.SINGLETON);
 
-        jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
-        jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);
-        jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
-        jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
-        jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
-        jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
         jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
         // exchange client
@@ -333,7 +325,6 @@ public class ServerMainModule
 
         // memory manager
         jaxrsBinder(binder).bind(MemoryResource.class);
-
         jsonCodecBinder(binder).bindJsonCodec(MemoryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(MemoryPoolAssignmentsRequest.class);
 
@@ -402,11 +393,9 @@ public class ServerMainModule
 
         // server info resource
         jaxrsBinder(binder).bind(ServerInfoResource.class);
-        jsonCodecBinder(binder).bindJsonCodec(ServerInfo.class);
 
         // node status resource
         jaxrsBinder(binder).bind(StatusResource.class);
-        jsonCodecBinder(binder).bindJsonCodec(NodeStatus.class);
 
         // plugin manager
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
@@ -446,11 +435,11 @@ public class ServerMainModule
 
         // dispatcher
         // TODO remove dispatcher fromm ServerMainModule, and bind dependent components only on coordinators
-        OptionalBinder.newOptionalBinder(binder, DispatchManager.class);
+        newOptionalBinder(binder, DispatchManager.class);
 
         // Added for RuleStatsSystemTable
         // TODO: remove this when system tables are bound separately for coordinator and worker
-        OptionalBinder.newOptionalBinder(binder, RuleStatsRecorder.class);
+        newOptionalBinder(binder, RuleStatsRecorder.class);
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);

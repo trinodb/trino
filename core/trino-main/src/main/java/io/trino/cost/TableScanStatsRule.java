@@ -32,7 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Verify.verifyNotNull;
+import static io.trino.SystemSessionProperties.isStatisticsPrecalculationForPushdownEnabled;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.lang.Double.NaN;
 import static java.util.Objects.requireNonNull;
@@ -59,11 +59,15 @@ public class TableScanStatsRule
     @Override
     protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
+        if (isStatisticsPrecalculationForPushdownEnabled(session) && node.getStatistics().isPresent()) {
+            return node.getStatistics();
+        }
+
         // TODO Construct predicate like AddExchanges's LayoutConstraintEvaluator
         Constraint constraint = new Constraint(TupleDomain.all());
 
         TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
-        verifyNotNull(tableStatistics, "tableStatistics is null for %s", node);
+
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
 
         for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {

@@ -13,32 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.airlift.units.Duration;
-
-import javax.inject.Inject;
-
-import java.util.Set;
-
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.DAYS;
-
-public class JdbcMetadataFactory
+public interface JdbcMetadataFactory
 {
-    private final JdbcClient jdbcClient;
-    private final boolean allowDropTable;
-
-    @Inject
-    public JdbcMetadataFactory(JdbcClient jdbcClient, JdbcMetadataConfig config)
-    {
-        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        requireNonNull(config, "config is null");
-        this.allowDropTable = config.isAllowDropTable();
-    }
-
-    public JdbcMetadata create()
-    {
-        // Session stays the same per transaction, therefore session properties don't need to
-        // be a part of cache keys in CachingJdbcClient.
-        return new JdbcMetadata(new CachingJdbcClient(jdbcClient, Set.of(), new Duration(1, DAYS), true), allowDropTable);
-    }
+    JdbcMetadata create(JdbcTransactionHandle transaction);
 }

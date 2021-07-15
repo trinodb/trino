@@ -28,7 +28,7 @@ import io.trino.transaction.TransactionManager;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.getSessionCatalog;
@@ -46,7 +46,7 @@ public class SetSchemaAuthorizationTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             SetSchemaAuthorization statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -73,6 +73,6 @@ public class SetSchemaAuthorizationTask
 
         metadata.setSchemaAuthorization(session, source, principal);
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

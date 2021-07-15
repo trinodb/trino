@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -75,6 +76,8 @@ public class HiveModule
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, HiveMaterializedViewPropertiesProvider.class)
+                .setDefault().toInstance(ImmutableList::of);
 
         binder.bind(TrinoS3ClientFactory.class).in(Scopes.SINGLETON);
 
@@ -89,14 +92,14 @@ public class HiveModule
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, HiveRedirectionsProvider.class)
                 .setDefault().to(NoneHiveRedirectionsProvider.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, HiveMaterializedViewMetadata.class)
-                .setDefault().to(NoneHiveMaterializedViewMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(HiveMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(TransactionalMetadataFactory.class).to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, HiveMaterializedViewMetadataFactory.class)
+                .setDefault().to(DefaultHiveMaterializedViewMetadataFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, TransactionalMetadataFactory.class)
+                .setDefault().to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generator -> generator.generatedNameOf(HiveSplitManager.class));
-        binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
 
@@ -153,7 +156,7 @@ public class HiveModule
     @Provides
     public Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> createMetastoreGetter(HiveTransactionManager transactionManager)
     {
-        return transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore();
+        return transactionHandle -> transactionManager.get(transactionHandle).getMetastore();
     }
 
     public static final class TypeDeserializer

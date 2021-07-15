@@ -3,5 +3,6 @@ catalogs|
 analyze_properties|
 schema_properties|
 table_properties|
+materialized_view_properties|
 column_properties|
 table_comments|

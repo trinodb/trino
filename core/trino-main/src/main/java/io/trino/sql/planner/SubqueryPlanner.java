@@ -15,18 +15,24 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.Field;
+import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
+import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
@@ -38,6 +44,7 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QuantifiedComparisonExpression.Quantifier;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.type.TypeCoercion;
 
@@ -54,8 +61,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
-import static io.trino.sql.planner.QueryPlanner.coerce;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -104,27 +111,27 @@ class SubqueryPlanner
         this.recursiveSubqueries = recursiveSubqueries;
     }
 
-    public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node)
+    public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Analysis.SubqueryAnalysis subqueries)
     {
         for (Expression expression : expressions) {
-            builder = handleSubqueries(builder, expression, node);
+            builder = handleSubqueries(builder, expression, subqueries);
         }
         return builder;
     }
 
-    public PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node)
+    public PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Analysis.SubqueryAnalysis subqueries)
     {
-        for (Cluster<InPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, analysis.getInPredicateSubqueries(node)))) {
-            builder = planInPredicate(builder, cluster, node);
+        for (Cluster<InPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getInPredicatesSubqueries()))) {
+            builder = planInPredicate(builder, cluster, subqueries);
         }
-        for (Cluster<SubqueryExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, analysis.getScalarSubqueries(node)))) {
+        for (Cluster<SubqueryExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getSubqueries()))) {
             builder = planScalarSubquery(builder, cluster);
         }
-        for (Cluster<ExistsPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, analysis.getExistsSubqueries(node)))) {
+        for (Cluster<ExistsPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getExistsSubqueries()))) {
             builder = planExists(builder, cluster);
         }
-        for (Cluster<QuantifiedComparisonExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, analysis.getQuantifiedComparisonSubqueries(node)))) {
-            builder = planQuantifiedComparison(builder, cluster, node);
+        for (Cluster<QuantifiedComparisonExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getQuantifiedComparisonSubqueries()))) {
+            builder = planQuantifiedComparison(builder, cluster, subqueries);
         }
 
         return builder;
@@ -172,7 +179,7 @@ class SubqueryPlanner
                 .collect(toImmutableList());
     }
 
-    private PlanBuilder planInPredicate(PlanBuilder subPlan, Cluster<InPredicate> cluster, Node node)
+    private PlanBuilder planInPredicate(PlanBuilder subPlan, Cluster<InPredicate> cluster, Analysis.SubqueryAnalysis subqueries)
     {
         // Plan one of the predicates from the cluster
         InPredicate predicate = cluster.getRepresentative();
@@ -181,8 +188,8 @@ class SubqueryPlanner
         SubqueryExpression subquery = (SubqueryExpression) predicate.getValueList();
         Symbol output = symbolAllocator.newSymbol(predicate, BOOLEAN);
 
-        subPlan = handleSubqueries(subPlan, value, node);
-        subPlan = planInPredicate(subPlan, value, subquery, output, predicate);
+        subPlan = handleSubqueries(subPlan, value, subqueries);
+        subPlan = planInPredicate(subPlan, value, subquery, output, predicate, analysis.getPredicateCoercions(predicate));
 
         return new PlanBuilder(
                 subPlan.getTranslations()
@@ -195,37 +202,27 @@ class SubqueryPlanner
      *
      * @param originalExpression the original expression from which the IN predicate was derived. Used for subsequent translations.
      */
-    private PlanBuilder planInPredicate(PlanBuilder subPlan, Expression value, SubqueryExpression subquery, Symbol output, Expression originalExpression)
+    private PlanBuilder planInPredicate(
+            PlanBuilder subPlan,
+            Expression value,
+            SubqueryExpression subquery,
+            Symbol output,
+            Expression originalExpression,
+            Analysis.PredicateCoercions predicateCoercions)
     {
-        // Use the current plan's translations as the outer context when planning the subquery
-        RelationPlan relationPlan = planSubquery(subquery, subPlan.getTranslations());
-        PlanBuilder subqueryPlan = newPlanBuilder(
-                relationPlan,
-                analysis,
-                lambdaDeclarationToSymbolMap,
-                ImmutableMap.of(scopeAwareKey(subquery, analysis, relationPlan.getScope()), Iterables.getOnlyElement(relationPlan.getFieldMappings())));
-
-        QueryPlanner.PlanAndMappings subqueryCoercions = coerce(subqueryPlan, ImmutableList.of(subquery), analysis, idAllocator, symbolAllocator, typeCoercion);
-        subqueryPlan = subqueryCoercions.getSubPlan();
-
-        subPlan = subPlan.appendProjections(
-                ImmutableList.of(value),
-                symbolAllocator,
-                idAllocator);
-
-        QueryPlanner.PlanAndMappings subplanCoercions = coerce(subPlan, ImmutableList.of(value), analysis, idAllocator, symbolAllocator, typeCoercion);
-        subPlan = subplanCoercions.getSubPlan();
+        PlanAndMappings subqueryPlan = planSubquery(subquery, predicateCoercions.getSubqueryCoercion(), subPlan.getTranslations());
+        PlanAndMappings valuePlan = planValue(subPlan, value, predicateCoercions.getValueType(), predicateCoercions.getValueCoercion());
 
         return new PlanBuilder(
-                subPlan.getTranslations(),
+                valuePlan.getSubPlan().getTranslations(),
                 new ApplyNode(
                         idAllocator.getNextId(),
-                        subPlan.getRoot(),
-                        subqueryPlan.getRoot(),
+                        valuePlan.getSubPlan().getRoot(),
+                        subqueryPlan.getSubPlan().getRoot(),
                         Assignments.of(output, new InPredicate(
-                                subplanCoercions.get(value).toSymbolReference(),
-                                subqueryCoercions.get(subquery).toSymbolReference())),
-                        subPlan.getRoot().getOutputSymbols(),
+                                valuePlan.get(value).toSymbolReference(),
+                                subqueryPlan.get(subquery).toSymbolReference())),
+                        valuePlan.getSubPlan().getRoot().getOutputSymbols(),
                         originalExpression));
     }
 
@@ -240,18 +237,41 @@ class SubqueryPlanner
                 analysis,
                 lambdaDeclarationToSymbolMap);
 
-        subqueryPlan = subqueryPlan.withNewRoot(new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan.getRoot()));
+        PlanNode root = new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan.getRoot());
+
+        Type type = analysis.getType(scalarSubquery);
+        RelationType descriptor = relationPlan.getDescriptor();
+        List<Symbol> fieldMappings = relationPlan.getFieldMappings();
+        Symbol column;
+        if (descriptor.getVisibleFieldCount() > 1) {
+            column = symbolAllocator.newSymbol("row", type);
+
+            ImmutableList.Builder<Expression> fields = ImmutableList.builder();
+            for (int i = 0; i < descriptor.getAllFieldCount(); i++) {
+                Field field = descriptor.getFieldByIndex(i);
+                if (!field.isHidden()) {
+                    fields.add(fieldMappings.get(i).toSymbolReference());
+                }
+            }
+
+            Expression expression = new Cast(new Row(fields.build()), TypeSignatureTranslator.toSqlType(type));
+
+            root = new ProjectNode(idAllocator.getNextId(), root, Assignments.of(column, expression));
+        }
+        else {
+            column = getOnlyElement(fieldMappings);
+        }
 
         return appendCorrelatedJoin(
                 subPlan,
-                subqueryPlan,
+                root,
                 scalarSubquery.getQuery(),
                 CorrelatedJoinNode.Type.INNER,
                 TRUE_LITERAL,
-                mapAll(cluster, subPlan.getScope(), getOnlyElement(relationPlan.getFieldMappings())));
+                mapAll(cluster, subPlan.getScope(), column));
     }
 
-    public PlanBuilder appendCorrelatedJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, CorrelatedJoinNode.Type type, Expression filterCondition, Map<ScopeAware<Expression>, Symbol> mappings)
+    public PlanBuilder appendCorrelatedJoin(PlanBuilder subPlan, PlanNode subquery, Query query, CorrelatedJoinNode.Type type, Expression filterCondition, Map<ScopeAware<Expression>, Symbol> mappings)
     {
         return new PlanBuilder(
                 subPlan.getTranslations()
@@ -259,7 +279,7 @@ class SubqueryPlanner
                 new CorrelatedJoinNode(
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
-                        subqueryPlan.getRoot(),
+                        subquery,
                         subPlan.getRoot().getOutputSymbols(),
                         type,
                         filterCondition,
@@ -292,7 +312,7 @@ class SubqueryPlanner
                 .process(subquery, null);
     }
 
-    private PlanBuilder planQuantifiedComparison(PlanBuilder subPlan, Cluster<QuantifiedComparisonExpression> cluster, Node node)
+    private PlanBuilder planQuantifiedComparison(PlanBuilder subPlan, Cluster<QuantifiedComparisonExpression> cluster, Analysis.SubqueryAnalysis subqueries)
     {
         // Plan one of the predicates from the cluster
         QuantifiedComparisonExpression quantifiedComparison = cluster.getRepresentative();
@@ -302,15 +322,17 @@ class SubqueryPlanner
         Expression value = quantifiedComparison.getValue();
         SubqueryExpression subquery = (SubqueryExpression) quantifiedComparison.getSubquery();
 
-        subPlan = handleSubqueries(subPlan, value, node);
+        subPlan = handleSubqueries(subPlan, value, subqueries);
 
         Symbol output = symbolAllocator.newSymbol(quantifiedComparison, BOOLEAN);
+
+        Analysis.PredicateCoercions predicateCoercions = analysis.getPredicateCoercions(quantifiedComparison);
 
         switch (operator) {
             case EQUAL:
                 switch (quantifier) {
                     case ALL:
-                        subPlan = planQuantifiedComparison(subPlan, operator, quantifier, value, subquery, output);
+                        subPlan = planQuantifiedComparison(subPlan, operator, quantifier, value, subquery, output, predicateCoercions);
                         return new PlanBuilder(
                                 subPlan.getTranslations()
                                         .withAdditionalMappings(ImmutableMap.of(scopeAwareKey(quantifiedComparison, analysis, subPlan.getScope()), output)),
@@ -318,7 +340,7 @@ class SubqueryPlanner
                     case ANY:
                     case SOME:
                         // A = ANY B <=> A IN B
-                        subPlan = planInPredicate(subPlan, value, subquery, output, quantifiedComparison);
+                        subPlan = planInPredicate(subPlan, value, subquery, output, quantifiedComparison, predicateCoercions);
 
                         return new PlanBuilder(
                                 subPlan.getTranslations()
@@ -331,14 +353,14 @@ class SubqueryPlanner
                 switch (quantifier) {
                     case ALL: {
                         // A <> ALL B <=> !(A IN B)
-                        subPlan = planInPredicate(subPlan, value, subquery, output, quantifiedComparison);
+                        subPlan = planInPredicate(subPlan, value, subquery, output, quantifiedComparison, predicateCoercions);
                         return addNegation(subPlan, cluster, output);
                     }
                     case ANY:
                     case SOME: {
                         // A <> ANY B <=> min B <> max B || A <> min B <=> !(min B = max B && A = min B) <=> !(A = ALL B)
                         // "A <> ANY B" is equivalent to "NOT (A = ALL B)" so add a rewrite for the initial quantifiedComparison to notAll
-                        subPlan = planQuantifiedComparison(subPlan, EQUAL, Quantifier.ALL, value, subquery, output);
+                        subPlan = planQuantifiedComparison(subPlan, EQUAL, Quantifier.ALL, value, subquery, output, predicateCoercions);
                         return addNegation(subPlan, cluster, output);
                     }
                 }
@@ -348,7 +370,7 @@ class SubqueryPlanner
             case LESS_THAN_OR_EQUAL:
             case GREATER_THAN:
             case GREATER_THAN_OR_EQUAL:
-                subPlan = planQuantifiedComparison(subPlan, operator, quantifier, value, subquery, output);
+                subPlan = planQuantifiedComparison(subPlan, operator, quantifier, value, subquery, output, predicateCoercions);
                 return new PlanBuilder(
                         subPlan.getTranslations()
                                 .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
@@ -381,38 +403,107 @@ class SubqueryPlanner
                                 .build()));
     }
 
-    private PlanBuilder planQuantifiedComparison(PlanBuilder subPlan, ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery, Symbol assignment)
+    private PlanBuilder planQuantifiedComparison(
+            PlanBuilder subPlan,
+            ComparisonExpression.Operator operator,
+            Quantifier quantifier,
+            Expression value,
+            Expression subquery,
+            Symbol assignment,
+            Analysis.PredicateCoercions predicateCoercions)
     {
-        RelationPlan relationPlan = planSubquery(subquery, subPlan.getTranslations());
+        PlanAndMappings subqueryPlan = planSubquery(subquery, predicateCoercions.getSubqueryCoercion(), subPlan.getTranslations());
+        PlanAndMappings valuePlan = planValue(subPlan, value, predicateCoercions.getValueType(), predicateCoercions.getValueCoercion());
+
+        return new PlanBuilder(
+                valuePlan.getSubPlan().getTranslations(),
+                new ApplyNode(
+                        idAllocator.getNextId(),
+                        valuePlan.getSubPlan().getRoot(),
+                        subqueryPlan.getSubPlan().getRoot(),
+                        Assignments.of(assignment, new QuantifiedComparisonExpression(
+                                operator,
+                                quantifier,
+                                valuePlan.get(value).toSymbolReference(),
+                                subqueryPlan.get(subquery).toSymbolReference())),
+                        valuePlan.getSubPlan().getRoot().getOutputSymbols(),
+                        subquery));
+    }
+
+    private PlanAndMappings planValue(PlanBuilder subPlan, Expression value, Type actualType, Optional<Type> coercion)
+    {
+        subPlan = subPlan.appendProjections(ImmutableList.of(value), symbolAllocator, idAllocator);
+
+        // Adapt implicit row type (in the SQL spec, <row value special case>) by wrapping it with a row constructor
+        Symbol column = subPlan.translate(value);
+        Type declaredType = analysis.getType(value);
+        if (!actualType.equals(declaredType)) {
+            Symbol wrapped = symbolAllocator.newSymbol("row", actualType);
+
+            Assignments assignments = Assignments.builder()
+                    .putIdentities(subPlan.getRoot().getOutputSymbols())
+                    .put(wrapped, new Row(ImmutableList.of(column.toSymbolReference())))
+                    .build();
+
+            subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments));
+
+            column = wrapped;
+        }
+
+        return coerceIfNecessary(subPlan, column, value, actualType, coercion);
+    }
+
+    private PlanAndMappings planSubquery(Expression subquery, Optional<Type> coercion, TranslationMap outerContext)
+    {
+        Type type = analysis.getType(subquery);
+        Symbol column = symbolAllocator.newSymbol("row", type);
+
+        RelationPlan relationPlan = planSubquery(subquery, outerContext);
+
         PlanBuilder subqueryPlan = newPlanBuilder(
                 relationPlan,
                 analysis,
                 lambdaDeclarationToSymbolMap,
-                ImmutableMap.of(scopeAwareKey(subquery, analysis, relationPlan.getScope()), Iterables.getOnlyElement(relationPlan.getFieldMappings())));
-        QueryPlanner.PlanAndMappings subqueryCoercions = coerce(subqueryPlan, ImmutableList.of(subquery), analysis, idAllocator, symbolAllocator, typeCoercion);
-        subqueryPlan = subqueryCoercions.getSubPlan();
+                ImmutableMap.of(scopeAwareKey(subquery, analysis, relationPlan.getScope()), column));
 
-        subPlan = subPlan.appendProjections(
-                ImmutableList.of(value),
-                symbolAllocator,
-                idAllocator);
+        RelationType descriptor = relationPlan.getDescriptor();
+        ImmutableList.Builder<Expression> fields = ImmutableList.builder();
+        for (int i = 0; i < descriptor.getAllFieldCount(); i++) {
+            Field field = descriptor.getFieldByIndex(i);
+            if (!field.isHidden()) {
+                fields.add(relationPlan.getFieldMappings().get(i).toSymbolReference());
+            }
+        }
 
-        QueryPlanner.PlanAndMappings subplanCoercions = coerce(subPlan, ImmutableList.of(value), analysis, idAllocator, symbolAllocator, typeCoercion);
-        subPlan = subplanCoercions.getSubPlan();
-
-        return new PlanBuilder(
-                subPlan.getTranslations(),
-                new ApplyNode(
+        subqueryPlan = subqueryPlan.withNewRoot(
+                new ProjectNode(
                         idAllocator.getNextId(),
-                        subPlan.getRoot(),
-                        subqueryPlan.getRoot(),
-                        Assignments.of(assignment, new QuantifiedComparisonExpression(
-                                operator,
-                                quantifier,
-                                subplanCoercions.get(value).toSymbolReference(),
-                                subqueryCoercions.get(subquery).toSymbolReference())),
-                        subPlan.getRoot().getOutputSymbols(),
-                        subquery));
+                        relationPlan.getRoot(),
+                        Assignments.of(column, new Cast(new Row(fields.build()), toSqlType(type)))));
+
+        return coerceIfNecessary(subqueryPlan, column, subquery, analysis.getType(subquery), coercion);
+    }
+
+    private PlanAndMappings coerceIfNecessary(PlanBuilder subPlan, Symbol symbol, Expression value, Type type, Optional<? extends Type> coercion)
+    {
+        Symbol coerced = symbol;
+
+        if (coercion.isPresent()) {
+            coerced = symbolAllocator.newSymbol(value, coercion.get());
+
+            Assignments assignments = Assignments.builder()
+                    .putIdentities(subPlan.getRoot().getOutputSymbols())
+                    .put(coerced, new Cast(
+                            symbol.toSymbolReference(),
+                            toSqlType(coercion.get()),
+                            false,
+                            typeCoercion.isTypeOnlyCoercion(type, coercion.get())))
+                    .build();
+
+            subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments));
+        }
+
+        return new PlanAndMappings(subPlan, ImmutableMap.of(NodeRef.of(value), coerced));
     }
 
     private <T extends Expression> Map<ScopeAware<Expression>, Symbol> mapAll(Cluster<T> cluster, Scope scope, Symbol output)

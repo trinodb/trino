@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
@@ -40,6 +41,7 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
@@ -52,10 +54,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -66,8 +70,11 @@ public class MockConnectorFactory
 {
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
+    Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
+    private final BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector;
+    private final BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView;
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final ApplyProjection applyProjection;
@@ -76,6 +83,7 @@ public class MockConnectorFactory
     private final ApplyTopN applyTopN;
     private final ApplyFilter applyFilter;
     private final ApplyTableScanRedirect applyTableScanRedirect;
+    private final BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
@@ -86,8 +94,11 @@ public class MockConnectorFactory
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
+            Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
+            BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector,
+            BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView,
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             ApplyProjection applyProjection,
@@ -96,6 +107,7 @@ public class MockConnectorFactory
             ApplyTopN applyTopN,
             ApplyFilter applyFilter,
             ApplyTableScanRedirect applyTableScanRedirect,
+            BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
@@ -105,8 +117,11 @@ public class MockConnectorFactory
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
+        this.streamTableColumns = requireNonNull(streamTableColumns, "streamTableColumns is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
         this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
+        this.delegateMaterializedViewRefreshToConnector = requireNonNull(delegateMaterializedViewRefreshToConnector, "delegateMaterializedViewRefreshToConnector is null");
+        this.refreshMaterializedView = requireNonNull(refreshMaterializedView, "refreshMaterializedView is null");
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
@@ -115,6 +130,7 @@ public class MockConnectorFactory
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.applyFilter = requireNonNull(applyFilter, "applyFilter is null");
         this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirection is null");
+        this.redirectTable = requireNonNull(redirectTable, "redirectTable is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
@@ -141,8 +157,11 @@ public class MockConnectorFactory
         return new MockConnector(
                 listSchemaNames,
                 listTables,
+                streamTableColumns,
                 getViews,
                 getMaterializedViews,
+                delegateMaterializedViewRefreshToConnector,
+                refreshMaterializedView,
                 getTableHandle,
                 getColumns,
                 applyProjection,
@@ -151,6 +170,7 @@ public class MockConnectorFactory
                 applyTopN,
                 applyFilter,
                 applyTableScanRedirect,
+                redirectTable,
                 getInsertLayout,
                 getNewTableLayout,
                 getTableProperties,
@@ -231,8 +251,11 @@ public class MockConnectorFactory
     {
         private Function<ConnectorSession, List<String>> listSchemaNames = defaultListSchemaNames();
         private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = defaultListTables();
+        private Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns = Optional.empty();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = defaultGetViews();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews = defaultGetMaterializedViews();
+        private BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector = (session, viewName) -> false;
+        private BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView = (session, viewName) -> CompletableFuture.completedFuture(null);
         private BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle = defaultGetTableHandle();
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
         private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
@@ -250,6 +273,7 @@ public class MockConnectorFactory
         private ApplyTableScanRedirect applyTableScanRedirect = (session, handle) -> Optional.empty();
         private Function<SchemaTableName, ViewExpression> rowFilter = (tableName) -> null;
         private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
+        private BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable = (session, tableName) -> Optional.empty();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -269,6 +293,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withStreamTableColumns(BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>> streamTableColumns)
+        {
+            this.streamTableColumns = Optional.of(requireNonNull(streamTableColumns, "streamTableColumns is null"));
+            return this;
+        }
+
         public Builder withGetViews(BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews)
         {
             this.getViews = requireNonNull(getViews, "getViews is null");
@@ -278,6 +308,18 @@ public class MockConnectorFactory
         public Builder withGetMaterializedViews(BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews)
         {
             this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
+            return this;
+        }
+
+        public Builder withDelegateMaterializedViewRefreshToConnector(BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector)
+        {
+            this.delegateMaterializedViewRefreshToConnector = requireNonNull(delegateMaterializedViewRefreshToConnector, "delegateMaterializedViewRefreshToConnector is null");
+            return this;
+        }
+
+        public Builder withRefreshMaterializedView(BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView)
+        {
+            this.refreshMaterializedView = requireNonNull(refreshMaterializedView, "refreshMaterializedView is null");
             return this;
         }
 
@@ -326,6 +368,12 @@ public class MockConnectorFactory
         public Builder withApplyTableScanRedirect(ApplyTableScanRedirect applyTableScanRedirect)
         {
             this.applyTableScanRedirect = applyTableScanRedirect;
+            return this;
+        }
+
+        public Builder withRedirectTable(BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable)
+        {
+            this.redirectTable = requireNonNull(redirectTable, "redirectTable is null");
             return this;
         }
 
@@ -392,8 +440,11 @@ public class MockConnectorFactory
             return new MockConnectorFactory(
                     listSchemaNames,
                     listTables,
+                    streamTableColumns,
                     getViews,
                     getMaterializedViews,
+                    delegateMaterializedViewRefreshToConnector,
+                    refreshMaterializedView,
                     getTableHandle,
                     getColumns,
                     applyProjection,
@@ -402,6 +453,7 @@ public class MockConnectorFactory
                     applyTopN,
                     applyFilter,
                     applyTableScanRedirect,
+                    redirectTable,
                     getInsertLayout,
                     getNewTableLayout,
                     getTableProperties,

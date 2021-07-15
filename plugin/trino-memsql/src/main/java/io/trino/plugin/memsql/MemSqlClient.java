@@ -25,6 +25,7 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -81,7 +82,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -95,15 +95,15 @@ public class MemSqlClient
     private final Type jsonType;
 
     @Inject
-    public MemSqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, TypeManager typeManager)
+    public MemSqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, TypeManager typeManager, IdentifierMapping identifierMapping)
     {
-        super(config, "`", connectionFactory);
+        super(config, "`", connectionFactory, identifierMapping);
         requireNonNull(typeManager, "typeManager is null");
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
     }
 
     @Override
-    protected Collection<String> listSchemas(Connection connection)
+    public Collection<String> listSchemas(Connection connection)
     {
         // for MemSQL, we need to list catalogs instead of schemas
         try (ResultSet resultSet = connection.getMetaData().getCatalogs()) {
@@ -166,7 +166,7 @@ public class MemSqlClient
         }
 
         // TODO add explicit mappings
-        return legacyToPrestoType(session, connection, typeHandle);
+        return legacyColumnMapping(session, connection, typeHandle);
     }
 
     @Override
@@ -199,7 +199,7 @@ public class MemSqlClient
     }
 
     @Override
-    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
+    public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
         // MemSQL maps their "database" to SQL catalogs and does not have schemas
@@ -229,16 +229,13 @@ public class MemSqlClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                newColumnName = newColumnName.toUpperCase(ENGLISH);
-            }
+            String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
             // MemSQL versions earlier than 5.7 do not support the CHANGE syntax
             String sql = format(
                     "ALTER TABLE %s CHANGE %s %s",
                     quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
                     quoted(jdbcColumn.getColumnName()),
-                    quoted(newColumnName));
+                    quoted(newRemoteColumnName));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -354,7 +351,7 @@ public class MemSqlClient
     }
 
     @Override
-    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    public boolean isTopNGuaranteed(ConnectorSession session)
     {
         return true;
     }

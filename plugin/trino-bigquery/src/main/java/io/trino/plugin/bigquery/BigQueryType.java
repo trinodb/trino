@@ -179,7 +179,8 @@ public enum BigQueryType
     static String stringToStringConverter(Object value)
     {
         Slice slice = (Slice) value;
-        return quote(slice.toStringUtf8());
+        // TODO (https://github.com/trinodb/trino/issues/7900) Add support for all String and Bytes literals
+        return quote(slice.toStringUtf8().replace("'", "\\'"));
     }
 
     static String numericToStringConverter(Object value)

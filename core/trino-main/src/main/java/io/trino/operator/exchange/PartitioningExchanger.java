@@ -82,7 +82,7 @@ class PartitioningExchanger
     }
 
     @Override
-    public ListenableFuture<?> waitForWriting()
+    public ListenableFuture<Void> waitForWriting()
     {
         return memoryManager.getNotFullFuture();
     }

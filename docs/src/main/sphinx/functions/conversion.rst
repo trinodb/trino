@@ -52,6 +52,13 @@ Formatting
         SELECT format('%1$tA, %1$tB %1$te, %1$tY', date '2006-07-04');
         -- 'Tuesday, July 4, 2006'
 
+.. function:: format_number(number) -> varchar
+
+    Returns a formatted string using a unit symbol::
+
+        SELECT format_number(123456); -- '123K'
+        SELECT format_number(1000000); -- '1M'
+
 Data size
 ---------
 

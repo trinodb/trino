@@ -13,73 +13,22 @@
  */
 package io.trino.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResult;
-import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
-import org.testng.annotations.Test;
+import io.trino.testing.sql.SqlExecutor;
 
-import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.assertj.core.api.Assertions.assertThat;
+import static java.lang.String.format;
 
 public class TestSqlServerWithoutSnapshotIsolation
-        extends AbstractTestQueryFramework
+        extends BaseSqlServerTransactionIsolationTest
 {
     @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    protected void configureDatabase(SqlExecutor executor, String databaseName)
     {
-        TestingSqlServer sqlServer = closeAfterClass(new TestingSqlServer(false));
-        sqlServer.start();
-        return createSqlServerQueryRunner(
-                sqlServer,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableList.of(TpchTable.NATION));
-    }
+        // ALLOW_SNAPSHOT_ISOLATION controls whether SNAPSHOT ISOLATION is actually enabled
+        executor.execute(format("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION OFF", databaseName));
 
-    @Test
-    public void testCreateReadTable()
-    {
-        assertUpdate("CREATE TABLE ctas_read AS SELECT * FROM tpch.tiny.nation", "SELECT count(*) FROM nation");
-        assertQuery("SELECT AVG(LENGTH(name)) FROM ctas_read", "SELECT 7.08");
-        assertQuery("SELECT SUM(LENGTH(name)) FROM ctas_read WHERE regionkey = 1", "SELECT 38");
-        assertUpdate("DROP TABLE ctas_read");
-    }
-
-    @Test
-    public void testDescribeShowTable()
-    {
-        assertUpdate("CREATE TABLE ctas_describe AS SELECT regionkey, nationkey, comment FROM tpch.tiny.nation", "SELECT count(*) FROM nation");
-
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("regionkey", "bigint", "", "")
-                .row("nationkey", "bigint", "", "")
-                .row("comment", "varchar(152)", "", "")
-                .build();
-
-        MaterializedResult actualColumns = computeActual("DESCRIBE ctas_describe");
-        assertThat(actualColumns).isEqualTo(expectedColumns);
-
-        MaterializedResult expectedTables = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
-                .row("ctas_describe")
-                .build();
-
-        MaterializedResult actualTables = computeActual("SHOW TABLES LIKE 'ctas_describe'");
-        assertThat(actualTables).isEqualTo(expectedTables);
-
-        assertUpdate("DROP TABLE ctas_describe");
-    }
-
-    @Test
-    public void testCreateInsertReadTable()
-    {
-        assertUpdate("CREATE TABLE insert_table (col INTEGER)");
-        assertUpdate("INSERT INTO insert_table (col) VALUES (1), (2), (3), (4)", 4);
-        assertQuery("SELECT AVG(col) FROM insert_table", "SELECT 2.5");
-        assertUpdate("DROP TABLE insert_table");
+        // READ_COMMITTED_SNAPSHOT that READ COMMITTED transaction isolation uses SNAPSHOT ISOLATION by default
+        // it has no effect when ALLOW_SNAPSHOT_ISOLATION is disabled
+        // https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/sql/snapshot-isolation-in-sql-server#snapshot-isolation-level-extensions
+        executor.execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName));
     }
 }

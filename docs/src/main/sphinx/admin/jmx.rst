@@ -40,7 +40,7 @@ Trino cluster and nodes
 ------------------------
 
 * Active nodes:
-  ``trino.failureDetector:name=HeartbeatFailureDetector:ActiveCount``
+  ``trino.failuredetector:name=HeartbeatFailureDetector:ActiveCount``
 
 * Free memory (general pool):
   ``trino.memory:type=ClusterMemoryPool:name=general:FreeDistributedBytes``

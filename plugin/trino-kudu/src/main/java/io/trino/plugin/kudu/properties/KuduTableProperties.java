@@ -14,9 +14,7 @@
 package io.trino.plugin.kudu.properties;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
@@ -25,7 +23,6 @@ import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
 import org.apache.kudu.client.KeyEncoderAccessor;
 import org.apache.kudu.client.KuduTable;
-import org.apache.kudu.client.LocatedTablet;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.Partition;
 import org.apache.kudu.client.PartitionSchema;
@@ -69,7 +66,7 @@ public final class KuduTableProperties
 
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    private static final long DEFAULT_DEADLINE = 20000; // deadline for retrieving range partitions in milliseconds
+    private static final long DEFAULT_TIMEOUT = 20_000; // timeout for retrieving range partitions in milliseconds
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -296,7 +293,7 @@ public final class KuduTableProperties
 
         PartitionDesign partitionDesign = getPartitionDesign(table);
 
-        List<RangePartition> rangePartitionList = getRangePartitionList(table, DEFAULT_DEADLINE);
+        List<RangePartition> rangePartitionList = getRangePartitionList(table, DEFAULT_TIMEOUT);
 
         try {
             if (partitionDesign.getHash() != null) {
@@ -327,17 +324,14 @@ public final class KuduTableProperties
         }
     }
 
-    private static List<RangePartition> getRangePartitionList(KuduTable table, long deadline)
+    private static List<RangePartition> getRangePartitionList(KuduTable table, long timeout)
     {
         List<RangePartition> rangePartitions = new ArrayList<>();
-        if (!table.getPartitionSchema().getRangeSchema().getColumns().isEmpty()) {
+        if (!table.getPartitionSchema().getRangeSchema().getColumnIds().isEmpty()) {
             try {
-                for (LocatedTablet tablet : table.getTabletsLocations(deadline)) {
-                    Partition partition = tablet.getPartition();
-                    if (Iterators.all(partition.getHashBuckets().iterator(), Predicates.equalTo(0))) {
-                        RangePartition rangePartition = buildRangePartition(table, partition);
-                        rangePartitions.add(rangePartition);
-                    }
+                for (Partition partition : table.getRangePartitions(timeout)) {
+                    RangePartition rangePartition = buildRangePartition(table, partition);
+                    rangePartitions.add(rangePartition);
                 }
             }
             catch (Exception e) {
@@ -365,7 +359,7 @@ public final class KuduTableProperties
             Schema schema = table.getSchema();
             PartitionSchema partitionSchema = table.getPartitionSchema();
             PartitionSchema.RangeSchema rangeSchema = partitionSchema.getRangeSchema();
-            List<Integer> rangeColumns = rangeSchema.getColumns();
+            List<Integer> rangeColumns = rangeSchema.getColumnIds();
 
             int numColumns = rangeColumns.size();
 
@@ -427,7 +421,7 @@ public final class KuduTableProperties
                 }).collect(toImmutableList());
         partitionDesign.setHash(hashPartitions);
 
-        List<Integer> rangeColumns = partitionSchema.getRangeSchema().getColumns();
+        List<Integer> rangeColumns = partitionSchema.getRangeSchema().getColumnIds();
         if (!rangeColumns.isEmpty()) {
             RangePartitionDefinition definition = new RangePartitionDefinition();
             definition.setColumns(rangeColumns.stream()

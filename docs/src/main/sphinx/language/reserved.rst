@@ -20,9 +20,11 @@ Keyword                        SQL:2016      SQL-92
 ``CREATE``                     reserved      reserved
 ``CROSS``                      reserved      reserved
 ``CUBE``                       reserved
+``CURRENT_CATALOG``            reserved
 ``CURRENT_DATE``               reserved      reserved
 ``CURRENT_PATH``               reserved
 ``CURRENT_ROLE``               reserved      reserved
+``CURRENT_SCHEMA``             reserved
 ``CURRENT_TIME``               reserved      reserved
 ``CURRENT_TIMESTAMP``          reserved      reserved
 ``CURRENT_USER``               reserved
@@ -69,6 +71,7 @@ Keyword                        SQL:2016      SQL-92
 ``RIGHT``                      reserved      reserved
 ``ROLLUP``                     reserved
 ``SELECT``                     reserved      reserved
+``SKIP``                       reserved
 ``TABLE``                      reserved      reserved
 ``THEN``                       reserved      reserved
 ``TRUE``                       reserved      reserved

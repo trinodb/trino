@@ -411,29 +411,20 @@ public final class TupleDomain<T>
     @Override
     public String toString()
     {
-        if (isAll()) {
-            return "TupleDomain{ALL}";
-        }
-        if (isNone()) {
-            return "TupleDomain{NONE}";
-        }
-        return "TupleDomain{...}";
+        return toString(ToStringSession.INSTANCE);
     }
 
     public String toString(ConnectorSession session)
     {
-        StringBuilder buffer = new StringBuilder();
         if (isAll()) {
-            buffer.append("ALL");
+            return "ALL";
         }
-        else if (isNone()) {
-            buffer.append("NONE");
+        if (isNone()) {
+            return "NONE";
         }
-        else {
-            buffer.append(domains.get().entrySet().stream()
-                    .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString(session))));
-        }
-        return buffer.toString();
+        return domains.orElseThrow().entrySet().stream()
+                .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString(session)))
+                .toString();
     }
 
     public TupleDomain<T> filter(BiPredicate<T, Domain> predicate)
@@ -447,6 +438,12 @@ public final class TupleDomain<T>
         });
     }
 
+    /**
+     * @deprecated This method is deprecated because it drops part of the {@link TupleDomain} information
+     * when mapping function inadvertenly returns null. Use {@link #filter(BiPredicate)} or {@link #transformKeys(Function)}
+     * instead.
+     */
+    @Deprecated
     public <U> TupleDomain<U> transform(Function<T, U> function)
     {
         if (isNone()) {
@@ -461,12 +458,39 @@ public final class TupleDomain<T>
         for (Map.Entry<T, Domain> entry : domains.entrySet()) {
             U key = function.apply(entry.getKey());
 
+            // TODO null-friendliness here is a source of potential bugs, for example code like
+            //      converted = tupleDomain.transform(tableScan.getAssignments()::get)
+            //  silently drops information about correlated symbols.
             if (key == null) {
                 continue;
             }
 
             Domain previous = result.put(key, entry.getValue());
 
+            if (previous != null) {
+                throw new IllegalArgumentException(format("Every argument must have a unique mapping. %s maps to %s and %s", entry.getKey(), entry.getValue(), previous));
+            }
+        }
+
+        return TupleDomain.withColumnDomains(result);
+    }
+
+    public <U> TupleDomain<U> transformKeys(Function<T, U> function)
+    {
+        if (isNone()) {
+            return none();
+        }
+        if (isAll()) {
+            return all();
+        }
+
+        Map<T, Domain> domains = this.domains.orElseThrow();
+        HashMap<U, Domain> result = new LinkedHashMap<>(domains.size());
+        for (Map.Entry<T, Domain> entry : domains.entrySet()) {
+            U key = function.apply(entry.getKey());
+            requireNonNull(key, () -> format("mapping function %s returned null for %s", function, entry.getKey()));
+
+            Domain previous = result.put(key, entry.getValue());
             if (previous != null) {
                 throw new IllegalArgumentException(format("Every argument must have a unique mapping. %s maps to %s and %s", entry.getKey(), entry.getValue(), previous));
             }

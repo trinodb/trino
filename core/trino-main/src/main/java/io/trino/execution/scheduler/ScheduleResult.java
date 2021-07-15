@@ -21,7 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.util.Objects.requireNonNull;
 
 public class ScheduleResult
@@ -54,22 +54,22 @@ public class ScheduleResult
     }
 
     private final Set<RemoteTask> newTasks;
-    private final ListenableFuture<?> blocked;
+    private final ListenableFuture<Void> blocked;
     private final Optional<BlockedReason> blockedReason;
     private final boolean finished;
     private final int splitsScheduled;
 
     public ScheduleResult(boolean finished, Iterable<? extends RemoteTask> newTasks, int splitsScheduled)
     {
-        this(finished, newTasks, immediateFuture(null), Optional.empty(), splitsScheduled);
+        this(finished, newTasks, immediateVoidFuture(), Optional.empty(), splitsScheduled);
     }
 
-    public ScheduleResult(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<?> blocked, BlockedReason blockedReason, int splitsScheduled)
+    public ScheduleResult(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<Void> blocked, BlockedReason blockedReason, int splitsScheduled)
     {
         this(finished, newTasks, blocked, Optional.of(requireNonNull(blockedReason, "blockedReason is null")), splitsScheduled);
     }
 
-    private ScheduleResult(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<?> blocked, Optional<BlockedReason> blockedReason, int splitsScheduled)
+    private ScheduleResult(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<Void> blocked, Optional<BlockedReason> blockedReason, int splitsScheduled)
     {
         this.finished = finished;
         this.newTasks = ImmutableSet.copyOf(requireNonNull(newTasks, "newTasks is null"));
@@ -88,7 +88,7 @@ public class ScheduleResult
         return newTasks;
     }
 
-    public ListenableFuture<?> getBlocked()
+    public ListenableFuture<Void> getBlocked()
     {
         return blocked;
     }

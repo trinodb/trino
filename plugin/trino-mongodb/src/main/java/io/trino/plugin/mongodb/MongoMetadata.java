@@ -174,6 +174,12 @@ public class MongoMetadata
     }
 
     @Override
+    public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        mongoSession.dropColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), ((MongoColumnHandle) column).getName());
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         List<MongoColumnHandle> columns = buildColumnHandles(tableMetadata);
@@ -268,7 +274,8 @@ public class MongoMetadata
 
         return Optional.of(new LimitApplicationResult<>(
                 new MongoTableHandle(handle.getSchemaTableName(), handle.getConstraint(), OptionalInt.of(toIntExact(limit))),
-                true));
+                true,
+                false));
     }
 
     @Override
@@ -287,7 +294,7 @@ public class MongoMetadata
                 newDomain,
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
     }
 
     private void setRollback(Runnable action)

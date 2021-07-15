@@ -40,7 +40,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.google.common.base.Predicates.equalTo;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -94,8 +93,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_1"), expression("cast(row(a, b) as row(f1 row(x bigint, y bigint), f2 bigint)).f1"),
-                                        p.symbol("expr_2"), expression("cast(row(a, b) as row(f1 row(x bigint, y bigint), f2 bigint)).f1.y")),
+                                        p.symbol("expr_1"), expression("cast(row(a, b) as row(f1 row(x bigint, y bigint), f2 bigint))[1]"),
+                                        p.symbol("expr_2"), expression("cast(row(a, b) as row(f1 row(x bigint, y bigint), f2 bigint))[1][2]")),
                                 p.project(
                                         Assignments.of(
                                                 p.symbol("a", ROW_TYPE), expression("a"),
@@ -107,7 +106,7 @@ public class TestPushDownDereferencesRules
         tester().assertThat(new PushDownDereferenceThroughProject(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("expr", ROW_TYPE), expression("a"), p.symbol("a_x"), expression("a.x")),
+                                Assignments.of(p.symbol("expr", ROW_TYPE), expression("a"), p.symbol("a_x"), expression("a[1]")),
                                 p.project(
                                         Assignments.of(p.symbol("a", ROW_TYPE), expression("a")),
                                         p.values(p.symbol("a", ROW_TYPE)))))
@@ -120,7 +119,7 @@ public class TestPushDownDereferencesRules
         tester().assertThat(new PushDownDereferenceThroughProject(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), expression("msg.x")),
+                                Assignments.of(p.symbol("x"), expression("msg[1]")),
                                 p.project(
                                         Assignments.of(
                                                 p.symbol("y"), expression("y"),
@@ -131,7 +130,7 @@ public class TestPushDownDereferencesRules
                                 ImmutableMap.of("x", PlanMatchPattern.expression("msg_x")),
                                 strictProject(
                                         ImmutableMap.of(
-                                                "msg_x", PlanMatchPattern.expression("msg.x"),
+                                                "msg_x", PlanMatchPattern.expression("msg[1]"),
                                                 "y", PlanMatchPattern.expression("y"),
                                                 "msg", PlanMatchPattern.expression("msg")),
                                         values("msg", "y"))));
@@ -144,8 +143,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("left_x"), expression("msg1.x"))
-                                        .put(p.symbol("right_y"), expression("msg2.y"))
+                                        .put(p.symbol("left_x"), expression("msg1[1]"))
+                                        .put(p.symbol("right_y"), expression("msg2[2]"))
                                         .put(p.symbol("z"), expression("z"))
                                         .build(),
                                 p.join(INNER,
@@ -161,13 +160,13 @@ public class TestPushDownDereferencesRules
                                 join(INNER, ImmutableList.of(),
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "x", PlanMatchPattern.expression("msg1.x"),
+                                                        "x", PlanMatchPattern.expression("msg1[1]"),
                                                         "msg1", PlanMatchPattern.expression("msg1"),
                                                         "unreferenced_symbol", PlanMatchPattern.expression("unreferenced_symbol")),
                                                 values("msg1", "unreferenced_symbol")),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("y", PlanMatchPattern.expression("msg2.y"))
+                                                        .put("y", PlanMatchPattern.expression("msg2[2]"))
                                                         .put("z", PlanMatchPattern.expression("z"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
                                                         .build(),
@@ -178,21 +177,21 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr"), expression("msg1.x"),
+                                        p.symbol("expr"), expression("msg1[1]"),
                                         p.symbol("expr_2"), expression("msg2")),
                                 p.join(INNER,
                                         p.values(p.symbol("msg1", ROW_TYPE)),
                                         p.values(p.symbol("msg2", ROW_TYPE)),
-                                        expression("msg1.x + msg2.y > BIGINT '10'"))))
+                                        expression("msg1[1] + msg2[2] > BIGINT '10'"))))
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "expr", PlanMatchPattern.expression("msg1_x"),
                                         "expr_2", PlanMatchPattern.expression("msg2")),
-                                join(INNER, ImmutableList.of(), Optional.of("msg1_x + msg2.y > BIGINT '10'"),
+                                join(INNER, ImmutableList.of(), Optional.of("msg1_x + msg2[2] > BIGINT '10'"),
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "msg1_x", PlanMatchPattern.expression("msg1.x"),
+                                                        "msg1_x", PlanMatchPattern.expression("msg1[1]"),
                                                         "msg1", PlanMatchPattern.expression("msg1")),
                                                 values("msg1")),
                                         values("msg2"))));
@@ -205,8 +204,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), expression("msg1.x"))
-                                        .put(p.symbol("msg2_x"), expression("msg2.x"))
+                                        .put(p.symbol("msg1_x"), expression("msg1[1]"))
+                                        .put(p.symbol("msg2_x"), expression("msg2[1]"))
                                         .build(),
                                 p.semiJoin(
                                         p.symbol("msg2", ROW_TYPE),
@@ -220,7 +219,7 @@ public class TestPushDownDereferencesRules
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                         .put("msg1_x", PlanMatchPattern.expression("expr"))
-                                        .put("msg2_x", PlanMatchPattern.expression("msg2.x"))   // Not pushed down because msg2 is sourceJoinSymbol
+                                        .put("msg2_x", PlanMatchPattern.expression("msg2[1]"))   // Not pushed down because msg2 is sourceJoinSymbol
                                         .build(),
                                 semiJoin(
                                         "msg2",
@@ -228,7 +227,7 @@ public class TestPushDownDereferencesRules
                                         "match",
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "expr", PlanMatchPattern.expression("msg1.x"),
+                                                        "expr", PlanMatchPattern.expression("msg1[1]"),
                                                         "msg1", PlanMatchPattern.expression("msg1"),
                                                         "msg2", PlanMatchPattern.expression("msg2")),
                                                 values("msg1", "msg2")),
@@ -242,7 +241,7 @@ public class TestPushDownDereferencesRules
         tester().assertThat(new PushDownDereferenceThroughUnnest(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), expression("msg.x")),
+                                Assignments.of(p.symbol("x"), expression("msg[1]")),
                                 p.unnest(
                                         ImmutableList.of(p.symbol("msg", ROW_TYPE)),
                                         ImmutableList.of(new UnnestNode.Mapping(p.symbol("arr", arrayType), ImmutableList.of(p.symbol("field")))),
@@ -256,7 +255,7 @@ public class TestPushDownDereferencesRules
                                 unnest(
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "msg_x", PlanMatchPattern.expression("msg.x"),
+                                                        "msg_x", PlanMatchPattern.expression("msg[1]"),
                                                         "msg", PlanMatchPattern.expression("msg"),
                                                         "arr", PlanMatchPattern.expression("arr")),
                                                 values("msg", "arr")))));
@@ -269,8 +268,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("deref_replicate", BIGINT), expression("replicate.f2"),
-                                        p.symbol("deref_unnest", BIGINT), expression("unnested_row.f2")),
+                                        p.symbol("deref_replicate", BIGINT), expression("replicate[2]"),
+                                        p.symbol("deref_unnest", BIGINT), expression("unnested_row[2]")),
                                 p.unnest(
                                         ImmutableList.of(p.symbol("replicate", rowType)),
                                         ImmutableList.of(
@@ -282,13 +281,13 @@ public class TestPushDownDereferencesRules
                         strictProject(
                                 ImmutableMap.of(
                                         "deref_replicate", PlanMatchPattern.expression("symbol"),
-                                        "deref_unnest", PlanMatchPattern.expression("unnested_row.f2")),    // not pushed down
+                                        "deref_unnest", PlanMatchPattern.expression("unnested_row[2]")),    // not pushed down
                                 unnest(
                                         ImmutableList.of("replicate", "symbol"),
                                         ImmutableList.of(unnestMapping("nested", ImmutableList.of("unnested_bigint", "unnested_row"))),
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "symbol", PlanMatchPattern.expression("replicate.f2"),
+                                                        "symbol", PlanMatchPattern.expression("replicate[2]"),
                                                         "replicate", PlanMatchPattern.expression("replicate"),
                                                         "nested", PlanMatchPattern.expression("nested")),
                                                 values("replicate", "nested")))));
@@ -306,7 +305,7 @@ public class TestPushDownDereferencesRules
         RowType nestedRowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("nested"), ROW_TYPE)));
         tester().assertThat(new ExtractDereferencesFromFilterAboveScan(tester().getTypeAnalyzer()))
                 .on(p ->
-                        p.filter(expression("a.nested.x != 5 AND b.y = 2 AND CAST(a.nested as JSON) is not null"),
+                        p.filter(expression("a[1][1] != 5 AND b[2] = 2 AND CAST(a[1] as JSON) is not null"),
                                 p.tableScan(
                                         testTable,
                                         ImmutableList.of(p.symbol("a", nestedRowType), p.symbol("b", ROW_TYPE)),
@@ -317,17 +316,17 @@ public class TestPushDownDereferencesRules
                         filter("expr != 5 AND expr_0 = 2 AND CAST(expr_1 as JSON) is not null",
                                 strictProject(
                                         ImmutableMap.of(
-                                                "expr", PlanMatchPattern.expression("a.nested.x"),
-                                                "expr_0", PlanMatchPattern.expression("b.y"),
-                                                "expr_1", PlanMatchPattern.expression("a.nested"),
+                                                "expr", PlanMatchPattern.expression("a[1][1]"),
+                                                "expr_0", PlanMatchPattern.expression("b[2]"),
+                                                "expr_1", PlanMatchPattern.expression("a[1]"),
                                                 "a", PlanMatchPattern.expression("a"),
                                                 "b", PlanMatchPattern.expression("b")),
                                         tableScan(
-                                                equalTo(testTable.getConnectorHandle()),
+                                                testTable.getConnectorHandle()::equals,
                                                 TupleDomain.all(),
                                                 ImmutableMap.of(
-                                                        "a", equalTo(new TpchColumnHandle("a", nestedRowType)),
-                                                        "b", equalTo(new TpchColumnHandle("b", ROW_TYPE))))))));
+                                                        "a", new TpchColumnHandle("a", nestedRowType)::equals,
+                                                        "b", new TpchColumnHandle("b", ROW_TYPE)::equals))))));
     }
 
     @Test
@@ -337,21 +336,21 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr", BIGINT), expression("msg.x"),
-                                        p.symbol("expr_2", BIGINT), expression("msg2.x")),
+                                        p.symbol("expr", BIGINT), expression("msg[1]"),
+                                        p.symbol("expr_2", BIGINT), expression("msg2[1]")),
                                 p.filter(
-                                        expression("msg.x <> 'foo' AND msg2 is NOT NULL"),
+                                        expression("msg[1] <> 'foo' AND msg2 is NOT NULL"),
                                         p.values(p.symbol("msg", ROW_TYPE), p.symbol("msg2", ROW_TYPE)))))
                 .matches(
                         strictProject(
                                 ImmutableMap.of(
                                         "expr", PlanMatchPattern.expression("msg_x"),
-                                        "expr_2", PlanMatchPattern.expression("msg2.x")), // not pushed down since predicate contains msg2 reference
+                                        "expr_2", PlanMatchPattern.expression("msg2[1]")), // not pushed down since predicate contains msg2 reference
                                 filter(
                                         "msg_x <> 'foo' AND msg2 is NOT NULL",
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "msg_x", PlanMatchPattern.expression("msg.x"),
+                                                        "msg_x", PlanMatchPattern.expression("msg[1]"),
                                                         "msg", PlanMatchPattern.expression("msg"),
                                                         "msg2", PlanMatchPattern.expression("msg2")),
                                                 values("msg", "msg2")))));
@@ -364,8 +363,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), expression("msg1.x"))
-                                        .put(p.symbol("msg2_y"), expression("msg2.y"))
+                                        .put(p.symbol("msg1_x"), expression("msg1[1]"))
+                                        .put(p.symbol("msg2_y"), expression("msg2[2]"))
                                         .put(p.symbol("z"), expression("z"))
                                         .build(),
                                 p.limit(10,
@@ -375,7 +374,7 @@ public class TestPushDownDereferencesRules
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                         .put("msg1_x", PlanMatchPattern.expression("x"))
-                                        .put("msg2_y", PlanMatchPattern.expression("msg2.y"))
+                                        .put("msg2_y", PlanMatchPattern.expression("msg2[2]"))
                                         .put("z", PlanMatchPattern.expression("z"))
                                         .build(),
                                 limit(
@@ -383,7 +382,44 @@ public class TestPushDownDereferencesRules
                                         ImmutableList.of(sort("msg2", ASCENDING, FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("x", PlanMatchPattern.expression("msg1.x"))
+                                                        .put("x", PlanMatchPattern.expression("msg1[1]"))
+                                                        .put("z", PlanMatchPattern.expression("z"))
+                                                        .put("msg1", PlanMatchPattern.expression("msg1"))
+                                                        .put("msg2", PlanMatchPattern.expression("msg2"))
+                                                        .build(),
+                                                values("msg1", "msg2", "z")))));
+    }
+
+    @Test
+    public void testPushDownDereferenceThroughLimitWithPreSortedInputs()
+    {
+        tester().assertThat(new PushDownDereferencesThroughLimit(tester().getTypeAnalyzer()))
+                .on(p -> p.project(
+                        Assignments.builder()
+                                .put(p.symbol("msg1_x"), expression("msg1[1]"))
+                                .put(p.symbol("msg2_y"), expression("msg2[2]"))
+                                .put(p.symbol("z"), expression("z"))
+                                .build(),
+                        p.limit(
+                                10,
+                                false,
+                                ImmutableList.of(p.symbol("msg2", ROW_TYPE)),
+                                p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE), p.symbol("z")))))
+                .matches(
+                        strictProject(
+                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                        .put("msg1_x", PlanMatchPattern.expression("x"))
+                                        .put("msg2_y", PlanMatchPattern.expression("msg2[2]"))
+                                        .put("z", PlanMatchPattern.expression("z"))
+                                        .build(),
+                                limit(
+                                        10,
+                                        ImmutableList.of(),
+                                        false,
+                                        ImmutableList.of("msg2"),
+                                        strictProject(
+                                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                                        .put("x", PlanMatchPattern.expression("msg1[1]"))
                                                         .put("z", PlanMatchPattern.expression("z"))
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
@@ -399,8 +435,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg_x"), expression("msg.x"))
-                                        .put(p.symbol("msg_y"), expression("msg.y"))
+                                        .put(p.symbol("msg_x"), expression("msg[1]"))
+                                        .put(p.symbol("msg_y"), expression("msg[2]"))
                                         .put(p.symbol("z"), expression("z"))
                                         .build(),
                                 p.sort(
@@ -412,7 +448,7 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg_x"), expression("msg.x"))
+                                        .put(p.symbol("msg_x"), expression("msg[1]"))
                                         .put(p.symbol("z"), expression("z"))
                                         .build(),
                                 p.sort(
@@ -427,7 +463,7 @@ public class TestPushDownDereferencesRules
                                 sort(ImmutableList.of(sort("z", ASCENDING, SortItem.NullOrdering.FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("x", PlanMatchPattern.expression("msg.x"))
+                                                        .put("x", PlanMatchPattern.expression("msg[1]"))
                                                         .put("z", PlanMatchPattern.expression("z"))
                                                         .put("msg", PlanMatchPattern.expression("msg"))
                                                         .build(),
@@ -441,8 +477,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), expression("msg1.x"))
-                                        .put(p.symbol("msg2_x"), expression("msg2.x"))
+                                        .put(p.symbol("msg1_x"), expression("msg1[1]"))
+                                        .put(p.symbol("msg2_x"), expression("msg2[1]"))
                                         .build(),
                                 p.rowNumber(
                                         ImmutableList.of(p.symbol("msg1", ROW_TYPE)),
@@ -452,7 +488,7 @@ public class TestPushDownDereferencesRules
                 .matches(
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("msg1_x", PlanMatchPattern.expression("msg1.x"))
+                                        .put("msg1_x", PlanMatchPattern.expression("msg1[1]"))
                                         .put("msg2_x", PlanMatchPattern.expression("expr"))
                                         .build(),
                                 rowNumber(
@@ -460,7 +496,7 @@ public class TestPushDownDereferencesRules
                                                 .partitionBy(ImmutableList.of("msg1")),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("expr", PlanMatchPattern.expression("msg2.x"))
+                                                        .put("expr", PlanMatchPattern.expression("msg2[1]"))
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
                                                         .build(),
@@ -474,9 +510,9 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), expression("msg1.x"))
-                                        .put(p.symbol("msg2_x"), expression("msg2.x"))
-                                        .put(p.symbol("msg3_x"), expression("msg3.x"))
+                                        .put(p.symbol("msg1_x"), expression("msg1[1]"))
+                                        .put(p.symbol("msg2_x"), expression("msg2[1]"))
+                                        .put(p.symbol("msg3_x"), expression("msg3[1]"))
                                         .build(),
                                 p.topNRanking(
                                         new WindowNode.Specification(
@@ -492,15 +528,15 @@ public class TestPushDownDereferencesRules
                 .matches(
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("msg1_x", PlanMatchPattern.expression("msg1.x"))
-                                        .put("msg2_x", PlanMatchPattern.expression("msg2.x"))
+                                        .put("msg1_x", PlanMatchPattern.expression("msg1[1]"))
+                                        .put("msg2_x", PlanMatchPattern.expression("msg2[1]"))
                                         .put("msg3_x", PlanMatchPattern.expression("expr"))
                                         .build(),
                                 topNRanking(
                                         pattern -> pattern.specification(singletonList("msg1"), singletonList("msg2"), ImmutableMap.of("msg2", ASC_NULLS_FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("expr", PlanMatchPattern.expression("msg3.x"))
+                                                        .put("expr", PlanMatchPattern.expression("msg3[1]"))
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
                                                         .put("msg3", PlanMatchPattern.expression("msg3"))
@@ -515,21 +551,21 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), expression("msg1.x"))
-                                        .put(p.symbol("msg2_x"), expression("msg2.x"))
+                                        .put(p.symbol("msg1_x"), expression("msg1[1]"))
+                                        .put(p.symbol("msg2_x"), expression("msg2[1]"))
                                         .build(),
                                 p.topN(5, ImmutableList.of(p.symbol("msg1", ROW_TYPE)),
                                         p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE)))))
                 .matches(
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("msg1_x", PlanMatchPattern.expression("msg1.x"))
+                                        .put("msg1_x", PlanMatchPattern.expression("msg1[1]"))
                                         .put("msg2_x", PlanMatchPattern.expression("expr"))
                                         .build(),
                                 topN(5, ImmutableList.of(sort("msg1", ASCENDING, FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("expr", PlanMatchPattern.expression("msg2.x"))
+                                                        .put("expr", PlanMatchPattern.expression("msg2[1]"))
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
                                                         .build(),
@@ -543,11 +579,11 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), expression("msg1.x"))
-                                        .put(p.symbol("msg2_x"), expression("msg2.x"))
-                                        .put(p.symbol("msg3_x"), expression("msg3.x"))
-                                        .put(p.symbol("msg4_x"), expression("msg4.x"))
-                                        .put(p.symbol("msg5_x"), expression("msg5.x"))
+                                        .put(p.symbol("msg1_x"), expression("msg1[1]"))
+                                        .put(p.symbol("msg2_x"), expression("msg2[1]"))
+                                        .put(p.symbol("msg3_x"), expression("msg3[1]"))
+                                        .put(p.symbol("msg4_x"), expression("msg4[1]"))
+                                        .put(p.symbol("msg5_x"), expression("msg5[1]"))
                                         .build(),
                                 p.window(
                                         new WindowNode.Specification(
@@ -581,10 +617,10 @@ public class TestPushDownDereferencesRules
                 .matches(
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("msg1_x", PlanMatchPattern.expression("msg1.x")) // not pushed down because used in partitionBy
-                                        .put("msg2_x", PlanMatchPattern.expression("msg2.x")) // not pushed down because used in orderBy
-                                        .put("msg3_x", PlanMatchPattern.expression("msg3.x")) // not pushed down because the whole column is used in windowNode function
-                                        .put("msg4_x", PlanMatchPattern.expression("expr")) // pushed down because msg4.x is being used in the function
+                                        .put("msg1_x", PlanMatchPattern.expression("msg1[1]")) // not pushed down because used in partitionBy
+                                        .put("msg2_x", PlanMatchPattern.expression("msg2[1]")) // not pushed down because used in orderBy
+                                        .put("msg3_x", PlanMatchPattern.expression("msg3[1]")) // not pushed down because the whole column is used in windowNode function
+                                        .put("msg4_x", PlanMatchPattern.expression("expr")) // pushed down because msg4[1] is being used in the function
                                         .put("msg5_x", PlanMatchPattern.expression("expr2")) // pushed down because not referenced in windowNode
                                         .build(),
                                 window(
@@ -598,8 +634,8 @@ public class TestPushDownDereferencesRules
                                                         .put("msg3", PlanMatchPattern.expression("msg3"))
                                                         .put("msg4", PlanMatchPattern.expression("msg4"))
                                                         .put("msg5", PlanMatchPattern.expression("msg5"))
-                                                        .put("expr", PlanMatchPattern.expression("msg4.x"))
-                                                        .put("expr2", PlanMatchPattern.expression("msg5.x"))
+                                                        .put("expr", PlanMatchPattern.expression("msg4[1]"))
+                                                        .put("expr2", PlanMatchPattern.expression("msg5[1]"))
                                                         .build(),
                                                 values("msg1", "msg2", "msg3", "msg4", "msg5")))));
     }
@@ -611,7 +647,7 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("expr"), expression("msg1.x"))
+                                        .put(p.symbol("expr"), expression("msg1[1]"))
                                         .build(),
                                 p.assignUniqueId(
                                         p.symbol("unique"),
@@ -624,7 +660,7 @@ public class TestPushDownDereferencesRules
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
-                                                        .put("msg1_x", PlanMatchPattern.expression("msg1.x"))
+                                                        .put("msg1_x", PlanMatchPattern.expression("msg1[1]"))
                                                         .build(),
                                                 values("msg1")))));
     }
@@ -636,8 +672,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), expression("msg1.x"))
-                                        .put(p.symbol("msg2_x"), expression("msg2.x"))
+                                        .put(p.symbol("msg1_x"), expression("msg1[1]"))
+                                        .put(p.symbol("msg2_x"), expression("msg2[1]"))
                                         .build(),
                                 p.markDistinct(
                                         p.symbol("is_distinct", BOOLEAN),
@@ -647,7 +683,7 @@ public class TestPushDownDereferencesRules
                         strictProject(
                                 ImmutableMap.of(
                                         "msg1_x", PlanMatchPattern.expression("expr"), // pushed down
-                                        "msg2_x", PlanMatchPattern.expression("msg2.x")),   // not pushed down because used in markDistinct
+                                        "msg2_x", PlanMatchPattern.expression("msg2[1]")),   // not pushed down because used in markDistinct
                                 markDistinct(
                                         "is_distinct",
                                         singletonList("msg2"),
@@ -655,7 +691,7 @@ public class TestPushDownDereferencesRules
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
-                                                        .put("expr", PlanMatchPattern.expression("msg1.x"))
+                                                        .put("expr", PlanMatchPattern.expression("msg1[1]"))
                                                         .build(),
                                                 values("msg1", "msg2")))));
     }
@@ -668,8 +704,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_1"), expression("a.f1"),
-                                        p.symbol("expr_2"), expression("a.f1.f1 + 2 + b.f1.f1 + b.f1.f2")),
+                                        p.symbol("expr_1"), expression("a[1]"),
+                                        p.symbol("expr_2"), expression("a[1][1] + 2 + b[1][1] + b[1][2]")),
                                 p.project(
                                         Assignments.identity(ImmutableList.of(p.symbol("a", complexType), p.symbol("b", complexType))),
                                         p.values(p.symbol("a", complexType), p.symbol("b", complexType)))))
@@ -677,14 +713,14 @@ public class TestPushDownDereferencesRules
                         strictProject(
                                 ImmutableMap.of(
                                         "expr_1", PlanMatchPattern.expression("a_f1"),
-                                        "expr_2", PlanMatchPattern.expression("a_f1.f1 + 2 + b_f1_f1 + b_f1_f2")),
+                                        "expr_2", PlanMatchPattern.expression("a_f1[1] + 2 + b_f1_f1 + b_f1_f2")),
                                 strictProject(
                                         ImmutableMap.of(
                                                 "a", PlanMatchPattern.expression("a"),
                                                 "b", PlanMatchPattern.expression("b"),
-                                                "a_f1", PlanMatchPattern.expression("a.f1"),
-                                                "b_f1_f1", PlanMatchPattern.expression("b.f1.f1"),
-                                                "b_f1_f2", PlanMatchPattern.expression("b.f1.f2")),
+                                                "a_f1", PlanMatchPattern.expression("a[1]"),
+                                                "b_f1_f1", PlanMatchPattern.expression("b[1][1]"),
+                                                "b_f1_f2", PlanMatchPattern.expression("b[1][2]")),
                                         values("a", "b"))));
     }
 }

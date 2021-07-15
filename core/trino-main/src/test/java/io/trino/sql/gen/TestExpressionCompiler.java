@@ -164,7 +164,7 @@ public class TestExpressionCompiler
     private long start;
     private ListeningExecutorService executor;
     private FunctionAssertions functionAssertions;
-    private List<ListenableFuture<?>> futures;
+    private List<ListenableFuture<Void>> futures;
 
     @BeforeClass
     public void setupClass()
@@ -633,28 +633,28 @@ public class TestExpressionCompiler
     @Test
     public void testNestedColumnFilter()
     {
-        assertFilter("bound_row.nested_column_0 = 1234", true);
-        assertFilter("bound_row.nested_column_0 = 1223", false);
-        assertFilter("bound_row.nested_column_1 = 34", true);
-        assertFilter("bound_row.nested_column_1 = 33", false);
-        assertFilter("bound_row.nested_column_2 = 'hello'", true);
-        assertFilter("bound_row.nested_column_2 = 'value1'", false);
-        assertFilter("bound_row.nested_column_3 = 12.34", true);
-        assertFilter("bound_row.nested_column_3 = 34.34", false);
-        assertFilter("bound_row.nested_column_4 = true", true);
-        assertFilter("bound_row.nested_column_4 = false", false);
-        assertFilter("bound_row.nested_column_6.nested_nested_column = 'innerFieldValue'", true);
-        assertFilter("bound_row.nested_column_6.nested_nested_column != 'innerFieldValue'", false);
+        assertFilter("bound_row[1] = 1234", true);
+        assertFilter("bound_row[1] = 1223", false);
+        assertFilter("bound_row[2] = 34", true);
+        assertFilter("bound_row[2] = 33", false);
+        assertFilter("bound_row[3] = 'hello'", true);
+        assertFilter("bound_row[3] = 'value1'", false);
+        assertFilter("bound_row[4] = 12.34", true);
+        assertFilter("bound_row[4] = 34.34", false);
+        assertFilter("bound_row[5] = true", true);
+        assertFilter("bound_row[5] = false", false);
+        assertFilter("bound_row[7][1] = 'innerFieldValue'", true);
+        assertFilter("bound_row[7][1] != 'innerFieldValue'", false);
 
         // combination of types in one filter
         assertFilter(
                 ImmutableList.of(
-                        "bound_row.nested_column_0 = 1234", "bound_row.nested_column_7 >= 1234",
-                        "bound_row.nested_column_1 = 34", "bound_row.nested_column_8 >= 33",
-                        "bound_row.nested_column_2 = 'hello'", "bound_row.nested_column_9 >= 'hello'",
-                        "bound_row.nested_column_3 = 12.34", "bound_row.nested_column_10 >= 12.34",
-                        "bound_row.nested_column_4 = true", "NOT (bound_row.nested_column_11 = false)",
-                        "bound_row.nested_column_6.nested_nested_column = 'innerFieldValue'", "bound_row.nested_column_13.nested_nested_column LIKE 'innerFieldValue'")
+                        "bound_row[1] = 1234", "bound_row[8] >= 1234",
+                        "bound_row[2] = 34", "bound_row[9] >= 33",
+                        "bound_row[3] = 'hello'", "bound_row[10] >= 'hello'",
+                        "bound_row[4] = 12.34", "bound_row[11] >= 12.34",
+                        "bound_row[5] = true", "NOT (bound_row[12] = false)",
+                        "bound_row[7][1] = 'innerFieldValue'", "bound_row[14][1] LIKE 'innerFieldValue'")
                         .stream().collect(joining(" AND ")),
                 true);
     }
@@ -888,7 +888,7 @@ public class TestExpressionCompiler
         assertExecute("try_cast(bound_long / 13  as bigint)", BIGINT, 94L);
         assertExecute("coalesce(try_cast('123' as bigint), 456)", BIGINT, 123L);
         assertExecute("coalesce(try_cast('foo' as bigint), 456)", BIGINT, 456L);
-        assertExecute("concat('foo', cast('bar' as varchar))", VARCHAR, "foobar");
+        assertExecute("concat('foo', VARCHAR 'bar')", VARCHAR, "foobar");
         assertExecute("try_cast(try_cast(123 as varchar) as bigint)", BIGINT, 123L);
         assertExecute("try_cast('foo' as varchar) || try_cast('bar' as varchar)", VARCHAR, "foobar");
 
@@ -1930,7 +1930,7 @@ public class TestExpressionCompiler
     private void addCallable(Runnable runnable)
     {
         if (PARALLEL) {
-            futures.add(executor.submit(runnable));
+            futures.add(Futures.submit(runnable, executor));
         }
         else {
             runnable.run();

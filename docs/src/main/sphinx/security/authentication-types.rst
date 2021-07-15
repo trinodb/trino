@@ -10,11 +10,16 @@ You can configure one or more authentication types with the
 ``http-server.authentication.type`` property. The following authentication types
 and authenticators are available:
 
-* ``PASSSWORD`` for  :doc:`password-file`, :doc:`ldap`, and :doc:`salesforce`
+* ``PASSWORD`` for
+
+  *  :doc:`password-file`
+  *  :doc:`ldap`
+  *  :doc:`salesforce`
+
 * ``OAUTH2`` for :doc:`oauth2`
+* ``KERBEROS`` for :doc:`kerberos`
+* ``JWT`` for :doc:`jwt`
 * ``CERTIFICATE`` for certificate authentication
-* ``JWT`` for Java Web Token (JWT) authentication
-* ``KERBEROS`` for :doc:`Kerberos authentication <server>`
 
 Get started with a basic password authentication configuration backed by a
 :doc:`password file <password-file>`:
@@ -51,7 +56,7 @@ configuration files:
     password-authenticator.config-files=etc/ldap1.properties,etc/ldap2.properties,etc/password.properties
 
 In the preceding example, the configuration files ``ldap1.properties`` and
-``ldap1.properties`` are regular :doc:`LDAP authenticator configuration files
+``ldap2.properties`` are regular :doc:`LDAP authenticator configuration files
 <ldap>`. The ``password.properties`` is a :doc:`password file authenticator
 configuration file <password-file>`.
 

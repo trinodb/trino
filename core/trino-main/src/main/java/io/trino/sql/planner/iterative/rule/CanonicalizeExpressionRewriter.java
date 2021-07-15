@@ -17,8 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.operator.scalar.FormatFunction;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -31,6 +35,7 @@ import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.Extract;
 import io.trino.sql.tree.Format;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
@@ -50,7 +55,9 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static java.util.Objects.requireNonNull;
@@ -245,6 +252,24 @@ public final class CanonicalizeExpressionRewriter
             }
 
             throw new UnsupportedOperationException("not yet implemented: " + node.getField());
+        }
+
+        @Override
+        public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            String functionName = extractFunctionName(node.getName());
+            if (functionName.equals("date") && node.getArguments().size() == 1) {
+                Expression argument = node.getArguments().get(0);
+                Type argumentType = expressionTypes.get(NodeRef.of(argument));
+                if (argumentType instanceof TimestampType
+                        || argumentType instanceof TimestampWithTimeZoneType
+                        || argumentType instanceof VarcharType) {
+                    // prefer `CAST(x as DATE)` to `date(x)`
+                    return new Cast(argument, toSqlType(DateType.DATE));
+                }
+            }
+
+            return treeRewriter.defaultRewrite(node, context);
         }
 
         @Override

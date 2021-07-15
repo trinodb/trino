@@ -124,8 +124,8 @@ public class HiveUpdateProcessor
 
         Block[] blocks = new Block[acidBlocks + (nonUpdatedColumns.isEmpty() ? 0 : 1)];
         blocks[ORIGINAL_TRANSACTION_CHANNEL] = page.getBlock(ORIGINAL_TRANSACTION_CHANNEL);
-        blocks[ROW_ID_CHANNEL] = page.getBlock(ROW_ID_CHANNEL);
         blocks[BUCKET_CHANNEL] = page.getBlock(BUCKET_CHANNEL);
+        blocks[ROW_ID_CHANNEL] = page.getBlock(ROW_ID_CHANNEL);
 
         if (!nonUpdatedColumns.isEmpty()) {
             Block[] nonUpdatedColumnBlocks = new Block[getNonUpdatedColumns().size()];

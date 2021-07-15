@@ -24,6 +24,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.Objects;
 import java.util.Optional;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftIndexHandle
@@ -94,7 +95,9 @@ public class ThriftIndexHandle
     @Override
     public String toString()
     {
-        return schemaTableName.toString() +
-                session.map(value -> ", constraint = " + tupleDomain.toString(value)).orElse("");
+        return format(
+                "%s, constraint = %s",
+                schemaTableName,
+                session.map(tupleDomain::toString).orElseGet(tupleDomain::toString));
     }
 }

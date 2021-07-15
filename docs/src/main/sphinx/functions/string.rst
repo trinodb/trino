@@ -100,6 +100,21 @@ String functions
     Tests whether a ``string`` of digits is valid according to the
     `Luhn algorithm <https://en.wikipedia.org/wiki/Luhn_algorithm>`_.
 
+    This checksum function, also known as ``modulo 10`` or ``mod 10``, is
+    widely applied on credit card numbers and government identification numbers
+    to distinguish valid numbers from mistyped, incorrect numbers.
+
+    Valid identification number::
+
+        select luhn_check('79927398713');
+        -- true
+
+    Invalid identification number::
+
+        select luhn_check('79927398714');
+        -- false
+
+
 .. function:: position(substring IN string) -> bigint
 
     Returns the starting position of the first instance of ``substring`` in
@@ -133,6 +148,21 @@ String functions
 .. function:: rtrim(string) -> varchar
 
     Removes trailing whitespace from ``string``.
+
+.. function:: soundex(char) -> string
+
+   ``soundex`` returns a character string containing the phonetic representation of ``char``.
+    It is typically used to evaluate the similarity of two expressions phonetically, that is
+    how the string sounds when spoken::
+
+        SELECT name
+        FROM nation
+        WHERE SOUNDEX(name)  = SOUNDEX('CHYNA');
+
+         name  |
+        -------+----
+         CHINA |
+        (1 row)
 
 .. function:: split(string, delimiter) -> array(varchar)
 

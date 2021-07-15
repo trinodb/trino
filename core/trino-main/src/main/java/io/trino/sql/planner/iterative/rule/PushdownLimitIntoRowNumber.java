@@ -48,8 +48,7 @@ public class PushdownLimitIntoRowNumber
     public Result apply(LimitNode node, Captures captures, Context context)
     {
         RowNumberNode source = captures.get(CHILD);
-        int limit = toIntExact(node.getCount());
-        RowNumberNode rowNumberNode = mergeLimit(source, limit);
+        RowNumberNode rowNumberNode = mergeLimit(source, node);
         if (rowNumberNode.getPartitionBy().isEmpty()) {
             return Result.ofPlanNode(rowNumberNode);
         }
@@ -62,8 +61,9 @@ public class PushdownLimitIntoRowNumber
         return Result.ofPlanNode(replaceChildren(node, ImmutableList.of(rowNumberNode)));
     }
 
-    private static RowNumberNode mergeLimit(RowNumberNode node, int newRowCountPerPartition)
+    private static RowNumberNode mergeLimit(RowNumberNode node, LimitNode limitNode)
     {
+        int newRowCountPerPartition = toIntExact(limitNode.getCount());
         if (node.getMaxRowCountPerPartition().isPresent()) {
             newRowCountPerPartition = Math.min(node.getMaxRowCountPerPartition().get(), newRowCountPerPartition);
         }
@@ -71,7 +71,7 @@ public class PushdownLimitIntoRowNumber
                 node.getId(),
                 node.getSource(),
                 node.getPartitionBy(),
-                node.isOrderSensitive(),
+                limitNode.requiresPreSortedInputs() || node.isOrderSensitive(),
                 node.getRowNumberSymbol(),
                 Optional.of(newRowCountPerPartition),
                 node.getHashSymbol());

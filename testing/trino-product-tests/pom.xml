@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>355</version>
+        <version>359</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <main-class>io.trino.tests.TemptoProductTestRunner</main-class>
+        <main-class>io.trino.tests.product.TemptoProductTestRunner</main-class>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
     </properties>
 
@@ -43,7 +43,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-testng-services</artifactId>
+            <artifactId>trino-testing-services</artifactId>
         </dependency>
 
         <dependency>
@@ -168,11 +168,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.zeroturnaround</groupId>
-            <artifactId>zt-exec</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino.hive</groupId>
             <artifactId>hive-apache-jdbc</artifactId>
             <scope>runtime</scope>
@@ -181,6 +176,13 @@
         <dependency>
             <groupId>com.microsoft.sqlserver</groupId>
             <artifactId>mssql-jdbc</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-jdbc</artifactId>
+            <version>350</version>
             <scope>runtime</scope>
         </dependency>
 

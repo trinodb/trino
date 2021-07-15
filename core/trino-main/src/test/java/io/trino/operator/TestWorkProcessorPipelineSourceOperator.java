@@ -26,6 +26,7 @@ import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.WorkProcessorAssertion.Transform;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -81,7 +82,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 Transform.of(Optional.of(split), TransformationState.ofResult(page1, false)),
                 Transform.of(Optional.of(split), TransformationState.ofResult(page2, true))));
 
-        SettableFuture<?> firstBlockedFuture = SettableFuture.create();
+        SettableFuture<Void> firstBlockedFuture = SettableFuture.create();
         Transformation<Page, Page> firstOperatorPages = transformationFrom(ImmutableList.of(
                 Transform.of(Optional.of(page1), TransformationState.blocked(firstBlockedFuture)),
                 Transform.of(Optional.of(page1), TransformationState.ofResult(page3, true)),
@@ -89,7 +90,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 Transform.of(Optional.of(page2), TransformationState.finished())),
                 (left, right) -> left.getPositionCount() == right.getPositionCount());
 
-        SettableFuture<?> secondBlockedFuture = SettableFuture.create();
+        SettableFuture<Void> secondBlockedFuture = SettableFuture.create();
         Transformation<Page, Page> secondOperatorPages = transformationFrom(ImmutableList.of(
                 Transform.of(Optional.of(page3), TransformationState.ofResult(page5, true)),
                 Transform.of(Optional.of(page4), TransformationState.needsMoreData()),
@@ -104,7 +105,12 @@ public class TestWorkProcessorPipelineSourceOperator
         TestWorkProcessorOperatorFactory secondOperatorFactory = new TestWorkProcessorOperatorFactory(3, secondOperatorPages);
 
         SourceOperatorFactory pipelineOperatorFactory = (SourceOperatorFactory) getOnlyElement(WorkProcessorPipelineSourceOperator.convertOperators(
-                ImmutableList.of(sourceOperatorFactory, firstOperatorFactory, secondOperatorFactory)));
+                ImmutableList.of(
+                        new OperatorFactoryWithTypes(sourceOperatorFactory, ImmutableList.of(BIGINT)),
+                        new OperatorFactoryWithTypes(firstOperatorFactory, ImmutableList.of(BIGINT)),
+                        new OperatorFactoryWithTypes(secondOperatorFactory, ImmutableList.of(BIGINT))),
+                DataSize.ofBytes(0),
+                0));
 
         DriverContext driverContext = TestingOperatorContext.create(scheduledExecutor).getDriverContext();
         SourceOperator pipelineOperator = pipelineOperatorFactory.createOperator(driverContext);
@@ -212,6 +218,33 @@ public class TestWorkProcessorPipelineSourceOperator
         assertEquals(sourceOperatorStats.getInputPositions(), pipelineOperatorStats.getInputPositions());
 
         assertEquals(sourceOperatorStats.getAddInputWall(), pipelineOperatorStats.getAddInputWall());
+    }
+
+    @Test
+    public void testMergePages()
+    {
+        Transformation<Split, Page> sourceOperatorPages = split -> TransformationState.ofResult(createPage(1), false);
+        Transformation<Page, Page> firstOperatorPages = page -> TransformationState.ofResult(
+                getOnlyElement(rowPagesBuilder(BIGINT).addSequencePage(1, 0).build()));
+
+        TestWorkProcessorSourceOperatorFactory sourceOperatorFactory = new TestWorkProcessorSourceOperatorFactory(
+                1,
+                new PlanNodeId("1"),
+                sourceOperatorPages);
+        TestWorkProcessorOperatorFactory firstOperatorFactory = new TestWorkProcessorOperatorFactory(2, firstOperatorPages);
+
+        SourceOperatorFactory pipelineOperatorFactory = (SourceOperatorFactory) getOnlyElement(WorkProcessorPipelineSourceOperator.convertOperators(
+                ImmutableList.of(
+                        new OperatorFactoryWithTypes(sourceOperatorFactory, ImmutableList.of(BIGINT)),
+                        new OperatorFactoryWithTypes(firstOperatorFactory, ImmutableList.of(BIGINT))),
+                DataSize.ofBytes(100),
+                100));
+
+        DriverContext driverContext = TestingOperatorContext.create(scheduledExecutor).getDriverContext();
+        SourceOperator pipelineOperator = pipelineOperatorFactory.createOperator(driverContext);
+        pipelineOperator.addSplit(createSplit());
+
+        assertTrue(pipelineOperator.getOutput().getPositionCount() > 100);
     }
 
     private TestOperatorInfo getTestingOperatorInfo(OperatorStats operatorStats)

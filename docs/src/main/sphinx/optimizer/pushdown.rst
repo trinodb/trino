@@ -16,6 +16,8 @@ The results of this pushdown can include the following benefits:
 Support for pushdown is specific to each connector and the relevant underlying
 database or storage system.
 
+.. _aggregation-pushdown:
+
 Aggregation pushdown
 --------------------
 
@@ -127,9 +129,9 @@ performed, and instead Trino performs the aggregate processing.
                regionkey := tpch:regionkey
 
 Limitations
------------
+^^^^^^^^^^^
 
-Pushdown does not support a number of more complex statements:
+Aggregation pushdown does not support a number of more complex statements:
 
 * complex grouping operations such as ``ROLLUP``, ``CUBE``, or ``GROUPING SETS``
 * expressions inside the aggregation function call: ``sum(a * b)``
@@ -137,3 +139,52 @@ Pushdown does not support a number of more complex statements:
 * :ref:`aggregations with ordering <aggregate-function-ordering-during-aggregation>`
 * :ref:`aggregations with filter <aggregate-function-filtering-during-aggregation>`
 
+.. _join-pushdown:
+
+Join pushdown
+-------------
+
+Join pushdown allows the connector to delegate the table join operation to the
+underlying data source. This can result in performance gains, and allows Trino
+to perform the remaining query processing on a smaller amount of data.
+
+The specifics for the supported pushdown of table joins varies for each data
+source, and therefore for each connector.
+
+.. _limit-pushdown:
+
+Limit pushdown
+--------------
+
+A :ref:`limit-clause` reduces the number of returned records for a statement.
+Limit pushdown enables a connector to push processing of such queries of
+unsorted record to the underlying data source.
+
+A pushdown of this clause can improve the performance of the query and
+significantly reduce the amount of data transferred from the data source to
+Trino.
+
+Queries include sections such as ``LIMIT N`` or ``FETCH FIRST N ROWS``.
+
+Implementation and support is connector-specific since different data sources have varying capabilities.
+
+.. _topn-pushdown:
+
+Top-N pushdown
+--------------
+
+The combination of a :ref:`limit-clause` with an :ref:`order-by-clause` creates
+a small set of records to return out of a large sorted dataset. It relies on the
+order to determine which records need to be returned, and is therefore quite
+different to optimize compared to a :ref:`limit-pushdown`.
+
+The pushdown for such a query is called a Top-N pushdown, since the operation is
+returning the top N rows. It enables a connector to push processing of such
+queries to the underlying data source, and therefore significantly reduces the
+amount of data transferred to and processed by Trino.
+
+Queries include sections such as ``ORDER BY ... LIMIT N`` or ``ORDER BY ...
+FETCH FIRST N ROWS``.
+
+Implementation and support is connector-specific since different data sources
+support different SQL syntax and processing.

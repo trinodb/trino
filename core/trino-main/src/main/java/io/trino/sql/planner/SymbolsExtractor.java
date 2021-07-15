@@ -15,10 +15,13 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ValuePointer;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.DefaultTraversalVisitor;
 import io.trino.sql.tree.DereferenceExpression;
@@ -90,6 +93,21 @@ public final class SymbolsExtractor
     public static Set<Symbol> extractUnique(WindowNode.Function function)
     {
         return ImmutableSet.copyOf(extractAll(function));
+    }
+
+    public static Set<Symbol> extractUnique(ExpressionAndValuePointers expressionAndValuePointers)
+    {
+        // Extract only the input symbols of ValuePointers. These are the symbols produced by the source node.
+        // Other symbols present in the ExpressionAndValuePointers structure are synthetic unique symbols
+        // with no outer usage or dependencies.
+        Set<Symbol> syntheticClassifierSymbols = expressionAndValuePointers.getClassifierSymbols();
+        Set<Symbol> syntheticMatchNumberSymbols = expressionAndValuePointers.getMatchNumberSymbols();
+
+        Set<Symbol> valuePointersInputSymbols = expressionAndValuePointers.getValuePointers().stream()
+                .map(ValuePointer::getInputSymbol)
+                .collect(toImmutableSet());
+
+        return Sets.difference(valuePointersInputSymbols, Sets.union(syntheticClassifierSymbols, syntheticMatchNumberSymbols));
     }
 
     public static List<Symbol> extractAll(Expression expression)

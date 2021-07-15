@@ -45,10 +45,11 @@ including Cloudera CDH 5 and Hortonworks Data Platform (HDP).
 Many distributed storage systems including HDFS,
 :doc:`Amazon S3 <hive-s3>` or S3-compatible systems,
 `Google Cloud Storage <#google-cloud-storage-configuration>`__,
-and :doc:`Azure Storage <hive-azure>`.
+and :doc:`Azure Storage <hive-azure>` can be queried with the Hive connector.
 
 The coordinator and all workers must have network access to the Hive metastore
-and the storage system.
+and the storage system. Hive metastore access with the Thrift protocol defaults
+to using port 9083.
 
 Supported file types
 --------------------
@@ -131,7 +132,7 @@ access to the data in Trino, can be enabled with
 ``hive.legacy-hive-view-translation=true``.
 
 For temporary usage of the legacy behavior for a specific catalog, you can set
-the``legacy_hive_view_translation`` :doc:`catalog session property
+the ``legacy_hive_view_translation`` :doc:`catalog session property
 </sql/set-session>` to ``true``.
 
 This legacy behavior interprets any HiveQL query that defines a view as if it
@@ -173,13 +174,13 @@ Configuration
 -------------
 
 Create ``etc/catalog/hive.properties`` with the following contents
-to mount the ``hive-hadoop2`` connector as the ``hive`` catalog,
+to mount the ``hive`` connector as the ``hive`` catalog,
 replacing ``example.net:9083`` with the correct host and port
 for your Hive metastore Thrift service:
 
 .. code-block:: text
 
-    connector.name=hive-hadoop2
+    connector.name=hive
     hive.metastore.uri=thrift://example.net:9083
 
 Multiple Hive clusters
@@ -371,7 +372,7 @@ Property Name                                      Description                  
                                                    will be used for staging while writing sorted tables which
                                                    can be inefficient when writing to object stores like S3.
 
-``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/${USER}``
+``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/presto-${USER}``
                                                    is used for write operations. The ``${USER}`` placeholder
                                                    can be used to use a different location for each user.
 
@@ -397,6 +398,9 @@ with ORC files performed by the Hive connector.
     :widths: 30, 50, 20
     :header-rows: 1
 
+    * - Property Name
+      - Description
+      - Default
     * - ``hive.orc.time-zone``
       - Sets the default time zone for legacy ORC files that did not declare a
         time zone.
@@ -417,6 +421,9 @@ with Parquet files performed by the Hive connector.
     :widths: 30, 50, 20
     :header-rows: 1
 
+    * - Property Name
+      - Description
+      - Default
     * - ``hive.parquet.time-zone``
       - Adjusts timestamp values to a specific time zone. For Hive 3.1+, set
         this to UTC.
@@ -447,7 +454,8 @@ Property Name                                      Description                  
 ``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered ``0s``
                                         valid.
 
-``hive.metastore-cache-maximum-size``   Hive metastore cache maximum size.                            10000
+``hive.metastore-cache-maximum-size``   Maximum number of metastore data objects in the Hive         10000
+                                        metastore cache.
 
 ``hive.metastore-refresh-interval``     Asynchronously refresh cached metastore data after access
                                         if it is older than this but is not yet expired, allowing
@@ -704,6 +712,8 @@ before re-analyzing just a subset::
 You can also drop statistics for selected partitions only::
 
     CALL system.drop_stats(schema_name, table_name, ARRAY[ARRAY['p2_value1', 'p2_value2']])
+
+.. _hive_dynamic_filtering:
 
 Dynamic filtering
 -----------------

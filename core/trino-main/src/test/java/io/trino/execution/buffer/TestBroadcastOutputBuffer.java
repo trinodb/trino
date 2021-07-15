@@ -139,7 +139,7 @@ public class TestBroadcastOutputBuffer
         assertQueueState(buffer, FIRST, 7, 3);
 
         // try to add one more page, which should block
-        ListenableFuture<?> future = enqueuePage(buffer, createPage(10));
+        ListenableFuture<Void> future = enqueuePage(buffer, createPage(10));
         assertFalse(future.isDone());
         assertQueueState(buffer, FIRST, 8, 3);
 
@@ -325,7 +325,7 @@ public class TestBroadcastOutputBuffer
         assertEquals(notifyCount.get(), 0);
 
         // Add another page to block
-        ListenableFuture<?> future = enqueuePage(buffer, createPage(2));
+        ListenableFuture<Void> future = enqueuePage(buffer, createPage(2));
         assertFalse(future.isDone());
         assertEquals(notifyCount.get(), 1);
 
@@ -361,7 +361,7 @@ public class TestBroadcastOutputBuffer
         assertEquals(notifyCount.get(), 0);
 
         // Add another page to block
-        ListenableFuture<?> future = enqueuePage(buffer, createPage(2));
+        ListenableFuture<Void> future = enqueuePage(buffer, createPage(2));
         assertFalse(future.isDone());
         assertEquals(notifyCount.get(), 0); // stays 0 because no new buffers will be added
 
@@ -585,7 +585,7 @@ public class TestBroadcastOutputBuffer
         assertQueueState(buffer, FIRST, 2, 0);
 
         // third page is blocked
-        ListenableFuture<?> future = enqueuePage(buffer, createPage(3));
+        ListenableFuture<Void> future = enqueuePage(buffer, createPage(3));
 
         // we should be blocked
         assertFalse(future.isDone());
@@ -744,8 +744,8 @@ public class TestBroadcastOutputBuffer
         }
 
         // enqueue the addition two pages more pages
-        ListenableFuture<?> firstEnqueuePage = enqueuePage(buffer, createPage(5));
-        ListenableFuture<?> secondEnqueuePage = enqueuePage(buffer, createPage(6));
+        ListenableFuture<Void> firstEnqueuePage = enqueuePage(buffer, createPage(5));
+        ListenableFuture<Void> secondEnqueuePage = enqueuePage(buffer, createPage(6));
 
         // get and acknowledge one page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), MAX_WAIT), bufferResult(0, createPage(0)));
@@ -824,8 +824,8 @@ public class TestBroadcastOutputBuffer
         }
 
         // add two pages to the buffer queue
-        ListenableFuture<?> firstEnqueuePage = enqueuePage(buffer, createPage(5));
-        ListenableFuture<?> secondEnqueuePage = enqueuePage(buffer, createPage(6));
+        ListenableFuture<Void> firstEnqueuePage = enqueuePage(buffer, createPage(5));
+        ListenableFuture<Void> secondEnqueuePage = enqueuePage(buffer, createPage(6));
 
         // get and acknowledge one page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), MAX_WAIT), bufferResult(0, createPage(0)));
@@ -897,8 +897,8 @@ public class TestBroadcastOutputBuffer
         }
 
         // add two pages to the buffer queue
-        ListenableFuture<?> firstEnqueuePage = enqueuePage(buffer, createPage(5));
-        ListenableFuture<?> secondEnqueuePage = enqueuePage(buffer, createPage(6));
+        ListenableFuture<Void> firstEnqueuePage = enqueuePage(buffer, createPage(5));
+        ListenableFuture<Void> secondEnqueuePage = enqueuePage(buffer, createPage(6));
 
         // get and acknowledge one page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), MAX_WAIT), bufferResult(0, createPage(0)));
@@ -1001,7 +1001,7 @@ public class TestBroadcastOutputBuffer
     @Test
     public void testSharedBufferBlocking()
     {
-        SettableFuture<?> blockedFuture = SettableFuture.create();
+        SettableFuture<Void> blockedFuture = SettableFuture.create();
         MockMemoryReservationHandler reservationHandler = new MockMemoryReservationHandler(blockedFuture);
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
@@ -1031,7 +1031,7 @@ public class TestBroadcastOutputBuffer
     public void testSharedBufferBlocking2()
     {
         // start with a complete future
-        SettableFuture<?> blockedFuture = SettableFuture.create();
+        SettableFuture<Void> blockedFuture = SettableFuture.create();
         blockedFuture.set(null);
         MockMemoryReservationHandler reservationHandler = new MockMemoryReservationHandler(blockedFuture);
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
@@ -1078,7 +1078,7 @@ public class TestBroadcastOutputBuffer
     @Test
     public void testSharedBufferBlockingNoBlockOnFull()
     {
-        SettableFuture<?> blockedFuture = SettableFuture.create();
+        SettableFuture<Void> blockedFuture = SettableFuture.create();
         MockMemoryReservationHandler reservationHandler = new MockMemoryReservationHandler(blockedFuture);
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
@@ -1110,15 +1110,15 @@ public class TestBroadcastOutputBuffer
     private static class MockMemoryReservationHandler
             implements MemoryReservationHandler
     {
-        private ListenableFuture<?> blockedFuture;
+        private ListenableFuture<Void> blockedFuture;
 
-        public MockMemoryReservationHandler(ListenableFuture<?> blockedFuture)
+        public MockMemoryReservationHandler(ListenableFuture<Void> blockedFuture)
         {
             this.blockedFuture = requireNonNull(blockedFuture, "blockedFuture is null");
         }
 
         @Override
-        public ListenableFuture<?> reserveMemory(String allocationTag, long delta)
+        public ListenableFuture<Void> reserveMemory(String allocationTag, long delta)
         {
             return blockedFuture;
         }
@@ -1129,7 +1129,7 @@ public class TestBroadcastOutputBuffer
             return true;
         }
 
-        public void updateBlockedFuture(ListenableFuture<?> blockedFuture)
+        public void updateBlockedFuture(ListenableFuture<Void> blockedFuture)
         {
             this.blockedFuture = requireNonNull(blockedFuture);
         }

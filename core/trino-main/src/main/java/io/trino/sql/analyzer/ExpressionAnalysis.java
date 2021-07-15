@@ -36,7 +36,7 @@ public class ExpressionAnalysis
     private final Set<NodeRef<Expression>> typeOnlyCoercions;
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences;
     private final Set<NodeRef<InPredicate>> subqueryInPredicates;
-    private final Set<NodeRef<SubqueryExpression>> scalarSubqueries;
+    private final Set<NodeRef<SubqueryExpression>> subqueries;
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries;
     private final Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons;
     private final Set<NodeRef<FunctionCall>> windowFunctions;
@@ -45,7 +45,7 @@ public class ExpressionAnalysis
             Map<NodeRef<Expression>, Type> expressionTypes,
             Map<NodeRef<Expression>, Type> expressionCoercions,
             Set<NodeRef<InPredicate>> subqueryInPredicates,
-            Set<NodeRef<SubqueryExpression>> scalarSubqueries,
+            Set<NodeRef<SubqueryExpression>> subqueries,
             Set<NodeRef<ExistsPredicate>> existsSubqueries,
             Map<NodeRef<Expression>, ResolvedField> columnReferences,
             Set<NodeRef<Expression>> typeOnlyCoercions,
@@ -57,7 +57,7 @@ public class ExpressionAnalysis
         this.typeOnlyCoercions = ImmutableSet.copyOf(requireNonNull(typeOnlyCoercions, "typeOnlyCoercions is null"));
         this.columnReferences = ImmutableMap.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
         this.subqueryInPredicates = ImmutableSet.copyOf(requireNonNull(subqueryInPredicates, "subqueryInPredicates is null"));
-        this.scalarSubqueries = ImmutableSet.copyOf(requireNonNull(scalarSubqueries, "scalarSubqueries is null"));
+        this.subqueries = ImmutableSet.copyOf(requireNonNull(subqueries, "subqueries is null"));
         this.existsSubqueries = ImmutableSet.copyOf(requireNonNull(existsSubqueries, "existsSubqueries is null"));
         this.quantifiedComparisons = ImmutableSet.copyOf(requireNonNull(quantifiedComparisons, "quantifiedComparisons is null"));
         this.windowFunctions = ImmutableSet.copyOf(requireNonNull(windowFunctions, "windowFunctions is null"));
@@ -93,9 +93,9 @@ public class ExpressionAnalysis
         return subqueryInPredicates;
     }
 
-    public Set<NodeRef<SubqueryExpression>> getScalarSubqueries()
+    public Set<NodeRef<SubqueryExpression>> getSubqueries()
     {
-        return scalarSubqueries;
+        return subqueries;
     }
 
     public Set<NodeRef<ExistsPredicate>> getExistsSubqueries()

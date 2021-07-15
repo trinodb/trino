@@ -18,12 +18,12 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import io.trino.operator.LookupSourceFactory;
-import io.trino.operator.LookupSourceProvider;
-import io.trino.operator.OuterPositionIterator;
 import io.trino.operator.PagesIndex;
-import io.trino.operator.StaticLookupSourceProvider;
 import io.trino.operator.TaskContext;
+import io.trino.operator.join.LookupSourceFactory;
+import io.trino.operator.join.LookupSourceProvider;
+import io.trino.operator.join.OuterPositionIterator;
+import io.trino.operator.join.StaticLookupSourceProvider;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
@@ -44,7 +44,7 @@ public class IndexLookupSourceFactory
     private final List<Type> outputTypes;
     private final Supplier<IndexLoader> indexLoaderSupplier;
     private TaskContext taskContext;
-    private final SettableFuture<?> whenTaskContextSet = SettableFuture.create();
+    private final SettableFuture<Void> whenTaskContextSet = SettableFuture.create();
 
     public IndexLookupSourceFactory(
             Set<Integer> lookupSourceInputChannels,
@@ -100,7 +100,7 @@ public class IndexLookupSourceFactory
     }
 
     @Override
-    public ListenableFuture<?> whenBuildFinishes()
+    public ListenableFuture<Void> whenBuildFinishes()
     {
         return Futures.transformAsync(
                 whenTaskContextSet,

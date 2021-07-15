@@ -210,6 +210,15 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitWindowOperation(WindowOperation node, C context)
+    {
+        process(node.getName(), context);
+        process((Node) node.getWindow(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitGroupingOperation(GroupingOperation node, C context)
     {
         for (Expression columnArgument : node.getGroupingColumns()) {
@@ -271,7 +280,27 @@ public abstract class DefaultTraversalVisitor<C>
         if (node.getEnd().isPresent()) {
             process(node.getEnd().get(), context);
         }
+        for (MeasureDefinition measureDefinition : node.getMeasures()) {
+            process(measureDefinition, context);
+        }
+        for (VariableDefinition variableDefinition : node.getVariableDefinitions()) {
+            process(variableDefinition, context);
+        }
 
+        return null;
+    }
+
+    @Override
+    protected Void visitMeasureDefinition(MeasureDefinition node, C context)
+    {
+        process(node.getExpression(), context);
+        return null;
+    }
+
+    @Override
+    protected Void visitVariableDefinition(VariableDefinition node, C context)
+    {
+        process(node.getExpression(), context);
         return null;
     }
 
@@ -798,6 +827,68 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitLambdaExpression(LambdaExpression node, C context)
     {
         process(node.getBody(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitExcludedPattern(ExcludedPattern node, C context)
+    {
+        process(node.getPattern(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitPatternAlternation(PatternAlternation node, C context)
+    {
+        for (RowPattern rowPattern : node.getPatterns()) {
+            process(rowPattern, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected Void visitPatternConcatenation(PatternConcatenation node, C context)
+    {
+        for (RowPattern rowPattern : node.getPatterns()) {
+            process(rowPattern, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected Void visitPatternPermutation(PatternPermutation node, C context)
+    {
+        for (RowPattern rowPattern : node.getPatterns()) {
+            process(rowPattern, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected Void visitPatternVariable(PatternVariable node, C context)
+    {
+        process(node.getName(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitQuantifiedPattern(QuantifiedPattern node, C context)
+    {
+        process(node.getPattern(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitLabelDereference(LabelDereference node, C context)
+    {
+        process(node.getReference(), context);
 
         return null;
     }

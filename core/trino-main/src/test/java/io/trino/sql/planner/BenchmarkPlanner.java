@@ -21,6 +21,7 @@ import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.tpch.Customer;
+import org.intellij.lang.annotations.Language;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -33,10 +34,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 import org.testng.annotations.Test;
 
@@ -48,12 +45,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Benchmark)
@@ -73,6 +73,8 @@ public class BenchmarkPlanner
 
         private LocalQueryRunner queryRunner;
         private List<String> queries;
+        @Language("SQL")
+        private String largeInQuery;
         private Session session;
 
         @Setup
@@ -93,6 +95,11 @@ public class BenchmarkPlanner
                     .filter(i -> i != 15) // q15 has two queries in it
                     .map(i -> readResource(format("/io/trino/tpch/queries/q%d.sql", i)))
                     .collect(toImmutableList());
+
+            largeInQuery = "SELECT * from orders where o_orderkey in " +
+                    IntStream.range(0, 5000)
+                    .mapToObj(Integer::toString)
+                    .collect(joining(", ", "(", ")"));
         }
 
         @TearDown
@@ -125,6 +132,16 @@ public class BenchmarkPlanner
         });
     }
 
+    @Benchmark
+    public Plan planLargeInQuery(BenchmarkData benchmarkData)
+    {
+        return benchmarkData.queryRunner.inTransaction(transactionSession -> {
+            LogicalPlanner.Stage stage = LogicalPlanner.Stage.valueOf(benchmarkData.stage.toUpperCase(ENGLISH));
+            return benchmarkData.queryRunner.createPlan(
+                    transactionSession, benchmarkData.largeInQuery, stage, false, WarningCollector.NOOP);
+        });
+    }
+
     @Test
     public void verify()
     {
@@ -132,6 +149,7 @@ public class BenchmarkPlanner
         data.setup();
         BenchmarkPlanner benchmark = new BenchmarkPlanner();
         assertEquals(benchmark.planQueries(data).size(), 21);
+        assertNotNull(benchmark.planLargeInQuery(data));
     }
 
     public static void main(String[] args)
@@ -147,11 +165,6 @@ public class BenchmarkPlanner
             data.tearDown();
         }
 
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .warmupMode(WarmupMode.BULK)
-                .include(".*" + BenchmarkPlanner.class.getSimpleName() + ".*")
-                .build();
-        new Runner(options).run();
+        benchmark(BenchmarkPlanner.class, WarmupMode.BULK).run();
     }
 }

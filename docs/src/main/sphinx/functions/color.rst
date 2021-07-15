@@ -43,7 +43,7 @@ Color functions
     ``high`` to calculate a fraction which is then passed to the
     ``color(fraction, low_color, high_color)`` function shown below.
     If ``x`` falls outside the range defined by ``low`` and ``high``
-    it's value will be truncated to fit within this range.
+    its value is truncated to fit within this range.
 
 .. function:: color(x, low_color, high_color) -> color
     :noindex:

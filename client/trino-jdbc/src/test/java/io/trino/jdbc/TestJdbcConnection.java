@@ -21,7 +21,8 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.log.Logging;
 import io.trino.client.ClientSelectedRole;
-import io.trino.plugin.hive.HiveHadoop2Plugin;
+import io.trino.plugin.blackhole.BlackHolePlugin;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -31,6 +32,7 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.testing.DataProviders;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -41,15 +43,26 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.ALL_NODES;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.sql.Types.VARCHAR;
+import static java.util.UUID.randomUUID;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -59,6 +72,8 @@ import static org.testng.Assert.fail;
 
 public class TestJdbcConnection
 {
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
+
     private TestingTrinoServer server;
 
     @BeforeClass
@@ -71,26 +86,36 @@ public class TestJdbcConnection
         server = TestingTrinoServer.builder()
                 .setAdditionalModule(systemTables)
                 .build();
-        server.installPlugin(new HiveHadoop2Plugin());
-        server.createCatalog("hive", "hive-hadoop2", ImmutableMap.<String, String>builder()
+        server.installPlugin(new HivePlugin());
+        server.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
                 .put("hive.security", "sql-standard")
                 .build());
+        server.installPlugin(new BlackHolePlugin());
+        server.createCatalog("blackhole", "blackhole", ImmutableMap.of());
 
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
             statement.execute("SET ROLE admin");
             statement.execute("CREATE SCHEMA default");
             statement.execute("CREATE SCHEMA fruit");
+            statement.execute(
+                    "CREATE TABLE blackhole.default.devzero(dummy bigint) " +
+                            "WITH (split_count = 100000, pages_per_split = 100000, rows_per_page = 10000)");
+            statement.execute(
+                    "CREATE TABLE blackhole.default.delay(dummy bigint) " +
+                            "WITH (split_count = 1, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '60s')");
         }
     }
 
     @AfterClass(alwaysRun = true)
-    public void tearDownServer()
+    public void tearDown()
             throws Exception
     {
-        server.close();
+        closeAll(
+                server,
+                executor::shutdownNow);
     }
 
     @Test
@@ -405,6 +430,114 @@ public class TestJdbcConnection
         }
     }
 
+    @Test(timeOut = 60_000)
+    public void testCancellationOnStatementClose()
+            throws Exception
+    {
+        String sql = "SELECT * FROM blackhole.default.devzero -- test cancellation " + randomUUID();
+        try (Connection connection = createConnection()) {
+            Statement statement = connection.createStatement();
+            statement.execute(sql);
+            ResultSet resultSet = statement.getResultSet();
+
+            // read some data
+            assertThat(resultSet.next()).isTrue();
+            assertThat(resultSet.next()).isTrue();
+            assertThat(resultSet.next()).isTrue();
+
+            // Make sure that query is still running
+            assertThat(listQueryStatuses(sql))
+                    .containsExactly("RUNNING")
+                    .hasSize(1);
+
+            // Closing statement should cancel queries and invalidate the result set
+            statement.close();
+
+            // verify that the query was cancelled
+            assertThatThrownBy(resultSet::next)
+                    .isInstanceOf(SQLException.class)
+                    .hasMessage("ResultSet is closed");
+            assertThat(listQueryErrorCodes(sql))
+                    .containsExactly("USER_CANCELED")
+                    .hasSize(1);
+        }
+    }
+
+    @Test(timeOut = 60_000)
+    public void testConcurrentCancellationOnStatementClose()
+            throws Exception
+    {
+        String sql = "SELECT * FROM blackhole.default.delay -- test cancellation " + randomUUID();
+        Future<?> future;
+        try (Connection connection = createConnection()) {
+            Statement statement = connection.createStatement();
+            future = executor.submit(() -> {
+                try (ResultSet resultSet = statement.executeQuery(sql)) {
+                    //noinspection StatementWithEmptyBody
+                    while (resultSet.next()) {
+                        // consume results
+                    }
+                }
+                return null;
+            });
+
+            // Wait for the queries to be started
+            assertEventually(() -> {
+                assertThatFutureIsBlocked(future);
+                assertThat(listQueryStatuses(sql))
+                        .contains("RUNNING")
+                        .hasSize(1);
+            });
+
+            // Closing statement should cancel queries
+            statement.close();
+
+            // verify that the query was cancelled
+            assertThatThrownBy(future::get).isNotNull();
+            assertThat(listQueryErrorCodes(sql))
+                    .containsExactly("USER_CANCELED")
+                    .hasSize(1);
+        }
+    }
+
+    @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testConcurrentCancellationOnConnectionClose(boolean autoCommit)
+            throws Exception
+    {
+        String sql = "SELECT * FROM blackhole.default.delay -- test cancellation " + randomUUID();
+        List<Future<?>> futures;
+        Connection connection = createConnection();
+        connection.setAutoCommit(autoCommit);
+        futures = range(0, 10)
+                .mapToObj(i -> executor.submit(() -> {
+                    try (Statement statement = connection.createStatement();
+                            ResultSet resultSet = statement.executeQuery(sql)) {
+                        //noinspection StatementWithEmptyBody
+                        while (resultSet.next()) {
+                            // consume results
+                        }
+                    }
+                    return null;
+                }))
+                .collect(toImmutableList());
+
+        // Wait for the queries to be started
+        assertEventually(() -> {
+            futures.forEach(TestJdbcConnection::assertThatFutureIsBlocked);
+            assertThat(listQueryStatuses(sql))
+                    .hasSize(futures.size());
+        });
+
+        // Closing connection should cancel queries
+        connection.close();
+
+        // verify that all queries were cancelled
+        futures.forEach(future -> assertThatThrownBy(future::get).isNotNull());
+        assertThat(listQueryErrorCodes(sql))
+                .hasSize(futures.size())
+                .containsOnly("USER_CANCELED");
+    }
+
     private Connection createConnection()
             throws SQLException
     {
@@ -473,6 +606,34 @@ public class TestJdbcConnection
         return builder.build();
     }
 
+    private List<String> listQueryStatuses(String sql)
+    {
+        return listSingleStringColumn(format("SELECT state FROM system.runtime.queries WHERE query = '%s'", sql));
+    }
+
+    private List<String> listQueryErrorCodes(String sql)
+    {
+        return listSingleStringColumn(format("SELECT error_code FROM system.runtime.queries WHERE query = '%s'", sql));
+    }
+
+    private List<String> listSingleStringColumn(String sql)
+    {
+        ImmutableList.Builder<String> statuses = ImmutableList.builder();
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            assertThat(resultSet.getMetaData().getColumnCount()).isOne();
+            assertThat(resultSet.getMetaData().getColumnType(1)).isEqualTo(VARCHAR);
+            while (resultSet.next()) {
+                statuses.add(resultSet.getString(1));
+            }
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return statuses.build();
+    }
+
     private static void assertConnectionSource(Connection connection, String expectedSource)
             throws SQLException
     {
@@ -522,5 +683,20 @@ public class TestJdbcConnection
             session.getIdentity().getExtraCredentials().forEach(table::addRow);
             return table.build().cursor();
         }
+    }
+
+    private static void assertThatFutureIsBlocked(Future<?> future)
+    {
+        if (!future.isDone()) {
+            return;
+        }
+        // Calling Future::get to see if it failed and if so to learn why
+        try {
+            future.get();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        fail("Expecting future to be blocked");
     }
 }

@@ -44,7 +44,7 @@ public interface WorkProcessor<T>
     /**
      * @return a blocked future when {@link WorkProcessor#isBlocked()} returned true.
      */
-    ListenableFuture<?> getBlockedFuture();
+    ListenableFuture<Void> getBlockedFuture();
 
     /**
      * @return true if the processor is finished. No more results are expected.
@@ -220,9 +220,9 @@ public interface WorkProcessor<T>
         @Nullable
         private final T result;
         @Nullable
-        private final ListenableFuture<?> blocked;
+        private final ListenableFuture<Void> blocked;
 
-        private TransformationState(Type type, boolean needsMoreData, @Nullable T result, @Nullable ListenableFuture<?> blocked)
+        private TransformationState(Type type, boolean needsMoreData, @Nullable T result, @Nullable ListenableFuture<Void> blocked)
         {
             this.type = requireNonNull(type, "type is null");
             this.needsMoreData = needsMoreData;
@@ -245,7 +245,7 @@ public interface WorkProcessor<T>
          * Signals that transformation is blocked. {@link #process()} will be called again with the same input
          * element after {@code blocked} future is done.
          */
-        public static <T> TransformationState<T> blocked(ListenableFuture<?> blocked)
+        public static <T> TransformationState<T> blocked(ListenableFuture<Void> blocked)
         {
             return new TransformationState<>(Type.BLOCKED, false, null, requireNonNull(blocked, "blocked is null"));
         }
@@ -304,7 +304,7 @@ public interface WorkProcessor<T>
         }
 
         @Nullable
-        ListenableFuture<?> getBlocked()
+        ListenableFuture<Void> getBlocked()
         {
             return blocked;
         }
@@ -328,9 +328,9 @@ public interface WorkProcessor<T>
         @Nullable
         private final T result;
         @Nullable
-        private final ListenableFuture<?> blocked;
+        private final ListenableFuture<Void> blocked;
 
-        private ProcessState(Type type, @Nullable T result, @Nullable ListenableFuture<?> blocked)
+        private ProcessState(Type type, @Nullable T result, @Nullable ListenableFuture<Void> blocked)
         {
             this.type = requireNonNull(type, "type is null");
             this.result = result;
@@ -340,7 +340,7 @@ public interface WorkProcessor<T>
         /**
          * Signals that process is blocked. {@link #process()} will be called again after {@code blocked} future is done.
          */
-        public static <T> ProcessState<T> blocked(ListenableFuture<?> blocked)
+        public static <T> ProcessState<T> blocked(ListenableFuture<Void> blocked)
         {
             return new ProcessState<>(Type.BLOCKED, null, requireNonNull(blocked, "blocked is null"));
         }
@@ -383,7 +383,7 @@ public interface WorkProcessor<T>
         }
 
         @Nullable
-        public ListenableFuture<?> getBlocked()
+        public ListenableFuture<Void> getBlocked()
         {
             return blocked;
         }

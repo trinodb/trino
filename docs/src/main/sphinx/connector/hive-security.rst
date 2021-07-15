@@ -87,8 +87,7 @@ Lists)` to provide additional security for data.
   access to sensitive data on the Hadoop cluster. Refer to :doc:`/security` for
   further information.
 
-  See :doc:`/security/server` and :doc:`/security/cli`
-  for information on setting up Kerberos authentication.
+  See :doc:`/security/kerberos` for information on setting up Kerberos authentication.
 
 Kerberos support
 ================

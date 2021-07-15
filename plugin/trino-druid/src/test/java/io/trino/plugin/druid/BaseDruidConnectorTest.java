@@ -13,25 +13,32 @@
  */
 package io.trino.plugin.druid;
 
+import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.testing.BaseConnectorTest;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.assertions.Assert;
+import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseDruidConnectorTest
-        extends BaseConnectorTest
+        extends BaseJdbcConnectorTest
 {
     protected static final String SELECT_FROM_ORDERS = "SELECT " +
             "orderdate, " +
@@ -128,17 +135,25 @@ public abstract class BaseDruidConnectorTest
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);
         }
     }
 
+    @Override
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return druidServer::execute;
+    }
+
     @Test
     @Override
     public void testDescribeTable()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")
@@ -260,7 +275,7 @@ public abstract class BaseDruidConnectorTest
         copyAndIngestTpchData(materializedRows, druidServer, datasourceB);
 
         // Assert that only columns from datsourceA are returned
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")
@@ -276,7 +291,7 @@ public abstract class BaseDruidConnectorTest
         Assert.assertEquals(actualColumns, expectedColumns);
 
         // Assert that only columns from datsourceB are returned
-        expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk_x", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment_x", "varchar", "", "")
@@ -293,7 +308,6 @@ public abstract class BaseDruidConnectorTest
     }
 
     @Test
-    @Override
     public void testLimitPushDown()
     {
         assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
@@ -307,10 +321,30 @@ public abstract class BaseDruidConnectorTest
         // with aggregation
         assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isNotFullyPushedDown(AggregationNode.class); // global aggregation, LIMIT removed TODO https://github.com/trinodb/trino/pull/4313
         assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isNotFullyPushedDown(AggregationNode.class); // TODO https://github.com/trinodb/trino/pull/4313
+
+        // distinct limit can be pushed down even without aggregation pushdown
         assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
 
-        // with filter and aggregation
+        // with aggregation and filter over numeric column
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(AggregationNode.class); // TODO https://github.com/trinodb/trino/pull/4313
+        // with aggregation and filter over varchar column
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(AggregationNode.class); // TODO https://github.com/trinodb/trino/pull/4313
+
+        // with TopN over numeric column
+        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5")).isNotFullyPushedDown(TopNNode.class);
+        // with TopN over varchar column
+        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isNotFullyPushedDown(TopNNode.class);
+
+        // with join
+        PlanMatchPattern joinOverTableScans = node(JoinNode.class,
+                anyTree(node(TableScanNode.class)),
+                anyTree(node(TableScanNode.class)));
+        assertThat(query(
+                joinPushdownEnabled(getSession()),
+                "SELECT n.name, r.name " +
+                        "FROM nation n " +
+                        "LEFT JOIN region r USING (regionkey) " +
+                        "LIMIT 30"))
+                .isNotFullyPushedDown(joinOverTableScans);
     }
 }

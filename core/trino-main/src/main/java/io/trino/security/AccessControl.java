@@ -206,7 +206,7 @@ public interface AccessControl
     void checkCanShowTables(SecurityContext context, CatalogSchemaName schema);
 
     /**
-     * Filter the list of tables and views to those visible to the identity.
+     * Filter the list of tables, materialized views and views to those visible to the identity.
      */
     Set<SchemaTableName> filterTables(SecurityContext context, String catalogName, Set<SchemaTableName> tableNames);
 
@@ -312,6 +312,27 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames);
+
+    /**
+     * Check if identity is allowed to create the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
+
+    /**
+     * Check if identity is allowed to refresh the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRefreshMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
+
+    /**
+     * Check if identity is allowed to drop the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
 
     /**
      * Check if identity is allowed to create a view that executes the function.
