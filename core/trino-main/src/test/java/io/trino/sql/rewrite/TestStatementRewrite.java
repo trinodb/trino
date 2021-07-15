@@ -11,9 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.sql.rewrite;
-
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -40,10 +38,10 @@ import io.trino.sql.SqlFormatterUtil;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.rewrite.StatementRewrite.Rewrite;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.TestingMetadata;
 import io.trino.transaction.TransactionManager;
-import io.trino.sql.rewrite.StatementRewrite.Rewrite;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -139,7 +137,7 @@ public class TestStatementRewrite
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        accessControl = new AccessControlManager(transactionManager,  emptyEventListenerManager(), new AccessControlConfig());
+        accessControl = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig());
         accessControl.loadSystemAccessControl();
 
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
