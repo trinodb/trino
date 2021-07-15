@@ -84,7 +84,7 @@ public final class TypeHelper
             return org.apache.kudu.Type.DECIMAL;
         }
         if (type == DateType.DATE) {
-            return org.apache.kudu.Type.STRING;
+            return org.apache.kudu.Type.DATE;
         }
         if (type instanceof CharType) {
             return org.apache.kudu.Type.STRING;
@@ -101,9 +101,12 @@ public final class TypeHelper
     {
         switch (ktype) {
             case STRING:
+            case VARCHAR:
                 return VarcharType.VARCHAR;
             case UNIXTIME_MICROS:
                 return TIMESTAMP_MILLIS;
+            case DATE:
+                return DateType.DATE;
             case INT64:
                 return BigintType.BIGINT;
             case INT32:
@@ -133,6 +136,9 @@ public final class TypeHelper
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
             // Kudu's native format is in microseconds
+            return nativeValue;
+        }
+        if (type.equals(DateType.DATE)) {
             return nativeValue;
         }
         if (type == BigintType.BIGINT) {
@@ -193,6 +199,9 @@ public final class TypeHelper
         if (type == TinyintType.TINYINT) {
             return row.getByte(field);
         }
+        if (type.equals(DateType.DATE)) {
+            return row.getInt(field);
+        }
         if (type == DoubleType.DOUBLE) {
             return row.getDouble(field);
         }
@@ -215,6 +224,9 @@ public final class TypeHelper
     {
         if (type.equals(TIMESTAMP_MILLIS)) {
             return truncateEpochMicrosToMillis(row.getLong(field));
+        }
+        if (type.equals(DateType.DATE)) {
+            return row.getInt(field);
         }
         if (type == BigintType.BIGINT) {
             return row.getLong(field);

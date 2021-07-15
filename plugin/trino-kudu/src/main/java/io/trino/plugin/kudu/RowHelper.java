@@ -27,6 +27,7 @@ public final class RowHelper
     {
         for (int i = 0; i < schema.getPrimaryKeyColumnCount(); i++) {
             switch (schema.getColumnByIndex(i).getType()) {
+                case VARCHAR:
                 case STRING:
                     to.addStringUtf8(i, from.getString(i).getBytes(StandardCharsets.UTF_8));
                     break;
@@ -34,6 +35,7 @@ public final class RowHelper
                 case UNIXTIME_MICROS:
                     to.addLong(i, from.getLong(i));
                     break;
+                case DATE:
                 case INT32:
                     to.addInt(i, from.getInt(i));
                     break;
@@ -69,6 +71,7 @@ public final class RowHelper
     {
         for (int i = 0; i < schema.getPrimaryKeyColumnCount(); i++) {
             switch (schema.getColumnByIndex(i).getType()) {
+                case VARCHAR:
                 case STRING:
                     to.addStringUtf8(i, from.getString(i).getBytes(StandardCharsets.UTF_8));
                     break;
@@ -76,6 +79,7 @@ public final class RowHelper
                 case UNIXTIME_MICROS:
                     to.addLong(i, from.getLong(i));
                     break;
+                case DATE:
                 case INT32:
                     to.addInt(i, from.getInt(i));
                     break;

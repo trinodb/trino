@@ -196,7 +196,8 @@ The data types of Trino and Kudu are mapped as far as possible:
 +-----------------------+-----------------------+-----------------------+
 | ``CHAR``              | -                     | not supported         |
 +-----------------------+-----------------------+-----------------------+
-| ``DATE``              | -                     | not supported [2]_    |
+| ``DATE``              | ``DATE``              | only supported for    |
+|                       |                       | Kudu server >= 1.12.0 |
 +-----------------------+-----------------------+-----------------------+
 | ``TIME``              | -                     | not supported         |
 +-----------------------+-----------------------+-----------------------+
@@ -224,9 +225,6 @@ The data types of Trino and Kudu are mapped as far as possible:
 
 .. [1] On performing ``CREATE TABLE ... AS ...`` from a Trino table to Kudu,
    the optional maximum length is lost
-
-.. [2] On performing ``CREATE TABLE ... AS ...`` from a Trino table to Kudu,
-   a ``DATE`` column is converted to ``STRING``
 
 
 Supported Trino SQL statements
