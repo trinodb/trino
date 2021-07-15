@@ -3,7 +3,7 @@ LDAP authentication
 ===================
 
 Trino can be configured to enable frontend LDAP authentication over
-HTTPS for clients, such as the :ref:`cli_ldap`, or the JDBC and ODBC
+HTTPS for clients, such as the :doc:`/installation/cli`, or the JDBC and ODBC
 drivers. At present, only simple LDAP authentication mechanism involving
 username and password is supported. The Trino client sends a username
 and password to the coordinator, and the coordinator validates these
@@ -233,67 +233,6 @@ property may be set as follows:
 
     ldap.group-auth-pattern=(&(|(memberOf=CN=normal_group,DC=corp,DC=com)(memberOf=CN=another_group,DC=com))(objectClass=inetOrgPerson)(uid=${USER}))
 
-.. _cli_ldap:
-
-Trino CLI
-----------
-
-Environment configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-TLS configuration
-~~~~~~~~~~~~~~~~~
-
-When using LDAP authentication, access to the Trino coordinator must be through
-:doc:`HTTPS/TLS </security/tls>`.
-
-Trino CLI execution
-^^^^^^^^^^^^^^^^^^^^
-
-In addition to the options that are required when connecting to a Trino
-coordinator that does not require LDAP authentication, invoking the CLI
-with LDAP support enabled requires a number of additional command line
-options. You can either use ``--keystore-*`` or ``--truststore-*`` properties
-to secure TLS connection. The simplest way to invoke the CLI is with a
-wrapper script.
-
-.. code-block:: text
-
-    #!/bin/bash
-
-    ./trino \
-    --server https://trino-coordinator.example.com:8443 \
-    --keystore-path /tmp/trino.jks \
-    --keystore-password password \
-    --truststore-path /tmp/trino_truststore.jks \
-    --truststore-password password \
-    --catalog <catalog> \
-    --schema <schema> \
-    --user <LDAP user> \
-    --password
-
-=============================== =========================================================================
-Option                          Description
-=============================== =========================================================================
-``--server``                    The address and port of the Trino coordinator.  The port must
-                                be set to the port the Trino coordinator is listening for HTTPS
-                                connections on. Trino CLI does not support using ``http`` scheme for
-                                the URL when using LDAP authentication.
-``--keystore-path``             The location of the Java Keystore file that will be used
-                                to secure TLS.
-``--keystore-password``         The password for the keystore. This must match the
-                                password you specified when creating the keystore.
-``--truststore-path``           The location of the Java truststore file that will be used
-                                to secure TLS.
-``--truststore-password``       The password for the truststore. This must match the
-                                password you specified when creating the truststore.
-``--user``                      The LDAP username. For Active Directory this should be your
-                                ``sAMAccountName`` and for OpenLDAP this should be the ``uid`` of
-                                the user. This is the username which is
-                                used to replace the ``${USER}`` placeholder pattern in the properties
-                                specified in ``config.properties``.
-``--password``                  Prompts for a password for the ``user``.
-=============================== =========================================================================
 
 Troubleshooting
 ---------------
