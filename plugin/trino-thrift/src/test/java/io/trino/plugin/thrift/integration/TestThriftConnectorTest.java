@@ -14,7 +14,7 @@
 package io.trino.plugin.thrift.integration;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
@@ -23,15 +23,15 @@ import static io.trino.plugin.thrift.integration.ThriftQueryRunner.createThriftQ
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.QueryAssertions.assertContains;
 
-public class TestThriftIntegrationSmokeTest
+public class TestThriftConnectorTest
         // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createThriftQueryRunner(2, false, ImmutableMap.of());
+        return createThriftQueryRunner(3, false, ImmutableMap.of());
     }
 
     @Override
@@ -43,5 +43,22 @@ public class TestThriftIntegrationSmokeTest
                 .row("tiny")
                 .row("sf1");
         assertContains(actualSchemas, resultBuilder.build());
+    }
+
+    @Test
+    public void testCreateArrayTable()
+    {
+        assertUpdate("CREATE TABLE array_test AS SELECT ARRAY [1, 2, 3] AS c", 1);
+        assertQuery("SELECT cardinality(c) FROM array_test", "SELECT 3");
+        assertUpdate("DROP TABLE array_test");
+    }
+
+    @Test
+    public void testMapTable()
+    {
+        assertUpdate("CREATE TABLE map_test AS SELECT MAP(ARRAY [1, 2, 3], ARRAY ['hi', 'bye', NULL]) AS c", 1);
+        assertQuery("SELECT c[1] FROM map_test", "SELECT 'hi'");
+        assertQuery("SELECT c[3] FROM map_test", "SELECT NULL");
+        assertUpdate("DROP TABLE map_test");
     }
 }
