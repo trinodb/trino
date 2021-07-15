@@ -139,6 +139,11 @@ public class CassandraClusteringPredicatesExtractor
 
     private static String translateRangeIntoCql(CassandraColumnHandle columnHandle, Range range)
     {
+        if (columnHandle.getCassandraType().getKind() == CassandraType.Kind.TUPLE) {
+            // Building CQL literals for TUPLE type is not supported
+            return null;
+        }
+
         if (range.isAll()) {
             return null;
         }
