@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.phoenix5;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -32,8 +33,12 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
+import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortingProperty;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 
@@ -84,6 +89,22 @@ public class PhoenixMetadata
                         toTrinoSchemaName(tableHandle.getSchemaName()),
                         tableHandle.getTableName()))
                 .orElse(null);
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        List<LocalProperty<ColumnHandle>> sortingProperties = tableHandle.getSortOrder()
+                .map(properties -> properties
+                        .stream()
+                        .map(item -> (LocalProperty<ColumnHandle>) new SortingProperty<ColumnHandle>(
+                                item.getColumn(),
+                                item.getSortOrder()))
+                        .collect(toImmutableList()))
+                .orElse(ImmutableList.of());
+
+        return new ConnectorTableProperties(TupleDomain.all(), Optional.empty(), Optional.empty(), Optional.empty(), sortingProperties);
     }
 
     @Override

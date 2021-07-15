@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.phoenix5;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
@@ -31,9 +33,26 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.phoenix5.PhoenixQueryRunner.createPhoenixQueryRunner;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static io.trino.sql.planner.plan.TopNNode.Step.FINAL;
+import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
+import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
+import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
@@ -305,6 +324,118 @@ public class TestPhoenixConnectorTest
         assertUpdate("INSERT INTO test_col_insert(pk, col1) VALUES('1', 'val1')", 1);
         assertUpdate("INSERT INTO test_col_insert(pk, col2) VALUES('1', 'val2')", 1);
         assertQuery("SELECT * FROM test_col_insert", "SELECT 1, 'val1', 'val2'");
+    }
+
+    @Override
+    public void testTopNPushdown()
+    {
+        throw new SkipException("Phoenix does not support topN push down, but instead replaces partial topN with partial Limit.");
+    }
+
+    @Test
+    public void testReplacePartialTopNWithLimit()
+    {
+        List<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("orderkey", ASCENDING, LAST));
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
+                .matches(output(
+                        topN(10, orderBy, FINAL,
+                                exchange(LOCAL, GATHER, ImmutableList.of(),
+                                        exchange(REMOTE, GATHER, ImmutableList.of(),
+                                                limit(
+                                                        10,
+                                                        ImmutableList.of(),
+                                                        true,
+                                                        orderBy.stream()
+                                                                .map(PlanMatchPattern.Ordering::getField)
+                                                                .collect(toImmutableList()),
+                                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))))));
+
+        orderBy = ImmutableList.of(sort("orderkey", ASCENDING, FIRST));
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey NULLS FIRST LIMIT 10"))
+                .matches(output(
+                        topN(10, orderBy, FINAL,
+                                exchange(LOCAL, GATHER, ImmutableList.of(),
+                                        exchange(REMOTE, GATHER, ImmutableList.of(),
+                                                limit(
+                                                        10,
+                                                        ImmutableList.of(),
+                                                        true,
+                                                        orderBy.stream()
+                                                                .map(PlanMatchPattern.Ordering::getField)
+                                                                .collect(toImmutableList()),
+                                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))))));
+
+        orderBy = ImmutableList.of(sort("orderkey", DESCENDING, LAST));
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 10"))
+                .matches(output(
+                        topN(10, orderBy, FINAL,
+                                exchange(LOCAL, GATHER, ImmutableList.of(),
+                                        exchange(REMOTE, GATHER, ImmutableList.of(),
+                                                limit(
+                                                        10,
+                                                        ImmutableList.of(),
+                                                        true,
+                                                        orderBy.stream()
+                                                                .map(PlanMatchPattern.Ordering::getField)
+                                                                .collect(toImmutableList()),
+                                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))))));
+
+        orderBy = ImmutableList.of(sort("orderkey", ASCENDING, LAST), sort("custkey", ASCENDING, LAST));
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey, custkey LIMIT 10"))
+                .matches(output(
+                        project(
+                                topN(10, orderBy, FINAL,
+                                        exchange(LOCAL, GATHER, ImmutableList.of(),
+                                                exchange(REMOTE, GATHER, ImmutableList.of(),
+                                                        limit(
+                                                                10,
+                                                                ImmutableList.of(),
+                                                                true,
+                                                                orderBy.stream()
+                                                                        .map(PlanMatchPattern.Ordering::getField)
+                                                                        .collect(toImmutableList()),
+                                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey", "custkey", "custkey")))))))));
+
+        orderBy = ImmutableList.of(sort("orderkey", ASCENDING, LAST), sort("custkey", DESCENDING, LAST));
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey, custkey DESC LIMIT 10"))
+                .matches(output(
+                        project(
+                                topN(10, orderBy, FINAL,
+                                        exchange(LOCAL, GATHER, ImmutableList.of(),
+                                                exchange(REMOTE, GATHER, ImmutableList.of(),
+                                                        limit(
+                                                                10,
+                                                                ImmutableList.of(),
+                                                                true,
+                                                                orderBy.stream()
+                                                                        .map(PlanMatchPattern.Ordering::getField)
+                                                                        .collect(toImmutableList()),
+                                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey", "custkey", "custkey")))))))));
+    }
+
+    /*
+     * Make sure that partial topN is replaced with a partial limit when the input is presorted.
+     */
+    @Test
+    public void testUseSortedPropertiesForPartialTopNElimination()
+    {
+        String tableName = "test_propagate_table_scan_sorting_properties";
+        // salting ensures multiple splits
+        String createTableSql = format("" +
+                        "CREATE TABLE %s WITH (salt_buckets = 5) AS " +
+                        "SELECT * FROM tpch.tiny.customer",
+                tableName);
+        assertUpdate(createTableSql, 1500L);
+
+        String expected = "SELECT custkey FROM customer ORDER BY 1 NULLS FIRST LIMIT 100";
+        String actual = format("SELECT custkey FROM %s ORDER BY 1 NULLS FIRST LIMIT 100", tableName);
+        assertQuery(getSession(), actual, expected, assertPartialLimitWithPreSortedInputsCount(getSession(), 1));
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Override

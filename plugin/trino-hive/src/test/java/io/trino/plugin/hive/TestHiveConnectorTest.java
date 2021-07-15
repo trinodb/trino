@@ -41,7 +41,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.ExchangeNode;
-import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedDomain;
@@ -7353,25 +7352,6 @@ public class TestHiveConnectorTest
                 .build();
         assertQuery(session, actual, expected, assertPartialLimitWithPreSortedInputsCount(session, 1));
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    private Consumer<Plan> assertPartialLimitWithPreSortedInputsCount(Session session, int expectedCount)
-    {
-        return plan -> {
-            int actualCount = searchFrom(plan.getRoot())
-                    .where(node -> node instanceof LimitNode && ((LimitNode) node).isPartial() && ((LimitNode) node).requiresPreSortedInputs())
-                    .findAll()
-                    .size();
-            if (actualCount != expectedCount) {
-                Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
-                throw new AssertionError(format(
-                        "Expected [\n%s\n] partial limit but found [\n%s\n] partial limit. Actual plan is [\n\n%s\n]",
-                        expectedCount,
-                        actualCount,
-                        formattedPlan));
-            }
-        };
     }
 
     @Test
