@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.airlift.json.JsonCodec;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
@@ -46,8 +47,10 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.HdfsParquetDataSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -59,13 +62,18 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.io.DeleteSchemaUtil;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
@@ -96,6 +104,7 @@ import static io.trino.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
 import static io.trino.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
@@ -111,6 +120,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxRead
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
+import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -127,18 +137,35 @@ public class IcebergPageSourceProvider
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
+    private final JsonCodec<CommitTaskData> jsonCodec;
+    private final IcebergFileWriterFactory fileWriterFactory;
+    private final PageIndexerFactory pageIndexerFactory;
+    private final TypeManager typeManager;
+    private final int maxOpenPartitions;
 
     @Inject
     public IcebergPageSourceProvider(
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             OrcReaderConfig orcReaderConfig,
-            ParquetReaderConfig parquetReaderConfig)
+            ParquetReaderConfig parquetReaderConfig,
+            JsonCodec<CommitTaskData> jsonCodec,
+            IcebergFileWriterFactory fileWriterFactory,
+            PageIndexerFactory pageIndexerFactory,
+            TypeManager typeManager,
+            IcebergConfig config)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.orcReaderOptions = requireNonNull(orcReaderConfig, "orcReaderConfig is null").toOrcReaderOptions();
         this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
+        // TODO: refactor with IcebergPageSinkProvider
+        this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
+        this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
+        this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        requireNonNull(config, "config is null");
+        this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
     }
 
     @Override
@@ -153,14 +180,16 @@ public class IcebergPageSourceProvider
         IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableHandle table = (IcebergTableHandle) connectorTable;
 
-        List<IcebergColumnHandle> icebergColumns = columns.stream()
+        List<IcebergColumnHandle> queriedColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
                 .collect(toImmutableList());
 
+        boolean hasDeleteRowId = queriedColumns.stream().anyMatch(c -> ROW_ID_COLUMN_NAME.equals(c.getName()));
+        List<IcebergColumnHandle> icebergColumns = hasDeleteRowId ? getColumns(table.getSchema(), typeManager) : queriedColumns;
+
         Map<Integer, String> partitionKeys = split.getPartitionKeys();
 
-        List<IcebergColumnHandle> regularColumns = columns.stream()
-                .map(IcebergColumnHandle.class::cast)
+        List<IcebergColumnHandle> regularColumns = icebergColumns.stream()
                 .filter(column -> !partitionKeys.containsKey(column.getId()))
                 .collect(toImmutableList());
 
@@ -176,7 +205,45 @@ public class IcebergPageSourceProvider
                 regularColumns,
                 table.getUnenforcedPredicate());
 
-        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getTimeZoneKey());
+        ConnectorPageSource icebergPageSource = new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getTimeZoneKey());
+
+        if (!hasDeleteRowId) {
+            return icebergPageSource;
+        }
+        else {
+            Schema posDeleteSchema = DeleteSchemaUtil.posDeleteSchema(table.getSchema());
+            ConnectorPageSink posDeleteSink = new IcebergPageSink(
+                    posDeleteSchema,
+                    PartitionSpec.unpartitioned(),
+                    table.getOutputPath() + "/delete/position",
+                    fileWriterFactory,
+                    pageIndexerFactory,
+                    hdfsEnvironment,
+                    hdfsContext,
+                    icebergColumns,
+                    jsonCodec,
+                    session,
+                    table.getFileFormat(),
+                    FileContent.POSITION_DELETES,
+                    maxOpenPartitions);
+
+            ConnectorPageSink updateRowSink = new IcebergPageSink(
+                    table.getSchema(),
+                    table.getPartitionSpec(),
+                    table.getOutputPath() + "/update",
+                    fileWriterFactory,
+                    pageIndexerFactory,
+                    hdfsEnvironment,
+                    hdfsContext,
+                    icebergColumns,
+                    jsonCodec,
+                    session,
+                    table.getFileFormat(),
+                    FileContent.DATA,
+                    maxOpenPartitions);
+
+            return new IcebergPageSourceUpdate(split.getPath(), queriedColumns, icebergColumns, table.getUpdateColumns(), icebergPageSource, posDeleteSink, updateRowSink);
+        }
     }
 
     private ConnectorPageSource createDataPageSource(

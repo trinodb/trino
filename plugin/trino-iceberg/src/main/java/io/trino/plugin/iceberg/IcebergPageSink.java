@@ -40,6 +40,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -92,6 +93,7 @@ public class IcebergPageSink
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final ConnectorSession session;
     private final FileFormat fileFormat;
+    private final FileContent fileContent;
     private final PagePartitioner pagePartitioner;
 
     private final List<WriteContext> writers = new ArrayList<>();
@@ -112,6 +114,7 @@ public class IcebergPageSink
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
             FileFormat fileFormat,
+            FileContent fileContent,
             int maxOpenWriters)
     {
         requireNonNull(inputColumns, "inputColumns is null");
@@ -124,6 +127,7 @@ public class IcebergPageSink
         this.jobConf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, new Path(outputPath)));
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
+        this.fileContent = requireNonNull(fileContent, "fileContent is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.maxOpenWriters = maxOpenWriters;
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(inputColumns, partitionSpec));
@@ -166,7 +170,8 @@ public class IcebergPageSink
             CommitTaskData task = new CommitTaskData(
                     context.getPath().toString(),
                     new MetricsWrapper(context.writer.getMetrics()),
-                    context.getPartitionData().map(PartitionData::toJson));
+                    context.getPartitionData().map(PartitionData::toJson),
+                    fileContent.id());
 
             commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
         }
