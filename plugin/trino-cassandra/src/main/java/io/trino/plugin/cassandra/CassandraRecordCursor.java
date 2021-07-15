@@ -135,9 +135,15 @@ public class CassandraRecordCursor
     }
 
     @Override
-    public Object getObject(int field)
+    public Object getObject(int i)
     {
-        throw new UnsupportedOperationException();
+        CassandraType cassandraType = cassandraTypes.get(i);
+        switch (cassandraType.getKind()) {
+            case TUPLE:
+                return cassandraType.getColumnValue(currentRow, i).getValue();
+            default:
+                throw new IllegalArgumentException("getObject cannot be called for " + cassandraType);
+        }
     }
 
     @Override
