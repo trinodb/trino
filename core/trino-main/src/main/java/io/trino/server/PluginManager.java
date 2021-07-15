@@ -25,7 +25,6 @@ import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.spi.Plugin;
 import io.trino.spi.block.BlockEncoding;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
@@ -49,6 +48,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metadata.FunctionExtractor.extractFunctions;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -125,9 +125,7 @@ public class PluginManager
             log.debug("    %s", url.getPath());
         }
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
-            loadPlugin(pluginClassLoader);
-        }
+        withClassLoader(pluginClassLoader, () -> loadPlugin(pluginClassLoader));
 
         log.info("-- Finished loading plugin %s --", plugin);
     }

@@ -22,7 +22,6 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.raptor.legacy.util.SyncingFileSystem;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
@@ -69,6 +68,7 @@ import static io.trino.plugin.raptor.legacy.util.Types.isArrayType;
 import static io.trino.plugin.raptor.legacy.util.Types.isMapType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -87,9 +87,7 @@ public class OrcFileWriter
 {
     static {
         // make sure Hadoop version is loaded from correct class loader
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(VersionInfo.class.getClassLoader())) {
-            ShimLoader.getHadoopShims();
-        }
+        withClassLoader(VersionInfo.class.getClassLoader(), ShimLoader::getHadoopShims);
     }
 
     private static final Configuration CONFIGURATION = new Configuration(false);

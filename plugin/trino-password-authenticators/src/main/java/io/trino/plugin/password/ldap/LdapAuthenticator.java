@@ -21,7 +21,6 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.trino.plugin.password.Credential;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.PasswordAuthenticator;
@@ -37,6 +36,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -98,13 +98,15 @@ public class LdapAuthenticator
     @Override
     public Principal createAuthenticatedPrincipal(String user, String password)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            return authenticationCache.getUnchecked(new Credential(user, password));
-        }
-        catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), AccessDeniedException.class);
-            throw e;
-        }
+        return withClassLoader(getClass().getClassLoader(), () -> {
+            try {
+                return authenticationCache.getUnchecked(new Credential(user, password));
+            }
+            catch (UncheckedExecutionException e) {
+                throwIfInstanceOf(e.getCause(), AccessDeniedException.class);
+                throw e;
+            }
+        });
     }
 
     private Principal authenticateWithUserBind(Credential credential)

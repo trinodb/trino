@@ -21,7 +21,6 @@ import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcRecordReader;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -44,6 +43,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.createReader;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.fileOrcDataSource;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.octets;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -98,10 +98,11 @@ public class TestShardWriter
                 .row(null, "world", null, Double.POSITIVE_INFINITY, null, arrayBlockOf(BIGINT, 3, null), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", null), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7)))
                 .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)));
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
-                OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
-            writer.appendPages(rowPagesBuilder.build());
-        }
+        withClassLoader(new EmptyClassLoader(), () -> {
+            try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+                writer.appendPages(rowPagesBuilder.build());
+            }
+        });
 
         try (OrcDataSource dataSource = fileOrcDataSource(file)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);

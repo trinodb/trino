@@ -13,22 +13,59 @@
  */
 package io.trino.spi.classloader;
 
-import java.io.Closeable;
+import java.util.function.Supplier;
 
 public class ThreadContextClassLoader
-        implements Closeable
 {
-    private final ClassLoader originalThreadContextClassLoader;
+    private ThreadContextClassLoader() {}
 
-    public ThreadContextClassLoader(ClassLoader newThreadContextClassLoader)
+    public static void withClassLoader(ClassLoader newThreadContextClassLoader, Runnable runnable)
     {
-        this.originalThreadContextClassLoader = Thread.currentThread().getContextClassLoader();
-        Thread.currentThread().setContextClassLoader(newThreadContextClassLoader);
+        withClassLoader(newThreadContextClassLoader, () -> {
+            runnable.run();
+            return null;
+        });
     }
 
-    @Override
-    public void close()
+    public static <T> T withClassLoader(ClassLoader newThreadContextClassLoader, Supplier<T> supplier)
     {
-        Thread.currentThread().setContextClassLoader(originalThreadContextClassLoader);
+        final ClassLoader originalThreadContextClassLoader = Thread.currentThread().getContextClassLoader();
+        Thread.currentThread().setContextClassLoader(newThreadContextClassLoader);
+        try {
+            return supplier.get();
+        }
+        finally {
+            Thread.currentThread().setContextClassLoader(originalThreadContextClassLoader);
+        }
+    }
+
+    public static <T, E extends Exception> T withClassLoader(ClassLoader newThreadContextClassLoader, ThrowingSupplier<T, E> supplier)
+    {
+        final ClassLoader originalThreadContextClassLoader = Thread.currentThread().getContextClassLoader();
+        Thread.currentThread().setContextClassLoader(newThreadContextClassLoader);
+        try {
+            return supplier.get();
+        }
+        finally {
+            Thread.currentThread().setContextClassLoader(originalThreadContextClassLoader);
+        }
+    }
+
+    @FunctionalInterface
+    public interface ThrowingSupplier<T, E extends Exception>
+            extends Supplier<T>
+    {
+        @Override
+        default T get()
+        {
+            try {
+                return supplyOrThrow();
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        T supplyOrThrow() throws E;
     }
 }

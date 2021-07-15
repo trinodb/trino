@@ -40,7 +40,6 @@ import io.trino.plugin.hive.s3.HiveS3Module;
 import io.trino.plugin.iceberg.testing.TrackingFileIoModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -56,6 +55,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 
 public final class InternalIcebergConnectorFactory
 {
@@ -69,7 +69,7 @@ public final class InternalIcebergConnectorFactory
             boolean trackMetadataIo)
     {
         ClassLoader classLoader = InternalIcebergConnectorFactory.class.getClassLoader();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        return withClassLoader(classLoader, () -> {
             Bootstrap app = new Bootstrap(
                     new EventModule(),
                     new MBeanModule(),
@@ -126,6 +126,6 @@ public final class InternalIcebergConnectorFactory
                     icebergTableProperties.getTableProperties(),
                     new AllowAllAccessControl(),
                     procedures);
-        }
+        });
     }
 }

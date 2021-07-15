@@ -18,7 +18,6 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.airlift.node.NodeModule;
 import io.trino.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
@@ -26,6 +25,7 @@ import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 
 import java.util.Map;
 
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public class H2ResourceGroupConfigurationManagerFactory
@@ -47,7 +47,7 @@ public class H2ResourceGroupConfigurationManagerFactory
     @Override
     public ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        return withClassLoader(classLoader, () -> {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new H2ResourceGroupsModule(),
@@ -63,6 +63,6 @@ public class H2ResourceGroupConfigurationManagerFactory
                     .initialize();
 
             return injector.getInstance(DbResourceGroupConfigurationManager.class);
-        }
+        });
     }
 }

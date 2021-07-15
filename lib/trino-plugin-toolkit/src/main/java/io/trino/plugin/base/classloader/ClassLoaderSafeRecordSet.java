@@ -14,7 +14,6 @@
 
 package io.trino.plugin.base.classloader;
 
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
@@ -23,6 +22,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeRecordSet
@@ -41,16 +41,12 @@ public class ClassLoaderSafeRecordSet
     @Override
     public List<Type> getColumnTypes()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getColumnTypes();
-        }
+        return withClassLoader(classLoader, delegate::getColumnTypes);
     }
 
     @Override
     public RecordCursor cursor()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.cursor();
-        }
+        return withClassLoader(classLoader, delegate::cursor);
     }
 }

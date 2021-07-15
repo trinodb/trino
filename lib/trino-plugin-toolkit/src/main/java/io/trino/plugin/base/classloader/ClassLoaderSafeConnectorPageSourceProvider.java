@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.base.classloader;
 
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -27,6 +26,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static io.trino.spi.classloader.ThreadContextClassLoader.withClassLoader;
 import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeConnectorPageSourceProvider
@@ -45,8 +45,6 @@ public class ClassLoaderSafeConnectorPageSourceProvider
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.createPageSource(transaction, session, split, table, columns, dynamicFilter);
-        }
+        return withClassLoader(classLoader, () -> delegate.createPageSource(transaction, session, split, table, columns, dynamicFilter));
     }
 }
