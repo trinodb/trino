@@ -31,7 +31,7 @@ steps:
     cd $(Build.SourcesDirectory)
     TRINO_VERSION=$(./mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)
 
-    DOCKERFILE="FROM trino:${TRINO_VERSION}
+    DOCKERFILE="FROM trino:${TRINO_VERSION}-amd64
     LABEL cccs.trino.upstream.version=${TRINO_VERSION}"
 
     DOCKERFILE_PATH=$(mktemp -d)/Dockerfile
