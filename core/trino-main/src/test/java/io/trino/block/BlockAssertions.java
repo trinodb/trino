@@ -300,19 +300,19 @@ public final class BlockAssertions
                     VARBINARY.writeSlice(singleRowBlockWriter, (Slice) fieldValue);
                 }
                 else if (fieldValue instanceof Double) {
-                    DOUBLE.writeDouble(singleRowBlockWriter, ((Double) fieldValue).doubleValue());
+                    DOUBLE.writeDouble(singleRowBlockWriter, (Double) fieldValue);
                 }
                 else if (fieldValue instanceof Long) {
-                    BIGINT.writeLong(singleRowBlockWriter, ((Long) fieldValue).longValue());
+                    BIGINT.writeLong(singleRowBlockWriter, (Long) fieldValue);
                 }
                 else if (fieldValue instanceof Boolean) {
-                    BOOLEAN.writeBoolean(singleRowBlockWriter, ((Boolean) fieldValue).booleanValue());
+                    BOOLEAN.writeBoolean(singleRowBlockWriter, (Boolean) fieldValue);
                 }
                 else if (fieldValue instanceof Block) {
                     singleRowBlockWriter.appendStructure((Block) fieldValue);
                 }
                 else if (fieldValue instanceof Integer) {
-                    INTEGER.writeLong(singleRowBlockWriter, ((Integer) fieldValue).intValue());
+                    INTEGER.writeLong(singleRowBlockWriter, (Integer) fieldValue);
                 }
                 else {
                     throw new IllegalArgumentException();
@@ -460,7 +460,7 @@ public final class BlockAssertions
         BlockBuilder builder = REAL.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
-            REAL.writeLong(builder, floatToRawIntBits((float) i));
+            REAL.writeLong(builder, floatToRawIntBits(i));
         }
 
         return builder.build();
