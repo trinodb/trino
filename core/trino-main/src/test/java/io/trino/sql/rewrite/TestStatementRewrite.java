@@ -163,7 +163,7 @@ public class TestStatementRewrite
     }
 
     @Test
-    public void testShowFunctions()
+    public void testShowFunctionsFormatSql()
     {
         assertFormatSqlWithMockMetadata(
                 new ShowFunctions(Optional.of("%"), Optional.of("$")),
@@ -186,7 +186,7 @@ public class TestStatementRewrite
     }
 
     @Test
-    public void testShowCatalogs()
+    public void testShowCatalogsFormatSql()
     {
         assertFormatSql(
                 new ShowCatalogs(Optional.of("%"), Optional.of("$")),
@@ -202,7 +202,7 @@ public class TestStatementRewrite
     }
 
     @Test
-    public void testShowRoleGrants()
+    public void testShowRoleGrantsFormatSql()
     {
         assertFormatSqlWithMockMetadata(
                 new ShowRoleGrants(Optional.empty()),
