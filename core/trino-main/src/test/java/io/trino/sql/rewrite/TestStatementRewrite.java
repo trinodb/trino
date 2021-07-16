@@ -14,33 +14,20 @@
 package io.trino.sql.rewrite;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
-import io.trino.connector.informationschema.InformationSchemaConnector;
-import io.trino.connector.system.SystemConnector;
 import io.trino.metadata.AbstractMockMetadata;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
-import io.trino.security.AccessControlConfig;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.security.AccessControlManager;
-import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.spi.session.PropertyMetadata;
-import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.SqlFormatterUtil;
-import io.trino.sql.analyzer.FeaturesConfig;
+import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.rewrite.StatementRewrite.Rewrite;
 import io.trino.sql.tree.DescribeInput;
@@ -50,8 +37,10 @@ import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowFunctions;
 import io.trino.sql.tree.ShowRoleGrants;
 import io.trino.sql.tree.ShowSession;
+import io.trino.sql.tree.ShowStats;
 import io.trino.sql.tree.Statement;
-import io.trino.testing.TestingMetadata;
+import io.trino.sql.tree.Table;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -60,21 +49,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
-import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
-import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.QueryUtil.identifier;
-import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -86,11 +67,11 @@ public class TestStatementRewrite
     private static final CatalogName TPCH_CATALOG_NAME = new CatalogName(TPCH_CATALOG);
     private static final Session.SessionBuilder CLIENT_SESSION_BUILDER = testSessionBuilder()
             .setCatalog(TPCH_CATALOG)
-            .setSchema("s1")
-            .addPreparedStatement("q1", "SELECT a, ? as col2 FROM tpch.s1.t1");
+            .setSchema("tiny")
+            .addPreparedStatement("q1", "SELECT orderkey, ? as col2 FROM tpch.tiny.orders");
     private static final Session SETUP_SESSION = testSessionBuilder()
-            .setCatalog("c1")
-            .setSchema("s1")
+            .setCatalog(TPCH_CATALOG)
+            .setSchema("tiny")
             .build();
 
     private static final SqlParser SQL_PARSER = new SqlParser();
@@ -100,6 +81,7 @@ public class TestStatementRewrite
     private AccessControlManager accessControl;
     private Metadata metadata;
     private Metadata mockMetadata;
+    private QueryExplainer queryExplainer;
 
     @Test
     public void testDescribeOutputFormatSql()
@@ -118,7 +100,7 @@ public class TestStatementRewrite
                         "FROM\n" +
                         "  (\n" +
                         " VALUES \n" +
-                        "     ROW ('a', 'tpch', 's1', 't1', 'bigint', 8, false)\n" +
+                        "     ROW ('orderkey', 'tpch', 'tiny', 'orders', 'bigint', 8, false)\n" +
                         "   , ROW ('col2', '', '', '', 'unknown', 1, true)\n" +
                         ")  \"Statement Output\" (\"Column Name\", \"Catalog\", \"Schema\", \"Table\", \"Type\", \"Type Size\", \"Aliased\")\n");
     }
@@ -195,7 +177,8 @@ public class TestStatementRewrite
                         "FROM\n" +
                         "  (\n" +
                         " VALUES \n" +
-                        "     ROW ('tpch')\n" +
+                        "     ROW ('system')\n" +
+                        "   , ROW ('tpch')\n" +
                         ")  \"catalogs\" (\"Catalog\")\n" +
                         "WHERE (\"catalog\" LIKE '%' ESCAPE '$')\n" +
                         "ORDER BY \"Catalog\" ASC\n");
@@ -215,6 +198,31 @@ public class TestStatementRewrite
                         "   , ROW ('b2')\n" +
                         ")  \"role_grants\" (\"Role Grants\")\n" +
                         "ORDER BY \"Role Grants\" ASC\n");
+    }
+
+    @Test
+    public void testShowStatesFormatSql()
+    {
+        assertFormatSql(
+                new ShowStats(new Table(QualifiedName.of("nation"))),
+                new ShowStatsRewrite(),
+                "SELECT\n" +
+                        "  \"column_name\"\n" +
+                        ", \"data_size\"\n" +
+                        ", \"distinct_values_count\"\n" +
+                        ", \"nulls_fraction\"\n" +
+                        ", \"row_count\"\n" +
+                        ", \"low_value\"\n" +
+                        ", \"high_value\"\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        " VALUES \n" +
+                        "     ROW ('nationkey', CAST(null AS double), CAST(null AS double), CAST(null AS double), CAST(null AS double), CAST(null AS varchar), CAST(null AS varchar))\n" +
+                        "   , ROW ('name', CAST(null AS double), CAST(null AS double), CAST(null AS double), CAST(null AS double), CAST(null AS varchar), CAST(null AS varchar))\n" +
+                        "   , ROW ('regionkey', CAST(null AS double), CAST(null AS double), CAST(null AS double), CAST(null AS double), CAST(null AS varchar), CAST(null AS varchar))\n" +
+                        "   , ROW ('comment', CAST(null AS double), CAST(null AS double), CAST(null AS double), CAST(null AS double), CAST(null AS varchar), CAST(null AS varchar))\n" +
+                        "   , ROW (CAST(null AS varchar), CAST(null AS double), CAST(null AS double), CAST(null AS double), CAST(null AS double), CAST(null AS varchar), CAST(null AS varchar))\n" +
+                        ")  \"table_stats\" (\"column_name\", \"data_size\", \"distinct_values_count\", \"nulls_fraction\", \"row_count\", \"low_value\", \"high_value\")\n");
     }
 
     private void assertFormatSql(Statement node, Rewrite rewriteProvider, String expected)
@@ -245,7 +253,7 @@ public class TestStatementRewrite
                 session,
                 metadata,
                 SQL_PARSER,
-                Optional.empty(),
+                Optional.of(queryExplainer),
                 node,
                 emptyList(),
                 emptyMap(),
@@ -263,81 +271,22 @@ public class TestStatementRewrite
     @BeforeClass
     public void setup()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
-        accessControl = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig());
-        accessControl.loadSystemAccessControl();
-
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
-        metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        LocalQueryRunner runner = LocalQueryRunner.builder(SETUP_SESSION).build();
+        transactionManager = runner.getTransactionManager();
+        accessControl = runner.getAccessControl();
+        metadata = runner.getMetadata();
+        queryExplainer = runner.getQueryExplainer(true);
 
         // Because the default system property and function could be changed if we implement new feature.
         // Create a mock metadata to offer testing data for rewrite classes.
         mockMetadata = new MockMetadata(metadata);
 
-        Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CATALOG_NAME);
-        catalogManager.registerCatalog(tpchTestCatalog);
-        metadata.getTablePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
-        metadata.getAnalyzePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
+        runner.installPlugin(new TpchPlugin());
+        runner.createCatalog(TPCH_CATALOG, TPCH_CATALOG, ImmutableMap.of());
 
-        SchemaTableName table1 = new SchemaTableName("s1", "t1");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
-                new ConnectorTableMetadata(table1, ImmutableList.of(new ColumnMetadata("a", BIGINT))),
-                false));
-    }
-
-    private Catalog createTestingCatalog(String catalogName, CatalogName catalog)
-    {
-        CatalogName systemId = createSystemTablesCatalogName(catalog);
-        Connector connector = createTestingConnector();
-        metadata.getSessionPropertyManager().addConnectorSessionProperties(new CatalogName(catalogName), connector.getSessionProperties());
-        mockMetadata.getSessionPropertyManager().addConnectorSessionProperties(new CatalogName(catalogName), connector.getSessionProperties());
-        InternalNodeManager nodeManager = new InMemoryNodeManager();
-        return new Catalog(
-                catalogName,
-                catalog,
-                connector,
-                createInformationSchemaCatalogName(catalog),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
-                systemId,
-                new SystemConnector(
-                        nodeManager,
-                        connector.getSystemTables(),
-                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalog)));
-    }
-
-    private void inSetupTransaction(Consumer<Session> consumer)
-    {
-        transaction(transactionManager, accessControl)
-                .singleStatement()
-                .readUncommitted()
-                .execute(SETUP_SESSION, consumer);
-    }
-
-    private static Connector createTestingConnector()
-    {
-        return new Connector()
-        {
-            private final ConnectorMetadata metadata = new TestingMetadata();
-
-            @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
-            {
-                return new ConnectorTransactionHandle() {};
-            }
-
-            @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
-            {
-                return metadata;
-            }
-
-            @Override
-            public List<PropertyMetadata<?>> getAnalyzeProperties()
-            {
-                return ImmutableList.of();
-            }
-        };
+        // initial the connector session properties for mockMetadata
+        mockMetadata.getSessionPropertyManager().addConnectorSessionProperties(TPCH_CATALOG_NAME, ImmutableList.of());
+        mockMetadata.getSessionPropertyManager().addConnectorSessionProperties(new CatalogName("system"), ImmutableList.of());
     }
 
     private static class MockMetadata
