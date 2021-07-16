@@ -23,7 +23,6 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import org.apache.iceberg.LocationProviders;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -32,6 +31,7 @@ import org.apache.iceberg.io.LocationProvider;
 
 import javax.inject.Inject;
 
+import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergPageSinkProvider
@@ -76,7 +76,7 @@ public class IcebergPageSinkProvider
         HdfsContext hdfsContext = new HdfsContext(session);
         Schema schema = SchemaParser.fromJson(tableHandle.getSchemaAsJson());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, tableHandle.getPartitionSpecAsJson());
-        LocationProvider locationProvider = LocationProviders.locationsFor(tableHandle.getOutputPath(), tableHandle.getProperties());
+        LocationProvider locationProvider = getLocationProvider(tableHandle.getOutputPath(), tableHandle.getProperties());
         return new IcebergPageSink(
                 schema,
                 partitionSpec,
