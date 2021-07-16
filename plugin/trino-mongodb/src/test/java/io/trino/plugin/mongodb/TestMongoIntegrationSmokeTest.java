@@ -15,6 +15,7 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.mongodb.DBRef;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import io.trino.sql.planner.plan.LimitNode;
@@ -23,6 +24,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -219,6 +221,25 @@ public class TestMongoIntegrationSmokeTest
         Document document2 = new Document("col", new Document("key1", null));
         client.getDatabase("test").getCollection("tmp_guess_schema2").insertOne(document2);
         assertQueryReturnsEmptyResult("SHOW COLUMNS FROM test.tmp_guess_schema2");
+    }
+
+    @Test
+    public void testDBRef()
+    {
+        Document document = Document.parse("{\"_id\":ObjectId(\"5126bbf64aed4daf9e2ab771\"),\"col1\":\"foo\"}");
+
+        ObjectId objectId = new ObjectId("5126bc054aed4daf9e2ab772");
+        DBRef dbRef = new DBRef("test", "creators", objectId);
+        document.append("creator", dbRef);
+
+        client.getDatabase("test").getCollection("test_dbref").insertOne(document);
+
+        assertQuery(
+                "SELECT creator.databaseName, creator.collectionName, CAST(creator.id AS VARCHAR) FROM test.test_dbref",
+                "SELECT 'test', 'creators', '5126bc054aed4daf9e2ab772'");
+        assertQuery(
+                "SELECT typeof(creator) FROM test.test_dbref",
+                "SELECT 'row(databaseName varchar, collectionName varchar, id ObjectId)'");
     }
 
     @Test

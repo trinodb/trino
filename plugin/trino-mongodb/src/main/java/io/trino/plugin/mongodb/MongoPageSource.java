@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import com.mongodb.DBRef;
 import com.mongodb.client.MongoCursor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -330,6 +331,18 @@ public class MongoPageSource
                 for (int index = 0; index < type.getTypeParameters().size(); index++) {
                     appendTo(type.getTypeParameters().get(index), mapValue.get(fieldNames.get(index)), builder);
                 }
+                output.closeEntry();
+                return;
+            }
+            else if (value instanceof DBRef) {
+                DBRef dbRefValue = (DBRef) value;
+                BlockBuilder builder = output.beginBlockEntry();
+
+                checkState(type.getTypeParameters().size() == 3, "DBRef should have 3 fields : %s", type);
+                appendTo(type.getTypeParameters().get(0), dbRefValue.getDatabaseName(), builder);
+                appendTo(type.getTypeParameters().get(1), dbRefValue.getCollectionName(), builder);
+                appendTo(type.getTypeParameters().get(2), dbRefValue.getId(), builder);
+
                 output.closeEntry();
                 return;
             }
