@@ -36,6 +36,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -94,7 +95,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -123,6 +123,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
@@ -205,7 +206,20 @@ public class IcebergMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases();
+        return metastore.getAllDatabases().stream()
+                .filter(schemaName -> !HiveUtil.isHiveSystemSchema(schemaName))
+                .collect(toImmutableList());
+    }
+
+    private List<String> listSchemas(ConnectorSession session, Optional<String> schemaName)
+    {
+        if (schemaName.isPresent()) {
+            if (isHiveSystemSchema(schemaName.get())) {
+                return ImmutableList.of();
+            }
+            return ImmutableList.of(schemaName.get());
+        }
+        return listSchemaNames(session);
     }
 
     @Override
@@ -393,8 +407,7 @@ public class IcebergMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         ImmutableList.Builder<SchemaTableName> tablesListBuilder = ImmutableList.builder();
-        schemaName.map(Collections::singletonList)
-                .orElseGet(metastore::getAllDatabases)
+        listSchemas(session, schemaName)
                 .stream()
                 .flatMap(schema -> Stream.concat(
                         // Get tables with parameter table_type set to  "ICEBERG" or "iceberg". This is required because
@@ -1035,8 +1048,7 @@ public class IcebergMetadata
     {
         // Iceberg does not support VIEWs
         // Filter on ICEBERG_MATERIALIZED_VIEW_COMMENT is used to avoid listing hive views in case of a shared HMS
-        return schemaName.map(Collections::singletonList)
-                .orElseGet(metastore::getAllDatabases).stream()
+        return listSchemas(session, schemaName).stream()
                 .flatMap(schema -> metastore.getTablesWithParameter(schema, TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT).stream()
                         .map(table -> new SchemaTableName(schema, table)))
                 .collect(toImmutableList());
