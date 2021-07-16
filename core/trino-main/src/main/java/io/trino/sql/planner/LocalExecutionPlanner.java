@@ -68,7 +68,6 @@ import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.operator.PipelineExecutionStrategy;
 import io.trino.operator.RefreshMaterializedViewOperator.RefreshMaterializedViewOperatorFactory;
 import io.trino.operator.RowNumberOperator;
@@ -490,7 +489,8 @@ public class LocalExecutionPlanner
                 outputLayout,
                 types,
                 partitionedSourceOrder,
-                new PartitionedOutputFactory(
+                operatorFactories.partitionedOutput(
+                        taskContext,
                         partitionFunction,
                         partitionChannels,
                         partitionConstants,

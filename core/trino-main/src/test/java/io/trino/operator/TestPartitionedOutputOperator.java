@@ -21,6 +21,7 @@ import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.exchange.LocalPartitionGenerator;
+import io.trino.operator.partition.PartitionedOutputOperator;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;

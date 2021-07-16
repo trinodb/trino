@@ -18,7 +18,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.connector.CatalogName;
-import io.trino.operator.PartitionedOutputOperator.PartitionedOutputInfo;
+import io.trino.operator.partition.PartitionedOutputOperator.PartitionedOutputInfo;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.Test;
