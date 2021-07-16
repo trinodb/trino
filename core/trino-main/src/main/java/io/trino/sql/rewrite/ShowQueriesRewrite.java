@@ -125,12 +125,14 @@ import static io.trino.sql.QueryUtil.functionCall;
 import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.QueryUtil.logicalAnd;
 import static io.trino.sql.QueryUtil.ordering;
+import static io.trino.sql.QueryUtil.query;
 import static io.trino.sql.QueryUtil.quotedIdentifier;
 import static io.trino.sql.QueryUtil.row;
 import static io.trino.sql.QueryUtil.selectAll;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.singleValueQuery;
+import static io.trino.sql.QueryUtil.subquery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -774,7 +776,7 @@ final class ShowQueriesRewrite
                             aliasedName("type", "Type"),
                             aliasedName("description", "Description")),
                     aliased(
-                            new Values(rows.build()),
+                            subquery(query(new Values(rows.build()))),
                             "session",
                             ImmutableList.of("name", "value", "default", "type", "description", "include")),
                     predicate);
