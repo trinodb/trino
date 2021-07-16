@@ -132,7 +132,7 @@ public class PinotQueryClient
                 if (firstError == null) {
                     firstError = e;
                 }
-                if (!e.isRetriable()) {
+                if (!e.isRetryable()) {
                     throw e;
                 }
             }
