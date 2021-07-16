@@ -427,27 +427,25 @@ public final class FunctionAssertions
             if (type == int[].class) {
                 return sizeOf((int[]) object);
             }
-            else if (type == boolean[].class) {
+            if (type == boolean[].class) {
                 return sizeOf((boolean[]) object);
             }
-            else if (type == byte[].class) {
+            if (type == byte[].class) {
                 return sizeOf((byte[]) object);
             }
-            else if (type == long[].class) {
+            if (type == long[].class) {
                 return sizeOf((long[]) object);
             }
-            else if (type == short[].class) {
+            if (type == short[].class) {
                 return sizeOf((short[]) object);
             }
-            else if (type == Block[].class) {
+            if (type == Block[].class) {
                 Object[] objects = (Object[]) object;
                 return Arrays.stream(objects)
                         .mapToLong(this::getRetainedSizeOf)
                         .sum();
             }
-            else {
-                throw new IllegalArgumentException(format("Unknown type encountered: %s", type));
-            }
+            throw new IllegalArgumentException(format("Unknown type encountered: %s", type));
         }
 
         long retainedSize = ClassLayout.parseClass(type).instanceSize();
