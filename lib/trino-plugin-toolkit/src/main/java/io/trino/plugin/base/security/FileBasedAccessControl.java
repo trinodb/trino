@@ -245,6 +245,13 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public Set<String> filterTableSchema(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
+    {
+        // TODO
+        return columns;
+    }
+
+    @Override
     public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
         // check if user owns the existing table, and if they will be an owner of the table after the rename

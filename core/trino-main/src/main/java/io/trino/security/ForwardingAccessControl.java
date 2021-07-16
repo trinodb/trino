@@ -207,6 +207,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public Set<String> filterTableSchema(SecurityContext context, QualifiedObjectName tableName, Set<String> columns)
+    {
+        return delegate().filterTableSchema(context, tableName, columns);
+    }
+
+    @Override
     public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanAddColumns(context, tableName);

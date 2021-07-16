@@ -164,6 +164,12 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public Set<String> filterTableSchema(SecurityContext context, QualifiedObjectName tableName, Set<String> columns)
+    {
+        return columns;
+    }
+
+    @Override
     public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
     {
     }

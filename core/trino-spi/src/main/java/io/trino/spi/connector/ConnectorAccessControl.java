@@ -239,11 +239,19 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Filter the list of columns to those visible to the identity.
+     * Filter the list of columns to those visible to the identity when executing SHOW COLUMNS, DESCRIBE, etc.
      */
-    default Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
+    default Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName table, Set<String> columns)
     {
         return emptySet();
+    }
+
+    /**
+     * Filter the list of columns to those visible to the identity when querying the table.
+     */
+    default Set<String> filterTableSchema(ConnectorSecurityContext context, SchemaTableName table, Set<String> columns)
+    {
+        return columns;
     }
 
     /**

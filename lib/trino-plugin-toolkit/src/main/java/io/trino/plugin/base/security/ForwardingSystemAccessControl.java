@@ -219,6 +219,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public Set<String> filterTableSchema(SystemSecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
+    {
+        return delegate().filterTableSchema(context, tableName, columns);
+    }
+
+    @Override
     public void checkCanAddColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanAddColumn(context, table);

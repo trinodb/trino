@@ -135,6 +135,12 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
+    public Set<String> filterTableSchema(SystemSecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
+    {
+        return columns;
+    }
+
+    @Override
     public void checkCanShowSchemas(SystemSecurityContext context, String catalogName)
     {
     }
