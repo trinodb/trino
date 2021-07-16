@@ -49,6 +49,7 @@ public final class HiveSessionProperties
 {
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
+    private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String PARALLEL_PARTITIONED_BUCKETED_WRITES = "parallel_partitioned_bucketed_writes";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
@@ -140,6 +141,11 @@ public final class HiveSessionProperties
                         VALIDATE_BUCKETING,
                         "Verify that data is bucketed correctly when reading",
                         hiveConfig.isValidateBucketing(),
+                        false),
+                dataSizeProperty(
+                        TARGET_MAX_FILE_SIZE,
+                        "Target maximum size of written files; the actual size may be larger",
+                        hiveConfig.getTargetMaxFileSize(),
                         false),
                 booleanProperty(
                         PARALLEL_PARTITIONED_BUCKETED_WRITES,
@@ -427,6 +433,11 @@ public final class HiveSessionProperties
     public static boolean isValidateBucketing(ConnectorSession session)
     {
         return session.getProperty(VALIDATE_BUCKETING, Boolean.class);
+    }
+
+    public static DataSize getTargetMaxFileSize(ConnectorSession session)
+    {
+        return session.getProperty(TARGET_MAX_FILE_SIZE, DataSize.class);
     }
 
     public static boolean isParallelPartitionedBucketedWrites(ConnectorSession session)
