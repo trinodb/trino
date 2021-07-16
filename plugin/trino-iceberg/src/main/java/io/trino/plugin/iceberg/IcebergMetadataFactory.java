@@ -39,6 +39,6 @@ public class IcebergMetadataFactory
 
     public IcebergMetadata create()
     {
-        return new IcebergMetadata(typeManager, commitTaskCodec, catalogFactory);
+        return new IcebergMetadata(typeManager, commitTaskCodec, catalogFactory.create());
     }
 }

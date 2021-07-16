@@ -74,7 +74,6 @@ import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.exceptions.NamespaceNotEmptyException;
 
 import java.io.IOException;
 import java.util.HashMap;

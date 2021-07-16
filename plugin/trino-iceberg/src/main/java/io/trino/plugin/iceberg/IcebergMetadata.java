@@ -129,11 +129,11 @@ public class IcebergMetadata
     public IcebergMetadata(
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            TrinoCatalogFactory catalogFactory)
+            TrinoCatalog catalog)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
-        this.catalog = requireNonNull(catalogFactory, "catalogFactory is null").create();
+        this.catalog = requireNonNull(catalog, "catalog is null");
     }
 
     @Override
