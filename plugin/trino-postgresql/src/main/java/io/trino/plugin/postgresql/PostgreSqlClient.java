@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.math.LongMath;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.expression.AggregateFunctionRewriter;
+import io.trino.plugin.base.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.BooleanReadFunction;
@@ -43,8 +45,6 @@ import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.expression.ImplementCorr;
@@ -226,7 +226,7 @@ public class PostgreSqlClient
     private final Type uuidType;
     private final MapType varcharMapType;
     private final List<String> tableTypes;
-    private final AggregateFunctionRewriter aggregateFunctionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
 
     private static final PredicatePushdownController POSTGRESQL_CHARACTER_PUSHDOWN = (session, domain) -> {
         checkArgument(
@@ -265,9 +265,9 @@ public class PostgreSqlClient
         this.tableTypes = tableTypes.build();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this::quoted,
-                ImmutableSet.<AggregateFunctionRule>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax())

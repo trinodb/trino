@@ -15,6 +15,8 @@ package io.trino.plugin.mysql;
 
 import com.google.common.collect.ImmutableSet;
 import com.mysql.cj.jdbc.JdbcStatement;
+import io.trino.plugin.base.expression.AggregateFunctionRewriter;
+import io.trino.plugin.base.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -27,8 +29,6 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.expression.ImplementCount;
@@ -143,7 +143,7 @@ public class MySqlClient
     private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
 
     private final Type jsonType;
-    private final AggregateFunctionRewriter aggregateFunctionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
 
     @Inject
     public MySqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, TypeManager typeManager, IdentifierMapping identifierMapping)
@@ -152,9 +152,9 @@ public class MySqlClient
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this::quoted,
-                ImmutableSet.<AggregateFunctionRule>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax())
