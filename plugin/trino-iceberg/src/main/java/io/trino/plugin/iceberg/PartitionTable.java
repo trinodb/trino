@@ -304,6 +304,9 @@ public class PartitionTable
         if (type instanceof Types.FloatType) {
             return Float.floatToIntBits((Float) value);
         }
+        if (type instanceof Types.IntegerType || type instanceof Types.DateType) {
+            return ((Integer) value).longValue();
+        }
         if (type instanceof Types.DecimalType) {
             Types.DecimalType icebergDecimalType = (Types.DecimalType) type;
             DecimalType trinoDecimalType = DecimalType.createDecimalType(icebergDecimalType.precision(), icebergDecimalType.scale());
