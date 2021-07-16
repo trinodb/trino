@@ -44,6 +44,7 @@ import io.trino.sql.rewrite.StatementRewrite.Rewrite;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowFunctions;
 import io.trino.sql.tree.ShowSession;
 import io.trino.sql.tree.Statement;
@@ -177,6 +178,22 @@ public class TestStatementRewrite
                         ")  \"functions\" (\"function_name\", \"return_type\", \"argument_types\", \"function_type\", \"deterministic\", \"description\")\n" +
                         "WHERE (function_name LIKE '%' ESCAPE '$')\n" +
                         "ORDER BY lower(function_name) ASC, \"return_type\" ASC, \"argument_types\" ASC, \"function_type\" ASC\n");
+    }
+
+    @Test
+    public void testShowCatalogs()
+    {
+        assertFormatSql(
+                new ShowCatalogs(Optional.of("%"), Optional.of("$")),
+                SHOW_QUERIES_REWRITE,
+                "SELECT *\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        " VALUES \n" +
+                        "     ROW ('tpch')\n" +
+                        ")  \"catalogs\" (\"Catalog\")\n" +
+                        "WHERE (\"catalog\" LIKE '%' ESCAPE '$')\n" +
+                        "ORDER BY \"Catalog\" ASC");
     }
 
     private void assertFormatSql(Statement node, Rewrite rewriteProvider, String expected)

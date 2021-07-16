@@ -379,7 +379,7 @@ final class ShowQueriesRewrite
 
             return simpleQuery(
                     selectList(new AllColumns()),
-                    aliased(new Values(rows), "catalogs", ImmutableList.of("Catalog")),
+                    aliased(subquery(query(new Values(rows))), "catalogs", ImmutableList.of("Catalog")),
                     predicate,
                     Optional.of(ordering(ascending("Catalog"))));
         }
