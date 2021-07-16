@@ -22,7 +22,6 @@ import static java.util.Objects.requireNonNull;
 public class PinotException
         extends TrinoException
 {
-    private final Optional<String> query;
     private final boolean retryable;
 
     public PinotException(PinotErrorCode errorCode, Optional<String> query, String message)
@@ -42,9 +41,8 @@ public class PinotException
 
     public PinotException(PinotErrorCode errorCode, Optional<String> query, String message, boolean retryable, Throwable throwable)
     {
-        super(requireNonNull(errorCode, "errorCode is null"), requireNonNull(message, "message is null"), throwable);
+        super(requireNonNull(errorCode, "errorCode is null"), formatMessage(query, message), throwable);
         this.retryable = retryable;
-        this.query = requireNonNull(query, "query is null");
     }
 
     public boolean isRetryable()
@@ -52,10 +50,11 @@ public class PinotException
         return retryable;
     }
 
-    @Override
-    public String getMessage()
+    private static String formatMessage(Optional<String> query, String message)
     {
-        String message = super.getMessage();
+        requireNonNull(query, "query is null");
+        requireNonNull(message, "message is null");
+
         if (query.isPresent()) {
             message += " with query \"" + query.get() + "\"";
         }
