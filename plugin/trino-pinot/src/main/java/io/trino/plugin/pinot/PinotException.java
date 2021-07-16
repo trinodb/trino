@@ -23,16 +23,16 @@ public class PinotException
         extends TrinoException
 {
     private final Optional<String> query;
-    private final boolean retriable;
+    private final boolean retryable;
 
     public PinotException(PinotErrorCode errorCode, Optional<String> query, String message)
     {
         this(errorCode, query, message, false, null);
     }
 
-    public PinotException(PinotErrorCode errorCode, Optional<String> query, String message, boolean retriable)
+    public PinotException(PinotErrorCode errorCode, Optional<String> query, String message, boolean retryable)
     {
-        this(errorCode, query, message, retriable, null);
+        this(errorCode, query, message, retryable, null);
     }
 
     public PinotException(PinotErrorCode errorCode, Optional<String> query, String message, Throwable throwable)
@@ -40,16 +40,16 @@ public class PinotException
         this(errorCode, query, message, false, throwable);
     }
 
-    public PinotException(PinotErrorCode errorCode, Optional<String> query, String message, boolean retriable, Throwable throwable)
+    public PinotException(PinotErrorCode errorCode, Optional<String> query, String message, boolean retryable, Throwable throwable)
     {
         super(requireNonNull(errorCode, "errorCode is null"), requireNonNull(message, "message is null"), throwable);
-        this.retriable = retriable;
+        this.retryable = retryable;
         this.query = requireNonNull(query, "query is null");
     }
 
-    public boolean isRetriable()
+    public boolean isRetryable()
     {
-        return retriable;
+        return retryable;
     }
 
     @Override
