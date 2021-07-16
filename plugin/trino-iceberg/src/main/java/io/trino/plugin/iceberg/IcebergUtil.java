@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -46,7 +47,6 @@ import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
@@ -364,7 +364,7 @@ final class IcebergUtil
         TableIdentifier tableId = toTableId(schemaTableName);
 
         if (catalog.tableExists(tableId, session)) {
-            throw new AlreadyExistsException("Table already exists: %s", tableId);
+            throw new TableAlreadyExistsException(schemaTableName);
         }
 
         Schema schema = toIcebergSchema(tableMetadata.getColumns());

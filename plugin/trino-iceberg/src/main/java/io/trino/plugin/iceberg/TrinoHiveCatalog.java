@@ -209,7 +209,6 @@ class TrinoHiveCatalog
 
     @Override
     public boolean dropNamespace(Namespace namespace, ConnectorSession session)
-            throws NamespaceNotEmptyException
     {
         // basic sanity check to provide a better error message
         if (!listTables(namespace, session).isEmpty() ||
