@@ -62,7 +62,7 @@
         <dep.errorprone.version>2.7.1</dep.errorprone.version>
         <dep.testcontainers.version>1.15.3</dep.testcontainers.version>
         <dep.docker-java.version>3.2.8</dep.docker-java.version>
-        <dep.coral.version>1.0.60</dep.coral.version>
+        <dep.coral.version>1.0.999</dep.coral.version> <!-- bump version when released -->
         <dep.confluent.version>5.5.2</dep.confluent.version>
 
         <!--

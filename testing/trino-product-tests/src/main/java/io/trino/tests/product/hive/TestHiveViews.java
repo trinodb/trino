@@ -172,4 +172,96 @@ public class TestHiveViews
                 "SELECT * FROM test_json_tuple_view",
                 queryAssert -> queryAssert.containsOnly(row(3, "Mateusz", "Gajewski", "true", "1000", null, null)));
     }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testFromUtcTimestamp()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS test_from_utc_timestamp_source");
+        onHive().executeQuery("CREATE TABLE test_from_utc_timestamp_source AS SELECT " +
+                "  CAST(123 AS tinyint) source_tinyint, " +
+                "  CAST(10123 AS smallint) source_smallint, " +
+                "  CAST(2592000123 AS int) source_integer, " +
+                "  CAST(2592000123 AS bigint) source_bigint, " +
+                "  CAST(2592000.0 AS float) source_float, " +
+                "  CAST(2592000.123 AS double) source_double, " +
+                "  CAST(2592000.123 AS decimal(10,3)) source_decimal_three," +
+                "  CAST(2592000 AS DECIMAL(10,0)) source_decimal_zero," +
+                "  timestamp '1970-01-30 16:00:00' source_timestamp, " +
+                "  date '1970-01-30' source_date ");
+
+        onHive().executeQuery("DROP VIEW IF EXISTS test_from_utc_timestamp_view");
+        onHive().executeQuery("CREATE VIEW " +
+                "test_from_utc_timestamp_view " +
+                "AS SELECT " +
+                // TODO: TZ identifiers like 'PST' is not supported by Trino; possibly we need a translation map (???)
+                "   CAST(from_utc_timestamp(source_tinyint, 'America/Los_Angeles') AS STRING) ts_tinyint, " +
+                "   CAST(from_utc_timestamp(source_smallint, 'America/Los_Angeles') AS STRING) ts_smallint, " +
+                "   CAST(from_utc_timestamp(source_integer, 'America/Los_Angeles') AS STRING) ts_integer, " +
+                "   CAST(from_utc_timestamp(source_bigint, 'America/Los_Angeles') AS STRING) ts_bigint, " +
+                "   CAST(from_utc_timestamp(source_float, 'America/Los_Angeles') AS STRING) ts_float, " +
+                "   CAST(from_utc_timestamp(source_double, 'America/Los_Angeles') AS STRING) ts_double, " +
+                "   CAST(from_utc_timestamp(source_decimal_three, 'America/Los_Angeles') AS STRING) ts_decimal_three, " +
+                "   CAST(from_utc_timestamp(source_decimal_zero, 'America/Los_Angeles') AS STRING) ts_decimal_zero, " +
+                "   CAST(from_utc_timestamp(source_timestamp, 'America/Los_Angeles') AS STRING) ts_timestamp, " +
+                "   CAST(from_utc_timestamp(source_date, 'America/Los_Angeles') AS STRING) ts_date " +
+                "FROM test_from_utc_timestamp_source");
+
+        // check result on Trino
+        assertThat(query("SELECT * FROM test_from_utc_timestamp_view"))
+                .containsOnly(row(
+                        "1969-12-31 16:00:00.123",
+                        "1969-12-31 16:00:10.123",
+                        "1969-12-11 22:57:12.827",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.000",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.000",
+                        "1970-01-30 08:00:00.000",
+                        "1970-01-29 16:00:00.000"));
+
+        // check result on Hive
+        assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
+                .containsOnly(row(
+                        "1969-12-31 16:00:00.123",
+                        "1969-12-31 16:00:10.123",
+                        "1969-12-11 22:57:12.827",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00",
+                        "1970-01-30 08:00:00",
+                        "1970-01-29 16:00:00"));
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testFromUtcTimestampCornerCases()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS test_from_utc_timestamp_corner_cases_source");
+        onTrino().executeQuery("CREATE TABLE test_from_utc_timestamp_corner_cases_source AS SELECT * FROM (VALUES " +
+                "  CAST(-5000000000001 AS BIGINT)," +
+                "  CAST(-1000000000001 AS BIGINT)," +
+                "  -1," +
+                "  1," +
+                "  5000000000001" +
+                ")" +
+                "AS source(source_bigint)");
+
+        onHive().executeQuery("DROP VIEW IF EXISTS test_from_utc_timestamp_corner_cases_view");
+        onHive().executeQuery("CREATE VIEW " +
+                "test_from_utc_timestamp_corner_cases_view " +
+                "AS SELECT " +
+                "   CAST(from_utc_timestamp(source_bigint, 'America/Los_Angeles') as STRING) ts_bigint " +
+                "FROM test_from_utc_timestamp_corner_cases_source");
+
+        // check result on Trino
+        assertViewQuery("SELECT * FROM test_from_utc_timestamp_corner_cases_view",
+                assertion -> assertion.containsOnly(
+                        row("1811-07-23 07:13:41.999"),
+                        row("1938-04-24 14:13:19.999"),
+                        row("1969-12-31 15:59:59.999"),
+                        row("1969-12-31 16:00:00.001"),
+                        row("2128-06-11 01:53:20.001")));
+    }
 }
