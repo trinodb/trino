@@ -341,7 +341,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "      \"_meta\": {" +
-                "        \"presto\": {" +
+                "        \"trino\": {" +
                 "          \"a\": {" +
                 "            \"b\": {" +
                 "              \"y\": {" +
@@ -469,7 +469,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "      \"_meta\": {" +
-                "        \"presto\": {" +
+                "        \"trino\": {" +
                 "          \"a\": {" +
                 "                \"isArray\": true" +
                 "          }" +
@@ -498,6 +498,103 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery(
                 "SELECT a FROM test_mixed_arrays",
                 "VALUES NULL, ARRAY['hello'], ARRAY['foo', 'bar']");
+    }
+
+    @Test
+    public void testMetaPrestoNamespaceBackwardsCompatibility()
+            throws IOException
+    {
+        String indexNamePresto = "test_meta_backwards_compatibility_presto";
+
+        @Language("JSON")
+        String mappingPresto = "" +
+                "{" +
+                "      \"_meta\": {" +
+                "        \"presto\": {" +
+                "          \"a\": {" +
+                "                \"isArray\": true" +
+                "          }" +
+                "        }" +
+                "      }," +
+                "      \"properties\": {" +
+                "        \"a\": {" +
+                "          \"type\": \"keyword\"" +
+                "        }" +
+                "      }" +
+                "}";
+
+        createIndex(indexNamePresto, mappingPresto);
+
+        index(indexNamePresto, ImmutableMap.<String, Object>builder()
+                .put("a", ImmutableList.of("foo", "bar"))
+                .build());
+
+        assertQuery(
+                "SELECT a FROM test_meta_backwards_compatibility_presto",
+                "VALUES ARRAY['foo', 'bar']");
+
+        String indexNameTrino = "test_meta_backwards_compatibility_trino";
+
+        @Language("JSON")
+        String mappingTrino = "" +
+                "{" +
+                "      \"_meta\": {" +
+                "        \"trino\": {" +
+                "          \"a\": {" +
+                "                \"isArray\": true" +
+                "          }" +
+                "        }" +
+                "      }," +
+                "      \"properties\": {" +
+                "        \"a\": {" +
+                "          \"type\": \"keyword\"" +
+                "        }" +
+                "      }" +
+                "}";
+
+        createIndex(indexNameTrino, mappingTrino);
+
+        index(indexNameTrino, ImmutableMap.<String, Object>builder()
+                .put("a", ImmutableList.of("foo", "bar"))
+                .build());
+
+        assertQuery(
+                "SELECT a FROM test_meta_backwards_compatibility_trino",
+                "VALUES ARRAY['foo', 'bar']");
+
+        String indexNameMixed = "test_meta_backwards_compatibility_mixed";
+
+        @Language("JSON")
+        String mappingMixed = "" +
+                "{" +
+                "      \"_meta\": {" +
+                "        \"trino\": {" +
+                "          \"a\": {" +
+                "                \"isArray\": true" +
+                "          }" +
+                "        }," +
+                "        \"presto\": {" +
+                "          \"b\": {" +
+                "                \"isArray\": true" +
+                "          }" +
+                "        }" +
+                "      }," +
+                "      \"properties\": {" +
+                "        \"a\": {" +
+                "          \"type\": \"keyword\"" +
+                "        }" +
+                "      }" +
+                "}";
+
+        createIndex(indexNameMixed, mappingMixed);
+
+        index(indexNameMixed, ImmutableMap.<String, Object>builder()
+                .put("a", ImmutableList.of("foo", "bar"))
+                .build());
+
+        assertQuery(
+                "SELECT a FROM test_meta_backwards_compatibility_mixed",
+                "VALUES ARRAY['foo', 'bar']");
     }
 
     @Test

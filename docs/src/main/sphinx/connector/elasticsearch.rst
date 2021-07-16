@@ -202,7 +202,7 @@ For example, you can have an Elasticsearch index that contains documents with th
     }
 
 The array fields of this structure can be defined by using the following command to add the field
-property definition to the ``_meta.presto`` property of the target index mapping.
+property definition to the ``_meta.trino`` property of the target index mapping.
 
 .. code-block:: shell
 
@@ -212,7 +212,7 @@ property definition to the ``_meta.presto`` property of the target index mapping
         --data '
     {
         "_meta": {
-            "presto":{
+            "trino":{
                 "array_string_field":{
                     "isArray":true
                 },

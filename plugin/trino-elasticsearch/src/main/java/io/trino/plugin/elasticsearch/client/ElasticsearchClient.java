@@ -544,7 +544,14 @@ public class ElasticsearchClient
 
                 JsonNode metaNode = nullSafeNode(mappings, "_meta");
 
-                return new IndexMetadata(parseType(mappings.get("properties"), nullSafeNode(metaNode, "presto")));
+                JsonNode metaProperties = nullSafeNode(metaNode, "trino");
+
+                //stay backwards compatible with _meta.presto namespace for meta properties for some releases
+                if (metaProperties.isNull()) {
+                    metaProperties = nullSafeNode(metaNode, "presto");
+                }
+
+                return new IndexMetadata(parseType(mappings.get("properties"), metaProperties));
             }
             catch (IOException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
