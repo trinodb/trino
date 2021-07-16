@@ -328,7 +328,7 @@ final class ShowQueriesRewrite
 
             return simpleQuery(
                     selectList(new AllColumns()),
-                    aliased(new Values(rows), "role_grants", ImmutableList.of("Role Grants")),
+                    aliased(subquery(query(new Values(rows))), "role_grants", ImmutableList.of("Role Grants")),
                     ordering(ascending("Role Grants")));
         }
 

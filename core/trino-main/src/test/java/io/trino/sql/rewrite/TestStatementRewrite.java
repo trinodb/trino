@@ -35,6 +35,8 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.SqlFormatterUtil;
@@ -46,6 +48,7 @@ import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowFunctions;
+import io.trino.sql.tree.ShowRoleGrants;
 import io.trino.sql.tree.ShowSession;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.TestingMetadata;
@@ -56,6 +59,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
@@ -64,6 +68,7 @@ import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.QueryUtil.identifier;
@@ -193,7 +198,23 @@ public class TestStatementRewrite
                         "     ROW ('tpch')\n" +
                         ")  \"catalogs\" (\"Catalog\")\n" +
                         "WHERE (\"catalog\" LIKE '%' ESCAPE '$')\n" +
-                        "ORDER BY \"Catalog\" ASC");
+                        "ORDER BY \"Catalog\" ASC\n");
+    }
+
+    @Test
+    public void testShowRoleGrants()
+    {
+        assertFormatSqlWithMockMetadata(
+                new ShowRoleGrants(Optional.empty()),
+                SHOW_QUERIES_REWRITE,
+                "SELECT *\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        " VALUES \n" +
+                        "     ROW ('b1')\n" +
+                        "   , ROW ('b2')\n" +
+                        ")  \"role_grants\" (\"Role Grants\")\n" +
+                        "ORDER BY \"Role Grants\" ASC\n");
     }
 
     private void assertFormatSql(Statement node, Rewrite rewriteProvider, String expected)
@@ -353,6 +374,15 @@ public class TestStatementRewrite
             return ImmutableList.of(
                     getFunctionMetadata("row_number"),
                     getFunctionMetadata("rank"));
+        }
+
+        @Override
+        public Set<RoleGrant> listRoleGrants(Session session, String catalog, TrinoPrincipal principal)
+        {
+            TrinoPrincipal admin = new TrinoPrincipal(USER, "admin");
+            return ImmutableSet.of(
+                    new RoleGrant(admin, "b1", false),
+                    new RoleGrant(admin, "b2", true));
         }
 
         private FunctionMetadata getFunctionMetadata(String name)
