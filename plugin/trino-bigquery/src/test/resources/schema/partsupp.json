@@ -1,0 +1,27 @@
+[
+  {
+    "name": "partkey",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "suppkey",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "availqty",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "supplycost",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "comment",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  }
+]

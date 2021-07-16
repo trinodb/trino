@@ -1,0 +1,37 @@
+[
+  {
+    "name": "suppkey",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "name",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "address",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "nationkey",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "phone",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "acctbal",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "comment",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  }
+]
