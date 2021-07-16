@@ -47,6 +47,6 @@ public class RecordPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
-        return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, table, columns));
+        return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, table, columns, dynamicFilter));
     }
 }
