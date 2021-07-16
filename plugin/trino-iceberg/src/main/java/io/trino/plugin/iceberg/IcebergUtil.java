@@ -159,14 +159,6 @@ final class IcebergUtil
         return columns.build();
     }
 
-    public static String getDataPath(String location)
-    {
-        if (!location.endsWith("/")) {
-            location += "/";
-        }
-        return location + "data";
-    }
-
     public static FileFormat getFileFormat(Table table)
     {
         return FileFormat.valueOf(table.properties()
