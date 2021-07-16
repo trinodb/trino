@@ -44,6 +44,7 @@ import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.ExplainFormat;
 import io.trino.sql.tree.ExplainOption;
 import io.trino.sql.tree.ExplainType;
@@ -891,9 +892,6 @@ public final class SqlFormatter
         protected Void visitExplain(Explain node, Integer indent)
         {
             builder.append("EXPLAIN ");
-            if (node.isAnalyze()) {
-                builder.append("ANALYZE ");
-            }
 
             List<String> options = new ArrayList<>();
 
@@ -915,6 +913,20 @@ public final class SqlFormatter
                 builder.append(")");
             }
 
+            builder.append("\n");
+
+            process(node.getStatement(), indent);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitExplainAnalyze(ExplainAnalyze node, Integer indent)
+        {
+            builder.append("EXPLAIN ANALYZE");
+            if (node.isVerbose()) {
+                builder.append(" VERBOSE");
+            }
             builder.append("\n");
 
             process(node.getStatement(), indent);

@@ -58,7 +58,6 @@ import io.trino.execution.SetViewAuthorizationTask;
 import io.trino.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import io.trino.execution.StartTransactionTask;
 import io.trino.execution.UseTask;
-import io.trino.spi.resourcegroups.QueryType;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.Comment;
@@ -97,11 +96,10 @@ import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.Use;
 
-import java.util.Map;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static io.trino.util.StatementUtils.getAllQueryTypes;
+import static io.trino.util.StatementUtils.getNonDataDefinitionStatements;
+import static io.trino.util.StatementUtils.isDataDefinitionStatement;
 
 public class QueryExecutionFactoryModule
         implements Module
@@ -112,10 +110,9 @@ public class QueryExecutionFactoryModule
         var executionBinder = newMapBinder(binder, new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});
 
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        getAllQueryTypes().entrySet().stream()
-                .filter(entry -> entry.getValue() != QueryType.DATA_DEFINITION)
-                .map(Map.Entry::getKey)
-                .forEach(statement -> executionBinder.addBinding(statement).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON));
+        for (Class<? extends Statement> statement : getNonDataDefinitionStatements()) {
+            executionBinder.addBinding(statement).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        }
 
         binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
         bindDataDefinitionTask(binder, executionBinder, AddColumn.class, AddColumnTask.class);
@@ -162,7 +159,7 @@ public class QueryExecutionFactoryModule
             Class<T> statement,
             Class<? extends DataDefinitionTask<T>> task)
     {
-        checkArgument(getAllQueryTypes().get(statement) == QueryType.DATA_DEFINITION);
+        checkArgument(isDataDefinitionStatement(statement));
         var taskBinder = newMapBinder(binder, new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<DataDefinitionTask<?>>() {});
         taskBinder.addBinding(statement).to(task).in(Scopes.SINGLETON);
         executionBinder.addBinding(statement).to(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);

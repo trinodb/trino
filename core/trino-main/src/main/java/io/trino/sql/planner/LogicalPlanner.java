@@ -72,6 +72,7 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
@@ -277,13 +278,13 @@ public class LogicalPlanner
         if (statement instanceof Query) {
             return createRelationPlan(analysis, (Query) statement);
         }
-        if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
-            return createExplainAnalyzePlan(analysis, (Explain) statement);
+        if (statement instanceof ExplainAnalyze) {
+            return createExplainAnalyzePlan(analysis, (ExplainAnalyze) statement);
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
     }
 
-    private RelationPlan createExplainAnalyzePlan(Analysis analysis, Explain statement)
+    private RelationPlan createExplainAnalyzePlan(Analysis analysis, ExplainAnalyze statement)
     {
         RelationPlan underlyingPlan = planStatementWithoutOutput(analysis, statement.getStatement());
         PlanNode root = underlyingPlan.getRoot();
