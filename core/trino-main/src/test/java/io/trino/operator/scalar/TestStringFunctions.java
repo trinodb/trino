@@ -1092,4 +1092,17 @@ public class TestStringFunctions
         assertInvalidFunction("soundex('jąmes')", "The character is not mapped: Ą (index=195)");
         assertFunction("soundex('x123')", createVarcharType(4), "X000");
     }
+
+    @Test
+    public void testStringFuzzyMatch()
+    {
+        assertFunction("fuzzy_match_simple_ratio('mysmilarstring','myawfullysimilarstirng')", BIGINT, 72L);
+        assertFunction("fuzzy_match_simple_ratio('mysmilarstring','mysimilarstring')", BIGINT, 97L);
+        assertFunction("fuzzy_match_partial_ratio('similar', 'somewhresimlrbetweenthisstring')", BIGINT, 71L);
+        assertFunction("fuzzy_match_token_sort_ratio('order words out of', '  words out of order')", BIGINT, 100L);
+        assertFunction("fuzzy_match_token_sort_partial_ratio('order words out of', '  words out of order')", BIGINT, 100L);
+        assertFunction("fuzzy_match_token_set_ratio('fuzzy was a bear', 'fuzzy fuzzy fuzzy bear')", BIGINT, 100L);
+        assertFunction("fuzzy_match_token_set_partial_ratio('fuzzy was a bear', 'fuzzy fuzzy fuzzy bear')", BIGINT, 100L);
+        assertFunction("fuzzy_match_weighted_ratio('The quick brown fox jimps ofver the small lazy dog', 'the quick brown fox jumps over the small lazy dog')", BIGINT, 97L);
+    }
 }

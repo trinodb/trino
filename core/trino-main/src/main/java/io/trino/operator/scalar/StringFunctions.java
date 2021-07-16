@@ -34,6 +34,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.type.CodePointsType;
 import io.trino.type.Constraint;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
+import me.xdrop.fuzzywuzzy.FuzzySearch;
 import org.apache.commons.codec.language.Soundex;
 
 import java.text.Normalizer;
@@ -967,5 +968,68 @@ public final class StringFunctions
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+    }
+
+    @Description("Returns Fuzzy Match Simple Ratio")
+    @ScalarFunction("fuzzy_match_simple_ratio")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long fuzzyMatchSimpleRatio(@SqlType("varchar(x)") Slice stringX, @SqlType("varchar(y)") Slice stringY)
+    {
+        return FuzzySearch.ratio(stringX.toStringUtf8(), stringY.toStringUtf8());
+    }
+
+    @Description("Returns Fuzzy Match Partial Ratio")
+    @ScalarFunction("fuzzy_match_partial_ratio")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long fuzzyMatchPartialRatio(@SqlType("varchar(x)") Slice stringX, @SqlType("varchar(y)") Slice stringY)
+    {
+        return FuzzySearch.partialRatio(stringX.toStringUtf8(), stringY.toStringUtf8());
+    }
+
+    @Description("Returns Fuzzy Match Weighted Ratio")
+    @ScalarFunction("fuzzy_match_weighted_ratio")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long fuzzyMatchWeightedRatio(@SqlType("varchar(x)") Slice stringX, @SqlType("varchar(y)") Slice stringY)
+    {
+        return FuzzySearch.weightedRatio(stringX.toStringUtf8(), stringY.toStringUtf8());
+    }
+
+    @Description("Returns Fuzzy Match Token Sort Ratio")
+    @ScalarFunction("fuzzy_match_token_sort_ratio")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long fuzzyMatchTokenSortRatio(@SqlType("varchar(x)") Slice stringX, @SqlType("varchar(y)") Slice stringY)
+    {
+        return FuzzySearch.tokenSortRatio(stringX.toStringUtf8(), stringY.toStringUtf8());
+    }
+
+    @Description("Returns Fuzzy Match Token Sort Partial Ratio")
+    @ScalarFunction("fuzzy_match_token_sort_partial_ratio")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long fuzzyMatchTokenSortPartialRatio(@SqlType("varchar(x)") Slice stringX, @SqlType("varchar(y)") Slice stringY)
+    {
+        return FuzzySearch.tokenSortPartialRatio(stringX.toStringUtf8(), stringY.toStringUtf8());
+    }
+
+    @Description("Returns Fuzzy Match Token Set Ratio")
+    @ScalarFunction("fuzzy_match_token_set_ratio")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long fuzzyMatchTokenSetRatio(@SqlType("varchar(x)") Slice stringX, @SqlType("varchar(y)") Slice stringY)
+    {
+        return FuzzySearch.tokenSetRatio(stringX.toStringUtf8(), stringY.toStringUtf8());
+    }
+
+    @Description("Returns Fuzzy Match Token Set Partial Ratio")
+    @ScalarFunction("fuzzy_match_token_set_partial_ratio")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long fuzzyMatchTokenSetPartialRatio(@SqlType("varchar(x)") Slice stringX, @SqlType("varchar(y)") Slice stringY)
+    {
+        return FuzzySearch.tokenSetPartialRatio(stringX.toStringUtf8(), stringY.toStringUtf8());
     }
 }
