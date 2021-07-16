@@ -42,7 +42,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -415,11 +415,11 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createTimestampsWithTimeZoneBlock(Long... values)
+    public static Block createTimestampsWithTimeZoneMillisBlock(Long... values)
     {
-        BlockBuilder builder = TIMESTAMP_WITH_TIME_ZONE.createFixedSizeBlockBuilder(values.length);
+        BlockBuilder builder = TIMESTAMP_TZ_MILLIS.createFixedSizeBlockBuilder(values.length);
         for (long value : values) {
-            TIMESTAMP_WITH_TIME_ZONE.writeLong(builder, value);
+            TIMESTAMP_TZ_MILLIS.writeLong(builder, value);
         }
         return builder.build();
     }
