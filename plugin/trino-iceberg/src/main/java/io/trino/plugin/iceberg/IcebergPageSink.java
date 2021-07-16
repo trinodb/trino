@@ -165,7 +165,8 @@ public class IcebergPageSink
 
             CommitTaskData task = new CommitTaskData(
                     context.getPath().toString(),
-                    new MetricsWrapper(context.writer.getMetrics()),
+                    context.getWriter().getWrittenBytes(),
+                    new MetricsWrapper(context.getWriter().getMetrics()),
                     context.getPartitionData().map(PartitionData::toJson));
 
             commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
