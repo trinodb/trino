@@ -20,12 +20,17 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
+import io.trino.plugin.elasticsearch.aggregation.TermAggregation;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.ObjectType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.PrimitiveType;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.AggregationApplicationResult;
+import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -38,6 +43,8 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
@@ -46,6 +53,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
+import org.elasticsearch.Version;
 
 import javax.inject.Inject;
 
@@ -57,7 +65,10 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.elasticsearch.ElasticsearchConnector.AGGREGATION_PUSHDOWN_ENABLED;
+import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGGREGATION;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -80,6 +91,7 @@ public class ElasticsearchMetadata
         implements ConnectorMetadata
 {
     private static final ObjectMapper JSON_PARSER = new ObjectMapperProvider().get();
+    private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_efgnrtd_";
 
     private static final String PASSTHROUGH_QUERY_SUFFIX = "$query";
     private static final String PASSTHROUGH_QUERY_RESULT_COLUMN_NAME = "result";
@@ -106,6 +118,88 @@ public class ElasticsearchMetadata
         this.client = requireNonNull(client, "client is null");
         requireNonNull(config, "config is null");
         this.schemaName = config.getDefaultSchema();
+    }
+
+    @Override
+    public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            List<AggregateFunction> aggregates,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets)
+    {
+        if (!session.getProperty(AGGREGATION_PUSHDOWN_ENABLED, Boolean.class)) {
+            return Optional.empty();
+        }
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+        if (isPassthroughQuery(handle)) {
+            // aggregation pushdown currently not supported passthrough query
+            return Optional.empty();
+        }
+        Version version = client.getVersion();
+        // in order to support null bucket, we need missing_bucket in composite aggregation which was introduced in 6.4.0
+        if (version.before(ElasticsearchClient.MINIMUM_VERSION_REQUIRE_FOR_AGG_PUSHDOWN)) {
+            return Optional.empty();
+        }
+        // Global aggregation is represented by [[]]
+        verify(!groupingSets.isEmpty(), "No grouping sets provided");
+        if (!handle.getTermAggregations().isEmpty()) {
+            /*
+             applyAggregation may be called multiple times if an aggregation is done over the results of another aggregation
+             for example
+
+              SELECT sum(DISTINCT regionkey) FROM nation
+
+              SELECT max(x)
+                FROM (
+                  SELECT k, sum(v) AS x
+                    FROM t
+                  GROUP BY k)
+             We skip the second one, but the first group by will be still applied
+             */
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
+        ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
+        ImmutableList.Builder<MetricAggregation> metricAggregations = ImmutableList.builder();
+        ImmutableList.Builder<TermAggregation> termAggregations = ImmutableList.builder();
+        for (int i = 0; i < aggregates.size(); i++) {
+            AggregateFunction aggregationFunction = aggregates.get(i);
+            String colName = SYNTHETIC_COLUMN_NAME_PREFIX + i;
+            Optional<MetricAggregation> metricAggregation =
+                    MetricAggregation.handleAggregation(aggregationFunction, assignments, colName);
+            if (metricAggregation.isEmpty()) {
+                return Optional.empty();
+            }
+            ElasticsearchColumnHandle newColumn = new ElasticsearchColumnHandle(
+                    colName,
+                    aggregationFunction.getOutputType(),
+                    // new column never support predicates
+                    false);
+            projections.add(new Variable(colName, aggregationFunction.getOutputType()));
+            resultAssignments.add(new Assignment(colName, newColumn, aggregationFunction.getOutputType()));
+            metricAggregations.add(metricAggregation.get());
+        }
+        for (ColumnHandle columnHandle : groupingSets.get(0)) {
+            Optional<TermAggregation> termAggregation = TermAggregation.fromColumnHandle(columnHandle);
+            if (termAggregation.isEmpty()) {
+                return Optional.empty();
+            }
+            termAggregations.add(termAggregation.get());
+        }
+        List<MetricAggregation> aggregationList = metricAggregations.build();
+        List<TermAggregation> termAggregationList = termAggregations.build();
+        ElasticsearchTableHandle tableHandle = new ElasticsearchTableHandle(
+                AGGREGATION,
+                handle.getSchema(),
+                handle.getIndex(),
+                handle.getConstraint(),
+                handle.getQuery(),
+                handle.getLimit(),
+                termAggregationList,
+                aggregationList);
+        return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
     }
 
     @Override
@@ -448,7 +542,9 @@ public class ElasticsearchMetadata
                 handle.getIndex(),
                 handle.getConstraint(),
                 handle.getQuery(),
-                OptionalLong.of(limit));
+                OptionalLong.of(limit),
+                handle.getTermAggregations(),
+                handle.getMetricAggregations());
 
         return Optional.of(new LimitApplicationResult<>(handle, false, false));
     }
@@ -490,7 +586,9 @@ public class ElasticsearchMetadata
                 handle.getIndex(),
                 newDomain,
                 handle.getQuery(),
-                handle.getLimit());
+                handle.getLimit(),
+                handle.getTermAggregations(),
+                handle.getMetricAggregations());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), false));
     }

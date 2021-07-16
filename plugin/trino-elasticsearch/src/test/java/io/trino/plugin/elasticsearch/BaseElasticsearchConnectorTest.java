@@ -1195,7 +1195,7 @@ public abstract class BaseElasticsearchConnectorTest
 
     protected abstract String indexEndpoint(String index, String docId);
 
-    private void index(String index, Map<String, Object> document)
+    void index(String index, Map<String, Object> document)
             throws IOException
     {
         String json = new ObjectMapper().writeValueAsString(document);
@@ -1221,7 +1221,7 @@ public abstract class BaseElasticsearchConnectorTest
         client.getLowLevelClient().performRequest("PUT", "/" + indexName);
     }
 
-    private void createIndex(String indexName, @Language("JSON") String properties)
+    void createIndex(String indexName, @Language("JSON") String properties)
             throws IOException
     {
         String mappings = indexMapping(properties);

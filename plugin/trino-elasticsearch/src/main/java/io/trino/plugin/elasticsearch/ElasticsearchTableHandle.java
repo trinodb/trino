@@ -15,13 +15,18 @@ package io.trino.plugin.elasticsearch;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
+import io.trino.plugin.elasticsearch.aggregation.TermAggregation;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +35,14 @@ public final class ElasticsearchTableHandle
 {
     public enum Type
     {
-        SCAN, QUERY
+        // constraint/limit may be applied in SCAN mode
+        SCAN,
+        // only query should be applied in QUERY mode
+        QUERY,
+        // constraint/limit/termAggregations/metricAggregations may be applied in AGGREGATION mode.
+        // The order of parameters used for target index should be:
+        //  constraint -> termAggregations/metricAggregations -> limit
+        AGGREGATION
     }
 
     private final Type type;
@@ -39,6 +51,10 @@ public final class ElasticsearchTableHandle
     private final TupleDomain<ColumnHandle> constraint;
     private final Optional<String> query;
     private final OptionalLong limit;
+    // for group by fields
+    private final List<TermAggregation> termAggregations;
+    // for aggregation methods and fields
+    private final List<MetricAggregation> metricAggregations;
 
     public ElasticsearchTableHandle(Type type, String schema, String index, Optional<String> query)
     {
@@ -49,6 +65,8 @@ public final class ElasticsearchTableHandle
 
         constraint = TupleDomain.all();
         limit = OptionalLong.empty();
+        termAggregations = Collections.emptyList();
+        metricAggregations = Collections.emptyList();
     }
 
     @JsonCreator
@@ -58,7 +76,9 @@ public final class ElasticsearchTableHandle
             @JsonProperty("index") String index,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("query") Optional<String> query,
-            @JsonProperty("limit") OptionalLong limit)
+            @JsonProperty("limit") OptionalLong limit,
+            @JsonProperty("aggTerms") List<TermAggregation> termAggregations,
+            @JsonProperty("aggregates") List<MetricAggregation> metricAggregations)
     {
         this.type = requireNonNull(type, "type is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -66,6 +86,8 @@ public final class ElasticsearchTableHandle
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.query = requireNonNull(query, "query is null");
         this.limit = requireNonNull(limit, "limit is null");
+        this.termAggregations = requireNonNull(termAggregations, "aggTerms is null");
+        this.metricAggregations = requireNonNull(metricAggregations, "aggregates is null");
     }
 
     @JsonProperty
@@ -104,6 +126,18 @@ public final class ElasticsearchTableHandle
         return query;
     }
 
+    @JsonProperty
+    public List<TermAggregation> getTermAggregations()
+    {
+        return termAggregations;
+    }
+
+    @JsonProperty
+    public List<MetricAggregation> getMetricAggregations()
+    {
+        return metricAggregations;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -115,17 +149,19 @@ public final class ElasticsearchTableHandle
         }
         ElasticsearchTableHandle that = (ElasticsearchTableHandle) o;
         return type == that.type &&
-                schema.equals(that.schema) &&
-                index.equals(that.index) &&
-                constraint.equals(that.constraint) &&
-                query.equals(that.query) &&
-                limit.equals(that.limit);
+                Objects.equals(schema, that.schema) &&
+                Objects.equals(index, that.index) &&
+                Objects.equals(constraint, that.constraint) &&
+                Objects.equals(query, that.query) &&
+                Objects.equals(limit, that.limit) &&
+                Objects.equals(termAggregations, that.termAggregations) &&
+                Objects.equals(metricAggregations, that.metricAggregations);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, schema, index, constraint, query, limit);
+        return Objects.hash(type, schema, index, constraint, query, limit, termAggregations, metricAggregations);
     }
 
     @Override
@@ -137,6 +173,16 @@ public final class ElasticsearchTableHandle
         StringBuilder attributes = new StringBuilder();
         limit.ifPresent(value -> attributes.append("limit=" + value));
         query.ifPresent(value -> attributes.append("query" + value));
+        if (termAggregations != null) {
+            attributes.append("termAggregations[");
+            attributes.append(termAggregations.stream().map(TermAggregation::toString).collect(Collectors.joining(",")));
+            attributes.append("]");
+        }
+        if (metricAggregations != null) {
+            attributes.append("metricAggregations[");
+            attributes.append(metricAggregations.stream().map(MetricAggregation::toString).collect(Collectors.joining(",")));
+            attributes.append("]");
+        }
 
         if (attributes.length() > 0) {
             builder.append("(");

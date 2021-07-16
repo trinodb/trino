@@ -15,23 +15,25 @@ package io.trino.plugin.elasticsearch;
 
 import static java.lang.String.format;
 
-public class TestElasticsearch7ConnectorTest
+public class TestElasticsearch64ConnectorTest
         extends BaseAggregationPushDownTest
 {
-    public TestElasticsearch7ConnectorTest()
+    public TestElasticsearch64ConnectorTest()
     {
-        super("elasticsearch:7.0.0");
+        super("docker.elastic.co/elasticsearch/elasticsearch:6.4.0");
     }
 
     @Override
     protected String indexEndpoint(String index, String docId)
     {
-        return format("/%s/_doc/%s", index, docId);
+        return format("/%s/doc/%s", index, docId);
     }
 
     @Override
     protected String indexMapping(String properties)
     {
-        return "{\"mappings\": " + properties + "}";
+        return "{\"mappings\": " +
+                "  {\"doc\": " + properties + "}" +
+                "}";
     }
 }

@@ -54,9 +54,11 @@ public class ElasticsearchConfig
         PASSWORD,
     }
 
+    private boolean aggregationPushdownEnabled = true;
     private String host;
     private int port = 9200;
     private String defaultSchema = "default";
+    private int pageSize = 1_000;
     private int scrollSize = 1_000;
     private Duration scrollTimeout = new Duration(1, MINUTES);
     private Duration requestTimeout = new Duration(10, SECONDS);
@@ -77,6 +79,19 @@ public class ElasticsearchConfig
     private boolean verifyHostnames = true;
 
     private Security security;
+
+    public boolean isAggregationPushdownEnabled()
+    {
+        return aggregationPushdownEnabled;
+    }
+
+    @Config("elasticsearch.aggregation-pushdown.enabled")
+    @ConfigDescription("Enable aggregation pushdown")
+    public ElasticsearchConfig setAggregationPushdownEnabled(boolean aggregationPushdownEnabled)
+    {
+        this.aggregationPushdownEnabled = aggregationPushdownEnabled;
+        return this;
+    }
 
     @NotNull
     public String getHost()
@@ -114,6 +129,21 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setDefaultSchema(String defaultSchema)
     {
         this.defaultSchema = defaultSchema;
+        return this;
+    }
+
+    @NotNull
+    @Min(1)
+    public int getPageSize()
+    {
+        return pageSize;
+    }
+
+    @Config("elasticsearch.page-size")
+    @ConfigDescription("Page size used by composite aggregation and aggregation push down")
+    public ElasticsearchConfig setPageSize(int pageSize)
+    {
+        this.pageSize = pageSize;
         return this;
     }
 

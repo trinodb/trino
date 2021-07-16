@@ -28,6 +28,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGGREGATION;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static java.util.Objects.requireNonNull;
 
@@ -35,11 +36,14 @@ public class ElasticsearchPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final ElasticsearchClient client;
+    private final int pageSize;
 
     @Inject
-    public ElasticsearchPageSourceProvider(ElasticsearchClient client)
+    public ElasticsearchPageSourceProvider(ElasticsearchClient client, ElasticsearchConfig config)
     {
         this.client = requireNonNull(client, "client is null");
+        requireNonNull(config, "config is null");
+        this.pageSize = config.getPageSize();
     }
 
     @Override
@@ -59,6 +63,17 @@ public class ElasticsearchPageSourceProvider
 
         if (elasticsearchTable.getType().equals(QUERY)) {
             return new PassthroughQueryPageSource(client, elasticsearchTable);
+        }
+
+        if (elasticsearchTable.getType().equals(AGGREGATION)) {
+            return new AggregationQueryPageSource(
+                    client,
+                    elasticsearchTable,
+                    elasticsearchSplit,
+                    columns.stream()
+                            .map(ElasticsearchColumnHandle.class::cast)
+                            .collect(toImmutableList()),
+                    pageSize);
         }
 
         if (columns.isEmpty()) {

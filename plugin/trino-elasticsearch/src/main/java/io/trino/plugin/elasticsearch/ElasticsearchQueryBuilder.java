@@ -13,7 +13,14 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
+import io.trino.plugin.elasticsearch.aggregation.TermAggregation;
+import io.trino.plugin.elasticsearch.client.composite.CompositeAggregationBuilder;
+import io.trino.plugin.elasticsearch.client.composite.CompositeValuesSourceBuilder;
+import io.trino.plugin.elasticsearch.client.composite.TermsValuesSourceBuilder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -25,13 +32,21 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.avg.AvgAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.max.MaxAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.min.MinAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.stats.StatsAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.valuecount.ValueCountAggregationBuilder;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -53,6 +68,67 @@ import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 public final class ElasticsearchQueryBuilder
 {
     private ElasticsearchQueryBuilder() {}
+
+    private static final Map<String, BiFunction<String, String, AggregationBuilder>> CONVERTERS =
+            ImmutableMap.of(MetricAggregation.MAX, (alias, field) -> new MaxAggregationBuilder(alias).field(field),
+                    MetricAggregation.MIN, (alias, field) -> new MinAggregationBuilder(alias).field(field),
+                    MetricAggregation.SUM, (alias, field) -> new StatsAggregationBuilder(alias).field(field),
+                    MetricAggregation.AVG, (alias, field) -> new AvgAggregationBuilder(alias).field(field),
+                    MetricAggregation.COUNT, (alias, field) -> new ValueCountAggregationBuilder(alias, null).field(field));
+
+    private static AggregationBuilder buildMetricAggregation(MetricAggregation aggregation)
+    {
+        Optional<ElasticsearchColumnHandle> column = aggregation.getColumnHandle();
+        String field;
+        if (column.isEmpty()) {
+            field = "_id"; // use value_count("_id") aggregation to resolve count(*)
+        }
+        else {
+            field = column.get().getName();
+        }
+        return CONVERTERS.get(aggregation.getFunctionName()).apply(aggregation.getAlias(), field);
+    }
+
+    public static List<AggregationBuilder> buildAggregationQuery(List<TermAggregation> termAggregations, List<MetricAggregation> aggregates)
+    {
+        return buildAggregationQuery(termAggregations, aggregates, Optional.empty(), Optional.empty());
+    }
+
+    public static List<AggregationBuilder> buildAggregationQuery(
+            List<TermAggregation> termAggregations,
+            List<MetricAggregation> aggregates,
+            Optional<Integer> pageSize,
+            Optional<Map<String, Object>> after)
+    {
+        ImmutableList.Builder<AggregationBuilder> aggregationsBuilder = ImmutableList.builder();
+        CompositeAggregationBuilder compositeAggregationBuilder = null;
+        if (termAggregations != null && !termAggregations.isEmpty()) {
+            ImmutableList.Builder<CompositeValuesSourceBuilder<?>> compositeValuesSourceListBuilder = ImmutableList.builder();
+            for (TermAggregation termAggregation : termAggregations) {
+                compositeValuesSourceListBuilder.add(new TermsValuesSourceBuilder(termAggregation.getTerm())
+                        .field(termAggregation.getTerm()).missingBucket(true));
+            }
+            compositeAggregationBuilder = new CompositeAggregationBuilder("groupBy", compositeValuesSourceListBuilder.build());
+            // pagination
+            pageSize.ifPresent(compositeAggregationBuilder::size);
+            after.ifPresent(compositeAggregationBuilder::aggregateAfter);
+            aggregationsBuilder.add(compositeAggregationBuilder);
+        }
+        if (aggregates != null && !aggregates.isEmpty()) {
+            for (MetricAggregation aggregation : aggregates) {
+                AggregationBuilder subAggregation = buildMetricAggregation(aggregation);
+                if (subAggregation != null) {
+                    if (compositeAggregationBuilder != null) {
+                        compositeAggregationBuilder.subAggregation(subAggregation);
+                    }
+                    else {
+                        aggregationsBuilder.add(subAggregation);
+                    }
+                }
+            }
+        }
+        return aggregationsBuilder.build();
+    }
 
     public static QueryBuilder buildSearchQuery(TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query)
     {
