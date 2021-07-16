@@ -701,7 +701,7 @@ final class ShowQueriesRewrite
                     selectAll(columns.entrySet().stream()
                             .map(entry -> aliasedName(entry.getKey(), entry.getValue()))
                             .collect(toImmutableList())),
-                    aliased(new Values(rows), "functions", ImmutableList.copyOf(columns.keySet())),
+                    aliased(subquery(query(new Values(rows))), "functions", ImmutableList.copyOf(columns.keySet())),
                     node.getLikePattern().map(like ->
                             new LikePredicate(
                                     identifier("function_name"),

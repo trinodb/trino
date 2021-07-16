@@ -22,6 +22,7 @@ import io.trino.connector.system.SystemConnector;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
@@ -42,6 +43,8 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.rewrite.StatementRewrite.Rewrite;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.ShowFunctions;
 import io.trino.sql.tree.ShowSession;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.TestingMetadata;
@@ -151,6 +154,29 @@ public class TestStatementRewrite
                         "   , ROW ('', '', '', '', '', false)\n" +
                         ")  \"session\" (\"name\", \"value\", \"default\", \"type\", \"description\", \"include\")\n" +
                         "WHERE (include AND (name LIKE '%' ESCAPE '$'))\n");
+    }
+
+    @Test
+    public void testShowFunctions()
+    {
+        assertFormatSqlWithMockMetadata(
+                new ShowFunctions(Optional.of("%"), Optional.of("$")),
+                SHOW_QUERIES_REWRITE,
+                "SELECT\n" +
+                        "  \"function_name\" \"Function\"\n" +
+                        ", \"return_type\" \"Return Type\"\n" +
+                        ", \"argument_types\" \"Argument Types\"\n" +
+                        ", \"function_type\" \"Function Type\"\n" +
+                        ", \"deterministic\" \"Deterministic\"\n" +
+                        ", \"description\" \"Description\"\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        " VALUES \n" +
+                        "     ROW ('row_number', 'bigint', '', 'window', true, '')\n" +
+                        "   , ROW ('rank', 'bigint', '', 'window', true, '')\n" +
+                        ")  \"functions\" (\"function_name\", \"return_type\", \"argument_types\", \"function_type\", \"deterministic\", \"description\")\n" +
+                        "WHERE (function_name LIKE '%' ESCAPE '$')\n" +
+                        "ORDER BY lower(function_name) ASC, \"return_type\" ASC, \"argument_types\" ASC, \"function_type\" ASC\n");
     }
 
     private void assertFormatSql(Statement node, Rewrite rewriteProvider, String expected)
@@ -302,6 +328,19 @@ public class TestStatementRewrite
         public Map<String, CatalogName> getCatalogNames(Session session)
         {
             return delegate.getCatalogNames(session);
+        }
+
+        @Override
+        public List<FunctionMetadata> listFunctions()
+        {
+            return ImmutableList.of(
+                    getFunctionMetadata("row_number"),
+                    getFunctionMetadata("rank"));
+        }
+
+        private FunctionMetadata getFunctionMetadata(String name)
+        {
+            return delegate.getFunctionMetadata(delegate.resolveFunction(QualifiedName.of(name), ImmutableList.of()));
         }
     }
 }
