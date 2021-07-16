@@ -74,12 +74,12 @@ public final class QueryUtil
 
     public static SelectItem unaliasedName(String name)
     {
-        return new SingleColumn(identifier(name));
+        return new SingleColumn(quotedIdentifier(name));
     }
 
     public static SelectItem aliasedName(String name, String alias)
     {
-        return new SingleColumn(identifier(name), identifier(alias));
+        return new SingleColumn(quotedIdentifier(name), quotedIdentifier(alias));
     }
 
     public static Select selectList(Expression... expressions)
@@ -118,7 +118,7 @@ public final class QueryUtil
 
     public static SortItem ascending(String name)
     {
-        return new SortItem(identifier(name), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED);
+        return new SortItem(quotedIdentifier(name), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED);
     }
 
     public static Expression logicalAnd(Expression left, Expression right)
@@ -153,14 +153,14 @@ public final class QueryUtil
 
     public static Relation aliased(Relation relation, String alias)
     {
-        return new AliasedRelation(relation, identifier(alias), null);
+        return new AliasedRelation(relation, quotedIdentifier(alias), null);
     }
 
     public static Relation aliased(Relation relation, String alias, List<String> columnAliases)
     {
         return new AliasedRelation(
                 relation,
-                identifier(alias),
+                quotedIdentifier(alias),
                 columnAliases.stream()
                         .map(QueryUtil::quotedIdentifier)
                         .collect(Collectors.toList()));
@@ -168,7 +168,7 @@ public final class QueryUtil
 
     public static SelectItem aliasedNullToEmpty(String column, String alias)
     {
-        return new SingleColumn(new CoalesceExpression(identifier(column), new StringLiteral("")), identifier(alias));
+        return new SingleColumn(new CoalesceExpression(quotedIdentifier(column), new StringLiteral("")), quotedIdentifier(alias));
     }
 
     public static OrderBy ordering(SortItem... items)

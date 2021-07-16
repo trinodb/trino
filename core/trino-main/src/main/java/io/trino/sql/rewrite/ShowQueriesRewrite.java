@@ -125,6 +125,7 @@ import static io.trino.sql.QueryUtil.functionCall;
 import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.QueryUtil.logicalAnd;
 import static io.trino.sql.QueryUtil.ordering;
+import static io.trino.sql.QueryUtil.quotedIdentifier;
 import static io.trino.sql.QueryUtil.row;
 import static io.trino.sql.QueryUtil.selectAll;
 import static io.trino.sql.QueryUtil.selectList;
@@ -369,7 +370,7 @@ final class ShowQueriesRewrite
             }
             else if (node.getLikePattern().isPresent()) {
                 predicate = Optional.of(new LikePredicate(
-                        identifier("catalog"),
+                        quotedIdentifier("catalog"),
                         new StringLiteral(node.getLikePattern().get()),
                         node.getEscape().map(StringLiteral::new)));
             }
