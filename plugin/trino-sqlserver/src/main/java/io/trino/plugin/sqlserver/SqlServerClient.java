@@ -423,6 +423,13 @@ public class SqlServerClient
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        // Remote database can be case insensitive.
+        return preventTextualTypeAggregationPushdown(aggregates, groupingSets);
+    }
+
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
         return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
