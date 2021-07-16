@@ -14,30 +14,23 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.trino.server.PluginManager.PluginsProvider;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.server.Server.start;
 
 public final class DevelopmentServer
-        extends Server
 {
     private DevelopmentServer() {}
 
-    @Override
-    protected Iterable<? extends Module> getAdditionalModules()
+    public static void main(String[] args)
     {
-        return ImmutableList.of(binder -> {
+        start("dev", ImmutableList.of(binder -> {
             newOptionalBinder(binder, PluginsProvider.class).setBinding()
                     .to(DevelopmentPluginsProvider.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(DevelopmentLoaderConfig.class);
-        });
-    }
-
-    public static void main(String[] args)
-    {
-        new DevelopmentServer().start("dev");
+        }));
     }
 }
