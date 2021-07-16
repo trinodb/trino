@@ -1896,12 +1896,14 @@ public class HiveMetadata
     @Override
     public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
+        // Not checking if source view exists as this is already done in RenameViewTask
         metastore.renameTable(new HiveIdentity(session), source.getSchemaName(), source.getTableName(), target.getSchemaName(), target.getTableName());
     }
 
     @Override
     public void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
     {
+        // Not checking if view exists as this is already done in SetViewAuthorizationTask
         setTableAuthorization(session, viewName, principal);
     }
 
