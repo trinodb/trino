@@ -49,6 +49,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.ColorType.COLOR;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
@@ -533,7 +534,7 @@ public final class BlockAssertions
         BlockBuilder builder = TIMESTAMP_MILLIS.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
-            TIMESTAMP_MILLIS.writeLong(builder, i * MICROSECONDS_PER_MILLISECOND);
+            TIMESTAMP_MILLIS.writeLong(builder, multiplyExact(i, MICROSECONDS_PER_MILLISECOND));
         }
 
         return builder.build();
