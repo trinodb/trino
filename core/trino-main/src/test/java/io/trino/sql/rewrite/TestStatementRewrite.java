@@ -36,9 +36,10 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.SqlFormatterUtil;
 import io.trino.sql.analyzer.FeaturesConfig;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.rewrite.StatementRewrite.Rewrite;
+import io.trino.sql.tree.DescribeInput;
+import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.TestingMetadata;
 import io.trino.transaction.TransactionManager;
@@ -56,12 +57,14 @@ import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStatementRewrite
 {
@@ -77,7 +80,6 @@ public class TestStatementRewrite
             .build();
 
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final DescribeOutputRewrite DESCRIBE_OUTPUT_REWRITE = new DescribeOutputRewrite();
 
     private TransactionManager transactionManager;
     private AccessControlManager accessControl;
@@ -86,28 +88,50 @@ public class TestStatementRewrite
     @Test
     public void testDescribeOutputFormatSql()
     {
-        transaction(transactionManager, accessControl)
-                .readUncommitted()
-                .execute(beginTransaction(CLIENT_SESSION_BUILDER), session -> {
-                    Statement root = SQL_PARSER.createStatement("DESCRIBE OUTPUT q1", new ParsingOptions());
-                    Statement rewrittenNode = rewrite(session, root, DESCRIBE_OUTPUT_REWRITE);
-                    // SqlFormatterUtil#getFormattedSql will parse query and assert query round-trip inside.
-                    // We don't need to add extra asserting.
-                    SqlFormatterUtil.getFormattedSql(rewrittenNode, SQL_PARSER);
-                });
+        assertFormatSql(
+                new DescribeOutput(identifier("q1")),
+                new DescribeOutputRewrite(),
+                "SELECT\n" +
+                        "  \"Column Name\"\n" +
+                        ", \"Catalog\"\n" +
+                        ", \"Schema\"\n" +
+                        ", \"Table\"\n" +
+                        ", \"Type\"\n" +
+                        ", \"Type Size\"\n" +
+                        ", \"Aliased\"\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        " VALUES \n" +
+                        "     ROW ('a', 'tpch', 's1', 't1', 'bigint', 8, false)\n" +
+                        "   , ROW ('col2', '', '', '', 'unknown', 1, true)\n" +
+                        ")  \"Statement Output\" (\"Column Name\", \"Catalog\", \"Schema\", \"Table\", \"Type\", \"Type Size\", \"Aliased\")\n");
     }
 
     @Test
     public void testDescribeInputFormatSql()
     {
+        assertFormatSql(
+                new DescribeInput(identifier("q1")),
+                new DescribeInputRewrite(),
+                "SELECT\n" +
+                        "  \"Position\"\n" +
+                        ", \"Type\"\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        " VALUES \n" +
+                        "     ROW (0, 'unknown')\n" +
+                        ")  \"Parameter Input\" (\"Position\", \"Type\")\n" +
+                        "ORDER BY Position ASC\n");
+    }
+
+    private void assertFormatSql(Statement node, Rewrite rewriteProvider, String expected)
+    {
         transaction(transactionManager, accessControl)
                 .readUncommitted()
                 .execute(beginTransaction(CLIENT_SESSION_BUILDER), session -> {
-                    Statement root = SQL_PARSER.createStatement("DESCRIBE INPUT q1", new ParsingOptions());
-                    Statement rewrittenNode = rewrite(session, root, DESCRIBE_OUTPUT_REWRITE);
-                    // SqlFormatterUtil#getFormattedSql will parse query and assert query round-trip inside.
-                    // We don't need to add extra asserting.
-                    SqlFormatterUtil.getFormattedSql(rewrittenNode, SQL_PARSER);
+                    Statement rewrittenNode = rewrite(session, node, rewriteProvider);
+                    String actual = SqlFormatterUtil.getFormattedSql(rewrittenNode, SQL_PARSER);
+                    assertThat(actual).isEqualTo(expected);
                 });
     }
 
