@@ -232,7 +232,7 @@ jobs:
             !:trino-mongodb,!:trino-kafka,!:trino-elasticsearch,
             !:trino-redis,
             !:trino-sqlserver,!:trino-postgresql,!:trino-mysql,!:trino-memsql,
-            !:trino-oracle,
+            !:trino-oracle,!:trino-vertica,
             !:trino-kudu,
             !:trino-iceberg,!:trino-druid,
             !:trino-phoenix,!:trino-phoenix5,
@@ -257,7 +257,7 @@ jobs:
           - ":trino-elasticsearch -P test-stats"
           - ":trino-redis"
           - ":trino-sqlserver,:trino-postgresql,:trino-mysql"
-          - ":trino-oracle"
+          - ":trino-oracle,:trino-vertica"
           - ":trino-kudu"
           - ":trino-iceberg,:trino-druid"
           - ":trino-phoenix,:trino-phoenix5"
