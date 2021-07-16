@@ -157,7 +157,7 @@ public class MySqlClient
                 ImmutableSet.<AggregateFunctionRule>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementMinMax())
+                        .add(new ImplementMinMax(false))
                         .add(new ImplementSum(MySqlClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
@@ -174,6 +174,13 @@ public class MySqlClient
     {
         // TODO support complex ConnectorExpressions
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        // Remote database can be case insensitive.
+        return preventTextualTypeAggregationPushdown(groupingSets);
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)

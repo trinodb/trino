@@ -950,6 +950,25 @@ public abstract class BaseJdbcClient
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
+    protected static boolean preventTextualTypeAggregationPushdown(List<List<ColumnHandle>> groupingSets)
+    {
+        // Remote database can be case insensitive or sorts textual types differently than Trino.
+        // In such cases we should not pushdown aggregations if the grouping set contains a textual type.
+        if (!groupingSets.isEmpty()) {
+            for (List<ColumnHandle> groupingSet : groupingSets) {
+                boolean hasCaseSensitiveGroupingSet = groupingSet.stream()
+                        .map(columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnType())
+                        // this may catch more cases than required (e.g. MONEY in Postgres) but doesn't affect correctness
+                        .anyMatch(type -> type instanceof VarcharType || type instanceof CharType);
+                if (hasCaseSensitiveGroupingSet) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     @Override
     public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
