@@ -20,6 +20,8 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.VarcharType;
 
 import java.util.Optional;
 import java.util.Set;
@@ -40,6 +42,13 @@ public class ImplementMinMax
 {
     private static final Capture<Variable> INPUT = newCapture();
 
+    private final boolean isRemoteCollationSensitive;
+
+    public ImplementMinMax(boolean isRemoteCollationSensitive)
+    {
+        this.isRemoteCollationSensitive = isRemoteCollationSensitive;
+    }
+
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
@@ -54,6 +63,11 @@ public class ImplementMinMax
         Variable input = captures.get(INPUT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
         verify(columnHandle.getColumnType().equals(aggregateFunction.getOutputType()));
+
+        // Remote database is case insensitive or sorts values differently from Trino
+        if (!isRemoteCollationSensitive && (columnHandle.getColumnType() instanceof CharType || columnHandle.getColumnType() instanceof VarcharType)) {
+            return Optional.empty();
+        }
 
         return Optional.of(new JdbcExpression(
                 format("%s(%s)", aggregateFunction.getFunctionName(), context.getIdentifierQuote().apply(columnHandle.getColumnName())),
