@@ -24,6 +24,7 @@ import com.google.common.primitives.Primitives;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.mongodb.DBRef;
 import com.mongodb.MongoClient;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
@@ -77,6 +78,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -107,6 +109,10 @@ public class MongoSession
     private static final String LT_OP = "$lt";
     private static final String LTE_OP = "$lte";
     private static final String IN_OP = "$in";
+
+    private static final String DATABASE_NAME = "databaseName";
+    private static final String COLLECTION_NAME = "collectionName";
+    private static final String ID = "id";
 
     private final TypeManager typeManager;
     private final MongoClient client;
@@ -639,6 +645,18 @@ public class MongoSession
             if (!parameters.isEmpty()) {
                 typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
             }
+        }
+        else if (value instanceof DBRef) {
+            List<TypeSignatureParameter> parameters = new ArrayList<>();
+
+            TypeSignature idFieldType = guessFieldType(((DBRef) value).getId())
+                    .orElseThrow(() -> new UnsupportedOperationException("Unable to guess $id field type of DBRef from: " + ((DBRef) value).getId()));
+
+            parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(DATABASE_NAME)), VARCHAR.getTypeSignature())));
+            parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(COLLECTION_NAME)), VARCHAR.getTypeSignature())));
+            parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(ID)), idFieldType)));
+
+            typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
         }
 
         return Optional.ofNullable(typeSignature);
