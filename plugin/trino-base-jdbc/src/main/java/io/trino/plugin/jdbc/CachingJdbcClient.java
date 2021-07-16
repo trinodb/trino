@@ -170,9 +170,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
-        return delegate.supportsAggregationPushdown(session, table, groupingSets);
+        return delegate.supportsAggregationPushdown(session, table, aggregates, assignments, groupingSets);
     }
 
     @Override

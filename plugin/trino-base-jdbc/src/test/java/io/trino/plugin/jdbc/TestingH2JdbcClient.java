@@ -76,7 +76,7 @@ class TestingH2JdbcClient
     }
 
     @Override
-    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
         // GROUP BY with GROUPING SETS is not supported
         return groupingSets.size() == 1;
