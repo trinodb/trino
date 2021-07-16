@@ -223,8 +223,9 @@ SET<?>            VARCHAR
 SMALLINT          SMALLINT
 TEXT              VARCHAR
 TIMESTAMP         TIMESTAMP(3) WITH TIME ZONE
-TIMEUUID          VARCHAR
+TIMEUUID          UUID
 TINYINT           TINYINT
+UUID              UUID
 VARCHAR           VARCHAR
 VARIANT           VARCHAR
 ================  ======

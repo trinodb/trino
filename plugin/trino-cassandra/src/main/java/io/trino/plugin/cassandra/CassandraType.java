@@ -33,6 +33,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
@@ -43,12 +44,14 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -57,6 +60,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Long.reverseBytes;
 import static java.util.Objects.requireNonNull;
 
 public enum CassandraType
@@ -81,8 +85,8 @@ public enum CassandraType
 
     BLOB(VarbinaryType.VARBINARY),
 
-    UUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH)),
-    TIMEUUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH)),
+    UUID(UuidType.UUID),
+    TIMEUUID(UuidType.UUID),
     COUNTER(BigintType.BIGINT),
     VARINT(createUnboundedVarcharType()),
     INET(createVarcharType(Constants.IP_ADDRESS_STRING_MAX_LENGTH)),
@@ -95,7 +99,6 @@ public enum CassandraType
 
     private static final class Constants
     {
-        private static final int UUID_STRING_MAX_LENGTH = 36;
         // IPv4: 255.255.255.255 - 15 characters
         // IPv6: FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF - 39 characters
         // IPv4 embedded into IPv6: FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:255.255.255.255 - 45 characters
@@ -198,7 +201,8 @@ public enum CassandraType
                 return NullableValue.of(trinoType, row.getDecimal(position).doubleValue());
             case UUID:
             case TIMEUUID:
-                return NullableValue.of(trinoType, utf8Slice(row.getUUID(position).toString()));
+                UUID uuid = row.getUUID(position);
+                return NullableValue.of(trinoType, wrappedLongArray(reverseBytes(uuid.getMostSignificantBits()), reverseBytes(uuid.getLeastSignificantBits())));
             case TIMESTAMP:
                 return NullableValue.of(trinoType, packDateTimeWithZone(row.getTimestamp(position).getTime(), TimeZoneKey.UTC_KEY));
             case DATE:
@@ -505,6 +509,9 @@ public enum CassandraType
         }
         if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
             return TIMESTAMP;
+        }
+        if (type.equals(UuidType.UUID)) {
+            return UUID;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }

@@ -56,6 +56,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -249,7 +250,7 @@ public class TestCassandraConnectorTest
         String sql = "SELECT *" +
                 " FROM " + TABLE_ALL_TYPES_PARTITION_KEY +
                 " WHERE key = 'key 7'" +
-                " AND typeuuid = '00000000-0000-0000-0000-000000000007'" +
+                " AND typeuuid = UUID '00000000-0000-0000-0000-000000000007'" +
                 " AND typeinteger = 7" +
                 " AND typelong = 1007" +
                 " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(Ints.toByteArray(7))) + "')" +
@@ -262,7 +263,7 @@ public class TestCassandraConnectorTest
                 " AND typeinet = '127.0.0.1'" +
                 " AND typevarchar = 'varchar 7'" +
                 " AND typevarint = '10000000'" +
-                " AND typetimeuuid = 'd2177dd0-eaa2-11de-a572-001b779c76e7'" +
+                " AND typetimeuuid = UUID 'd2177dd0-eaa2-11de-a572-001b779c76e7'" +
                 " AND typelist = '[\"list-value-17\",\"list-value-27\"]'" +
                 " AND typemap = '{7:8,9:10}'" +
                 " AND typeset = '[false,true]'" +
@@ -714,7 +715,7 @@ public class TestCassandraConnectorTest
         assertEquals(execute(sql).getRowCount(), 0);
 
         // TODO Following types are not supported now. We need to change null into the value after fixing it
-        // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, timeuuid, decimal, uuid, varint
+        // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, decimal, varint
         // timestamp can be inserted but the expected and actual values are not same
         execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
                 "key," +
@@ -737,7 +738,7 @@ public class TestCassandraConnectorTest
                 "typeset" +
                 ") VALUES (" +
                 "'key1', " +
-                "null, " +
+                "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59', " +
                 "1, " +
                 "1000, " +
                 "null, " +
@@ -750,7 +751,7 @@ public class TestCassandraConnectorTest
                 "null, " +
                 "'varchar1', " +
                 "null, " +
-                "null, " +
+                "UUID '50554d6e-29bb-11e5-b345-feff819cdc9f', " +
                 "null, " +
                 "null, " +
                 "null " +
@@ -761,7 +762,7 @@ public class TestCassandraConnectorTest
         assertEquals(rowCount, 1);
         assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
                 "key1",
-                null,
+                java.util.UUID.fromString("12151fd2-7586-11e9-8f9e-2a86e4085a59"),
                 1,
                 1000L,
                 null,
@@ -774,7 +775,7 @@ public class TestCassandraConnectorTest
                 null,
                 "varchar1",
                 null,
-                null,
+                java.util.UUID.fromString("50554d6e-29bb-11e5-b345-feff819cdc9f"),
                 null,
                 null,
                 null));
@@ -924,7 +925,7 @@ public class TestCassandraConnectorTest
         assertEquals(rowCount, 9);
         assertEquals(result.getTypes(), ImmutableList.of(
                 createUnboundedVarcharType(),
-                uuidType,
+                UUID,
                 INTEGER,
                 BIGINT,
                 VARBINARY,
@@ -937,7 +938,7 @@ public class TestCassandraConnectorTest
                 inetType,
                 createUnboundedVarcharType(),
                 createUnboundedVarcharType(),
-                uuidType,
+                UUID,
                 createUnboundedVarcharType(),
                 createUnboundedVarcharType(),
                 createUnboundedVarcharType()));
@@ -949,7 +950,7 @@ public class TestCassandraConnectorTest
         for (int rowNumber = 1; rowNumber <= rowCount; rowNumber++) {
             assertEquals(sortedRows.get(rowNumber - 1), new MaterializedRow(DEFAULT_PRECISION,
                     "key " + rowNumber,
-                    format("00000000-0000-0000-0000-%012d", rowNumber),
+                    java.util.UUID.fromString(format("00000000-0000-0000-0000-%012d", rowNumber)),
                     rowNumber,
                     rowNumber + 1000L,
                     ByteBuffer.wrap(Ints.toByteArray(rowNumber)),
@@ -962,7 +963,7 @@ public class TestCassandraConnectorTest
                     "127.0.0.1",
                     "varchar " + rowNumber,
                     BigInteger.TEN.pow(rowNumber).toString(),
-                    format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
+                    java.util.UUID.fromString(format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber)),
                     format("[\"list-value-1%1$d\",\"list-value-2%1$d\"]", rowNumber),
                     format("{%d:%d,%d:%d}", rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L),
                     "[false,true]"));

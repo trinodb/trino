@@ -16,6 +16,7 @@ package io.trino.plugin.cassandra;
 import com.datastax.driver.core.utils.Bytes;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
@@ -37,6 +38,7 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
@@ -51,6 +53,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
@@ -66,6 +69,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Long.reverseBytes;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
@@ -196,7 +200,10 @@ public class TestCassandraConnector
 
                     assertEquals(cursor.getLong(columnIndex.get("typelong")), 1000 + rowId);
 
-                    assertEquals(cursor.getSlice(columnIndex.get("typeuuid")).toStringUtf8(), format("00000000-0000-0000-0000-%012d", rowId));
+                    Slice uuidSlice = cursor.getSlice(columnIndex.get("typeuuid"));
+                    long high = reverseBytes(uuidSlice.getLong(0));
+                    long low = reverseBytes(uuidSlice.getLong(SIZE_OF_LONG));
+                    assertEquals(new java.util.UUID(high, low).toString(), format("00000000-0000-0000-0000-%012d", rowId));
 
                     assertEquals(cursor.getLong(columnIndex.get("typetimestamp")), packDateTimeWithZone(DATE.getTime(), UTC_KEY));
 
@@ -257,6 +264,9 @@ public class TestCassandraConnector
                     catch (RuntimeException e) {
                         throw new RuntimeException("column " + column, e);
                     }
+                }
+                else if (UuidType.UUID.equals(type)) {
+                    cursor.getSlice(columnIndex);
                 }
                 else {
                     fail("Unknown primitive type " + columnIndex);

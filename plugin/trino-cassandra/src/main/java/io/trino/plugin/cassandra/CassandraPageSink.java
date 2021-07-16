@@ -27,6 +27,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarcharType;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -43,6 +44,7 @@ import java.util.function.Function;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.insertInto;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.ID_COLUMN_NAME;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
@@ -60,6 +62,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Long.reverseBytes;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -176,6 +179,12 @@ public class CassandraPageSink
         }
         else if (VARBINARY.equals(type)) {
             values.add(type.getSlice(block, position).toByteBuffer());
+        }
+        else if (UuidType.UUID.equals(type)) {
+            Slice slice = type.getSlice(block, position);
+            long high = reverseBytes(slice.getLong(0));
+            long low = reverseBytes(slice.getLong(SIZE_OF_LONG));
+            values.add(new java.util.UUID(high, low));
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
