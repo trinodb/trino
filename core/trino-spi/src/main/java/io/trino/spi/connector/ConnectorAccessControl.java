@@ -71,7 +71,7 @@ import static java.util.Collections.emptySet;
 public interface ConnectorAccessControl
 {
     /**
-     * Check if identity is allowed to create the specified schema in this catalog.
+     * Check if identity is allowed to create the specified schema.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -81,7 +81,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to drop the specified schema in this catalog.
+     * Check if identity is allowed to drop the specified schema.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -91,7 +91,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to rename the specified schema in this catalog.
+     * Check if identity is allowed to rename the specified schema.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -111,7 +111,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to execute SHOW SCHEMAS in this catalog.
+     * Check if identity is allowed to execute SHOW SCHEMAS.
      * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterSchemas} method must handle filter all results for unauthorized users,
@@ -153,7 +153,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to create the specified table in this catalog.
+     * Check if identity is allowed to create the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -163,7 +163,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to drop the specified table in this catalog.
+     * Check if identity is allowed to drop the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -173,7 +173,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to rename the specified table in this catalog.
+     * Check if identity is allowed to rename the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -183,7 +183,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to comment the specified table in this catalog.
+     * Check if identity is allowed to comment the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -193,7 +193,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to comment the column in the specified table in this catalog.
+     * Check if identity is allowed to comment the column in the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -203,7 +203,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in this catalog.
+     * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc..
      * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
      * The {@link #filterTables} method must filter all results for unauthorized users,
@@ -247,7 +247,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to add columns to the specified table in this catalog.
+     * Check if identity is allowed to add columns to the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -257,7 +257,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to drop columns from the specified table in this catalog.
+     * Check if identity is allowed to drop columns from the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -277,7 +277,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to rename a column in the specified table in this catalog.
+     * Check if identity is allowed to rename a column in the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -297,7 +297,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to insert into the specified table in this catalog.
+     * Check if identity is allowed to insert into the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -307,7 +307,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to delete from the specified table in this catalog.
+     * Check if identity is allowed to delete from the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -317,7 +317,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to update the supplied columns in the specified table in this catalog.
+     * Check if identity is allowed to update the supplied columns in the specified table.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -327,7 +327,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to create the specified view in this catalog.
+     * Check if identity is allowed to create the specified view.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -337,7 +337,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to rename the specified view in this catalog.
+     * Check if identity is allowed to rename the specified view.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -357,7 +357,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to drop the specified view in this catalog.
+     * Check if identity is allowed to drop the specified view.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -377,7 +377,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to create the specified materialized view in this catalog.
+     * Check if identity is allowed to create the specified materialized view.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -387,7 +387,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to refresh the specified materialized view in this catalog.
+     * Check if identity is allowed to refresh the specified materialized view.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -397,7 +397,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to drop the specified materialized view in this catalog.
+     * Check if identity is allowed to drop the specified materialized view.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -407,7 +407,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to set the specified property in this catalog.
+     * Check if identity is allowed to set the specified property.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -487,7 +487,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to show roles in this catalog.
+     * Check if identity is allowed to show roles.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -497,7 +497,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to show current roles in this catalog.
+     * Check if identity is allowed to show current roles.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
@@ -507,7 +507,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to show its own role grants in this catalog.
+     * Check if identity is allowed to show its own role grants.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
