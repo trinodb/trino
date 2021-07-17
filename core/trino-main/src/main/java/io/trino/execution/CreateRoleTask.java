@@ -27,11 +27,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.metadata.MetadataUtil.checkRoleExists;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.getSessionCatalog;
 import static io.trino.spi.StandardErrorCode.ROLE_ALREADY_EXISTS;
-import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
-import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
 
@@ -62,9 +61,7 @@ public class CreateRoleTask
         if (metadata.roleExists(session, role, catalog)) {
             throw semanticException(ROLE_ALREADY_EXISTS, statement, "Role '%s' already exists", role);
         }
-        if (grantor.isPresent() && grantor.get().getType() == ROLE && !metadata.roleExists(session, grantor.get().getName(), catalog)) {
-            throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", grantor.get().getName());
-        }
+        grantor.ifPresent(trinoPrincipal -> checkRoleExists(session, statement, metadata, trinoPrincipal, catalog));
         metadata.createRole(session, role, grantor, catalog);
         return immediateVoidFuture();
     }

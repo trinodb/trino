@@ -104,7 +104,7 @@ public class TestHiveRoles
     @Test
     public void testDropNonExistentRole()
     {
-        assertQueryFails(createAdminSession(), "DROP ROLE non_existent_role", ".*?Role 'non_existent_role' does not exist");
+        assertQueryFails(createAdminSession(), "DROP ROLE non_existent_role", ".*?Role 'non_existent_role' does not exist in catalog 'hive'");
     }
 
     @Test
@@ -184,9 +184,9 @@ public class TestHiveRoles
     @Test
     public void testGrantNonExistingRole()
     {
-        assertQueryFails("GRANT grant_revoke_role_existing_1 TO USER grant_revoke_existing_user_1", ".*?Role 'grant_revoke_role_existing_1' does not exist");
+        assertQueryFails("GRANT grant_revoke_role_existing_1 TO USER grant_revoke_existing_user_1", ".*?Role 'grant_revoke_role_existing_1' does not exist in catalog 'hive'");
         executeFromAdmin("CREATE ROLE grant_revoke_role_existing_1");
-        assertQueryFails("GRANT grant_revoke_role_existing_1 TO ROLE grant_revoke_role_existing_2", ".*?Role 'grant_revoke_role_existing_2' does not exist");
+        assertQueryFails("GRANT grant_revoke_role_existing_1 TO ROLE grant_revoke_role_existing_2", ".*?Role 'grant_revoke_role_existing_2' does not exist in catalog 'hive'");
     }
 
     @Test
@@ -333,9 +333,9 @@ public class TestHiveRoles
     @Test
     public void testRevokeNonExistingRole()
     {
-        assertQueryFails(createAdminSession(), "REVOKE grant_revoke_role_existing_1 FROM USER grant_revoke_existing_user_1", ".*?Role 'grant_revoke_role_existing_1' does not exist");
+        assertQueryFails(createAdminSession(), "REVOKE grant_revoke_role_existing_1 FROM USER grant_revoke_existing_user_1", ".*?Role 'grant_revoke_role_existing_1' does not exist in catalog 'hive'");
         executeFromAdmin("CREATE ROLE grant_revoke_role_existing_1");
-        assertQueryFails(createAdminSession(), "REVOKE grant_revoke_role_existing_1 FROM ROLE grant_revoke_role_existing_2", ".*?Role 'grant_revoke_role_existing_2' does not exist");
+        assertQueryFails(createAdminSession(), "REVOKE grant_revoke_role_existing_1 FROM ROLE grant_revoke_role_existing_2", ".*?Role 'grant_revoke_role_existing_2' does not exist in catalog 'hive'");
     }
 
     @Test
