@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.mongodb;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.mongodb.client.MongoCursor;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -35,6 +38,8 @@ import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 import org.joda.time.chrono.ISOChronology;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -46,8 +51,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.TypeUtils.isArrayType;
+import static io.trino.plugin.mongodb.TypeUtils.isJsonType;
 import static io.trino.plugin.mongodb.TypeUtils.isMapType;
 import static io.trino.plugin.mongodb.TypeUtils.isRowType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -253,9 +260,18 @@ public class MongoPageSource
         else if (type instanceof DecimalType) {
             type.writeSlice(output, encodeScaledValue(((Decimal128) value).bigDecimalValue(), ((DecimalType) type).getScale()));
         }
+        else if (isJsonType(type)) {
+            type.writeSlice(output, jsonParse(utf8Slice(toVarcharValue(value))));
+        }
         else {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
         }
+    }
+
+    public static JsonGenerator createJsonGenerator(JsonFactory factory, SliceOutput output)
+            throws IOException
+    {
+        return factory.createGenerator((OutputStream) output);
     }
 
     private void writeBlock(BlockBuilder output, Type type, Object value)
