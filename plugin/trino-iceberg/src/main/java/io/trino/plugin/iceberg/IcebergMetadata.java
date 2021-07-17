@@ -184,6 +184,7 @@ public class IcebergMetadata
     public static final String DEPENDS_ON_TABLES = "dependsOnTables";
 
     // Be compatible with views defined by the Hive connector, which can be useful under certain conditions.
+    private static final String TRINO_CREATED_BY = HiveMetadata.TRINO_CREATED_BY;
     private static final String PRESTO_VIEW_COMMENT = HiveMetadata.PRESTO_VIEW_COMMENT;
     private static final String PRESTO_VERSION_NAME = HiveMetadata.PRESTO_VERSION_NAME;
     private static final String PRESTO_QUERY_ID_NAME = HiveMetadata.PRESTO_QUERY_ID_NAME;
@@ -794,6 +795,7 @@ public class IcebergMetadata
         HiveIdentity identity = new HiveIdentity(session);
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put(PRESTO_VIEW_FLAG, "true")
+                .put(TRINO_CREATED_BY, "Trino Iceberg connector")
                 .put(PRESTO_VERSION_NAME, trinoVersion)
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
@@ -1056,6 +1058,7 @@ public class IcebergMetadata
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .put(STORAGE_TABLE, storageTableName)
                 .put(PRESTO_VIEW_FLAG, "true")
+                .put(TRINO_CREATED_BY, "Trino Iceberg connector")
                 .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)
                 .build();
 
