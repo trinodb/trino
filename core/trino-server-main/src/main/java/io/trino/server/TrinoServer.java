@@ -13,12 +13,7 @@
  */
 package io.trino.server;
 
-import com.google.common.base.StandardSystemProperty;
-import com.google.common.primitives.Ints;
-
-import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Strings.nullToEmpty;
-import static java.lang.String.format;
+import java.util.Optional;
 
 public final class TrinoServer
 {
@@ -26,15 +21,15 @@ public final class TrinoServer
 
     public static void main(String[] args)
     {
-        String javaVersion = nullToEmpty(StandardSystemProperty.JAVA_VERSION.value());
-        String majorVersion = javaVersion.split("[^\\d]", 2)[0];
-        Integer major = Ints.tryParse(majorVersion);
-        if (major == null || major < 11) {
-            System.err.println(format("ERROR: Trino requires Java 11+ (found %s)", javaVersion));
+        Runtime.Version expectedVersion = Runtime.Version.parse("11.0.7");
+        Runtime.Version currentVersion = Runtime.version();
+
+        if (currentVersion.compareTo(expectedVersion) < 0) {
+            System.err.printf("ERROR: Trino requires Java %s (found %s)%n", expectedVersion, currentVersion);
             System.exit(100);
         }
 
         String version = TrinoServer.class.getPackage().getImplementationVersion();
-        new Server().start(firstNonNull(version, "unknown"));
+        new Server().start(Optional.ofNullable(version).orElse("unknown"));
     }
 }
