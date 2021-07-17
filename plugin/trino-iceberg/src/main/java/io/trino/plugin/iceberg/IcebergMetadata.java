@@ -866,7 +866,7 @@ public class IcebergMetadata
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
-        // Filter on TRINO_VIEW_COMMENT to distinguish from materialized views
+        // Filter on PRESTO_VIEW_COMMENT to distinguish from materialized views
         return listSchemas(session, schemaName).stream()
                 .flatMap(schema ->
                         metastore.getTablesWithParameter(schema, TABLE_COMMENT, PRESTO_VIEW_COMMENT).stream()
