@@ -28,6 +28,6 @@ public class TestSybasePlugin
     {
         Plugin plugin = new SybasePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:mariadb://test"), new TestingConnectorContext()).shutdown();
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:jtds:sybase://testdb"), new TestingConnectorContext()).shutdown();
     }
 }

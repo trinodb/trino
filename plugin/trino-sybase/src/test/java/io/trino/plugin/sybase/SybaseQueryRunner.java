@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.sybase;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
@@ -35,16 +35,15 @@ public class SybaseQueryRunner
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static QueryRunner createSybaseQueryRunner(TestingSybaseServer server, TpchTable<?>... tables)
+    public static DistributedQueryRunner createSybaseQueryRunner(TestingSybaseServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        return createSybaseQueryRunner(server, ImmutableMap.of(), ImmutableList.copyOf(tables));
-    }
-
-    public static QueryRunner createSybaseQueryRunner(TestingSybaseServer server, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+                .setExtraProperties(extraProperties)
+                .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -74,5 +73,21 @@ public class SybaseQueryRunner
                 .setCatalog("sybase")
                 .setSchema("dbo")
                 .build();
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+
+        DistributedQueryRunner queryRunner = createSybaseQueryRunner(
+                new TestingSybaseServer(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
+                TpchTable.getTables());
+
+        Logger log = Logger.get(SybaseQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

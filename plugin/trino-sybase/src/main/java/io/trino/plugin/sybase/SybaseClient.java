@@ -61,13 +61,6 @@ public class SybaseClient
 
     private static final Joiner DOT_JOINER = Joiner.on(".");
 
-    @Override
-    public void createSchema(ConnectorSession session, String schemaName)
-    {
-        // TODO: Add try-catch for error message parsing (test cases patch)
-        super.createSchema(session, schemaName);
-    }
-
     @Inject
     public SybaseClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
     {
