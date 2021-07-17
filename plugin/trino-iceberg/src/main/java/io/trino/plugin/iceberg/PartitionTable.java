@@ -299,7 +299,7 @@ public class PartitionTable
             return epochMicros;
         }
         if (type instanceof Types.TimeType) {
-            return ((Long) value) * PICOSECONDS_PER_MICROSECOND;
+            return Math.multiplyExact((Long) value, PICOSECONDS_PER_MICROSECOND);
         }
         if (type instanceof Types.FloatType) {
             return Float.floatToIntBits((Float) value);
