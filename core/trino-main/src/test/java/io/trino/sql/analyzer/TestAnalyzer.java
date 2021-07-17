@@ -318,8 +318,9 @@ public class TestAnalyzer
     @Test
     public void testHavingReferencesOutputAlias()
     {
-        assertFails("SELECT sum(a) x FROM t1 HAVING x > 5")
-                .hasErrorCode(COLUMN_NOT_FOUND);
+        analyze("SELECT sum(a) x FROM t1 HAVING x > 5");
+        analyze("SELECT t1.a as a1, count(b) total FROM t1  group by a HAVING a1 > 2");
+        analyze("SELECT a, count(b) total FROM t1 group by a HAVING total > 2");
     }
 
     @Test
