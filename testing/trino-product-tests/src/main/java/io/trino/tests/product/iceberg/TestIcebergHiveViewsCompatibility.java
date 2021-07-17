@@ -70,7 +70,7 @@ public class TestIcebergHiveViewsCompatibility
                     .containsOnly(ImmutableList.<QueryAssert.Row>builder()
                             .addAll(hivePreexistingTables)
                             .add(row("hive_table"))
-                            .add(row("iceberg_table")) // TODO; should this be filtered out?
+                            .add(row("iceberg_table")) // TODO: should this be filtered out?
                             .add(row("hive_view_qualified_hive"))
                             .add(row("hive_view_unqualified_hive"))
                             .add(row("hive_view_qualified_iceberg"))
@@ -99,7 +99,7 @@ public class TestIcebergHiveViewsCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM hive.default.hive_view_qualified_iceberg")).containsOnly(row(2));
             assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM hive.default.hive_view_unqualified_iceberg"))
                     // hive connector tries to read from iceberg table
-                    // TODO; make query fail with nicer message
+                    // TODO: make query fail with nicer message
                     .hasMessageContaining("Unable to create input format org.apache.hadoop.mapred.FileInputFormat");
             assertThat(onTrino().executeQuery("SELECT * FROM hive.default.iceberg_view_qualified_hive")).containsOnly(row(1));
             assertThat(onTrino().executeQuery("SELECT * FROM hive.default.iceberg_view_qualified_iceberg")).containsOnly(row(2));
@@ -111,7 +111,7 @@ public class TestIcebergHiveViewsCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.hive_view_qualified_iceberg")).containsOnly(row(2));
             assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM iceberg.default.hive_view_unqualified_iceberg"))
                     // hive connector tries to read from iceberg table
-                    // TODO; make query fail with nicer message
+                    // TODO: make query fail with nicer message
                     .hasMessageContaining("Unable to create input format org.apache.hadoop.mapred.FileInputFormat");
             assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.iceberg_view_qualified_hive")).containsOnly(row(1));
             assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.iceberg_view_qualified_iceberg")).containsOnly(row(2));
