@@ -16,37 +16,31 @@ package io.trino.plugin.elasticsearch.decoders;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
-
-import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class VarcharDecoder
-        implements Decoder
+        extends AbstractDecoder<String>
 {
-    private final String path;
-
-    public VarcharDecoder(String path)
+    public VarcharDecoder()
     {
-        this.path = requireNonNull(path, "path is null");
+        super(VARCHAR);
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public String convert(String path, Object value)
     {
-        Object value = getter.get();
-        if (value == null) {
-            output.appendNull();
+        if (value instanceof String || value instanceof Number) {
+            return value.toString();
         }
-        else if (value instanceof String || value instanceof Number) {
-            VARCHAR.writeSlice(output, Slices.utf8Slice(value.toString()));
-        }
-        else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a string or numeric value for field '%s' of type VARCHAR: %s [%s]", path, value, value.getClass().getSimpleName()));
-        }
+        throw new TrinoException(TYPE_MISMATCH, format("Expected a string or numeric value for field '%s' of type VARCHAR: %s [%s]", path, value, value.getClass().getSimpleName()));
+    }
+
+    @Override
+    public void write(BlockBuilder output, String value)
+    {
+        VARCHAR.writeSlice(output, Slices.utf8Slice(value));
     }
 }

@@ -15,48 +15,40 @@ package io.trino.plugin.elasticsearch.decoders;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
-
-import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class BooleanDecoder
-        implements Decoder
+        extends AbstractDecoder<Boolean>
 {
-    private final String path;
-
-    public BooleanDecoder(String path)
+    public BooleanDecoder()
     {
-        this.path = requireNonNull(path, "path is null");
+        super(BOOLEAN);
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public Boolean convert(String path, Object value)
     {
-        Object value = getter.get();
-        if (value == null) {
-            output.appendNull();
-        }
-        else if (value instanceof Boolean) {
-            BOOLEAN.writeBoolean(output, (Boolean) value);
+        if (value instanceof Boolean) {
+            return (Boolean) value;
         }
         else if (value instanceof String) {
-            if (value.equals("true")) {
-                BOOLEAN.writeBoolean(output, true);
+            if (((String) value).equalsIgnoreCase("true")) {
+                return Boolean.TRUE;
             }
-            else if (value.equals("false") || value.equals("")) {
-                BOOLEAN.writeBoolean(output, false);
+            if (value.equals("false") || value.equals("")) {
+                return Boolean.FALSE;
             }
-            else {
-                throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as BOOLEAN: %s", path, value));
-            }
+            throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as BOOLEAN: %s", path, value));
         }
-        else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a boolean value for field %s of type BOOLEAN: %s [%s]", path, value, value.getClass().getSimpleName()));
-        }
+        throw new TrinoException(TYPE_MISMATCH, format("Expected a boolean value for field %s of type BOOLEAN: %s [%s]", path, value, value.getClass().getSimpleName()));
+    }
+
+    @Override
+    public void write(BlockBuilder output, Boolean value)
+    {
+        BOOLEAN.writeBoolean(output, value);
     }
 }

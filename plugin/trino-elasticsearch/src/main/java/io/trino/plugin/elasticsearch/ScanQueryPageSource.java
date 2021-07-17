@@ -17,33 +17,18 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
-import io.trino.plugin.elasticsearch.decoders.ArrayDecoder;
-import io.trino.plugin.elasticsearch.decoders.BigintDecoder;
-import io.trino.plugin.elasticsearch.decoders.BooleanDecoder;
 import io.trino.plugin.elasticsearch.decoders.Decoder;
-import io.trino.plugin.elasticsearch.decoders.DoubleDecoder;
-import io.trino.plugin.elasticsearch.decoders.IdColumnDecoder;
-import io.trino.plugin.elasticsearch.decoders.IntegerDecoder;
-import io.trino.plugin.elasticsearch.decoders.IpAddressDecoder;
-import io.trino.plugin.elasticsearch.decoders.RealDecoder;
-import io.trino.plugin.elasticsearch.decoders.RowDecoder;
-import io.trino.plugin.elasticsearch.decoders.ScoreColumnDecoder;
-import io.trino.plugin.elasticsearch.decoders.SmallintDecoder;
-import io.trino.plugin.elasticsearch.decoders.SourceColumnDecoder;
-import io.trino.plugin.elasticsearch.decoders.TimestampDecoder;
-import io.trino.plugin.elasticsearch.decoders.TinyintDecoder;
-import io.trino.plugin.elasticsearch.decoders.VarbinaryDecoder;
-import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
+import io.trino.plugin.elasticsearch.decoders.DecoderFactory;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 
@@ -56,21 +41,13 @@ import java.util.OptionalLong;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.elasticsearch.BuiltinColumns.ID;
-import static io.trino.plugin.elasticsearch.BuiltinColumns.SCORE;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.SOURCE;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.isBuiltinColumn;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
 import static java.util.stream.Collectors.toList;
@@ -79,8 +56,6 @@ public class ScanQueryPageSource
         implements ConnectorPageSource
 {
     private static final Logger LOG = Logger.get(ScanQueryPageSource.class);
-
-    private final List<Decoder> decoders;
 
     private final SearchHitIterator iterator;
     private final BlockBuilder[] columnBuilders;
@@ -98,8 +73,6 @@ public class ScanQueryPageSource
         requireNonNull(columns, "columns is null");
 
         this.columns = ImmutableList.copyOf(columns);
-
-        decoders = createDecoders(columns);
 
         // When the _source field is requested, we need to bypass column pruning when fetching the document
         boolean needAllFields = columns.stream()
@@ -146,6 +119,36 @@ public class ScanQueryPageSource
         this.iterator = new SearchHitIterator(client, () -> searchResponse, table.getLimit());
     }
 
+    public static Object getField(Map<String, Object> document, String field)
+    {
+        Object value = document.get(field);
+        if (value == null) {
+            Map<String, Object> result = new HashMap<>();
+            String prefix = field + ".";
+            for (Map.Entry<String, Object> entry : document.entrySet()) {
+                String key = entry.getKey();
+                if (key.startsWith(prefix)) {
+                    result.put(key.substring(prefix.length()), entry.getValue());
+                }
+            }
+
+            if (!result.isEmpty()) {
+                return result;
+            }
+        }
+
+        return value;
+    }
+
+    private static String appendPath(String base, String element)
+    {
+        if (base.isEmpty()) {
+            return element;
+        }
+
+        return base + "." + element;
+    }
+
     @Override
     public long getCompletedBytes()
     {
@@ -184,9 +187,12 @@ public class ScanQueryPageSource
             SearchHit hit = iterator.next();
             Map<String, Object> document = hit.getSourceAsMap();
 
-            for (int i = 0; i < decoders.size(); i++) {
-                String field = columns.get(i).getName();
-                decoders.get(i).decode(hit, () -> getField(document, field), columnBuilders[i]);
+            for (int i = 0; i < columns.size(); i++) {
+                ElasticsearchColumnHandle elasticsearchColumnHandle = columns.get(i);
+                String field = elasticsearchColumnHandle.getName();
+                Supplier<Object> valueSupplier = getValueSupplier(hit, document, elasticsearchColumnHandle, field);
+                Decoder decoder = DecoderFactory.decoderOfType(elasticsearchColumnHandle.getType());
+                decoder.decode(field, valueSupplier, columnBuilders[i]);
             }
 
             if (hit.getSourceRef() != null) {
@@ -207,25 +213,49 @@ public class ScanQueryPageSource
         return new Page(blocks);
     }
 
-    public static Object getField(Map<String, Object> document, String field)
+    private Supplier<Object> getValueSupplier(SearchHit hit, Map<String, Object> document, ElasticsearchColumnHandle elasticsearchColumnHandle, String field)
     {
-        Object value = document.get(field);
-        if (value == null) {
-            Map<String, Object> result = new HashMap<>();
-            String prefix = field + ".";
-            for (Map.Entry<String, Object> entry : document.entrySet()) {
-                String key = entry.getKey();
-                if (key.startsWith(prefix)) {
-                    result.put(key.substring(prefix.length()), entry.getValue());
+        return () -> {
+            final Optional<BuiltinColumns> builtinColumn = BuiltinColumns.of(field);
+            if (builtinColumn.isPresent()) {
+                return getBuiltInColumnsField(hit, field, builtinColumn.get());
+            }
+            else {
+                // Source data
+                if (elasticsearchColumnHandle.getType().equals(TIMESTAMP_MILLIS)) {
+                    return getTimestampField(hit, document, field);
                 }
+                return getField(document, field);
             }
+        };
+    }
 
-            if (!result.isEmpty()) {
-                return result;
+    private Object getBuiltInColumnsField(SearchHit hit, String field, BuiltinColumns builtinColumn)
+    {
+        switch (builtinColumn) {
+            case ID:
+                return hit.getId();
+            case SOURCE:
+                return hit.getSourceAsString();
+            case SCORE:
+                return hit.getScore();
+            default:
+                throw new TrinoException(NOT_SUPPORTED, format("Property '%s' not supported", field));
+        }
+    }
+
+    private Object getTimestampField(SearchHit hit, Map<String, Object> document, String field)
+    {
+        DocumentField documentField = hit.getFields().get(field);
+
+        if (documentField != null) {
+            if (documentField.getValues().size() > 1) {
+                throw new TrinoException(TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", field, documentField.getValues().size()));
             }
+            return documentField.getValue();
         }
 
-        return value;
+        return getField(document, field);
     }
 
     private Map<String, Type> flattenFields(List<ElasticsearchColumnHandle> columns)
@@ -249,94 +279,6 @@ public class ScanQueryPageSource
         else {
             result.put(fieldName, type);
         }
-    }
-
-    private List<Decoder> createDecoders(List<ElasticsearchColumnHandle> columns)
-    {
-        return columns.stream()
-                .map(column -> {
-                    if (column.getName().equals(ID.getName())) {
-                        return new IdColumnDecoder();
-                    }
-
-                    if (column.getName().equals(SCORE.getName())) {
-                        return new ScoreColumnDecoder();
-                    }
-
-                    if (column.getName().equals(SOURCE.getName())) {
-                        return new SourceColumnDecoder();
-                    }
-
-                    return createDecoder(column.getName(), column.getType());
-                })
-                .collect(toImmutableList());
-    }
-
-    private Decoder createDecoder(String path, Type type)
-    {
-        if (type.equals(VARCHAR)) {
-            return new VarcharDecoder(path);
-        }
-        if (type.equals(VARBINARY)) {
-            return new VarbinaryDecoder(path);
-        }
-        if (type.equals(TIMESTAMP_MILLIS)) {
-            return new TimestampDecoder(path);
-        }
-        if (type.equals(BOOLEAN)) {
-            return new BooleanDecoder(path);
-        }
-        if (type.equals(DOUBLE)) {
-            return new DoubleDecoder(path);
-        }
-        if (type.equals(REAL)) {
-            return new RealDecoder(path);
-        }
-        if (type.equals(TINYINT)) {
-            return new TinyintDecoder(path);
-        }
-        if (type.equals(SMALLINT)) {
-            return new SmallintDecoder(path);
-        }
-        if (type.equals(INTEGER)) {
-            return new IntegerDecoder(path);
-        }
-        if (type.equals(BIGINT)) {
-            return new BigintDecoder(path);
-        }
-        if (type.getBaseName().equals(StandardTypes.IPADDRESS)) {
-            return new IpAddressDecoder(path, type);
-        }
-        if (type instanceof RowType) {
-            RowType rowType = (RowType) type;
-
-            List<Decoder> decoders = rowType.getFields().stream()
-                    .map(field -> createDecoder(appendPath(path, field.getName().get()), field.getType()))
-                    .collect(toImmutableList());
-
-            List<String> fieldNames = rowType.getFields().stream()
-                    .map(RowType.Field::getName)
-                    .map(Optional::get)
-                    .collect(toImmutableList());
-
-            return new RowDecoder(path, fieldNames, decoders);
-        }
-        if (type instanceof ArrayType) {
-            Type elementType = ((ArrayType) type).getElementType();
-
-            return new ArrayDecoder(createDecoder(path, elementType));
-        }
-
-        throw new UnsupportedOperationException("Type not supported: " + type);
-    }
-
-    private static String appendPath(String base, String element)
-    {
-        if (base.isEmpty()) {
-            return element;
-        }
-
-        return base + "." + element;
     }
 
     private static class SearchHitIterator

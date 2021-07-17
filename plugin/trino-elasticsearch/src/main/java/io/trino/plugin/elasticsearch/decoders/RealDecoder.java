@@ -15,50 +15,39 @@ package io.trino.plugin.elasticsearch.decoders;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
-
-import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class RealDecoder
-        implements Decoder
+        extends AbstractDecoder<Float>
 {
-    private final String path;
-
-    public RealDecoder(String path)
+    public RealDecoder()
     {
-        this.path = requireNonNull(path, "path is null");
+        super(REAL);
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public Float convert(String path, Object value)
     {
-        Object value = getter.get();
-        if (value == null) {
-            output.appendNull();
-            return;
-        }
-
-        float decoded;
         if (value instanceof Number) {
-            decoded = ((Number) value).floatValue();
+            return ((Number) value).floatValue();
         }
         else if (value instanceof String) {
             try {
-                decoded = Float.parseFloat((String) value);
+                return Float.parseFloat((String) value);
             }
             catch (NumberFormatException e) {
                 throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as REAL: %s", path, value));
             }
         }
-        else {
-            throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field %s of type REAL: %s [%s]", path, value, value.getClass().getSimpleName()));
-        }
+        throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field %s of type REAL: %s [%s]", path, value, value.getClass().getSimpleName()));
+    }
 
-        REAL.writeLong(output, Float.floatToRawIntBits(decoded));
+    @Override
+    public void write(BlockBuilder output, Float value)
+    {
+        REAL.writeLong(output, Float.floatToRawIntBits(value));
     }
 }
