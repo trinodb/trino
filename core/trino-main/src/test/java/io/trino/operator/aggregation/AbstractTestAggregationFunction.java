@@ -186,8 +186,9 @@ public abstract class AbstractTestAggregationFunction
             oldStart = start;
             oldWidth = width;
             Block block = getFinalBlock(aggregation);
+            Object actualValue = BlockAssertions.getOnlyValue(aggregation.getFinalType(), block);
             assertThat(makeValidityAssertion(expectedValues[start]).apply(
-                    BlockAssertions.getOnlyValue(aggregation.getFinalType(), block),
+                    actualValue,
                     expectedValues[start]))
                     .isTrue();
         }
