@@ -66,8 +66,21 @@ public class TestOracleCaseInsensitiveMapping
     @Override
     protected AutoCloseable withSchema(String schemaName)
     {
-        oracleServer.execute(format("CREATE USER %s IDENTIFIED BY SCM", schemaName));
-        oracleServer.execute(format("ALTER USER %s QUOTA 100M ON SYSTEM", schemaName));
-        return () -> oracleServer.execute("DROP USER " + schemaName);
+        onRemoteDatabase().execute(format("CREATE USER %s IDENTIFIED BY SCM", quoted(schemaName)));
+        onRemoteDatabase().execute(format("ALTER USER %s QUOTA 100M ON SYSTEM", quoted(schemaName)));
+        return () -> onRemoteDatabase().execute("DROP USER " + quoted(schemaName));
     }
+
+    @Override
+    protected AutoCloseable withTable(String remoteSchemaName, String remoteTableName, String tableDefinition)
+    {
+        String quotedName = quoted(remoteSchemaName) + "." + quoted(remoteTableName);
+
+        onRemoteDatabase().execute(format("CREATE USER %s IDENTIFIED BY SCM", quoted(remoteSchemaName)));
+        onRemoteDatabase().execute(format("ALTER USER %s QUOTA 100M ON SYSTEM", quoted(remoteSchemaName)));
+        onRemoteDatabase().execute(format("CREATE TABLE %s %s", quotedName, tableDefinition));
+        onRemoteDatabase().execute("DROP USER " + quoted(remoteSchemaName));
+        return () -> onRemoteDatabase().execute("DROP TABLE " + quotedName);
+    }
+
 }
