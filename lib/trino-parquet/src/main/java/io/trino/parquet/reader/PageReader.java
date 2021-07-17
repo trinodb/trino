@@ -18,10 +18,12 @@ import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.OptionalLong;
 
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 
@@ -31,8 +33,13 @@ class PageReader
     private final long valueCount;
     private final List<DataPage> compressedPages;
     private final DictionaryPage compressedDictionaryPage;
+    private final OffsetIndex offsetIndex;
+    private int pageIndex;
 
-    public PageReader(CompressionCodecName codec, List<DataPage> compressedPages, DictionaryPage compressedDictionaryPage)
+    public PageReader(CompressionCodecName codec,
+                      List<DataPage> compressedPages,
+                      DictionaryPage compressedDictionaryPage,
+                      OffsetIndex offsetIndex)
     {
         this.codec = codec;
         this.compressedPages = new LinkedList<>(compressedPages);
@@ -42,6 +49,8 @@ class PageReader
             count += page.getValueCount();
         }
         this.valueCount = count;
+        this.offsetIndex = offsetIndex;
+        this.pageIndex = 0;
     }
 
     public long getTotalValueCount()
@@ -56,12 +65,15 @@ class PageReader
         }
         DataPage compressedPage = compressedPages.remove(0);
         try {
+            OptionalLong firstRowIndex = getFirstRowIndex(pageIndex, offsetIndex);
+            pageIndex++;
             if (compressedPage instanceof DataPageV1) {
                 DataPageV1 dataPageV1 = (DataPageV1) compressedPage;
                 return new DataPageV1(
                         decompress(codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize()),
                         dataPageV1.getValueCount(),
                         dataPageV1.getUncompressedSize(),
+                        firstRowIndex,
                         dataPageV1.getRepetitionLevelEncoding(),
                         dataPageV1.getDefinitionLevelEncoding(),
                         dataPageV1.getValueEncoding());
@@ -83,6 +95,7 @@ class PageReader
                         dataPageV2.getDataEncoding(),
                         decompress(codec, dataPageV2.getSlice(), uncompressedSize),
                         dataPageV2.getUncompressedSize(),
+                        firstRowIndex,
                         dataPageV2.getStatistics(),
                         false);
             }
@@ -106,5 +119,10 @@ class PageReader
         catch (IOException e) {
             throw new RuntimeException("Error reading dictionary page", e);
         }
+    }
+
+    public static OptionalLong getFirstRowIndex(int pageIndex, OffsetIndex offsetIndex)
+    {
+        return offsetIndex == null ? OptionalLong.empty() : OptionalLong.of(offsetIndex.getFirstRowIndex(pageIndex));
     }
 }

@@ -14,7 +14,8 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -148,12 +149,12 @@ public class HdfsParquetDataSource
     }
 
     @Override
-    public final <K> Map<K, ChunkReader> planRead(Map<K, DiskRange> diskRanges)
+    public final <K> ListMultimap<K, ChunkReader> planRead(ListMultimap<K, DiskRange> diskRanges)
     {
         requireNonNull(diskRanges, "diskRanges is null");
 
         if (diskRanges.isEmpty()) {
-            return ImmutableMap.of();
+            return ImmutableListMultimap.of();
         }
 
         //
@@ -161,9 +162,9 @@ public class HdfsParquetDataSource
         //
 
         // split disk ranges into "big" and "small"
-        ImmutableMap.Builder<K, DiskRange> smallRangesBuilder = ImmutableMap.builder();
-        ImmutableMap.Builder<K, DiskRange> largeRangesBuilder = ImmutableMap.builder();
-        for (Map.Entry<K, DiskRange> entry : diskRanges.entrySet()) {
+        ImmutableListMultimap.Builder<K, DiskRange> smallRangesBuilder = ImmutableListMultimap.builder();
+        ImmutableListMultimap.Builder<K, DiskRange> largeRangesBuilder = ImmutableListMultimap.builder();
+        for (Map.Entry<K, DiskRange> entry : diskRanges.entries()) {
             if (entry.getValue().getLength() <= options.getMaxBufferSize().toBytes()) {
                 smallRangesBuilder.put(entry);
             }
@@ -171,30 +172,30 @@ public class HdfsParquetDataSource
                 largeRangesBuilder.put(entry);
             }
         }
-        Map<K, DiskRange> smallRanges = smallRangesBuilder.build();
-        Map<K, DiskRange> largeRanges = largeRangesBuilder.build();
+        ListMultimap<K, DiskRange> smallRanges = smallRangesBuilder.build();
+        ListMultimap<K, DiskRange> largeRanges = largeRangesBuilder.build();
 
         // read ranges
-        ImmutableMap.Builder<K, ChunkReader> slices = ImmutableMap.builder();
+        ImmutableListMultimap.Builder<K, ChunkReader> slices = ImmutableListMultimap.builder();
         slices.putAll(readSmallDiskRanges(smallRanges));
         slices.putAll(readLargeDiskRanges(largeRanges));
 
         return slices.build();
     }
 
-    private <K> Map<K, ChunkReader> readSmallDiskRanges(Map<K, DiskRange> diskRanges)
+    private <K> ListMultimap<K, ChunkReader> readSmallDiskRanges(ListMultimap<K, DiskRange> diskRanges)
     {
         if (diskRanges.isEmpty()) {
-            return ImmutableMap.of();
+            return ImmutableListMultimap.of();
         }
 
         Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), options.getMaxMergeDistance(), options.getMaxBufferSize());
 
-        ImmutableMap.Builder<K, ChunkReader> slices = ImmutableMap.builder();
+        ImmutableListMultimap.Builder<K, ChunkReader> slices = ImmutableListMultimap.builder();
         for (DiskRange mergedRange : mergedRanges) {
             ReferenceCountedReader mergedRangeLoader = new ReferenceCountedReader(mergedRange);
 
-            for (Map.Entry<K, DiskRange> diskRangeEntry : diskRanges.entrySet()) {
+            for (Map.Entry<K, DiskRange> diskRangeEntry : diskRanges.entries()) {
                 DiskRange diskRange = diskRangeEntry.getValue();
                 if (mergedRange.contains(diskRange)) {
                     mergedRangeLoader.addReference();
@@ -220,19 +221,19 @@ public class HdfsParquetDataSource
             mergedRangeLoader.free();
         }
 
-        Map<K, ChunkReader> sliceStreams = slices.build();
+        ListMultimap<K, ChunkReader> sliceStreams = slices.build();
         verify(sliceStreams.keySet().equals(diskRanges.keySet()));
         return sliceStreams;
     }
 
-    private <K> Map<K, ChunkReader> readLargeDiskRanges(Map<K, DiskRange> diskRanges)
+    private <K> ListMultimap<K, ChunkReader> readLargeDiskRanges(ListMultimap<K, DiskRange> diskRanges)
     {
         if (diskRanges.isEmpty()) {
-            return ImmutableMap.of();
+            return ImmutableListMultimap.of();
         }
 
-        ImmutableMap.Builder<K, ChunkReader> slices = ImmutableMap.builder();
-        for (Map.Entry<K, DiskRange> entry : diskRanges.entrySet()) {
+        ImmutableListMultimap.Builder<K, ChunkReader> slices = ImmutableListMultimap.builder();
+        for (Map.Entry<K, DiskRange> entry : diskRanges.entries()) {
             slices.put(entry.getKey(), new ReferenceCountedReader(entry.getValue()));
         }
         return slices.build();

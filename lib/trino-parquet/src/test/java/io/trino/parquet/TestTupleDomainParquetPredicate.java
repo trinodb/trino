@@ -42,6 +42,7 @@ import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
@@ -226,13 +227,13 @@ public class TestTupleDomainParquetPredicate
         Slice hundred = encodeScaledValue(new BigDecimal("100"), type.getScale());
         assertEquals(getDomain(type, 0, null, ID, column, UTC), all(type));
 
-        assertEquals(getDomain(type, 10, longColumnStats(100L, 100L), ID, column, UTC), singleValue(type, hundred));
+        assertEquals(getDomain(type, 10, binaryColumnStats(100L, 100L), ID, column, UTC), singleValue(type, hundred));
 
-        assertEquals(getDomain(type, 10, longColumnStats(0L, 100L), ID, column, UTC), create(ValueSet.ofRanges(range(type, zero, true, hundred, true)), false));
+        assertEquals(getDomain(type, 10, binaryColumnStats(0L, 100L), ID, column, UTC), create(ValueSet.ofRanges(range(type, zero, true, hundred, true)), false));
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
-                .isThrownBy(() -> getDomain(type, 10, longColumnStats(100L, 10L), ID, column, UTC))
-                .withMessage("Corrupted statistics for column \"LongDecimalColumn\" in Parquet file \"testFile\": [min: 100, max: 10, num_nulls: 0]");
+                .isThrownBy(() -> getDomain(type, 10, binaryColumnStats(100L, 10L), ID, column, UTC))
+                .withMessage("Corrupted statistics for column \"LongDecimalColumn\" in Parquet file \"testFile\": [min: 0x64, max: 0x0A, num_nulls: 0]");
     }
 
     @Test
@@ -507,6 +508,15 @@ public class TestTupleDomainParquetPredicate
     {
         LongStatistics statistics = new LongStatistics();
         statistics.setMinMax(minimum, maximum);
+        return statistics;
+    }
+
+    private static BinaryStatistics binaryColumnStats(long minimum, long maximum)
+    {
+        BinaryStatistics statistics = new BinaryStatistics();
+        statistics.setMinMax(
+                Binary.fromConstantByteArray(BigInteger.valueOf(minimum).toByteArray()),
+                Binary.fromConstantByteArray(BigInteger.valueOf(maximum).toByteArray()));
         return statistics;
     }
 

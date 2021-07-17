@@ -90,6 +90,19 @@ public class ParquetReaderConfig
         return this;
     }
 
+    @Config("parquet.use-column-index")
+    @ConfigDescription("Enable using Parquet column indexes")
+    public ParquetReaderConfig setUseColumnIndex(boolean useColumnIndex)
+    {
+        options = options.withUseColumnIndex(useColumnIndex);
+        return this;
+    }
+
+    public boolean isUseColumnIndex()
+    {
+        return options.isUseColumnIndex();
+    }
+
     public ParquetReaderOptions toParquetReaderOptions()
     {
         return options;

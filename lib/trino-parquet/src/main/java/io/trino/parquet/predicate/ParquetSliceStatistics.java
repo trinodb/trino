@@ -13,26 +13,28 @@
  */
 package io.trino.parquet.predicate;
 
-public class ParquetIntegerStatistics
-        implements ParquetRangeStatistics<Long>
-{
-    private final Long minimum;
-    private final Long maximum;
+import io.airlift.slice.Slice;
 
-    public ParquetIntegerStatistics(Long minimum, Long maximum)
+public class ParquetSliceStatistics
+        implements ParquetRangeStatistics<Slice>
+{
+    private final Slice minimum;
+    private final Slice maximum;
+
+    public ParquetSliceStatistics(Slice minimum, Slice maximum)
     {
         this.minimum = minimum;
         this.maximum = maximum;
     }
 
     @Override
-    public Long getMin()
+    public Slice getMin()
     {
         return minimum;
     }
 
     @Override
-    public Long getMax()
+    public Slice getMax()
     {
         return maximum;
     }
