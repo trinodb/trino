@@ -38,6 +38,7 @@ public class InternalCommunicationConfig
     private String keyStorePassword;
     private String trustStorePath;
     private String trustStorePassword;
+    private boolean httpServerHttpsEnabled;
 
     @NotNull
     public Optional<String> getSharedSecret()
@@ -134,5 +135,23 @@ public class InternalCommunicationConfig
     public boolean isRequiredSharedSecretSet()
     {
         return !isHttpsRequired() || getSharedSecret().isPresent();
+    }
+
+    public boolean isHttpServerHttpsEnabled()
+    {
+        return httpServerHttpsEnabled;
+    }
+
+    @Config("http-server.https.enabled")
+    public InternalCommunicationConfig setHttpServerHttpsEnabled(boolean httpServerHttpsEnabled)
+    {
+        this.httpServerHttpsEnabled = httpServerHttpsEnabled;
+        return this;
+    }
+
+    @AssertTrue(message = "HTTPS must be enabled when HTTPS is required for internal communications. Set http-server.https.enabled=true")
+    public boolean isHttpsEnabledWhenRequired()
+    {
+        return !isHttpsRequired() || isHttpServerHttpsEnabled();
     }
 }
