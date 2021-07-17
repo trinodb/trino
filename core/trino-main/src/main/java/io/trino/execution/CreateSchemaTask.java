@@ -33,11 +33,11 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.metadata.MetadataUtil.checkRoleExists;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
-import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.sql.NodeUtils.mapFromProperties;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
@@ -119,9 +119,7 @@ public class CreateSchemaTask
         }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal().get());
-        if (principal.getType() == PrincipalType.ROLE && !metadata.roleExists(session, principal.getName(), catalog)) {
-            throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", principal.getName());
-        }
+        checkRoleExists(session, statement, metadata, principal, catalog);
         return principal;
     }
 }

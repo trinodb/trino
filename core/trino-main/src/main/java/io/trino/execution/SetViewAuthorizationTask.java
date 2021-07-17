@@ -19,7 +19,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
-import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetViewAuthorization;
@@ -28,10 +27,10 @@ import io.trino.transaction.TransactionManager;
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.metadata.MetadataUtil.checkRoleExists;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
-import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
@@ -62,9 +61,7 @@ public class SetViewAuthorizationTask
         }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
-        if (principal.getType() == PrincipalType.ROLE && !metadata.roleExists(session, principal.getName(), viewName.getCatalogName())) {
-            throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", principal.getName());
-        }
+        checkRoleExists(session, statement, metadata, principal, viewName.getCatalogName());
 
         accessControl.checkCanSetViewAuthorization(session.toSecurityContext(), viewName, principal);
 

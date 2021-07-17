@@ -477,7 +477,7 @@ public class TestHiveConnectorTest
         assertUpdate(admin, "CREATE SCHEMA test_schema_authorization_role");
 
         // make sure role-grants only work on existing roles
-        assertQueryFails(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist");
+        assertQueryFails(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist in catalog 'hive'");
 
         assertUpdate(admin, "CREATE ROLE authorized_users");
         assertUpdate(admin, "GRANT authorized_users TO user");
@@ -586,7 +586,7 @@ public class TestHiveConnectorTest
         assertUpdate(admin, "CREATE ROLE authorized_users");
         assertUpdate(admin, "GRANT authorized_users TO user");
 
-        assertQueryFails(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist");
+        assertQueryFails(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist in catalog 'hive'");
         assertUpdate(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE authorized_users");
         assertUpdate(user, "CREATE TABLE test_createschema_authorization_role.test (x bigint)");
 
