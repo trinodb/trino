@@ -32,7 +32,7 @@ public class TestSybaseConnectorTest
             throws Exception
     {
         sybaseServer = new TestingSybaseServer();
-        return createSybaseQueryRunner(sybaseServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createSybaseQueryRunner(sybaseServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @AfterClass(alwaysRun = true)
