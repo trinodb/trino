@@ -56,7 +56,6 @@ import static java.util.stream.Collectors.joining;
 public class SybaseClient
         extends BaseJdbcClient
 {
-    // SqlServer supports 2100 parameters in prepared statement, let's create a space for about 4 big IN predicates
     public static final int SYBASE_MAX_LIST_EXPRESSIONS = 500;
 
     private static final Joiner DOT_JOINER = Joiner.on(".");

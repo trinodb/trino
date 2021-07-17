@@ -90,22 +90,4 @@ public class TestingSybaseServer
             throw new RuntimeException(e);
         }
     }
-
-    public ResultSet executeQuery(String sql)
-    {
-        try {
-            Class.forName("net.sourceforge.jtds.jdbc.Driver");
-        }
-        catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
-                Statement statement = connection.createStatement()) {
-            return connection.getMetaData().getColumns("testdb", null, "Persons2", null);
-//            return statement.executeQuery(sql);
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
 }
