@@ -25,9 +25,8 @@ import io.trino.transaction.TransactionManager;
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.metadata.MetadataUtil.checkRoleExists;
 import static io.trino.metadata.MetadataUtil.getSessionCatalog;
-import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
-import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
 
 public class DropRoleTask
@@ -53,9 +52,7 @@ public class DropRoleTask
         String catalog = getSessionCatalog(metadata, session, statement);
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
         accessControl.checkCanDropRole(session.toSecurityContext(), role, catalog);
-        if (!metadata.roleExists(session, role, catalog)) {
-            throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", role);
-        }
+        checkRoleExists(session, statement, metadata, role, catalog);
         metadata.dropRole(session, role, catalog);
         return immediateVoidFuture();
     }
