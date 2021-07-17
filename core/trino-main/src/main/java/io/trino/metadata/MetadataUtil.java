@@ -39,6 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
+import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -208,6 +209,20 @@ public final class MetadataUtil
         }
         QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);
         return metadata.getTableHandle(session, name).isPresent();
+    }
+
+    public static void checkRoleExists(Session session, Node node, Metadata metadata, TrinoPrincipal principal, String catalog)
+    {
+        if (principal.getType() == ROLE) {
+            checkRoleExists(session, node, metadata, principal.getName(), catalog);
+        }
+    }
+
+    public static void checkRoleExists(Session session, Node node, Metadata metadata, String role, String catalog)
+    {
+        if (!metadata.roleExists(session, role, catalog)) {
+            throw semanticException(ROLE_NOT_FOUND, node, "Role '%s' does not exist in catalog '%s'", role, catalog);
+        }
     }
 
     public static class TableMetadataBuilder
