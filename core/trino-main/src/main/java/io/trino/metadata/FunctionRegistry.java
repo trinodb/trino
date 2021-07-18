@@ -287,6 +287,7 @@ import static io.trino.operator.aggregation.QuantileDigestAggregationFunction.QD
 import static io.trino.operator.aggregation.RealAverageAggregation.REAL_AVERAGE_AGGREGATION;
 import static io.trino.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
 import static io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction.ARRAY_AGG;
+import static io.trino.operator.aggregation.listagg.ListaggAggregationFunction.LISTAGG;
 import static io.trino.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
 import static io.trino.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
 import static io.trino.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
@@ -563,6 +564,7 @@ public class FunctionRegistry
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
                 .function(ARRAY_AGG)
+                .function(LISTAGG)
                 .functions(new MapSubscriptOperator())
                 .functions(MAP_CONSTRUCTOR, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(new MapAggregationFunction(blockTypeOperators), new MapUnionAggregation(blockTypeOperators))
