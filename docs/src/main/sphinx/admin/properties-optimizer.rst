@@ -146,3 +146,18 @@ Specifies minimal bucket to task ratio that has to be matched or exceeded in ord
 to use table scan node partitioning. When the table bucket count is small
 compared to the number of workers, then the table scan is distributed across
 all workers for improved parallelism.
+
+``colocated-joins-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+* **Session property:** ``colocated_join``
+
+*(Experimental)* Enables colocated join execution. If enabled, when both sides
+of a repartitioned join operation are bucketed on the join key and those buckets
+match each other, network usage is optimized to not re-transmit unnecessary
+data. This optimization reduces overall network and CPU usage for applicable
+joins.
+
+Replicated join operations are not colocated.
