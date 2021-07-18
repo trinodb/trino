@@ -486,8 +486,8 @@ public class IgniteJdbcClient
                 "(SELECT COLUMNS FROM sys.indexes WHERE SCHEMA_NAME = 'PUBLIC' AND TABLE_NAME = '%1$s' AND INDEX_NAME = 'AFFINITY_KEY') AS AFK FROM sys.indexes as idx " +
                 "JOIN sys.caches che ON idx.CACHE_ID = che.CACHE_ID WHERE idx.SCHEMA_NAME = 'PUBLIC' AND idx.TABLE_NAME = '%1$s' LIMIT 1", tableName);
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            ResultSet resultSet = preparedStatement.executeQuery();
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql);
+                ResultSet resultSet = preparedStatement.executeQuery()) {
             checkArgument(resultSet.next(), "Ignite table: '" + tableName + "' properties is NULL");
             List<String> primaryKeys = extractColumnNamesFromOrderingScheme(resultSet.getString("PKS"));
             checkArgument(!primaryKeys.isEmpty(), "Ignite table should has at least one primary key");
