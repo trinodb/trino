@@ -60,8 +60,8 @@ public class TestHiveRoles
     public void testCreateRole()
     {
         executeFromAdmin("CREATE ROLE role1");
-        assertEquals(listRoles(), ImmutableSet.of("role1"));
-        assertEquals(listRoles(), ImmutableSet.of("role1"));
+        assertEquals(listRoles(), ImmutableSet.of("role1", "admin"));
+        assertEquals(listRoles(), ImmutableSet.of("role1", "admin"));
     }
 
     @Test
@@ -96,9 +96,9 @@ public class TestHiveRoles
     public void testDropRole()
     {
         executeFromAdmin("CREATE ROLE role1");
-        assertEquals(listRoles(), ImmutableSet.of("role1"));
+        assertEquals(listRoles(), ImmutableSet.of("role1", "admin"));
         executeFromAdmin("DROP ROLE role1");
-        assertEquals(listRoles(), ImmutableSet.of());
+        assertEquals(listRoles(), ImmutableSet.of("admin"));
     }
 
     @Test
