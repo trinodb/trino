@@ -38,6 +38,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializer;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormat;
 import static io.trino.plugin.hive.util.HiveUtil.parseHiveTimestamp;
+import static io.trino.plugin.hive.util.HiveUtil.shouldUseRecordReaderFromInputFormat;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -45,6 +46,8 @@ import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestHiveUtil
 {
@@ -108,6 +111,18 @@ public class TestHiveUtil
         legacyParquetSchema.setProperty(FILE_INPUT_FORMAT, "parquet.hive.MapredParquetInputFormat");
         assertInstanceOf(getInputFormat(configuration, legacyParquetSchema, false), MapredParquetInputFormat.class);
         assertInstanceOf(getInputFormat(configuration, legacyParquetSchema, true), MapredParquetInputFormat.class);
+    }
+
+    @Test
+    public void testShouldUseRecordReaderFromInputFormat()
+    {
+        Properties parquetSchema = new Properties();
+        parquetSchema.setProperty(FILE_INPUT_FORMAT, "parquet.hive.MapredParquetInputFormat");
+        assertFalse(shouldUseRecordReaderFromInputFormat(new Configuration(false), parquetSchema));
+
+        Properties realtimeSchema = new Properties();
+        realtimeSchema.setProperty(FILE_INPUT_FORMAT, "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat");
+        assertTrue(shouldUseRecordReaderFromInputFormat(new Configuration(false), realtimeSchema));
     }
 
     private static void assertToPartitionValues(String partitionName)

@@ -153,8 +153,8 @@ public abstract class AbstractFileFormat
                 Optional.empty(),
                 false,
                 Optional.empty(),
-                0);
-
+                0,
+                ImmutableMap.of());
         return factory.createPageSource(
                 TestingConnectorTransactionHandle.INSTANCE,
                 session, split,
@@ -192,7 +192,8 @@ public abstract class AbstractFileFormat
                 readColumns,
                 TupleDomain.all(),
                 TYPE_MANAGER,
-                false);
+                false,
+                 ImmutableMap.of());
 
         checkState(recordCursorWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
         checkState(recordCursorWithProjections.get().getProjectedReaderColumns().isEmpty(), "projection should not be required");

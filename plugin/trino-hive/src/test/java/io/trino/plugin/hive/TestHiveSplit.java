@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -57,6 +58,7 @@ public class TestHiveSplit
         acidInfoBuilder.addDeleteDelta(new Path("file:///data/fullacid/delete_delta_0000004_0000004_0000"));
         acidInfoBuilder.addDeleteDelta(new Path("file:///data/fullacid/delete_delta_0000007_0000007_0000"));
         AcidInfo acidInfo = acidInfoBuilder.build().get();
+        Map<String, String> customSplitInfo = ImmutableMap.of("key", "value");
 
         HiveSplit expected = new HiveSplit(
                 "db",
@@ -82,7 +84,8 @@ public class TestHiveSplit
                 Optional.empty(),
                 false,
                 Optional.of(acidInfo),
-                555534);
+                555534,
+                customSplitInfo);
 
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
@@ -104,5 +107,6 @@ public class TestHiveSplit
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
         assertEquals(actual.getAcidInfo().get(), expected.getAcidInfo().get());
         assertEquals(actual.getSplitNumber(), expected.getSplitNumber());
+        assertEquals(actual.getCustomSplitInfo(), expected.getCustomSplitInfo());
     }
 }
