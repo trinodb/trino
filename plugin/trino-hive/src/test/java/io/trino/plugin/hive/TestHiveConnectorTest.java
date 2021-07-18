@@ -620,14 +620,12 @@ public class TestHiveConnectorTest
                 .build();
 
         assertUpdate(admin, "CREATE SCHEMA test_schema_authorization");
-        assertUpdate(admin, "CREATE ROLE admin");
 
         assertUpdate(admin, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user");
         assertUpdate(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin");
         assertQueryFails(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin", "Access Denied: Cannot set authorization for schema test_schema_authorization to ROLE admin");
 
         assertUpdate(admin, "DROP SCHEMA test_schema_authorization");
-        assertUpdate(admin, "DROP ROLE admin");
     }
 
     @Test
@@ -672,7 +670,6 @@ public class TestHiveConnectorTest
 
         assertUpdate(admin, "CREATE SCHEMA test_table_authorization");
         assertUpdate(admin, "CREATE TABLE test_table_authorization.foo (col int)");
-        assertUpdate(admin, "CREATE ROLE admin");
 
         // TODO Change assertions once https://github.com/trinodb/trino/issues/5706 is done
         assertAccessDenied(
@@ -687,7 +684,6 @@ public class TestHiveConnectorTest
 
         assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
         assertUpdate(admin, "DROP SCHEMA test_table_authorization");
-        assertUpdate(admin, "DROP ROLE admin");
     }
 
     @Test
@@ -799,7 +795,6 @@ public class TestHiveConnectorTest
         assertUpdate(admin, "CREATE SCHEMA " + schema);
         assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
         assertUpdate(admin, "CREATE VIEW " + schema + ".test_view AS SELECT * FROM " + schema + ".test_table");
-        assertUpdate(admin, "CREATE ROLE admin");
 
         // TODO Change assertions once https://github.com/trinodb/trino/issues/5706 is done
         assertAccessDenied(
@@ -812,7 +807,6 @@ public class TestHiveConnectorTest
                 "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
                 "Setting table owner type as a role is not supported");
 
-        assertUpdate(admin, "DROP ROLE admin");
         assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
         assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
         assertUpdate(admin, "DROP SCHEMA " + schema);
