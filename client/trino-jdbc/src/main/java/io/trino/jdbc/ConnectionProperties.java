@@ -88,6 +88,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> TRACE_TOKEN = new TraceToken();
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
     public static final ConnectionProperty<String> SOURCE = new Source();
+    public static final ConnectionProperty<Integer> RESULT_SET_BUFFER_SIZE = new ResultSetBufferSize();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -128,6 +129,7 @@ final class ConnectionProperties
             .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
             .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
+            .add(RESULT_SET_BUFFER_SIZE)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -579,6 +581,30 @@ final class ConnectionProperties
         public static Map<String, String> parseExtraCredentials(String extraCredentialString)
         {
             return new MapPropertyParser("extraCredentials").parse(extraCredentialString);
+        }
+    }
+
+    private static class ResultSetBufferSize
+            extends AbstractConnectionProperty<Integer>
+    {
+        public ResultSetBufferSize()
+        {
+            super("resultSetBufferSize", Optional.of("50000"), NOT_REQUIRED, ALLOWED, ResultSetBufferSize::parseBufferSize);
+        }
+
+        public static Integer parseBufferSize(String value)
+        {
+            int valueAsInt;
+            try {
+                valueAsInt = Integer.parseInt(value);
+            }
+            catch (NumberFormatException ex) {
+                throw new IllegalArgumentException("value must be a positive integer");
+            }
+            if (valueAsInt <= 0) {
+                throw new IllegalArgumentException("value must be a positive integer");
+            }
+            return valueAsInt;
         }
     }
 

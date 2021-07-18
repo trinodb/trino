@@ -73,6 +73,7 @@ import static io.trino.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.trino.jdbc.ConnectionProperties.PASSWORD;
+import static io.trino.jdbc.ConnectionProperties.RESULT_SET_BUFFER_SIZE;
 import static io.trino.jdbc.ConnectionProperties.ROLES;
 import static io.trino.jdbc.ConnectionProperties.SESSION_PROPERTIES;
 import static io.trino.jdbc.ConnectionProperties.SESSION_USER;
@@ -232,6 +233,12 @@ public final class TrinoDriverUri
             throws SQLException
     {
         return SESSION_PROPERTIES.getValue(properties).orElse(ImmutableMap.of());
+    }
+
+    public int getResultSetBufferSize()
+            throws SQLException
+    {
+        return RESULT_SET_BUFFER_SIZE.getRequiredValue(properties);
     }
 
     public Optional<String> getSource()

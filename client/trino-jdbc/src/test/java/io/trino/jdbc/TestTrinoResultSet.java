@@ -266,7 +266,7 @@ public class TestTrinoResultSet
                             // do nothing
                         }
                     },
-                    Optional.of(queue));
+                    queue);
         }
     }
 }

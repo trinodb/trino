@@ -112,6 +112,7 @@ public class TrinoConnection
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final OkHttpClient httpClient;
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
+    private final int resultSetBufferSize;
 
     TrinoConnection(TrinoDriverUri uri, OkHttpClient httpClient)
             throws SQLException
@@ -137,6 +138,7 @@ public class TrinoConnection
         this.assumeLiteralUnderscoreInMetadataCallsForNonConformingClients = uri.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients();
 
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.resultSetBufferSize = uri.getResultSetBufferSize();
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
         uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, tags));
         uri.getTraceToken().ifPresent(tags -> clientInfo.put(TRACE_TOKEN, tags));
@@ -717,6 +719,11 @@ public class TrinoConnection
                 "START TRANSACTION ISOLATION LEVEL %s, READ %s",
                 getIsolationLevel(isolationLevel.get()),
                 readOnly.get() ? "ONLY" : "WRITE");
+    }
+
+    int resultSetBufferSize()
+    {
+        return resultSetBufferSize;
     }
 
     StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)

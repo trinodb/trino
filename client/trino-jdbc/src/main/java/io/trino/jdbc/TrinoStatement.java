@@ -43,6 +43,7 @@ public class TrinoStatement
     private final AtomicLong maxRows = new AtomicLong();
     private final AtomicInteger queryTimeoutSeconds = new AtomicInteger();
     private final AtomicInteger fetchSize = new AtomicInteger();
+    private final AtomicInteger resultSetBufferSize = new AtomicInteger();
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
     private final AtomicReference<TrinoConnection> connection;
     private final Consumer<TrinoStatement> onClose;
@@ -58,6 +59,12 @@ public class TrinoStatement
     {
         this.connection = new AtomicReference<>(requireNonNull(connection, "connection is null"));
         this.onClose = requireNonNull(onClose, "onClose is null");
+        setResultSetBufferSize(connection.resultSetBufferSize());
+    }
+
+    public void setResultSetBufferSize(int maxResultSetBufferSize)
+    {
+        this.resultSetBufferSize.set(maxResultSetBufferSize);
     }
 
     public void setProgressMonitor(Consumer<QueryStats> progressMonitor)
@@ -259,7 +266,7 @@ public class TrinoStatement
             executingClient.set(client);
             WarningsManager warningsManager = new WarningsManager();
             currentWarningsManager.set(Optional.of(warningsManager));
-            resultSet = TrinoResultSet.create(this, client, maxRows.get(), progressConsumer, warningsManager);
+            resultSet = TrinoResultSet.create(this, client, maxRows.get(), resultSetBufferSize.get(), progressConsumer, warningsManager);
 
             // check if this is a query
             if (client.currentStatusInfo().getUpdateType() == null) {
