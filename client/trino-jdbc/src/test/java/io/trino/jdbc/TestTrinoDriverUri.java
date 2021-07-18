@@ -170,6 +170,11 @@ public class TestTrinoDriverUri
 
         // legacy url
         assertInvalid("jdbc:presto://localhost:8080", "Invalid JDBC URL: jdbc:presto://localhost:8080");
+
+        //invalid result buffer sizes
+        assertInvalid("jdbc:trino://localhost:8080?resultSetBufferSize=0", "Connection property 'resultSetBufferSize' value is invalid:");
+        assertInvalid("jdbc:trino://localhost:8080?resultSetBufferSize=-1", "Connection property 'resultSetBufferSize' value is invalid:");
+        assertInvalid("jdbc:trino://localhost:8080?resultSetBufferSize=abc", "Connection property 'resultSetBufferSize' value is invalid:");
     }
 
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' is required")
@@ -372,6 +377,20 @@ public class TestTrinoDriverUri
         TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/catalog");
         assertThat(parameters.getCatalog()).isPresent();
         assertThat(parameters.getSchema()).isEmpty();
+    }
+
+    @Test
+    public void testUriWithResultSetBufferSize() throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080?resultSetBufferSize=1000");
+        assertEquals(1_000, parameters.getResultSetBufferSize());
+    }
+
+    @Test
+    public void testDefaultResultSetBufferSize() throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080");
+        assertEquals(50_000, parameters.getResultSetBufferSize());
     }
 
     private static void assertUriPortScheme(TrinoDriverUri parameters, int port, String scheme)
