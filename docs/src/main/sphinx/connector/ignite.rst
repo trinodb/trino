@@ -3,14 +3,29 @@ Ignite connector
 ====================
 
 The Ignite connector allows querying an `Apache Ignite <https://ignite.apache.org/>`_
-database from Trino.Support Ignite version 2.10.0.
+database from Trino.
+
+Requirements
+------------
+
+To connect to a Ignite server, you need:
+
+* Ignite version 2.8.0 or latter
+* Network access from the Trino coordinator and workers to the Ignite
+  server. Port 10800 is the default port.
 
 Configuration
 -------------
 
+The Ignite connector default has two schemas: ``sys`` and ``public``. The ``sys``
+schema, which contains a number of system views with information about cluster nodes,
+user can not create or modify any data among this schema. The ``public`` schema,
+which is used by default whenever a schema is not specified.
+
 The connector can query a Ignite instance. Create a catalog properties file
 that specifies the Ignite connector by setting the ``connector.name`` to
-``ignite``.
+``ignite``.If you have multiple Ignite instances you need to configure one catalog for
+each instance.
 
 For example, to access an instance as ``myignite``, create the file
 ``etc/catalog/myignite.properties``. Replace the connection properties as
@@ -23,51 +38,10 @@ appropriate for your setup:
     connection-user=exampleuser
     connection-password=examplepassword
 
-.. note::
+.. ::
 
-    Currently, Trino only use Ignite JDBC Thin Driver to communicate with Ignite
-    database, make sure the ``connection-url`` starts with ``jdbc:ignite:thin``.
-
-Multiple Ignite servers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If you have multiple Ignite instances you need to configure one catalog for
-each instance. To add another catalog:
-
-* Add another properties file to ``etc/catalog``
-* Save it with a different name that ends in ``.properties``
-
-For example, if you name the property file ``sales.properties``, Trino uses the
-configured connector to create a catalog named ``sales``.
-
-Querying Ignite
--------------------
-
-The Ignite connector default has two schemas: ``sys`` and ``public``. The ``sys``
-schema, which contains a number of system views with information about cluster nodes,
-user can not create or modify any data among this schema. The ``public`` schema,
-which is used by default whenever a schema is not specified.
-Run ``SHOW SCHEMAS`` to see the available Ignite catalog ``myignite``::
-
-    SHOW SCHEMAS FROM myignte;
-
-Run ``SHOW TABLES`` to view the tables in the database::
-
-    SHOW TABLES FROM myignite.public;
-
-Run ``DESCRIBE`` or ``SHOW COLUMNS`` to list the columns in the ``person`` table::
-
-    DESCRIBE myignite.public.person;
-    SHOW COLUMNS FROM myignite.public.person;
-
-Run ``SELECT`` to access the ``person`` table::
-
-    SELECT * FROM myignite.public.person;
-
-.. note::
-
-    If you used a different name for your catalog properties file, use
-    that catalog name instead of ``myignite`` in the above examples.
+    The connector can only use the thin Ignite JDBC driver. Make sure the
+    ``connection-url`` starts with ``jdbc:ignite:thin``.
 
 Table properties
 ----------------
@@ -91,7 +65,7 @@ Table property usage example::
 The following are supported Ignite table properties from `<https://ignite.apache.org/docs/latest/sql-reference/ddl>`_
 
 =============================== ==============================================================================================================
-Property Name                   Description
+Property name                   Description
 =============================== ==============================================================================================================
 ``primary_key``                 The primary key of the table, can chose multi columns as the table primary key. Table at least contains one
                                 column not in primary key. Required.
@@ -117,62 +91,45 @@ Property Name                   Description
                                 default region. Optional.
 =============================== ==============================================================================================================
 
-Pushdown
---------
-
-The connector supports pushdown for a number of operations:
-
-* :ref:`join-pushdown`
-* :ref:`limit-pushdown`
-* :ref:`topn-pushdown`
-
-:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
-
-* :func:`avg`
-* :func:`count`
-* :func:`max`
-* :func:`min`
-* :func:`sum`
-
-Types
------
+Type mapping
+------------
 
 The following are supported Ignite SQL data types from `<https://ignite.apache.org/docs/latest/sql-reference/data-types>`_
 
 =============================== =========================== ===================================================================================
 Ignite SQL data type name       Map to Trino type           Description
 =============================== =========================== ===================================================================================
-``BOOLEAN``                     BooleanType                 Possible values: TRUE and FALSE. Mapped to Java/JDBC ``java.lang.Boolean``.
+``BOOLEAN``                     ``BOOLEAN``                 Possible values: TRUE and FALSE. Mapped to Java/JDBC ``java.lang.Boolean``.
 
-``BIGINT``                      BigintType                  Possible values: [-9223372036854775808, 9223372036854775807]. Mapped to Java/JDBC ``java.lang.Long``.
+``BIGINT``                      ``BIGINT``                  Possible values: [-9223372036854775808, 9223372036854775807]. Mapped to Java/JDBC ``java.lang.Long``.
 
-``DECIMAL``                     DecimalType                 Possible values: Data type with fixed precision and scale. Mapped to Java/JDBC ``java.math.BigDecimal``.
+``DECIMAL``                     ``DECIMAL``                 Possible values: Data type with fixed precision and scale. Mapped to Java/JDBC ``java.math.BigDecimal``.
 
-``DOUBLE``                      DoubleType                  Possible values: A floating point number. Mapped to Java/JDBC ``java.lang.Double``.
+``DOUBLE``                      ``DOUBLE``                  Possible values: A floating point number. Mapped to Java/JDBC ``java.lang.Double``.
 
-``INT``                         IntegerType                 Possible values: [-2147483648, 2147483647]. Mapped to Java/JDBC ``java.lang.Integer``.
+``INT``                         ``INT``                     Possible values: [-2147483648, 2147483647]. Mapped to Java/JDBC ``java.lang.Integer``.
 
-``REAL``                        RealType                    Possible values: A single precision floating point number. Mapped to Java/JDBC ``java.lang.Float``.
+``REAL``                        ``REAL``                    Possible values: A single precision floating point number. Mapped to Java/JDBC ``java.lang.Float``.
 
-``SMALLINT``                    SmallintType                Possible values: [-32768, 32767]. Mapped to Java/JDBC ``java.lang.Short``.
+``SMALLINT``                    ``SMALLINT``                Possible values: [-32768, 32767]. Mapped to Java/JDBC ``java.lang.Short``.
 
-``TINYINT``                     TinyintType                 Possible values: [-128, 127]. Mapped to Java/JDBC ``java.lang.Byte``.
+``TINYINT``                     ``TINYINT``                 Possible values: [-128, 127]. Mapped to Java/JDBC ``java.lang.Byte``.
 
-``CHAR``                        CharType                    Possible values: A unicode String. This type is supported for compatibility with other databases and older applications.
+``CHAR``                        ``CHAR``                    Possible values: A unicode String. This type is supported for compatibility with other databases and older applications.
                                                             Mapped to Java/JDBC ``java.lang.String``.
 
-``VARCHAR``                     VarcharType                 Possible values: A Unicode String. Mapped to Java/JDBC ``java.lang.String``.
+``VARCHAR``                     ``VARCHAR``                 Possible values: A Unicode String. Mapped to Java/JDBC ``java.lang.String``.
 
-``DATE``                        DateType                    Possible values: The date data type. The format is yyyy-MM-dd. Mapped to Java/JDBC ``java.sql.Date``.
+``DATE``                        ``DATE``                    Possible values: The date data type. The format is yyyy-MM-dd. Mapped to Java/JDBC ``java.sql.Date``.
 
-``BINARY``                      VarbinaryType               Possible values: Represents a byte array. Mapped to Java/JDBC ``byte[]``.
+``BINARY``                      ``VARBINARY``               Possible values: Represents a byte array. Mapped to Java/JDBC ``byte[]``.
 =============================== =========================== ===================================================================================
 
 
 Limitations
 -----------
 
-The following SQL statements aren't  supported:
+The following SQL statements aren't supported:
 
 * :doc:`/sql/alter-schema`
 * :doc:`/sql/alter-view`
@@ -189,3 +146,20 @@ The following SQL statements aren't  supported:
 * :doc:`/sql/show-grants`
 * :doc:`/sql/show-roles`
 * :doc:`/sql/show-role-grants`
+
+Pushdown
+--------
+
+The connector supports pushdown for a number of operations:
+
+* :ref:`join-pushdown`
+* :ref:`limit-pushdown`
+* :ref:`topn-pushdown`
+
+:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+* :func:`avg`
+* :func:`count`
+* :func:`max`
+* :func:`min`
+* :func:`sum`
