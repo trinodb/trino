@@ -55,19 +55,21 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRoundingFullPushdown;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class DruidJdbcClient
         extends BaseJdbcClient
 {
+    // All the datasources in Druid are created under schema "druid"
+    private static final String DRUID_SCHEMA = "druid";
     // Druid maintains its datasources related metadata by setting the catalog name as "druid"
     // Note that while a user may name the catalog name as something else, metadata queries made
     // to druid will always have the TABLE_CATALOG set to DRUID_CATALOG
     private static final String DRUID_CATALOG = "druid";
-    // All the datasources in Druid are created under schema "druid"
-    public static final String DRUID_SCHEMA = "druid";
 
     @Inject
     public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
@@ -142,6 +144,9 @@ public class DruidJdbcClient
                     return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
                 }
                 return Optional.of(defaultVarcharColumnMapping(columnSize, true));
+            case Types.TIMESTAMP:
+                // TODO: use {@link #timestampColumnMapping} when https://issues.apache.org/jira/browse/CALCITE-1630 gets resolved
+                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRoundingFullPushdown(TIMESTAMP_MILLIS));
         }
         // TODO implement proper type mapping
         return legacyColumnMapping(session, connection, typeHandle);
