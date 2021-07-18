@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
@@ -117,8 +118,9 @@ public final class JsonExtract
 {
     private static final int ESTIMATED_JSON_OUTPUT_SIZE = 512;
 
-    private static final JsonFactory JSON_FACTORY = new JsonFactory()
-            .disable(CANONICALIZE_FIELD_NAMES);
+    private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder()
+            .disable(CANONICALIZE_FIELD_NAMES)
+            .build();
 
     private JsonExtract() {}
 
