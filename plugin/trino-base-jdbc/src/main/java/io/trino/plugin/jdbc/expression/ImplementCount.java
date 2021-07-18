@@ -28,8 +28,9 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.functionName;
+import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.hasFilter;
+import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.hasSortOrder;
 import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.singleInput;
 import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.variable;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -57,7 +58,9 @@ public class ImplementCount
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
-        return basicAggregation()
+        return Pattern.typeOf(AggregateFunction.class)
+                .with(hasSortOrder().equalTo(false))
+                .with(hasFilter().equalTo(false))
                 .with(functionName().equalTo("count"))
                 .with(singleInput().matching(variable().capturedAs(INPUT)));
     }
@@ -67,10 +70,11 @@ public class ImplementCount
     {
         Variable input = captures.get(INPUT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
+        String distinct = aggregateFunction.isDistinct() ? "DISTINCT " : "";
         verify(aggregateFunction.getOutputType() == BIGINT);
 
         return Optional.of(new JdbcExpression(
-                format("count(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
+                format("count(%s%s)", distinct, context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 bigintTypeHandle));
     }
 }

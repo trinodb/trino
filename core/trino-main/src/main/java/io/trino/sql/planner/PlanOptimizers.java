@@ -481,8 +481,6 @@ public class PlanOptimizers
                                         new RemoveRedundantEnforceSingleRowNode(),
                                         new RemoveRedundantExists(),
                                         new ImplementFilteredAggregations(metadata),
-                                        new SingleDistinctAggregationToGroupBy(),
-                                        new MultipleDistinctAggregationToMarkDistinct(),
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata),
                                         new PruneOrderByInAggregation(metadata),
@@ -790,6 +788,21 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new ReorderJoins(metadata, costComparator, typeAnalyzer))));
 
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.<Rule<?>>builder()
+                        .addAll(columnPruningRules)
+                        .add(new PushLimitThroughMarkDistinct())
+                        .add(new PushLimitIntoTableScan(metadata))
+                        .add(new SingleDistinctAggregationToGroupBy())
+                        .add(new MultipleDistinctAggregationToMarkDistinct())
+                        .addAll(projectionPushdownRules)
+                        .add(new PushProjectionIntoTableScan(metadata, typeAnalyzer, scalarStatsCalculator))
+                        .add(new PushAggregationIntoTableScan(metadata))
+                        .build()));
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
         builder.add(new IterativeOptimizer(
                 metadata,
