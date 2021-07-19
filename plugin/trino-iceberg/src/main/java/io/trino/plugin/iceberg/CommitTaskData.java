@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class CommitTaskData
@@ -25,16 +26,20 @@ public class CommitTaskData
     private final String path;
     private final MetricsWrapper metrics;
     private final Optional<String> partitionDataJson;
+    private final int content;
 
     @JsonCreator
     public CommitTaskData(
             @JsonProperty("path") String path,
             @JsonProperty("metrics") MetricsWrapper metrics,
-            @JsonProperty("partitionDataJson") Optional<String> partitionDataJson)
+            @JsonProperty("partitionDataJson") Optional<String> partitionDataJson,
+            @JsonProperty("content") int content)
     {
         this.path = requireNonNull(path, "path is null");
         this.metrics = requireNonNull(metrics, "metrics is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
+        this.content = content;
+        checkArgument(content >= 0, "content id must be positive");
     }
 
     @JsonProperty
@@ -53,5 +58,11 @@ public class CommitTaskData
     public Optional<String> getPartitionDataJson()
     {
         return partitionDataJson;
+    }
+
+    @JsonProperty
+    public int getContent()
+    {
+        return content;
     }
 }

@@ -19,6 +19,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.io.DeleteSchemaUtil;
 import org.apache.iceberg.types.Types;
 
 import java.util.Objects;
@@ -28,10 +30,14 @@ import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.types.Types.NestedField.required;
 
 public class IcebergColumnHandle
         implements ColumnHandle
 {
+    public static final int ROW_ID_COLUMN_INDEX = Integer.MIN_VALUE;
+    public static final String ROW_ID_COLUMN_NAME = "$row_id";
+
     private final ColumnIdentity columnIdentity;
     private final Type type;
     private final Optional<String> comment;
@@ -115,5 +121,10 @@ public class IcebergColumnHandle
                 createColumnIdentity(column),
                 toTrinoType(column.type(), typeManager),
                 Optional.ofNullable(column.doc()));
+    }
+
+    public static IcebergColumnHandle createUpdateRowIdColumnHandle(Schema tableSchema, TypeManager typeManager)
+    {
+        return create(required(ROW_ID_COLUMN_INDEX, ROW_ID_COLUMN_NAME, DeleteSchemaUtil.posDeleteSchema(tableSchema).asStruct()), typeManager);
     }
 }

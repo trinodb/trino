@@ -18,12 +18,17 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.util.SerializationUtil.deserializeFromBytes;
 
 public class IcebergTableHandle
         implements ConnectorTableHandle
@@ -32,6 +37,11 @@ public class IcebergTableHandle
     private final String tableName;
     private final TableType tableType;
     private final Optional<Long> snapshotId;
+    private final FileFormat fileFormat;
+    private final String outputPath;
+    private final byte[] serializedSchema;
+    private final byte[] serializedPartitionSpec;
+    private final List<IcebergColumnHandle> updateColumns;
 
     // Filter used during split generation and table scan, but not required to be strictly enforced by Iceberg Connector
     private final TupleDomain<IcebergColumnHandle> unenforcedPredicate;
@@ -39,12 +49,21 @@ public class IcebergTableHandle
     // Filter guaranteed to be enforced by Iceberg connector
     private final TupleDomain<IcebergColumnHandle> enforcedPredicate;
 
+    private volatile Schema schema;
+    private volatile PartitionSpec partitionSpec;
+
     @JsonCreator
     public IcebergTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
+            // TODO: refactor with IcebergWritableTableHandle
+            @JsonProperty("fileFormat") FileFormat fileFormat,
+            @JsonProperty("outputPath") String outputPath,
+            @JsonProperty("serializedSchema") byte[] serializedSchema,
+            @JsonProperty("serializedPartitionSpec") byte[] serializedPartitionSpec,
+            @JsonProperty("updateColumns") List<IcebergColumnHandle> updateColumns,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate)
     {
@@ -52,6 +71,11 @@ public class IcebergTableHandle
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.outputPath = requireNonNull(outputPath, "outputPath is null");
+        this.serializedSchema = requireNonNull(serializedSchema, "serializedSchema is null");
+        this.serializedPartitionSpec = requireNonNull(serializedPartitionSpec, "serializedPartitionSpec is null");
+        this.updateColumns = requireNonNull(updateColumns, "updateColumns is null");
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
         this.enforcedPredicate = requireNonNull(enforcedPredicate, "enforcedPredicate is null");
     }
@@ -78,6 +102,52 @@ public class IcebergTableHandle
     public Optional<Long> getSnapshotId()
     {
         return snapshotId;
+    }
+
+    @JsonProperty
+    public FileFormat getFileFormat()
+    {
+        return fileFormat;
+    }
+
+    @JsonProperty
+    public String getOutputPath()
+    {
+        return outputPath;
+    }
+
+    @JsonProperty
+    public byte[] getSerializedSchema()
+    {
+        return serializedSchema;
+    }
+
+    public Schema getSchema()
+    {
+        if (schema == null) {
+            schema = deserializeFromBytes(serializedSchema);
+        }
+        return schema;
+    }
+
+    @JsonProperty
+    public byte[] getSerializedPartitionSpec()
+    {
+        return serializedPartitionSpec;
+    }
+
+    public PartitionSpec getPartitionSpec()
+    {
+        if (partitionSpec == null) {
+            partitionSpec = deserializeFromBytes(serializedPartitionSpec);
+        }
+        return partitionSpec;
+    }
+
+    @JsonProperty
+    public List<IcebergColumnHandle> getUpdateColumns()
+    {
+        return updateColumns;
     }
 
     @JsonProperty

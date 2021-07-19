@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -86,6 +87,7 @@ public class IcebergPageSinkProvider
                 jsonCodec,
                 session,
                 tableHandle.getFileFormat(),
+                FileContent.DATA,
                 maxOpenPartitions);
     }
 }
