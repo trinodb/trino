@@ -133,6 +133,14 @@ public class TestIcebergBucketing
         assertBucketAndHashEquals("binary", ByteBuffer.wrap("hello trino".getBytes(StandardCharsets.UTF_8)), 493441885);
         assertBucketAndHashEquals("binary", ByteBuffer.wrap("\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF".getBytes(StandardCharsets.UTF_16)), 1291558121);
 
+        assertBucketAndHashEquals("fixed[3]", null, null);
+        assertBucketAndHashEquals("fixed[3]", ByteBuffer.wrap(new byte[] {0, 0, 0}), 99660839);
+        assertBucketAndHashEquals("fixed[3]", ByteBuffer.wrap(new byte[] {1, 2, 3}), 13750788);
+        assertBucketAndHashEquals("fixed[3]", ByteBuffer.wrap(new byte[] {127, -128, 1}), 107475887);
+        assertBucketAndHashEquals("fixed[3]", ByteBuffer.wrap(new byte[] {-1, -1, -1}), 1058185254);
+        assertBucketAndHashEquals("fixed[3]", ByteBuffer.wrap(new byte[] {Byte.MAX_VALUE, Byte.MAX_VALUE, Byte.MAX_VALUE}), 533318325);
+        assertBucketAndHashEquals("fixed[3]", ByteBuffer.wrap(new byte[] {Byte.MIN_VALUE, Byte.MIN_VALUE, Byte.MIN_VALUE}), 1945840528);
+
         assertBucketAndHashEquals("date", null, null);
         assertBucketAndHashEquals("date", 0, 1669671676);
         assertBucketAndHashEquals("date", 1, 1392991556);
