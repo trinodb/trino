@@ -391,7 +391,7 @@ public final class ChunkedSliceOutput
 
         public long getBufferPollSize()
         {
-            return bufferPollSize;
+            return bufferPollSize ;
         }
     }
 }
