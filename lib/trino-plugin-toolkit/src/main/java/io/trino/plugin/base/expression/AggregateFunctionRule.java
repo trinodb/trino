@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc.expression;
+package io.trino.plugin.base.expression;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -27,11 +26,11 @@ import java.util.function.Function;
 import static com.google.common.base.Verify.verifyNotNull;
 import static java.util.Objects.requireNonNull;
 
-public interface AggregateFunctionRule
+public interface AggregateFunctionRule<Result>
 {
     Pattern<AggregateFunction> getPattern();
 
-    Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context);
+    Optional<Result> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context);
 
     interface RewriteContext
     {

@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc.expression;
+package io.trino.plugin.base.expression;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Match;
-import io.trino.plugin.jdbc.JdbcExpression;
-import io.trino.plugin.jdbc.expression.AggregateFunctionRule.RewriteContext;
+import io.trino.plugin.base.expression.AggregateFunctionRule.RewriteContext;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -29,18 +28,18 @@ import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
-public final class AggregateFunctionRewriter
+public final class AggregateFunctionRewriter<Result>
 {
     private final Function<String, String> identifierQuote;
-    private final Set<AggregateFunctionRule> rules;
+    private final Set<AggregateFunctionRule<Result>> rules;
 
-    public AggregateFunctionRewriter(Function<String, String> identifierQuote, Set<AggregateFunctionRule> rules)
+    public AggregateFunctionRewriter(Function<String, String> identifierQuote, Set<AggregateFunctionRule<Result>> rules)
     {
         this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
         this.rules = ImmutableSet.copyOf(requireNonNull(rules, "rules is null"));
     }
 
-    public Optional<JdbcExpression> rewrite(ConnectorSession session, AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments)
+    public Optional<Result> rewrite(ConnectorSession session, AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments)
     {
         requireNonNull(aggregateFunction, "aggregateFunction is null");
         requireNonNull(assignments, "assignments is null");
@@ -66,11 +65,11 @@ public final class AggregateFunctionRewriter
             }
         };
 
-        for (AggregateFunctionRule rule : rules) {
+        for (AggregateFunctionRule<Result> rule : rules) {
             Iterator<Match> matches = rule.getPattern().match(aggregateFunction, context).iterator();
             while (matches.hasNext()) {
                 Match match = matches.next();
-                Optional<JdbcExpression> rewritten = rule.rewrite(aggregateFunction, match.captures(), context);
+                Optional<Result> rewritten = rule.rewrite(aggregateFunction, match.captures(), context);
                 if (rewritten.isPresent()) {
                     return rewritten;
                 }

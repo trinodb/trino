@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc.expression;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.plugin.base.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -27,10 +28,10 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.basicAggregation;
-import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.singleInput;
-import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.variable;
+import static io.trino.plugin.base.expression.AggregateFunctionPatterns.basicAggregation;
+import static io.trino.plugin.base.expression.AggregateFunctionPatterns.functionName;
+import static io.trino.plugin.base.expression.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.expression.AggregateFunctionPatterns.variable;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -38,7 +39,7 @@ import static java.util.Objects.requireNonNull;
  * Implements {@code sum(x)}
  */
 public class ImplementSum
-        implements AggregateFunctionRule
+        implements AggregateFunctionRule<JdbcExpression>
 {
     private static final Capture<Variable> INPUT = newCapture();
 
