@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.memory;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import io.trino.Session;
 import io.trino.execution.QueryStats;
@@ -25,15 +25,18 @@ import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
-import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
+import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
+import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -44,19 +47,13 @@ import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.LINE_ITEM;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.PART;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
-public class TestMemorySmoke
-        extends AbstractTestQueryFramework
+public class TestMemoryConnectorTest
+        extends BaseConnectorTest
 {
     private static final int LINEITEM_COUNT = 60175;
     private static final int ORDERS_COUNT = 15000;
@@ -79,7 +76,44 @@ public class TestMemorySmoke
                         // disable semi join to inner join rewrite to test semi join operators explicitly
                         .put("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
                         .build(),
-                ImmutableList.of(NATION, CUSTOMER, ORDERS, LINE_ITEM, PART));
+                ImmutableSet.<TpchTable<?>>builder()
+                        .addAll(REQUIRED_TPCH_TABLES)
+                        .add(TpchTable.PART)
+                        .add(TpchTable.LINE_ITEM)
+                        .build());
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_PREDICATE_PUSHDOWN:
+            case SUPPORTS_LIMIT_PUSHDOWN:
+            case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_DROP_COLUMN:
+            case SUPPORTS_RENAME_COLUMN:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
+            case SUPPORTS_CREATE_VIEW:
+                return true;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Cassandra connector does not support column default values");
     }
 
     @Test
@@ -404,12 +438,6 @@ public class TestMemorySmoke
                 "SELECT 1, 1, 1");
     }
 
-    @DataProvider
-    public Object[][] joinDistributionTypes()
-    {
-        return new Object[][] {{BROADCAST}, {PARTITIONED}};
-    }
-
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
     {
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(session, selectQuery);
@@ -481,20 +509,6 @@ public class TestMemorySmoke
     }
 
     @Test
-    public void testCreateSchema()
-    {
-        assertQueryFails("DROP SCHEMA schema1", "line 1:1: Schema 'memory.schema1' does not exist");
-        assertUpdate("CREATE SCHEMA schema1");
-        assertQueryFails("CREATE SCHEMA schema1", "line 1:1: Schema 'memory.schema1' already exists");
-        assertUpdate("CREATE TABLE schema1.x(t int)");
-        assertQueryFails("DROP SCHEMA schema1", "Schema not empty: schema1");
-        assertUpdate("DROP TABLE schema1.x");
-        assertUpdate("DROP SCHEMA schema1");
-        assertQueryFails("DROP SCHEMA schema1", "line 1:1: Schema 'memory.schema1' does not exist");
-        assertUpdate("DROP SCHEMA IF EXISTS schema1");
-    }
-
-    @Test
     public void testCreateTableInNonDefaultSchema()
     {
         assertUpdate("CREATE SCHEMA schema1");
@@ -519,22 +533,6 @@ public class TestMemorySmoke
 
         int tablesAfterCreate = listMemoryTables().size();
         assertEquals(tablesBeforeCreate, tablesAfterCreate);
-    }
-
-    @Test
-    public void testRenameTable()
-    {
-        assertUpdate("CREATE TABLE test_table_to_be_renamed (a BIGINT)");
-        assertQueryFails("ALTER TABLE test_table_to_be_renamed RENAME TO memory.test_schema_not_exist.test_table_renamed", "Schema test_schema_not_exist not found");
-        assertUpdate("ALTER TABLE test_table_to_be_renamed RENAME TO test_table_renamed");
-        assertQueryResult("SELECT count(*) FROM test_table_renamed", 0L);
-
-        assertUpdate("CREATE SCHEMA test_different_schema");
-        assertUpdate("ALTER TABLE test_table_renamed RENAME TO test_different_schema.test_table_renamed");
-        assertQueryResult("SELECT count(*) FROM test_different_schema.test_table_renamed", 0L);
-
-        assertUpdate("DROP TABLE test_different_schema.test_table_renamed");
-        assertUpdate("DROP SCHEMA test_different_schema");
     }
 
     @Test
