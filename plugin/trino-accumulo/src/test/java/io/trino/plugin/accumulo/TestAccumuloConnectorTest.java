@@ -30,7 +30,6 @@ import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRu
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -64,6 +63,10 @@ public class TestAccumuloConnectorTest
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
+            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_DROP_COLUMN:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
@@ -83,20 +86,6 @@ public class TestAccumuloConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Accumulo connector does not support column default values");
-    }
-
-    @Override
-    public void testAddColumn()
-    {
-        assertThatThrownBy(super::testAddColumn).hasMessage("This connector does not support adding columns");
-        throw new SkipException("Accumulo connector does not support adding columns");
-    }
-
-    @Override
-    public void testDropColumn()
-    {
-        assertThatThrownBy(super::testDropColumn).hasMessage("This connector does not support dropping columns");
-        throw new SkipException("Dropping columns are not supported by the connector");
     }
 
     @Override
