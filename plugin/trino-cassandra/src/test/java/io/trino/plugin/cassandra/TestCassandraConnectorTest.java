@@ -99,6 +99,11 @@ public class TestCassandraConnectorTest
             case SUPPORTS_ARRAY:
                 return false;
 
+            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_DROP_COLUMN:
+            case SUPPORTS_RENAME_COLUMN:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
@@ -160,29 +165,6 @@ public class TestCassandraConnectorTest
     protected String dataMappingTableName(String trinoTypeName)
     {
         return "tmp_trino_" + System.nanoTime();
-    }
-
-    @Test
-    @Override
-    public void testAddColumn()
-    {
-        assertThatThrownBy(super::testAddColumn).hasMessage("This connector does not support adding columns");
-        throw new SkipException("This connector does not support adding columns");
-    }
-
-    @Override
-    public void testRenameColumn()
-    {
-        assertThatThrownBy(super::testRenameColumn).hasMessage("This connector does not support renaming columns");
-        throw new SkipException("This connector does not support renaming columns");
-    }
-
-    @Test
-    @Override
-    public void testDropColumn()
-    {
-        assertThatThrownBy(super::testDropColumn).hasMessage("This connector does not support dropping columns");
-        throw new SkipException("This connector does not support dropping columns");
     }
 
     @Test
