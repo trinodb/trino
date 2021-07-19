@@ -99,12 +99,6 @@ public class DbResourceGroupConfigurationManager
         this.maxRefreshInterval = config.getMaxRefreshInterval();
         this.exactMatchSelectorEnabled = config.getExactMatchSelectorEnabled();
         this.dao = dao;
-        this.dao.createResourceGroupsGlobalPropertiesTable();
-        this.dao.createResourceGroupsTable();
-        this.dao.createSelectorsTable();
-        if (exactMatchSelectorEnabled) {
-            this.dao.createExactMatchSelectorsTable();
-        }
         load();
     }
 

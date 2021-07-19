@@ -249,6 +249,7 @@ public class TestDbResourceGroupConfigurationManager
     {
         H2DaoProvider daoProvider = setup("selectors");
         H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
         dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
@@ -291,6 +292,7 @@ public class TestDbResourceGroupConfigurationManager
     {
         H2DaoProvider daoProvider = setup("selectors");
         H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
         dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, ENVIRONMENT);

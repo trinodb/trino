@@ -28,11 +28,14 @@ public class MysqlDaoProvider
     private final ResourceGroupsDao dao;
 
     @Inject
-    public MysqlDaoProvider(DbResourceGroupConfig config)
+    public MysqlDaoProvider(FlywayMigration migration, DbResourceGroupConfig config)
     {
+        requireNonNull(migration, "migration is null");
         requireNonNull(config, "config is null");
         MysqlDataSource dataSource = new MysqlDataSource();
         dataSource.setURL(requireNonNull(config.getConfigDbUrl(), "resource-groups.config-db-url is null"));
+        dataSource.setUser(config.getConfigDbUser());
+        dataSource.setPassword(config.getConfigDbPassword());
         this.dao = Jdbi.create(dataSource)
                 .installPlugin(new SqlObjectPlugin())
                 .onDemand(ResourceGroupsDao.class);
