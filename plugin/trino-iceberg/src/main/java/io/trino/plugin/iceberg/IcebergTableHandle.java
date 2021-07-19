@@ -18,12 +18,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.iceberg.Schema;
 
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.util.SerializationUtil.deserializeFromBytes;
 
 public class IcebergTableHandle
         implements ConnectorTableHandle
@@ -32,6 +34,7 @@ public class IcebergTableHandle
     private final String tableName;
     private final TableType tableType;
     private final Optional<Long> snapshotId;
+    private final byte[] serializedSchema;
 
     // Filter used during split generation and table scan, but not required to be strictly enforced by Iceberg Connector
     private final TupleDomain<IcebergColumnHandle> unenforcedPredicate;
@@ -39,12 +42,15 @@ public class IcebergTableHandle
     // Filter guaranteed to be enforced by Iceberg connector
     private final TupleDomain<IcebergColumnHandle> enforcedPredicate;
 
+    private transient Schema schema;
+
     @JsonCreator
     public IcebergTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
+            @JsonProperty("serializedSchema") byte[] serializedSchema,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate)
     {
@@ -52,6 +58,7 @@ public class IcebergTableHandle
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        this.serializedSchema = requireNonNull(serializedSchema, "serializedSchema is null");
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
         this.enforcedPredicate = requireNonNull(enforcedPredicate, "enforcedPredicate is null");
     }
@@ -78,6 +85,20 @@ public class IcebergTableHandle
     public Optional<Long> getSnapshotId()
     {
         return snapshotId;
+    }
+
+    @JsonProperty
+    public byte[] getSerializedSchema()
+    {
+        return serializedSchema;
+    }
+
+    public Schema getSchema()
+    {
+        if (schema == null) {
+            schema = deserializeFromBytes(serializedSchema);
+        }
+        return schema;
     }
 
     @JsonProperty

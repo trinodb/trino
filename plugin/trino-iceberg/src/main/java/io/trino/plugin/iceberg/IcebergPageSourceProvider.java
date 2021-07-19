@@ -59,6 +59,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -66,6 +67,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.types.Types;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
@@ -78,6 +82,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -96,6 +101,7 @@ import static io.trino.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
 import static io.trino.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.ROW_POSITION_COLUMN;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
@@ -111,12 +117,14 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxRead
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
+import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static org.joda.time.DateTimeZone.UTC;
 
@@ -127,18 +135,24 @@ public class IcebergPageSourceProvider
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
+    private final FileIoProvider fileIoProvider;
+    private final TypeManager typeManager;
 
     @Inject
     public IcebergPageSourceProvider(
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             OrcReaderConfig orcReaderConfig,
-            ParquetReaderConfig parquetReaderConfig)
+            ParquetReaderConfig parquetReaderConfig,
+            FileIoProvider fileIoProvider,
+            TypeManager typeManager)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.orcReaderOptions = requireNonNull(orcReaderConfig, "orcReaderConfig is null").toOrcReaderOptions();
         this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
+        this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -159,12 +173,22 @@ public class IcebergPageSourceProvider
 
         Map<Integer, String> partitionKeys = split.getPartitionKeys();
 
-        List<IcebergColumnHandle> regularColumns = columns.stream()
+        LinkedHashSet<IcebergColumnHandle> regularColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
                 .filter(column -> !partitionKeys.containsKey(column.getId()))
-                .collect(toImmutableList());
+                .collect(toCollection(LinkedHashSet::new));
 
         HdfsContext hdfsContext = new HdfsContext(session);
+        FileIO fileIo = fileIoProvider.createFileIo(hdfsContext, null);
+        List<Types.NestedField> deleteReadFields = icebergColumns.stream()
+                .map(column -> table.getSchema().findField(column.getId()))
+                .collect(toImmutableList());
+        Schema deleteReadSchema = new Schema(deleteReadFields);
+        TrinoDeleteFilter deleteFilter = new TrinoDeleteFilter(fileIo, split.getTask(), deleteReadSchema, deleteReadSchema);
+        getColumns(deleteFilter.requiredSchema(), typeManager).stream()
+                .filter(column -> !partitionKeys.containsKey(column.getId()))
+                .forEachOrdered(regularColumns::add);
+
         ConnectorPageSource dataPageSource = createDataPageSource(
                 session,
                 hdfsContext,
@@ -173,10 +197,10 @@ public class IcebergPageSourceProvider
                 split.getLength(),
                 split.getFileSize(),
                 split.getFileFormat(),
-                regularColumns,
+                ImmutableList.copyOf(regularColumns),
                 table.getUnenforcedPredicate());
 
-        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getTimeZoneKey());
+        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, deleteFilter, session.getTimeZoneKey());
     }
 
     private ConnectorPageSource createDataPageSource(
@@ -201,8 +225,14 @@ public class IcebergPageSourceProvider
             }
         }
 
+        List<Boolean> rowIndexPositions = dataColumns.stream().map(ROW_POSITION_COLUMN::equals).collect(toImmutableList());
+
         switch (fileFormat) {
             case ORC:
+                if (rowIndexPositions.stream().anyMatch(v -> v)) {
+                    throw new UnsupportedOperationException("positional delete is not supported by ORC");
+                }
+
                 return createOrcPageSource(
                         hdfsEnvironment,
                         session.getUser(),
@@ -233,6 +263,7 @@ public class IcebergPageSourceProvider
                         length,
                         fileSize,
                         dataColumns,
+                        rowIndexPositions,
                         parquetReaderOptions
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
                         predicate,
@@ -433,6 +464,7 @@ public class IcebergPageSourceProvider
             long length,
             long fileSize,
             List<IcebergColumnHandle> regularColumns,
+            List<Boolean> rowIndexLocations,
             ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats)
@@ -507,7 +539,7 @@ public class IcebergPageSourceProvider
                 }
             }
 
-            return new ParquetPageSource(parquetReader, trinoTypes.build(), internalFields.build());
+            return new ParquetPageSource(parquetReader, trinoTypes.build(), rowIndexLocations, internalFields.build());
         }
         catch (IOException | RuntimeException e) {
             try {

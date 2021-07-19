@@ -21,13 +21,17 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
+import org.apache.iceberg.io.CloseableIterable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static java.util.Objects.requireNonNull;
@@ -38,16 +42,21 @@ public class IcebergPageSource
     private final Block[] prefilledBlocks;
     private final int[] delegateIndexes;
     private final ConnectorPageSource delegate;
+    private final TrinoDeleteFilter deleteFilter;
+    private final List<Type> columnTypes;
 
     public IcebergPageSource(
             List<IcebergColumnHandle> columns,
             Map<Integer, String> partitionKeys,
             ConnectorPageSource delegate,
+            TrinoDeleteFilter deleteFilter,
             TimeZoneKey timeZoneKey)
     {
         int size = requireNonNull(columns, "columns is null").size();
         requireNonNull(partitionKeys, "partitionKeys is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.deleteFilter = requireNonNull(deleteFilter, "deleteFilter is null");
+        this.columnTypes = columns.stream().map(IcebergColumnHandle::getType).collect(toImmutableList());
 
         this.prefilledBlocks = new Block[size];
         this.delegateIndexes = new int[size];
@@ -106,7 +115,16 @@ public class IcebergPageSource
                     blocks[i] = dataPage.getBlock(delegateIndexes[i]);
                 }
             }
-            return new Page(batchSize, blocks);
+
+            CloseableIterable<TrinoRow> filteredRows = deleteFilter.filter(CloseableIterable.transform(
+                    CloseableIterable.withNoopClose(IntStream.range(0, batchSize).boxed().collect(toImmutableList())),
+                    p -> new TrinoRow(columnTypes, blocks, p)));
+            int[] positionsToKeep = StreamSupport.stream(filteredRows.spliterator(), false).mapToInt(TrinoRow::getPosition).toArray();
+            Block[] filteredBlocks = new Block[prefilledBlocks.length];
+            for (int i = 0; i < filteredBlocks.length; i++) {
+                filteredBlocks[i] = blocks[i].getPositions(positionsToKeep, 0, positionsToKeep.length);
+            }
+            return new Page(positionsToKeep.length, filteredBlocks);
         }
         catch (RuntimeException e) {
             closeWithSuppression(e);

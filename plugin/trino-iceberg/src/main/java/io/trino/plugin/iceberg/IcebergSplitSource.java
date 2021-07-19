@@ -37,6 +37,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.iceberg.util.SerializationUtil.serializeToBytes;
 
 public class IcebergSplitSource
         implements ConnectorSplitSource
@@ -97,11 +98,7 @@ public class IcebergSplitSource
         //       on reader side evaluating a condition that we know will always be true.
 
         return new IcebergSplit(
-                task.file().path().toString(),
-                task.start(),
-                task.length(),
-                task.file().fileSizeInBytes(),
-                task.file().format(),
+                serializeToBytes(task),
                 ImmutableList.of(),
                 getPartitionKeys(task));
     }

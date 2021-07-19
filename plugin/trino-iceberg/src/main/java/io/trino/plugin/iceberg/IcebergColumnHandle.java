@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.types.Types;
 
 import java.util.Objects;
@@ -27,11 +28,15 @@ import java.util.Optional;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergColumnHandle
         implements ColumnHandle
 {
+    public static final IcebergColumnHandle ROW_POSITION_COLUMN = new IcebergColumnHandle(
+            createColumnIdentity(MetadataColumns.ROW_POSITION), BIGINT, Optional.of(MetadataColumns.ROW_POSITION.doc()));
+
     private final ColumnIdentity columnIdentity;
     private final Type type;
     private final Optional<String> comment;
