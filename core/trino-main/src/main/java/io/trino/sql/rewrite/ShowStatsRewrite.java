@@ -67,9 +67,11 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
+import static io.trino.sql.QueryUtil.query;
 import static io.trino.sql.QueryUtil.selectAll;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
+import static io.trino.sql.QueryUtil.subquery;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static java.lang.Double.isFinite;
 import static java.lang.Math.round;
@@ -173,7 +175,7 @@ public class ShowStatsRewrite
             rowsBuilder.add(new Row(rowValues.build()));
             List<Expression> resultRows = rowsBuilder.build();
 
-            return simpleQuery(selectAll(selectItems), aliased(new Values(resultRows), "table_stats", statsColumnNames));
+            return simpleQuery(selectAll(selectItems), aliased(subquery(query(new Values(resultRows))), "table_stats", statsColumnNames));
         }
 
         @Override

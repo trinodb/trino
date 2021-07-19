@@ -125,11 +125,14 @@ import static io.trino.sql.QueryUtil.functionCall;
 import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.QueryUtil.logicalAnd;
 import static io.trino.sql.QueryUtil.ordering;
+import static io.trino.sql.QueryUtil.query;
+import static io.trino.sql.QueryUtil.quotedIdentifier;
 import static io.trino.sql.QueryUtil.row;
 import static io.trino.sql.QueryUtil.selectAll;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.singleValueQuery;
+import static io.trino.sql.QueryUtil.subquery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -325,7 +328,7 @@ final class ShowQueriesRewrite
 
             return simpleQuery(
                     selectList(new AllColumns()),
-                    aliased(new Values(rows), "role_grants", ImmutableList.of("Role Grants")),
+                    aliased(subquery(query(new Values(rows))), "role_grants", ImmutableList.of("Role Grants")),
                     ordering(ascending("Role Grants")));
         }
 
@@ -369,14 +372,14 @@ final class ShowQueriesRewrite
             }
             else if (node.getLikePattern().isPresent()) {
                 predicate = Optional.of(new LikePredicate(
-                        identifier("catalog"),
+                        quotedIdentifier("catalog"),
                         new StringLiteral(node.getLikePattern().get()),
                         node.getEscape().map(StringLiteral::new)));
             }
 
             return simpleQuery(
                     selectList(new AllColumns()),
-                    aliased(new Values(rows), "catalogs", ImmutableList.of("Catalog")),
+                    aliased(subquery(query(new Values(rows))), "catalogs", ImmutableList.of("Catalog")),
                     predicate,
                     Optional.of(ordering(ascending("Catalog"))));
         }
@@ -698,7 +701,7 @@ final class ShowQueriesRewrite
                     selectAll(columns.entrySet().stream()
                             .map(entry -> aliasedName(entry.getKey(), entry.getValue()))
                             .collect(toImmutableList())),
-                    aliased(new Values(rows), "functions", ImmutableList.copyOf(columns.keySet())),
+                    aliased(subquery(query(new Values(rows))), "functions", ImmutableList.copyOf(columns.keySet())),
                     node.getLikePattern().map(like ->
                             new LikePredicate(
                                     identifier("function_name"),
@@ -773,7 +776,7 @@ final class ShowQueriesRewrite
                             aliasedName("type", "Type"),
                             aliasedName("description", "Description")),
                     aliased(
-                            new Values(rows.build()),
+                            subquery(query(new Values(rows.build()))),
                             "session",
                             ImmutableList.of("name", "value", "default", "type", "description", "include")),
                     predicate);

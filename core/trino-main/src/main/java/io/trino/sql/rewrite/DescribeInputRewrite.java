@@ -47,11 +47,13 @@ import static io.trino.execution.ParameterExtractor.getParameters;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.ascending;
-import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.QueryUtil.ordering;
+import static io.trino.sql.QueryUtil.query;
+import static io.trino.sql.QueryUtil.quotedIdentifier;
 import static io.trino.sql.QueryUtil.row;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
+import static io.trino.sql.QueryUtil.subquery;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.type.TypeUtils.getDisplayLabel;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -137,9 +139,9 @@ final class DescribeInputRewrite
             }
 
             return simpleQuery(
-                    selectList(identifier("Position"), identifier("Type")),
+                    selectList(quotedIdentifier("Position"), quotedIdentifier("Type")),
                     aliased(
-                            values(rows),
+                            subquery(query(values(rows))),
                             "Parameter Input",
                             ImmutableList.of("Position", "Type")),
                     Optional.empty(),

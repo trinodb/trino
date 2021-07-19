@@ -941,6 +941,21 @@ public class LocalQueryRunner
         return logicalPlanner.plan(analysis, stage);
     }
 
+    public QueryExplainer getQueryExplainer(boolean forceSingleNode)
+    {
+        return new QueryExplainer(
+                getPlanOptimizers(forceSingleNode),
+                planFragmenter,
+                metadata,
+                typeOperators,
+                groupProvider,
+                accessControl,
+                sqlParser,
+                statsCalculator,
+                costCalculator,
+                dataDefinitionTask);
+    }
+
     private static List<Split> getNextBatch(SplitSource splitSource)
     {
         return getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000)).getSplits();
