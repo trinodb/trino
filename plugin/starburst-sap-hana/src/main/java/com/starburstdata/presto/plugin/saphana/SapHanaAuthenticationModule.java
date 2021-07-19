@@ -27,7 +27,7 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class SapHanaAuthenticationModule
@@ -36,12 +36,12 @@ public class SapHanaAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 SapHanaAuthenticationConfig.class,
                 config -> config.getAuthenticationType() == SapHanaAuthenticationType.PASSWORD,
                 new PasswordModule()));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 SapHanaAuthenticationConfig.class,
                 config -> config.getAuthenticationType() == SapHanaAuthenticationType.PASSWORD_PASS_THROUGH,
                 new SapHanaPasswordPassThroughModule()));
