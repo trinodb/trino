@@ -35,11 +35,13 @@ import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -243,7 +245,7 @@ public class PhoenixClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles, TupleDomain<ColumnHandle> currentPredicate)
             throws SQLException
     {
         PreparedStatement query = prepareStatement(
@@ -251,6 +253,7 @@ public class PhoenixClient
                 connection,
                 table,
                 columnHandles,
+                currentPredicate,
                 Optional.of(split));
         QueryPlan queryPlan = getQueryPlan((PhoenixPreparedStatement) query);
         ResultSet resultSet = getResultSet(((PhoenixSplit) split).getPhoenixInputSplit(), queryPlan);
@@ -269,6 +272,7 @@ public class PhoenixClient
             Connection connection,
             JdbcTableHandle table,
             List<JdbcColumnHandle> columns,
+            TupleDomain<ColumnHandle> currentPredicate,
             Optional<JdbcSplit> split)
             throws SQLException
     {
@@ -279,6 +283,7 @@ public class PhoenixClient
                 Optional.empty(),
                 columns,
                 ImmutableMap.of(),
+                currentPredicate,
                 split);
         return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
     }

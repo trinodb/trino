@@ -200,7 +200,7 @@ public class TestJmxSplitManager
         assertEquals(allSplits.size(), nodes.size());
         ConnectorSplit split = allSplits.get(0);
 
-        return recordSetProvider.getRecordSet(JmxTransactionHandle.INSTANCE, SESSION, split, tableHandle, columnHandles);
+        return recordSetProvider.getRecordSet(JmxTransactionHandle.INSTANCE, SESSION, split, tableHandle, columnHandles, DynamicFilter.EMPTY);
     }
 
     private static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)
