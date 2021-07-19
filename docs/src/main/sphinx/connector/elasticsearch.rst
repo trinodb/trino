@@ -159,6 +159,9 @@ Data types
 
 The data type mappings are as follows:
 
+Primitive types
+^^^^^^^^^^^^^^^
+
 ============= =============
 Elasticsearch Trino
 ============= =============
@@ -225,6 +228,20 @@ property definition to the ``_meta.presto`` property of the target index mapping
         }
     }'
 
+Date types
+^^^^^^^^^^
+
+Elasticsearch supports a wide array of `date`_ formats including
+`built-in date formats`_ and also `custom date formats`_.
+The Elasticsearch connector supports only the default ``date`` type. All other
+date formats including `built-in date formats`_ and `custom date formats`_ are
+not supported. Dates with the `format`_ property are ignored.
+
+.. _date: https://www.elastic.co/guide/en/elasticsearch/reference/current/date.html
+.. _built-in date formats: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#built-in-date-formats
+.. _custom date formats: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#custom-date-formats
+.. _format: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#mapping-date-format
+
 Special columns
 ---------------
 
@@ -252,6 +269,28 @@ as part of the table name, separated by a colon. For example:
 
 .. _full text query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax
 
+Predicate push down
+-------------------
+
+The connector supports predicate push down of below data types:
+
+============= ============= =============
+Elasticsearch Trino         Supports
+============= ============= =============
+``binary``    ``VARBINARY`` ``NO``
+``boolean``   ``BOOLEAN``   ``YES``
+``double``    ``DOUBLE``    ``YES``
+``float``     ``REAL``      ``YES``
+``byte``      ``TINYINT``   ``YES``
+``short``     ``SMALLINT``  ``YES``
+``integer``   ``INTEGER``   ``YES``
+``long``      ``BIGINT``    ``YES``
+``keyword``   ``VARCHAR``   ``YES``
+``text``      ``VARCHAR``   ``NO``
+``date``      ``TIMESTAMP`` ``YES``
+``ip``        ``IPADDRESS`` ``NO``
+(all others)  (unsupported) (unsupported)
+============= ============= =============
 
 Pass-through queries
 --------------------
