@@ -230,7 +230,7 @@ jobs:
             !:trino-cassandra,
             !:trino-hive,!:trino-orc,!:trino-parquet,
             !:trino-mongodb,!:trino-kafka,!:trino-elasticsearch,
-            !:trino-redis,
+            !:trino-redis,!:trino-pulsar,
             !:trino-sqlserver,!:trino-postgresql,!:trino-mysql,!:trino-memsql,
             !:trino-oracle,
             !:trino-kudu,
@@ -256,6 +256,7 @@ jobs:
           - ":trino-mongodb,:trino-kafka,:trino-elasticsearch"
           - ":trino-elasticsearch -P test-stats"
           - ":trino-redis"
+          - ":trino-pulsar"
           - ":trino-sqlserver,:trino-postgresql,:trino-mysql"
           - ":trino-oracle"
           - ":trino-kudu"
