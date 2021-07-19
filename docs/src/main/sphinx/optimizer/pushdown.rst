@@ -151,6 +151,63 @@ to perform the remaining query processing on a smaller amount of data.
 The specifics for the supported pushdown of table joins varies for each data
 source, and therefore for each connector.
 
+However, there are some generic conditions that must be met in order for a join
+to be pushed down:
+
+* join pushdown must be enabled
+* all predicates that are part of the join must be possible to be pushed down
+* the tables in the join must be from the same catalog
+
+You can check if pushdown for a specific join is performed by looking at the
+:doc:`EXPLAIN plan </sql/explain>` of the query. If a join is successfully
+pushed down to the connector, the explain plan does **not** show that ``Join`` operator.
+The explain plan only shows the operations that are performed by Trino.
+
+As an example, we loaded the TPCH data set into a PostgreSQL database and then
+queried it using the PostgreSQL connector::
+
+    SELECT c.custkey, o.orderkey
+    FROM orders o JOIN customer c ON c.custkey = o.custkey;
+
+You can get the explain plan by prepending the above query with ``EXPLAIN``::
+
+    EXPLAIN SELECT c.custkey, o.orderkey
+    FROM orders o JOIN customer c ON c.custkey = o.custkey;
+
+The explain plan for this query does not show any ``Join`` operator,
+as this operation is now performed by the connector. You can see the
+generated SQL to perform the join as part of the PostgreSQL ``TableScan``
+operator. This shows you that the pushdown was successful.
+
+.. code-block:: text
+
+ Fragment 0 [SINGLE]
+     Output layout: [custkey, orderkey]
+     Output partitioning: SINGLE []
+     Stage Execution Strategy: UNGROUPED_EXECUTION
+     Output[custkey, orderkey]
+     │   Layout: [custkey:bigint, orderkey:bigint]
+     │   Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: ?}
+     └─ RemoteSource[1]
+            Layout: [orderkey:bigint, custkey:bigint]
+
+ Fragment 1 [SOURCE]
+     Output layout: [orderkey, custkey]
+     Output partitioning: SINGLE []
+     Stage Execution Strategy: UNGROUPED_EXECUTION
+     TableScan[postgres:Query[SELECT l."orderkey" AS "orderkey_0", l."custkey" AS "custkey_1", r."custkey" AS "custkey_2" FROM (SELECT "orderkey", "custkey" FROM "tpch"."orders") l INNER JOIN (SELECT "custkey" FROM "tpch"."customer") r O
+         Layout: [orderkey:bigint, custkey:bigint]
+         Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: 0B}
+         orderkey := orderkey_0:bigint:int8
+         custkey := custkey_1:bigint:int8
+
+.. caution::
+
+  Care should be taken when enabling join pushdown as pushing down a join
+  which can increase the row count compared to the size of the input
+  to the join may incur large costs both in terms of performance and
+  money due to increased network traffic.
+
 .. _limit-pushdown:
 
 Limit pushdown
