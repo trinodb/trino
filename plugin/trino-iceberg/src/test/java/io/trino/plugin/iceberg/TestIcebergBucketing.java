@@ -82,15 +82,21 @@ public class TestIcebergBucketing
         assertBucketAndHashEquals("decimal(1, 0)", "0", 1364076727);
         assertBucketAndHashEquals("decimal(1, 0)", "1", 1683673515);
         assertBucketAndHashEquals("decimal(1, 0)", "9", 1771774483);
+        assertBucketAndHashEquals("decimal(1, 0)", "-9", 156162024);
         assertBucketAndHashEquals("decimal(3, 1)", "0.1", 1683673515);
         assertBucketAndHashEquals("decimal(3, 1)", "1.0", 307159211);
         assertBucketAndHashEquals("decimal(3, 1)", "12.3", 1308316337);
+        assertBucketAndHashEquals("decimal(3, 1)", "-12.3", 1847027525);
         assertBucketAndHashEquals("decimal(18, 10)", "0", 1364076727);
         assertBucketAndHashEquals("decimal(38, 10)", null, null);
         assertBucketAndHashEquals("decimal(38, 10)", "999999.9999999999", 1053577599);
+        assertBucketAndHashEquals("decimal(38, 10)", "-999999.9999999999", 1054888790);
         assertBucketAndHashEquals("decimal(38, 0)", "99999999999999999999999999999999999999", 1067515814);
+        assertBucketAndHashEquals("decimal(38, 0)", "-99999999999999999999999999999999999999", 193266010);
         assertBucketAndHashEquals("decimal(38, 10)", "9999999999999999999999999999.9999999999", 1067515814);
+        assertBucketAndHashEquals("decimal(38, 10)", "-9999999999999999999999999999.9999999999", 193266010);
         assertBucketAndHashEquals("decimal(38, 10)", "123456789012345.0", 93815101);
+        assertBucketAndHashEquals("decimal(38, 10)", "-123456789012345.0", 522439017);
 
         assertBucketAndHashEquals("string", null, null);
         assertBucketAndHashEquals("string", "", 0);
