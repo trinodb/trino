@@ -16,6 +16,7 @@ package io.trino.plugin.cassandra;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import io.airlift.slice.Slice;
+import io.trino.plugin.cassandra.CassandraType.Kind;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.TimeZoneKey;
@@ -24,7 +25,6 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.cassandra.CassandraType.TIMESTAMP;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static java.lang.Float.floatToRawIntBits;
 
@@ -80,7 +80,7 @@ public class CassandraRecordCursor
     @Override
     public double getDouble(int i)
     {
-        switch (getCassandraType(i)) {
+        switch (getCassandraType(i).getKind()) {
             case DOUBLE:
                 return currentRow.getDouble(i);
             case FLOAT:
@@ -95,7 +95,7 @@ public class CassandraRecordCursor
     @Override
     public long getLong(int i)
     {
-        switch (getCassandraType(i)) {
+        switch (getCassandraType(i).getKind()) {
             case INT:
                 return currentRow.getInt(i);
             case SMALLINT:
@@ -124,7 +124,7 @@ public class CassandraRecordCursor
     @Override
     public Slice getSlice(int i)
     {
-        if (getCassandraType(i) == TIMESTAMP) {
+        if (getCassandraType(i).getKind() == Kind.TIMESTAMP) {
             throw new IllegalArgumentException("Timestamp column can not be accessed with getSlice");
         }
         NullableValue value = cassandraTypes.get(i).getColumnValue(currentRow, i);
@@ -135,9 +135,15 @@ public class CassandraRecordCursor
     }
 
     @Override
-    public Object getObject(int field)
+    public Object getObject(int i)
     {
-        throw new UnsupportedOperationException();
+        CassandraType cassandraType = cassandraTypes.get(i);
+        switch (cassandraType.getKind()) {
+            case TUPLE:
+                return cassandraType.getColumnValue(currentRow, i).getValue();
+            default:
+                throw new IllegalArgumentException("getObject cannot be called for " + cassandraType);
+        }
     }
 
     @Override
@@ -149,7 +155,7 @@ public class CassandraRecordCursor
     @Override
     public boolean isNull(int i)
     {
-        if (getCassandraType(i) == TIMESTAMP) {
+        if (getCassandraType(i).getKind() == Kind.TIMESTAMP) {
             return currentRow.getTimestamp(i) == null;
         }
         return currentRow.isNull(i);

@@ -169,6 +169,22 @@ public class TestInsertIntoCassandraTable
         onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, CASSANDRA_MATERIALIZED_VIEW));
     }
 
+    @Test(groups = CASSANDRA)
+    public void testInsertIntoTupleType()
+    {
+        String tableName = "insert_tuple_table";
+
+        onCasssandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
+
+        onCasssandra(format("CREATE TABLE %s.%s (key int, value frozen<tuple<int, text, float>>, PRIMARY KEY (key))",
+                 KEY_SPACE, tableName));
+
+        assertThat(() -> query(format("INSERT INTO %s.%s.%s (key, value) VALUES (1, ROW(1, 'text-1', 1.11))", CONNECTOR_NAME, KEY_SPACE, tableName)))
+                .failsWithMessage("Unsupported column type: row(integer, varchar, real)");
+
+        onCasssandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
+    }
+
     private void onCasssandra(String query)
     {
         CassandraQueryExecutor queryExecutor = new CassandraQueryExecutor(configuration);

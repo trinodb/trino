@@ -15,12 +15,14 @@ package io.trino.tests.product.cassandra;
 
 import com.datastax.driver.core.utils.Bytes;
 import io.airlift.units.Duration;
+import io.trino.jdbc.Row;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.internal.query.CassandraQueryExecutor;
 import io.trino.tempto.query.QueryResult;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
@@ -372,6 +374,31 @@ public class TestSelect
         QueryResult queryResult = onTrino()
                 .executeQuery(format("SELECT native_protocol_version FROM %s.system.local", CONNECTOR_NAME));
         assertThat(queryResult).containsOnly(row("4"));
+    }
+
+    @Test(groups = CASSANDRA)
+    public void testSelectTupleType()
+    {
+        String tableName = "insert_tuple_table";
+
+        onCassandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
+
+        onCassandra(format("CREATE TABLE %s.%s (key int, value frozen<tuple<int, text, float>>, PRIMARY KEY (key))",
+                 KEY_SPACE, tableName));
+
+        onCassandra(format("INSERT INTO %s.%s (key, value) VALUES(1, (1, 'text-1', 1.11))", KEY_SPACE, tableName));
+
+        QueryResult queryResult = onTrino().executeQuery(
+                 format("SELECT * FROM %s.%s.%s", CONNECTOR_NAME, KEY_SPACE, tableName));
+        assertThat(queryResult).hasRowsCount(1);
+        Assertions.assertThat(queryResult.row(0).get(0)).isEqualTo(1);
+        Assertions.assertThat(queryResult.row(0).get(1)).isEqualTo(Row.builder()
+                .addUnnamedField(1)
+                .addUnnamedField("text-1")
+                .addUnnamedField(1.11f)
+                .build());
+
+        onCassandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
     }
 
     private void onCassandra(String query)
