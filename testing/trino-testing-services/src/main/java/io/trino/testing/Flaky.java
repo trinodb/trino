@@ -14,6 +14,8 @@
 package io.trino.testing;
 
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -28,6 +30,8 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Deprecated
 @Retention(RUNTIME)
 @Target(METHOD)
+@TestTemplate
+@ExtendWith(FlakyTestRetryExtension.class)
 public @interface Flaky
 {
     String issue();
