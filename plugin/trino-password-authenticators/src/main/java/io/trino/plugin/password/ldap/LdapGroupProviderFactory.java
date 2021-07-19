@@ -16,15 +16,15 @@ package io.trino.plugin.password.ldap;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
-import io.trino.spi.security.PasswordAuthenticator;
-import io.trino.spi.security.PasswordAuthenticatorFactory;
+import io.trino.spi.security.GroupProvider;
+import io.trino.spi.security.GroupProviderFactory;
 
 import java.util.Map;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
-public class LdapAuthenticatorFactory
-        implements PasswordAuthenticatorFactory
+public class LdapGroupProviderFactory
+        implements GroupProviderFactory
 {
     @Override
     public String getName()
@@ -33,12 +33,12 @@ public class LdapAuthenticatorFactory
     }
 
     @Override
-    public PasswordAuthenticator create(Map<String, String> config)
+    public GroupProvider create(Map<String, String> config)
     {
         Bootstrap app = new Bootstrap(
                 binder -> {
                     configBinder(binder).bindConfig(LdapConfig.class);
-                    binder.bind(LdapAuthenticator.class).in(Scopes.SINGLETON);
+                    binder.bind(LdapGroupProvider.class).in(Scopes.SINGLETON);
                     binder.bind(LdapClient.class).to(JdkLdapClient.class).in(Scopes.SINGLETON);
                 });
 
@@ -48,6 +48,6 @@ public class LdapAuthenticatorFactory
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
-        return injector.getInstance(LdapAuthenticator.class);
+        return injector.getInstance(LdapGroupProvider.class);
     }
 }
