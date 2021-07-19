@@ -819,6 +819,7 @@ public class TestHiveConnectorTest
     }
 
     @Test
+    @Override
     public void testShowCreateSchema()
     {
         Session admin = Session.builder(getSession())
