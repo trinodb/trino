@@ -225,6 +225,93 @@ property definition to the ``_meta.presto`` property of the target index mapping
         }
     }'
 
+.. note::
+
+    It is not allowed to use ``asRawJson`` and ``isArray`` flags simultaneously for the same column.
+
+Raw JSON transform
+^^^^^^^^^^^^^^^^^^
+
+There are many occurrences where documents in Elasticsearch have more complex
+structures that are not represented in the mapping. For instance, a single
+``keyword`` field can have widely different content including a single
+``keyword`` value, an array, or a multidimensional ``keyword`` array with any
+level of nesting.
+
+.. code-block:: shell
+
+    curl --request PUT \
+        --url localhost:9200/doc/_mapping \
+        --header 'content-type: application/json' \
+        --data '
+    {
+        "properties": {
+            "array_string_field":{
+                "type": "keyword"
+            }
+        }
+    }'
+
+Notice for the ``array_string_field`` that all the following documents are legal
+for Elasticsearch. See the `Elasticsearch array documentation
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/array.html>`_
+for more details.
+
+.. code-block:: json
+
+    [
+        {
+            "array_string_field": "trino"
+        },
+        {
+            "array_string_field": ["trino","is","the","besto"]
+        },
+        {
+            "array_string_field": ["trino",["is","the","besto"]]
+        },
+        {
+            "array_string_field": ["trino",["is",["the","besto"]]]
+        }
+    ]
+
+Further, Elasticsearch supports types, such as
+`dense_vector
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/dense-vector.html>`_,
+that are not supported in Trino. New types are constantly emerging which can
+cause parsing exceptions for users that use of these types in Elasticsearch. To
+manage all of these scenarios, you can transform fields to raw JSON by
+annotating it in a Trino-specific structure in the `_meta
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-meta-field.html>`_
+section of the index mapping. This indicates to Trino that the field, and all
+nested fields beneath, need to be cast to a ``VARCHAR`` field that contains
+the raw JSON content. These fields can be defined by using the following command
+to add the field property definition to the ``_meta.presto`` property of the
+target index mapping.
+
+.. code-block:: shell
+
+    curl --request PUT \
+        --url localhost:9200/doc/_mapping \
+        --header 'content-type: application/json' \
+        --data '
+    {
+        "_meta": {
+            "presto":{
+                "array_string_field":{
+                    "asRawJson":true
+                }
+            }
+        }
+    }'
+
+This preceding configurations causes Trino to return the ``array_string_field``
+field as a ``VARCHAR`` containing raw JSON. You can parse these fields with the
+:doc:`built-in JSON functions </functions/json>`.
+
+.. note::
+
+    It is not allowed to use ``asRawJson`` and ``isArray`` flags simultaneously for the same column.
+
 Special columns
 ---------------
 

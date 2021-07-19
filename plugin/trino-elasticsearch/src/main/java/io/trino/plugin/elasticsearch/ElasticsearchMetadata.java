@@ -25,6 +25,7 @@ import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.ObjectType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.PrimitiveType;
+import io.trino.plugin.elasticsearch.decoders.DecoderType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -57,7 +58,11 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.elasticsearch.DecoderContext.ARRAY_ELEMENT_KEY;
+import static io.trino.plugin.elasticsearch.DecoderContext.primitiveDecoderContext;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -92,7 +97,11 @@ public class ElasticsearchMetadata
 
     private static final Map<String, ColumnHandle> PASSTHROUGH_QUERY_COLUMNS = ImmutableMap.of(
             PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
-            new ElasticsearchColumnHandle(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME, VARCHAR, false));
+            new ElasticsearchColumnHandle(
+                    PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
+                    VARCHAR,
+                    primitiveDecoderContext(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME, VARCHAR),
+                    false));
 
     private final Type ipAddressType;
     private final ElasticsearchClient client;
@@ -106,6 +115,31 @@ public class ElasticsearchMetadata
         this.client = requireNonNull(client, "client is null");
         requireNonNull(config, "config is null");
         this.schemaName = config.getDefaultSchema();
+    }
+
+    private DecoderContext getDecoderContext(IndexMetadata.Field field)
+    {
+        Type trinoType = toTrinoType(field);
+        if (field.asRawJson()) {
+            checkState(VARCHAR.equals(trinoType), "expected VARCHAR type for RawJson field");
+            return new DecoderContext(field.getName(), ImmutableMap.of(), DecoderType.RAW_JSON);
+        }
+
+        if (field.isArray()) {
+            checkState(trinoType instanceof ArrayType, "field is marked as an array, but Trino type is not ArrayType");
+
+            return new DecoderContext(
+                    field.getName(),
+                    ImmutableMap.of(ARRAY_ELEMENT_KEY, getDecoderContext(elementField(field))),
+                    DecoderType.ARRAY);
+        }
+        if (trinoType instanceof RowType) {
+            Map<String, DecoderContext> children = ((ObjectType) field.getType()).getFields().stream()
+                    .collect(toImmutableMap(IndexMetadata.Field::getName, this::getDecoderContext));
+            return new DecoderContext(field.getName(), children, DecoderType.ROW);
+        }
+
+        return primitiveDecoderContext(field.getName(), trinoType);
     }
 
     @Override
@@ -238,6 +272,7 @@ public class ElasticsearchMetadata
             result.put(field.getName(), new ElasticsearchColumnHandle(
                     field.getName(),
                     toTrinoType(field),
+                    getDecoderContext(field),
                     supportsPredicates(field.getType())));
         }
 
@@ -269,15 +304,15 @@ public class ElasticsearchMetadata
 
     private Type toTrinoType(IndexMetadata.Field metaDataField)
     {
-        return toTrinoType(metaDataField, metaDataField.isArray());
-    }
-
-    private Type toTrinoType(IndexMetadata.Field metaDataField, boolean isArray)
-    {
+        checkArgument(!metaDataField.asRawJson() || !metaDataField.isArray(), format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.",
+                metaDataField.getName()));
         IndexMetadata.Type type = metaDataField.getType();
-        if (isArray) {
-            Type elementType = toTrinoType(metaDataField, false);
+        if (metaDataField.isArray()) {
+            Type elementType = toTrinoType(elementField(metaDataField));
             return new ArrayType(elementType);
+        }
+        if (metaDataField.asRawJson()) {
+            return VARCHAR;
         }
         if (type instanceof PrimitiveType) {
             switch (((PrimitiveType) type).getName()) {
@@ -331,6 +366,12 @@ public class ElasticsearchMetadata
         }
 
         return null;
+    }
+
+    public static IndexMetadata.Field elementField(IndexMetadata.Field field)
+    {
+        checkArgument(field.isArray(), "Cannot get element field from a non-array field");
+        return new IndexMetadata.Field(field.asRawJson(), false, field.getName(), field.getType());
     }
 
     @Override

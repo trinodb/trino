@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.elasticsearch.DecoderContext.primitiveDecoderContext;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Arrays.stream;
@@ -77,6 +78,10 @@ enum BuiltinColumns
 
     public ColumnHandle getColumnHandle()
     {
-        return new ElasticsearchColumnHandle(name, type, supportsPredicates);
+        return new ElasticsearchColumnHandle(
+                name,
+                type,
+                primitiveDecoderContext(name, type),
+                supportsPredicates);
     }
 }
