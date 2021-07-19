@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
@@ -53,6 +54,12 @@ public class HiveHandleResolver
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         return HiveInsertTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorMergeTableHandle> getMergeTableHandleClass()
+    {
+        return HiveMergeTableHandle.class;
     }
 
     @Override

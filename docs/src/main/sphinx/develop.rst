@@ -11,6 +11,7 @@ This guide is intended for Trino contributors and plugin developers.
     develop/connectors
     develop/example-http
     develop/delete-and-update
+    develop/supporting-merge
     develop/types
     develop/functions
     develop/system-access-control

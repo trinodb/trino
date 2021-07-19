@@ -203,7 +203,7 @@ public class InternalHiveSplitFactory
 
         int statementId = 0;
 
-        if (transaction.isDelete() || transaction.isUpdate()) {
+        if (transaction.isDelete() || transaction.isUpdate() || transaction.isMerge()) {
             int bucketNumberIndex = bucketNumber.orElse(0);
             statementId = bucketStatementCounters.computeIfAbsent(bucketNumberIndex, index -> new AtomicInteger()).getAndIncrement();
         }

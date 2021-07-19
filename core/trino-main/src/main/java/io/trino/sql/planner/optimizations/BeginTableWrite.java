@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.MergeHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -26,6 +27,7 @@ import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
@@ -40,6 +42,7 @@ import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
+import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.UnionNode;
@@ -48,6 +51,7 @@ import io.trino.sql.planner.plan.UpdateNode;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -148,6 +152,19 @@ public class BeginTableWrite
         }
 
         @Override
+        public PlanNode visitMergeWriter(MergeWriterNode mergeNode, RewriteContext<Optional<WriterTarget>> context)
+        {
+            MergeTarget mergeTarget = (MergeTarget) getContextTarget(context);
+            return new MergeWriterNode(
+                    mergeNode.getId(),
+                    rewriteModifyTableScanForMerge(mergeNode.getSource(), mergeTarget.getHandle()),
+                    mergeTarget,
+                    mergeNode.getProjectedSymbols(),
+                    mergeNode.getPartitioningScheme(),
+                    mergeNode.getOutputSymbols());
+        }
+
+        @Override
         public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             PlanNode child = node.getSource();
@@ -205,6 +222,9 @@ public class BeginTableWrite
                         update.getUpdatedColumns(),
                         update.getUpdatedColumnHandles());
             }
+            if (node instanceof MergeWriterNode) {
+                return ((MergeWriterNode) node).getTarget();
+            }
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
                 Set<WriterTarget> writerTargets = node.getSources().stream()
                         .map(this::getWriterTarget)
@@ -240,6 +260,15 @@ public class BeginTableWrite
                         update.getUpdatedColumns(),
                         update.getUpdatedColumnHandles());
             }
+            if (target instanceof MergeTarget) {
+                MergeTarget merge = (MergeTarget) target;
+                MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());
+                return new MergeTarget(
+                        mergeHandle.getTableHandle(),
+                        Optional.of(mergeHandle),
+                        merge.getSchemaTableName(),
+                        merge.getMergeElements());
+            }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
                 TableWriterNode.RefreshMaterializedViewReference refreshMV = (TableWriterNode.RefreshMaterializedViewReference) target;
                 return new TableWriterNode.RefreshMaterializedViewTarget(
@@ -272,6 +301,33 @@ public class BeginTableWrite
                 }
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
+        }
+
+        /**
+         * Because MERGE does redistribution, it is legal for it to find the updateTarget
+         * TableScanNode anywhere in the tree.
+         */
+        private PlanNode rewriteModifyTableScanForMerge(PlanNode node, TableHandle handle)
+        {
+            if (node instanceof TableScanNode) {
+                TableScanNode scan = (TableScanNode) node;
+                if (scan.isUpdateTarget()) {
+                    return new TableScanNode(
+                            scan.getId(),
+                            handle,
+                            scan.getOutputSymbols(),
+                            scan.getAssignments(),
+                            scan.getEnforcedConstraint(),
+                            scan.getStatistics(),
+                            scan.isUpdateTarget(),
+                            // partitioning should not change with write table handle
+                            scan.getUseConnectorNodePartitioning());
+                }
+                return scan;
+            }
+            return replaceChildren(node, node.getSources().stream()
+                    .map(source -> rewriteModifyTableScanForMerge(source, handle))
+                    .collect(toImmutableList()));
         }
 
         private PlanNode rewriteModifyTableScan(PlanNode node, TableHandle handle)

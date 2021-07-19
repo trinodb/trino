@@ -108,6 +108,7 @@ import io.trino.sql.planner.iterative.rule.PruneJoinChildrenColumns;
 import io.trino.sql.planner.iterative.rule.PruneJoinColumns;
 import io.trino.sql.planner.iterative.rule.PruneLimitColumns;
 import io.trino.sql.planner.iterative.rule.PruneMarkDistinctColumns;
+import io.trino.sql.planner.iterative.rule.PruneMergeSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneOffsetColumns;
 import io.trino.sql.planner.iterative.rule.PruneOrderByInAggregation;
 import io.trino.sql.planner.iterative.rule.PruneOutputSourceColumns;
@@ -321,6 +322,7 @@ public class PlanOptimizers
                 new PruneCorrelatedJoinCorrelation(),
                 new PruneDeleteSourceColumns(),
                 new PruneUpdateSourceColumns(),
+                new PruneMergeSourceColumns(),
                 new PruneDistinctLimitSourceColumns(),
                 new PruneEnforceSingleRowColumns(),
                 new PruneExceptSourceColumns(),

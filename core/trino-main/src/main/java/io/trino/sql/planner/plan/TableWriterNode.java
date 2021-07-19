@@ -22,13 +22,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.metadata.InsertTableHandle;
+import io.trino.metadata.MergeHandle;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
 
@@ -199,6 +202,7 @@ public class TableWriterNode
             @JsonSubTypes.Type(value = InsertTarget.class, name = "InsertTarget"),
             @JsonSubTypes.Type(value = DeleteTarget.class, name = "DeleteTarget"),
             @JsonSubTypes.Type(value = UpdateTarget.class, name = "UpdateTarget"),
+            @JsonSubTypes.Type(value = MergeTarget.class, name = "MergeTarget"),
             @JsonSubTypes.Type(value = RefreshMaterializedViewTarget.class, name = "RefreshMaterializedViewTarget")})
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
@@ -526,6 +530,113 @@ public class TableWriterNode
         public String toString()
         {
             return handle.map(Object::toString).orElse("[]");
+        }
+    }
+
+    public static class MergeTarget
+            extends WriterTarget
+    {
+        private final TableHandle handle;
+        private final Optional<MergeHandle> mergeHandle;
+        private final SchemaTableName schemaTableName;
+        private final MergeElements mergeElements;
+
+        @JsonCreator
+        public MergeTarget(
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("mergeHandle") Optional<MergeHandle> mergeHandle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("mergeElements") MergeElements mergeElements)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+            this.mergeHandle = requireNonNull(mergeHandle, "mergeHandle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.mergeElements = requireNonNull(mergeElements, "mergeElements is null");
+        }
+
+        @JsonProperty
+        public TableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @JsonProperty
+        public Optional<MergeHandle> getMergeHandle()
+        {
+            return mergeHandle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
+        }
+
+        @JsonProperty
+        public MergeElements getMergeElements()
+        {
+            return mergeElements;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
+    }
+
+    public static class MergeElements
+    {
+        private final RowChangeParadigm paradigm;
+        private final List<ColumnHandle> columnHandles;
+        private final List<Type> columnTypes;
+        private final List<ColumnHandle> writeRedistributionColumns;
+        private final Type rowIdType;
+
+        @JsonCreator
+        public MergeElements(
+                @JsonProperty("paradigm") RowChangeParadigm paradigm,
+                @JsonProperty("columnHandles") List<ColumnHandle> columnHandles,
+                @JsonProperty("columnTypes") List<Type> columnTypes,
+                @JsonProperty("writeRedistributionColumns") List<ColumnHandle> writeRedistributionColumns,
+                @JsonProperty("rowIdType") Type rowIdType)
+        {
+            this.paradigm = requireNonNull(paradigm, "paradigm is null");
+            this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
+            this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
+            this.writeRedistributionColumns = requireNonNull(writeRedistributionColumns, "writeRedistributionColumns is null");
+            this.rowIdType = requireNonNull(rowIdType, "rowIdType is null");
+            checkArgument(columnHandles.size() == columnTypes.size(), "columnHandles.size() (%s) != columnTypes.size() (%s)", columnHandles.size(), columnTypes.size());
+        }
+
+        @JsonProperty
+        public RowChangeParadigm getParadigm()
+        {
+            return paradigm;
+        }
+
+        @JsonProperty
+        public List<ColumnHandle> getColumnHandles()
+        {
+            return columnHandles;
+        }
+
+        @JsonProperty
+        public List<Type> getColumnTypes()
+        {
+            return columnTypes;
+        }
+
+        @JsonProperty
+        public List<ColumnHandle> getWriteRedistributionColumns()
+        {
+            return writeRedistributionColumns;
+        }
+
+        @JsonProperty
+        public Type getRowIdType()
+        {
+            return rowIdType;
         }
     }
 }

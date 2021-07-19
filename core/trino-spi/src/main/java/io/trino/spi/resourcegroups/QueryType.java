@@ -22,5 +22,6 @@ public enum QueryType
     ANALYZE,
     INSERT,
     UPDATE,
+    MERGE,
     SELECT
 }
