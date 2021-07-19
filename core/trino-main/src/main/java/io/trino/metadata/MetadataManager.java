@@ -1190,7 +1190,7 @@ public final class MetadataManager
             throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
         }
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(schemaName.getCatalogName()));
-        CatalogName catalogName = catalogMetadata.getCatalogName();
+        CatalogName catalogName = catalogMetadata.getConnectorIdForSchema(schemaName);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
@@ -1204,7 +1204,7 @@ public final class MetadataManager
             throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
         }
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(schemaName.getCatalogName()));
-        CatalogName catalogName = catalogMetadata.getCatalogName();
+        CatalogName catalogName = catalogMetadata.getConnectorIdForSchema(schemaName);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
