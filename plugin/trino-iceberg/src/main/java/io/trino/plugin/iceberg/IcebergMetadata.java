@@ -243,6 +243,7 @@ public class IcebergMetadata
     @Override
     public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
+        checkState(isHiveSystemSchema(schemaName.getSchemaName()), "Schema is not accessible: %s", schemaName);
         Optional<Database> db = metastore.getDatabase(schemaName.getSchemaName());
         if (db.isPresent()) {
             return HiveSchemaProperties.fromDatabase(db.get());
@@ -254,6 +255,7 @@ public class IcebergMetadata
     @Override
     public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
+        checkState(isHiveSystemSchema(schemaName.getSchemaName()), "Schema is not accessible: %s", schemaName);
         Optional<Database> database = metastore.getDatabase(schemaName.getSchemaName());
         if (database.isPresent()) {
             return database.flatMap(db -> Optional.of(new TrinoPrincipal(db.getOwnerType(), db.getOwnerName())));
