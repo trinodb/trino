@@ -18,29 +18,40 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class CommitTaskData
 {
     private final String path;
+    private final long fileSizeInBytes;
     private final MetricsWrapper metrics;
     private final Optional<String> partitionDataJson;
 
     @JsonCreator
     public CommitTaskData(
             @JsonProperty("path") String path,
+            @JsonProperty("fileSizeInBytes") long fileSizeInBytes,
             @JsonProperty("metrics") MetricsWrapper metrics,
             @JsonProperty("partitionDataJson") Optional<String> partitionDataJson)
     {
         this.path = requireNonNull(path, "path is null");
+        this.fileSizeInBytes = fileSizeInBytes;
         this.metrics = requireNonNull(metrics, "metrics is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
+        checkArgument(fileSizeInBytes >= 0, "fileSizeInBytes is negative");
     }
 
     @JsonProperty
     public String getPath()
     {
         return path;
+    }
+
+    @JsonProperty
+    public long getFileSizeInBytes()
+    {
+        return fileSizeInBytes;
     }
 
     @JsonProperty
