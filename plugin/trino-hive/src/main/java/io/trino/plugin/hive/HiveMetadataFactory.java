@@ -47,6 +47,7 @@ public class HiveMetadataFactory
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final boolean translateHiveViews;
+    private final boolean runViewsAsInvoker;
     private final boolean hideDeltaLakeTables;
     private final long perTransactionCacheMaximumSize;
     private final HiveMetastore metastore;
@@ -98,6 +99,7 @@ public class HiveMetadataFactory
                 hiveConfig.getWritesToNonManagedTablesEnabled(),
                 hiveConfig.getCreatesOfNonManagedTablesEnabled(),
                 hiveConfig.isTranslateHiveViews(),
+                hiveConfig.runViewsAsInvoker(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
                 metastoreConfig.isHideDeltaLakeTables(),
@@ -126,6 +128,7 @@ public class HiveMetadataFactory
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
             boolean translateHiveViews,
+            boolean runViewsAsInvoker,
             long perTransactionCacheMaximumSize,
             Optional<Duration> hiveTransactionHeartbeatInterval,
             boolean hideDeltaLakeTables,
@@ -146,6 +149,7 @@ public class HiveMetadataFactory
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.translateHiveViews = translateHiveViews;
+        this.runViewsAsInvoker = runViewsAsInvoker;
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
@@ -198,6 +202,7 @@ public class HiveMetadataFactory
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
                 translateHiveViews,
+                runViewsAsInvoker,
                 hideDeltaLakeTables,
                 typeManager,
                 locationService,
