@@ -179,3 +179,7 @@ Property Name               Default Value    Description
 ``bloomfilter``             ``NONE``         Bloomfilter to use. Valid values are ``NONE`` (default), ``ROW``, or ``ROWCOL``.
 =========================== ================ ==============================================================================================================
 
+SQL support
+-----------
+
+.. include:: sql-delete-limitation.fragment

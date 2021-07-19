@@ -135,6 +135,7 @@ Limitations
 
 The following SQL statements aren't  supported:
 
+* :doc:`/sql/delete`
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 * :doc:`/sql/show-grants`
