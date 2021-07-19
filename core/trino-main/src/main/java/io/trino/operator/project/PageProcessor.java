@@ -18,6 +18,7 @@ import io.airlift.slice.SizeOf;
 import io.trino.array.ReferenceCountMap;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.DynamicPageFilter;
 import io.trino.operator.Work;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessor.ProcessState;
@@ -75,7 +76,7 @@ public class PageProcessor
     {
         this.filter = requireNonNull(filter, "filter is null")
                 .map(pageFilter -> {
-                    if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
+                    if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic() && !(pageFilter instanceof DynamicPageFilter)) {
                         return new DictionaryAwarePageFilter(pageFilter);
                     }
                     return pageFilter;
