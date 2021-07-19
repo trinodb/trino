@@ -5,7 +5,7 @@
             "allow": "none"
         },
         {
-            "user": "admin",
+            "role": "admin",
             "allow": "all"
         },
         {
@@ -50,7 +50,7 @@
             "owner": false
         },
         {
-            "user": "admin",
+            "role": "admin",
             "owner": true
         },
         {

@@ -5,7 +5,7 @@
             "allow": true
         },
         {
-            "user": "admin",
+            "role": "admin",
             "property": "max_split_size",
             "allow": true
         }

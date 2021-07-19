@@ -2848,64 +2848,78 @@ public class TestSqlParser
     @Test
     public void testCreateRole()
     {
-        assertStatement("CREATE ROLE role", new CreateRole(new Identifier("role"), Optional.empty()));
+        assertStatement("CREATE ROLE role", new CreateRole(new Identifier("role"), Optional.empty(), Optional.empty()));
         assertStatement("CREATE ROLE role1 WITH ADMIN admin",
                 new CreateRole(
                         new Identifier("role1"),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("admin")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("admin"))))),
+                        Optional.empty()));
         assertStatement("CREATE ROLE \"role\" WITH ADMIN \"admin\"",
                 new CreateRole(
                         new Identifier("role"),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("admin")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("admin"))))),
+                        Optional.empty()));
         assertStatement("CREATE ROLE \"ro le\" WITH ADMIN \"ad min\"",
                 new CreateRole(
                         new Identifier("ro le"),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("ad min")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("ad min"))))),
+                        Optional.empty()));
         assertStatement("CREATE ROLE \"!@#$%^&*'\" WITH ADMIN \"ад\"\"мін\"",
                 new CreateRole(
                         new Identifier("!@#$%^&*'"),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("ад\"мін")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("ад\"мін"))))),
+                        Optional.empty()));
         assertStatement("CREATE ROLE role2 WITH ADMIN USER admin1",
                 new CreateRole(
                         new Identifier("role2"),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("admin1")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("admin1"))))),
+                        Optional.empty()));
         assertStatement("CREATE ROLE role2 WITH ADMIN ROLE role1",
                 new CreateRole(
                         new Identifier("role2"),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("role1")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("role1"))))),
+                        Optional.empty()));
         assertStatement("CREATE ROLE role2 WITH ADMIN CURRENT_USER",
                 new CreateRole(
                         new Identifier("role2"),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.CURRENT_USER,
-                                Optional.empty()))));
+                                Optional.empty())),
+                        Optional.empty()));
         assertStatement("CREATE ROLE role2 WITH ADMIN CURRENT_ROLE",
                 new CreateRole(
                         new Identifier("role2"),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.CURRENT_ROLE,
-                                Optional.empty()))));
+                                Optional.empty())),
+                        Optional.empty()));
+        assertStatement("CREATE ROLE role IN my_catalog",
+                new CreateRole(
+                        new Identifier("role"),
+                        Optional.empty(),
+                        Optional.of(new Identifier("my_catalog"))));
     }
 
     @Test
     public void testDropRole()
     {
-        assertStatement("DROP ROLE role", new DropRole(new Identifier("role")));
-        assertStatement("DROP ROLE \"role\"", new DropRole(new Identifier("role")));
-        assertStatement("DROP ROLE \"ro le\"", new DropRole(new Identifier("ro le")));
-        assertStatement("DROP ROLE \"!@#$%^&*'ад\"\"мін\"", new DropRole(new Identifier("!@#$%^&*'ад\"мін")));
+        assertStatement("DROP ROLE role", new DropRole(new Identifier("role"), Optional.empty()));
+        assertStatement("DROP ROLE \"role\"", new DropRole(new Identifier("role"), Optional.empty()));
+        assertStatement("DROP ROLE \"ro le\"", new DropRole(new Identifier("ro le"), Optional.empty()));
+        assertStatement("DROP ROLE \"!@#$%^&*'ад\"\"мін\"", new DropRole(new Identifier("!@#$%^&*'ад\"мін"), Optional.empty()));
+        assertStatement("DROP ROLE role IN my_catalog", new DropRole(new Identifier("role"), Optional.of(new Identifier("my_catalog"))));
     }
 
     @Test
@@ -2916,6 +2930,7 @@ public class TestSqlParser
                         ImmutableSet.of(new Identifier("role1")),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("user1"))),
                         false,
+                        Optional.empty(),
                         Optional.empty()));
         assertStatement("GRANT role1, role2, role3 TO user1, USER user2, ROLE role4 WITH ADMIN OPTION",
                 new GrantRoles(
@@ -2925,6 +2940,7 @@ public class TestSqlParser
                                 new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("user2")),
                                 new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("role4"))),
                         true,
+                        Optional.empty(),
                         Optional.empty()));
         assertStatement("GRANT role1 TO user1 WITH ADMIN OPTION GRANTED BY admin",
                 new GrantRoles(
@@ -2933,7 +2949,8 @@ public class TestSqlParser
                         true,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("admin")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("admin"))))),
+                        Optional.empty()));
         assertStatement("GRANT role1 TO USER user1 WITH ADMIN OPTION GRANTED BY USER admin",
                 new GrantRoles(
                         ImmutableSet.of(new Identifier("role1")),
@@ -2941,7 +2958,8 @@ public class TestSqlParser
                         true,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("admin")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("admin"))))),
+                        Optional.empty()));
         assertStatement("GRANT role1 TO ROLE role2 WITH ADMIN OPTION GRANTED BY ROLE admin",
                 new GrantRoles(
                         ImmutableSet.of(new Identifier("role1")),
@@ -2949,7 +2967,8 @@ public class TestSqlParser
                         true,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin"))))),
+                        Optional.empty()));
         assertStatement("GRANT role1 TO ROLE role2 GRANTED BY ROLE admin",
                 new GrantRoles(
                         ImmutableSet.of(new Identifier("role1")),
@@ -2957,7 +2976,8 @@ public class TestSqlParser
                         false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin"))))),
+                        Optional.empty()));
         assertStatement("GRANT \"role1\" TO ROLE \"role2\" GRANTED BY ROLE \"admin\"",
                 new GrantRoles(
                         ImmutableSet.of(new Identifier("role1")),
@@ -2965,7 +2985,15 @@ public class TestSqlParser
                         false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin"))))),
+                        Optional.empty()));
+        assertStatement("GRANT role1 TO user1 IN my_catalog",
+                new GrantRoles(
+                        ImmutableSet.of(new Identifier("role1")),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("user1"))),
+                        false,
+                        Optional.empty(),
+                        Optional.of(new Identifier("my_catalog"))));
     }
 
     @Test
@@ -2976,6 +3004,7 @@ public class TestSqlParser
                         ImmutableSet.of(new Identifier("role1")),
                         ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("user1"))),
                         false,
+                        Optional.empty(),
                         Optional.empty()));
         assertStatement("REVOKE ADMIN OPTION FOR role1, role2, role3 FROM user1, USER user2, ROLE role4",
                 new RevokeRoles(
@@ -2985,6 +3014,7 @@ public class TestSqlParser
                                 new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("user2")),
                                 new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("role4"))),
                         true,
+                        Optional.empty(),
                         Optional.empty()));
         assertStatement("REVOKE ADMIN OPTION FOR role1 FROM user1 GRANTED BY admin",
                 new RevokeRoles(
@@ -2993,7 +3023,8 @@ public class TestSqlParser
                         true,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("admin")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("admin"))))),
+                        Optional.empty()));
         assertStatement("REVOKE ADMIN OPTION FOR role1 FROM USER user1 GRANTED BY USER admin",
                 new RevokeRoles(
                         ImmutableSet.of(new Identifier("role1")),
@@ -3001,7 +3032,8 @@ public class TestSqlParser
                         true,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("admin")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("admin"))))),
+                        Optional.empty()));
         assertStatement("REVOKE role1 FROM ROLE role2 GRANTED BY ROLE admin",
                 new RevokeRoles(
                         ImmutableSet.of(new Identifier("role1")),
@@ -3009,7 +3041,8 @@ public class TestSqlParser
                         false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin"))))),
+                        Optional.empty()));
         assertStatement("REVOKE \"role1\" FROM ROLE \"role2\" GRANTED BY ROLE \"admin\"",
                 new RevokeRoles(
                         ImmutableSet.of(new Identifier("role1")),
@@ -3017,16 +3050,25 @@ public class TestSqlParser
                         false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin")))))));
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin"))))),
+                        Optional.empty()));
+        assertStatement("REVOKE role1 FROM user1 IN my_catalog",
+                new RevokeRoles(
+                        ImmutableSet.of(new Identifier("role1")),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("user1"))),
+                        false,
+                        Optional.empty(),
+                        Optional.of(new Identifier("my_catalog"))));
     }
 
     @Test
     public void testSetRole()
     {
-        assertStatement("SET ROLE ALL", new SetRole(SetRole.Type.ALL, Optional.empty()));
-        assertStatement("SET ROLE NONE", new SetRole(SetRole.Type.NONE, Optional.empty()));
-        assertStatement("SET ROLE role", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role"))));
-        assertStatement("SET ROLE \"role\"", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role"))));
+        assertStatement("SET ROLE ALL", new SetRole(SetRole.Type.ALL, Optional.empty(), Optional.empty()));
+        assertStatement("SET ROLE NONE", new SetRole(SetRole.Type.NONE, Optional.empty(), Optional.empty()));
+        assertStatement("SET ROLE role", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role")), Optional.empty()));
+        assertStatement("SET ROLE \"role\"", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role")), Optional.empty()));
+        assertStatement("SET ROLE role IN my_catalog", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role")), Optional.of(new Identifier("my_catalog"))));
     }
 
     @Test

@@ -1222,7 +1222,8 @@ class AstBuilder
         return new CreateRole(
                 getLocation(context),
                 (Identifier) visit(context.name),
-                getGrantorSpecificationIfPresent(context.grantor()));
+                getGrantorSpecificationIfPresent(context.grantor()),
+                visitIfPresent(context.catalog, Identifier.class));
     }
 
     @Override
@@ -1230,7 +1231,8 @@ class AstBuilder
     {
         return new DropRole(
                 getLocation(context),
-                (Identifier) visit(context.name));
+                (Identifier) visit(context.name),
+                visitIfPresent(context.catalog, Identifier.class));
     }
 
     @Override
@@ -1241,7 +1243,8 @@ class AstBuilder
                 ImmutableSet.copyOf(getIdentifiers(context.roles().identifier())),
                 ImmutableSet.copyOf(getPrincipalSpecifications(context.principal())),
                 context.OPTION() != null,
-                getGrantorSpecificationIfPresent(context.grantor()));
+                getGrantorSpecificationIfPresent(context.grantor()),
+                visitIfPresent(context.catalog, Identifier.class));
     }
 
     @Override
@@ -1252,7 +1255,8 @@ class AstBuilder
                 ImmutableSet.copyOf(getIdentifiers(context.roles().identifier())),
                 ImmutableSet.copyOf(getPrincipalSpecifications(context.principal())),
                 context.OPTION() != null,
-                getGrantorSpecificationIfPresent(context.grantor()));
+                getGrantorSpecificationIfPresent(context.grantor()),
+                visitIfPresent(context.catalog, Identifier.class));
     }
 
     @Override
@@ -1265,7 +1269,11 @@ class AstBuilder
         else if (context.NONE() != null) {
             type = SetRole.Type.NONE;
         }
-        return new SetRole(getLocation(context), type, getIdentifierIfPresent(context.role));
+        return new SetRole(
+                getLocation(context),
+                type,
+                getIdentifierIfPresent(context.role),
+                visitIfPresent(context.catalog, Identifier.class));
     }
 
     @Override

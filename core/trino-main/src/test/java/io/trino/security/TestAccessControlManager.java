@@ -35,6 +35,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorAccessControl.RoleSupport;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
@@ -376,6 +377,7 @@ public class TestAccessControlManager
                 catalogName,
                 catalog,
                 connector,
+                RoleSupport.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
                 new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
                 systemId,

@@ -261,7 +261,7 @@ public class TestHiveConnectorTest
     {
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
@@ -307,7 +307,7 @@ public class TestHiveConnectorTest
     {
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .build();
@@ -384,7 +384,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
                 .build();
@@ -402,7 +402,7 @@ public class TestHiveConnectorTest
     {
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
@@ -422,14 +422,14 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
         assertUpdate(admin, "CREATE SCHEMA test_schema_authorization_user");
 
         Session user = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setSchema("test_schema_authorization_user")
                 .setIdentity(Identity.forUser("user")
                         .withPrincipal(getSession().getIdentity().getPrincipal())
@@ -437,7 +437,7 @@ public class TestHiveConnectorTest
                 .build();
 
         Session anotherUser = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setSchema("test_schema_authorization_user")
                 .setIdentity(Identity.forUser("anotheruser")
                         .withPrincipal(getSession().getIdentity().getPrincipal())
@@ -470,22 +470,22 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
         assertUpdate(admin, "CREATE SCHEMA test_schema_authorization_role");
 
         // make sure role-grants only work on existing roles
-        assertQueryFails(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist");
+        assertQueryFails(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist in catalog 'hive'");
 
-        assertUpdate(admin, "CREATE ROLE authorized_users");
-        assertUpdate(admin, "GRANT authorized_users TO user");
+        assertUpdate(admin, "CREATE ROLE authorized_users IN hive");
+        assertUpdate(admin, "GRANT authorized_users TO user IN hive");
 
         assertUpdate(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE authorized_users");
 
         Session user = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setSchema("test_schema_authorization_role")
                 .setIdentity(Identity.forUser("user")
                         .withPrincipal(getSession().getIdentity().getPrincipal())
@@ -493,7 +493,7 @@ public class TestHiveConnectorTest
                 .build();
 
         Session anotherUser = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setSchema("test_schema_authorization_role")
                 .setIdentity(Identity.forUser("anotheruser")
                         .withPrincipal(getSession().getIdentity().getPrincipal())
@@ -510,7 +510,7 @@ public class TestHiveConnectorTest
         assertUpdate(user, "DROP TABLE test_schema_authorization_role.test");
         assertUpdate(user, "DROP SCHEMA test_schema_authorization_role");
 
-        assertUpdate(admin, "DROP ROLE authorized_users");
+        assertUpdate(admin, "DROP ROLE authorized_users IN hive");
     }
 
     @Test
@@ -518,12 +518,12 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
         Session user = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setSchema("test_createschema_authorization_user")
                 .setIdentity(Identity.forUser("user")
                         .withPrincipal(getSession().getIdentity().getPrincipal())
@@ -531,7 +531,7 @@ public class TestHiveConnectorTest
                 .build();
 
         Session anotherUser = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setSchema("test_createschema_authorization_user")
                 .setIdentity(Identity.forUser("anotheruser")
                         .withPrincipal(getSession().getIdentity().getPrincipal())
@@ -555,12 +555,12 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
         Session user = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setSchema("test_createschema_authorization_role")
                 .setIdentity(Identity.forUser("user")
                         .withPrincipal(getSession().getIdentity().getPrincipal())
@@ -568,25 +568,25 @@ public class TestHiveConnectorTest
                 .build();
 
         Session userWithoutRole = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setSchema("test_createschema_authorization_role")
                 .setIdentity(Identity.forUser("user")
-                        .withRoles(Collections.emptyMap())
+                        .withConnectorRoles(Collections.emptyMap())
                         .build())
                 .build();
 
         Session anotherUser = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setSchema("test_createschema_authorization_role")
                 .setIdentity(Identity.forUser("anotheruser")
                         .withPrincipal(getSession().getIdentity().getPrincipal())
                         .build())
                 .build();
 
-        assertUpdate(admin, "CREATE ROLE authorized_users");
-        assertUpdate(admin, "GRANT authorized_users TO user");
+        assertUpdate(admin, "CREATE ROLE authorized_users IN hive");
+        assertUpdate(admin, "GRANT authorized_users TO user IN hive");
 
-        assertQueryFails(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist");
+        assertQueryFails(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist in catalog 'hive'");
         assertUpdate(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE authorized_users");
         assertUpdate(user, "CREATE TABLE test_createschema_authorization_role.test (x bigint)");
 
@@ -601,7 +601,7 @@ public class TestHiveConnectorTest
         assertUpdate(user, "DROP TABLE test_createschema_authorization_role.test");
         assertUpdate(user, "DROP SCHEMA test_createschema_authorization_role");
 
-        assertUpdate(admin, "DROP ROLE authorized_users");
+        assertUpdate(admin, "DROP ROLE authorized_users IN hive");
     }
 
     @Test
@@ -609,37 +609,35 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
         Session user = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setSchema("test_schema_authorization")
                 .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
                 .build();
 
         assertUpdate(admin, "CREATE SCHEMA test_schema_authorization");
-        assertUpdate(admin, "CREATE ROLE admin");
 
         assertUpdate(admin, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user");
         assertUpdate(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin");
         assertQueryFails(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin", "Access Denied: Cannot set authorization for schema test_schema_authorization to ROLE admin");
 
         assertUpdate(admin, "DROP SCHEMA test_schema_authorization");
-        assertUpdate(admin, "DROP ROLE admin");
     }
 
     @Test
     public void testTableAuthorization()
     {
         Session admin = Session.builder(getSession())
-                .setCatalog(getSession().getCatalog().get())
-                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .setCatalog(getSession().getCatalog())
+                .setIdentity(Identity.forUser("hive").withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
 
         Session alice = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
@@ -661,18 +659,17 @@ public class TestHiveConnectorTest
     public void testTableAuthorizationForRole()
     {
         Session admin = Session.builder(getSession())
-                .setCatalog(getSession().getCatalog().get())
-                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .setCatalog(getSession().getCatalog())
+                .setIdentity(Identity.forUser("hive").withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
 
         Session alice = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
         assertUpdate(admin, "CREATE SCHEMA test_table_authorization");
         assertUpdate(admin, "CREATE TABLE test_table_authorization.foo (col int)");
-        assertUpdate(admin, "CREATE ROLE admin");
 
         // TODO Change assertions once https://github.com/trinodb/trino/issues/5706 is done
         assertAccessDenied(
@@ -687,19 +684,18 @@ public class TestHiveConnectorTest
 
         assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
         assertUpdate(admin, "DROP SCHEMA test_table_authorization");
-        assertUpdate(admin, "DROP ROLE admin");
     }
 
     @Test
     public void testViewAuthorization()
     {
         Session admin = Session.builder(getSession())
-                .setCatalog(getSession().getCatalog().get())
-                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .setCatalog(getSession().getCatalog())
+                .setIdentity(Identity.forUser("hive").withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
 
         Session alice = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
@@ -723,12 +719,12 @@ public class TestHiveConnectorTest
     public void testViewAuthorizationSecurityDefiner()
     {
         Session admin = Session.builder(getSession())
-                .setCatalog(getSession().getCatalog().get())
-                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .setCatalog(getSession().getCatalog())
+                .setIdentity(Identity.forUser("hive").withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
 
         Session alice = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
@@ -754,12 +750,12 @@ public class TestHiveConnectorTest
     public void testViewAuthorizationSecurityInvoker()
     {
         Session admin = Session.builder(getSession())
-                .setCatalog(getSession().getCatalog().get())
-                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .setCatalog(getSession().getCatalog())
+                .setIdentity(Identity.forUser("hive").withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
 
         Session alice = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
@@ -785,12 +781,12 @@ public class TestHiveConnectorTest
     public void testViewAuthorizationForRole()
     {
         Session admin = Session.builder(getSession())
-                .setCatalog(getSession().getCatalog().get())
-                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .setCatalog(getSession().getCatalog())
+                .setIdentity(Identity.forUser("hive").withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
                 .build();
 
         Session alice = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
@@ -799,7 +795,6 @@ public class TestHiveConnectorTest
         assertUpdate(admin, "CREATE SCHEMA " + schema);
         assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
         assertUpdate(admin, "CREATE VIEW " + schema + ".test_view AS SELECT * FROM " + schema + ".test_table");
-        assertUpdate(admin, "CREATE ROLE admin");
 
         // TODO Change assertions once https://github.com/trinodb/trino/issues/5706 is done
         assertAccessDenied(
@@ -812,7 +807,6 @@ public class TestHiveConnectorTest
                 "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
                 "Setting table owner type as a role is not supported");
 
-        assertUpdate(admin, "DROP ROLE admin");
         assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
         assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
         assertUpdate(admin, "DROP SCHEMA " + schema);
@@ -823,18 +817,18 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
         Session user = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setSchema("test_show_create_schema")
                 .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
                 .build();
 
-        assertUpdate(admin, "CREATE ROLE test_show_create_schema_role");
-        assertUpdate(admin, "GRANT test_show_create_schema_role TO user");
+        assertUpdate(admin, "CREATE ROLE test_show_create_schema_role IN hive");
+        assertUpdate(admin, "GRANT test_show_create_schema_role TO user IN hive");
 
         assertUpdate(admin, "CREATE SCHEMA test_show_create_schema");
 
@@ -865,7 +859,7 @@ public class TestHiveConnectorTest
         assertThat(actualResult).matches(createSchemaSql);
 
         assertUpdate(user, "DROP SCHEMA test_show_create_schema");
-        assertUpdate(admin, "DROP ROLE test_show_create_schema_role");
+        assertUpdate(admin, "DROP ROLE test_show_create_schema_role IN hive");
     }
 
     @Test
@@ -1122,7 +1116,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
@@ -1167,7 +1161,7 @@ public class TestHiveConnectorTest
     {
         Session admin = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
 
@@ -5582,8 +5576,8 @@ public class TestHiveConnectorTest
 
         Session testSession = testSessionBuilder()
                 .setIdentity(ofUser("test_access_owner"))
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
                 .build();
 
         assertUpdate(createTable);
@@ -5619,13 +5613,13 @@ public class TestHiveConnectorTest
     public void testRoleAuthorizationDescriptors()
     {
         Session user = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
+                .setCatalog(getSession().getCatalog())
                 .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
                 .build();
 
-        assertUpdate("CREATE ROLE test_r_a_d1");
-        assertUpdate("CREATE ROLE test_r_a_d2");
-        assertUpdate("CREATE ROLE test_r_a_d3");
+        assertUpdate("CREATE ROLE test_r_a_d1 IN hive");
+        assertUpdate("CREATE ROLE test_r_a_d2 IN hive");
+        assertUpdate("CREATE ROLE test_r_a_d3 IN hive");
 
         // nothing showing because no roles have been granted
         assertQueryReturnsEmptyResult("SELECT * FROM information_schema.role_authorization_descriptors");
@@ -5634,12 +5628,12 @@ public class TestHiveConnectorTest
         assertQueryFails(user, "SELECT * FROM information_schema.role_authorization_descriptors",
                 "Access Denied: Cannot select from table information_schema.role_authorization_descriptors");
 
-        assertUpdate("GRANT test_r_a_d1 TO USER user");
+        assertUpdate("GRANT test_r_a_d1 TO USER user IN hive");
         // user with same name as a role
-        assertUpdate("GRANT test_r_a_d2 TO USER test_r_a_d1");
-        assertUpdate("GRANT test_r_a_d2 TO USER user1 WITH ADMIN OPTION");
-        assertUpdate("GRANT test_r_a_d2 TO USER user2");
-        assertUpdate("GRANT test_r_a_d2 TO ROLE test_r_a_d1");
+        assertUpdate("GRANT test_r_a_d2 TO USER test_r_a_d1 IN hive");
+        assertUpdate("GRANT test_r_a_d2 TO USER user1 WITH ADMIN OPTION IN hive");
+        assertUpdate("GRANT test_r_a_d2 TO USER user2 IN hive");
+        assertUpdate("GRANT test_r_a_d2 TO ROLE test_r_a_d1 IN hive");
 
         // role_authorization_descriptors is not accessible for a non-admin user
         assertQueryFails(user, "SELECT * FROM information_schema.role_authorization_descriptors",
@@ -5717,9 +5711,9 @@ public class TestHiveConnectorTest
                 "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee_type = 'ROLE'",
                 "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')");
 
-        assertUpdate("DROP ROLE test_r_a_d1");
-        assertUpdate("DROP ROLE test_r_a_d2");
-        assertUpdate("DROP ROLE test_r_a_d3");
+        assertUpdate("DROP ROLE test_r_a_d1 IN hive");
+        assertUpdate("DROP ROLE test_r_a_d2 IN hive");
+        assertUpdate("DROP ROLE test_r_a_d3 IN hive");
     }
 
     @Test
@@ -5729,8 +5723,8 @@ public class TestHiveConnectorTest
 
         Session testSession = testSessionBuilder()
                 .setIdentity(ofUser("test_view_access_owner"))
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
                 .build();
 
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT abs(1) as whatever");
@@ -5826,14 +5820,14 @@ public class TestHiveConnectorTest
         assertUpdate(format("GRANT SELECT ON %s TO user2", testAccountsViewFullyQualifiedName));
 
         Session user1 = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
                 .setIdentity(Identity.forUser("user1").withPrincipal(getSession().getIdentity().getPrincipal()).build())
                 .build();
 
         Session user2 = testSessionBuilder()
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
                 .setIdentity(Identity.forUser("user2").withPrincipal(getSession().getIdentity().getPrincipal()).build())
                 .build();
 
@@ -7593,8 +7587,8 @@ public class TestHiveConnectorTest
         assertQuery("SELECT count(*) FROM " + viewName, "VALUES 1");
         assertQuery("SELECT count(*) FROM hive.tpch." + viewName, "VALUES 1");
         Session sessionNoCatalog = Session.builder(getSession())
-                .setCatalog(null)
-                .setSchema(null)
+                .setCatalog(Optional.empty())
+                .setSchema(Optional.empty())
                 .build();
         assertQueryFails(sessionNoCatalog, "SELECT count(*) FROM " + viewName, ".*Schema must be specified when session schema is not set.*");
         assertQuery(sessionNoCatalog, "SELECT count(*) FROM hive.tpch." + viewName, "VALUES 1");

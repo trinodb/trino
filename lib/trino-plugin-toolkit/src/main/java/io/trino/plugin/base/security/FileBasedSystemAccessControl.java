@@ -65,6 +65,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyCreateView;
@@ -72,9 +73,11 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSele
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
+import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
@@ -85,6 +88,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
+import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
@@ -97,6 +101,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorizati
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
@@ -245,6 +250,7 @@ public class FileBasedSystemAccessControl
                         ALL,
                         Optional.of(Pattern.compile(".*")),
                         Optional.empty(),
+                        Optional.empty(),
                         Optional.of(Pattern.compile("system"))));
                 catalogAccessControlRules = catalogRulesBuilder.build();
             }
@@ -269,26 +275,27 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
     {
+        Identity identity = context.getIdentity();
         if (impersonationRules.isEmpty()) {
             // if there are principal user match rules, we assume that impersonation checks are
             // handled there; otherwise, impersonation must be manually configured
             if (principalUserMatchRules.isEmpty()) {
-                denyImpersonateUser(context.getIdentity().getUser(), userName);
+                denyImpersonateUser(identity.getUser(), userName);
             }
             return;
         }
 
         for (ImpersonationRule rule : impersonationRules.get()) {
-            Optional<Boolean> allowed = rule.match(context.getIdentity().getUser(), userName);
+            Optional<Boolean> allowed = rule.match(identity.getUser(), identity.getEnabledRoles(), userName);
             if (allowed.isPresent()) {
                 if (allowed.get()) {
                     return;
                 }
-                denyImpersonateUser(context.getIdentity().getUser(), userName);
+                denyImpersonateUser(identity.getUser(), userName);
             }
         }
 
-        denyImpersonateUser(context.getIdentity().getUser(), userName);
+        denyImpersonateUser(identity.getUser(), userName);
     }
 
     @Override
@@ -362,7 +369,7 @@ public class FileBasedSystemAccessControl
             return true;
         }
         for (QueryAccessRule rule : queryAccessRules.get()) {
-            Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser());
+            Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser(), identity.getEnabledRoles());
             if (accessMode.isPresent()) {
                 return accessMode.get().contains(requiredAccess);
             }
@@ -389,7 +396,7 @@ public class FileBasedSystemAccessControl
     private boolean checkCanSystemInformation(Identity identity, SystemInformationRule.AccessMode requiredAccess)
     {
         for (SystemInformationRule rule : systemInformationRules.orElseGet(ImmutableList::of)) {
-            Optional<Set<SystemInformationRule.AccessMode>> accessMode = rule.match(identity.getUser());
+            Optional<Set<SystemInformationRule.AccessMode>> accessMode = rule.match(identity.getUser(), identity.getEnabledRoles());
             if (accessMode.isPresent()) {
                 return accessMode.get().contains(requiredAccess);
             }
@@ -402,7 +409,7 @@ public class FileBasedSystemAccessControl
     {
         Identity identity = context.getIdentity();
         boolean allowed = sessionPropertyRules.stream()
-                .map(rule -> rule.match(identity.getUser(), identity.getGroups(), propertyName))
+                .map(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), propertyName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst()
@@ -576,7 +583,7 @@ public class FileBasedSystemAccessControl
 
         Identity identity = context.getIdentity();
         CatalogTableAccessControlRule rule = tableRules.stream()
-                .filter(tableRule -> tableRule.matches(identity.getUser(), identity.getGroups(), tableName))
+                .filter(tableRule -> tableRule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), tableName))
                 .findFirst()
                 .orElse(null);
         if (rule == null || rule.getPrivileges().isEmpty()) {
@@ -639,7 +646,7 @@ public class FileBasedSystemAccessControl
 
         Identity identity = context.getIdentity();
         boolean allowed = tableRules.stream()
-                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), table))
+                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
                 .map(rule -> rule.canSelectColumns(columns))
                 .findFirst()
                 .orElse(false);
@@ -719,7 +726,7 @@ public class FileBasedSystemAccessControl
 
         Identity identity = context.getIdentity();
         CatalogTableAccessControlRule rule = tableRules.stream()
-                .filter(tableRule -> tableRule.matches(identity.getUser(), identity.getGroups(), table))
+                .filter(tableRule -> tableRule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
                 .findFirst()
                 .orElse(null);
         if (rule == null || !rule.canSelectColumns(columns)) {
@@ -765,7 +772,7 @@ public class FileBasedSystemAccessControl
     {
         Identity identity = context.getIdentity();
         boolean allowed = canAccessCatalog(context, catalogName, READ_ONLY) && catalogSessionPropertyRules.stream()
-                .map(rule -> rule.match(identity.getUser(), identity.getGroups(), catalogName, propertyName))
+                .map(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), catalogName, propertyName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst()
@@ -814,8 +821,60 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanShowRoles(SystemSecurityContext context, String catalogName)
+    public void checkCanCreateRole(SystemSecurityContext context, String role, Optional<TrinoPrincipal> grantor)
     {
+        // file based
+        denyCreateRole(role);
+    }
+
+    @Override
+    public void checkCanDropRole(SystemSecurityContext context, String role)
+    {
+        denyDropRole(role);
+    }
+
+    @Override
+    public void checkCanGrantRoles(SystemSecurityContext context,
+            Set<String> roles,
+            Set<TrinoPrincipal> grantees,
+            boolean adminOption,
+            Optional<TrinoPrincipal> grantor)
+    {
+        denyGrantRoles(roles, grantees);
+    }
+
+    @Override
+    public void checkCanRevokeRoles(SystemSecurityContext context,
+            Set<String> roles,
+            Set<TrinoPrincipal> grantees,
+            boolean adminOption,
+            Optional<TrinoPrincipal> grantor)
+    {
+        denyRevokeRoles(roles, grantees);
+    }
+
+    @Override
+    public void checkCanShowRoleAuthorizationDescriptors(SystemSecurityContext context)
+    {
+        denyShowRoleAuthorizationDescriptors();
+    }
+
+    @Override
+    public void checkCanShowCurrentRoles(SystemSecurityContext context)
+    {
+        // users can see their currently enabled roles
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(SystemSecurityContext context)
+    {
+        // users can see their role grants
+    }
+
+    @Override
+    public void checkCanShowRoles(SystemSecurityContext context)
+    {
+        // allow, no roles are supported so show will always be empty
     }
 
     @Override
@@ -844,7 +903,7 @@ public class FileBasedSystemAccessControl
 
         Identity identity = context.getIdentity();
         return tableRules.stream()
-                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), table))
+                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
                 .map(rule -> rule.getFilter(identity.getUser(), table.getCatalogName(), tableName.getSchemaName()))
                 .findFirst()
                 .flatMap(Function.identity());
@@ -860,7 +919,7 @@ public class FileBasedSystemAccessControl
 
         Identity identity = context.getIdentity();
         return tableRules.stream()
-                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), table))
+                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
                 .map(rule -> rule.getColumnMask(identity.getUser(), table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
                 .findFirst()
                 .flatMap(Function.identity());
@@ -870,14 +929,14 @@ public class FileBasedSystemAccessControl
     {
         Identity identity = context.getIdentity();
         return canAccessCatalog(context, catalogName, READ_ONLY) &&
-                anyCatalogPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getGroups(), catalogName));
+                anyCatalogPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), catalogName));
     }
 
     private boolean canAccessCatalog(SystemSecurityContext context, String catalogName, AccessMode requiredAccess)
     {
         Identity identity = context.getIdentity();
         for (CatalogAccessControlRule rule : catalogRules) {
-            Optional<AccessMode> accessMode = rule.match(identity.getUser(), identity.getGroups(), catalogName);
+            Optional<AccessMode> accessMode = rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), catalogName);
             if (accessMode.isPresent()) {
                 return accessMode.get().implies(requiredAccess);
             }
@@ -889,7 +948,7 @@ public class FileBasedSystemAccessControl
     {
         Identity identity = context.getIdentity();
         return canAccessCatalog(context, catalogName, READ_ONLY) &&
-                anyCatalogSchemaPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getGroups(), catalogName, schemaName));
+                anyCatalogSchemaPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), catalogName, schemaName));
     }
 
     private boolean isSchemaOwner(SystemSecurityContext context, CatalogSchemaName schema)
@@ -900,7 +959,7 @@ public class FileBasedSystemAccessControl
 
         Identity identity = context.getIdentity();
         for (CatalogSchemaAccessControlRule rule : schemaRules) {
-            Optional<Boolean> owner = rule.match(identity.getUser(), identity.getGroups(), schema);
+            Optional<Boolean> owner = rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), schema);
             if (owner.isPresent()) {
                 return owner.get();
             }
@@ -935,7 +994,7 @@ public class FileBasedSystemAccessControl
 
         Identity identity = context.getIdentity();
         for (CatalogTableAccessControlRule rule : tableRules) {
-            if (rule.matches(identity.getUser(), identity.getGroups(), table)) {
+            if (rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table)) {
                 return checkPrivileges.test(rule.getPrivileges());
             }
         }

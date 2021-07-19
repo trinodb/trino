@@ -27,6 +27,7 @@ import io.trino.metadata.CatalogManager;
 import io.trino.metadata.CatalogMetadata;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl.RoleSupport;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
@@ -424,6 +425,7 @@ public class InMemoryTransactionManager
                         systemTables.getCatalogName(),
                         systemTables.getConnectorMetadata(),
                         systemTables.getTransactionHandle(),
+                        metadata.getRoleSupport(),
                         connector.getCapabilities());
 
                 this.catalogMetadata.put(catalog.getConnectorCatalogName(), catalogMetadata);
@@ -436,7 +438,7 @@ public class InMemoryTransactionManager
         public synchronized ConnectorTransactionMetadata createConnectorTransactionMetadata(CatalogName catalogName, Catalog catalog)
         {
             Connector connector = catalog.getConnector(catalogName);
-            ConnectorTransactionMetadata transactionMetadata = new ConnectorTransactionMetadata(catalogName, connector, beginTransaction(connector));
+            ConnectorTransactionMetadata transactionMetadata = new ConnectorTransactionMetadata(catalogName, connector, beginTransaction(connector), catalog.getRoleSupport());
             checkState(connectorIdToMetadata.put(catalogName, transactionMetadata) == null);
             return transactionMetadata;
         }
@@ -561,14 +563,20 @@ public class InMemoryTransactionManager
             private final CatalogName catalogName;
             private final Connector connector;
             private final ConnectorTransactionHandle transactionHandle;
+            private final RoleSupport roleSupport;
             private final ConnectorMetadata connectorMetadata;
             private final AtomicBoolean finished = new AtomicBoolean();
 
-            public ConnectorTransactionMetadata(CatalogName catalogName, Connector connector, ConnectorTransactionHandle transactionHandle)
+            public ConnectorTransactionMetadata(
+                    CatalogName catalogName,
+                    Connector connector,
+                    ConnectorTransactionHandle transactionHandle,
+                    RoleSupport roleSupport)
             {
                 this.catalogName = requireNonNull(catalogName, "catalogName is null");
                 this.connector = requireNonNull(connector, "connector is null");
                 this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
+                this.roleSupport = requireNonNull(roleSupport, "roleSupport is null");
                 this.connectorMetadata = connector.getMetadata(transactionHandle);
             }
 
@@ -580,6 +588,11 @@ public class InMemoryTransactionManager
             public boolean isSingleStatementWritesOnly()
             {
                 return connector.isSingleStatementWritesOnly();
+            }
+
+            public RoleSupport getRoleSupport()
+            {
+                return roleSupport;
             }
 
             public synchronized ConnectorMetadata getConnectorMetadata()

@@ -57,7 +57,7 @@ public class TestFileBasedSystemAccessControl
     private static final Identity validSpecialRegexEndQuote = Identity.forUser("\\E").withPrincipal(new KerberosPrincipal("special/\\E@EXAMPLE.COM")).build();
     private static final Identity invalidSpecialRegex = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("special/.*@EXAMPLE.COM")).build();
     private static final Identity bob = Identity.forUser("bob").withGroups(ImmutableSet.of("staff")).build();
-    private static final Identity admin = Identity.forUser("admin").withGroups(ImmutableSet.of("admin")).build();
+    private static final Identity admin = Identity.forUser("alberto").withEnabledRoles(ImmutableSet.of("admin")).build();
     private static final Identity nonAsciiUser = Identity.forUser("\u0194\u0194\u0194").withGroups(ImmutableSet.of("\u0194\u0194\u0194")).build();
     private static final Set<String> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "\u0200\u0200\u0200", "staff-catalog");
     private static final QualifiedObjectName aliceTable = new QualifiedObjectName("alice-catalog", "schema", "table");
@@ -123,14 +123,10 @@ public class TestFileBasedSystemAccessControl
                 FileBasedSystemAccessControl.NAME,
                 ImmutableMap.of("security.config-file", new File("../../docs/src/main/sphinx/security/user-impersonation.json").getAbsolutePath()));
 
-        accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "charlie");
-        accessControlManager.checkCanImpersonateUser(Identity.ofUser("bob"), "charlie");
-        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "bob"))
+        accessControlManager.checkCanImpersonateUser(admin, "charlie");
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(admin, "bob"))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("Access Denied: User alice cannot impersonate user bob");
-        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("bob"), "alice"))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("Access Denied: User bob cannot impersonate user alice");
+                .hasMessageContaining("Access Denied: User alberto cannot impersonate user bob");
 
         assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("charlie"), "doris"))
                 .isInstanceOf(AccessDeniedException.class)

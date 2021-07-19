@@ -72,8 +72,8 @@ public class TestSessionFunctions
                     .matches("VALUES CAST('" + session.getCatalog().get() + "' AS VARCHAR)");
 
             session = testSessionBuilder()
-                    .setCatalog(null)
-                    .setSchema(null)
+                    .setCatalog(Optional.empty())
+                    .setSchema(Optional.empty())
                     .build();
             assertThat(assertions.query(session, "SELECT CURRENT_CATALOG"))
                     .matches("VALUES CAST(NULL AS VARCHAR)");
@@ -92,7 +92,7 @@ public class TestSessionFunctions
                     .matches("VALUES CAST('" + session.getSchema().get() + "' AS VARCHAR)");
 
             session = testSessionBuilder()
-                    .setSchema(null)
+                    .setSchema(Optional.empty())
                     .build();
             assertThat(assertions.query(session, "SELECT CURRENT_SCHEMA"))
                     .matches("VALUES CAST(NULL AS VARCHAR)");

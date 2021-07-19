@@ -337,26 +337,26 @@ public final class Session
             connectorProperties.put(catalog, catalogProperties);
         }
 
-        ImmutableMap.Builder<String, SelectedRole> roles = ImmutableMap.builder();
-        for (Entry<String, SelectedRole> entry : identity.getRoles().entrySet()) {
+        ImmutableMap.Builder<String, SelectedRole> connectorRoles = ImmutableMap.builder();
+        for (Entry<String, SelectedRole> entry : identity.getConnectorRoles().entrySet()) {
             String catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
             CatalogName catalog = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
                     .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName))
                     .getCatalogName();
             if (role.getType() == SelectedRole.Type.ROLE) {
-                accessControl.checkCanSetRole(new SecurityContext(transactionId, identity, queryId), role.getRole().get(), catalogName);
+                accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId), role.getRole().orElseThrow(), catalogName);
             }
-            roles.put(catalog.getCatalogName(), role);
+            connectorRoles.put(catalog.getCatalogName(), role);
 
             String informationSchemaCatalogName = createInformationSchemaCatalogName(catalog).getCatalogName();
             if (transactionManager.getCatalogNames(transactionId).containsKey(informationSchemaCatalogName)) {
-                roles.put(informationSchemaCatalogName, role);
+                connectorRoles.put(informationSchemaCatalogName, role);
             }
 
             String systemTablesCatalogName = createSystemTablesCatalogName(catalog).getCatalogName();
             if (transactionManager.getCatalogNames(transactionId).containsKey(systemTablesCatalogName)) {
-                roles.put(systemTablesCatalogName, role);
+                connectorRoles.put(systemTablesCatalogName, role);
             }
         }
 
@@ -365,7 +365,7 @@ public final class Session
                 Optional.of(transactionId),
                 clientTransactionSupport,
                 Identity.from(identity)
-                        .withRoles(roles.build())
+                        .withConnectorRoles(connectorRoles.build())
                         .build(),
                 source,
                 catalog,
@@ -473,6 +473,7 @@ public final class Session
                 identity.getUser(),
                 identity.getGroups(),
                 identity.getPrincipal().map(Principal::toString),
+                identity.getEnabledRoles(),
                 source,
                 catalog,
                 schema,
@@ -490,7 +491,7 @@ public final class Session
                 systemProperties,
                 connectorProperties,
                 unprocessedCatalogProperties,
-                identity.getRoles(),
+                identity.getConnectorRoles(),
                 preparedStatements,
                 protocolHeaders.getProtocolName());
     }
@@ -546,10 +547,10 @@ public final class Session
         private String source;
         private String catalog;
         private String schema;
-        private SqlPath path = new SqlPath(Optional.empty());
+        private SqlPath path;
         private Optional<String> traceToken = Optional.empty();
-        private TimeZoneKey timeZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
-        private Locale locale = Locale.getDefault();
+        private TimeZoneKey timeZoneKey;
+        private Locale locale;
         private String remoteUserAddress;
         private String userAgent;
         private String clientInfo;
@@ -621,6 +622,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setCatalog(Optional<String> catalog)
+        {
+            this.catalog = catalog.orElse(null);
+            return this;
+        }
+
         public SessionBuilder setLocale(Locale locale)
         {
             this.locale = locale;
@@ -633,9 +640,21 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setRemoteUserAddress(Optional<String> remoteUserAddress)
+        {
+            this.remoteUserAddress = remoteUserAddress.orElse(null);
+            return this;
+        }
+
         public SessionBuilder setSchema(String schema)
         {
             this.schema = schema;
+            return this;
+        }
+
+        public SessionBuilder setSchema(Optional<String> schema)
+        {
+            this.schema = schema.orElse(null);
             return this;
         }
 
@@ -645,9 +664,21 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setPath(Optional<SqlPath> path)
+        {
+            this.path = path.orElse(null);
+            return this;
+        }
+
         public SessionBuilder setSource(String source)
         {
             this.source = source;
+            return this;
+        }
+
+        public SessionBuilder setSource(Optional<String> source)
+        {
+            this.source = source.orElse(null);
             return this;
         }
 
@@ -669,6 +700,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setTimeZoneKey(Optional<TimeZoneKey> timeZoneKey)
+        {
+            this.timeZoneKey = timeZoneKey.orElse(null);
+            return this;
+        }
+
         public SessionBuilder setIdentity(Identity identity)
         {
             this.identity = identity;
@@ -681,9 +718,21 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setUserAgent(Optional<String> userAgent)
+        {
+            this.userAgent = userAgent.orElse(null);
+            return this;
+        }
+
         public SessionBuilder setClientInfo(String clientInfo)
         {
             this.clientInfo = clientInfo;
+            return this;
+        }
+
+        public SessionBuilder setClientInfo(Optional<String> clientInfo)
+        {
+            this.clientInfo = clientInfo.orElse(null);
             return this;
         }
 
@@ -759,10 +808,10 @@ public final class Session
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
-                    path,
+                    path != null ? path : new SqlPath(Optional.empty()),
                     traceToken,
-                    timeZoneKey,
-                    locale,
+                    timeZoneKey != null ? timeZoneKey : TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID()),
+                    locale != null ? locale : Locale.getDefault(),
                     Optional.ofNullable(remoteUserAddress),
                     Optional.ofNullable(userAgent),
                     Optional.ofNullable(clientInfo),

@@ -97,7 +97,7 @@ public class TestJdbcConnection
 
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
-            statement.execute("SET ROLE admin");
+            statement.execute("SET ROLE admin IN hive");
             statement.execute("CREATE SCHEMA default");
             statement.execute("CREATE SCHEMA fruit");
             statement.execute(
@@ -269,7 +269,7 @@ public class TestJdbcConnection
 
             try (Statement statement = connection.createStatement()) {
                 // setting Hive session properties requires the admin role
-                statement.execute("SET ROLE admin");
+                statement.execute("SET ROLE admin IN hive");
             }
 
             for (String part : ImmutableList.of(",", "=", ":", "|", "/", "\\", "'", "\\'", "''", "\"", "\\\"", "[", "]")) {
@@ -598,7 +598,7 @@ public class TestJdbcConnection
     {
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
         try (Statement statement = connection.createStatement();
-                ResultSet rs = statement.executeQuery("SHOW CURRENT ROLES")) {
+                ResultSet rs = statement.executeQuery("SHOW CURRENT ROLES IN hive")) {
             while (rs.next()) {
                 builder.add(rs.getString("role"));
             }

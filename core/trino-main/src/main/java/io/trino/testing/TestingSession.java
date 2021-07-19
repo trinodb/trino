@@ -23,6 +23,7 @@ import io.trino.execution.QueryIdGenerator;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl.RoleSupport;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.security.Identity;
@@ -82,6 +83,7 @@ public final class TestingSession
                 catalogName,
                 catalog,
                 createTestSessionConnector(),
+                RoleSupport.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
                 createTestSessionConnector(),
                 createSystemTablesCatalogName(catalog),

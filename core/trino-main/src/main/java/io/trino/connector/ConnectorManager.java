@@ -37,6 +37,7 @@ import io.trino.spi.VersionEmbedder;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorAccessControl.RoleSupport;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorHandleResolver;
@@ -241,10 +242,15 @@ public class ConnectorManager
                 systemTablesProvider,
                 transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogName)));
 
+        RoleSupport roleSupport = connector.getAccessControl()
+                .map(ConnectorAccessControl::getRoleSupport)
+                .orElse(RoleSupport.CONNECTOR);
+
         Catalog catalog = new Catalog(
                 catalogName.getCatalogName(),
                 connector.getCatalogName(),
                 connector.getConnector(),
+                roleSupport,
                 informationSchemaConnector.getCatalogName(),
                 informationSchemaConnector.getConnector(),
                 systemConnector.getCatalogName(),

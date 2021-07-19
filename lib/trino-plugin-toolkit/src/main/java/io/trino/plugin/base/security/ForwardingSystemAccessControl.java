@@ -351,9 +351,51 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanShowRoles(SystemSecurityContext context, String catalogName)
+    public void checkCanShowRoles(SystemSecurityContext context)
     {
-        delegate().checkCanShowRoles(context, catalogName);
+        delegate().checkCanShowRoles(context);
+    }
+
+    @Override
+    public void checkCanCreateRole(SystemSecurityContext context, String role, Optional<TrinoPrincipal> grantor)
+    {
+        delegate().checkCanCreateRole(context, role, grantor);
+    }
+
+    @Override
+    public void checkCanDropRole(SystemSecurityContext context, String role)
+    {
+        delegate().checkCanDropRole(context, role);
+    }
+
+    @Override
+    public void checkCanGrantRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
+    {
+        delegate().checkCanGrantRoles(context, roles, grantees, adminOption, grantor);
+    }
+
+    @Override
+    public void checkCanRevokeRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
+    {
+        delegate().checkCanRevokeRoles(context, roles, grantees, adminOption, grantor);
+    }
+
+    @Override
+    public void checkCanShowRoleAuthorizationDescriptors(SystemSecurityContext context)
+    {
+        delegate().checkCanShowRoleAuthorizationDescriptors(context);
+    }
+
+    @Override
+    public void checkCanShowCurrentRoles(SystemSecurityContext context)
+    {
+        delegate().checkCanShowCurrentRoles(context);
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(SystemSecurityContext context)
+    {
+        delegate().checkCanShowRoleGrants(context);
     }
 
     @Override

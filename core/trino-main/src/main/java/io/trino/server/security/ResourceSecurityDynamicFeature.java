@@ -14,13 +14,13 @@
 package io.trino.server.security;
 
 import io.trino.security.AccessControl;
+import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.InternalAuthenticationManager;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.security.ResourceSecurity.AccessType;
 import io.trino.server.ui.WebUiAuthenticationFilter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 
 import javax.annotation.Priority;
@@ -38,8 +38,7 @@ import javax.ws.rs.core.FeatureContext;
 
 import java.util.Optional;
 
-import static io.trino.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
-import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
+import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static io.trino.spi.StandardErrorCode.SERVER_STARTING_UP;
@@ -53,7 +52,7 @@ public class ResourceSecurityDynamicFeature
     private final WebUiAuthenticationFilter webUiAuthenticationFilter;
     private final InternalAuthenticationManager internalAuthenticationManager;
     private final AccessControl accessControl;
-    private final GroupProvider groupProvider;
+    private final HttpRequestSessionContextFactory sessionContextFactory;
     private final Optional<String> fixedManagementUser;
     private final boolean fixedManagementUserForHttps;
     private final Optional<String> alternateHeaderName;
@@ -65,7 +64,7 @@ public class ResourceSecurityDynamicFeature
             WebUiAuthenticationFilter webUiAuthenticationFilter,
             InternalAuthenticationManager internalAuthenticationManager,
             AccessControl accessControl,
-            GroupProvider groupProvider,
+            HttpRequestSessionContextFactory sessionContextFactory,
             SecurityConfig securityConfig,
             ProtocolConfig protocolConfig)
     {
@@ -74,7 +73,7 @@ public class ResourceSecurityDynamicFeature
         this.webUiAuthenticationFilter = requireNonNull(webUiAuthenticationFilter, "webUiAuthenticationFilter is null");
         this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         requireNonNull(securityConfig, "securityConfig is null");
         this.fixedManagementUser = securityConfig.getFixedManagementUser();
         this.fixedManagementUserForHttps = securityConfig.isFixedManagementUserForHttps();
@@ -100,7 +99,7 @@ public class ResourceSecurityDynamicFeature
             case MANAGEMENT_READ:
             case MANAGEMENT_WRITE:
                 context.register(new ManagementAuthenticationFilter(fixedManagementUser, fixedManagementUserForHttps, authenticationFilter));
-                context.register(new ManagementAuthorizationFilter(accessControl, groupProvider, accessType == MANAGEMENT_READ, alternateHeaderName));
+                context.register(new ManagementAuthorizationFilter(accessControl, sessionContextFactory, accessType == MANAGEMENT_READ, alternateHeaderName));
                 context.register(new DisposeIdentityResponseFilter());
                 return;
             case INTERNAL_ONLY:
@@ -142,14 +141,14 @@ public class ResourceSecurityDynamicFeature
             implements ContainerRequestFilter
     {
         private final AccessControl accessControl;
-        private final GroupProvider groupProvider;
+        private final HttpRequestSessionContextFactory sessionContextFactory;
         private final boolean read;
         private final Optional<String> alternateHeaderName;
 
-        public ManagementAuthorizationFilter(AccessControl accessControl, GroupProvider groupProvider, boolean read, Optional<String> alternateHeaderName)
+        public ManagementAuthorizationFilter(AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory, boolean read, Optional<String> alternateHeaderName)
         {
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
-            this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+            this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
             this.read = read;
             this.alternateHeaderName = requireNonNull(alternateHeaderName, "alternateHeaderName is null");
         }
@@ -162,12 +161,10 @@ public class ResourceSecurityDynamicFeature
             }
 
             try {
-                Identity identity = extractAuthorizedIdentity(
+                Identity identity = sessionContextFactory.extractAuthorizedIdentity(
                         Optional.ofNullable((Identity) request.getProperty(AUTHENTICATED_IDENTITY)),
                         request.getHeaders(),
-                        alternateHeaderName,
-                        accessControl,
-                        groupProvider);
+                        alternateHeaderName);
                 if (read) {
                     accessControl.checkCanReadSystemInformation(identity);
                 }

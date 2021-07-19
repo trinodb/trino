@@ -61,6 +61,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorAccessControl.RoleSupport;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -104,6 +105,7 @@ import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
@@ -213,6 +215,7 @@ public final class MetadataManager
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
+    private final GlobalSecurityMetadata globalSecurityMetadata;
     private final TransactionManager transactionManager;
     private final TypeRegistry typeRegistry;
 
@@ -233,6 +236,7 @@ public final class MetadataManager
             MaterializedViewPropertyManager materializedViewPropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
+            GlobalSecurityMetadata globalSecurityMetadata,
             TransactionManager transactionManager,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
@@ -250,6 +254,7 @@ public final class MetadataManager
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
+        this.globalSecurityMetadata = requireNonNull(globalSecurityMetadata, "globalRoleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
 
@@ -323,6 +328,7 @@ public final class MetadataManager
                 new MaterializedViewPropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
+                new DisabledGlobalSecurityMetadata(),
                 transactionManager,
                 typeOperators,
                 new BlockTypeOperators(typeOperators),
@@ -1722,97 +1728,166 @@ public final class MetadataManager
     //
 
     @Override
-    public void createRole(Session session, String role, Optional<TrinoPrincipal> grantor, String catalog)
+    public boolean roleExists(Session session, String role, Optional<String> catalog)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
-        CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
-        metadata.createRole(session.toConnectorSession(catalogName), role, grantor);
-    }
-
-    @Override
-    public void dropRole(Session session, String role, String catalog)
-    {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
-        CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
-        metadata.dropRole(session.toConnectorSession(catalogName), role);
-    }
-
-    @Override
-    public Set<String> listRoles(Session session, String catalog)
-    {
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
-        if (catalogMetadata.isEmpty()) {
-            return ImmutableSet.of();
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
+            if (catalogMetadata.getRoleSupport() == RoleSupport.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.getCatalogName();
+                ConnectorMetadata metadata = catalogMetadata.getMetadata();
+                return metadata.roleExists(session.toConnectorSession(catalogName), role);
+            }
         }
-        CatalogName catalogName = catalogMetadata.get().getCatalogName();
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
-        return metadata.listRoles(connectorSession).stream()
-                .map(role -> role.toLowerCase(ENGLISH))
-                .collect(toImmutableSet());
+
+        return globalSecurityMetadata.roleExists(session, role);
     }
 
     @Override
-    public Set<RoleGrant> listAllRoleGrants(Session session, String catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
+    public void createRole(Session session, String role, Optional<TrinoPrincipal> grantor, Optional<String> catalog)
     {
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
-        if (catalogMetadata.isEmpty()) {
-            return ImmutableSet.of();
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
+            if (catalogMetadata.getRoleSupport() == RoleSupport.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.getCatalogName();
+                ConnectorMetadata metadata = catalogMetadata.getMetadata();
+                metadata.createRole(session.toConnectorSession(catalogName), role, grantor);
+                return;
+            }
         }
-        CatalogName catalogName = catalogMetadata.get().getCatalogName();
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
-        return metadata.listAllRoleGrants(connectorSession, roles, grantees, limit);
+
+        globalSecurityMetadata.createRole(session, role, grantor);
     }
 
     @Override
-    public Set<RoleGrant> listRoleGrants(Session session, String catalog, TrinoPrincipal principal)
+    public void dropRole(Session session, String role, Optional<String> catalog)
     {
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
-        if (catalogMetadata.isEmpty()) {
-            return ImmutableSet.of();
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
+            if (catalogMetadata.getRoleSupport() == RoleSupport.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.getCatalogName();
+                ConnectorMetadata metadata = catalogMetadata.getMetadata();
+                metadata.dropRole(session.toConnectorSession(catalogName), role);
+                return;
+            }
         }
-        CatalogName catalogName = catalogMetadata.get().getCatalogName();
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
-        return metadata.listRoleGrants(connectorSession, principal);
+
+        globalSecurityMetadata.dropRole(session, role);
     }
 
     @Override
-    public void grantRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalog)
+    public Set<String> listRoles(Session session, Optional<String> catalog)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
-        CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
-        metadata.grantRoles(session.toConnectorSession(catalogName), roles, grantees, adminOption, grantor);
-    }
-
-    @Override
-    public void revokeRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalog)
-    {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
-        CatalogName catalogName = catalogMetadata.getCatalogName();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
-        metadata.revokeRoles(session.toConnectorSession(catalogName), roles, grantees, adminOption, grantor);
-    }
-
-    @Override
-    public Set<RoleGrant> listApplicableRoles(Session session, TrinoPrincipal principal, String catalog)
-    {
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
-        if (catalogMetadata.isEmpty()) {
-            return ImmutableSet.of();
+        if (catalog.isPresent()) {
+            Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
+            if (catalogMetadata.isEmpty()) {
+                return ImmutableSet.of();
+            }
+            if (catalogMetadata.get().getRoleSupport() == RoleSupport.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.get().getCatalogName();
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+                return metadata.listRoles(connectorSession).stream()
+                        .map(role -> role.toLowerCase(ENGLISH))
+                        .collect(toImmutableSet());
+            }
         }
-        CatalogName catalogName = catalogMetadata.get().getCatalogName();
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
-        return ImmutableSet.copyOf(metadata.listApplicableRoles(connectorSession, principal));
+
+        return globalSecurityMetadata.listRoles(session);
+    }
+
+    @Override
+    public Set<RoleGrant> listAllRoleGrants(Session session, Optional<String> catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
+    {
+        if (catalog.isPresent()) {
+            Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
+            if (catalogMetadata.isEmpty()) {
+                return ImmutableSet.of();
+            }
+            if (catalogMetadata.get().getRoleSupport() == RoleSupport.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.get().getCatalogName();
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+                return metadata.listAllRoleGrants(connectorSession, roles, grantees, limit);
+            }
+        }
+
+        return globalSecurityMetadata.listAllRoleGrants(session, roles, grantees, limit);
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(Session session, Optional<String> catalog, TrinoPrincipal principal)
+    {
+        if (catalog.isPresent()) {
+            Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
+            if (catalogMetadata.isEmpty()) {
+                return ImmutableSet.of();
+            }
+            if (catalogMetadata.get().getRoleSupport() == RoleSupport.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.get().getCatalogName();
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+                return metadata.listRoleGrants(connectorSession, principal);
+            }
+        }
+
+        return globalSecurityMetadata.listRoleGrants(session, principal);
+    }
+
+    @Override
+    public void grantRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalog)
+    {
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
+            if (catalogMetadata.getRoleSupport() == RoleSupport.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.getCatalogName();
+                ConnectorMetadata metadata = catalogMetadata.getMetadata();
+                metadata.grantRoles(session.toConnectorSession(catalogName), roles, grantees, adminOption, grantor);
+                return;
+            }
+        }
+
+        globalSecurityMetadata.grantRoles(session, roles, grantees, adminOption, grantor);
+    }
+
+    @Override
+    public void revokeRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalog)
+    {
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.get());
+            if (catalogMetadata.getRoleSupport() == RoleSupport.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.getCatalogName();
+                ConnectorMetadata metadata = catalogMetadata.getMetadata();
+                metadata.revokeRoles(session.toConnectorSession(catalogName), roles, grantees, adminOption, grantor);
+                return;
+            }
+        }
+
+        globalSecurityMetadata.revokeRoles(session, roles, grantees, adminOption, grantor);
+    }
+
+    @Override
+    public Set<RoleGrant> listApplicableRoles(Session session, TrinoPrincipal principal, Optional<String> catalog)
+    {
+        if (catalog.isPresent()) {
+            Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
+            if (catalogMetadata.isEmpty()) {
+                return ImmutableSet.of();
+            }
+            if (catalogMetadata.get().getRoleSupport() == RoleSupport.CONNECTOR) {
+                CatalogName catalogName = catalogMetadata.get().getCatalogName();
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
+                return ImmutableSet.copyOf(metadata.listApplicableRoles(connectorSession, principal));
+            }
+        }
+
+        return globalSecurityMetadata.listApplicableRoles(session, principal);
+    }
+
+    @Override
+    public Set<String> listEnabledRoles(Identity identity)
+    {
+        return globalSecurityMetadata.listEnabledRoles(identity);
     }
 
     @Override
@@ -1822,6 +1897,10 @@ public final class MetadataManager
         if (catalogMetadata.isEmpty()) {
             return ImmutableSet.of();
         }
+        if (catalogMetadata.get().getRoleSupport() == RoleSupport.GLOBAL) {
+            return globalSecurityMetadata.listEnabledRoles(session.getIdentity());
+        }
+
         CatalogName catalogName = catalogMetadata.get().getCatalogName();
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);

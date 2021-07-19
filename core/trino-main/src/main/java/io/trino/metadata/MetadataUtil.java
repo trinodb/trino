@@ -37,7 +37,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -105,9 +105,7 @@ public final class MetadataUtil
         String catalog = session.getCatalog().orElseThrow(() ->
                 semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set"));
 
-        if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
-            throw new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalog);
-        }
+        metadata.getRequiredCatalogHandle(session, catalog);
 
         return catalog;
     }
@@ -203,6 +201,31 @@ public final class MetadataUtil
         }
         QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);
         return metadata.getTableHandle(session, name).isPresent();
+    }
+
+    public static void checkRoleExists(Session session, Node node, Metadata metadata, String role, Optional<String> catalog)
+    {
+        if (!metadata.roleExists(session, role, catalog)) {
+            throw semanticException(ROLE_NOT_FOUND, node, "Role '%s' does not exist%s", role, catalog.map(c -> format(" in catalog '%s'", c)).orElse(""));
+        }
+    }
+
+    public static void checkRoleExists(Session session, Node node, Metadata metadata, TrinoPrincipal principal, Optional<String> catalog)
+    {
+        if (principal.getType() == ROLE) {
+            checkRoleExists(session, node, metadata, principal.getName(), catalog);
+        }
+    }
+
+    public static Optional<String> processRoleCommandCatalog(Metadata metadata, Session session, Node node, Optional<String> catalog, boolean legacyCatalogRoles)
+    {
+        // old role commands use only supported catalog roles and used session catalog as the default
+        if (catalog.isEmpty() && legacyCatalogRoles) {
+            return Optional.of(getSessionCatalog(metadata, session, node));
+        }
+
+        catalog.ifPresent(catalogName -> metadata.getRequiredCatalogHandle(session, catalogName));
+        return catalog;
     }
 
     public static class TableMetadataBuilder

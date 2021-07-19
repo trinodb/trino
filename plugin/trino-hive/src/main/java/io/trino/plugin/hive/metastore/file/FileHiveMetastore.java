@@ -838,7 +838,12 @@ public class FileHiveMetastore
     @Override
     public synchronized Set<String> listRoles()
     {
-        return ImmutableSet.copyOf(readFile("roles", getRolesFile(), rolesCodec).orElse(ImmutableList.of()));
+        Set<String> roles = readFile("roles", getRolesFile(), rolesCodec)
+                .map(HashSet::new)
+                .orElseGet(HashSet::new);
+        // Hive SQL standard assumes admin role already exists, so until that is fixed always add it here
+        roles.add("admin");
+        return ImmutableSet.copyOf(roles);
     }
 
     @Override

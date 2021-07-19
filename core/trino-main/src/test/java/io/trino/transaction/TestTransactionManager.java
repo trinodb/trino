@@ -27,6 +27,7 @@ import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl.RoleSupport;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.AfterClass;
@@ -205,6 +206,7 @@ public class TestTransactionManager
                 catalogName,
                 catalog,
                 connector,
+                RoleSupport.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
                 new InformationSchemaConnector(catalogName, nodeManager, metadata, new AllowAllAccessControl()),
                 systemId,

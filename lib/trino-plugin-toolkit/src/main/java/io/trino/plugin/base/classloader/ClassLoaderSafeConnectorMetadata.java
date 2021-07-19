@@ -655,6 +655,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public boolean roleExists(ConnectorSession session, String role)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.roleExists(session, role);
+        }
+    }
+
+    @Override
     public void createRole(ConnectorSession session, String role, Optional<TrinoPrincipal> grantor)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

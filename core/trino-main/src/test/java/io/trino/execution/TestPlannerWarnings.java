@@ -90,8 +90,8 @@ public class TestPlannerWarnings
     public static void assertPlannerWarnings(LocalQueryRunner queryRunner, @Language("SQL") String sql, Map<String, String> sessionProperties, List<WarningCode> expectedWarnings, Optional<List<Rule<?>>> rules)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                .setCatalog(queryRunner.getDefaultSession().getCatalog().get())
-                .setSchema(queryRunner.getDefaultSession().getSchema().get());
+                .setCatalog(queryRunner.getDefaultSession().getCatalog())
+                .setSchema(queryRunner.getDefaultSession().getSchema());
         sessionProperties.forEach(sessionBuilder::setSystemProperty);
         WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig());
         try {

@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import io.trino.connector.CatalogName;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl.RoleSupport;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.metadata.MetadataUtil.checkCatalogName;
@@ -25,6 +26,7 @@ public class Catalog
     private final String catalogName;
     private final CatalogName connectorCatalogName;
     private final Connector connector;
+    private final RoleSupport roleSupport;
 
     private final CatalogName informationSchemaId;
     private final Connector informationSchema;
@@ -36,6 +38,7 @@ public class Catalog
             String catalogName,
             CatalogName connectorCatalogName,
             Connector connector,
+            RoleSupport roleSupport,
             CatalogName informationSchemaId,
             Connector informationSchema,
             CatalogName systemTablesId,
@@ -44,6 +47,7 @@ public class Catalog
         this.catalogName = checkCatalogName(catalogName);
         this.connectorCatalogName = requireNonNull(connectorCatalogName, "connectorCatalogName is null");
         this.connector = requireNonNull(connector, "connector is null");
+        this.roleSupport = requireNonNull(roleSupport, "roleSupport is null");
         this.informationSchemaId = requireNonNull(informationSchemaId, "informationSchemaId is null");
         this.informationSchema = requireNonNull(informationSchema, "informationSchema is null");
         this.systemTablesId = requireNonNull(systemTablesId, "systemTablesId is null");
@@ -58,6 +62,11 @@ public class Catalog
     public CatalogName getConnectorCatalogName()
     {
         return connectorCatalogName;
+    }
+
+    public RoleSupport getRoleSupport()
+    {
+        return roleSupport;
     }
 
     public CatalogName getInformationSchemaId()

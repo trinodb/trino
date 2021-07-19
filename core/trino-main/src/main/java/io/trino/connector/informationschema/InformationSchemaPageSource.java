@@ -345,13 +345,13 @@ public class InformationSchemaPageSource
     private void addRolesRecords()
     {
         try {
-            accessControl.checkCanShowRoles(session.toSecurityContext(), catalogName);
+            accessControl.checkCanShowRoles(session.toSecurityContext(), Optional.of(catalogName));
         }
         catch (AccessDeniedException exception) {
             return;
         }
 
-        for (String role : metadata.listRoles(session, catalogName)) {
+        for (String role : metadata.listRoles(session, Optional.of(catalogName))) {
             addRecord(role);
             if (isLimitExhausted()) {
                 return;
@@ -362,13 +362,13 @@ public class InformationSchemaPageSource
     private void addRoleAuthorizationDescriptorRecords()
     {
         try {
-            accessControl.checkCanShowRoleAuthorizationDescriptors(session.toSecurityContext(), catalogName);
+            accessControl.checkCanShowRoleAuthorizationDescriptors(session.toSecurityContext(), Optional.of(catalogName));
         }
         catch (AccessDeniedException exception) {
             return;
         }
 
-        for (RoleGrant grant : metadata.listAllRoleGrants(session, catalogName, roles, grantees, limit)) {
+        for (RoleGrant grant : metadata.listAllRoleGrants(session, Optional.of(catalogName), roles, grantees, limit)) {
             addRecord(
                     grant.getRoleName(),
                     null, // grantor
@@ -384,7 +384,7 @@ public class InformationSchemaPageSource
 
     private void addApplicableRolesRecords()
     {
-        for (RoleGrant grant : metadata.listApplicableRoles(session, new TrinoPrincipal(USER, session.getUser()), catalogName)) {
+        for (RoleGrant grant : metadata.listApplicableRoles(session, new TrinoPrincipal(USER, session.getUser()), Optional.of(catalogName))) {
             addRecord(
                     grant.getGrantee().getName(),
                     grant.getGrantee().getType().toString(),

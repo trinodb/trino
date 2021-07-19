@@ -87,6 +87,7 @@ import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
+import io.trino.metadata.DisabledGlobalSecurityMetadata;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -337,6 +338,7 @@ public class LocalQueryRunner
                 new MaterializedViewPropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
+                new DisabledGlobalSecurityMetadata(),
                 transactionManager,
                 typeOperators,
                 blockTypeOperators,

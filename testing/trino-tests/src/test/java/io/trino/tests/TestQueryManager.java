@@ -74,7 +74,7 @@ public class TestQueryManager
         dispatchManager.createQuery(
                 queryId,
                 Slug.createNew(),
-                new TestingSessionContext(TEST_SESSION),
+                TestingSessionContext.fromSession(TEST_SESSION),
                 "SELECT * FROM lineitem")
                 .get();
 

@@ -10,7 +10,7 @@
             "owner": false
         },
         {
-            "user": "admin",
+            "role": "admin",
             "owner": true
         },
         {
@@ -25,7 +25,7 @@
             "privileges": []
         },
         {
-            "user": "admin",
+            "role": "admin",
             "schema": ".*",
             "privileges": ["SELECT"]
         },

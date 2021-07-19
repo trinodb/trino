@@ -101,6 +101,7 @@ Catalog rules
 Each catalog rule is composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``role`` (optional): regex to match against role names. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
 * ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
 * ``allow`` (required): string indicating whether a user has access to the catalog.
@@ -110,6 +111,9 @@ Each catalog rule is composed of the following fields:
 
 In order for a rule to apply the user name must match the regular expression
 specified in ``user`` attribute.
+
+For role names, a rule can be applied if at least one of the currently enabled roles
+matches the ``role`` regular expression.
 
 For group names, a rule can be applied if at least one group name of this user
 matches the ``group`` regular expression.
@@ -125,9 +129,9 @@ but the schema and table rules can restrict access.
     Boolean ``true`` and ``false`` are also supported as legacy values for ``allow``,
     to support backwards compatibility.  ``true`` maps to ``all``, and ``false`` maps to ``none``.
 
-For example, if you want to allow only the user ``admin`` to access the
+For example, if you want to allow only the role ``admin`` to access the
 ``mysql`` and the ``system`` catalog, allow users from the ``finance``
-and ``admin`` groups access to ``postgres`` catalog, allow all users to
+and ``human_resources`` groups access to ``postgres`` catalog, allow all users to
 access the ``hive`` catalog, and deny all other access, you can use the
 following rules:
 
@@ -136,7 +140,7 @@ following rules:
     {
       "catalogs": [
         {
-          "user": "admin",
+          "role": "admin",
           "catalog": "(mysql|system)",
           "allow": "all"
         },
@@ -170,13 +174,14 @@ Schema rules
 Each schema rule is composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``role`` (optional): regex to match against role names. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
 * ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
 * ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
 * ``owner`` (required): boolean indicating whether the user is to be considered
   an owner of the schema. Defaults to ``false``.
 
-For example, to provide ownership of all schemas to user ``admin``, treat all
+For example, to provide ownership of all schemas to role ``admin``, treat all
 users as owners of the ``default.default`` schema and prevent user ``guest`` from
 ownership of any schema, you can use the following rules:
 
@@ -185,7 +190,7 @@ ownership of any schema, you can use the following rules:
     {
       "schemas": [
         {
-          "user": "admin",
+          "role": "admin",
           "schema": ".*",
           "owner": true
         },
@@ -207,6 +212,7 @@ Table rules
 Each table rule is composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``role`` (optional): regex to match against role names. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
 * ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
 * ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
@@ -238,7 +244,7 @@ Filter and mask environment
 
 The example below defines the following table access policy:
 
-* User ``admin`` has all privileges across all tables and schemas
+* Role ``admin`` has all privileges across all tables and schemas
 * User ``banned_user`` has no privileges
 * All users have ``SELECT`` privileges on ``default.hr.employees``, but the
   table is filtered to only the row for the current user.
@@ -250,7 +256,7 @@ The example below defines the following table access policy:
     {
       "tables": [
         {
-          "user": "admin",
+          "role": "admin",
           "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
         },
         {
@@ -264,7 +270,7 @@ The example below defines the following table access policy:
           "privileges": ["SELECT"],
           "filter": "user = current_user",
           "filter_environment": {
-            "user": "admin"
+            "user": "system_user"
           }
         },
         {
@@ -281,7 +287,7 @@ The example below defines the following table access policy:
                 "name": "SSN",
                 "mask": "'XXX-XX-' + substring(credit_card, -4)",
                 "mask_environment": {
-                  "user": "admin"
+                  "user": "system_user"
                 }
              }
           ]
@@ -301,6 +307,7 @@ setting the session property is denied. System session property rules are compos
 following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``role`` (optional): regex to match against role names. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
 * ``property`` (optional): regex to match against the property name. Defaults to ``.*``.
 * ``allow`` (required): boolean indicating if the setting the session property should be allowed.
@@ -311,7 +318,7 @@ The catalog session property rules have the additional field:
 
 The example below defines the following table access policy:
 
-* User ``admin`` can set all session property
+* Role ``admin`` can set all session property
 * User ``banned_user`` can not set any session properties
 * All users can set the ``resource_overcommit`` system session property, and the
   ``bucket_execution_enabled`` session property in the ``hive`` catalog.
@@ -338,7 +345,7 @@ of the following fields:
 
     Users always have permission to view or kill their own queries.
 
-For example, if you want to allow the user ``admin`` full query access, allow the user ``alice``
+For example, if you want to allow the role ``admin`` full query access, allow the user ``alice``
 to execute and kill queries, any user to execute queries, and deny all other access, you can use
 the following rules:
 
@@ -366,13 +373,13 @@ defined, impersonation is not allowed.
 
 Each impersonation rule is composed of the following fields:
 
-* ``original_user`` (required): regex to match against the user requesting the impersonation.
+* ``original_user`` (optional): regex to match against the user requesting the impersonation. Defaults to ``.*``.
+* ``original_role`` (optional): regex to match against role names of the requesting impersonation. Defaults to ``.*``.
 * ``new_user`` (required): regex to match against the user that will be impersonated.
 * ``allow`` (optional): boolean indicating if the authentication should be allowed.
 
-The following example allows the two admins, ``alice`` and ``bob``, to impersonate
-any user, except they may not impersonate each other.  It also allows any user to
-impersonate the ``test`` user:
+The following example allows the ``admin`` role, to impersonate any user, except
+for ``bob``.  It also allows any user to impersonate the ``test`` user:
 
 .. literalinclude:: user-impersonation.json
     :language: json
@@ -465,7 +472,7 @@ no rule matches, system access is denied. Each rule is composed of the following
   will grant or deny the authorization based on the value of ``allow``.
 * ``allow`` (required): set of access permissions granted to user. Values: ``read``, ``write``
 
-For example, if you want to allow only the user ``admin`` to read and write
+For example, if you want to allow only the role ``admin`` to read and write
 system information, allow ``alice`` to read system information, and deny all other access, you
 can use the following rules:
 

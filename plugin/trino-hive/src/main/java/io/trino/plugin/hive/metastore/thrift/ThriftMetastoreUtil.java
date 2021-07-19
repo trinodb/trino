@@ -279,7 +279,7 @@ public final class ThriftMetastoreUtil
             return true;
         }
 
-        if (identity.getRole().isPresent() && identity.getRole().get().getType() == SelectedRole.Type.NONE) {
+        if (identity.getConnectorRole().isPresent() && identity.getConnectorRole().get().getType() == SelectedRole.Type.NONE) {
             return false;
         }
 
@@ -301,7 +301,7 @@ public final class ThriftMetastoreUtil
 
     public static Stream<String> listEnabledRoles(ConnectorIdentity identity, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        if (identity.getRole().isPresent() && identity.getRole().get().getType() == SelectedRole.Type.NONE) {
+        if (identity.getConnectorRole().isPresent() && identity.getConnectorRole().get().getType() == SelectedRole.Type.NONE) {
             return Stream.of(PUBLIC_ROLE_NAME);
         }
         HivePrincipal principal = HivePrincipal.from(identity);

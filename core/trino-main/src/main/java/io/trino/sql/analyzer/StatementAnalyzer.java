@@ -215,7 +215,6 @@ import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.FunctionKind.WINDOW;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
-import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
@@ -244,7 +243,6 @@ import static io.trino.spi.StandardErrorCode.MISSING_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.NESTED_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.NESTED_ROW_PATTERN_RECOGNITION;
 import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NULL_TREATMENT_NOT_ALLOWED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -713,8 +711,7 @@ class StatementAnalyzer
             }
 
             validateProperties(node.getProperties(), scope);
-            CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
-                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog not found: " + tableName.getCatalogName()));
+            CatalogName catalogName = metadata.getRequiredCatalogHandle(session, tableName.getCatalogName());
 
             Map<String, Object> analyzeProperties = metadata.getAnalyzePropertyManager().getProperties(
                     catalogName,
@@ -802,8 +799,7 @@ class StatementAnalyzer
             }
 
             // create target table metadata
-            CatalogName catalogName = metadata.getCatalogHandle(session, targetTable.getCatalogName())
-                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + targetTable.getCatalogName()));
+            CatalogName catalogName = metadata.getRequiredCatalogHandle(session, targetTable.getCatalogName());
 
             Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                     catalogName,
@@ -1331,9 +1327,7 @@ class StatementAnalyzer
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName);
 
             if (tableHandle.isEmpty()) {
-                if (metadata.getCatalogHandle(session, targetTableName.getCatalogName()).isEmpty()) {
-                    throw semanticException(CATALOG_NOT_FOUND, table, "Catalog '%s' does not exist", targetTableName.getCatalogName());
-                }
+                metadata.getRequiredCatalogHandle(session, targetTableName.getCatalogName());
                 if (!metadata.schemaExists(session, new CatalogSchemaName(targetTableName.getCatalogName(), targetTableName.getSchemaName()))) {
                     throw semanticException(SCHEMA_NOT_FOUND, table, "Schema '%s' does not exist", targetTableName.getSchemaName());
                 }
@@ -4050,8 +4044,8 @@ class StatementAnalyzer
                 .setTransactionId(session.getTransactionId().orElse(null))
                 .setIdentity(identity)
                 .setSource(session.getSource().orElse(null))
-                .setCatalog(catalog.orElse(null))
-                .setSchema(schema.orElse(null))
+                .setCatalog(catalog)
+                .setSchema(schema)
                 .setPath(path)
                 .setTimeZoneKey(session.getTimeZoneKey())
                 .setLocale(session.getLocale())

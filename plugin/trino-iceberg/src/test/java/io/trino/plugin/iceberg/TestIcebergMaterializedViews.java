@@ -138,8 +138,8 @@ public class TestIcebergMaterializedViews
         assertUpdate(session, "DROP MATERIALIZED VIEW iceberg.tpch.materialized_view_session_test");
 
         session = Session.builder(getSession())
-                .setCatalog(null)
-                .setSchema(null)
+                .setCatalog(Optional.empty())
+                .setSchema(Optional.empty())
                 .build();
         assertUpdate(session, "CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_session_test AS SELECT * FROM iceberg.tpch.base_table1");
         assertQuery(session, "SELECT COUNT(*) FROM iceberg.tpch.materialized_view_session_test", "VALUES 6");

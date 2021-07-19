@@ -211,7 +211,7 @@ public abstract class BaseMySqlConnectorTest
     {
         Session session = testSessionBuilder()
                 .setCatalog("mysql")
-                .setSchema(getSession().getSchema().get())
+                .setSchema(getSession().getSchema())
                 .build();
 
         assertFalse(getQueryRunner().tableExists(session, "test_table"));

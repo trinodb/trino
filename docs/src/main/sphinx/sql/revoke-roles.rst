@@ -12,11 +12,12 @@ Synopsis
     role [, ...]
     FROM ( user | USER user | ROLE role) [, ...]
     [ GRANTED BY ( user | USER user | ROLE role | CURRENT_USER | CURRENT_ROLE ) ]
+    [ IN catalog ]
 
 Description
 -----------
 
-Revokes the specified role(s) from the specified principal(s) in the current catalog.
+Revokes the specified role(s) from the specified principal(s).
 
 If the ``ADMIN OPTION FOR`` clause is specified, the ``GRANT`` permission is
 revoked instead of the role.
@@ -27,6 +28,9 @@ be the role admin or should possess the ``GRANT`` option for the given role.
 The optional ``GRANTED BY`` clause causes the role(s) to be revoked with
 the specified principal as a revoker. If the ``GRANTED BY`` clause is not
 specified, the roles are revoked by the current user as a revoker.
+
+The optional ``IN catalog`` clause revokes the roles in a catalog as opposed
+to a system roles.
 
 Examples
 --------

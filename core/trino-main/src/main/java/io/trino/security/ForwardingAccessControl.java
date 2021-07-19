@@ -345,55 +345,55 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanCreateRole(SecurityContext context, String role, Optional<TrinoPrincipal> grantor, String catalogName)
+    public void checkCanCreateRole(SecurityContext context, String role, Optional<TrinoPrincipal> grantor, Optional<String> catalogName)
     {
         delegate().checkCanCreateRole(context, role, grantor, catalogName);
     }
 
     @Override
-    public void checkCanDropRole(SecurityContext context, String role, String catalogName)
+    public void checkCanDropRole(SecurityContext context, String role, Optional<String> catalogName)
     {
         delegate().checkCanDropRole(context, role, catalogName);
     }
 
     @Override
-    public void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalogName)
     {
         delegate().checkCanGrantRoles(context, roles, grantees, adminOption, grantor, catalogName);
     }
 
     @Override
-    public void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalogName)
     {
         delegate().checkCanRevokeRoles(context, roles, grantees, adminOption, grantor, catalogName);
     }
 
     @Override
-    public void checkCanSetRole(SecurityContext context, String role, String catalogName)
+    public void checkCanSetCatalogRole(SecurityContext context, String role, String catalogName)
     {
-        delegate().checkCanSetRole(context, role, catalogName);
+        delegate().checkCanSetCatalogRole(context, role, catalogName);
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, String catalogName)
+    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, Optional<String> catalogName)
     {
         delegate().checkCanShowRoleAuthorizationDescriptors(context, catalogName);
     }
 
     @Override
-    public void checkCanShowRoles(SecurityContext context, String catalogName)
+    public void checkCanShowRoles(SecurityContext context, Optional<String> catalogName)
     {
         delegate().checkCanShowRoles(context, catalogName);
     }
 
     @Override
-    public void checkCanShowCurrentRoles(SecurityContext context, String catalogName)
+    public void checkCanShowCurrentRoles(SecurityContext context, Optional<String> catalogName)
     {
         delegate().checkCanShowCurrentRoles(context, catalogName);
     }
 
     @Override
-    public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
+    public void checkCanShowRoleGrants(SecurityContext context, Optional<String> catalogName)
     {
         delegate().checkCanShowRoleGrants(context, catalogName);
     }

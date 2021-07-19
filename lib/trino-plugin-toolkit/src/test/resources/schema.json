@@ -5,7 +5,7 @@
       "owner": false
     },
     {
-      "user": "admin",
+      "role": "admin",
       "schema": ".*",
       "owner": true
     },

@@ -1555,6 +1555,10 @@ public final class SqlFormatter
             if (node.getGrantor().isPresent()) {
                 builder.append(" WITH ADMIN ").append(formatGrantor(node.getGrantor().get()));
             }
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ")
+                        .append(node.getCatalog().get());
+            }
             return null;
         }
 
@@ -1562,6 +1566,10 @@ public final class SqlFormatter
         protected Void visitDropRole(DropRole node, Integer context)
         {
             builder.append("DROP ROLE ").append(node.getName());
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ")
+                        .append(node.getCatalog().get());
+            }
             return null;
         }
 
@@ -1581,6 +1589,10 @@ public final class SqlFormatter
             }
             if (node.getGrantor().isPresent()) {
                 builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().get()));
+            }
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ")
+                        .append(node.getCatalog().get());
             }
             return null;
         }
@@ -1602,6 +1614,10 @@ public final class SqlFormatter
             if (node.getGrantor().isPresent()) {
                 builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().get()));
             }
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ")
+                        .append(node.getCatalog().get());
+            }
             return null;
         }
 
@@ -1613,13 +1629,19 @@ public final class SqlFormatter
             switch (type) {
                 case ALL:
                 case NONE:
-                    builder.append(type.toString());
-                    return null;
+                    builder.append(type);
+                    break;
                 case ROLE:
                     builder.append(node.getRole().get());
-                    return null;
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + type);
             }
-            throw new IllegalArgumentException("Unsupported type: " + type);
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ")
+                        .append(node.getCatalog().get());
+            }
+            return null;
         }
 
         @Override

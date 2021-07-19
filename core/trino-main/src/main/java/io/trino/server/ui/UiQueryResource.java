@@ -19,12 +19,12 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
+import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.spi.security.GroupProvider;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -49,7 +49,6 @@ import static io.trino.connector.system.KillQueryProcedure.createPreemptQueryExc
 import static io.trino.security.AccessControlUtil.checkCanKillQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.filterQueries;
-import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static java.util.Objects.requireNonNull;
 
@@ -58,15 +57,15 @@ public class UiQueryResource
 {
     private final DispatchManager dispatchManager;
     private final AccessControl accessControl;
-    private final GroupProvider groupProvider;
+    private final HttpRequestSessionContextFactory sessionContextFactory;
     private final Optional<String> alternateHeaderName;
 
     @Inject
-    public UiQueryResource(DispatchManager dispatchManager, AccessControl accessControl, GroupProvider groupProvider, ProtocolConfig protocolConfig)
+    public UiQueryResource(DispatchManager dispatchManager, AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory, ProtocolConfig protocolConfig)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
     }
 
@@ -77,7 +76,7 @@ public class UiQueryResource
         QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
 
         List<BasicQueryInfo> queries = dispatchManager.getQueries();
-        queries = filterQueries(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queries, accessControl);
+        queries = filterQueries(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queries, accessControl);
 
         ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
         for (BasicQueryInfo queryInfo : queries) {
@@ -98,7 +97,7 @@ public class UiQueryResource
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
         if (queryInfo.isPresent()) {
             try {
-                checkCanViewQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queryInfo.get().getSession().getUser(), accessControl);
+                checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queryInfo.get().getSession().getUser(), accessControl);
                 return Response.ok(queryInfo.get()).build();
             }
             catch (AccessDeniedException e) {
@@ -131,7 +130,7 @@ public class UiQueryResource
         try {
             BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(queryId);
 
-            checkCanKillQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queryInfo.getSession().getUser(), accessControl);
+            checkCanKillQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queryInfo.getSession().getUser(), accessControl);
 
             // check before killing to provide the proper error code (this is racy)
             if (queryInfo.getState().isDone()) {

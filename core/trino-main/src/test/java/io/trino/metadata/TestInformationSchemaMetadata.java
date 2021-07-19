@@ -26,6 +26,7 @@ import io.trino.connector.informationschema.InformationSchemaMetadata;
 import io.trino.connector.informationschema.InformationSchemaTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl.RoleSupport;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -91,6 +92,7 @@ public class TestInformationSchemaMetadata
                 catalogName,
                 catalog,
                 testConnector,
+                RoleSupport.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
                 testConnector,
                 createSystemTablesCatalogName(catalog),

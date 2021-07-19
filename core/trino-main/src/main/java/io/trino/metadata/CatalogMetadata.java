@@ -16,6 +16,7 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.spi.connector.ConnectorAccessControl.RoleSupport;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -42,6 +43,7 @@ public class CatalogMetadata
     private final CatalogName systemTablesId;
     private final ConnectorMetadata systemTables;
     private final ConnectorTransactionHandle systemTablesTransactionHandle;
+    private final RoleSupport roleSupport;
     private final Set<ConnectorCapabilities> connectorCapabilities;
 
     public CatalogMetadata(
@@ -54,6 +56,7 @@ public class CatalogMetadata
             CatalogName systemTablesId,
             ConnectorMetadata systemTables,
             ConnectorTransactionHandle systemTablesTransactionHandle,
+            RoleSupport roleSupport,
             Set<ConnectorCapabilities> connectorCapabilities)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -65,6 +68,7 @@ public class CatalogMetadata
         this.systemTablesId = requireNonNull(systemTablesId, "systemTablesId is null");
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
         this.systemTablesTransactionHandle = requireNonNull(systemTablesTransactionHandle, "systemTablesTransactionHandle is null");
+        this.roleSupport = requireNonNull(roleSupport, "roleSupport is null");
         this.connectorCapabilities = immutableEnumSet(requireNonNull(connectorCapabilities, "connectorCapabilities is null"));
     }
 
@@ -122,6 +126,11 @@ public class CatalogMetadata
     public List<CatalogName> listConnectorIds()
     {
         return ImmutableList.of(informationSchemaId, systemTablesId, catalogName);
+    }
+
+    public RoleSupport getRoleSupport()
+    {
+        return roleSupport;
     }
 
     public Set<ConnectorCapabilities> getConnectorCapabilities()

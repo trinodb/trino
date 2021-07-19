@@ -28,6 +28,7 @@ import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.trino.security.AccessControl;
+import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.security.oauth2.OAuth2Client;
@@ -44,6 +45,7 @@ import okhttp3.Response;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -80,8 +82,8 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.trino.client.OkHttpUtil.setupSsl;
-import static io.trino.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
-import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
@@ -380,19 +382,19 @@ public class TestWebUi
     @javax.ws.rs.Path("/ui/username")
     public static class TestResource
     {
-        private final AccessControl accessControl;
+        private final HttpRequestSessionContextFactory sessionContextFactory;
 
         @Inject
         public TestResource(AccessControl accessControl)
         {
-            this.accessControl = accessControl;
+            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, accessControl);
         }
 
         @ResourceSecurity(WEB_UI)
         @GET
         public javax.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
         {
-            Identity identity = extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty(), accessControl, user -> ImmutableSet.of());
+            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
             return javax.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
                     .build();
@@ -1088,6 +1090,7 @@ public class TestWebUi
     private static class AuthenticatedIdentityCapturingFilter
             implements ContainerRequestFilter
     {
+        @GuardedBy("this")
         private Identity authenticatedIdentity;
 
         @Override
@@ -1103,7 +1106,7 @@ public class TestWebUi
             }
         }
 
-        public Identity getAuthenticatedIdentity()
+        public synchronized Identity getAuthenticatedIdentity()
         {
             return authenticatedIdentity;
         }

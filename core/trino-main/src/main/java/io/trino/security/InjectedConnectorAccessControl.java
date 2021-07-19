@@ -48,6 +48,12 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public RoleSupport getRoleSupport()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
         checkArgument(context == null, "context must be null");
@@ -317,63 +323,71 @@ public class InjectedConnectorAccessControl
     public void checkCanCreateRole(ConnectorSecurityContext context, String role, Optional<TrinoPrincipal> grantor)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanCreateRole(securityContext, role, grantor, catalogName);
+        accessControl.checkCanCreateRole(securityContext, role, grantor, Optional.of(catalogName));
     }
 
     @Override
     public void checkCanDropRole(ConnectorSecurityContext context, String role)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanDropRole(securityContext, role, catalogName);
+        accessControl.checkCanDropRole(securityContext, role, Optional.of(catalogName));
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(ConnectorSecurityContext context,
+            Set<String> roles,
+            Set<TrinoPrincipal> grantees,
+            boolean adminOption,
+            Optional<TrinoPrincipal> grantor)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanGrantRoles(securityContext, roles, grantees, adminOption, grantor, catalogName);
+        accessControl.checkCanGrantRoles(securityContext, roles, grantees, adminOption, grantor, Optional.of(catalogName));
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(ConnectorSecurityContext context,
+            Set<String> roles,
+            Set<TrinoPrincipal> grantees,
+            boolean adminOption,
+            Optional<TrinoPrincipal> grantor)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanRevokeRoles(securityContext, roles, grantees, adminOption, grantor, catalogName);
+        accessControl.checkCanRevokeRoles(securityContext, roles, grantees, adminOption, grantor, Optional.of(catalogName));
     }
 
     @Override
-    public void checkCanSetRole(ConnectorSecurityContext context, String role, String catalogName)
+    public void checkCanSetRole(ConnectorSecurityContext context, String role)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanSetRole(securityContext, role, catalogName);
+        accessControl.checkCanSetCatalogRole(securityContext, role, catalogName);
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
+    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanShowRoleAuthorizationDescriptors(securityContext, catalogName);
+        accessControl.checkCanShowRoleAuthorizationDescriptors(securityContext, Optional.of(catalogName));
     }
 
     @Override
-    public void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
+    public void checkCanShowRoles(ConnectorSecurityContext context)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanShowRoles(securityContext, catalogName);
+        accessControl.checkCanShowRoles(securityContext, Optional.of(catalogName));
     }
 
     @Override
-    public void checkCanShowCurrentRoles(ConnectorSecurityContext context, String catalogName)
+    public void checkCanShowCurrentRoles(ConnectorSecurityContext context)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanShowCurrentRoles(securityContext, catalogName);
+        accessControl.checkCanShowCurrentRoles(securityContext, Optional.of(catalogName));
     }
 
     @Override
-    public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
+    public void checkCanShowRoleGrants(ConnectorSecurityContext context)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanShowRoleGrants(securityContext, catalogName);
+        accessControl.checkCanShowRoleGrants(securityContext, Optional.of(catalogName));
     }
 
     @Override

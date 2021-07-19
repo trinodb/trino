@@ -40,7 +40,9 @@ import static org.testng.Assert.assertEquals;
 
 public class TestFileBasedAccessControl
 {
-    private static final ConnectorSecurityContext ADMIN = user("admin", ImmutableSet.of("admin", "staff"));
+    private static final ConnectorSecurityContext ADMIN = user(ConnectorIdentity.forUser("alberto")
+            .withEnabledSystemRoles(ImmutableSet.of("admin"))
+            .withGroups(ImmutableSet.of("staff")).build());
     private static final ConnectorSecurityContext ALICE = user("alice", ImmutableSet.of("staff"));
     private static final ConnectorSecurityContext BOB = user("bob", ImmutableSet.of("staff"));
     private static final ConnectorSecurityContext CHARLIE = user("charlie", ImmutableSet.of("guests"));
@@ -88,22 +90,20 @@ public class TestFileBasedAccessControl
                 ImmutableSet.of("test"),
                 ImmutableSet.of(someUser),
                 false,
-                Optional.empty(),
-                "any"));
+                Optional.empty()));
         assertDenied(() -> accessControl.checkCanRevokeRoles(
                 ADMIN,
                 ImmutableSet.of("test"),
                 ImmutableSet.of(someUser),
                 false,
-                Optional.empty(),
-                "any"));
-        assertDenied(() -> accessControl.checkCanSetRole(ADMIN, "role", "any"));
+                Optional.empty()));
+        assertDenied(() -> accessControl.checkCanSetRole(ADMIN, "role"));
 
         // showing roles and permissions is hard coded to allow
-        accessControl.checkCanShowRoleAuthorizationDescriptors(UNKNOWN, "any");
-        accessControl.checkCanShowRoles(UNKNOWN, "any");
-        accessControl.checkCanShowCurrentRoles(UNKNOWN, "any");
-        accessControl.checkCanShowRoleGrants(UNKNOWN, "any");
+        accessControl.checkCanShowRoleAuthorizationDescriptors(UNKNOWN);
+        accessControl.checkCanShowRoles(UNKNOWN);
+        accessControl.checkCanShowCurrentRoles(UNKNOWN);
+        accessControl.checkCanShowRoleGrants(UNKNOWN);
     }
 
     @Test
@@ -427,9 +427,14 @@ public class TestFileBasedAccessControl
 
     private static ConnectorSecurityContext user(String name, Set<String> groups)
     {
+        return user(ConnectorIdentity.forUser(name).withGroups(groups).build());
+    }
+
+    private static ConnectorSecurityContext user(ConnectorIdentity build)
+    {
         return new ConnectorSecurityContext(
                 new ConnectorTransactionHandle() {},
-                ConnectorIdentity.forUser(name).withGroups(groups).build(),
+                build,
                 new QueryId("query_id"));
     }
 

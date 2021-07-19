@@ -134,7 +134,7 @@ public class TestTrinoDatabaseMetaData
         try (Connection connection = createConnection()) {
             connection.setCatalog("hive");
             try (Statement statement = connection.createStatement()) {
-                statement.execute("SET ROLE admin");
+                statement.execute("SET ROLE admin IN hive");
                 statement.execute("CREATE SCHEMA default");
                 statement.execute("CREATE TABLE default.test_table (a varchar)");
                 statement.execute("CREATE VIEW default.test_view AS SELECT * FROM hive.default.test_table");

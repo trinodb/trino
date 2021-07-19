@@ -13,160 +13,61 @@
  */
 package io.trino.testing;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.client.ProtocolHeaders;
-import io.trino.connector.CatalogName;
 import io.trino.server.SessionContext;
-import io.trino.spi.security.Identity;
-import io.trino.spi.session.ResourceEstimates;
-import io.trino.transaction.TransactionId;
+import io.trino.spi.security.SelectedRole;
+import io.trino.spi.security.SelectedRole.Type;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 
-public class TestingSessionContext
-        implements SessionContext
+public final class TestingSessionContext
 {
-    private final Session session;
+    private TestingSessionContext() {}
 
-    public TestingSessionContext(Session session)
+    public static SessionContext fromSession(Session session)
     {
-        this.session = requireNonNull(session, "session is null");
-    }
+        requireNonNull(session, "session is null");
 
-    @Override
-    public ProtocolHeaders getProtocolHeaders()
-    {
-        return TRINO_HEADERS;
-    }
-
-    @Override
-    public Optional<Identity> getAuthenticatedIdentity()
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public Identity getIdentity()
-    {
-        return session.getIdentity();
-    }
-
-    @Override
-    public String getCatalog()
-    {
-        return session.getCatalog().orElse(null);
-    }
-
-    @Override
-    public String getSchema()
-    {
-        return session.getSchema().orElse(null);
-    }
-
-    @Override
-    public String getPath()
-    {
-        return session.getPath().toString();
-    }
-
-    @Override
-    public String getSource()
-    {
-        return session.getSource().orElse(null);
-    }
-
-    @Override
-    public Optional<String> getTraceToken()
-    {
-        return session.getTraceToken();
-    }
-
-    @Override
-    public String getRemoteUserAddress()
-    {
-        return session.getRemoteUserAddress().orElse(null);
-    }
-
-    @Override
-    public String getUserAgent()
-    {
-        return session.getUserAgent().orElse(null);
-    }
-
-    @Override
-    public String getClientInfo()
-    {
-        return session.getClientInfo().orElse(null);
-    }
-
-    @Override
-    public Set<String> getClientTags()
-    {
-        return session.getClientTags();
-    }
-
-    @Override
-    public Set<String> getClientCapabilities()
-    {
-        return session.getClientCapabilities();
-    }
-
-    @Override
-    public ResourceEstimates getResourceEstimates()
-    {
-        return session.getResourceEstimates();
-    }
-
-    @Override
-    public String getTimeZoneId()
-    {
-        return session.getTimeZoneKey().getId();
-    }
-
-    @Override
-    public String getLanguage()
-    {
-        return session.getLocale().getLanguage();
-    }
-
-    @Override
-    public Map<String, String> getSystemProperties()
-    {
-        return session.getSystemProperties();
-    }
-
-    @Override
-    public Map<String, Map<String, String>> getCatalogSessionProperties()
-    {
-        ImmutableMap.Builder<String, Map<String, String>> catalogSessionProperties = ImmutableMap.builder();
-        for (Entry<CatalogName, Map<String, String>> entry : session.getConnectorProperties().entrySet()) {
-            catalogSessionProperties.put(entry.getKey().getCatalogName(), entry.getValue());
+        Set<String> enabledRoles = session.getIdentity().getEnabledRoles();
+        SelectedRole selectedRole;
+        if (enabledRoles.isEmpty()) {
+            selectedRole = new SelectedRole(Type.NONE, Optional.empty());
         }
-        return catalogSessionProperties.build();
-    }
+        else if (enabledRoles.size() == 1) {
+            selectedRole = new SelectedRole(Type.ROLE, Optional.of(enabledRoles.iterator().next()));
+        }
+        else {
+            selectedRole = new SelectedRole(Type.ALL, Optional.empty());
+        }
 
-    @Override
-    public Map<String, String> getPreparedStatements()
-    {
-        return session.getPreparedStatements();
-    }
-
-    @Override
-    public Optional<TransactionId> getTransactionId()
-    {
-        return session.getTransactionId();
-    }
-
-    @Override
-    public boolean supportClientTransaction()
-    {
-        return session.isClientTransactionSupport();
+        return new SessionContext(
+                session.getProtocolHeaders(),
+                session.getCatalog(),
+                session.getSchema(),
+                session.getPath().getRawPath(),
+                Optional.empty(),
+                session.getIdentity(),
+                selectedRole,
+                session.getSource(),
+                session.getTraceToken(),
+                session.getUserAgent(),
+                session.getRemoteUserAddress(),
+                Optional.of(session.getTimeZoneKey().getId()),
+                Optional.of(session.getLocale().getLanguage()),
+                session.getClientTags(),
+                session.getClientCapabilities(),
+                session.getResourceEstimates(),
+                session.getSystemProperties(),
+                session.getConnectorProperties().entrySet().stream()
+                        .collect(toImmutableMap(entry -> entry.getKey().getCatalogName(), Entry::getValue)),
+                session.getPreparedStatements(),
+                session.getTransactionId(),
+                session.isClientTransactionSupport(),
+                session.getClientInfo());
     }
 }

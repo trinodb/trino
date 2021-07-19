@@ -113,7 +113,8 @@ public class TestFeaturesConfig
                 .setUseLegacyWindowFilterPushdown(false)
                 .setUseTableScanNodePartitioning(true)
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.5)
-                .setMergeProjectWithValues(true));
+                .setMergeProjectWithValues(true)
+                .setLegacyCatalogRoles(false));
     }
 
     @Test
@@ -192,6 +193,7 @@ public class TestFeaturesConfig
                 .put("optimizer.use-table-scan-node-partitioning", "false")
                 .put("optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio", "0.0")
                 .put("optimizer.merge-project-with-values", "false")
+                .put("deprecated.legacy-catalog-roles", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -266,7 +268,8 @@ public class TestFeaturesConfig
                 .setUseLegacyWindowFilterPushdown(true)
                 .setUseTableScanNodePartitioning(false)
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.0)
-                .setMergeProjectWithValues(false);
+                .setMergeProjectWithValues(false)
+                .setLegacyCatalogRoles(true);
         assertFullMapping(properties, expected);
     }
 }
