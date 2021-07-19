@@ -1790,6 +1790,100 @@ public abstract class AbstractTestIcebergConnectorTest
         dropTable("test_iceberg_file_size");
     }
 
+    @Test
+    public void testPartitionedTableWithDateTransformStatistics()
+    {
+        assertUpdate("CREATE TABLE iceberg.tpch.test_partitioned_table_with_date_transform_statistics " +
+                "(col1 REAL, col2 BIGINT, col3 DATE) WITH (partitioning = ARRAY['day(col3)'])");
+
+        String insertStart = "INSERT INTO test_partitioned_table_with_date_transform_statistics";
+        assertUpdate(insertStart + " VALUES (-10, -1, DATE '2020-02-02')", 1);
+        assertUpdate(insertStart + " VALUES (100, 10, DATE '2020-03-01')", 1);
+
+        MaterializedResult result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_with_date_transform_statistics");
+        assertEquals(result.getRowCount(), 4);
+
+        MaterializedRow row0 = result.getMaterializedRows().get(0);
+        assertEquals(row0.getField(0), "col1");
+        assertEquals(row0.getField(3), 0.0);
+        assertEquals(row0.getField(5), "-10.0");
+        assertEquals(row0.getField(6), "100.0");
+
+        MaterializedRow row1 = result.getMaterializedRows().get(1);
+        assertEquals(row1.getField(0), "col2");
+        assertEquals(row1.getField(3), 0.0);
+        assertEquals(row1.getField(5), "-1");
+        assertEquals(row1.getField(6), "10");
+
+        MaterializedRow row2 = result.getMaterializedRows().get(2);
+        assertEquals(row2.getField(0), "col3");
+        assertEquals(row2.getField(3), 0.0);
+        assertEquals(row2.getField(5), "2020-02-02");
+        assertEquals(row2.getField(6), "2020-03-01");
+
+        MaterializedRow row3 = result.getMaterializedRows().get(3);
+        assertEquals(row3.getField(4), 2.0);
+
+        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(1, 5)
+                .mapToObj(i -> format("(%d, 10, DATE '2021-03-0%d')", i + 100, i))
+                .collect(joining(", ")), 5);
+
+        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(16, 20)
+                .mapToObj(i -> format("(NULL, 20, DATE '2021-04-%d')", i))
+                .collect(joining(", ")), 5);
+
+        result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_with_date_transform_statistics");
+        assertEquals(result.getRowCount(), 4);
+        row0 = result.getMaterializedRows().get(0);
+        assertEquals(row0.getField(0), "col1");
+        assertEquals(row0.getField(3), 5.0 / 12.0);
+        assertEquals(row0.getField(5), "-10.0");
+        assertEquals(row0.getField(6), "105.0");
+
+        row1 = result.getMaterializedRows().get(1);
+        assertEquals(row1.getField(0), "col2");
+        assertEquals(row1.getField(3), 0.0);
+        assertEquals(row1.getField(5), "-1");
+        assertEquals(row1.getField(6), "20");
+
+        row2 = result.getMaterializedRows().get(2);
+        assertEquals(row2.getField(0), "col3");
+        assertEquals(row2.getField(3), 0.0);
+        assertEquals(row2.getField(5), "2020-02-02");
+        assertEquals(row2.getField(6), "2021-04-20");
+
+        row3 = result.getMaterializedRows().get(3);
+        assertEquals(row3.getField(4), 12.0);
+
+        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(6, 10)
+                .mapToObj(i -> "(100, NULL, NULL)")
+                .collect(joining(", ")), 5);
+
+        result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_with_date_transform_statistics");
+        row0 = result.getMaterializedRows().get(0);
+        assertEquals(row0.getField(0), "col1");
+        assertEquals(row0.getField(3), 5.0 / 17.0);
+        assertEquals(row0.getField(5), "-10.0");
+        assertEquals(row0.getField(6), "105.0");
+
+        row1 = result.getMaterializedRows().get(1);
+        assertEquals(row1.getField(0), "col2");
+        assertEquals(row1.getField(3), 5.0 / 17.0);
+        assertEquals(row1.getField(5), "-1");
+        assertEquals(row1.getField(6), "20");
+
+        row2 = result.getMaterializedRows().get(2);
+        assertEquals(row2.getField(0), "col3");
+        assertEquals(row2.getField(3), 5.0 / 17.0);
+        assertEquals(row2.getField(5), "2020-02-02");
+        assertEquals(row2.getField(6), "2021-04-20");
+
+        row3 = result.getMaterializedRows().get(3);
+        assertEquals(row3.getField(4), 17.0);
+
+        dropTable("iceberg.tpch.test_partitioned_table_with_date_transform_statistics");
+    }
+
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
