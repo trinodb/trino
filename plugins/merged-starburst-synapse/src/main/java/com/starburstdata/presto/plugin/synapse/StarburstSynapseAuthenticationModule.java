@@ -37,7 +37,7 @@ import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthe
 import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.ACTIVE_DIRECTORY_PASSWORD_PASS_THROUGH;
 import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.PASSWORD;
 import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.PASSWORD_PASS_THROUGH;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 
 public class StarburstSynapseAuthenticationModule
         extends AbstractConfigurationAwareModule
@@ -45,33 +45,33 @@ public class StarburstSynapseAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 SynapseConfig.class,
                 config -> config.getAuthenticationType() == ACTIVE_DIRECTORY_PASSWORD,
                 moduleBinder -> {
                     install(new CredentialProviderModule());
                     install(new ActiveDirectoryPasswordModule());
-                    install(installModuleIf(
+                    install(conditionalModule(
                             SynapseConfig.class,
                             SynapseConfig::isImpersonationEnabled,
                             new ImpersonationModule(),
                             noImpersonationModuleWithCredentialProvider()));
                 }));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 SynapseConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD,
                 moduleBinder -> {
                     install(new CredentialProviderModule());
                     install(new PasswordModule());
-                    install(installModuleIf(
+                    install(conditionalModule(
                             SynapseConfig.class,
                             SynapseConfig::isImpersonationEnabled,
                             new ImpersonationModule(),
                             noImpersonationModuleWithCredentialProvider()));
                 }));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 SynapseConfig.class,
                 config -> config.getAuthenticationType() == ACTIVE_DIRECTORY_PASSWORD_PASS_THROUGH,
                 moduleBinder -> {
@@ -83,7 +83,7 @@ public class StarburstSynapseAuthenticationModule
                             .in(SINGLETON);
                 }));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 SynapseConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH,
                 moduleBinder -> {

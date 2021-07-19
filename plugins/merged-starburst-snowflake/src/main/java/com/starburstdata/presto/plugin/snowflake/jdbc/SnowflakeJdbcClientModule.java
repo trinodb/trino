@@ -63,7 +63,7 @@ import java.util.Properties;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeClient.SNOWFLAKE_MAX_LIST_EXPRESSIONS;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static java.lang.annotation.ElementType.FIELD;
@@ -103,27 +103,27 @@ public class SnowflakeJdbcClientModule
 
         install(new ConnectorObjectNameGeneratorModule(catalogName, "com.starburstdata.presto.plugin.snowflake", "starburst.plugin.snowflake"));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 SnowflakeConfig.class,
                 config -> config.getImpersonationType() == SnowflakeImpersonationType.NONE,
                 noImpersonationModule()));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 SnowflakeConfig.class,
                 config -> config.getImpersonationType() == SnowflakeImpersonationType.ROLE,
                 roleImpersonationModule()));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 SnowflakeConfig.class,
                 config -> config.getImpersonationType() == SnowflakeImpersonationType.OKTA_LDAP_PASSTHROUGH,
                 oauthImpersonationModule(false)));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 SnowflakeConfig.class,
                 config -> config.getImpersonationType() == SnowflakeImpersonationType.ROLE_OKTA_LDAP_PASSTHROUGH,
                 oauthImpersonationModule(true)));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 SnowflakeConfig.class,
                 config -> config.getImpersonationType() == SnowflakeImpersonationType.OAUTH2_PASSTHROUGH,
                 oauth2PassthroughModule()));
