@@ -672,7 +672,7 @@ public abstract class AbstractTestIcebergConnectorTest
         assertUpdate(format("INSERT INTO %s VALUES (1, 10)", tableName), 1L);
         assertUpdate(format("INSERT INTO %s VALUES (2, 20)", tableName), 1L);
 
-        List<String> predicates = IntStream.range(0, 5000).boxed()
+        List<String> predicates = IntStream.range(0, 9000).boxed()
                 .map(Object::toString)
                 .collect(toImmutableList());
 
