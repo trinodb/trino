@@ -18,6 +18,7 @@ import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.ZooKeeperInstance;
 import org.apache.accumulo.core.client.security.tokens.PasswordToken;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
@@ -51,7 +52,7 @@ public class TestingAccumuloServer
         accumuloContainer.withFixedExposedPort(ACCUMULO_TSERVER_PORT, ACCUMULO_TSERVER_PORT);
         accumuloContainer.withExposedPorts(ZOOKEEPER_PORT);
         accumuloContainer.withCreateContainerCmdModifier(cmd -> cmd
-                .withHostName("localhost")
+                .withHostName(DockerClientFactory.instance().dockerHostIpAddress())
                 .withEnv("ADDRESS=0.0.0.0")
                 .withEntrypoint("supervisord", "-c", "/etc/supervisord.conf"));
         accumuloContainer.waitingFor(Wait.forHealthcheck().withStartupTimeout(Duration.ofMinutes(10)));
