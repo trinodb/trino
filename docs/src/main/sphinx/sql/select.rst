@@ -668,11 +668,19 @@ A window specification has the following components:
   rows from the start of the partition up to the last peer of the current row.
   In the absence of ``ORDER BY``, all rows are considered peers, so ``RANGE
   BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`` is equivalent to ``BETWEEN
-  UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING``
+  UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING``. The window frame syntax
+  supports additional clauses for row pattern recognition. If the row pattern
+  recognition clauses are specified, the window frame for a particular row
+  consists of the rows matched by a pattern starting from that row.
+  Additionally, if the frame specifies row pattern measures, they can be
+  called over the window, similarly to window functions. For detailed
+  description of row pattern recognition in window, see :doc:`Row pattern
+  recognition in window</sql/pattern-recognition-in-window>`.
 
-Each component is optional. In the case when window partitioning, ordering or frame
-is not specified and existing window name is absent or the referenced window
-specification does not provide particular components, defaults are used.
+Each window component is optional. In the case when window partitioning,
+ordering or frame is not specified and existing window name is absent or the
+referenced window specification does not provide particular components,
+defaults are used.
 
 Set operations
 --------------
