@@ -4059,6 +4059,8 @@ class StatementAnalyzer
                 .setUserAgent(session.getUserAgent().orElse(null))
                 .setClientInfo(session.getClientInfo().orElse(null))
                 .setStart(session.getStart())
+                .setSystemProperties(session.getSystemProperties())
+                .setProcessedConnectorPropertiesFrom(session)
                 .build();
     }
 
