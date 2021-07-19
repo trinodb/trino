@@ -22,6 +22,19 @@ public interface ConnectorRecordSetProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            List<? extends ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
+    {
+        // By default, ignore dynamic filter (as it is an optimization and doesn't affect correctness).
+        return getRecordSet(transaction, session, split, table, columns);
+    }
+
+    @Deprecated
+    default RecordSet getRecordSet(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
             List<? extends ColumnHandle> columns)
     {
         return getRecordSet(transaction, session, split, columns);

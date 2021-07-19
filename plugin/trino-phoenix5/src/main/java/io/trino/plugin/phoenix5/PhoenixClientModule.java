@@ -26,6 +26,8 @@ import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.jdbc.ConfiguringConnectionFactory;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.DynamicFilteringJdbcConfig;
+import io.trino.plugin.jdbc.DynamicFilteringJdbcSessionProperties;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForLazyConnectionFactory;
 import io.trino.plugin.jdbc.ForRecordCursor;
@@ -83,6 +85,9 @@ public class PhoenixClientModule
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
         bindSessionPropertiesProvider(binder, TypeHandlingJdbcSessionProperties.class);
         bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
+
+        configBinder(binder).bindConfig(DynamicFilteringJdbcConfig.class);
+        bindSessionPropertiesProvider(binder, DynamicFilteringJdbcSessionProperties.class);
 
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAllowDropTable(true));
