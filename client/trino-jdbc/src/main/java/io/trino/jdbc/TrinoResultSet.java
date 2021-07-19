@@ -46,21 +46,26 @@ public class TrinoResultSet
     private final StatementClient client;
     private final String queryId;
 
-    static TrinoResultSet create(Statement statement, StatementClient client, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
+    static TrinoResultSet create(Statement statement, StatementClient client, long maxRows, int bufferSize,
+                                 Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         requireNonNull(client, "client is null");
         List<Column> columns = getColumns(client, progressCallback);
-        return new TrinoResultSet(statement, client, columns, maxRows, progressCallback, warningsManager);
+        return new TrinoResultSet(statement, client, columns, maxRows, bufferSize, progressCallback, warningsManager);
     }
 
-    private TrinoResultSet(Statement statement, StatementClient client, List<Column> columns, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
+    private TrinoResultSet(Statement statement, StatementClient client, List<Column> columns, long maxRows, int bufferSize,
+                           Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         super(
                 Optional.of(requireNonNull(statement, "statement is null")),
                 columns,
-                new AsyncIterator<>(flatten(new ResultsPageIterator(requireNonNull(client, "client is null"), progressCallback, warningsManager), maxRows), client));
+                new AsyncIterator<>(
+                        flatten(new ResultsPageIterator(requireNonNull(client, "client is null"), progressCallback, warningsManager), maxRows),
+                        client,
+                        bufferSize));
 
         this.client = requireNonNull(client, "client is null");
         requireNonNull(progressCallback, "progressCallback is null");
@@ -105,20 +110,20 @@ public class TrinoResultSet
     private static class AsyncIterator<T>
             extends AbstractIterator<T>
     {
-        private static final int MAX_QUEUED_ROWS = 50_000;
         private static final ExecutorService executorService = newCachedThreadPool(
                 new ThreadFactoryBuilder().setNameFormat("Trino JDBC worker-%s").setDaemon(true).build());
 
         private final StatementClient client;
-        private final BlockingQueue<T> rowQueue = new ArrayBlockingQueue<>(MAX_QUEUED_ROWS);
+        private final BlockingQueue<T> rowQueue;
         // Semaphore to indicate that some data is ready.
         // Each permit represents a row of data (or that the underlying iterator is exhausted).
         private final Semaphore semaphore = new Semaphore(0);
         private final CompletableFuture<Void> future;
 
-        public AsyncIterator(Iterator<T> dataIterator, StatementClient client)
+        public AsyncIterator(Iterator<T> dataIterator, StatementClient client, int bufferSize)
         {
             requireNonNull(dataIterator, "dataIterator is null");
+            this.rowQueue = new ArrayBlockingQueue<>(bufferSize);
             this.client = client;
             this.future = CompletableFuture.runAsync(() -> {
                 try {
