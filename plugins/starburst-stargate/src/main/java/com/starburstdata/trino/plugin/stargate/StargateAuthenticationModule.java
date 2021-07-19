@@ -39,7 +39,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.KERBEROS;
 import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.PASSWORD;
 import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.PASSWORD_PASS_THROUGH;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class StargateAuthenticationModule
@@ -48,27 +48,27 @@ public class StargateAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 StargateConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH,
                 new StarburstRemotePasswordPassThroughModule()));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 StargateConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD && !config.isImpersonationEnabled(),
                 new PasswordModule()));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 StargateConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD && config.isImpersonationEnabled(),
                 new PasswordWithImpersonationModule()));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 StargateConfig.class,
                 config -> config.getAuthenticationType() == KERBEROS && !config.isImpersonationEnabled(),
                 new KerberosModule()));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 StargateConfig.class,
                 config -> config.getAuthenticationType() == KERBEROS && config.isImpersonationEnabled(),
                 new KerberosWithImpersonationModule()));

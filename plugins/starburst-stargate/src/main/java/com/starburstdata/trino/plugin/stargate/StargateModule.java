@@ -28,7 +28,7 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class StargateModule
@@ -46,7 +46,7 @@ public class StargateModule
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         configBinder(binder).bindConfig(StargateJdbcConfig.class);
 
-        install(installModuleIf(
+        install(conditionalModule(
                 StargateConfig.class,
                 StargateConfig::isSslEnabled,
                 new SslModule(),
