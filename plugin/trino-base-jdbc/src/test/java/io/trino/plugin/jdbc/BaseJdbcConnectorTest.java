@@ -223,6 +223,69 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
+    public void testCaseSensitiveAggregationPushdown()
+    {
+        if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            // Covered by testAggregationPushdown
+            return;
+        }
+
+        boolean expectAggregationPushdown = hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
+        PlanMatchPattern aggregationOverTableScan = node(AggregationNode.class, node(TableScanNode.class));
+        PlanMatchPattern groupingAggregationOverTableScan = node(AggregationNode.class, node(ProjectNode.class, node(TableScanNode.class)));
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_case_sensitive_aggregation_pushdown",
+                "(a_string varchar(1), a_char char(1), a_bigint bigint)",
+                ImmutableList.of(
+                        "'A', 'A', 1",
+                        "'B', 'B', 2",
+                        "'a', 'a', 3",
+                        "'b', 'b', 4"))) {
+            // case-sensitive functions prevent pushdown
+            assertConditionallyPushedDown(
+                    getSession(),
+                    "SELECT max(a_string), min(a_string), max(a_char), min(a_char) FROM " + table.getName(),
+                    expectAggregationPushdown,
+                    aggregationOverTableScan)
+                    .skippingTypesCheck()
+                    .matches("VALUES ('b', 'A', 'b', 'A')");
+            // distinct over case-sensitive column prevents pushdown
+            assertConditionallyPushedDown(
+                    getSession(),
+                    "SELECT distinct a_string FROM " + table.getName(),
+                    expectAggregationPushdown,
+                    groupingAggregationOverTableScan)
+                    .skippingTypesCheck()
+                    .matches("VALUES 'A', 'B', 'a', 'b'");
+            assertConditionallyPushedDown(
+                    getSession(),
+                    "SELECT distinct a_char FROM " + table.getName(),
+                    expectAggregationPushdown,
+                    groupingAggregationOverTableScan)
+                    .skippingTypesCheck()
+                    .matches("VALUES 'A', 'B', 'a', 'b'");
+            // case-sensitive grouping sets prevent pushdown
+            assertConditionallyPushedDown(getSession(),
+                    "SELECT a_string, count(*) FROM " + table.getName() + " GROUP BY a_string",
+                    expectAggregationPushdown,
+                    groupingAggregationOverTableScan)
+                    .skippingTypesCheck()
+                    .matches("VALUES ('A', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1'), ('B', BIGINT '1')");
+            assertConditionallyPushedDown(getSession(),
+                    "SELECT a_char, count(*) FROM " + table.getName() + " GROUP BY a_char",
+                    expectAggregationPushdown,
+                    groupingAggregationOverTableScan)
+                    .skippingTypesCheck()
+                    .matches("VALUES ('A', BIGINT '1'), ('B', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1')");
+
+            // case-insensitive functions can still be pushed down as long as grouping sets are not case-sensitive
+            assertThat(query("SELECT count(a_string), count(a_char) FROM " + table.getName())).isFullyPushedDown();
+            assertThat(query("SELECT count(a_string), count(a_char) FROM " + table.getName() + " GROUP BY a_bigint")).isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testAggregationWithUnsupportedResultType()
     {
         // TODO array_agg returns array, so it could be supported
@@ -1021,7 +1084,7 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
-    private void assertConditionallyPushedDown(
+    private QueryAssert assertConditionallyPushedDown(
             Session session,
             @Language("SQL") String query,
             boolean condition,
@@ -1029,10 +1092,10 @@ public abstract class BaseJdbcConnectorTest
     {
         QueryAssert queryAssert = assertThat(query(session, query));
         if (condition) {
-            queryAssert.isFullyPushedDown();
+            return queryAssert.isFullyPushedDown();
         }
         else {
-            queryAssert.isNotFullyPushedDown(otherwiseExpected);
+            return queryAssert.isNotFullyPushedDown(otherwiseExpected);
         }
     }
 

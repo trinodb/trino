@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -947,6 +948,24 @@ public abstract class BaseJdbcClient
             return writeMapping;
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    protected boolean preventTextualTypeAggregationPushdown(List<AggregateFunction> aggregates, List<List<ColumnHandle>> groupingSets)
+    {
+        // The remote database may be case-insensitive or sort textual types differently than Trino.
+        // In such cases we should not pushdown aggregations if the inputs are textual types or if the grouping set contains a textual type.
+        if (!groupingSets.isEmpty()) {
+            for (List<ColumnHandle> groupingSet : groupingSets) {
+                boolean hasCaseSensitiveGroupingSet = groupingSet.stream()
+                        .map(columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnType())
+                        .anyMatch(type -> type instanceof VarcharType || type instanceof CharType);
+                if (hasCaseSensitiveGroupingSet) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     @Override
