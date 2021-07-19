@@ -207,7 +207,8 @@ public class ClientOptions
                 toExtraCredentials(extraCredentials),
                 null,
                 clientRequestTimeout,
-                disableCompression);
+                disableCompression,
+                Optional.empty());
     }
 
     public static URI parseServer(String server)

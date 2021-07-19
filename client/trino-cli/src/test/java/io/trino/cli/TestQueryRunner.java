@@ -121,7 +121,8 @@ public class TestQueryRunner
                 ImmutableMap.of(),
                 null,
                 new Duration(2, MINUTES),
-                true);
+                true,
+                Optional.empty());
     }
 
     static String createResults(MockWebServer server)

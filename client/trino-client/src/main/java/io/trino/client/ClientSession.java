@@ -53,6 +53,7 @@ public class ClientSession
     private final String transactionId;
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
+    private final Optional<String> preprocessorClass;
 
     public static Builder builder(ClientSession clientSession)
     {
@@ -86,7 +87,8 @@ public class ClientSession
             Map<String, String> extraCredentials,
             String transactionId,
             Duration clientRequestTimeout,
-            boolean compressionDisabled)
+            boolean compressionDisabled,
+            Optional<String> preprocessorClass)
     {
         this.server = requireNonNull(server, "server is null");
         this.principal = principal;
@@ -108,6 +110,7 @@ public class ClientSession
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.clientRequestTimeout = clientRequestTimeout;
         this.compressionDisabled = compressionDisabled;
+        this.preprocessorClass = preprocessorClass;
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -246,6 +249,11 @@ public class ClientSession
         return compressionDisabled;
     }
 
+    public Optional<String> getPreprocessorClass()
+    {
+        return preprocessorClass;
+    }
+
     @Override
     public String toString()
     {
@@ -263,6 +271,7 @@ public class ClientSession
                 .add("locale", locale)
                 .add("properties", properties)
                 .add("transactionId", transactionId)
+                .add("preprocessorClass", preprocessorClass.orElse(null))
                 .omitNullValues()
                 .toString();
     }
@@ -289,6 +298,7 @@ public class ClientSession
         private String transactionId;
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
+        private Optional<String> preprocessorClass;
 
         private Builder(ClientSession clientSession)
         {
@@ -313,6 +323,7 @@ public class ClientSession
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
             compressionDisabled = clientSession.isCompressionDisabled();
+            preprocessorClass = clientSession.getPreprocessorClass();
         }
 
         public Builder withCatalog(String catalog)
@@ -397,7 +408,8 @@ public class ClientSession
                     credentials,
                     transactionId,
                     clientRequestTimeout,
-                    compressionDisabled);
+                    compressionDisabled,
+                    preprocessorClass);
         }
     }
 }
