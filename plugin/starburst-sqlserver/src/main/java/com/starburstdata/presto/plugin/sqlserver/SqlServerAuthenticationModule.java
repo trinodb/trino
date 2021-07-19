@@ -24,7 +24,7 @@ import static com.google.inject.Scopes.SINGLETON;
 import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithCredentialProvider;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.PASSWORD;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.PASSWORD_PASS_THROUGH;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 
 public class SqlServerAuthenticationModule
         extends AbstractConfigurationAwareModule
@@ -32,12 +32,12 @@ public class SqlServerAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 StarburstSqlServerConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD,
                 new PasswordModule()));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 StarburstSqlServerConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH,
                 moduleBinder -> {
@@ -56,7 +56,7 @@ public class SqlServerAuthenticationModule
         protected void setup(Binder binder)
         {
             install(new CredentialProviderModule());
-            install(installModuleIf(
+            install(conditionalModule(
                     StarburstSqlServerConfig.class,
                     StarburstSqlServerConfig::isImpersonationEnabled,
                     new ImpersonationModule(),
