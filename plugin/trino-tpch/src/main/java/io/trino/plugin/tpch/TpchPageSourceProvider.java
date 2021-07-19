@@ -27,11 +27,12 @@ import java.util.List;
 public class TpchPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final TpchRecordSetProvider tpchRecordSetProvider = new TpchRecordSetProvider();
+    private final TpchRecordSetProvider tpchRecordSetProvider;
     private final int maxRowsPerPage;
 
-    TpchPageSourceProvider(int maxRowsPerPage)
+    TpchPageSourceProvider(int maxRowsPerPage, DecimalTypeMapping decimalTypeMapping)
     {
+        this.tpchRecordSetProvider = new TpchRecordSetProvider(decimalTypeMapping);
         this.maxRowsPerPage = maxRowsPerPage;
     }
 

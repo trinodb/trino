@@ -45,18 +45,19 @@ public class TpchRecordSet<E extends TpchEntity>
 {
     public static <E extends TpchEntity> TpchRecordSet<E> createTpchRecordSet(TpchTable<E> table, double scaleFactor)
     {
-        return createTpchRecordSet(table, table.getColumns(), scaleFactor, 1, 1, TupleDomain.all());
+        return createTpchRecordSet(table, table.getColumns(), DecimalTypeMapping.DOUBLE, scaleFactor, 1, 1, TupleDomain.all());
     }
 
     public static <E extends TpchEntity> TpchRecordSet<E> createTpchRecordSet(
             TpchTable<E> table,
             List<TpchColumn<E>> columns,
+            DecimalTypeMapping decimalTypeMapping,
             double scaleFactor,
             int part,
             int partCount,
             TupleDomain<ColumnHandle> predicate)
     {
-        return new TpchRecordSet<>(table.createGenerator(scaleFactor, part, partCount), table, columns, predicate);
+        return new TpchRecordSet<>(table.createGenerator(scaleFactor, part, partCount), table, columns, decimalTypeMapping, predicate);
     }
 
     private final Iterable<E> rows;
@@ -65,13 +66,17 @@ public class TpchRecordSet<E extends TpchEntity>
     private final List<Type> columnTypes;
     private final TupleDomain<ColumnHandle> predicate;
 
-    public TpchRecordSet(Iterable<E> rows, TpchTable<E> table, List<TpchColumn<E>> columns, TupleDomain<ColumnHandle> predicate)
+    public TpchRecordSet(Iterable<E> rows,
+            TpchTable<E> table,
+            List<TpchColumn<E>> columns,
+            DecimalTypeMapping decimalTypeMapping,
+            TupleDomain<ColumnHandle> predicate)
     {
         this.rows = requireNonNull(rows, "rows is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.columnTypes = columns.stream()
-                .map(TpchMetadata::getTrinoType)
+                .map(column -> getTrinoType(column, decimalTypeMapping))
                 .collect(toImmutableList());
         this.predicate = requireNonNull(predicate, "predicate is null");
     }
@@ -85,7 +90,7 @@ public class TpchRecordSet<E extends TpchEntity>
     @Override
     public RecordCursor cursor()
     {
-        return new TpchRecordCursor<>(rows.iterator(), table, columns, predicate);
+        return new TpchRecordCursor<>(rows.iterator(), table, columns, columnTypes, predicate);
     }
 
     public static final class TpchRecordCursor<E extends TpchEntity>
@@ -94,15 +99,17 @@ public class TpchRecordSet<E extends TpchEntity>
         private final Iterator<E> rows;
         private final TpchTable<E> table;
         private final List<TpchColumn<E>> columns;
+        private final List<Type> columnTypes;
         private final TupleDomain<ColumnHandle> predicate;
         private E row;
         private boolean closed;
 
-        public TpchRecordCursor(Iterator<E> rows, TpchTable<E> table, List<TpchColumn<E>> columns, TupleDomain<ColumnHandle> predicate)
+        public TpchRecordCursor(Iterator<E> rows, TpchTable<E> table, List<TpchColumn<E>> columns, List<Type> columnTypes, TupleDomain<ColumnHandle> predicate)
         {
             this.rows = requireNonNull(rows, "rows is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = requireNonNull(columns, "columns is null");
+            this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
             this.predicate = requireNonNull(predicate, "predicate is null");
         }
 
@@ -121,7 +128,7 @@ public class TpchRecordSet<E extends TpchEntity>
         @Override
         public Type getType(int field)
         {
-            return getTrinoType(getTpchColumn(field));
+            return columnTypes.get(field);
         }
 
         @Override

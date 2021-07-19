@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchMetadata;
 import io.trino.plugin.tpch.TpchRecordSetProvider;
 import io.trino.plugin.tpch.TpchTableHandle;
@@ -56,7 +57,7 @@ public class TpchIndexedData
         requireNonNull(tpchIndexSpec, "tpchIndexSpec is null");
 
         TpchMetadata tpchMetadata = new TpchMetadata();
-        TpchRecordSetProvider tpchRecordSetProvider = new TpchRecordSetProvider();
+        TpchRecordSetProvider tpchRecordSetProvider = new TpchRecordSetProvider(DecimalTypeMapping.DOUBLE);
 
         ImmutableMap.Builder<Set<TpchScaledColumn>, IndexedTable> indexedTablesBuilder = ImmutableMap.builder();
 
