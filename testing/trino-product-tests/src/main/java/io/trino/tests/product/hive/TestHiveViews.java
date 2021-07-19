@@ -14,6 +14,7 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.jdbc.Row;
 import io.trino.tempto.Requires;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
@@ -395,6 +396,39 @@ public class TestHiveViews
         assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_invalid_time_zone_view"))
                 .containsOnly(row("1970-01-30 16:00:00"));
         onTrino().executeQuery("DROP TABLE test_from_utc_timestamp_invalid_time_zone_source");
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testNestedFieldWithReservedKeyNames()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS test_nested_field_with_reserved_key_names_source");
+        onHive().executeQuery("CREATE TABLE test_nested_field_with_reserved_key_names_source (nested_field_key_word_lower_case struct<`from`:BIGINT>, " +
+                "nested_field_key_word_upper_case struct<`FROM`:BIGINT>, nested_field_quote struct<`do...from`:BIGINT>)");
+
+        onTrino().executeQuery("INSERT INTO test_nested_field_with_reserved_key_names_source VALUES (row(row(1), row(2), row(3)))");
+
+        onHive().executeQuery("DROP VIEW IF EXISTS test_nested_field_with_reserved_key_names_view");
+        onHive().executeQuery("CREATE VIEW " +
+                "test_nested_field_with_reserved_key_names_view " +
+                "AS SELECT nested_field_key_word_lower_case, nested_field_key_word_upper_case, nested_field_quote " +
+                "FROM test_nested_field_with_reserved_key_names_source");
+
+        assertThat(onHive().executeQuery("SELECT nested_field_key_word_lower_case, nested_field_key_word_upper_case, nested_field_quote FROM test_nested_field_with_reserved_key_names_view"))
+                .containsOnly(row("{\"from\":1}", "{\"from\":2}", "{\"do...from\":3}"));
+
+        assertThat(onHive().executeQuery("SELECT nested_field_key_word_lower_case.`from`, nested_field_key_word_upper_case.`from`, nested_field_quote.`do...from` FROM test_nested_field_with_reserved_key_names_view"))
+                .containsOnly(row(1L, 2L, 3L));
+
+        assertThat(onTrino().executeQuery("SELECT nested_field_key_word_lower_case, nested_field_key_word_upper_case, nested_field_quote FROM test_nested_field_with_reserved_key_names_view"))
+                .containsOnly(row(Row.builder().addField("from", 1L).build(),
+                        Row.builder().addField("from", 2L).build(),
+                        Row.builder().addField("do...from", 3L).build()));
+
+        assertThat(onTrino().executeQuery("SELECT nested_field_key_word_lower_case.\"from\", nested_field_key_word_upper_case.\"from\", nested_field_quote.\"do...from\" FROM test_nested_field_with_reserved_key_names_view"))
+                .containsOnly(row(1L, 2L, 3L));
+
+        onHive().executeQuery("DROP VIEW test_nested_field_with_reserved_key_names_view");
+        onHive().executeQuery("DROP TABLE test_nested_field_with_reserved_key_names_source");
     }
 
     @Test(groups = HIVE_VIEWS)
