@@ -26,6 +26,12 @@ public class BooleanDecoder
     @Override
     public void decode(Supplier<Object> getter, BlockBuilder output)
     {
-        BOOLEAN.writeBoolean(output, parseBoolean(getter.get().toString()));
+        Object value = getter.get();
+        if (value == null) {
+            output.appendNull();
+        }
+        else {
+            BOOLEAN.writeBoolean(output, parseBoolean(value.toString()));
+        }
     }
 }

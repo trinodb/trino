@@ -47,7 +47,7 @@ public final class DynamicTablePqlExtractor
             }
         }
         builder.append(table.getAggregateColumns().stream()
-                .map(DynamicTablePqlExtractor::convertAggregationExpressionToPql)
+                .map(PinotColumnHandle::getColumnName)
                 .collect(joining(", ")));
         builder.append(" from ");
         builder.append(table.getTableName());
@@ -107,11 +107,6 @@ public final class DynamicTablePqlExtractor
             builder.append(" desc");
         }
         return builder.toString();
-    }
-
-    private static String convertAggregationExpressionToPql(AggregationExpression aggregationExpression)
-    {
-        return format("%s(%s)", aggregationExpression.getAggregationType(), aggregationExpression.getBaseColumnName());
     }
 
     public static String encloseInParentheses(String value)

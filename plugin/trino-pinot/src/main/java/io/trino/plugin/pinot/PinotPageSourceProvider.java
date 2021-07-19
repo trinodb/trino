@@ -41,6 +41,7 @@ public class PinotPageSourceProvider
     private final PinotQueryClient pinotQueryClient;
     private final PinotClient clusterInfoFetcher;
     private final int limitForSegmentQueries;
+    private final int limitForBrokerQueries;
     private final int estimatedNonNumericColumnSize;
 
     @Inject
@@ -53,6 +54,7 @@ public class PinotPageSourceProvider
         this.pinotQueryClient = requireNonNull(pinotQueryClient, "pinotQueryClient is null");
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "clusterInfoFetcher is null");
         this.limitForSegmentQueries = pinotConfig.getMaxRowsPerSplitForSegmentQueries();
+        this.limitForBrokerQueries = pinotConfig.getMaxRowsForBrokerQueries();
         estimatedNonNumericColumnSize = pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
     }
 
@@ -102,7 +104,8 @@ public class PinotPageSourceProvider
                         session,
                         pinotQuery,
                         handles,
-                        clusterInfoFetcher);
+                        clusterInfoFetcher,
+                        limitForBrokerQueries);
         }
         throw new UnsupportedOperationException("Unknown Pinot split type: " + pinotSplit.getSplitType());
     }

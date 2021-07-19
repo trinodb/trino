@@ -46,6 +46,7 @@ public class TestBrokerQueries
     private static final DataSchema DATA_SCHEMA;
     private static final List<Object[]> TEST_DATA;
     private static final ResultTable RESULT_TABLE;
+    private static final int LIMIT_FOR_BROKER_QUERIES = 2;
 
     private PinotClient testingPinotClient;
 
@@ -57,6 +58,7 @@ public class TestBrokerQueries
         RESPONSE.setResultTable(RESULT_TABLE);
         RESPONSE.setNumServersQueried(1);
         RESPONSE.setNumServersResponded(1);
+        RESPONSE.setNumDocsScanned(1);
     }
 
     @BeforeClass
@@ -74,7 +76,7 @@ public class TestBrokerQueries
                 .add(new PinotColumnHandle("col_1", VARCHAR))
                 .add(new PinotColumnHandle("col_2", BIGINT))
                 .build();
-        ResultsIterator resultIterator = fromResultTable(RESULT_TABLE, columnHandles);
+        ResultsIterator resultIterator = fromResultTable(RESPONSE, columnHandles);
         assertTrue(resultIterator.hasNext(), "resultIterator is empty");
         BrokerResultRow row = resultIterator.next();
         assertEquals(row.getField(0), "col_3_data");
@@ -89,7 +91,7 @@ public class TestBrokerQueries
                 .add(new PinotColumnHandle("col_3", VARCHAR))
                 .add(new PinotColumnHandle("col_1", VARCHAR))
                 .build();
-        ResultsIterator resultIterator = fromResultTable(RESULT_TABLE, columnHandles);
+        ResultsIterator resultIterator = fromResultTable(RESPONSE, columnHandles);
         assertTrue(resultIterator.hasNext(), "resultIterator is empty");
         BrokerResultRow row = resultIterator.next();
         assertEquals(row.getField(0), "col_3_data");
@@ -107,7 +109,8 @@ public class TestBrokerQueries
         PinotBrokerPageSource pageSource = new PinotBrokerPageSource(createSessionWithNumSplits(1, false, pinotConfig),
                 new PinotQuery("test_table", "SELECT col_1, col_2, col_3 FROM test_table", 0),
                 columnHandles,
-                testingPinotClient);
+                testingPinotClient,
+                LIMIT_FOR_BROKER_QUERIES);
 
         Page page = pageSource.getNextPage();
         assertEquals(page.getChannelCount(), columnHandles.size());
@@ -128,7 +131,8 @@ public class TestBrokerQueries
         PinotBrokerPageSource pageSource = new PinotBrokerPageSource(createSessionWithNumSplits(1, false, pinotConfig),
                 new PinotQuery("test_table", "SELECT COUNT(*) FROM test_table", 0),
                 ImmutableList.of(),
-                testingPinotClient);
+                testingPinotClient,
+                LIMIT_FOR_BROKER_QUERIES);
         Page page = pageSource.getNextPage();
         assertEquals(page.getPositionCount(), RESPONSE.getResultTable().getRows().size());
         assertEquals(page.getChannelCount(), 0);

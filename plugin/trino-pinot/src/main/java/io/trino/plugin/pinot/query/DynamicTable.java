@@ -16,6 +16,7 @@ package io.trino.plugin.pinot.query;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.pinot.PinotColumnHandle;
 
 import java.util.List;
 import java.util.Objects;
@@ -28,14 +29,23 @@ import static java.util.Objects.requireNonNull;
 public final class DynamicTable
 {
     private final String tableName;
+
     private final Optional<String> suffix;
+
     private final List<String> selections;
+
+    private final Optional<String> filter;
+
+    // semantically aggregation is applied after constraint
     private final List<String> groupingColumns;
-    private final List<AggregationExpression> aggregateColumns;
+    private final List<PinotColumnHandle> aggregateColumns;
+
     private final List<OrderByExpression> orderBy;
+
+    // semantically limit is applied after aggregation
     private final OptionalLong limit;
     private final OptionalLong offset;
-    private final Optional<String> filter;
+
     private final String query;
 
     @JsonCreator
@@ -43,9 +53,9 @@ public final class DynamicTable
             @JsonProperty("tableName") String tableName,
             @JsonProperty("suffix") Optional<String> suffix,
             @JsonProperty("selections") List<String> selections,
-            @JsonProperty("groupingColumns") List<String> groupingColumns,
             @JsonProperty("filter") Optional<String> filter,
-            @JsonProperty("aggregateColumns") List<AggregationExpression> aggregateColumns,
+            @JsonProperty("groupingColumns") List<String> groupingColumns,
+            @JsonProperty("aggregateColumns") List<PinotColumnHandle> aggregateColumns,
             @JsonProperty("orderBy") List<OrderByExpression> orderBy,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("offset") OptionalLong offset,
@@ -54,8 +64,8 @@ public final class DynamicTable
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.suffix = requireNonNull(suffix, "suffix is null");
         this.selections = ImmutableList.copyOf(requireNonNull(selections, "selections is null"));
-        this.groupingColumns = ImmutableList.copyOf(requireNonNull(groupingColumns, "groupingColumns is null"));
         this.filter = requireNonNull(filter, "filter is null");
+        this.groupingColumns = ImmutableList.copyOf(requireNonNull(groupingColumns, "groupingColumns is null"));
         this.aggregateColumns = ImmutableList.copyOf(requireNonNull(aggregateColumns, "aggregateColumns is null"));
         this.orderBy = ImmutableList.copyOf(requireNonNull(orderBy, "orderBy is null"));
         this.limit = requireNonNull(limit, "limit is null");
@@ -76,9 +86,9 @@ public final class DynamicTable
     }
 
     @JsonProperty
-    public List<String> getGroupingColumns()
+    public List<String> getSelections()
     {
-        return groupingColumns;
+        return selections;
     }
 
     @JsonProperty
@@ -88,15 +98,15 @@ public final class DynamicTable
     }
 
     @JsonProperty
-    public List<AggregationExpression> getAggregateColumns()
+    public List<String> getGroupingColumns()
     {
-        return aggregateColumns;
+        return groupingColumns;
     }
 
     @JsonProperty
-    public List<String> getSelections()
+    public List<PinotColumnHandle> getAggregateColumns()
     {
-        return selections;
+        return aggregateColumns;
     }
 
     @JsonProperty

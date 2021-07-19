@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.testing.DistributedQueryRunner;
 
@@ -48,7 +49,14 @@ public class PinotQueryRunner
 
     public static Session createSession(String schema)
     {
+        return createSession(schema, new PinotConfig());
+    }
+
+    public static Session createSession(String schema, PinotConfig config)
+    {
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
+        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(config);
+        sessionPropertyManager.addConnectorSessionProperties(new CatalogName(PINOT_CATALOG), pinotSessionProperties.getSessionProperties());
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog(PINOT_CATALOG)
                 .setSchema(schema)

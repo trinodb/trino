@@ -25,6 +25,12 @@ public class DoubleDecoder
     @Override
     public void decode(Supplier<Object> getter, BlockBuilder output)
     {
-        DOUBLE.writeDouble(output, ((Number) getter.get()).doubleValue());
+        Object value = getter.get();
+        if (value == null) {
+            output.appendNull();
+        }
+        else {
+            DOUBLE.writeDouble(output, ((Number) value).doubleValue());
+        }
     }
 }

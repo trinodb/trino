@@ -68,6 +68,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
@@ -404,10 +405,9 @@ public class PinotClient
         private final int[] indices;
         private int rowIndex;
 
-        public ResultsIterator(ResultTable resultTable, int[] indices)
+        private ResultsIterator(List<Object[]> rows, int[] indices)
         {
-            requireNonNull(resultTable, "resultTable is null");
-            this.rows = resultTable.getRows();
+            this.rows = requireNonNull(rows, "rows is null");
             this.indices = requireNonNull(indices, "indices is null");
         }
 
@@ -462,24 +462,39 @@ public class PinotClient
     public Iterator<BrokerResultRow> createResultIterator(ConnectorSession session, PinotQuery query, List<PinotColumnHandle> columnHandles)
     {
         BrokerResponseNative response = submitBrokerQueryJson(session, query);
-        return fromResultTable(response.getResultTable(), columnHandles);
+        return fromResultTable(response, columnHandles);
     }
 
     @VisibleForTesting
-    public static ResultsIterator fromResultTable(ResultTable resultTable, List<PinotColumnHandle> columnHandles)
+    public static ResultsIterator fromResultTable(BrokerResponseNative brokerResponse, List<PinotColumnHandle> columnHandles)
     {
-        requireNonNull(resultTable, "resultTable is null");
+        requireNonNull(brokerResponse, "brokerResponse is null");
         requireNonNull(columnHandles, "columnHandles is null");
+        ResultTable resultTable = brokerResponse.getResultTable();
         String[] columnNames = resultTable.getDataSchema().getColumnNames();
         Map<String, Integer> columnIndices = IntStream.range(0, columnNames.length)
                 .boxed()
                 // Pinot lower cases column names which use aggregate functions, ex. min(my_Col) becomes min(my_col)
                 .collect(toImmutableMap(i -> columnNames[i].toLowerCase(ENGLISH), identity()));
         int[] indices = new int[columnNames.length];
+        int[] inverseIndices = new int[columnNames.length];
         for (int i = 0; i < columnHandles.size(); i++) {
             indices[i] = columnIndices.get(columnHandles.get(i).getColumnName().toLowerCase(ENGLISH));
+            inverseIndices[indices[i]] = i;
         }
-        return new ResultsIterator(resultTable, indices);
+        List<Object[]> rows = resultTable.getRows();
+        // If returning from an aggregate with no grouping columns, make sure all non-count columns are null
+        if (brokerResponse.getNumDocsScanned() == 0 && resultTable.getRows().size() == 1) {
+            Object[] originalRow = getOnlyElement(resultTable.getRows());
+            Object[] newRow = new Object[originalRow.length];
+            for (int i = 0; i < originalRow.length; i++) {
+                if (!columnHandles.get(inverseIndices[i]).isReturnNullOnEmptyGroup()) {
+                    newRow[i] = originalRow[i];
+                }
+            }
+            rows = ImmutableList.of(newRow);
+        }
+        return new ResultsIterator(rows, indices);
     }
 
     public static <T> T doWithRetries(int retries, Function<Integer, T> caller)

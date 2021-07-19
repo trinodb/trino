@@ -25,6 +25,12 @@ public class BigintDecoder
     @Override
     public void decode(Supplier<Object> getter, BlockBuilder output)
     {
-        BIGINT.writeLong(output, ((Number) getter.get()).longValue());
+        Object value = getter.get();
+        if (value == null) {
+            output.appendNull();
+        }
+        else {
+            BIGINT.writeLong(output, ((Number) value).longValue());
+        }
     }
 }
