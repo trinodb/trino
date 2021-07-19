@@ -35,6 +35,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
@@ -46,9 +47,15 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
+import java.util.EnumSet;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -70,6 +77,7 @@ public class TestingHydraIdentityProvider
     private final Duration ttlAccessToken;
     private final OkHttpClient httpClient;
     private GenericContainer<?> hydraContainer;
+    private Path certDir;
 
     public TestingHydraIdentityProvider()
     {
@@ -94,11 +102,26 @@ public class TestingHydraIdentityProvider
         loginAndConsentServer.start();
         URI loginAndConsentBaseUrl = loginAndConsentServer.getBaseUrl();
 
+        certDir = new File(Resources.getResource("cert/localhost.pem").getPath()).getParentFile().toPath();
+        // generate a cert with Docker's host in SAN
+        String ipAddress = DockerClientFactory.instance().dockerHostIpAddress();
+        if (!ipAddress.equals("localhost")) {
+            certDir = Files.createTempDirectory("cert",
+                    PosixFilePermissions.asFileAttribute(EnumSet.allOf(PosixFilePermission.class)));
+            int exitCode = new ProcessBuilder()
+                    .command("./generate.sh", certDir.toString() + "/localhost.pem", "IP.2=" + ipAddress)
+                    .directory(new File(Resources.getResource("cert/generate.sh").getPath()).getParentFile())
+                    .start()
+                    .waitFor();
+            if (exitCode != 0) {
+                throw new RuntimeException("Failed to generate a certificate for remote Docker daemon.");
+            }
+        }
         hydraContainer = createHydraContainer()
                 .withNetworkAliases("hydra")
                 .withExposedPorts(4444, 4445)
                 .withEnv("DSN", "memory")
-                .withEnv("URLS_SELF_ISSUER", "https://localhost:4444/")
+                .withEnv("URLS_SELF_ISSUER", "https://" + ipAddress + ":4444/")
                 .withEnv("URLS_CONSENT", loginAndConsentBaseUrl + "/consent")
                 .withEnv("URLS_LOGIN", loginAndConsentBaseUrl + "/login")
                 .withEnv("SERVE_TLS_KEY_PATH", "/tmp/certs/localhost.pem")
@@ -106,7 +129,7 @@ public class TestingHydraIdentityProvider
                 .withEnv("STRATEGIES_ACCESS_TOKEN", "jwt")
                 .withEnv("TTL_ACCESS_TOKEN", ttlAccessToken.getSeconds() + "s")
                 .withCommand("serve", "all")
-                .withCopyFileToContainer(MountableFile.forClasspathResource("/cert"), "/tmp/certs")
+                .withCopyFileToContainer(MountableFile.forHostPath(certDir), "/tmp/certs")
                 .waitingFor(new WaitAllStrategy()
                         .withStrategy(Wait.forLogMessage(".*Setting up http server on :4444.*", 1))
                         .withStrategy(Wait.forLogMessage(".*Setting up http server on :4445.*", 1)));
@@ -148,7 +171,7 @@ public class TestingHydraIdentityProvider
         try (Response response = httpClient
                 .newCall(
                         new Request.Builder()
-                                .url("https://localhost:" + getAuthPort() + "/oauth2/token")
+                                .url("https://" + getIpAddress() + ":" + getAuthPort() + "/oauth2/token")
                                 .addHeader(OAuthConstants.HEADER, Credentials.basic(clientId, clientSecret))
                                 .post(new FormBody.Builder()
                                         .add(OAuthConstants.GRANT_TYPE, OAuthConstants.CLIENT_CREDENTIALS)
@@ -162,6 +185,16 @@ public class TestingHydraIdentityProvider
                     .get("access_token")
                     .textValue();
         }
+    }
+
+    public String getCertPath()
+    {
+        return certDir + "/localhost.pem";
+    }
+
+    public String getIpAddress()
+    {
+        return hydraContainer.getContainerIpAddress();
     }
 
     public int getAuthPort()
@@ -242,7 +275,7 @@ public class TestingHydraIdentityProvider
         {
             return httpClient.newCall(
                     new Request.Builder()
-                            .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/login/accept?login_challenge=" + loginChallenge)
+                            .url("https://" + getIpAddress() + ":" + getAdminPort() + "/oauth2/auth/requests/login/accept?login_challenge=" + loginChallenge)
                             .put(RequestBody.create(
                                     MediaType.get(APPLICATION_JSON),
                                     mapper.writeValueAsString(mapper.createObjectNode().put("subject", "foo@bar.com"))))
@@ -255,7 +288,7 @@ public class TestingHydraIdentityProvider
         {
             try (Response response = httpClient.newCall(
                     new Request.Builder()
-                            .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/consent?consent_challenge=" + consentChallenge)
+                            .url("https://" + getIpAddress() + ":" + getAdminPort() + "/oauth2/auth/requests/consent?consent_challenge=" + consentChallenge)
                             .get()
                             .build())
                     .execute()) {
@@ -269,7 +302,7 @@ public class TestingHydraIdentityProvider
         {
             return httpClient.newCall(
                     new Request.Builder()
-                            .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/consent/accept?consent_challenge=" + consentChallenge)
+                            .url("https://" + getIpAddress() + ":" + getAdminPort() + "/oauth2/auth/requests/consent/accept?consent_challenge=" + consentChallenge)
                             .put(RequestBody.create(
                                     MediaType.get(APPLICATION_JSON),
                                     mapper.writeValueAsString(mapper.createObjectNode()
@@ -303,7 +336,7 @@ public class TestingHydraIdentityProvider
     {
         try (TestingHydraIdentityProvider service = new TestingHydraIdentityProvider()) {
             service.start();
-            String authServerUrl = "https://localhost:" + service.getAuthPort();
+            String authServerUrl = "https://" + service.getIpAddress() + ":" + service.getAuthPort();
             service.createClient(
                     "trino-client",
                     "trino-secret",
@@ -329,7 +362,7 @@ public class TestingHydraIdentityProvider
                                     .put("http-server.authentication.oauth2.client-secret", "trino-secret")
                                     .put("http-server.authentication.oauth2.audience", "https://localhost:8443/ui")
                                     .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@.*")
-                                    .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
+                                    .put("oauth2-jwk.http-client.trust-store-path", service.getCertPath())
                                     .build())
                     .build()) {
                 Thread.sleep(Long.MAX_VALUE);
