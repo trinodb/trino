@@ -662,7 +662,7 @@ public interface ConnectorMetadata
      */
     default Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support schema properties");
+        return Map.of();
     }
 
     /**
@@ -670,7 +670,7 @@ public interface ConnectorMetadata
      */
     default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support schema ownership");
+        return Optional.empty();
     }
 
     /**
