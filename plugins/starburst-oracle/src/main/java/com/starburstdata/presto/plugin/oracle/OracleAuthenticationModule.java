@@ -48,7 +48,7 @@ import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KE
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS_PASS_THROUGH;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD_PASS_THROUGH;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS;
@@ -63,27 +63,27 @@ public class OracleAuthenticationModule
     {
         OracleConfig oracleConfig = buildConfigObject(OracleConfig.class);
 
-        install(installModuleIf(
+        install(conditionalModule(
                 StarburstOracleConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD,
                 new UserPasswordModule()));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 StarburstOracleConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH && oracleConfig.isConnectionPoolEnabled(),
                 new PasswordPassThroughWithPoolingModule()));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 StarburstOracleConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH && !oracleConfig.isConnectionPoolEnabled(),
                 new OraclePasswordPassThroughModule()));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 StarburstOracleConfig.class,
                 config -> config.getAuthenticationType() == KERBEROS,
                 new KerberosModule()));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 StarburstOracleConfig.class,
                 config -> config.getAuthenticationType() == KERBEROS_PASS_THROUGH,
                 new KerberosPassThroughModule()));
@@ -131,7 +131,7 @@ public class OracleAuthenticationModule
         public void setup(Binder binder)
         {
             install(new CredentialProviderModule());
-            install(installModuleIf(
+            install(conditionalModule(
                     StarburstOracleConfig.class,
                     StarburstOracleConfig::isImpersonationEnabled,
                     new ImpersonationModule(),
@@ -215,7 +215,7 @@ public class OracleAuthenticationModule
         public void setup(Binder binder)
         {
             configBinder(binder).bindConfig(KerberosConfig.class);
-            install(installModuleIf(
+            install(conditionalModule(
                     StarburstOracleConfig.class,
                     StarburstOracleConfig::isImpersonationEnabled,
                     new ImpersonationModule(),
