@@ -108,7 +108,7 @@ public final class ChunkedSliceOutput
     @Override
     public long getRetainedSize()
     {
-        return slice.getRetainedSize() + chunkSupplier.getBufferPollSize() + closedSlicesRetainedSize + INSTANCE_SIZE;
+        return slice.getRetainedSize() + chunkSupplier.getBufferPoolSize() + closedSlicesRetainedSize + INSTANCE_SIZE;
     }
 
     @Override
@@ -352,7 +352,7 @@ public final class ChunkedSliceOutput
         private final List<byte[]> usedBuffers = new ArrayList<>();
 
         private int currentSize;
-        private long bufferPollSize;
+        private long bufferPoolSize;
 
         public ChunkSupplier(int minChunkSize, int maxChunkSize)
         {
@@ -368,7 +368,7 @@ public final class ChunkedSliceOutput
         {
             bufferPool.addAll(0, usedBuffers);
             for (byte[] b : bufferPool) {
-                bufferPollSize += SizeOf.sizeOf(b);
+                bufferPoolSize += SizeOf.sizeOf(b);
             }
             usedBuffers.clear();
         }
@@ -382,16 +382,16 @@ public final class ChunkedSliceOutput
             }
             else {
                 buffer = bufferPool.remove(0);
-                bufferPollSize -= SizeOf.sizeOf(buffer);
+                bufferPoolSize -= SizeOf.sizeOf(buffer);
                 currentSize = buffer.length;
             }
             usedBuffers.add(buffer);
             return buffer;
         }
 
-        public long getBufferPollSize()
+        public long getBufferPoolSize()
         {
-            return bufferPollSize;
+            return bufferPoolSize;
         }
     }
 }
