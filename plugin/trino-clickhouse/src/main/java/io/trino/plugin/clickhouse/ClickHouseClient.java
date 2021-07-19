@@ -144,7 +144,7 @@ public class ClickHouseClient
                 ImmutableSet.<AggregateFunctionRule>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementMinMax())
+                        .add(new ImplementMinMax(false)) // TODO: Revisit once https://github.com/trinodb/trino/issues/7100 is resolved
                         .add(new ImplementSum(ClickHouseClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())

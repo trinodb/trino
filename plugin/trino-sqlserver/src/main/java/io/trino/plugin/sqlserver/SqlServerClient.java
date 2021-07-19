@@ -169,7 +169,7 @@ public class SqlServerClient
                 ImmutableSet.<AggregateFunctionRule>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementMinMax())
+                        .add(new ImplementMinMax(false))
                         .add(new ImplementSum(SqlServerClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())

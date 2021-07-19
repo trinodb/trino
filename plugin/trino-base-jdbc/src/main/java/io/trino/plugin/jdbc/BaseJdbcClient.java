@@ -965,16 +965,6 @@ public abstract class BaseJdbcClient
             }
         }
 
-        if (!aggregates.isEmpty()) {
-            for (AggregateFunction aggregate : aggregates) {
-                boolean hasCaseSensitiveInputs = aggregate.getInputs().stream()
-                        .anyMatch(connectorExpression -> connectorExpression.getType() instanceof VarcharType || connectorExpression.getType() instanceof CharType);
-                if (hasCaseSensitiveInputs) {
-                    return false;
-                }
-            }
-        }
-
         return true;
     }
 

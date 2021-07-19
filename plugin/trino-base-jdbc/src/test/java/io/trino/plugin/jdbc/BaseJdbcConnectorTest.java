@@ -242,7 +242,7 @@ public abstract class BaseJdbcConnectorTest
                         "'B', 'B', 2",
                         "'a', 'a', 3",
                         "'b', 'b', 4"))) {
-            // global aggregation
+            // case-sensitive functions prevent pushdown
             assertConditionallyPushedDown(
                     getSession(),
                     "SELECT max(a_string), min(a_string), max(a_char), min(a_char) FROM " + table.getName(),
@@ -250,7 +250,7 @@ public abstract class BaseJdbcConnectorTest
                     aggregationOverTableScan)
                     .skippingTypesCheck()
                     .matches("VALUES ('b', 'A', 'b', 'A')");
-            // distinct
+            // distinct over case-sensitive column prevents pushdown
             assertConditionallyPushedDown(
                     getSession(),
                     "SELECT distinct a_string FROM " + table.getName(),
@@ -265,7 +265,7 @@ public abstract class BaseJdbcConnectorTest
                     groupingAggregationOverTableScan)
                     .skippingTypesCheck()
                     .matches("VALUES 'A', 'B', 'a', 'b'");
-            // aggregation with group by on text columns
+            // case-sensitive grouping sets prevent pushdown
             assertConditionallyPushedDown(getSession(),
                     "SELECT a_string, count(*) FROM " + table.getName() + " GROUP BY a_string",
                     expectAggregationPushdown,
@@ -278,6 +278,10 @@ public abstract class BaseJdbcConnectorTest
                     groupingAggregationOverTableScan)
                     .skippingTypesCheck()
                     .matches("VALUES ('A', BIGINT '1'), ('B', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1')");
+
+            // case-insensitive functions can still be pushed down as long as grouping sets are not case-sensitive
+            assertThat(query("SELECT count(a_string), count(a_char) FROM " + table.getName())).isFullyPushedDown();
+            assertThat(query("SELECT count(a_string), count(a_char) FROM " + table.getName() + " GROUP BY a_bigint")).isFullyPushedDown();
         }
     }
 

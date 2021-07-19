@@ -270,7 +270,7 @@ public class PostgreSqlClient
                 ImmutableSet.<AggregateFunctionRule>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementMinMax())
+                        .add(new ImplementMinMax(false))
                         .add(new ImplementSum(PostgreSqlClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
