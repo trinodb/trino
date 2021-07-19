@@ -23,6 +23,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.iceberg.CatalogType.HADOOP;
+import static io.trino.plugin.iceberg.CatalogType.HIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 
@@ -35,7 +37,8 @@ public class TestIcebergConfig
                 .setFileFormat(ORC)
                 .setCompressionCodec(GZIP)
                 .setUseFileSizeFromMetadata(true)
-                .setMaxPartitionsPerWriter(100));
+                .setMaxPartitionsPerWriter(100)
+                .setCatalogType(HIVE));
     }
 
     @Test
@@ -46,13 +49,15 @@ public class TestIcebergConfig
                 .put("iceberg.compression-codec", "NONE")
                 .put("iceberg.use-file-size-from-metadata", "false")
                 .put("iceberg.max-partitions-per-writer", "222")
+                .put("iceberg.catalog.type", "HADOOP")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(HiveCompressionCodec.NONE)
                 .setUseFileSizeFromMetadata(false)
-                .setMaxPartitionsPerWriter(222);
+                .setMaxPartitionsPerWriter(222)
+                .setCatalogType(HADOOP);
 
         assertFullMapping(properties, expected);
     }
