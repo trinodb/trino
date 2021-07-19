@@ -194,6 +194,7 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
+    @Override
     public void testShowCreateSchema()
     {
         assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
