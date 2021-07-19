@@ -55,7 +55,6 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
 public class TestMemorySmoke
         extends AbstractTestQueryFramework
 {
