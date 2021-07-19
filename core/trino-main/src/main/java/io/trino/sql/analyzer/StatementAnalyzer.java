@@ -88,6 +88,7 @@ import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
@@ -189,6 +190,7 @@ import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -2692,7 +2694,25 @@ class StatementAnalyzer
         {
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
-
+                Map<String, Object> columnAliasMap = new HashMap<>();
+                List<SelectItem> selectItemList = node.getSelect().getSelectItems();
+                if (selectItemList.size() > 0) {
+                    for (SelectItem si : selectItemList) {
+                        if (si instanceof SingleColumn && (((SingleColumn) si).getAlias().isPresent())) {
+                            Expression ex = ((SingleColumn) si).getExpression();
+                            columnAliasMap.put(((SingleColumn) si).getAlias().get().getValue(), ex);
+                        }
+                    }
+                }
+                if (predicate instanceof ComparisonExpression) {
+                    if (((ComparisonExpression) predicate).getLeft() instanceof Identifier) {
+                        Expression leftExpr = (Expression) columnAliasMap.get(((Identifier) ((ComparisonExpression) predicate).getLeft()).getValue());
+                        if (leftExpr != null) {
+                            predicate = new ComparisonExpression(((ComparisonExpression) predicate).getLocation().get(),
+                                ((ComparisonExpression) predicate).getOperator(), leftExpr, ((ComparisonExpression) predicate).getRight());
+                        }
+                    }
+                }
                 List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate));
                 if (!windowExpressions.isEmpty()) {
                     throw semanticException(NESTED_WINDOW, windowExpressions.get(0), "HAVING clause cannot contain window functions or row pattern measures");
