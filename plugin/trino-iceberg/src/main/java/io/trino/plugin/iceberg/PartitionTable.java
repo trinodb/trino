@@ -56,6 +56,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
@@ -284,12 +285,8 @@ public class PartitionTable
         if (value == null) {
             return null;
         }
-        if (type instanceof Types.StringType) {
-            return value.toString();
-        }
-        if (type instanceof Types.BinaryType) {
-            // TODO the client sees the bytearray's tostring ouput instead of seeing actual bytes, needs to be fixed.
-            return ((ByteBuffer) value).array();
+        if (type instanceof Types.StringType || type instanceof Types.BinaryType) {
+            return utf8Slice(value.toString());
         }
         if (type instanceof Types.TimestampType) {
             long epochMicros = (long) value;
@@ -302,7 +299,13 @@ public class PartitionTable
             return Math.multiplyExact((Long) value, PICOSECONDS_PER_MICROSECOND);
         }
         if (type instanceof Types.FloatType) {
-            return Float.floatToIntBits((Float) value);
+            return ((Float) value).longValue();
+        }
+        if (type instanceof Types.IntegerType || type instanceof Types.DateType) {
+            return Long.parseLong(value.toString());
+        }
+        if (type instanceof Types.DecimalType) {
+            return ((BigDecimal) value).longValue();
         }
         if (type instanceof Types.IntegerType || type instanceof Types.DateType) {
             return ((Integer) value).longValue();

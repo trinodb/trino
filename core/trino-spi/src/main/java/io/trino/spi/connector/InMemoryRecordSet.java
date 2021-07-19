@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
@@ -294,6 +295,9 @@ public class InMemoryRecordSet
             }
             else if (value instanceof Number) {
                 completedBytes += 8;
+            }
+            else if (value instanceof LongTimestampWithTimeZone) {
+                completedBytes += 12;
             }
             else if (value instanceof String) {
                 completedBytes += ((String) value).length();
