@@ -22,11 +22,13 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testng.SkipException;
 
 import java.io.Closeable;
 import java.io.File;
@@ -73,6 +75,9 @@ public class TestingDruidServer
 
     public TestingDruidServer(String dockerImageName)
     {
+        if (!DockerClientFactory.instance().dockerHostIpAddress().equals("localhost")) {
+            throw new SkipException("Druid test container can only be created with a local Docker daemon to bind local directories");
+        }
         try {
             // Cannot use Files.createTempDirectory() because on Mac by default it uses
             // /var/folders/ which is not visible to Docker for Mac
