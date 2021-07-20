@@ -15,7 +15,10 @@ package io.trino.plugin.mysql;
 
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorBehavior;
@@ -23,14 +26,18 @@ import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
@@ -367,5 +374,32 @@ public abstract class BaseMySqlConnectorTest
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
                 .isFullyPushedDown();
+    }
+
+    // TODO: https://github.com/trinodb/trino/issues/7320
+    @Override
+    @Test
+    public void testCountDistinctWithStringTypes()
+    {
+        List<String> rows = Stream.of("a", "b", "A", "B", " a ", "a", "b", " b ", "ą")
+                .map(value -> String.format("'%1$s', '%1$s'", value))
+                .collect(toImmutableList());
+        String tableName = "count_distinct_strings" + randomTableSuffix();
+
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, tableName, "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
+            assertThat(query("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                    .containsAll("VALUES CAST(4 AS BIGINT)")
+                    .skipResultsCorrectnessCheckForPushdown()
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
+                    .containsAll("VALUES CAST(4 AS BIGINT)")
+                    .skipResultsCorrectnessCheckForPushdown()
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                    .containsAll("VALUES (CAST(7 AS BIGINT), CAST(7 AS BIGINT))")
+                    .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+        }
     }
 }

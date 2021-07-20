@@ -481,13 +481,24 @@ public class PlanOptimizers
                                         new RemoveRedundantEnforceSingleRowNode(),
                                         new RemoveRedundantExists(),
                                         new ImplementFilteredAggregations(metadata),
-                                        new SingleDistinctAggregationToGroupBy(),
-                                        new MultipleDistinctAggregationToMarkDistinct(),
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata),
                                         new PruneOrderByInAggregation(metadata),
                                         new RewriteSpatialPartitioningAggregation(metadata),
-                                        new SimplifyCountOverConstant(metadata)))
+                                        new SimplifyCountOverConstant(metadata),
+                                        new PushAggregationIntoTableScan(metadata)))
+                                .build()),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(columnPruningRules)
+                                .addAll(projectionPushdownRules)
+                                .add(new PushLimitThroughMarkDistinct())
+                                .add(new MultipleDistinctAggregationToMarkDistinct())
+                                .add(new SingleDistinctAggregationToGroupBy())
                                 .build()),
                 new IterativeOptimizer(
                         metadata,

@@ -15,6 +15,7 @@ package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
@@ -32,6 +33,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
@@ -52,6 +54,7 @@ import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -210,6 +213,23 @@ public class TestPhoenixConnectorTest
                         "   rowkeys = 'ROWKEY',\n" +
                         "   salt_buckets = 10\n" +
                         ")");
+    }
+
+    // Phoenix requires a ROWID column
+    @Override
+    @Test
+    public void testCountDistinctWithStringTypes()
+    {
+        // Skipping the ą test case because it is not supported
+        List<String> rows = Streams.mapWithIndex(Stream.of("a", "b", "A", "B", " a ", "a", "b", " b "), (value, idx) -> String.format("%d, '%2$s', '%2$s'", idx, value))
+                .collect(toImmutableList());
+        String tableName = "count_distinct_strings" + randomTableSuffix();
+
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, tableName, "(id int, t_char CHAR(5), t_varchar VARCHAR(5)) WITH (ROWKEYS='id')", rows)) {
+            assertQuery("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES 6");
+            assertQuery("SELECT count(DISTINCT t_char) FROM " + testTable.getName(), "VALUES 6");
+            assertQuery("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES (6, 6)");
+        }
     }
 
     @Test

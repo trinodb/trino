@@ -67,6 +67,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -209,15 +210,15 @@ public class DefaultJdbcMetadata
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        Set<JdbcColumnHandle> newColumnSet = ImmutableSet.copyOf(newColumns);
-
         if (handle.getColumns().isPresent()) {
+            Set<JdbcColumnHandle> newColumnSet = ImmutableSet.copyOf(newColumns);
             Set<JdbcColumnHandle> tableColumnSet = ImmutableSet.copyOf(handle.getColumns().get());
             if (newColumnSet.equals(tableColumnSet)) {
                 return Optional.empty();
             }
 
-            verify(tableColumnSet.containsAll(newColumnSet), "applyProjection called with columns not available in existing query");
+            verify(tableColumnSet.containsAll(newColumnSet),
+                    "applyProjection called with columns %s and some are not available in existing query: %s", newColumnSet, tableColumnSet);
         }
 
         return Optional.of(new ProjectionApplicationResult<>(
@@ -281,9 +282,10 @@ public class DefaultJdbcMetadata
         groupingSetsAsJdbcColumnHandles.stream()
                 .flatMap(List::stream)
                 .distinct()
-                .peek(groupKey -> verify(
-                        tableColumns.map(columns -> columns.contains(groupKey)).orElse(true),
-                        "applyAggregation called with a grouping column which was not included in the table handle"))
+                .peek(handle.getColumns().<Consumer<JdbcColumnHandle>>map(columns ->
+                        groupKey -> verify(columns.contains(groupKey),
+                                "applyAggregation called with a grouping column %s which was not included in the table columns: %s", groupKey, tableColumns))
+                        .orElse(groupKey -> {}))
                 .forEach(newColumns::add);
 
         for (AggregateFunction aggregate : aggregates) {
@@ -320,7 +322,7 @@ public class DefaultJdbcMetadata
                 TupleDomain.all(),
                 Optional.empty(),
                 OptionalLong.empty(),
-                Optional.of(newColumnsList),
+                Optional.of(newColumnsList), // The group key columns may be read unnecessarily, but they need to be tracked in the JdbcTableHandle
                 handle.getAllReferencedTables(),
                 nextSyntheticColumnId);
 

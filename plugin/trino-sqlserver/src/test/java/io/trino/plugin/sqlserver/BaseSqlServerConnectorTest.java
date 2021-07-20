@@ -22,7 +22,10 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.DataProvider;
@@ -30,7 +33,9 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.sqlserver.DataCompression.NONE;
@@ -282,6 +287,33 @@ public abstract class BaseSqlServerConnectorTest
             assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal = 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
+        }
+    }
+
+    // TODO: https://github.com/trinodb/trino/issues/7320
+    @Override
+    @Test
+    public void testCountDistinctWithStringTypes()
+    {
+        List<String> rows = Stream.of("a", "b", "A", "B", " a ", "a", "b", " b ", "ą")
+                .map(value -> String.format("'%1$s', '%1$s'", value))
+                .collect(toImmutableList());
+        String tableName = "count_distinct_strings" + randomTableSuffix();
+
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, tableName, "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
+            assertThat(query("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                    .containsAll("VALUES CAST(4 AS BIGINT)")
+                    .skipResultsCorrectnessCheckForPushdown()
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
+                    .containsAll("VALUES CAST(4 AS BIGINT)")
+                    .skipResultsCorrectnessCheckForPushdown()
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                    .containsAll("VALUES (CAST(7 AS BIGINT), CAST(7 AS BIGINT))")
+                    .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
         }
     }
 
