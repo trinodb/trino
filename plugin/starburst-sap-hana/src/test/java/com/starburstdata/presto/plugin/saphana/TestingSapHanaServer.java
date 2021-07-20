@@ -15,6 +15,7 @@ import io.airlift.log.Logger;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import net.jodah.failsafe.Timeout;
+import org.testcontainers.containers.GenericContainer;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -30,7 +31,7 @@ import static java.time.temporal.ChronoUnit.MINUTES;
 public final class TestingSapHanaServer
         implements Closeable
 {
-    private static final Logger log = Logger.get(AbstractTestSapHanaTableStatistics.class);
+    private static final Logger log = Logger.get(TestingSapHanaServer.class);
     private static final RetryPolicy<TestingSapHanaServer> QUERY_EXECUTION_RETRY_POLICY = new RetryPolicy<TestingSapHanaServer>()
             .withBackoff(1, 5, ChronoUnit.SECONDS)
             .withMaxRetries(5)
@@ -40,7 +41,7 @@ public final class TestingSapHanaServer
                     "Query failed on attempt %s, will retry. Exception: %s",
                     event.getAttemptCount(),
                     event.getLastFailure().getMessage()));
-    private static final SapHanaDockerInitializer dockerInitializer = new SapHanaDockerInitializer((genericContainer, port) -> genericContainer.addExposedPort(port));
+    private static final SapHanaDockerInitializer dockerInitializer = new SapHanaDockerInitializer(GenericContainer::addExposedPort);
 
     private final SapHanaJdbcContainer dockerContainer;
 
