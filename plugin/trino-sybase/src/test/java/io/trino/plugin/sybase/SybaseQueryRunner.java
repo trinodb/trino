@@ -38,8 +38,6 @@ public class SybaseQueryRunner
 {
     private SybaseQueryRunner() {}
 
-    private static final String TPCH_SCHEMA = "tpch";
-
     public static DistributedQueryRunner createSybaseQueryRunner(TestingSybaseServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
