@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.launcher.env.common;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
@@ -27,6 +28,7 @@ import java.time.Duration;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_CONF_ROOT;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_HEALTH_D;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
@@ -66,8 +68,8 @@ public final class Hadoop
     {
         builder.addContainer(createHadoopContainer(dockerFiles, portBinder, hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP));
 
-        builder.configureContainer(
-                COORDINATOR,
+        builder.configureContainersIfPresent(
+                ImmutableSet.of(COORDINATOR, WORKER),
                 container -> container
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES)
