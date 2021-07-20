@@ -872,6 +872,7 @@ public abstract class BaseIcebergConnectorTest
                 "(DATE '2015-05-15', 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
                 "(DATE '2020-02-21', 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
         if (format == ORC) {
+            // Parquet has min/max for timestamps but ORC does not.
             expected = "VALUES " +
                     "(DATE '1969-12-25', 1, NULL, NULL, 8, 8), " +
                     "(DATE '1969-12-30', 1, NULL, NULL, 9, 9), " +
