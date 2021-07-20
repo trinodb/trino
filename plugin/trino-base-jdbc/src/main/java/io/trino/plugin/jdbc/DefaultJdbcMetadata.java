@@ -65,7 +65,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -208,8 +210,14 @@ public class DefaultJdbcMetadata
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        if (handle.getColumns().isPresent() && containSameElements(newColumns, handle.getColumns().get())) {
-            return Optional.empty();
+        if (handle.getColumns().isPresent()) {
+            Set<JdbcColumnHandle> newColumnSet = ImmutableSet.copyOf(newColumns);
+            Set<JdbcColumnHandle> tableColumnSet = ImmutableSet.copyOf(handle.getColumns().get());
+            if (newColumnSet.equals(tableColumnSet)) {
+                return Optional.empty();
+            }
+
+            verify(tableColumnSet.containsAll(newColumnSet), "applyProjection called with columns %s and some are not available in existing query: %s", newColumnSet, tableColumnSet);
         }
 
         return Optional.of(new ProjectionApplicationResult<>(
@@ -263,6 +271,24 @@ public class DefaultJdbcMetadata
         ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
         ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
         ImmutableMap.Builder<String, String> expressions = ImmutableMap.builder();
+
+        List<List<JdbcColumnHandle>> groupingSetsAsJdbcColumnHandles = groupingSets.stream()
+                .map(groupingSet -> groupingSet.stream()
+                        .map(JdbcColumnHandle.class::cast)
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
+        Optional<List<JdbcColumnHandle>> tableColumns = handle.getColumns();
+        groupingSetsAsJdbcColumnHandles.stream()
+                .flatMap(List::stream)
+                .distinct()
+                .peek(handle.getColumns().<Consumer<JdbcColumnHandle>>map(
+                        columns -> groupKey -> verify(columns.contains(groupKey),
+                                "applyAggregation called with a grouping column %s which was not included in the table columns: %s",
+                                groupKey,
+                                tableColumns))
+                        .orElse(groupKey -> {}))
+                .forEach(newColumns::add);
+
         for (AggregateFunction aggregate : aggregates) {
             Optional<JdbcExpression> expression = jdbcClient.implementAggregation(session, aggregate, assignments);
             if (expression.isEmpty()) {
@@ -284,25 +310,16 @@ public class DefaultJdbcMetadata
             expressions.put(columnName, expression.get().getExpression());
         }
 
-        List<List<JdbcColumnHandle>> groupingSetsAsJdbcColumnHandles = groupingSets.stream()
-                .map(groupingSet -> groupingSet.stream()
-                        .map(JdbcColumnHandle.class::cast)
-                        .collect(toImmutableList()))
-                .collect(toImmutableList());
-
         List<JdbcColumnHandle> newColumnsList = newColumns.build();
 
+        // TODO(https://github.com/trinodb/trino/issues/9021) We are reading all grouping columns from remote database as at this point we are not able to tell if they are needed up in the query.
+        // As a reason of that we need to also have matching column handles in JdbcTableHandle constructed below, as columns read via JDBC must match column handles list.
+        // For more context see assertion in JdbcRecordSetProvider.getRecordSet
         PreparedQuery preparedQuery = jdbcClient.prepareQuery(
                 session,
                 handle,
                 Optional.of(groupingSetsAsJdbcColumnHandles),
-                ImmutableList.<JdbcColumnHandle>builder()
-                        .addAll(groupingSetsAsJdbcColumnHandles.stream()
-                                .flatMap(List::stream)
-                                .distinct()
-                                .iterator())
-                        .addAll(newColumnsList)
-                        .build(),
+                newColumnsList,
                 expressions.build());
         handle = new JdbcTableHandle(
                 new JdbcQueryRelationHandle(preparedQuery),
@@ -758,10 +775,5 @@ public class DefaultJdbcMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         jdbcClient.dropSchema(session, schemaName);
-    }
-
-    private static boolean containSameElements(Iterable<? extends ColumnHandle> first, Iterable<? extends ColumnHandle> second)
-    {
-        return ImmutableSet.copyOf(first).equals(ImmutableSet.copyOf(second));
     }
 }
