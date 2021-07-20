@@ -23,6 +23,7 @@ import io.trino.tpch.TpchTable;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest.redirectionDisabled;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
@@ -68,7 +69,7 @@ public final class SapHanaQueryRunner
             queryRunner.installPlugin(new TestingSapHanaPlugin());
             queryRunner.createCatalog("saphana", "sap-hana", connectorProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, redirectionDisabled(createSession()), tables);
 
             return queryRunner;
         }

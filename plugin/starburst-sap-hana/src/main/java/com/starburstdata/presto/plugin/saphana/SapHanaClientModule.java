@@ -14,6 +14,7 @@ import com.google.inject.Scopes;
 import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import com.starburstdata.presto.plugin.jdbc.StarburstJdbcMetadataFactory;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
+import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
@@ -41,6 +42,7 @@ public class SapHanaClientModule
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
 
+        install(new JdbcTableScanRedirectionModule());
         install(new SapHanaAuthenticationModule());
         install(new JdbcJoinPushdownSupportModule());
     }
