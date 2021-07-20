@@ -93,14 +93,14 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public abstract class AbstractTestIcebergConnectorTest
+public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
 {
     private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
     private final FileFormat format;
 
-    protected AbstractTestIcebergConnectorTest(FileFormat format)
+    protected BaseIcebergConnectorTest(FileFormat format)
     {
         this.format = requireNonNull(format, "format is null");
     }
