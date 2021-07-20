@@ -13,6 +13,10 @@
  */
 package io.trino.tests.product.launcher.env;
 
+import io.trino.tests.product.launcher.docker.DockerFiles;
+
+import static org.testcontainers.utility.MountableFile.forHostPath;
+
 public final class EnvironmentContainers
 {
     public static final String PRESTO = "presto";
@@ -33,5 +37,20 @@ public final class EnvironmentContainers
     public static boolean isPrestoContainer(String name)
     {
         return name.startsWith(PRESTO);
+    }
+
+    public static void configureTempto(Environment.Builder builder, DockerFiles.ResourceProvider configDir, String fileDescription)
+    {
+        builder.configureContainer(TESTS, dockerContainer -> {
+            String temptoConfig = "/docker/presto-product-tests/conf/tempto/tempto-configuration-for-" + fileDescription + ".yaml";
+            dockerContainer
+                    .withCopyFileToContainer(
+                            forHostPath(configDir.getPath("tempto-configuration.yaml")),
+                            temptoConfig)
+                    .withEnv("TEMPTO_CONFIG_FILES", temptoConfigFiles ->
+                            temptoConfigFiles
+                                    .map(files -> files + "," + temptoConfig)
+                                    .orElse(temptoConfig));
+        });
     }
 }

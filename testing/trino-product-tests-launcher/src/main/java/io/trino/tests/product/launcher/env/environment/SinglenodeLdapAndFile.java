@@ -26,7 +26,7 @@ import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -59,17 +59,7 @@ public class SinglenodeLdapAndFile
                             CONTAINER_PRESTO_ETC + "/password.db");
         });
 
-        builder.configureContainer(TESTS, dockerContainer -> {
-            String temptoConfig = "/docker/presto-product-tests/conf/tempto/tempto-configuration-for-singlenode_ldap_and_file.yaml";
-            dockerContainer
-                    .withCopyFileToContainer(
-                            forHostPath(configDir.getPath("tempto-configuration.yaml")),
-                            temptoConfig)
-                    .withEnv("TEMPTO_CONFIG_FILES", temptoConfigFiles ->
-                            temptoConfigFiles
-                                    .map(files -> files + "," + temptoConfig)
-                                    .orElse(temptoConfig));
-        });
+        configureTempto(builder, configDir, "singlenode_ldap_and_file");
     }
 
     @Override
