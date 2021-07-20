@@ -23,11 +23,13 @@ import static io.trino.server.Server.start;
 
 public final class DevelopmentServer
 {
+    public static final String DEV = "dev";
+
     private DevelopmentServer() {}
 
     public static void main(String[] args)
     {
-        start("dev", ImmutableList.of(binder -> {
+        start(DEV, ImmutableList.of(binder -> {
             newOptionalBinder(binder, PluginsProvider.class).setBinding()
                     .to(DevelopmentPluginsProvider.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(DevelopmentLoaderConfig.class);
