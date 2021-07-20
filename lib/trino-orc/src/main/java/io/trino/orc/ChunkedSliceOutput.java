@@ -367,7 +367,7 @@ public final class ChunkedSliceOutput
         public void reset()
         {
             bufferPool.addAll(0, usedBuffers);
-            for (byte[] b : bufferPool) {
+            for (byte[] b : usedBuffers) {
                 bufferPoolSize += SizeOf.sizeOf(b);
             }
             usedBuffers.clear();
