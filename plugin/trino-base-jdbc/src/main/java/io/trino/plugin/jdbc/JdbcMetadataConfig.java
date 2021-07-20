@@ -22,7 +22,7 @@ import javax.validation.constraints.Min;
 
 public class JdbcMetadataConfig
 {
-    static final int MAX_ALLOWED_INSERT_BATCH_SIZE = 1_000_000;
+    static final int MAX_ALLOWED_WRITE_BATCH_SIZE = 1_000_000;
 
     private boolean allowDropTable;
     /*
@@ -43,7 +43,7 @@ public class JdbcMetadataConfig
     // between performance and pushdown capabilities
     private int domainCompactionThreshold = 32;
 
-    private int insertBatchSize = 1000;
+    private int writeBatchSize = 1000;
 
     // Do not create temporary table during insert.
     // This means that the write operation can fail and leave the table in an inconsistent state.
@@ -118,17 +118,17 @@ public class JdbcMetadataConfig
     }
 
     @Min(1)
-    @Max(MAX_ALLOWED_INSERT_BATCH_SIZE)
-    public int getInsertBatchSize()
+    @Max(MAX_ALLOWED_WRITE_BATCH_SIZE)
+    public int getWriteBatchSize()
     {
-        return insertBatchSize;
+        return writeBatchSize;
     }
 
-    @Config("insert.batch-size")
-    @ConfigDescription("Maximum number of rows to insert in a single batch")
-    public JdbcMetadataConfig setInsertBatchSize(int insertBatchSize)
+    @Config("write.batch-size")
+    @ConfigDescription("Maximum number of rows to write in a single batch")
+    public JdbcMetadataConfig setWriteBatchSize(int writeBatchSize)
     {
-        this.insertBatchSize = insertBatchSize;
+        this.writeBatchSize = writeBatchSize;
         return this;
     }
 
