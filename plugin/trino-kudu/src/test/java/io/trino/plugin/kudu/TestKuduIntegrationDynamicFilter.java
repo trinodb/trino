@@ -81,7 +81,9 @@ public class TestKuduIntegrationDynamicFilter
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        kuduServer.close();
+        if (kuduServer != null) {
+            kuduServer.close();
+        }
     }
 
     @Test(timeOut = 30_000)

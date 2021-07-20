@@ -45,7 +45,9 @@ public class TestKuduIntegrationSchemaNotExisting
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        kuduServer.close();
+        if (kuduServer != null) {
+            kuduServer.close();
+        }
     }
 
     @Test

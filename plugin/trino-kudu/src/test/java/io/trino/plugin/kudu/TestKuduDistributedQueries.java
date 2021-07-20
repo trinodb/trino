@@ -44,7 +44,9 @@ public class TestKuduDistributedQueries
     @AfterClass(alwaysRun = true)
     public void destroy()
     {
-        kuduServer.close();
+        if (kuduServer != null) {
+            kuduServer.close();
+        }
     }
 
     @Override

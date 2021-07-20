@@ -53,7 +53,9 @@ public abstract class AbstractKuduIntegrationSmokeTest
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        kuduServer.close();
+        if (kuduServer != null) {
+            kuduServer.close();
+        }
     }
 
     @Test

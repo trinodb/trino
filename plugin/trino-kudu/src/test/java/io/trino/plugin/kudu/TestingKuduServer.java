@@ -16,8 +16,10 @@ package io.trino.plugin.kudu;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
+import org.testng.SkipException;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -35,6 +37,9 @@ public class TestingKuduServer
 
     public TestingKuduServer()
     {
+        if (!DockerClientFactory.instance().dockerHostIpAddress().equals("localhost")) {
+            throw new SkipException("Kudu test container can only be created with a local Docker daemon");
+        }
         Network network = Network.newNetwork();
         ImmutableList.Builder<GenericContainer<?>> tServersBuilder = ImmutableList.builder();
         this.master = new GenericContainer<>("apache/kudu:1.10.0")
