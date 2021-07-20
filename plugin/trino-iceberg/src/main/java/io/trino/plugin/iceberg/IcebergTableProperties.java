@@ -23,6 +23,7 @@ import javax.inject.Inject;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
@@ -84,8 +85,8 @@ public class IcebergTableProperties
         return partitioning == null ? ImmutableList.of() : ImmutableList.copyOf(partitioning);
     }
 
-    public static String getTableLocation(Map<String, Object> tableProperties)
+    public static Optional<String> getTableLocation(Map<String, Object> tableProperties)
     {
-        return (String) tableProperties.get(LOCATION_PROPERTY);
+        return Optional.ofNullable((String) tableProperties.get(LOCATION_PROPERTY));
     }
 }

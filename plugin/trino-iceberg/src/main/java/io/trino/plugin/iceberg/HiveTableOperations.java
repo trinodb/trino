@@ -51,6 +51,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
@@ -133,6 +135,10 @@ public class HiveTableOperations
 
         Table table = getTable();
 
+        if (isPrestoView(table) && isHiveOrPrestoView(table)) {
+            // this is a Hive view, hence not a table
+            throw new TableNotFoundException(getSchemaTableName());
+        }
         if (!isIcebergTable(table)) {
             throw new UnknownTableTypeException(getSchemaTableName());
         }
