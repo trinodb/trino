@@ -32,7 +32,6 @@ import io.trino.sql.SqlPath;
 
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
 import static java.util.Locale.ENGLISH;
@@ -70,7 +69,6 @@ public final class TestingSession
                 .setPath(new SqlPath(Optional.of("path")))
                 .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
                 .setLocale(ENGLISH)
-                .setSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, "false")
                 .setRemoteUserAddress("address")
                 .setUserAgent("agent");
     }

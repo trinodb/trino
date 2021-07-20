@@ -221,6 +221,8 @@ public class TestingTrinoServer
             serverProperties.put("failure-detector.enabled", "false");
         }
 
+        serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
+
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(environment))
                 .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
