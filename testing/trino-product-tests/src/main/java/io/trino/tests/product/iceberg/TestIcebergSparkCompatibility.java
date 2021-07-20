@@ -29,6 +29,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergSparkCompatibility
         extends ProductTest
@@ -421,6 +422,31 @@ public class TestIcebergSparkCompatibility
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName(sparkTable));
         onTrino().executeQuery("DROP TABLE " + trinoTableName(trinoTable));
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoWritingDataWithObjectStorageLocationProvider()
+    {
+        String baseTableName = "test_object_storage_location_provider";
+        String sparkTableName = sparkTableName(baseTableName);
+        String trinoTableName = trinoTableName(baseTableName);
+        String dataPath = "hdfs://hadoop-master:9000/user/hive/warehouse/test_object_storage_location_provider/obj-data";
+
+        onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES (" +
+                "'write.object-storage.enabled'=true," +
+                "'write.object-storage.path'='%s')",
+                sparkTableName, dataPath));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a_string', 1000000000000000)", trinoTableName));
+
+        Row result = row("a_string", 1000000000000000L);
+        assertThat(onSpark().executeQuery(format("SELECT _string, _bigint FROM %s", sparkTableName))).containsOnly(result);
+        assertThat(onTrino().executeQuery(format("SELECT _string, _bigint FROM %s", trinoTableName))).containsOnly(result);
+
+        QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
+        assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
+        assertTrue(((String) queryResult.row(0).get(0)).contains(dataPath));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
     private static String sparkTableName(String tableName)
