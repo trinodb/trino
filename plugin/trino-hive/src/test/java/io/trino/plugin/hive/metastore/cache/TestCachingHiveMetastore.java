@@ -133,14 +133,14 @@ public class TestCachingHiveMetastore
         assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 1);
         assertEquals(metastore.getDatabaseNamesStats().getRequestCount(), 2);
-        assertEquals(metastore.getDatabaseNamesStats().getHitRate(), 0.5);
+        assertEquals(metastore.getDatabaseNamesStats().getHitRate(), Double.valueOf(0.5));
 
         metastore.flushCache();
 
         assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 2);
         assertEquals(metastore.getDatabaseNamesStats().getRequestCount(), 3);
-        assertEquals(metastore.getDatabaseNamesStats().getHitRate(), 1.0 / 3);
+        assertEquals(metastore.getDatabaseNamesStats().getHitRate(), Double.valueOf(1.0 / 3));
     }
 
     @Test
@@ -152,14 +152,14 @@ public class TestCachingHiveMetastore
         assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 1);
         assertEquals(metastore.getTableNamesStats().getRequestCount(), 2);
-        assertEquals(metastore.getTableNamesStats().getHitRate(), 0.5);
+        assertEquals(metastore.getTableNamesStats().getHitRate(), Double.valueOf(0.5));
 
         metastore.flushCache();
 
         assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 2);
         assertEquals(metastore.getTableNamesStats().getRequestCount(), 3);
-        assertEquals(metastore.getTableNamesStats().getHitRate(), 1.0 / 3);
+        assertEquals(metastore.getTableNamesStats().getHitRate(), Double.valueOf(1.0 / 3));
     }
 
     @Test
@@ -177,14 +177,14 @@ public class TestCachingHiveMetastore
         assertNotNull(metastore.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 1);
         assertEquals(metastore.getTableStats().getRequestCount(), 2);
-        assertEquals(metastore.getTableStats().getHitRate(), 0.5);
+        assertEquals(metastore.getTableStats().getHitRate(), Double.valueOf(0.5));
 
         metastore.flushCache();
 
         assertNotNull(metastore.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 2);
         assertEquals(metastore.getTableStats().getRequestCount(), 3);
-        assertEquals(metastore.getTableStats().getHitRate(), 1.0 / 3);
+        assertEquals(metastore.getTableStats().getHitRate(), Double.valueOf(1.0 / 3));
     }
 
     @Test
@@ -245,14 +245,14 @@ public class TestCachingHiveMetastore
         assertEquals(metastore.getPartitionNamesByFilter(IDENTITY, TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
         assertEquals(metastore.getPartitionFilterStats().getRequestCount(), 2);
-        assertEquals(metastore.getPartitionFilterStats().getHitRate(), 0.5);
+        assertEquals(metastore.getPartitionFilterStats().getHitRate(), Double.valueOf(0.5));
 
         metastore.flushCache();
 
         assertEquals(metastore.getPartitionNamesByFilter(IDENTITY, TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 2);
         assertEquals(metastore.getPartitionFilterStats().getRequestCount(), 3);
-        assertEquals(metastore.getPartitionFilterStats().getHitRate(), 1.0 / 3);
+        assertEquals(metastore.getPartitionFilterStats().getHitRate(), Double.valueOf(1.0 / 3));
 
         List<String> partitionColumnNames = ImmutableList.of("date_key", "key");
         HiveColumnHandle dateKeyColumn = createBaseColumn(partitionColumnNames.get(0), 0, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
@@ -333,7 +333,7 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 1);
 
         assertEquals(metastore.getRolesStats().getRequestCount(), 2);
-        assertEquals(metastore.getRolesStats().getHitRate(), 0.5);
+        assertEquals(metastore.getRolesStats().getHitRate(), Double.valueOf(0.5));
 
         metastore.flushCache();
 
@@ -351,7 +351,7 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 4);
 
         assertEquals(metastore.getRolesStats().getRequestCount(), 5);
-        assertEquals(metastore.getRolesStats().getHitRate(), 0.2);
+        assertEquals(metastore.getRolesStats().getHitRate(), Double.valueOf(0.2));
     }
 
     @Test
@@ -366,10 +366,10 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 2);
 
         assertEquals(metastore.getTableStatisticsStats().getRequestCount(), 1);
-        assertEquals(metastore.getTableStatisticsStats().getHitRate(), 0.0);
+        assertEquals(metastore.getTableStatisticsStats().getHitRate(), Double.valueOf(0.0));
 
         assertEquals(metastore.getTableStats().getRequestCount(), 2);
-        assertEquals(metastore.getTableStats().getHitRate(), 0.5);
+        assertEquals(metastore.getTableStats().getHitRate(), Double.valueOf(0.5));
     }
 
     @Test
@@ -387,13 +387,13 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 3);
 
         assertEquals(metastore.getPartitionStatisticsStats().getRequestCount(), 1);
-        assertEquals(metastore.getPartitionStatisticsStats().getHitRate(), 0.0);
+        assertEquals(metastore.getPartitionStatisticsStats().getHitRate(), Double.valueOf(0.0));
 
         assertEquals(metastore.getTableStats().getRequestCount(), 3);
-        assertEquals(metastore.getTableStats().getHitRate(), 2.0 / 3);
+        assertEquals(metastore.getTableStats().getHitRate(), Double.valueOf(2.0 / 3));
 
         assertEquals(metastore.getPartitionStats().getRequestCount(), 2);
-        assertEquals(metastore.getPartitionStats().getHitRate(), 0.5);
+        assertEquals(metastore.getPartitionStats().getHitRate(), Double.valueOf(0.5));
     }
 
     @Test

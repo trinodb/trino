@@ -902,8 +902,8 @@ public abstract class AbstractTestAggregations
         @SuppressWarnings("unchecked")
         List<Double> value = (List<Double>) actualRows.get(0).getField(0);
         assertTrue(Double.isNaN(value.get(0)));
-        assertEquals(value.get(1), 2.0);
-        assertEquals(value.get(2), 3.0);
+        assertEquals(value.get(1), Double.valueOf(2.0));
+        assertEquals(value.get(2), Double.valueOf(3.0));
     }
 
     @Test

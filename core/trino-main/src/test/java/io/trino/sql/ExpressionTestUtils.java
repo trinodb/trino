@@ -48,7 +48,7 @@ import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.transaction.TransactionBuilder.transaction;
-import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
+import static org.testng.internal.EclipseInterface.ASSERT_EQUAL_LEFT;
 import static org.testng.internal.EclipseInterface.ASSERT_MIDDLE;
 import static org.testng.internal.EclipseInterface.ASSERT_RIGHT;
 
@@ -77,7 +77,7 @@ public final class ExpressionTestUtils
         if (message != null) {
             formatted = message + " ";
         }
-        throw new AssertionError(formatted + ASSERT_LEFT + expected + ASSERT_MIDDLE + actual + ASSERT_RIGHT);
+        throw new AssertionError(formatted + ASSERT_EQUAL_LEFT + expected + ASSERT_MIDDLE + actual + ASSERT_RIGHT);
     }
 
     public static Expression createExpression(Session session, String expression, Metadata metadata, TypeProvider symbolTypes)

@@ -61,6 +61,7 @@
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.7.1</dep.errorprone.version>
         <dep.testcontainers.version>1.15.3</dep.testcontainers.version>
+        <dep.testng.version>7.3.0</dep.testng.version>
         <dep.docker-java.version>3.2.8</dep.docker-java.version>
         <dep.coral.version>1.0.60</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
@@ -1520,6 +1521,27 @@
                 <type>pom</type>
                 <version>${dep.testcontainers.version}</version>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- TODO: Change in airbase? -->
+            <dependency>
+                <groupId>org.testng</groupId>
+                <artifactId>testng</artifactId>
+                <version>${dep.testng.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>junit</groupId>
+                        <artifactId>junit</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.yaml</groupId>
+                        <artifactId>snakeyaml</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
