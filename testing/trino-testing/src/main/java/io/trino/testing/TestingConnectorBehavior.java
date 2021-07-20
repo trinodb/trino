@@ -35,6 +35,7 @@ public enum TestingConnectorBehavior
     SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE(false),
     SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION(false),
     SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION(false),
+    SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT(false),
 
     SUPPORTS_JOIN_PUSHDOWN(
             // Currently no connector supports Join pushdown by default. JDBC connectors may support Join pushdown and BaseJdbcConnectorTest

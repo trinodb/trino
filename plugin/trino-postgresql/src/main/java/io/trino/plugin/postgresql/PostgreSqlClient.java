@@ -50,6 +50,7 @@ import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.expression.ImplementCorr;
 import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
+import io.trino.plugin.jdbc.expression.ImplementCountDistinct;
 import io.trino.plugin.jdbc.expression.ImplementCovariancePop;
 import io.trino.plugin.jdbc.expression.ImplementCovarianceSamp;
 import io.trino.plugin.jdbc.expression.ImplementMinMax;
@@ -282,8 +283,9 @@ public class PostgreSqlClient
                 this::quoted,
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
-                        .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax(false))
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementCountDistinct(bigintTypeHandle, false))
                         .add(new ImplementSum(PostgreSqlClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())

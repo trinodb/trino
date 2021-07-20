@@ -93,6 +93,7 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
             case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
             case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
                 return true;
 
             case SUPPORTS_JOIN_PUSHDOWN:
