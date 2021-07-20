@@ -65,6 +65,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Functions.identity;
@@ -208,8 +209,15 @@ public class DefaultJdbcMetadata
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        if (handle.getColumns().isPresent() && containSameElements(newColumns, handle.getColumns().get())) {
-            return Optional.empty();
+        Set<JdbcColumnHandle> newColumnSet = ImmutableSet.copyOf(newColumns);
+
+        if (handle.getColumns().isPresent()) {
+            Set<JdbcColumnHandle> tableColumnSet = ImmutableSet.copyOf(handle.getColumns().get());
+            if (newColumnSet.equals(tableColumnSet)) {
+                return Optional.empty();
+            }
+
+            verify(tableColumnSet.containsAll(newColumnSet), "applyProjection called with columns not available in existing query");
         }
 
         return Optional.of(new ProjectionApplicationResult<>(
@@ -263,6 +271,21 @@ public class DefaultJdbcMetadata
         ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
         ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
         ImmutableMap.Builder<String, String> expressions = ImmutableMap.builder();
+
+        List<List<JdbcColumnHandle>> groupingSetsAsJdbcColumnHandles = groupingSets.stream()
+                .map(groupingSet -> groupingSet.stream()
+                        .map(JdbcColumnHandle.class::cast)
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
+        Optional<List<JdbcColumnHandle>> tableColumns = handle.getColumns();
+        groupingSetsAsJdbcColumnHandles.stream()
+                .flatMap(List::stream)
+                .distinct()
+                .peek(groupKey -> verify(
+                        tableColumns.map(columns -> columns.contains(groupKey)).orElse(true),
+                        "applyAggregation called with a grouping column which was not included in the table handle"))
+                .forEach(newColumns::add);
+
         for (AggregateFunction aggregate : aggregates) {
             Optional<JdbcExpression> expression = jdbcClient.implementAggregation(session, aggregate, assignments);
             if (expression.isEmpty()) {
@@ -284,25 +307,13 @@ public class DefaultJdbcMetadata
             expressions.put(columnName, expression.get().getExpression());
         }
 
-        List<List<JdbcColumnHandle>> groupingSetsAsJdbcColumnHandles = groupingSets.stream()
-                .map(groupingSet -> groupingSet.stream()
-                        .map(JdbcColumnHandle.class::cast)
-                        .collect(toImmutableList()))
-                .collect(toImmutableList());
-
         List<JdbcColumnHandle> newColumnsList = newColumns.build();
 
         PreparedQuery preparedQuery = jdbcClient.prepareQuery(
                 session,
                 handle,
                 Optional.of(groupingSetsAsJdbcColumnHandles),
-                ImmutableList.<JdbcColumnHandle>builder()
-                        .addAll(groupingSetsAsJdbcColumnHandles.stream()
-                                .flatMap(List::stream)
-                                .distinct()
-                                .iterator())
-                        .addAll(newColumnsList)
-                        .build(),
+                newColumnsList,
                 expressions.build());
         handle = new JdbcTableHandle(
                 new JdbcQueryRelationHandle(preparedQuery),
@@ -758,10 +769,5 @@ public class DefaultJdbcMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         jdbcClient.dropSchema(session, schemaName);
-    }
-
-    private static boolean containSameElements(Iterable<? extends ColumnHandle> first, Iterable<? extends ColumnHandle> second)
-    {
-        return ImmutableSet.copyOf(first).equals(ImmutableSet.copyOf(second));
     }
 }
