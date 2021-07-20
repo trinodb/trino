@@ -788,8 +788,6 @@ public abstract class BaseIcebergConnectorTest
 
         assertQuery("SELECT d_hour, row_count, d.min, d.max, b.min, b.max FROM \"test_hour_transform$partitions\"", expected);
 
-        System.out.println(computeActual("SELECT * FROM \"test_hour_transform$files\""));
-
         assertThat(query("SHOW STATS FOR test_hour_transform"))
                 .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
                 .skippingTypesCheck()
