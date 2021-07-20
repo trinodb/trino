@@ -47,6 +47,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -415,6 +416,19 @@ public final class Environment
             requireNonNull(logicalName, "logicalName is null");
             checkState(containers.containsKey(logicalName), "Container with name %s is not registered", logicalName);
             requireNonNull(configurer, "configurer is null").accept(containers.get(logicalName));
+            return this;
+        }
+
+        public Builder configureContainers(
+                Set<String> containtersToConfigure,
+                Set<String> optionalContainersToConfigure,
+                Consumer<DockerContainer> configurer)
+        {
+            requireNonNull(configurer, "configurer is null");
+            containtersToConfigure.forEach(container -> configureContainer(container, configurer));
+            containers.values().stream()
+                    .filter(container -> optionalContainersToConfigure.contains(container.getLogicalName()))
+                    .forEach(configurer);
             return this;
         }
 
