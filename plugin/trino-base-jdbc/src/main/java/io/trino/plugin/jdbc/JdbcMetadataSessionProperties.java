@@ -24,7 +24,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.plugin.jdbc.JdbcMetadataConfig.MAX_ALLOWED_INSERT_BATCH_SIZE;
+import static io.trino.plugin.jdbc.JdbcMetadataConfig.MAX_ALLOWED_WRITE_BATCH_SIZE;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
@@ -37,7 +37,7 @@ public class JdbcMetadataSessionProperties
     public static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     public static final String TOPN_PUSHDOWN_ENABLED = "topn_pushdown_enabled";
     public static final String DOMAIN_COMPACTION_THRESHOLD = "domain_compaction_threshold";
-    public static final String INSERT_BATCH_SIZE = "insert_batch_size";
+    public static final String WRITE_BATCH_SIZE = "write_batch_size";
     public static final String NON_TRANSACTIONAL_INSERT = "non_transactional_insert";
 
     private final List<PropertyMetadata<?>> properties;
@@ -69,10 +69,10 @@ public class JdbcMetadataSessionProperties
                         jdbcMetadataConfig.isTopNPushdownEnabled(),
                         false))
                 .add(integerProperty(
-                        INSERT_BATCH_SIZE,
-                        "Insert batch size",
-                        jdbcMetadataConfig.getInsertBatchSize(),
-                        value -> validateInsertBatchSize(value, MAX_ALLOWED_INSERT_BATCH_SIZE),
+                        WRITE_BATCH_SIZE,
+                        "Maximum number of rows to write in a single batch",
+                        jdbcMetadataConfig.getWriteBatchSize(),
+                        JdbcMetadataSessionProperties::validateWriteBatchSize,
                         false))
                 .add(booleanProperty(
                         NON_TRANSACTIONAL_INSERT,
@@ -108,9 +108,9 @@ public class JdbcMetadataSessionProperties
         return session.getProperty(DOMAIN_COMPACTION_THRESHOLD, Integer.class);
     }
 
-    public static int getInsertBatchSize(ConnectorSession session)
+    public static int getWriteBatchSize(ConnectorSession session)
     {
-        return session.getProperty(INSERT_BATCH_SIZE, Integer.class);
+        return session.getProperty(WRITE_BATCH_SIZE, Integer.class);
     }
 
     public static boolean isNonTransactionalInsert(ConnectorSession session)
@@ -131,13 +131,13 @@ public class JdbcMetadataSessionProperties
         });
     }
 
-    private static void validateInsertBatchSize(int maxBatchSize, int maxAllowedBatchSize)
+    private static void validateWriteBatchSize(int maxBatchSize)
     {
         if (maxBatchSize < 1) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", INSERT_BATCH_SIZE, maxBatchSize));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", WRITE_BATCH_SIZE, maxBatchSize));
         }
-        if (maxBatchSize > maxAllowedBatchSize) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot exceed %s: %s", INSERT_BATCH_SIZE, maxAllowedBatchSize, maxBatchSize));
+        if (maxBatchSize > MAX_ALLOWED_WRITE_BATCH_SIZE) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot exceed %s: %s", WRITE_BATCH_SIZE, MAX_ALLOWED_WRITE_BATCH_SIZE, maxBatchSize));
         }
     }
 }

@@ -36,7 +36,7 @@ public class TestJdbcMetadataConfig
                 .setAggregationPushdownEnabled(true)
                 .setTopNPushdownEnabled(true)
                 .setDomainCompactionThreshold(32)
-                .setInsertBatchSize(1000)
+                .setWriteBatchSize(1000)
                 .setNonTransactionalInsert(false));
     }
 
@@ -49,7 +49,7 @@ public class TestJdbcMetadataConfig
                 .put("aggregation-pushdown.enabled", "false")
                 .put("domain-compaction-threshold", "42")
                 .put("topn-pushdown.enabled", "false")
-                .put("insert.batch-size", "24")
+                .put("write.batch-size", "24")
                 .put("insert.non-transactional-insert.enabled", "true")
                 .build();
 
@@ -59,25 +59,25 @@ public class TestJdbcMetadataConfig
                 .setAggregationPushdownEnabled(false)
                 .setTopNPushdownEnabled(false)
                 .setDomainCompactionThreshold(42)
-                .setInsertBatchSize(24)
+                .setWriteBatchSize(24)
                 .setNonTransactionalInsert(true);
 
         assertFullMapping(properties, expected);
     }
 
     @Test
-    public void testInsertBatchSizeValidation()
+    public void testWriteBatchSizeValidation()
     {
-        assertThatThrownBy(() -> makeConfig(ImmutableMap.of("insert.batch-size", "-42")))
-                .hasMessageContaining("insert.batch-size: must be greater than or equal to 1");
+        assertThatThrownBy(() -> makeConfig(ImmutableMap.of("write.batch-size", "-42")))
+                .hasMessageContaining("write.batch-size: must be greater than or equal to 1");
 
-        assertThatThrownBy(() -> makeConfig(ImmutableMap.of("insert.batch-size", "0")))
-                .hasMessageContaining("insert.batch-size: must be greater than or equal to 1");
+        assertThatThrownBy(() -> makeConfig(ImmutableMap.of("write.batch-size", "0")))
+                .hasMessageContaining("write.batch-size: must be greater than or equal to 1");
 
-        assertThatCode(() -> makeConfig(ImmutableMap.of("insert.batch-size", "1")))
+        assertThatCode(() -> makeConfig(ImmutableMap.of("write.batch-size", "1")))
                 .doesNotThrowAnyException();
 
-        assertThatCode(() -> makeConfig(ImmutableMap.of("insert.batch-size", "42")))
+        assertThatCode(() -> makeConfig(ImmutableMap.of("write.batch-size", "42")))
                 .doesNotThrowAnyException();
     }
 

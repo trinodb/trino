@@ -1281,18 +1281,18 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test(dataProvider = "batchSizeAndTotalNumberOfRowsToInsertDataProvider")
-    public void testInsertBatchSizeSessionProperty(Integer batchSize, Integer numberOfRows)
+    public void testWriteBatchSizeSessionProperty(Integer batchSize, Integer numberOfRows)
     {
         if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
-            throw new SkipException("CREATE TABLE is required for insert_batch_size test but is not supported");
+            throw new SkipException("CREATE TABLE is required for write_batch_size test but is not supported");
         }
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "insert_batch_size", batchSize.toString())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "write_batch_size", batchSize.toString())
                 .build();
 
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
-                "test_insert_batch_size",
+                "test_write_batch_size",
                 "(a varchar(36), b bigint)")) {
             String values = String.join(",", buildRowsForInsert(numberOfRows));
             assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) VALUES " + values, numberOfRows);
