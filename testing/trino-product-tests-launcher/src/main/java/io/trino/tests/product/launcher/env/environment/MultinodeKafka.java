@@ -27,8 +27,8 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -53,10 +53,7 @@ public final class MultinodeKafka
         builder.configureContainer(COORDINATOR, this::addCatalogs);
         builder.configureContainer(WORKER, this::addCatalogs);
 
-        builder.configureContainer(TESTS, dockerContainer -> dockerContainer
-                .withCopyFileToContainer(
-                        forHostPath(configDir.getPath("tempto-configuration.yaml")),
-                        "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml"));
+        configureTempto(builder, configDir);
     }
 
     private void addCatalogs(DockerContainer container)
