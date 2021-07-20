@@ -131,7 +131,6 @@ public class TableStatisticsMaker
                 if (!dataFileMatches(
                         dataFile,
                         constraint,
-                        idToTypeMapping,
                         partitionFields,
                         idToDetails)) {
                     continue;
@@ -196,7 +195,6 @@ public class TableStatisticsMaker
     private boolean dataFileMatches(
             DataFile dataFile,
             Constraint constraint,
-            Map<Integer, Type.PrimitiveType> idToTypeMapping,
             List<PartitionField> partitionFields,
             Map<Integer, ColumnFieldDetails> fieldDetails)
     {
@@ -213,7 +211,7 @@ public class TableStatisticsMaker
             int fieldId = field.sourceId();
             ColumnFieldDetails details = fieldDetails.get(fieldId);
             IcebergColumnHandle column = details.getColumnHandle();
-            Object value = PartitionTable.convert(dataFile.partition().get(index, details.getJavaClass()), idToTypeMapping.get(fieldId));
+            Object value = PartitionTable.convert(dataFile.partition().get(index, details.getJavaClass()), details.getIcebergType());
             Domain allowedDomain = domains.get(column);
             if (allowedDomain != null && !allowedDomain.includesNullableValue(value)) {
                 return false;
