@@ -23,10 +23,10 @@
             <artifactId>trino-base-jdbc</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-matching</artifactId>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>io.trino</groupId>-->
+<!--            <artifactId>trino-matching</artifactId>-->
+<!--        </dependency>-->
 
         <dependency>
             <groupId>io.airlift</groupId>
