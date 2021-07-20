@@ -92,6 +92,7 @@ supports the following features:
 * :doc:`/sql/delete`, see also :ref:`iceberg-delete`
 * :ref:`sql-schema-table-management`, see also :ref:`iceberg-tables`
 * :ref:`sql-materialized-views-management`
+* :ref:`sql-views-management`
 
 .. _iceberg-tables:
 
