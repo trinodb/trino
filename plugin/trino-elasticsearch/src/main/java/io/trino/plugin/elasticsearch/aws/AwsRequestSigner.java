@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.elasticsearch.client;
+package io.trino.plugin.elasticsearch.aws;
 
 import com.amazonaws.DefaultRequest;
 import com.amazonaws.auth.AWS4Signer;
@@ -42,7 +42,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static org.apache.http.protocol.HttpCoreContext.HTTP_TARGET_HOST;
 
-class AwsRequestSigner
+public class AwsRequestSigner
         implements HttpRequestInterceptor
 {
     private static final String SERVICE_NAME = "es";
