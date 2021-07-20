@@ -145,7 +145,6 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
-import static io.trino.plugin.iceberg.IcebergUtil.getDataPath;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
@@ -607,7 +606,8 @@ public class IcebergMetadata
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
 
-        TableMetadata metadata = newTableMetadata(schema, partitionSpec, targetPath, propertiesBuilder.build());
+        Map<String, String> properties = propertiesBuilder.build();
+        TableMetadata metadata = newTableMetadata(schema, partitionSpec, targetPath, properties);
 
         transaction = createTableTransaction(tableName, operations, metadata);
 
@@ -618,7 +618,8 @@ public class IcebergMetadata
                 PartitionSpecParser.toJson(metadata.spec()),
                 getColumns(metadata.schema(), typeManager),
                 targetPath,
-                fileFormat);
+                fileFormat,
+                properties);
     }
 
     @Override
@@ -641,8 +642,9 @@ public class IcebergMetadata
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
                 getColumns(icebergTable.schema(), typeManager),
-                getDataPath(icebergTable.location()),
-                getFileFormat(icebergTable));
+                icebergTable.location(),
+                getFileFormat(icebergTable),
+                icebergTable.properties());
     }
 
     @Override
@@ -1150,8 +1152,9 @@ public class IcebergMetadata
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
                 getColumns(icebergTable.schema(), typeManager),
-                getDataPath(icebergTable.location()),
-                getFileFormat(icebergTable));
+                icebergTable.location(),
+                getFileFormat(icebergTable),
+                icebergTable.properties());
     }
 
     @Override
