@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.sybase;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -28,6 +29,10 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.sybase.SybaseDataLoader.copyTpchTables;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 
 public class SybaseQueryRunner
 {
@@ -82,9 +87,9 @@ public class SybaseQueryRunner
 
         DistributedQueryRunner queryRunner = createSybaseQueryRunner(
                 new TestingSybaseServer(),
-                ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
-                TpchTable.getTables());
+                ImmutableMap.of(),
+                ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
 
         Logger log = Logger.get(SybaseQueryRunner.class);
         log.info("======== SERVER STARTED ========");
