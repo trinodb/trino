@@ -228,6 +228,45 @@ public class TestShowStats
     }
 
     @Test
+    public void testShowStatsWithTimestamp()
+    {
+        // precision 0
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00', '2021-07-20 16:52:00'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 3
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123', '2021-07-20 16:52:00.123'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 6
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123456')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123456', '2021-07-20 16:52:00.123456'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 9
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123456789')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123456', '2021-07-20 16:52:00.123456'), " +
+                        "   (null, null, null, null, 1, null, null)");
+
+        // precision 12
+        assertQuery(
+                "SHOW STATS FOR (VALUES TIMESTAMP '2021-07-20 16:52:00.123456789012')",
+                "VALUES " +
+                        "   ('_col0', null, 1, 0, null, '2021-07-20 16:52:00.123456', '2021-07-20 16:52:00.123456'), " +
+                        "   (null, null, null, null, 1, null, null)");
+    }
+
+    @Test
     public void testShowStatsWithoutFrom()
     {
         assertQuery(
