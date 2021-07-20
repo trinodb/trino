@@ -36,8 +36,7 @@ public class TestIcebergHiveTablesCompatibility
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Not an Iceberg table: default." + tableName);
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM iceberg.default.\"" + tableName + "$files\""))
-                // TODO (https://github.com/trinodb/trino/issues/8690) return adequate error message
-                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Wrong table type: FILES");
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Not an Iceberg table: default." + tableName);
 
         onTrino().executeQuery("DROP TABLE hive.default." + tableName);
     }

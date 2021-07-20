@@ -23,6 +23,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.iceberg.CatalogType.HIVE;
+import static io.trino.plugin.iceberg.CatalogType.UNKNOWN;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 
@@ -36,7 +38,8 @@ public class TestIcebergConfig
                 .setCompressionCodec(GZIP)
                 .setUseFileSizeFromMetadata(true)
                 .setMaxPartitionsPerWriter(100)
-                .setUniqueTableLocation(false));
+                .setUniqueTableLocation(false)
+                .setCatalogType(HIVE));
     }
 
     @Test
@@ -48,6 +51,7 @@ public class TestIcebergConfig
                 .put("iceberg.use-file-size-from-metadata", "false")
                 .put("iceberg.max-partitions-per-writer", "222")
                 .put("iceberg.unique-table-location", "true")
+                .put("iceberg.catalog.type", "UNKNOWN")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -55,7 +59,8 @@ public class TestIcebergConfig
                 .setCompressionCodec(HiveCompressionCodec.NONE)
                 .setUseFileSizeFromMetadata(false)
                 .setMaxPartitionsPerWriter(222)
-                .setUniqueTableLocation(true);
+                .setUniqueTableLocation(true)
+                .setCatalogType(UNKNOWN);
 
         assertFullMapping(properties, expected);
     }
