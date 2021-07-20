@@ -16,12 +16,12 @@ package io.trino.plugin.elasticsearch;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.elasticsearch.aws.AwsSignerCredentialsProvider;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.elasticsearch.ElasticsearchConfig.Security.AWS;
 import static io.trino.plugin.elasticsearch.ElasticsearchConfig.Security.PASSWORD;
 import static java.util.function.Predicate.isEqual;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -43,15 +43,8 @@ public class ElasticsearchConnectorModule
 
         configBinder(binder).bindConfig(ElasticsearchConfig.class);
 
-        newOptionalBinder(binder, AwsSecurityConfig.class);
+        newOptionalBinder(binder, AwsSignerCredentialsProvider.class);
         newOptionalBinder(binder, PasswordConfig.class);
-
-        install(conditionalModule(
-                ElasticsearchConfig.class,
-                config -> config.getSecurity()
-                        .filter(isEqual(AWS))
-                        .isPresent(),
-                conditionalBinder -> configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class)));
 
         install(conditionalModule(
                 ElasticsearchConfig.class,

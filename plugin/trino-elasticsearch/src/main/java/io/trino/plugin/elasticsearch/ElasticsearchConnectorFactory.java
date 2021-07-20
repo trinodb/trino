@@ -14,6 +14,7 @@
 package io.trino.plugin.elasticsearch;
 
 import com.google.inject.Injector;
+import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.TypeDeserializerModule;
@@ -33,7 +34,17 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchConnectorFactory
         implements ConnectorFactory
 {
-    ElasticsearchConnectorFactory() {}
+    private final Module extension;
+
+    public ElasticsearchConnectorFactory()
+    {
+        this(new ElasticsearchDefaultExtensionModule());
+    }
+
+    public ElasticsearchConnectorFactory(Module extension)
+    {
+        this.extension = requireNonNull(extension, "extension is null");
+    }
 
     @Override
     public String getName()
@@ -62,7 +73,8 @@ public class ElasticsearchConnectorFactory
                 new ElasticsearchConnectorModule(),
                 binder -> {
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                });
+                },
+                extension);
 
         Injector injector = app.strictConfig()
                 .doNotInitializeLogging()
