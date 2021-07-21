@@ -43,7 +43,7 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithCredentialProvider;
-import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithKerberos;
+import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithSingletonIdentity;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.KERBEROS_PASS_THROUGH;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD;
@@ -219,7 +219,7 @@ public class OracleAuthenticationModule
                     StarburstOracleConfig.class,
                     StarburstOracleConfig::isImpersonationEnabled,
                     new ImpersonationModule(),
-                    noImpersonationModuleWithKerberos()));
+                    noImpersonationModuleWithSingletonIdentity()));
         }
 
         @Inject
