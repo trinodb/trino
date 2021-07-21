@@ -13,19 +13,21 @@
  */
 package io.trino.plugin.jdbc;
 
-public final class SingletonJdbcIdentityCacheMapping
-        implements JdbcIdentityCacheMapping
+import io.trino.spi.security.ConnectorIdentity;
+
+public final class SingletonIdentityCacheMapping
+        implements IdentityCacheMapping
 {
     @Override
-    public JdbcIdentityCacheKey getRemoteUserCacheKey(JdbcIdentity identity)
+    public IdentityCacheKey getRemoteUserCacheKey(ConnectorIdentity identity)
     {
-        return SingletonJdbcIdentityCacheKey.INSTANCE;
+        return SingletonIdentityCacheKey.INSTANCE;
     }
 
-    private static final class SingletonJdbcIdentityCacheKey
-            extends JdbcIdentityCacheKey
+    private static final class SingletonIdentityCacheKey
+            extends IdentityCacheKey
     {
-        private static final SingletonJdbcIdentityCacheKey INSTANCE = new SingletonJdbcIdentityCacheKey();
+        private static final SingletonIdentityCacheKey INSTANCE = new SingletonIdentityCacheKey();
 
         @Override
         public int hashCode()
@@ -36,7 +38,7 @@ public final class SingletonJdbcIdentityCacheMapping
         @Override
         public boolean equals(Object obj)
         {
-            return obj instanceof SingletonJdbcIdentityCacheMapping;
+            return obj instanceof SingletonIdentityCacheMapping;
         }
     }
 }
