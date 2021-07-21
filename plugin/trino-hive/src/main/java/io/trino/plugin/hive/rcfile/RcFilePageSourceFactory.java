@@ -157,8 +157,8 @@ public class RcFilePageSourceFactory
 
         RcFileDataSource dataSource;
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.open(path));
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration);
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.open(path));
             if (estimatedFileSize < BUFFER_SIZE.toBytes()) {
                 //  Handle potentially imprecise file lengths by reading the footer
                 try {
@@ -170,7 +170,7 @@ public class RcFilePageSourceFactory
                 }
             }
             else {
-                long fileSize = hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.getFileStatus(path).getLen());
+                long fileSize = hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.getFileStatus(path).getLen());
                 dataSource = new HdfsRcFileDataSource(path.toString(), inputStream, fileSize, stats);
             }
         }

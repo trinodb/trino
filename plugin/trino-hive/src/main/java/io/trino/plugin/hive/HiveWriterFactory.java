@@ -266,7 +266,7 @@ public class HiveWriterFactory
 
         // make sure the FileSystem is created with the correct Configuration object
         try {
-            hdfsEnvironment.getFileSystem(session.getUser(), writePath, conf);
+            hdfsEnvironment.getFileSystem(session.getIdentity(), writePath, conf);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + writePath, e);
@@ -539,7 +539,7 @@ public class HiveWriterFactory
                 Configuration configuration = new Configuration(conf);
                 // Explicitly set the default FS to local file system to avoid getting HDFS when sortedWritingTempStagingPath specifies no scheme
                 configuration.set(FS_DEFAULT_NAME_KEY, "file:///");
-                fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), tempFilePath, configuration);
+                fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), tempFilePath, configuration);
             }
             catch (IOException e) {
                 throw new TrinoException(HIVE_WRITER_OPEN_ERROR, e);

@@ -47,6 +47,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -180,7 +181,7 @@ public class OrcPageSourceFactory
 
         ConnectorPageSource orcPageSource = createOrcPageSource(
                 hdfsEnvironment,
-                session.getUser(),
+                session.getIdentity(),
                 configuration,
                 path,
                 start,
@@ -212,7 +213,7 @@ public class OrcPageSourceFactory
 
     private static ConnectorPageSource createOrcPageSource(
             HdfsEnvironment hdfsEnvironment,
-            String sessionUser,
+            ConnectorIdentity identity,
             Configuration configuration,
             Path path,
             long start,
@@ -240,8 +241,8 @@ public class OrcPageSourceFactory
 
         boolean originalFilesPresent = acidInfo.isPresent() && !acidInfo.get().getOriginalFiles().isEmpty();
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(path));
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, path, configuration);
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(path));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     estimatedFileSize,
@@ -384,8 +385,8 @@ public class OrcPageSourceFactory
             Optional<OrcDeletedRows> deletedRows = acidInfo.map(info ->
                     new OrcDeletedRows(
                             path.getName(),
-                            new OrcDeleteDeltaPageSourceFactory(options, sessionUser, configuration, hdfsEnvironment, stats),
-                            sessionUser,
+                            new OrcDeleteDeltaPageSourceFactory(options, identity, configuration, hdfsEnvironment, stats),
+                            identity,
                             configuration,
                             hdfsEnvironment,
                             info,
@@ -398,7 +399,7 @@ public class OrcPageSourceFactory
                             acidInfo.get().getOriginalFiles(),
                             path,
                             hdfsEnvironment,
-                            sessionUser,
+                            identity,
                             options,
                             configuration,
                             stats));

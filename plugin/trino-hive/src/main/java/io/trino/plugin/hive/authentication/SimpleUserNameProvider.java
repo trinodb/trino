@@ -15,13 +15,12 @@ package io.trino.plugin.hive.authentication;
 
 import io.trino.spi.security.ConnectorIdentity;
 
-public class NoHdfsAuthentication
-        implements HdfsAuthentication
+public class SimpleUserNameProvider
+        implements UserNameProvider
 {
     @Override
-    public <R, E extends Exception> R doAs(ConnectorIdentity identity, GenericExceptionAction<R, E> action)
-            throws E
+    public String get(ConnectorIdentity identity)
     {
-        return action.run();
+        return identity.getUser();
     }
 }

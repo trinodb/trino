@@ -178,7 +178,7 @@ public class HivePageSink
     {
         // Must be wrapped in doAs entirely
         // Implicit FileSystem initializations are possible in HiveRecordWriter#commit -> RecordWriter#close
-        ListenableFuture<Collection<Slice>> result = hdfsEnvironment.doAs(session.getUser(), this::doFinish);
+        ListenableFuture<Collection<Slice>> result = hdfsEnvironment.doAs(session.getIdentity(), this::doFinish);
         return MoreFutures.toCompletableFuture(result);
     }
 
@@ -224,7 +224,7 @@ public class HivePageSink
     {
         // Must be wrapped in doAs entirely
         // Implicit FileSystem initializations are possible in HiveRecordWriter#rollback -> RecordWriter#close
-        hdfsEnvironment.doAs(session.getUser(), this::doAbort);
+        hdfsEnvironment.doAs(session.getIdentity(), this::doAbort);
     }
 
     private void doAbort()
@@ -253,7 +253,7 @@ public class HivePageSink
         if (page.getPositionCount() > 0) {
             // Must be wrapped in doAs entirely
             // Implicit FileSystem initializations are possible in HiveRecordWriter#addRow or #createWriter
-            hdfsEnvironment.doAs(session.getUser(), () -> doAppend(page));
+            hdfsEnvironment.doAs(session.getIdentity(), () -> doAppend(page));
         }
 
         return NOT_BLOCKED;
