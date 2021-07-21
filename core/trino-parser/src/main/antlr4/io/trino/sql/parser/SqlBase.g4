@@ -45,7 +45,7 @@ statement
     | CREATE SCHEMA (IF NOT EXISTS)? qualifiedName
         (AUTHORIZATION principal)?
         (WITH properties)?                                             #createSchema
-    | DROP SCHEMA (IF EXISTS)? qualifiedName (CASCADE | RESTRICT)?     #dropSchema
+    | DROP SCHEMA (IF EXISTS)? qualifiedName (CASCADE)?                #dropSchema
     | ALTER SCHEMA qualifiedName RENAME TO identifier                  #renameSchema
     | ALTER SCHEMA qualifiedName SET AUTHORIZATION principal           #setSchemaAuthorization
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName columnAliases?
