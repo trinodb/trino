@@ -30,16 +30,16 @@ import static java.lang.String.format;
 public final class PartitionFields
 {
     private static final String NAME = "[a-z_][a-z0-9_]*";
-    private static final String FUNCTION_NAME = "\\((" + NAME + ")\\)";
-    private static final String FUNCTION_NAME_INT = "\\((" + NAME + "), *(\\d+)\\)";
+    private static final String FUNCTION_ARGUMENT_NAME = "\\((" + NAME + ")\\)";
+    private static final String FUNCTION_ARGUMENT_NAME_AND_INT = "\\((" + NAME + "), *(\\d+)\\)";
 
     private static final Pattern IDENTITY_PATTERN = Pattern.compile(NAME);
-    private static final Pattern YEAR_PATTERN = Pattern.compile("year" + FUNCTION_NAME);
-    private static final Pattern MONTH_PATTERN = Pattern.compile("month" + FUNCTION_NAME);
-    private static final Pattern DAY_PATTERN = Pattern.compile("day" + FUNCTION_NAME);
-    private static final Pattern HOUR_PATTERN = Pattern.compile("hour" + FUNCTION_NAME);
-    private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket" + FUNCTION_NAME_INT);
-    private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate" + FUNCTION_NAME_INT);
+    private static final Pattern YEAR_PATTERN = Pattern.compile("year" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern MONTH_PATTERN = Pattern.compile("month" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern DAY_PATTERN = Pattern.compile("day" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern HOUR_PATTERN = Pattern.compile("hour" + FUNCTION_ARGUMENT_NAME);
+    private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket" + FUNCTION_ARGUMENT_NAME_AND_INT);
+    private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate" + FUNCTION_ARGUMENT_NAME_AND_INT);
 
     private static final Pattern ICEBERG_BUCKET_PATTERN = Pattern.compile("bucket\\[(\\d+)]");
     private static final Pattern ICEBERG_TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
