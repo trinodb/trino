@@ -25,6 +25,7 @@ import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestDistributedSnowflakeConnectorTest
@@ -100,6 +101,15 @@ public class TestDistributedSnowflakeConnectorTest
         long noDynamicFilterProcessedBytes = queryManager.getFullQueryInfo(noDynamicFilter.getQueryId()).getQueryStats().getProcessedInputDataSize().toBytes();
         assertThat(dynamicFilterProcessedBytes).as("dynamicFilterProcessedBytes")
                 .isLessThan(noDynamicFilterProcessedBytes);
+    }
+
+    @Test
+    @Override
+    public void testNumericAggregationPushdown()
+    {
+        // TODO https://starburstdata.atlassian.net/browse/SEP-4739
+        assertThatThrownBy(super::testNumericAggregationPushdown)
+                .hasMessageContaining("Error encountered when unloading FIXED data to PARQUET: SFLogicalType: FIXED, SFPhysicalType: SB8, length: 4, precision: 9, scale: 3");
     }
 
     private Session fixedBroadcastJoinDistribution(boolean dynamicFilteringEnabled)
