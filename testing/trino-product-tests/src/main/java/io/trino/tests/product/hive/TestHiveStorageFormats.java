@@ -534,6 +534,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/8662", match = "Object 'table_dropped' not found within 'hive.test_list_failing_views'")
     public void testTimestampCreatedFromTrino(StorageFormat storageFormat)
     {
         String tableName = createSimpleTimestampTable("timestamps_from_trino", storageFormat);
