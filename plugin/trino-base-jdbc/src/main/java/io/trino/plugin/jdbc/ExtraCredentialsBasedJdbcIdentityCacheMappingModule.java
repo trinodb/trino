@@ -23,6 +23,6 @@ public class ExtraCredentialsBasedJdbcIdentityCacheMappingModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(JdbcIdentityCacheMapping.class).to(ExtraCredentialsBasedJdbcIdentityCacheMapping.class).in(Scopes.SINGLETON);
+        binder.bind(IdentityCacheMapping.class).to(ExtraCredentialsBasedIdentityCacheMapping.class).in(Scopes.SINGLETON);
     }
 }

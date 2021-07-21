@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.jdbc.JdbcIdentityCacheMapping.JdbcIdentityCacheKey;
+import io.trino.plugin.jdbc.IdentityCacheMapping.IdentityCacheKey;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -72,9 +72,9 @@ public class CachingJdbcClient
     private final JdbcClient delegate;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final boolean cacheMissing;
-    private final JdbcIdentityCacheMapping identityMapping;
+    private final IdentityCacheMapping identityMapping;
 
-    private final Cache<JdbcIdentityCacheKey, Set<String>> schemaNamesCache;
+    private final Cache<IdentityCacheKey, Set<String>> schemaNamesCache;
     private final Cache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
     private final Cache<TableHandleCacheKey, Optional<JdbcTableHandle>> tableHandleCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
@@ -84,7 +84,7 @@ public class CachingJdbcClient
     public CachingJdbcClient(
             @StatsCollecting JdbcClient delegate,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
-            JdbcIdentityCacheMapping identityMapping,
+            IdentityCacheMapping identityMapping,
             BaseJdbcConfig config)
     {
         this(delegate, sessionPropertiesProviders, identityMapping, config.getMetadataCacheTtl(), config.isCacheMissing());
@@ -93,7 +93,7 @@ public class CachingJdbcClient
     public CachingJdbcClient(
             JdbcClient delegate,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
-            JdbcIdentityCacheMapping identityMapping,
+            IdentityCacheMapping identityMapping,
             Duration metadataCachingTtl,
             boolean cacheMissing)
     {
@@ -130,7 +130,7 @@ public class CachingJdbcClient
     @Override
     public Set<String> getSchemaNames(ConnectorSession session)
     {
-        JdbcIdentityCacheKey key = getIdentityKey(session);
+        IdentityCacheKey key = getIdentityKey(session);
         return get(schemaNamesCache, key, () -> delegate.getSchemaNames(session));
     }
 
@@ -460,9 +460,9 @@ public class CachingJdbcClient
         return deletedRowsCount;
     }
 
-    private JdbcIdentityCacheKey getIdentityKey(ConnectorSession session)
+    private IdentityCacheKey getIdentityKey(ConnectorSession session)
     {
-        return identityMapping.getRemoteUserCacheKey(JdbcIdentity.from(session));
+        return identityMapping.getRemoteUserCacheKey(session.getIdentity());
     }
 
     private Map<String, Object> getSessionProperties(ConnectorSession session)
@@ -524,18 +524,18 @@ public class CachingJdbcClient
 
     private static final class ColumnsCacheKey
     {
-        private final JdbcIdentityCacheKey identity;
+        private final IdentityCacheKey identity;
         private final SchemaTableName table;
         private final Map<String, Object> sessionProperties;
 
-        private ColumnsCacheKey(JdbcIdentityCacheKey identity, Map<String, Object> sessionProperties, SchemaTableName table)
+        private ColumnsCacheKey(IdentityCacheKey identity, Map<String, Object> sessionProperties, SchemaTableName table)
         {
             this.identity = requireNonNull(identity, "identity is null");
             this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
             this.table = requireNonNull(table, "table is null");
         }
 
-        public JdbcIdentityCacheKey getIdentity()
+        public IdentityCacheKey getIdentity()
         {
             return identity;
         }
@@ -574,10 +574,10 @@ public class CachingJdbcClient
 
     private static final class TableHandleCacheKey
     {
-        private final JdbcIdentityCacheKey identity;
+        private final IdentityCacheKey identity;
         private final SchemaTableName tableName;
 
-        private TableHandleCacheKey(JdbcIdentityCacheKey identity, SchemaTableName tableName)
+        private TableHandleCacheKey(IdentityCacheKey identity, SchemaTableName tableName)
         {
             this.identity = requireNonNull(identity, "identity is null");
             this.tableName = requireNonNull(tableName, "tableName is null");
@@ -606,10 +606,10 @@ public class CachingJdbcClient
 
     private static final class TableNamesCacheKey
     {
-        private final JdbcIdentityCacheKey identity;
+        private final IdentityCacheKey identity;
         private final Optional<String> schemaName;
 
-        private TableNamesCacheKey(JdbcIdentityCacheKey identity, Optional<String> schemaName)
+        private TableNamesCacheKey(IdentityCacheKey identity, Optional<String> schemaName)
         {
             this.identity = requireNonNull(identity, "identity is null");
             this.schemaName = requireNonNull(schemaName, "schemaName is null");

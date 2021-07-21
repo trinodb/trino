@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.jdbc.credential;
 
-import io.trino.plugin.jdbc.JdbcIdentity;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Map;
 
@@ -22,5 +22,5 @@ import java.util.Map;
  */
 public interface CredentialPropertiesProvider
 {
-    Map<String, String> getCredentialProperties(JdbcIdentity identity);
+    Map<String, String> getCredentialProperties(ConnectorIdentity identity);
 }
