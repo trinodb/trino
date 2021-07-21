@@ -20,7 +20,6 @@ import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
@@ -40,6 +39,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -516,7 +516,7 @@ public class PhoenixClient
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
-            JdbcIdentity identity = JdbcIdentity.from(session);
+            ConnectorIdentity identity = session.getIdentity();
             schema = getIdentifierMapping().toRemoteSchemaName(identity, connection, schema);
             table = getIdentifierMapping().toRemoteTableName(identity, connection, schema, table);
             schema = toPhoenixSchemaName(schema);

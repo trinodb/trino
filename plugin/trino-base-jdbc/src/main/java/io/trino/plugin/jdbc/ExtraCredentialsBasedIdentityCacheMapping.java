@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
+import io.trino.spi.security.ConnectorIdentity;
 
 import javax.inject.Inject;
 
@@ -26,15 +27,15 @@ import java.util.Optional;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
-public final class ExtraCredentialsBasedJdbcIdentityCacheMapping
-        implements JdbcIdentityCacheMapping
+public final class ExtraCredentialsBasedIdentityCacheMapping
+        implements IdentityCacheMapping
 {
     private final MessageDigest sha256;
     private final Optional<String> userCredentialName;
     private final Optional<String> passwordCredentialName;
 
     @Inject
-    public ExtraCredentialsBasedJdbcIdentityCacheMapping(ExtraCredentialConfig config)
+    public ExtraCredentialsBasedIdentityCacheMapping(ExtraCredentialConfig config)
     {
         try {
             sha256 = MessageDigest.getInstance("SHA-256");
@@ -48,10 +49,10 @@ public final class ExtraCredentialsBasedJdbcIdentityCacheMapping
     }
 
     @Override
-    public JdbcIdentityCacheKey getRemoteUserCacheKey(JdbcIdentity identity)
+    public IdentityCacheKey getRemoteUserCacheKey(ConnectorIdentity identity)
     {
         Map<String, String> extraCredentials = identity.getExtraCredentials();
-        return new ExtraCredentialsBasedJdbcIdentityCacheKey(
+        return new ExtraCredentialsBasedIdentityCacheKey(
                 userCredentialName.map(extraCredentials::get)
                         .map(this::hash),
                 passwordCredentialName.map(extraCredentials::get)
@@ -63,14 +64,14 @@ public final class ExtraCredentialsBasedJdbcIdentityCacheMapping
         return sha256.digest(value.getBytes(UTF_8));
     }
 
-    private static final class ExtraCredentialsBasedJdbcIdentityCacheKey
-            extends JdbcIdentityCacheKey
+    private static final class ExtraCredentialsBasedIdentityCacheKey
+            extends IdentityCacheKey
     {
         private static final byte[] EMPTY_BYTES = new byte[0];
         private final byte[] userHash;
         private final byte[] passwordHash;
 
-        public ExtraCredentialsBasedJdbcIdentityCacheKey(Optional<byte[]> userHash, Optional<byte[]> passwordHash)
+        public ExtraCredentialsBasedIdentityCacheKey(Optional<byte[]> userHash, Optional<byte[]> passwordHash)
         {
             this.userHash = requireNonNull(userHash, "userHash is null")
                     .orElse(EMPTY_BYTES);
@@ -87,7 +88,7 @@ public final class ExtraCredentialsBasedJdbcIdentityCacheMapping
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            ExtraCredentialsBasedJdbcIdentityCacheKey that = (ExtraCredentialsBasedJdbcIdentityCacheKey) o;
+            ExtraCredentialsBasedIdentityCacheKey that = (ExtraCredentialsBasedIdentityCacheKey) o;
             return Arrays.equals(userHash, that.userHash) && Arrays.equals(passwordHash, that.passwordHash);
         }
 

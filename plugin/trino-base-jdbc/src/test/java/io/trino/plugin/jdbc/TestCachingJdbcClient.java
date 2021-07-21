@@ -94,7 +94,7 @@ public class TestCachingJdbcClient
 
     private CachingJdbcClient createCachingJdbcClient(Duration cacheTtl, boolean cacheMissing)
     {
-        return new CachingJdbcClient(database.getJdbcClient(), SESSION_PROPERTIES_PROVIDERS, new SingletonJdbcIdentityCacheMapping(), cacheTtl, cacheMissing);
+        return new CachingJdbcClient(database.getJdbcClient(), SESSION_PROPERTIES_PROVIDERS, new SingletonIdentityCacheMapping(), cacheTtl, cacheMissing);
     }
 
     private CachingJdbcClient createCachingJdbcClient(boolean cacheMissing)
@@ -443,7 +443,7 @@ public class TestCachingJdbcClient
                 return NON_EMPTY_STATS;
             }
         };
-        return new CachingJdbcClient(statsAwareJdbcClient, SESSION_PROPERTIES_PROVIDERS, new SingletonJdbcIdentityCacheMapping(), duration, cacheMissing);
+        return new CachingJdbcClient(statsAwareJdbcClient, SESSION_PROPERTIES_PROVIDERS, new SingletonIdentityCacheMapping(), duration, cacheMissing);
     }
 
     @Test
@@ -490,7 +490,7 @@ public class TestCachingJdbcClient
         CachingJdbcClient cachingJdbcClient = new CachingJdbcClient(
                 database.getJdbcClient(),
                 SESSION_PROPERTIES_PROVIDERS,
-                new ExtraCredentialsBasedJdbcIdentityCacheMapping(new ExtraCredentialConfig()
+                new ExtraCredentialsBasedIdentityCacheMapping(new ExtraCredentialConfig()
                         .setUserCredentialName("user")
                         .setPasswordCredentialName("password")),
                 FOREVER,
