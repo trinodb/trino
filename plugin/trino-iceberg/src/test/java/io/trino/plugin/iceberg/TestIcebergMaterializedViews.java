@@ -194,7 +194,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_refresh");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testCreateRefreshSelect()
     {
         Session session = getSession();
@@ -280,7 +280,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_part");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testDetectStaleness()
     {
         // Base tables and materialized views for staleness check
@@ -334,11 +334,9 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_part_stale");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testSqlFeatures()
     {
-        Session session = getSession();
-
         // Materialized views to test SQL features
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_window WITH (partitioning = ARRAY['_date']) as select _date, " +
                 "sum(_bigint) OVER (partition by _date order by _date) as sum_ints from base_table1");
@@ -362,13 +360,17 @@ public class TestIcebergMaterializedViews
         assertQueryFails("show create view  materialized_view_window",
                 "line 1:1: Relation 'iceberg.tpch.materialized_view_window' is a materialized view, not a view");
 
-        assertQuery(session, "show create materialized view  materialized_view_window",
-                "VALUES ('CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_window AS\n" +
+        assertThat(computeScalar("show create materialized view  materialized_view_window"))
+                .isEqualTo("CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_window\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC',\n" +
+                        "   partitioning = ARRAY['_date']\n" +
+                        ") AS\n" +
                         "SELECT\n" +
                         "  _date\n" +
                         ", sum(_bigint) OVER (PARTITION BY _date ORDER BY _date ASC) sum_ints\n" +
                         "FROM\n" +
-                        "  base_table1')");
+                        "  base_table1");
 
         assertQueryFails("INSERT INTO materialized_view_window VALUES (0, '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')",
                 "Inserting into materialized views is not supported");
@@ -389,7 +391,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_subquery");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testReplace()
     {
         // Materialized view to test 'replace' feature
@@ -406,7 +408,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_replace");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testNestedMaterializedViews()
     {
         // Base table and materialized views for nested materialized view testing
