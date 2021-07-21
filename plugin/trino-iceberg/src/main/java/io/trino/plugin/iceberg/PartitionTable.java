@@ -289,7 +289,7 @@ public class PartitionTable
         }
         if (type instanceof Types.BinaryType) {
             // TODO the client sees the bytearray's tostring ouput instead of seeing actual bytes, needs to be fixed.
-            return ((ByteBuffer) value).array();
+            return ((ByteBuffer) value).array().clone();
         }
         if (type instanceof Types.TimestampType) {
             long epochMicros = (long) value;
@@ -315,6 +315,7 @@ public class PartitionTable
             }
             return Decimals.encodeScaledValue((BigDecimal) value, trinoDecimalType.getScale());
         }
+        // TODO implement explicit conversion for all supported types
         return value;
     }
 }
