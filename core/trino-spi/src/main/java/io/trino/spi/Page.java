@@ -292,6 +292,22 @@ public final class Page
         return wrapBlocksWithoutCopy(positionCount, loadedBlocks);
     }
 
+    public Page getLoadedPage(int column)
+    {
+        return wrapBlocksWithoutCopy(positionCount, new Block[]{this.blocks[column].getLoadedBlock()});
+    }
+
+    public Page getLoadedPage(int... columns)
+    {
+        requireNonNull(columns, "columns is null");
+
+        Block[] blocks = new Block[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            blocks[i] = this.blocks[columns[i]].getLoadedBlock();
+        }
+        return wrapBlocksWithoutCopy(positionCount, blocks);
+    }
+
     @Override
     public String toString()
     {
