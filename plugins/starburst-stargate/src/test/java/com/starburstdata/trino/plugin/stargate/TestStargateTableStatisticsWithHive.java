@@ -39,6 +39,7 @@ import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStargateTableStatisticsWithHive
         extends BaseStargateTableStatisticsTest
@@ -493,6 +494,42 @@ public class TestStargateTableStatisticsWithHive
                 "VALUES " +
                         "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
                         "   (null, null, null, null, 5.0, null, null)");
+    }
+
+    // JdbcPageSink writes in a non auto-commit mode,
+    // Hive connector doesn't support multiple writes in a same transaction
+    // so we directly push the data to remote Starburst - https://starburstdata.atlassian.net/browse/SEP-4832
+    // TODO: Modify the test data setup so that this overriden test can be removed - https://starburstdata.atlassian.net/browse/SEP-6680
+    @Override
+    public void testStatsWithVarcharPredicatePushdown()
+    {
+        // Predicate on a varchar column. May or may not be pushed down, may or may not be subsumed.
+        assertThat(query("SHOW STATS FOR (SELECT * FROM nation WHERE name = 'PERU')"))
+                // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
+                .projected(0, 2, 3, 4)
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('nationkey', 1e0, 0e0, null)," +
+                        "('name', 1e0, 0e0, null)," +
+                        "('regionkey', 1e0, 0e0, null)," +
+                        "('comment', 1e0, 0e0, null)," +
+                        "(null, null, null, 1e0)");
+
+        try (TestTable table = new TestTable(
+                this::executeInRemoteStarburst,
+                "varchar_duplicates",
+                // each letter A-E repeated 5 times
+                " AS SELECT nationkey, chr(codepoint('A') + nationkey / 5) fl FROM  tpch.tiny.nation")) {
+            gatherStats(table.getName());
+
+            assertThat(query("SHOW STATS FOR (SELECT * FROM " + table.getName() + " WHERE fl = 'B')"))
+                    .projected(0, 2, 3, 4)
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "('nationkey', 5e0, 0e0, null)," +
+                            "('fl', 1e0, 0e0, null)," +
+                            "(null, null, null, 5e0)");
+        }
     }
 
     private void assertLocalAndRemoteStatistics(String showStatsQuery, String expectedValues)
