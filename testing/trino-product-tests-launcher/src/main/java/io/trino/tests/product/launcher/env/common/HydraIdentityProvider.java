@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.launcher.env.common;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
@@ -21,6 +22,9 @@ import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -73,6 +77,11 @@ public class HydraIdentityProvider
         builder.addContainer(hydra);
 
         builder.containerDependsOn(hydra.getLogicalName(), hydraConsent.getLogicalName());
+
+        builder.configureContainersIfPresent(
+                ImmutableSet.of(COORDINATOR, WORKER),
+                dockerContainer -> dockerContainer
+                        .withCopyFileToContainer(forHostPath(configDir.getPath("cert")), CONTAINER_PRESTO_ETC + "/hydra/cert"));
     }
 
     public DockerContainer createClient(
