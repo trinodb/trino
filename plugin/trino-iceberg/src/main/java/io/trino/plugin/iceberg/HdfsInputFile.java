@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.io.InputFile;
@@ -32,7 +33,7 @@ public class HdfsInputFile
 {
     private final InputFile delegate;
     private final HdfsEnvironment environment;
-    private final String user;
+    private final ConnectorIdentity identity;
 
     public HdfsInputFile(Path path, HdfsEnvironment environment, HdfsContext context)
     {
@@ -45,20 +46,20 @@ public class HdfsInputFile
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to create input file: " + path, e);
         }
-        this.user = context.getIdentity().getUser();
+        this.identity = context.getIdentity();
     }
 
     @Override
     public long getLength()
     {
-        return environment.doAs(user, delegate::getLength);
+        return environment.doAs(identity, delegate::getLength);
     }
 
     @Override
     public SeekableInputStream newStream()
     {
         // Hack: this wrapping is required to circumvent https://github.com/trinodb/trino/issues/5201
-        return new HdfsInputStream(environment.doAs(user, delegate::newStream));
+        return new HdfsInputStream(environment.doAs(identity, delegate::newStream));
     }
 
     @Override
@@ -70,7 +71,7 @@ public class HdfsInputFile
     @Override
     public boolean exists()
     {
-        return environment.doAs(user, delegate::exists);
+        return environment.doAs(identity, delegate::exists);
     }
 
     @Override
@@ -78,7 +79,7 @@ public class HdfsInputFile
     {
         return toStringHelper(this)
                 .add("delegate", delegate)
-                .add("user", user)
+                .add("identity", identity)
                 .toString();
     }
 

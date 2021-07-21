@@ -150,7 +150,7 @@ public class IcebergPageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        hdfsEnvironment.doAs(session.getUser(), () -> doAppend(page));
+        hdfsEnvironment.doAs(session.getIdentity(), () -> doAppend(page));
 
         return NOT_BLOCKED;
     }

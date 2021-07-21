@@ -69,6 +69,6 @@ public class IcebergParquetFileWriter
     @Override
     public Metrics getMetrics()
     {
-        return hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> ParquetUtil.fileMetrics(new HdfsInputFile(outputPath, hdfsEnvironment, hdfsContext), MetricsConfig.getDefault()));
+        return hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> ParquetUtil.fileMetrics(new HdfsInputFile(outputPath, hdfsEnvironment, hdfsContext), MetricsConfig.getDefault()));
     }
 }

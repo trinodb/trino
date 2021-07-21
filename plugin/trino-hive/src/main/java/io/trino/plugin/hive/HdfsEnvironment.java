@@ -69,13 +69,13 @@ public class HdfsEnvironment
     public FileSystem getFileSystem(HdfsContext context, Path path)
             throws IOException
     {
-        return getFileSystem(context.getIdentity().getUser(), path, getConfiguration(context, path));
+        return getFileSystem(context.getIdentity(), path, getConfiguration(context, path));
     }
 
-    public FileSystem getFileSystem(String user, Path path, Configuration configuration)
+    public FileSystem getFileSystem(ConnectorIdentity identity, Path path, Configuration configuration)
             throws IOException
     {
-        return hdfsAuthentication.doAs(user, () -> {
+        return hdfsAuthentication.doAs(identity, () -> {
             FileSystem fileSystem = path.getFileSystem(configuration);
             fileSystem.setVerifyChecksum(verifyChecksum);
             return fileSystem;
@@ -92,15 +92,15 @@ public class HdfsEnvironment
         return newFileInheritOwnership;
     }
 
-    public <R, E extends Exception> R doAs(String user, GenericExceptionAction<R, E> action)
+    public <R, E extends Exception> R doAs(ConnectorIdentity identity, GenericExceptionAction<R, E> action)
             throws E
     {
-        return hdfsAuthentication.doAs(user, action);
+        return hdfsAuthentication.doAs(identity, action);
     }
 
-    public void doAs(String user, Runnable action)
+    public void doAs(ConnectorIdentity identity, Runnable action)
     {
-        hdfsAuthentication.doAs(user, action);
+        hdfsAuthentication.doAs(identity, action);
     }
 
     public static class HdfsContext
