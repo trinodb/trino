@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.authentication;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.authentication.HiveAuthenticationConfig.HdfsAuthenticationType;
+import io.trino.plugin.hive.authentication.HdfsAuthenticationConfig.HdfsAuthenticationType;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -23,12 +23,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestHiveAuthenticationConfig
+public class TestHdfsAuthenticationConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(HiveAuthenticationConfig.class)
+        assertRecordedDefaults(recordDefaults(HdfsAuthenticationConfig.class)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)
                 .setHdfsImpersonationEnabled(false));
     }
@@ -41,7 +41,7 @@ public class TestHiveAuthenticationConfig
                 .put("hive.hdfs.impersonation.enabled", "true")
                 .build();
 
-        HiveAuthenticationConfig expected = new HiveAuthenticationConfig()
+        HdfsAuthenticationConfig expected = new HdfsAuthenticationConfig()
                 .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)
                 .setHdfsImpersonationEnabled(true);
 
