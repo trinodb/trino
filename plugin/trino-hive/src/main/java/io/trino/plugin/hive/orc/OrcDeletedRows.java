@@ -23,6 +23,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -59,7 +60,7 @@ public class OrcDeletedRows
 
     private final String sourceFileName;
     private final OrcDeleteDeltaPageSourceFactory pageSourceFactory;
-    private final String sessionUser;
+    private final ConnectorIdentity identity;
     private final Configuration configuration;
     private final HdfsEnvironment hdfsEnvironment;
     private final AcidInfo acidInfo;
@@ -71,7 +72,7 @@ public class OrcDeletedRows
     public OrcDeletedRows(
             String sourceFileName,
             OrcDeleteDeltaPageSourceFactory pageSourceFactory,
-            String sessionUser,
+            ConnectorIdentity identity,
             Configuration configuration,
             HdfsEnvironment hdfsEnvironment,
             AcidInfo acidInfo,
@@ -79,7 +80,7 @@ public class OrcDeletedRows
     {
         this.sourceFileName = requireNonNull(sourceFileName, "sourceFileName is null");
         this.pageSourceFactory = requireNonNull(pageSourceFactory, "pageSourceFactory is null");
-        this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
+        this.identity = requireNonNull(identity, "identity is null");
         this.configuration = requireNonNull(configuration, "configuration is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.acidInfo = requireNonNull(acidInfo, "acidInfo is null");
@@ -227,8 +228,8 @@ public class OrcDeletedRows
             Path path = createPath(acidInfo, deleteDeltaInfo, sourceFileName);
 
             try {
-                FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-                FileStatus fileStatus = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.getFileStatus(path));
+                FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, path, configuration);
+                FileStatus fileStatus = hdfsEnvironment.doAs(identity, () -> fileSystem.getFileStatus(path));
 
                 try (ConnectorPageSource pageSource = pageSourceFactory.createPageSource(fileStatus.getPath(), fileStatus.getLen()).orElseGet(() -> new EmptyPageSource())) {
                     while (!pageSource.isFinished()) {

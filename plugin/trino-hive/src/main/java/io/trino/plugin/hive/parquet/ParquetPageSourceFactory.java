@@ -40,6 +40,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -163,7 +164,7 @@ public class ParquetPageSourceFactory
                 isUseParquetColumnNames(session),
                 hdfsEnvironment,
                 configuration,
-                session.getUser(),
+                session.getIdentity(),
                 timeZone,
                 stats,
                 options.withIgnoreStatistics(isParquetIgnoreStatistics(session))
@@ -183,7 +184,7 @@ public class ParquetPageSourceFactory
             boolean useColumnNames,
             HdfsEnvironment hdfsEnvironment,
             Configuration configuration,
-            String user,
+            ConnectorIdentity identity,
             DateTimeZone timeZone,
             FileFormatDataSourceStats stats,
             ParquetReaderOptions options)
@@ -197,8 +198,8 @@ public class ParquetPageSourceFactory
         ParquetReader parquetReader;
         ParquetDataSource dataSource = null;
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, path, configuration);
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(path));
             dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), estimatedFileSize, inputStream, stats, options);
 
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
