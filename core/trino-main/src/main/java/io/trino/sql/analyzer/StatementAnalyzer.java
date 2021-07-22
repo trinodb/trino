@@ -2694,6 +2694,13 @@ class StatementAnalyzer
         {
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
+
+                Iterator<Field> fieldIterator = scope.getRelationType().getAllFields().iterator();
+                Set<String> fieldSet = new HashSet<>();
+                while (fieldIterator.hasNext()) {
+                    fieldSet.add(fieldIterator.next().getName().get());
+                }
+
                 Map<String, Object> columnAliasMap = new HashMap<>();
                 List<SelectItem> selectItemList = node.getSelect().getSelectItems();
                 if (selectItemList.size() > 0) {
@@ -2705,7 +2712,7 @@ class StatementAnalyzer
                     }
                 }
                 if (predicate instanceof ComparisonExpression) {
-                    if (((ComparisonExpression) predicate).getLeft() instanceof Identifier) {
+                    if (((ComparisonExpression) predicate).getLeft() instanceof Identifier && !fieldSet.contains(((Identifier) ((ComparisonExpression) predicate).getLeft()).getValue())) {
                         Expression leftExpr = (Expression) columnAliasMap.get(((Identifier) ((ComparisonExpression) predicate).getLeft()).getValue());
                         if (leftExpr != null) {
                             predicate = new ComparisonExpression(((ComparisonExpression) predicate).getLocation().get(),
@@ -2713,6 +2720,7 @@ class StatementAnalyzer
                         }
                     }
                 }
+
                 List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate));
                 if (!windowExpressions.isEmpty()) {
                     throw semanticException(NESTED_WINDOW, windowExpressions.get(0), "HAVING clause cannot contain window functions or row pattern measures");

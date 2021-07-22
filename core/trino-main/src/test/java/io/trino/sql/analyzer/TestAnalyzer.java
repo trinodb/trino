@@ -321,6 +321,17 @@ public class TestAnalyzer
         analyze("SELECT sum(a) x FROM t1 HAVING x > 5");
         analyze("SELECT t1.a as a1, count(b) total FROM t1  group by a HAVING a1 > 2");
         analyze("SELECT a, count(b) total FROM t1 group by a HAVING total > 2");
+        analyze("WITH t(a, total) AS (" +
+            "    VALUES " +
+            "       (1, 100)," +
+            "       (2, 200)," +
+            "       (3, 300)" +
+            " ) " +
+            "SELECT count(a) total " +
+            "FROM t " +
+            "GROUP BY total " +
+            "HAVING total > 50 " );
+
     }
 
     @Test
