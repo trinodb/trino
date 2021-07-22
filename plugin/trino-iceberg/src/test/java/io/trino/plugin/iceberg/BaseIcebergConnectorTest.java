@@ -117,7 +117,6 @@ public abstract class BaseIcebergConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
@@ -181,16 +180,6 @@ public abstract class BaseIcebergConnectorTest
         // Deletes are covered with testMetadataDelete test methods
         assertThatThrownBy(super::testRowLevelDelete)
                 .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
-    }
-
-    @Test
-    @Override
-    public void testRenameTable()
-    {
-        // Iceberg table rename is not supported in FileHiveMetastore
-        // rename is tested with a real metastore in product tests
-        assertThatThrownBy(super::testRenameTable)
-                .hasStackTraceContaining("Rename not supported for Iceberg tables");
     }
 
     @Test
