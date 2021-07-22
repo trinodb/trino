@@ -38,6 +38,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
+import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
@@ -458,6 +459,16 @@ public class CachingJdbcClient
         OptionalLong deletedRowsCount = delegate.delete(session, handle);
         onDataChanged(handle.getRequiredNamedRelation().getSchemaTableName());
         return deletedRowsCount;
+    }
+
+    @Managed
+    public void flushCache()
+    {
+        schemaNamesCache.invalidateAll();
+        tableNamesCache.invalidateAll();
+        tableHandleCache.invalidateAll();
+        columnsCache.invalidateAll();
+        statisticsCache.invalidateAll();
     }
 
     private IdentityCacheKey getIdentityKey(ConnectorSession session)

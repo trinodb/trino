@@ -514,6 +514,42 @@ public class TestCachingJdbcClient
         jdbcClient.dropTable(SESSION, table);
     }
 
+    @Test
+    public void testFlushCache()
+    {
+        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, true);
+        ConnectorSession session = createSession("asession");
+
+        JdbcTableHandle first = createTable(new SchemaTableName(schema, "atable"));
+
+        // load table
+        assertStatisticsCacheStats(cachingJdbcClient).misses(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableStatistics(session, first, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
+        });
+
+        // read from cache
+        assertStatisticsCacheStats(cachingJdbcClient).hits(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableStatistics(session, first, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
+        });
+
+        // flush cache
+        cachingJdbcClient.flushCache();
+        JdbcTableHandle secondFirst = createTable(new SchemaTableName(schema, "first"));
+
+        // load table again
+        assertStatisticsCacheStats(cachingJdbcClient).misses(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableStatistics(session, secondFirst, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
+        });
+
+        // read table from cache
+        assertStatisticsCacheStats(cachingJdbcClient).hits(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableStatistics(session, secondFirst, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
+        });
+
+        // cleanup
+        jdbcClient.dropTable(SESSION, first);
+    }
+
     private JdbcTableHandle getAnyTable(String schema)
     {
         SchemaTableName tableName = jdbcClient.getTableNames(SESSION, Optional.of(schema))
