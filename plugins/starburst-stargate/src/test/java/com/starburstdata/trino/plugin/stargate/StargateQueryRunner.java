@@ -183,20 +183,6 @@ public final class StargateQueryRunner
         return queryRunner;
     }
 
-    public static DistributedQueryRunner createRemoteStarburstQueryRunnerWithPostgreSql(
-            TestingPostgreSqlServer server,
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> requiredTablesInPostgreSqlConnector,
-            Session defaultSession,
-            Optional<SystemAccessControl> systemAccessControl)
-            throws Exception
-    {
-        DistributedQueryRunner queryRunner = createRemoteStarburstQueryRunner(extraProperties, systemAccessControl);
-        addPostgreSqlToRemoteStarburstQueryRunner(queryRunner, server, connectorProperties, requiredTablesInPostgreSqlConnector);
-        return queryRunner;
-    }
-
     public static DistributedQueryRunner createStargateQueryRunner(
             boolean enableWrites,
             Map<String, String> extraProperties,
