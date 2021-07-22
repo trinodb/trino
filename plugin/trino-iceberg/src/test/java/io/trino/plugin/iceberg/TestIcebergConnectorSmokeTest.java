@@ -72,7 +72,7 @@ public class TestIcebergConnectorSmokeTest
     public void testRenameTable()
     {
         // Iceberg table rename is not supported in FileHiveMetastore
-        // TODO add a test with a different metastore, or block rename in IcebergMetadata
+        // rename is tested with a real metastore in product tests
         assertThatThrownBy(super::testRenameTable)
                 .hasStackTraceContaining("Rename not supported for Iceberg tables");
     }
