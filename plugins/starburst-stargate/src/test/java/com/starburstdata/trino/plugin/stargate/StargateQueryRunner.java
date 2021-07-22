@@ -43,7 +43,7 @@ public final class StargateQueryRunner
 {
     private StargateQueryRunner() {}
 
-    private static DistributedQueryRunner createStargateQueryRunner(Map<String, String> extraProperties, Optional<SystemAccessControl> systemAccessControl)
+    private static DistributedQueryRunner createRemoteStarburstQueryRunner(Map<String, String> extraProperties, Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -153,7 +153,7 @@ public final class StargateQueryRunner
             Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createStargateQueryRunner(extraProperties, systemAccessControl);
+        DistributedQueryRunner queryRunner = createRemoteStarburstQueryRunner(extraProperties, systemAccessControl);
         addMemoryToRemoteStarburstQueryRunner(queryRunner, requiredTablesInMemoryConnector);
         return queryRunner;
     }
@@ -165,7 +165,7 @@ public final class StargateQueryRunner
             Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createStargateQueryRunner(extraProperties, systemAccessControl);
+        DistributedQueryRunner queryRunner = createRemoteStarburstQueryRunner(extraProperties, systemAccessControl);
         addHiveToRemoteStarburstQueryRunner(queryRunner, hiveCatalog, requiredTablesInHiveConnector);
         return queryRunner;
     }
@@ -178,7 +178,7 @@ public final class StargateQueryRunner
             Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createStargateQueryRunner(extraProperties, systemAccessControl);
+        DistributedQueryRunner queryRunner = createRemoteStarburstQueryRunner(extraProperties, systemAccessControl);
         addPostgreSqlToRemoteStarburstQueryRunner(queryRunner, server, connectorProperties, requiredTablesInPostgreSqlConnector);
         return queryRunner;
     }
@@ -192,7 +192,7 @@ public final class StargateQueryRunner
             Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createStargateQueryRunner(extraProperties, systemAccessControl);
+        DistributedQueryRunner queryRunner = createRemoteStarburstQueryRunner(extraProperties, systemAccessControl);
         addPostgreSqlToRemoteStarburstQueryRunner(queryRunner, server, connectorProperties, requiredTablesInPostgreSqlConnector);
         return queryRunner;
     }
@@ -253,7 +253,7 @@ public final class StargateQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner stargateQueryRunner = createStargateQueryRunner(Map.of(), Optional.empty());
+        DistributedQueryRunner stargateQueryRunner = createRemoteStarburstQueryRunner(Map.of(), Optional.empty());
 
         addMemoryToRemoteStarburstQueryRunner(
                 stargateQueryRunner,
