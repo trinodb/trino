@@ -20,21 +20,27 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.annotation.PostConstruct;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 
 import java.util.Set;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static javax.validation.constraints.Pattern.Flag.CASE_INSENSITIVE;
 
 public class BaseJdbcConfig
 {
     private String connectionUrl;
     private Set<String> jdbcTypesMappedToVarchar = ImmutableSet.of();
-    private Duration metadataCacheTtl = new Duration(0, MINUTES);
+    public static final Duration CACHING_DISABLED = new Duration(0, MILLISECONDS);
+    private Duration metadataCacheTtl = CACHING_DISABLED;
     private boolean cacheMissing;
+    public static final long DEFAULT_METADATA_CACHE_SIZE = 10000;
+    private long cacheMaximumSize = DEFAULT_METADATA_CACHE_SIZE;
 
     @NotNull
     // Some drivers match case insensitive in Driver.acceptURL
@@ -89,5 +95,28 @@ public class BaseJdbcConfig
     {
         this.cacheMissing = cacheMissing;
         return this;
+    }
+
+    @Min(1)
+    public long getCacheMaximumSize()
+    {
+        return cacheMaximumSize;
+    }
+
+    @Config("metadata.cache-maximum-size")
+    @ConfigDescription("Maximum number of objects stored in the metadata cache")
+    public BaseJdbcConfig setCacheMaximumSize(long cacheMaximumSize)
+    {
+        this.cacheMaximumSize = cacheMaximumSize;
+        return this;
+    }
+
+    @PostConstruct
+    public void validate()
+    {
+        if (metadataCacheTtl.equals(CACHING_DISABLED) && cacheMaximumSize != BaseJdbcConfig.DEFAULT_METADATA_CACHE_SIZE) {
+            throw new IllegalArgumentException(
+                    format("metadata.cache-ttl must be set to a non-zero value when metadata.cache-maximum-size is set"));
+        }
     }
 }

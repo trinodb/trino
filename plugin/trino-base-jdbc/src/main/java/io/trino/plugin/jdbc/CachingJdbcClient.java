@@ -61,6 +61,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.jdbc.BaseJdbcConfig.CACHING_DISABLED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -68,7 +69,6 @@ public class CachingJdbcClient
         implements JdbcClient
 {
     private static final Object NULL_MARKER = new Object();
-    private static final Duration CACHING_DISABLED = new Duration(0, MILLISECONDS);
 
     private final JdbcClient delegate;
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -88,7 +88,7 @@ public class CachingJdbcClient
             IdentityCacheMapping identityMapping,
             BaseJdbcConfig config)
     {
-        this(delegate, sessionPropertiesProviders, identityMapping, config.getMetadataCacheTtl(), config.isCacheMissing());
+        this(delegate, sessionPropertiesProviders, identityMapping, config.getMetadataCacheTtl(), config.isCacheMissing(), config.getCacheMaximumSize());
     }
 
     public CachingJdbcClient(
@@ -96,7 +96,8 @@ public class CachingJdbcClient
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             IdentityCacheMapping identityMapping,
             Duration metadataCachingTtl,
-            boolean cacheMissing)
+            boolean cacheMissing,
+            long cacheMaximumSize)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
@@ -112,6 +113,9 @@ public class CachingJdbcClient
         if (metadataCachingTtl.equals(CACHING_DISABLED)) {
             // Disables the cache entirely
             cacheBuilder.maximumSize(0);
+        }
+        else {
+            cacheBuilder.maximumSize(cacheMaximumSize);
         }
 
         schemaNamesCache = cacheBuilder.build();
