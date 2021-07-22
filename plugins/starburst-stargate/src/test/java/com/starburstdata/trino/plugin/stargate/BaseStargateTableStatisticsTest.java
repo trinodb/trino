@@ -22,7 +22,7 @@ public abstract class BaseStargateTableStatisticsTest
     @Override
     public void testStatsWithPredicatePushdownWithStatsPrecalculationDisabled()
     {
-        // test overridden because Starburst Remote connector does not leverage statistics precalculation
+        // test overridden because Stargate connector does not leverage statistics precalculation
 
         assertThat(query("SHOW STATS FOR nation"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.

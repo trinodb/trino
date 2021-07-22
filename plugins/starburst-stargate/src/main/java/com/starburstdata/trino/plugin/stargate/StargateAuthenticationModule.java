@@ -51,7 +51,7 @@ public class StargateAuthenticationModule
         install(conditionalModule(
                 StargateConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH,
-                new StarburstRemotePasswordPassThroughModule()));
+                new StargatePasswordPassThroughModule()));
 
         install(conditionalModule(
                 StargateConfig.class,
@@ -74,7 +74,7 @@ public class StargateAuthenticationModule
                 new KerberosWithImpersonationModule()));
     }
 
-    private static class StarburstRemotePasswordPassThroughModule
+    private static class StargatePasswordPassThroughModule
             extends AbstractConfigurationAwareModule
     {
         @Override

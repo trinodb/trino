@@ -36,8 +36,8 @@ public class StargateModule
 {
     // Values below are set based on tests. Automated tests cover domains with up to 5_000 values.
     // We also did manual test with domain with 50_000 values.
-    public static final int STARBURST_REMOTE_DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 5_000;
-    public static final int STARBURST_REMOTE_MAX_DOMAIN_COMPACTION_THRESHOLD = 50_000;
+    public static final int STARGATE_DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 5_000;
+    public static final int STARGATE_MAX_DOMAIN_COMPACTION_THRESHOLD = 50_000;
 
     @Override
     public void setup(Binder binder)
@@ -59,9 +59,9 @@ public class StargateModule
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> {
-            config.setDomainCompactionThreshold(STARBURST_REMOTE_DEFAULT_DOMAIN_COMPACTION_THRESHOLD);
+            config.setDomainCompactionThreshold(STARGATE_DEFAULT_DOMAIN_COMPACTION_THRESHOLD);
         });
-        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(STARBURST_REMOTE_MAX_DOMAIN_COMPACTION_THRESHOLD);
+        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(STARGATE_MAX_DOMAIN_COMPACTION_THRESHOLD);
 
         install(new StargateAuthenticationModule());
         install(new JdbcJoinPushdownSupportModule());
