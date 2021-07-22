@@ -83,15 +83,15 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
-import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.remoteDateColumnMapping;
-import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.remoteTimeColumnMapping;
-import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.remoteTimeWithTimeZoneColumnMapping;
-import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.remoteTimeWithTimeZoneWriteMapping;
-import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.remoteTimeWriteMapping;
-import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.remoteTimestampColumnMapping;
-import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.remoteTimestampWithTimeZoneColumnMapping;
-import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.remoteTimestampWithTimeZoneWriteMapping;
-import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.remoteTimestampWriteMapping;
+import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateDateColumnMapping;
+import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimeColumnMapping;
+import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimeWithTimeZoneColumnMapping;
+import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimeWithTimeZoneWriteMapping;
+import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimeWriteMapping;
+import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimestampColumnMapping;
+import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimestampWithTimeZoneColumnMapping;
+import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimestampWithTimeZoneWriteMapping;
+import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimestampWriteMapping;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -358,19 +358,19 @@ public class StargateClient
                 return Optional.of(varbinaryColumnMapping());
 
             case Types.DATE:
-                return Optional.of(remoteDateColumnMapping());
+                return Optional.of(stargateDateColumnMapping());
 
             case Types.TIME:
-                return Optional.of(remoteTimeColumnMapping(typeHandle.getRequiredDecimalDigits()));
+                return Optional.of(stargateTimeColumnMapping(typeHandle.getRequiredDecimalDigits()));
 
             case Types.TIME_WITH_TIMEZONE:
-                return Optional.of(remoteTimeWithTimeZoneColumnMapping(typeHandle.getRequiredDecimalDigits()));
+                return Optional.of(stargateTimeWithTimeZoneColumnMapping(typeHandle.getRequiredDecimalDigits()));
 
             case Types.TIMESTAMP:
-                return Optional.of(remoteTimestampColumnMapping(typeHandle.getRequiredDecimalDigits()));
+                return Optional.of(stargateTimestampColumnMapping(typeHandle.getRequiredDecimalDigits()));
 
             case Types.TIMESTAMP_WITH_TIMEZONE:
-                return Optional.of(remoteTimestampWithTimeZoneColumnMapping(typeHandle.getRequiredDecimalDigits()));
+                return Optional.of(stargateTimestampWithTimeZoneColumnMapping(typeHandle.getRequiredDecimalDigits()));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -533,19 +533,19 @@ public class StargateClient
         }
 
         if (type instanceof TimeType) {
-            return remoteTimeWriteMapping((TimeType) type);
+            return stargateTimeWriteMapping((TimeType) type);
         }
 
         if (type instanceof TimeWithTimeZoneType) {
-            return remoteTimeWithTimeZoneWriteMapping((TimeWithTimeZoneType) type);
+            return stargateTimeWithTimeZoneWriteMapping((TimeWithTimeZoneType) type);
         }
 
         if (type instanceof TimestampType) {
-            return remoteTimestampWriteMapping((TimestampType) type);
+            return stargateTimestampWriteMapping((TimestampType) type);
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
-            return remoteTimestampWithTimeZoneWriteMapping((TimestampWithTimeZoneType) type);
+            return stargateTimestampWithTimeZoneWriteMapping((TimestampWithTimeZoneType) type);
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());

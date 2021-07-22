@@ -82,7 +82,7 @@ final class StargateColumnMappings
             "(?<hour>\\d\\d):(?<minute>\\d\\d):(?<second>\\d\\d)(?:\\.(?<fraction>\\d{1,12}))?\\b" +
             "\\s*(?<timezone>.+)");
 
-    public static ColumnMapping remoteDateColumnMapping()
+    public static ColumnMapping stargateDateColumnMapping()
     {
         return ColumnMapping.longMapping(
                 DATE,
@@ -109,7 +109,7 @@ final class StargateColumnMappings
                 dateWriteFunction());
     }
 
-    public static ColumnMapping remoteTimeColumnMapping(int decimalDigits)
+    public static ColumnMapping stargateTimeColumnMapping(int decimalDigits)
     {
         int precision = decimalDigits;
         return ColumnMapping.longMapping(
@@ -118,7 +118,7 @@ final class StargateColumnMappings
                 timeWriteFunction(precision));
     }
 
-    public static WriteMapping remoteTimeWriteMapping(TimeType timeType)
+    public static WriteMapping stargateTimeWriteMapping(TimeType timeType)
     {
         int precision = timeType.getPrecision();
         return WriteMapping.longMapping(format("time(%s)", precision), timeWriteFunction(precision));
@@ -171,7 +171,7 @@ final class StargateColumnMappings
         };
     }
 
-    public static ColumnMapping remoteTimeWithTimeZoneColumnMapping(int decimalDigits)
+    public static ColumnMapping stargateTimeWithTimeZoneColumnMapping(int decimalDigits)
     {
         int precision = decimalDigits;
         TimeWithTimeZoneType timeWithTimeZoneType = createTimeWithTimeZoneType(precision);
@@ -228,7 +228,7 @@ final class StargateColumnMappings
         return new LongTimeWithTimeZone(picoseconds, offsetMinutes);
     }
 
-    public static WriteMapping remoteTimeWithTimeZoneWriteMapping(TimeWithTimeZoneType timeWithTimeZoneType)
+    public static WriteMapping stargateTimeWithTimeZoneWriteMapping(TimeWithTimeZoneType timeWithTimeZoneType)
     {
         int precision = timeWithTimeZoneType.getPrecision();
         String dataType = format("time(%s) with time zone", precision);
@@ -254,7 +254,7 @@ final class StargateColumnMappings
         });
     }
 
-    public static ColumnMapping remoteTimestampColumnMapping(int decimalDigits)
+    public static ColumnMapping stargateTimestampColumnMapping(int decimalDigits)
     {
         int precision = decimalDigits;
         TimestampType timestampType = createTimestampType(precision);
@@ -270,7 +270,7 @@ final class StargateColumnMappings
                 longTimestampWriteFunction(precision));
     }
 
-    public static WriteMapping remoteTimestampWriteMapping(TimestampType timestampType)
+    public static WriteMapping stargateTimestampWriteMapping(TimestampType timestampType)
     {
         int precision = timestampType.getPrecision();
         String dataType = format("timestamp(%s)", precision);
@@ -350,7 +350,7 @@ final class StargateColumnMappings
         });
     }
 
-    public static ColumnMapping remoteTimestampWithTimeZoneColumnMapping(int decimalDigits)
+    public static ColumnMapping stargateTimestampWithTimeZoneColumnMapping(int decimalDigits)
     {
         int precision = decimalDigits;
         TimestampWithTimeZoneType timestampWithTimeZoneType = createTimestampWithTimeZoneType(precision);
@@ -423,7 +423,7 @@ final class StargateColumnMappings
         return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(epochSecond, picosOfSecond, TimeZoneKey.getTimeZoneKey(timezone));
     }
 
-    public static WriteMapping remoteTimestampWithTimeZoneWriteMapping(TimestampWithTimeZoneType timestampWithTimeZoneType)
+    public static WriteMapping stargateTimestampWithTimeZoneWriteMapping(TimestampWithTimeZoneType timestampWithTimeZoneType)
     {
         int precision = timestampWithTimeZoneType.getPrecision();
         String dataType = format("timestamp(%s) with time zone", precision);
