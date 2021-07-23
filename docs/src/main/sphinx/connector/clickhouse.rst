@@ -34,6 +34,8 @@ appropriate for your setup:
     connection-user=exampleuser
     connection-password=examplepassword
 
+.. include:: jdbc-common-configurations.fragment
+
 Multiple ClickHouse servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
