@@ -398,6 +398,7 @@ For more details, see :doc:`math`
 * :func:`radians`
 * :func:`rand`
 * :func:`random`
+* :func:`remainder`
 * :func:`round`
 * :func:`sign`
 * :func:`sin`

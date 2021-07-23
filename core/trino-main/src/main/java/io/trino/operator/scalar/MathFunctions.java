@@ -46,6 +46,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
+import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -68,6 +69,7 @@ import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUn
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.DecimalOperators.modulusScalarFunction;
 import static io.trino.type.DecimalOperators.modulusSignatureBuilder;
+import static io.trino.type.DecimalOperators.remainderScalarFunction;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Character.MIN_RADIX;
@@ -79,6 +81,7 @@ import static java.lang.String.format;
 public final class MathFunctions
 {
     public static final SqlScalarFunction DECIMAL_MOD_FUNCTION = decimalModFunction();
+    public static final SqlScalarFunction DECIMAL_REMAINDER_FUNCTION = decimalRemainderFunction();
 
     private static final Slice[] DECIMAL_HALF_UNSCALED_FOR_SCALE;
     private static final Slice[] DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE;
@@ -491,7 +494,7 @@ public final class MathFunctions
         return Math.log10(num);
     }
 
-    @Description("Remainder of given quotient")
+    @Description("Mod of given quotient")
     @ScalarFunction("mod")
     @SqlType(StandardTypes.TINYINT)
     public static long modTinyint(@SqlType(StandardTypes.TINYINT) long num1, @SqlType(StandardTypes.TINYINT) long num2)
@@ -499,7 +502,7 @@ public final class MathFunctions
         return num1 % num2;
     }
 
-    @Description("Remainder of given quotient")
+    @Description("Mod of given quotient")
     @ScalarFunction("mod")
     @SqlType(StandardTypes.SMALLINT)
     public static long modSmallint(@SqlType(StandardTypes.SMALLINT) long num1, @SqlType(StandardTypes.SMALLINT) long num2)
@@ -507,7 +510,7 @@ public final class MathFunctions
         return num1 % num2;
     }
 
-    @Description("Remainder of given quotient")
+    @Description("Mod of given quotient")
     @ScalarFunction("mod")
     @SqlType(StandardTypes.INTEGER)
     public static long modInteger(@SqlType(StandardTypes.INTEGER) long num1, @SqlType(StandardTypes.INTEGER) long num2)
@@ -515,7 +518,7 @@ public final class MathFunctions
         return num1 % num2;
     }
 
-    @Description("Remainder of given quotient")
+    @Description("Mod of given quotient")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
     public static long mod(@SqlType(StandardTypes.BIGINT) long num1, @SqlType(StandardTypes.BIGINT) long num2)
@@ -523,7 +526,7 @@ public final class MathFunctions
         return num1 % num2;
     }
 
-    @Description("Remainder of given quotient")
+    @Description("Mod of given quotient")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double mod(@SqlType(StandardTypes.DOUBLE) double num1, @SqlType(StandardTypes.DOUBLE) double num2)
@@ -539,12 +542,87 @@ public final class MathFunctions
         return modulusScalarFunction(signature);
     }
 
-    @Description("Remainder of given quotient")
+    @Description("Mod of given quotient")
     @ScalarFunction("mod")
     @SqlType(StandardTypes.REAL)
     public static long modFloat(@SqlType(StandardTypes.REAL) long num1, @SqlType(StandardTypes.REAL) long num2)
     {
         return floatToRawIntBits(intBitsToFloat((int) num1) % intBitsToFloat((int) num2));
+    }
+
+    @Description("Remainder of given quotient")
+    @ScalarFunction("remainder")
+    @SqlType(StandardTypes.TINYINT)
+    public static long remainderTinyint(@SqlType(StandardTypes.TINYINT) long num1, @SqlType(StandardTypes.TINYINT) long num2)
+    {
+        if (num2 == 0) {
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
+        }
+        return num2 - (num1 * Math.round(num2 / num1));
+    }
+
+    @Description("Remainder of given quotient")
+    @ScalarFunction("remainder")
+    @SqlType(StandardTypes.SMALLINT)
+    public static long remainderSmallint(@SqlType(StandardTypes.SMALLINT) long num1, @SqlType(StandardTypes.SMALLINT) long num2)
+    {
+        if (num2 == 0) {
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
+        }
+        return num2 - (num1 * Math.round(num2 / num1));
+    }
+
+    @Description("Remainder of given quotient")
+    @ScalarFunction("remainder")
+    @SqlType(StandardTypes.INTEGER)
+    public static long remainderInteger(@SqlType(StandardTypes.INTEGER) long num1, @SqlType(StandardTypes.INTEGER) long num2)
+    {
+        if (num2 == 0) {
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
+        }
+        return num2 - (num1 * Math.round(num2 / num1));
+    }
+
+    @Description("Remainder of given quotient")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long remainder(@SqlType(StandardTypes.BIGINT) long num1, @SqlType(StandardTypes.BIGINT) long num2)
+    {
+        if (num2 == 0) {
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
+        }
+        return num2 - (num1 * Math.round(num2 / num1));
+    }
+
+    @Description("Remainder of given quotient")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double remainder(@SqlType(StandardTypes.DOUBLE) double num1, @SqlType(StandardTypes.DOUBLE) double num2)
+    {
+        if (num2 == 0) {
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
+        }
+        return num2 - (num1 * Math.round(num2 / num1));
+    }
+
+    @Description("Remainder of given quotient")
+    @ScalarFunction("remainder")
+    @SqlType(StandardTypes.REAL)
+    public static long remainderFloat(@SqlType(StandardTypes.REAL) long num1, @SqlType(StandardTypes.REAL) long num2)
+    {
+        if (num2 == 0) {
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
+        }
+        return floatToRawIntBits(intBitsToFloat((int) num2)
+                - (intBitsToFloat((int) num1) * Math.round(intBitsToFloat((int) num2) / intBitsToFloat((int) num1))));
+    }
+
+    private static SqlScalarFunction decimalRemainderFunction()
+    {
+        Signature signature = modulusSignatureBuilder()
+                .name("remainder")
+                .build();
+        return remainderScalarFunction(signature);
     }
 
     @Description("The constant Pi")

@@ -34,6 +34,7 @@ import java.util.List;
 
 import static io.trino.metadata.Signature.longVariableExpression;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
@@ -492,6 +493,18 @@ public final class DecimalOperators
                 .build();
     }
 
+    public static SqlScalarFunction remainderScalarFunction(Signature signature)
+    {
+        return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
+                .signature(signature)
+                .deterministic(true)
+                .choice(choice -> choice
+                        .implementation(methodsGroup -> methodsGroup
+                                .methods("remainderShortShortShort", "remainderLongLongLong", "remainderShortLongLong", "remainderShortLongShort", "remainderLongShortShort", "remainderLongShortLong")
+                                .withExtraParameters(DecimalOperators::modulusRescaleParameters)))
+                .build();
+    }
+
     public static SignatureBuilder modulusSignatureBuilder()
     {
         TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
@@ -632,6 +645,42 @@ public final class DecimalOperators
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
+    }
+
+    @UsedByGeneratedCode
+    public static long remainderShortShortShort(long dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Remainder is not support DECIMAL");
+    }
+
+    @UsedByGeneratedCode
+    public static long remainderShortLongShort(long dividend, Slice divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Remainder is not support DECIMAL");
+    }
+
+    @UsedByGeneratedCode
+    public static long remainderLongShortShort(Slice dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Remainder is not support DECIMAL");
+    }
+
+    @UsedByGeneratedCode
+    public static Slice remainderShortLongLong(long dividend, Slice divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Remainder is not support DECIMAL");
+    }
+
+    @UsedByGeneratedCode
+    public static Slice remainderLongShortLong(Slice dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Remainder is not support DECIMAL");
+    }
+
+    @UsedByGeneratedCode
+    public static Slice remainderLongLongLong(Slice dividend, Slice divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Remainder is not support DECIMAL");
     }
 
     @ScalarOperator(NEGATION)

@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -563,6 +564,95 @@ public class TestMathFunctions
         assertFunction("mod(DECIMAL '5.0', CAST(NULL as DECIMAL(1,0)))", createDecimalType(2, 1), null);
         assertFunction("mod(CAST(NULL as DECIMAL(1,0)), DECIMAL '5.0')", createDecimalType(2, 1), null);
         assertInvalidFunction("mod(DECIMAL '5.0', DECIMAL '0')", DIVISION_BY_ZERO);
+    }
+
+    @Test
+    public void testRemainder()
+    {
+        for (int left : intLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (int right : intRights) {
+                assertFunction("remainder(" + left + ", " + right + ")", INTEGER, (right - (left * Math.round(right / left))));
+            }
+        }
+
+        for (int left : intLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (int right : intRights) {
+                assertFunction("remainder(BIGINT '" + left + "' , BIGINT '" + right + "')", BIGINT, (long) (right - (left * Math.round(right / left))));
+            }
+        }
+
+        for (int left : intLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (double right : doubleRights) {
+                assertFunction("remainder(" + left + ", DOUBLE '" + right + "')", DOUBLE, (right - (left * Math.round(right / left))));
+            }
+        }
+
+        for (int left : intLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (double right : doubleRights) {
+                float floatRight = (float) right;
+                assertFunction("remainder(" + left + ", REAL '" + floatRight + "')", REAL, (floatRight - (left * Math.round(floatRight / left))));
+            }
+        }
+
+        for (double left : doubleLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (long right : intRights) {
+                assertFunction("remainder(DOUBLE '" + left + "', " + right + ")", DOUBLE, (right - (left * Math.round(right / left))));
+            }
+        }
+
+        for (double left : doubleLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (long right : intRights) {
+                float floatLeft = (float) left;
+                assertFunction("remainder(REAL '" + floatLeft + "', " + right + ")", REAL, (right - (floatLeft * Math.round(right / floatLeft))));
+            }
+        }
+
+        for (double left : doubleLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (double right : doubleRights) {
+                assertFunction("remainder(DOUBLE '" + left + "', DOUBLE '" + right + "')", DOUBLE, (right - (left * Math.round(right / left))));
+            }
+        }
+
+        for (double left : doubleLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (double right : doubleRights) {
+                float floatLeft = (float) left;
+                float floatRight = (float) right;
+                assertFunction("remainder(REAL '" + floatLeft + "', REAL '" + floatRight + "')", REAL, (floatRight - (floatLeft * Math.round(floatRight / floatLeft))));
+            }
+        }
+
+        assertFunction("remainder(5.0E0, NULL)", DOUBLE, null);
+        assertFunction("remainder(NULL, 5.0E0)", DOUBLE, null);
+        assertInvalidFunction("remainder(5, 0)", DIVISION_BY_ZERO);
+        assertInvalidFunction("remainder(BIGINT '5', BIGINT '0')", DIVISION_BY_ZERO);
+        assertInvalidFunction("remainder(REAL '5', REAL '0')", DIVISION_BY_ZERO);
+        assertInvalidFunction("remainder(DOUBLE '5', DOUBLE '0')", DIVISION_BY_ZERO);
+        assertInvalidFunction("remainder(DECIMAL '5.0', DECIMAL '2.5')", NOT_SUPPORTED);
+        assertInvalidFunction("remainder(DOUBLE '5', DOUBLE '0')", DIVISION_BY_ZERO);
     }
 
     @Test

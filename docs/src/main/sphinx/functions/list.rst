@@ -355,6 +355,7 @@ R
 - :func:`regress`
 - :func:`regr_intercept`
 - :func:`regr_slope`
+- :func:`remainder`
 - :func:`render`
 - :func:`repeat`
 - :func:`replace`
