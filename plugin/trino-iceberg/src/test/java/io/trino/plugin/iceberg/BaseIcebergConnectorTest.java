@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
@@ -28,7 +29,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
-import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -1517,24 +1517,28 @@ public abstract class BaseIcebergConnectorTest
         String insertStart = "INSERT INTO iceberg.tpch.test_simple_partitioned_table_statistics";
         assertUpdate(insertStart + " VALUES (1, 101), (2, 102), (3, 103), (4, 104)", 4);
         TableStatistics tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all()));
-
-        // TODO Change to use SHOW STATS FOR table_name when Iceberg applyFilter allows pushdown.
-        // Then I can get rid of the helper methods and direct use of TableStatistics
-
-        Predicate<Map<ColumnHandle, NullableValue>> predicate = new TestRelationalNumberPredicate("col1", 3, i -> i >= 0);
         IcebergColumnHandle col1Handle = getColumnHandleFromStatistics(tableStatistics, "col1");
-        Constraint constraint = new Constraint(TupleDomain.all(), Optional.of(predicate), Optional.of(ImmutableSet.of(col1Handle)));
-        tableStatistics = getTableStatistics(tableName, constraint);
-        assertEquals(tableStatistics.getRowCount().getValue(), 2.0);
-        ColumnStatistics columnStatistics = getStatisticsForColumn(tableStatistics, "col1");
-        assertThat(columnStatistics.getRange()).hasValue(new DoubleRange(3, 4));
 
-        // This shows that Predicate<ColumnHandle, NullableValue> only filters rows for partitioned columns.
-        predicate = new TestRelationalNumberPredicate("col2", 102, i -> i >= 0);
-        tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all(), Optional.of(predicate), Optional.empty()));
-        assertEquals(tableStatistics.getRowCount().getValue(), 4.0);
-        columnStatistics = getStatisticsForColumn(tableStatistics, "col2");
-        assertThat(columnStatistics.getRange()).hasValue(new DoubleRange(101, 104));
+        // Constraint.predicate is currently not supported, because it's never provided by the engine.
+        // TODO add (restore) test coverage when this changes.
+
+        // predicate on a partition column
+        assertThatThrownBy(() ->
+                getTableStatistics(tableName, new Constraint(
+                        TupleDomain.all(),
+                        Optional.of(new TestRelationalNumberPredicate("col1", 3, i1 -> i1 >= 0)),
+                        Optional.of(ImmutableSet.of(col1Handle)))))
+                .isInstanceOf(VerifyException.class)
+                .hasMessage("Unexpected Constraint predicate");
+
+        // predicate on an unspecified set of columns column
+        assertThatThrownBy(() ->
+                getTableStatistics(tableName, new Constraint(
+                        TupleDomain.all(),
+                        Optional.of(new TestRelationalNumberPredicate("col2", 102, i -> i >= 0)),
+                        Optional.empty())))
+                .isInstanceOf(VerifyException.class)
+                .hasMessage("Unexpected Constraint predicate");
 
         dropTable(tableName);
     }
