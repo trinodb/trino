@@ -14,6 +14,9 @@
 package io.trino.plugin.elasticsearch;
 
 import com.google.common.net.HostAndPort;
+import org.apache.http.HttpHost;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.testcontainers.containers.Network;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -74,5 +77,11 @@ public class ElasticsearchServer
     public HostAndPort getAddress()
     {
         return HostAndPort.fromString(container.getHttpHostAddress());
+    }
+
+    public RestHighLevelClient createClient()
+    {
+        HostAndPort address = getAddress();
+        return new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
     }
 }

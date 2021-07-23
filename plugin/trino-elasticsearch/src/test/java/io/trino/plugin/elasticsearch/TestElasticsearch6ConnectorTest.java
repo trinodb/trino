@@ -14,21 +14,37 @@
 package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static java.lang.String.format;
 
 public class TestElasticsearch6ConnectorTest
         extends BaseElasticsearchConnectorTest
 {
-    public TestElasticsearch6ConnectorTest()
+    private RestHighLevelClient client;
+
+    @Override
+    protected RestHighLevelClient getClient()
     {
-        super("docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0");
+        return client;
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        ElasticsearchServer elasticsearch = closeAfterClass(new ElasticsearchServer("docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0", ImmutableMap.of()));
+        client = closeAfterClass(elasticsearch.createClient());
+        return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables(), ImmutableMap.of(), ImmutableMap.of(), 3);
     }
 
     @Test

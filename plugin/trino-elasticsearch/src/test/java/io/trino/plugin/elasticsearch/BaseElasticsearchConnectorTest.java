@@ -17,28 +17,21 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
-import com.google.common.net.HostAndPort;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.tpch.TpchTable;
-import org.apache.http.HttpHost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
-import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -53,26 +46,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class BaseElasticsearchConnectorTest
         extends BaseConnectorTest
 {
-    private final String image;
-    private ElasticsearchServer elasticsearch;
-    protected RestHighLevelClient client;
-
-    BaseElasticsearchConnectorTest(String image)
-    {
-        this.image = image;
-    }
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        elasticsearch = new ElasticsearchServer(image, ImmutableMap.of());
-
-        HostAndPort address = elasticsearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
-
-        return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables(), ImmutableMap.of(), ImmutableMap.of(), 3);
-    }
+    protected abstract RestHighLevelClient getClient();
 
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
@@ -123,14 +97,6 @@ public abstract class BaseElasticsearchConnectorTest
                 {500},
                 {1000}
         };
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-            throws IOException
-    {
-        elasticsearch.close();
-        client.close();
     }
 
     @Test
@@ -1200,14 +1166,14 @@ public abstract class BaseElasticsearchConnectorTest
     {
         String json = new ObjectMapper().writeValueAsString(document);
         String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
-        client.getLowLevelClient()
+        getClient().getLowLevelClient()
                 .performRequest("PUT", endpoint, ImmutableMap.of(), new NStringEntity(json, ContentType.APPLICATION_JSON));
     }
 
     private void addAlias(String index, String alias)
             throws IOException
     {
-        client.getLowLevelClient()
+        getClient().getLowLevelClient()
                 .performRequest("PUT", format("/%s/_alias/%s", index, alias));
 
         refreshIndex(alias);
@@ -1218,21 +1184,21 @@ public abstract class BaseElasticsearchConnectorTest
     private void createIndex(String indexName)
             throws IOException
     {
-        client.getLowLevelClient().performRequest("PUT", "/" + indexName);
+        getClient().getLowLevelClient().performRequest("PUT", "/" + indexName);
     }
 
     private void createIndex(String indexName, @Language("JSON") String properties)
             throws IOException
     {
         String mappings = indexMapping(properties);
-        client.getLowLevelClient()
+        getClient().getLowLevelClient()
                 .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mappings, ContentType.APPLICATION_JSON));
     }
 
     private void refreshIndex(String index)
             throws IOException
     {
-        client.getLowLevelClient()
+        getClient().getLowLevelClient()
                 .performRequest("GET", format("/%s/_refresh", index));
     }
 }
