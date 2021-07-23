@@ -83,11 +83,7 @@ public class TestPasswordAuthentication
     public final void destroy()
             throws IOException
     {
-        closeAll(
-                () -> assertions.close(),
-                () -> elasticsearch.stop(),
-                () -> client.close());
-
+        closeAll(assertions, elasticsearch, client);
         assertions = null;
         elasticsearch = null;
         client = null;

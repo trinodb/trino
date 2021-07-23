@@ -129,7 +129,7 @@ public abstract class BaseElasticsearchConnectorTest
     public final void destroy()
             throws IOException
     {
-        elasticsearch.stop();
+        elasticsearch.close();
         client.close();
     }
 

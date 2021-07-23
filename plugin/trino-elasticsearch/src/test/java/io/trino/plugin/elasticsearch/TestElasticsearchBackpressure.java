@@ -57,7 +57,7 @@ public class TestElasticsearchBackpressure
             throws IOException
     {
         elasticsearchNginxProxy.stop();
-        elasticsearch.stop();
+        elasticsearch.close();
     }
 
     @Test

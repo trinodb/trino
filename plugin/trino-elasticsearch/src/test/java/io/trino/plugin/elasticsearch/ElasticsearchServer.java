@@ -18,6 +18,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +31,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class ElasticsearchServer
+        implements Closeable
 {
     private final Path configurationPath;
     private final ElasticsearchContainer container;
@@ -61,7 +63,8 @@ public class ElasticsearchServer
         container.start();
     }
 
-    public void stop()
+    @Override
+    public void close()
             throws IOException
     {
         container.close();
