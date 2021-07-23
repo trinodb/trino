@@ -101,24 +101,28 @@ public class TestKuduDistributedQueries
     public void testAddColumn()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
+        throw new SkipException("TODO");
     }
 
     @Override
     public void testCreateTable()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
+        throw new SkipException("TODO");
     }
 
     @Override
     public void testInsertUnicode()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
+        throw new SkipException("TODO");
     }
 
     @Override
     public void testDelete()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
+        throw new SkipException("TODO");
     }
 
     @Override
@@ -156,6 +160,7 @@ public class TestKuduDistributedQueries
     public void testWrittenStats()
     {
         // TODO Kudu connector supports CTAS and inserts, but the test would fail
+        throw new SkipException("TODO");
     }
 
     @Override
