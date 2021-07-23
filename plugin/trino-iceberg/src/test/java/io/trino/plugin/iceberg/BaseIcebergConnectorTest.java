@@ -346,7 +346,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreatePartitionedTable()
     {
-        @Language("SQL") String createTable = "" +
+        assertUpdate("" +
                 "CREATE TABLE test_partitioned_table (" +
                 "  _string VARCHAR" +
                 ", _bigint BIGINT" +
@@ -371,12 +371,9 @@ public abstract class BaseIcebergConnectorTest
                 "  '_decimal_long'," +
                 "  '_timestamp'," +
                 "  '_date']" +
-                ")";
+                ")");
 
-        assertUpdate(createTable);
-
-        MaterializedResult result = computeActual("SELECT * FROM test_partitioned_table");
-        assertEquals(result.getRowCount(), 0);
+        assertQueryReturnsEmptyResult("SELECT * FROM test_partitioned_table");
 
         @Language("SQL") String select = "" +
                 "SELECT" +
@@ -394,17 +391,17 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("INSERT INTO test_partitioned_table %s", select), 1);
         assertQuery("SELECT * FROM test_partitioned_table", select);
 
-        @Language("SQL") String selectAgain = "" +
+        assertQuery(
                 "SELECT * FROM test_partitioned_table WHERE" +
-                " 'foo' = _string" +
-                " AND 456 = _integer" +
-                " AND CAST(123 AS BIGINT) = _bigint" +
-                " AND true = _boolean" +
-                " AND CAST('3.14' AS DECIMAL(3,2)) = _decimal_short" +
-                " AND CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) = _decimal_long" +
-                " AND CAST('2017-05-01 10:12:34' AS TIMESTAMP) = _timestamp" +
-                " AND CAST('2017-05-01' AS DATE) = _date";
-        assertQuery(selectAgain, select);
+                        " 'foo' = _string" +
+                        " AND 456 = _integer" +
+                        " AND CAST(123 AS BIGINT) = _bigint" +
+                        " AND true = _boolean" +
+                        " AND CAST('3.14' AS DECIMAL(3,2)) = _decimal_short" +
+                        " AND CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) = _decimal_long" +
+                        " AND CAST('2017-05-01 10:12:34' AS TIMESTAMP) = _timestamp" +
+                        " AND CAST('2017-05-01' AS DATE) = _date",
+                select);
 
         dropTable("test_partitioned_table");
     }
@@ -412,17 +409,15 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreatePartitionedTableWithNestedTypes()
     {
-        @Language("SQL") String createTable = "" +
+        assertUpdate("" +
                 "CREATE TABLE test_partitioned_table_nested_type (" +
                 "  _string VARCHAR" +
                 ", _struct ROW(_field1 INT, _field2 VARCHAR)" +
                 ", _date DATE" +
                 ") " +
                 "WITH (" +
-                "partitioning = ARRAY['_date']" +
-                ")";
-
-        assertUpdate(createTable);
+                "  partitioning = ARRAY['_date']" +
+                ")");
 
         dropTable("test_partitioned_table_nested_type");
     }
@@ -430,8 +425,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testPartitionedTableWithNullValues()
     {
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_partitioned_table_with_null_values (" +
+        assertUpdate("CREATE TABLE test_partitioned_table_with_null_values (" +
                 "  _string VARCHAR" +
                 ", _bigint BIGINT" +
                 ", _integer INTEGER" +
@@ -455,12 +449,9 @@ public abstract class BaseIcebergConnectorTest
                 "  '_decimal_long'," +
                 "  '_timestamp'," +
                 "  '_date']" +
-                ")";
+                ")");
 
-        assertUpdate(createTable);
-
-        MaterializedResult result = computeActual("SELECT * from test_partitioned_table_with_null_values");
-        assertEquals(result.getRowCount(), 0);
+        assertQueryReturnsEmptyResult("SELECT * from test_partitioned_table_with_null_values");
 
         @Language("SQL") String select = "" +
                 "SELECT" +
@@ -483,34 +474,32 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreatePartitionedTableAs()
     {
-        @Language("SQL") String createTable = "" +
+        assertUpdate(
                 "CREATE TABLE test_create_partitioned_table_as " +
-                "WITH (" +
-                "partitioning = ARRAY['ORDER_STATUS', 'Ship_Priority', 'Bucket(order_key,9)']" +
-                ") " +
-                "AS " +
-                "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
-                "FROM tpch.tiny.orders";
+                        "WITH (" +
+                        "partitioning = ARRAY['ORDER_STATUS', 'Ship_Priority', 'Bucket(order_key,9)']" +
+                        ") " +
+                        "AS " +
+                        "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
+                        "FROM tpch.tiny.orders",
+                "SELECT count(*) from orders");
 
-        assertUpdate(createTable, "SELECT count(*) from orders");
-
-        String createTableSql = format("" +
+        assertEquals(
+                computeScalar("SHOW CREATE TABLE test_create_partitioned_table_as"),
+                format(
                         "CREATE TABLE %s.%s.%s (\n" +
-                        "   order_key bigint,\n" +
-                        "   ship_priority integer,\n" +
-                        "   order_status varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
-                        ")",
-                getSession().getCatalog().orElseThrow(),
-                getSession().getSchema().orElseThrow(),
-                "test_create_partitioned_table_as",
-                format);
-
-        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_partitioned_table_as");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+                                "   order_key bigint,\n" +
+                                "   ship_priority integer,\n" +
+                                "   order_status varchar\n" +
+                                ")\n" +
+                                "WITH (\n" +
+                                "   format = '%s',\n" +
+                                "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
+                                ")",
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow(),
+                        "test_create_partitioned_table_as",
+                        format));
 
         assertQuery("SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
@@ -523,7 +512,8 @@ public abstract class BaseIcebergConnectorTest
         // TODO add support for setting comments on existing column and replace the test with io.trino.testing.AbstractTestDistributedQueries#testCommentColumn
 
         assertUpdate("CREATE TABLE test_column_comments (_bigint BIGINT COMMENT 'test column comment')");
-        assertQuery("SHOW COLUMNS FROM test_column_comments",
+        assertQuery(
+                "SHOW COLUMNS FROM test_column_comments",
                 "VALUES ('_bigint', 'bigint', '', 'test column comment')");
 
         dropTable("test_column_comments");
@@ -544,10 +534,9 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(createTableSql);
         MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");
         assertEquals(getOnlyElement(resultOfCreate.getOnlyColumnAsSet()), createTableSql);
-        @Language("SQL") String showCreateTable = "SHOW CREATE TABLE test_table_comments";
 
         assertUpdate("COMMENT ON TABLE test_table_comments IS 'different test table comment'");
-        MaterializedResult resultOfCommentChange = computeActual(showCreateTable);
+        MaterializedResult resultOfCommentChange = computeActual("SHOW CREATE TABLE test_table_comments");
         String afterChangeSql = format(createTableTemplate, "different test table comment", format);
         assertEquals(getOnlyElement(resultOfCommentChange.getOnlyColumnAsSet()), afterChangeSql);
         dropTable("iceberg.tpch.test_table_comments");
@@ -561,7 +550,7 @@ public abstract class BaseIcebergConnectorTest
                 ")";
         assertUpdate(format(createTableWithoutComment, format));
         assertUpdate("COMMENT ON TABLE test_table_comments IS NULL");
-        MaterializedResult resultOfRemovingComment = computeActual(showCreateTable);
+        MaterializedResult resultOfRemovingComment = computeActual("SHOW CREATE TABLE test_table_comments");
         assertEquals(getOnlyElement(resultOfRemovingComment.getOnlyColumnAsSet()), format(createTableWithoutComment, format));
 
         dropTable("iceberg.tpch.test_table_comments");
@@ -639,7 +628,8 @@ public abstract class BaseIcebergConnectorTest
     public void testLargeInFailureOnPartitionedColumns()
     {
         QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_large_in_failure");
-        assertUpdate(format("CREATE TABLE %s (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col2'])",
+        assertUpdate(format(
+                "CREATE TABLE %s (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col2'])",
                 tableName));
         assertUpdate(format("INSERT INTO %s VALUES (1, 10)", tableName), 1L);
         assertUpdate(format("INSERT INTO %s VALUES (2, 20)", tableName), 1L);
@@ -1202,15 +1192,16 @@ public abstract class BaseIcebergConnectorTest
         String select = "SELECT d_bucket, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_bucket_transform$partitions\"";
 
         assertUpdate("CREATE TABLE test_bucket_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['bucket(d, 2)'])");
-        @Language("SQL") String insertSql = "INSERT INTO test_bucket_transform VALUES" +
-                "('abcd', 1)," +
-                "('abxy', 2)," +
-                "('ab598', 3)," +
-                "('mommy', 4)," +
-                "('moscow', 5)," +
-                "('Greece', 6)," +
-                "('Grozny', 7)";
-        assertUpdate(insertSql, 7);
+        assertUpdate(
+                "INSERT INTO test_bucket_transform VALUES" +
+                        "('abcd', 1)," +
+                        "('abxy', 2)," +
+                        "('ab598', 3)," +
+                        "('mommy', 4)," +
+                        "('moscow', 5)," +
+                        "('Greece', 6)," +
+                        "('Grozny', 7)",
+                7);
 
         assertQuery("SELECT COUNT(*) FROM \"test_bucket_transform$partitions\"", "SELECT 2");
 
@@ -1248,19 +1239,17 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testMetadataDelete()
     {
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_metadata_delete (" +
+        assertUpdate("CREATE TABLE test_metadata_delete (" +
                 "  orderkey BIGINT," +
                 "  linenumber INTEGER," +
                 "  linestatus VARCHAR" +
                 ") " +
                 "WITH (" +
-                " partitioning = ARRAY[ 'linenumber', 'linestatus' ]" +
-                ") ";
+                "  partitioning = ARRAY[ 'linenumber', 'linestatus' ]" +
+                ")");
 
-        assertUpdate(createTable);
-
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "INSERT INTO test_metadata_delete " +
                         "SELECT orderkey, linenumber, linestatus " +
                         "FROM tpch.tiny.lineitem",
@@ -1504,19 +1493,22 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("INSERT INTO %s VALUES (2, 20, 200)", tableName), 1L);
 
         assertQuery(format("SELECT * FROM %s WHERE col1 = 1", tableName), "VALUES (1, 10, 100)");
-        assertFilterPushdown(tableName,
+        assertFilterPushdown(
+                tableName,
                 ImmutableMap.of("col1", singleValue(BIGINT, 1L)),
                 ImmutableMap.of(),
                 ImmutableMap.of("col1", singleValue(BIGINT, 1L)));
 
         assertQuery(format("SELECT * FROM %s WHERE col2 = 10", tableName), "VALUES (1, 10, 100)");
-        assertFilterPushdown(tableName,
+        assertFilterPushdown(
+                tableName,
                 ImmutableMap.of("col2", singleValue(BIGINT, 10L)),
                 ImmutableMap.of("col2", singleValue(BIGINT, 10L)),
                 ImmutableMap.of());
 
         assertQuery(format("SELECT * FROM %s WHERE col1 = 1 AND col2 = 10", tableName), "VALUES (1, 10, 100)");
-        assertFilterPushdown(tableName,
+        assertFilterPushdown(
+                tableName,
                 ImmutableMap.of("col1", singleValue(BIGINT, 1L), "col2", singleValue(BIGINT, 10L)),
                 ImmutableMap.of("col2", singleValue(BIGINT, 10L)),
                 ImmutableMap.of("col1", singleValue(BIGINT, 1L)));
@@ -1566,11 +1558,13 @@ public abstract class BaseIcebergConnectorTest
             if (result.isPresent()) {
                 IcebergTableHandle newTable = (IcebergTableHandle) result.get().getHandle().getConnectorHandle();
 
-                assertEquals(newTable.getEnforcedPredicate(),
+                assertEquals(
+                        newTable.getEnforcedPredicate(),
                         TupleDomain.withColumnDomains(expectedEnforcedPredicate.entrySet().stream()
                                 .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
 
-                assertEquals(newTable.getUnenforcedPredicate(),
+                assertEquals(
+                        newTable.getUnenforcedPredicate(),
                         TupleDomain.withColumnDomains(expectedUnenforcedPredicate.entrySet().stream()
                                 .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
             }
@@ -1669,8 +1663,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreateNestedPartitionedTable()
     {
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_nested_table_1 (" +
+        assertUpdate("CREATE TABLE test_nested_table_1 (" +
                 " bool BOOLEAN" +
                 ", int INTEGER" +
                 ", arr ARRAY(VARCHAR)" +
@@ -1684,23 +1677,20 @@ public abstract class BaseIcebergConnectorTest
                 ", ts TIMESTAMP(6)" +
                 ", str ROW(id INTEGER , vc VARCHAR)" +
                 ", dt DATE)" +
-                " WITH (partitioning = ARRAY['int'])";
+                " WITH (partitioning = ARRAY['int'])");
 
-        assertUpdate(createTable);
-
-        @Language("SQL") String insertSql = "INSERT INTO test_nested_table_1 " +
-                " select true, 1, array['uno', 'dos', 'tres'], BIGINT '1', REAL '1.0', DOUBLE '1.0', map(array[1,2,3,4], array['ek','don','teen','char'])," +
-                " CAST(1.0 as DECIMAL(5,2))," +
-                " 'one', VARBINARY 'binary0/1values',\n" +
-                " cast(current_timestamp as TIMESTAMP), (CAST(ROW(null, 'this is a random value') AS ROW(int, varchar))), current_date";
-
-        assertUpdate(insertSql, 1);
-        MaterializedResult result = computeActual("SELECT * from test_nested_table_1");
-        assertEquals(result.getRowCount(), 1);
+        assertUpdate(
+                "INSERT INTO test_nested_table_1 " +
+                        " select true, 1, array['uno', 'dos', 'tres'], BIGINT '1', REAL '1.0', DOUBLE '1.0', map(array[1,2,3,4], array['ek','don','teen','char'])," +
+                        " CAST(1.0 as DECIMAL(5,2))," +
+                        " 'one', VARBINARY 'binary0/1values',\n" +
+                        " cast(current_timestamp as TIMESTAMP), (CAST(ROW(null, 'this is a random value') AS ROW(int, varchar))), current_date",
+                1);
+        assertEquals(computeActual("SELECT * from test_nested_table_1").getRowCount(), 1);
 
         dropTable("test_nested_table_1");
 
-        @Language("SQL") String createTable2 = "" +
+        assertUpdate("" +
                 "CREATE TABLE test_nested_table_2 (" +
                 " int INTEGER" +
                 ", arr ARRAY(ROW(id INTEGER, vc VARCHAR))" +
@@ -1711,26 +1701,19 @@ public abstract class BaseIcebergConnectorTest
                 ", dec DECIMAL(5,2)" +
                 ", str ROW(id INTEGER, vc VARCHAR, arr ARRAY(INTEGER))" +
                 ", vc VARCHAR)" +
-                " WITH (partitioning = ARRAY['int'])";
+                " WITH (partitioning = ARRAY['int'])");
 
-        assertUpdate(createTable2);
+        assertUpdate(
+                "INSERT INTO test_nested_table_2 " +
+                        " select 1, array[cast(row(1, null) as row(int, varchar)), cast(row(2, 'dos') as row(int, varchar))], BIGINT '1', REAL '1.0', DOUBLE '1.0', " +
+                        "map(array[1,2], array[array['ek', 'one'], array['don', 'do', 'two']]), CAST(1.0 as DECIMAL(5,2)), " +
+                        "CAST(ROW(1, 'this is a random value', null) AS ROW(int, varchar, array(int))), 'one'",
+                1);
+        assertEquals(computeActual("SELECT * from test_nested_table_2").getRowCount(), 1);
 
-        insertSql = "INSERT INTO test_nested_table_2 " +
-                " select 1, array[cast(row(1, null) as row(int, varchar)), cast(row(2, 'dos') as row(int, varchar))], BIGINT '1', REAL '1.0', DOUBLE '1.0', " +
-                "map(array[1,2], array[array['ek', 'one'], array['don', 'do', 'two']]), CAST(1.0 as DECIMAL(5,2)), " +
-                "CAST(ROW(1, 'this is a random value', null) AS ROW(int, varchar, array(int))), 'one'";
+        assertUpdate("CREATE TABLE test_nested_table_3 WITH (partitioning = ARRAY['int']) AS SELECT * FROM test_nested_table_2", 1);
 
-        assertUpdate(insertSql, 1);
-        result = computeActual("SELECT * from test_nested_table_2");
-        assertEquals(result.getRowCount(), 1);
-
-        @Language("SQL") String createTable3 = "" +
-                "CREATE TABLE test_nested_table_3 WITH (partitioning = ARRAY['int']) AS SELECT * FROM test_nested_table_2";
-
-        assertUpdate(createTable3, 1);
-
-        result = computeActual("SELECT * FROM test_nested_table_3");
-        assertEquals(result.getRowCount(), 1);
+        assertEquals(computeActual("SELECT * FROM test_nested_table_3").getRowCount(), 1);
 
         dropTable("test_nested_table_2");
         dropTable("test_nested_table_3");
@@ -1777,13 +1760,9 @@ public abstract class BaseIcebergConnectorTest
                 .setSystemProperty("optimize_metadata_queries", "true")
                 .build();
 
-        @Language("SQL") String createQuery = "" +
-                "CREATE TABLE test_metadata_optimization (a BIGINT, b BIGINT, c BIGINT) WITH (PARTITIONING = ARRAY['b', 'c'])";
-        assertUpdate(createQuery);
+        assertUpdate("CREATE TABLE test_metadata_optimization (a BIGINT, b BIGINT, c BIGINT) WITH (PARTITIONING = ARRAY['b', 'c'])");
 
-        @Language("SQL") String insertQuery = "" +
-                "INSERT INTO test_metadata_optimization VALUES (5, 6, 7), (8, 9, 10)";
-        assertUpdate(insertQuery, 2);
+        assertUpdate("INSERT INTO test_metadata_optimization VALUES (5, 6, 7), (8, 9, 10)", 2);
 
         assertQuery(session, "SELECT DISTINCT b FROM test_metadata_optimization", "VALUES (6), (9)");
         assertQuery(session, "SELECT DISTINCT b, c FROM test_metadata_optimization", "VALUES (6, 7), (9, 10)");
