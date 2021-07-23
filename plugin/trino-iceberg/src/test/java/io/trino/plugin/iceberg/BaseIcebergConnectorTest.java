@@ -567,22 +567,6 @@ public abstract class BaseIcebergConnectorTest
         dropTable("iceberg.tpch.test_table_comments");
     }
 
-    // TODO: This test shows that column $snapshot_id doesn't exist at this time.  Decide if we should
-    // add it and $snapshot_timestamp_ms
-    @Test(enabled = false)
-    public void testQueryBySnapshotId()
-    {
-        assertUpdate("CREATE TABLE test_query_by_snapshot (col0 INTEGER, col1 BIGINT)");
-        assertUpdate("INSERT INTO test_query_by_snapshot (col0, col1) VALUES (123, CAST(987 AS BIGINT))", 1);
-        long afterFirstInsertId = getLatestSnapshotId("test_query_by_snapshot");
-
-        assertUpdate("INSERT INTO test_query_by_snapshot (col0, col1) VALUES (456, CAST(654 AS BIGINT))", 1);
-        assertQuery("SELECT * FROM test_query_by_snapshot ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT))");
-        assertQuery("SELECT * FROM test_query_by_snapshot WHERE \"$snapshot_id\" = " + afterFirstInsertId, "VALUES (123, CAST(987 AS BIGINT))");
-
-        dropTable("test_query_by_snapshot");
-    }
-
     @Test
     public void testRollbackSnapshot()
     {
