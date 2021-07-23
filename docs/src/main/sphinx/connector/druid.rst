@@ -42,6 +42,13 @@ secured by basic authentication by updating the URL and adding credentials:
 Now you can access your Druid database in Trino with the ``druiddb`` catalog
 name from the properties file.
 
+.. _druid-type-mapping:
+
+Type mapping
+------------
+
+.. include:: jdbc-type-mapping.fragment
+
 .. _druid-sql-support:
 
 SQL support
