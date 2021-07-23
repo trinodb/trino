@@ -162,6 +162,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "TopNPartial\\[5 by \\(nationkey DESC");
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
