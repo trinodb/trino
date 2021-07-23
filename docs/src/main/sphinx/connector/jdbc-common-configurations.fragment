@@ -1,0 +1,27 @@
+General configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following table describes general configuration properties for the
+connector:
+
+.. list-table::
+  :widths: 30, 40, 30
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default value
+  * - ``case-insensitive-name-matching``
+    - Support case insensitive database and collection names
+    - False
+  * - ``case-insensitive-name-matching.cache-ttl``
+    -
+    - 1 minute
+  * - ``metadata.cache-ttl``
+    - Duration for which metadata, including table and column statistics, is
+      cached
+    - 0 (disabled caching)
+  * - ``metadata.cache-missing``
+    - Cache the fact that metadata, including table and column statistics, is
+      not available
+    - False

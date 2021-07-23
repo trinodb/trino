@@ -51,6 +51,8 @@ To disable connection pooling, update properties to include the following:
 
     oracle.connection-pool.enabled=false
 
+.. include:: jdbc-common-configurations.fragment
+
 Multiple Oracle servers
 ^^^^^^^^^^^^^^^^^^^^^^^
 
