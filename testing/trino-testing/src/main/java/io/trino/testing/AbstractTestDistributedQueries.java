@@ -76,6 +76,12 @@ public abstract class AbstractTestDistributedQueries
         return true;
     }
 
+    private boolean supportsDropSchema()
+    {
+        // A connector either supports CREATE SCHEMA and DROP SCHEMA or none of them.
+        return supportsCreateSchema();
+    }
+
     protected boolean supportsCreateTable()
     {
         return true;
@@ -1124,6 +1130,26 @@ public abstract class AbstractTestDistributedQueries
 
         // verify DROP SCHEMA for non-existing schema
         assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' does not exist", schemaName));
+    }
+
+    @Test
+    public void testDropNonEmptySchema()
+    {
+        if (!supportsCreateSchema()) {
+            assertQueryFails("DROP SCHEMA " + getSession().getSchema().orElseThrow(), "This connector does not support dropping schemas");
+            return;
+        }
+
+        String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate("CREATE TABLE " + schemaName + ".t(x int)");
+        assertQueryFails("DROP SCHEMA " + schemaName, "(?si).*" +
+                "(Schema not empty|" +
+                "Cannot drop schema|" +
+                "schema has (\\w+ )?tables|" +
+                "Cannot drop .{0,3}\\Q" + schemaName + "\\E).*");
+        assertUpdate("DROP TABLE " + schemaName + ".t");
+        assertUpdate("DROP SCHEMA " + schemaName);
     }
 
     @Test
