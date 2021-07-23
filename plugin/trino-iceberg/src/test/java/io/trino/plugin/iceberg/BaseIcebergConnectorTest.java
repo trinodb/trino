@@ -80,7 +80,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -296,8 +295,8 @@ public abstract class BaseIcebergConnectorTest
     private void testSelectOrPartitionedByTime(boolean partitioned)
     {
         String tableName = format("test_%s_by_time", partitioned ? "partitioned" : "selected");
-        String partitioning = partitioned ? ", partitioning = ARRAY['x']" : "";
-        assertUpdate(format("CREATE TABLE %s (x TIME(6), y BIGINT) WITH (format = '%s'%s)", tableName, format, partitioning));
+        String partitioning = partitioned ? "WITH(partitioning = ARRAY['x'])" : "";
+        assertUpdate(format("CREATE TABLE %s (x TIME(6), y BIGINT) %s", tableName, partitioning));
         assertUpdate(format("INSERT INTO %s VALUES (TIME '10:12:34', 12345)", tableName), 1);
         assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 1");
         assertQuery(format("SELECT x FROM %s", tableName), "SELECT CAST('10:12:34' AS TIME)");
@@ -374,7 +373,7 @@ public abstract class BaseIcebergConnectorTest
                 "  '_date']" +
                 ")";
 
-        assertUpdate(format(createTable, format));
+        assertUpdate(createTable);
 
         MaterializedResult result = computeActual("SELECT * FROM test_partitioned_table");
         assertEquals(result.getRowCount(), 0);
@@ -1324,7 +1323,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testBasicTableStatistics()
     {
-        String tableName = format("iceberg.tpch.test_basic_%s_table_statistics", format.name().toLowerCase(ENGLISH));
+        String tableName = "test_basic_table_statistics";
         assertUpdate(format("CREATE TABLE %s (col REAL)", tableName));
         String insertStart = format("INSERT INTO %s", tableName);
         assertUpdate(insertStart + " VALUES -10", 1);
@@ -1356,7 +1355,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testMultipleColumnTableStatistics()
     {
-        String tableName = format("iceberg.tpch.test_multiple_%s_table_statistics", format.name().toLowerCase(ENGLISH));
+        String tableName = "test_multiple_table_statistics";
         assertUpdate(format("CREATE TABLE %s (col1 REAL, col2 INTEGER, col3 DATE)", tableName));
         String insertStart = format("INSERT INTO %s", tableName);
         assertUpdate(insertStart + " VALUES (-10, -1, DATE '2019-06-28')", 1);
