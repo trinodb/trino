@@ -115,6 +115,13 @@ Property Name               Default Value    Description
 Currently the connector only supports ``Log`` and ``MergeTree`` table engines
 in create table statement. ``ReplicatedMergeTree`` engine is not yet supported.
 
+.. _clickhouse-type-mapping:
+
+Type mapping
+------------
+
+.. include:: jdbc-type-mapping.fragment
+
 Pushdown
 --------
 

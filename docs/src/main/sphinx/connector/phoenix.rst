@@ -87,8 +87,10 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``phoenix`` in the above examples.
 
-Data types
-----------
+.. _phoenix-type-mapping:
+
+Type mapping
+------------
 
 The data type mappings are as follows:
 
@@ -116,6 +118,7 @@ variable length ``VARBINARY`` data type. There is no way to create a
 Phoenix table in Trino that uses the ``BINARY`` data type, as Trino
 does not have an equivalent type.
 
+.. include:: jdbc-type-mapping.fragment
 
 Table properties - Phoenix
 --------------------------
