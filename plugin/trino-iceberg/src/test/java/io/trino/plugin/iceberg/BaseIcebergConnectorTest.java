@@ -1659,7 +1659,10 @@ public abstract class BaseIcebergConnectorTest
         assertNotNull(statistics, "statistics is null");
         // Sadly, statistics.getDataSize().isUnknown() for columns in ORC files. See the TODO
         // in IcebergOrcFileWriter.
-        if (format != ORC) {
+        if (format == ORC) {
+            assertTrue(statistics.getDataSize().isUnknown());
+        }
+        else {
             assertFalse(statistics.getDataSize().isUnknown());
         }
         assertFalse(statistics.getNullsFraction().isUnknown(), "statistics nulls fraction is unknown");
