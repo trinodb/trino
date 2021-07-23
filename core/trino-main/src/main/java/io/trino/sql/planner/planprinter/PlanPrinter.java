@@ -275,6 +275,8 @@ public class PlanPrinter
         Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats = queryStats.getDynamicFiltersStats()
                 .getDynamicFilterDomainStats().stream()
                 .collect(toImmutableMap(DynamicFilterDomainStats::getDynamicFilterId, identity()));
+        TypeProvider typeProvider = getTypeProvider(allFragments);
+
         for (StageInfo stageInfo : allStages) {
             builder.append(formatFragment(
                     tableScanNode -> tableInfos.get(tableScanNode.getId()),
@@ -284,7 +286,7 @@ public class PlanPrinter
                     Optional.of(stageInfo),
                     Optional.of(aggregatedStats),
                     verbose,
-                    allFragments));
+                    typeProvider));
         }
 
         return builder.toString();
@@ -295,8 +297,9 @@ public class PlanPrinter
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
         StringBuilder builder = new StringBuilder();
+        TypeProvider typeProvider = getTypeProvider(plan.getAllFragments());
         for (PlanFragment fragment : plan.getAllFragments()) {
-            builder.append(formatFragment(tableInfoSupplier, ImmutableMap.of(), valuePrinter, fragment, Optional.empty(), Optional.empty(), verbose, plan.getAllFragments()));
+            builder.append(formatFragment(tableInfoSupplier, ImmutableMap.of(), valuePrinter, fragment, Optional.empty(), Optional.empty(), verbose, typeProvider));
         }
 
         return builder.toString();
@@ -310,7 +313,7 @@ public class PlanPrinter
             Optional<StageInfo> stageInfo,
             Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats,
             boolean verbose,
-            List<PlanFragment> allFragments)
+            TypeProvider typeProvider)
     {
         StringBuilder builder = new StringBuilder();
         builder.append(format("Fragment %s [%s]\n",
@@ -367,10 +370,6 @@ public class PlanPrinter
         }
         builder.append(indentString(1)).append(format("Stage Execution Strategy: %s\n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
 
-        TypeProvider typeProvider = TypeProvider.copyOf(allFragments.stream()
-                .flatMap(f -> f.getSymbols().entrySet().stream())
-                .distinct()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
         builder.append(
                 new PlanPrinter(
                         fragment.getRoot(),
@@ -384,6 +383,14 @@ public class PlanPrinter
                 .append("\n");
 
         return builder.toString();
+    }
+
+    private static TypeProvider getTypeProvider(List<PlanFragment> fragments)
+    {
+        return TypeProvider.copyOf(fragments.stream()
+                .flatMap(f -> f.getSymbols().entrySet().stream())
+                .distinct()
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 
     public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types)
