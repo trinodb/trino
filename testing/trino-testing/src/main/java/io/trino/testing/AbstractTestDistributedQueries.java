@@ -1108,11 +1108,21 @@ public abstract class AbstractTestDistributedQueries
         }
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
         assertUpdate("CREATE SCHEMA " + schemaName);
+
+        // verify listing of new schema
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName);
+
+        // verify SHOW CREATE SCHEMA works
         assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
                 .startsWith(format("CREATE SCHEMA %s.%s", getSession().getCatalog().orElseThrow(), schemaName));
+
+        // try to create duplicate schema
         assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' already exists", schemaName));
+
+        // cleanup
         assertUpdate("DROP SCHEMA " + schemaName);
+
+        // verify DROP SCHEMA for non-existing schema
         assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' does not exist", schemaName));
     }
 
