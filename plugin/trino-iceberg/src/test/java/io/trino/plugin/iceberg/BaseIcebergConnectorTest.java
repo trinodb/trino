@@ -1684,9 +1684,30 @@ public abstract class BaseIcebergConnectorTest
                         " select true, 1, array['uno', 'dos', 'tres'], BIGINT '1', REAL '1.0', DOUBLE '1.0', map(array[1,2,3,4], array['ek','don','teen','char'])," +
                         " CAST(1.0 as DECIMAL(5,2))," +
                         " 'one', VARBINARY 'binary0/1values',\n" +
-                        " cast(current_timestamp as TIMESTAMP), (CAST(ROW(null, 'this is a random value') AS ROW(int, varchar))), current_date",
+                        " TIMESTAMP '2021-07-24 02:43:57.348000'," +
+                        " (CAST(ROW(null, 'this is a random value') AS ROW(int, varchar))), " +
+                        " DATE '2021-07-24'",
                 1);
         assertEquals(computeActual("SELECT * from test_nested_table_1").getRowCount(), 1);
+
+        assertThat(query("SHOW STATS FOR test_nested_table_1"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('bool', NULL, 0e0, NULL, NULL, NULL), " +
+                        "  ('int', NULL, 0e0, NULL, '1', '1'), " +
+                        "  ('arr', NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                        "  ('big', NULL, 0e0, NULL, '1', '1'), " +
+                        "  ('rl', NULL, 0e0, NULL, '1.0', '1.0'), " +
+                        "  ('dbl', NULL, 0e0, NULL, '1.0', '1.0'), " +
+                        "  ('mp', NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                        "  ('dec', NULL, 0e0, NULL, '1.0', '1.0'), " +
+                        "  ('vc', NULL, 0e0, NULL, NULL, NULL), " +
+                        "  ('vb', NULL, 0e0, NULL, NULL, NULL), " +
+                        "  ('ts', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'2021-07-24 02:43:57.348000', '2021-07-24 02:43:57.348000'") + "), " +
+                        "  ('str', NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                        "  ('dt', NULL, 0e0, NULL, '2021-07-24', '2021-07-24'), " +
+                        "  (NULL, NULL, NULL, 1e0, NULL, NULL)");
 
         dropTable("test_nested_table_1");
 
@@ -1711,9 +1732,27 @@ public abstract class BaseIcebergConnectorTest
                 1);
         assertEquals(computeActual("SELECT * from test_nested_table_2").getRowCount(), 1);
 
+        assertThat(query("SHOW STATS FOR test_nested_table_2"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('int', NULL, 0e0, NULL, '1', '1'), " +
+                        "  ('arr', NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                        "  ('big', NULL, 0e0, NULL, '1', '1'), " +
+                        "  ('rl', NULL, 0e0, NULL, '1.0', '1.0'), " +
+                        "  ('dbl', NULL, 0e0, NULL, '1.0', '1.0'), " +
+                        "  ('mp', NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                        "  ('dec', NULL, 0e0, NULL, '1.0', '1.0'), " +
+                        "  ('vc', NULL, 0e0, NULL, NULL, NULL), " +
+                        "  ('str', NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                        "  (NULL, NULL, NULL, 1e0, NULL, NULL)");
+
         assertUpdate("CREATE TABLE test_nested_table_3 WITH (partitioning = ARRAY['int']) AS SELECT * FROM test_nested_table_2", 1);
 
         assertEquals(computeActual("SELECT * FROM test_nested_table_3").getRowCount(), 1);
+
+        assertThat(query("SHOW STATS FOR test_nested_table_3"))
+                .matches("SHOW STATS FOR test_nested_table_2");
 
         dropTable("test_nested_table_2");
         dropTable("test_nested_table_3");
