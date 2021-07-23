@@ -42,13 +42,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
+import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.Partition.convertBounds;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static java.util.Objects.requireNonNull;
@@ -88,9 +88,7 @@ public class TableStatisticsMaker
 
         List<Types.NestedField> columns = icebergTable.schema().columns();
 
-        Map<Integer, Type.PrimitiveType> idToTypeMapping = columns.stream()
-                .filter(column -> column.type().isPrimitiveType())
-                .collect(Collectors.toMap(Types.NestedField::fieldId, column -> column.type().asPrimitiveType()));
+        Map<Integer, Type.PrimitiveType> idToTypeMapping = primitiveFieldTypes(icebergTable.schema());
         List<PartitionField> partitionFields = icebergTable.spec().fields();
 
         Set<Integer> identityPartitionIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()
