@@ -112,6 +112,8 @@ SQL Server Type                     Trino Type
 Complete list of `SQL Server data types
 <https://msdn.microsoft.com/en-us/library/ms187752.aspx>`_.
 
+.. include:: jdbc-type-mapping.fragment
+
 .. _sqlserver-sql-support:
 
 SQL support
