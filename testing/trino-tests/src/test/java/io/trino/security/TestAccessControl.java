@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_COLUMNS;
@@ -317,6 +318,7 @@ public class TestAccessControl
         assertAccessDenied("ALTER TABLE orders DROP COLUMN foo", "Cannot drop a column from table .*.orders.*", privilege("orders", DROP_COLUMN));
         assertAccessDenied("ALTER TABLE orders RENAME COLUMN orderkey TO foo", "Cannot rename a column in table .*.orders.*", privilege("orders", RENAME_COLUMN));
         assertAccessDenied("CREATE VIEW foo as SELECT * FROM orders", "Cannot create view .*.foo.*", privilege("foo", CREATE_VIEW));
+        assertAccessDenied("CREATE MATERIALIZED VIEW foo as SELECT * FROM orders", "Cannot create materialized view .*.foo.*", privilege("foo", CREATE_MATERIALIZED_VIEW));
         // todo add DROP VIEW test... not all connectors have view support
 
         try {

@@ -30,6 +30,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
@@ -42,10 +43,10 @@ public class AsyncQueue<T>
     private Queue<T> elements;
     // This future is completed when the queue transitions from full to not. But it will be replaced by a new instance of future immediately.
     @GuardedBy("this")
-    private SettableFuture<?> notFullSignal = SettableFuture.create();
+    private SettableFuture<Void> notFullSignal = SettableFuture.create();
     // This future is completed when the queue transitions from empty to not. But it will be replaced by a new instance of future immediately.
     @GuardedBy("this")
-    private SettableFuture<?> notEmptySignal = SettableFuture.create();
+    private SettableFuture<Void> notEmptySignal = SettableFuture.create();
     @GuardedBy("this")
     private boolean finishing;
     @GuardedBy("this")
@@ -96,12 +97,12 @@ public class AsyncQueue<T>
         }
     }
 
-    public synchronized ListenableFuture<?> offer(T element)
+    public synchronized ListenableFuture<Void> offer(T element)
     {
         requireNonNull(element);
 
         if (finishing && borrowerCount == 0) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
         elements.add(element);
         int newSize = elements.size();
@@ -112,7 +113,7 @@ public class AsyncQueue<T>
         if (newSize >= targetQueueSize) {
             return notFullSignal;
         }
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 
     public synchronized int size()
@@ -144,7 +145,7 @@ public class AsyncQueue<T>
         return borrowBatchAsync(maxSize, elements -> new BorrowResult<>(ImmutableList.of(), elements));
     }
 
-    protected synchronized SettableFuture<?> getNotEmptySignal()
+    protected synchronized SettableFuture<Void> getNotEmptySignal()
     {
         return notEmptySignal;
     }
@@ -220,7 +221,7 @@ public class AsyncQueue<T>
                 }, directExecutor());
     }
 
-    private static void completeAsync(Executor executor, SettableFuture<?> future)
+    private static void completeAsync(Executor executor, SettableFuture<Void> future)
     {
         executor.execute(() -> future.set(null));
     }

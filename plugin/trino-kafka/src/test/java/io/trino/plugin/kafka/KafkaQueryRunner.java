@@ -42,7 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.ByteStreams.toByteArray;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
@@ -123,7 +123,7 @@ public final class KafkaQueryRunner
                     .build();
             setExtension(combine(
                     extension,
-                    installModuleIf(
+                    conditionalModule(
                             KafkaConfig.class,
                             kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
                             binder -> binder.bind(TableDescriptionSupplier.class)

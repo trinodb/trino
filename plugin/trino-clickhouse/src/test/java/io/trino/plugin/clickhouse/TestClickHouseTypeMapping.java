@@ -25,6 +25,7 @@ import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import io.trino.type.UuidType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -311,8 +312,8 @@ public class TestClickHouseTypeMapping
     public void testEnum()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("Enum('hello' = 1, 'world' = 2)", "'hello'", createUnboundedVarcharType(), "CAST('hello' AS varchar)")
-                .addRoundTrip("Enum('hello' = 1, 'world' = 2)", "'world'", createUnboundedVarcharType(), "CAST('world' AS varchar)")
+                .addRoundTrip("Enum('hello' = 1, 'world' = 2)", "'hello'", createUnboundedVarcharType(), "VARCHAR 'hello'")
+                .addRoundTrip("Enum('hello' = 1, 'world' = 2)", "'world'", createUnboundedVarcharType(), "VARCHAR 'world'")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_enum"));
     }
 
@@ -320,11 +321,15 @@ public class TestClickHouseTypeMapping
     public void testUuid()
     {
         SqlDataTypeTest.create()
-                // TODO map to Trino UUID
-                .addRoundTrip("UUID", "'417ddc5d-e556-4d27-95dd-a34d84e46a50'", createUnboundedVarcharType(), "CAST('417ddc5d-e556-4d27-95dd-a34d84e46a50' AS varchar)")
-                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_uuid"));
+                .addRoundTrip("Nullable(UUID)", "NULL", UuidType.UUID, "CAST(NULL AS UUID)")
+                .addRoundTrip("Nullable(UUID)", "'114514ea-0601-1981-1142-e9b55b0abd6d'", UuidType.UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS UUID)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("default.ck_test_uuid"));
 
-        // TODO add test with UUID written from Trino
+        SqlDataTypeTest.create()
+                .addRoundTrip("CAST(NULL AS UUID)", "cast(NULL as UUID)")
+                .addRoundTrip("UUID '114514ea-0601-1981-1142-e9b55b0abd6d'", "CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS UUID)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("default.ck_test_uuid"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("default.ck_test_uuid"));
     }
 
     @Test
@@ -332,9 +337,9 @@ public class TestClickHouseTypeMapping
     {
         SqlDataTypeTest.create()
                 // TODO map to Trino IPADDRESS
-                .addRoundTrip("IPv4", "'116.253.40.133'", createUnboundedVarcharType(), "CAST('116.253.40.133' AS varchar)")
+                .addRoundTrip("IPv4", "'116.253.40.133'", createUnboundedVarcharType(), "VARCHAR '116.253.40.133'")
                 // TODO map to Trino IPADDRESS
-                .addRoundTrip("IPv6", "'2001:44c8:129:2632:33:0:252:2'", createUnboundedVarcharType(), "CAST('2001:44c8:129:2632:33:0:252:2' AS varchar)")
+                .addRoundTrip("IPv6", "'2001:44c8:129:2632:33:0:252:2'", createUnboundedVarcharType(), "VARCHAR '2001:44c8:129:2632:33:0:252:2'")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_ip"));
 
         // TODO add test with IPADDRESS written from Trino
@@ -348,6 +353,16 @@ public class TestClickHouseTypeMapping
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup clickhouseCreateAndInsert(String tableNamePrefix)

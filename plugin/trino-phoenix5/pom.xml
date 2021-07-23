@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>355</version>
+        <version>359</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -50,11 +50,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
@@ -75,6 +70,11 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
         </dependency>
@@ -92,12 +92,7 @@
         <dependency>
             <groupId>org.apache.phoenix</groupId>
             <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
-            <version>5.1.1</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
+            <version>5.1.2</version>
         </dependency>
 
         <!-- used by tests but also needed transitively -->
@@ -150,8 +145,8 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
-            <scope>test</scope>
             <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -203,8 +198,8 @@
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-hdfs</artifactId>
-            <version>3.1.4</version>
             <type>test-jar</type>
+            <version>3.1.4</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -217,8 +212,8 @@
         <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-common</artifactId>
-            <version>${dep.hbase.version}</version>
             <type>test-jar</type>
+            <version>${dep.hbase.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -231,8 +226,8 @@
         <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-hadoop-compat</artifactId>
-            <version>${dep.hbase.version}</version>
             <type>test-jar</type>
+            <version>${dep.hbase.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -245,8 +240,8 @@
         <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-hadoop2-compat</artifactId>
-            <version>${dep.hbase.version}</version>
             <type>test-jar</type>
+            <version>${dep.hbase.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -259,8 +254,8 @@
         <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-server</artifactId>
-            <version>${dep.hbase.version}</version>
             <type>test-jar</type>
+            <version>${dep.hbase.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -273,8 +268,8 @@
         <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-zookeeper</artifactId>
-            <version>${dep.hbase.version}</version>
             <type>test-jar</type>
+            <version>${dep.hbase.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -287,6 +282,7 @@
         <dependency>
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper</artifactId>
+            <scope>test</scope>
             <exclusions>
                 <exclusion>
                     <groupId>com.github.spotbugs</groupId>
@@ -301,7 +297,6 @@
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
             </exclusions>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

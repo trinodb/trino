@@ -19,8 +19,15 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertNotNull;
 
 public class TestKafkaPlugin
@@ -42,5 +49,109 @@ public class TestKafkaPlugin
                 new TestingConnectorContext());
         assertNotNull(connector);
         connector.shutdown();
+    }
+
+    @Test
+    public void testSslSpinup()
+            throws IOException
+    {
+        KafkaPlugin plugin = new KafkaPlugin();
+
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        assertInstanceOf(factory, KafkaConnectorFactory.class);
+
+        String secret = "confluent";
+        Path keystorePath = Files.createTempFile("keystore", ".jks");
+        Path truststorePath = Files.createTempFile("truststore", ".jks");
+
+        writeToFile(keystorePath, secret);
+        writeToFile(truststorePath, secret);
+
+        Connector connector = factory.create(
+                "test-connector",
+                ImmutableMap.<String, String>builder()
+                        .put("kafka.table-names", "test")
+                        .put("kafka.nodes", "localhost:9092")
+                        .put("kafka.security-protocol", "SSL")
+                        .put("kafka.ssl.keystore.type", "JKS")
+                        .put("kafka.ssl.keystore.location", keystorePath.toString())
+                        .put("kafka.ssl.keystore.password", "keystore-password")
+                        .put("kafka.ssl.key.password", "key-password")
+                        .put("kafka.ssl.truststore.type", "JKS")
+                        .put("kafka.ssl.truststore.location", truststorePath.toString())
+                        .put("kafka.ssl.truststore.password", "truststore-password")
+                        .put("kafka.ssl.endpoint-identification-algorithm", "https")
+                        .build(),
+                new TestingConnectorContext());
+        assertNotNull(connector);
+        connector.shutdown();
+    }
+
+    @Test
+    public void testSslKeystoreMissingFileSpindown()
+            throws IOException
+    {
+        KafkaPlugin plugin = new KafkaPlugin();
+
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        assertInstanceOf(factory, KafkaConnectorFactory.class);
+
+        Path truststorePath = Files.createTempFile("test", ".jks");
+
+        assertThatThrownBy(() -> factory.create(
+                "test-connector",
+                ImmutableMap.<String, String>builder()
+                        .put("kafka.table-names", "test")
+                        .put("kafka.nodes", "localhost:9092")
+                        .put("kafka.security-protocol", "SSL")
+                        .put("kafka.ssl.keystore.type", "JKS")
+                        .put("kafka.ssl.keystore.location", "/not/a/real/path")
+                        .put("kafka.ssl.keystore.password", "keystore-password")
+                        .put("kafka.ssl.key.password", "key-password")
+                        .put("kafka.ssl.truststore.type", "JKS")
+                        .put("kafka.ssl.truststore.location", truststorePath.toString())
+                        .put("kafka.ssl.truststore.password", "truststore-password")
+                        .put("kafka.ssl.endpoint-identification-algorithm", "https")
+                        .build(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Error: Invalid configuration property kafka.ssl.keystore.location: file does not exist: /not/a/real/path");
+    }
+
+    @Test
+    public void testSslTruststoreMissingFileSpindown()
+            throws IOException
+    {
+        KafkaPlugin plugin = new KafkaPlugin();
+
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        assertInstanceOf(factory, KafkaConnectorFactory.class);
+
+        Path keystorePath = Files.createTempFile("test", ".jks");
+
+        assertThatThrownBy(() -> factory.create(
+                "test-connector",
+                ImmutableMap.<String, String>builder()
+                        .put("kafka.table-names", "test")
+                        .put("kafka.nodes", "localhost:9092")
+                        .put("kafka.security-protocol", "SSL")
+                        .put("kafka.ssl.keystore.type", "JKS")
+                        .put("kafka.ssl.keystore.location", keystorePath.toString())
+                        .put("kafka.ssl.keystore.password", "keystore-password")
+                        .put("kafka.ssl.key.password", "key-password")
+                        .put("kafka.ssl.truststore.type", "JKS")
+                        .put("kafka.ssl.truststore.location", "/not/a/real/path")
+                        .put("kafka.ssl.truststore.password", "truststore-password")
+                        .put("kafka.ssl.endpoint-identification-algorithm", "https")
+                        .build(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Error: Invalid configuration property kafka.ssl.truststore.location: file does not exist: /not/a/real/path");
+    }
+
+    private void writeToFile(Path filepath, String content)
+            throws IOException
+    {
+        try (FileWriter writer = new FileWriter(filepath.toFile(), StandardCharsets.UTF_8)) {
+            writer.write(content);
+        }
     }
 }

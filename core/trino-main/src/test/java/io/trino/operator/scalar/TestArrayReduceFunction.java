@@ -69,16 +69,16 @@ public class TestArrayReduceFunction
                 "reduce(" +
                         "ARRAY [5, 20, 50], " +
                         "CAST(ROW(0, 0) AS ROW(sum BIGINT, count INTEGER)), " +
-                        "(s, x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum BIGINT, count INTEGER)), " +
-                        "s -> s.sum / s.count)",
+                        "(s, x) -> CAST(ROW(x + s[1], s[2] + 1) AS ROW(sum BIGINT, count INTEGER)), " +
+                        "s -> s[1] / s[2])",
                 BIGINT,
                 25L);
         assertFunction(
                 "reduce(" +
                         "ARRAY [5, 6, 10, 20], " +
                         "CAST(ROW(0.0E0, 0) AS ROW(sum DOUBLE, count INTEGER)), " +
-                        "(s, x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)), " +
-                        "s -> s.sum / s.count)",
+                        "(s, x) -> CAST(ROW(x + s[1], s[2] + 1) AS ROW(sum DOUBLE, count INTEGER)), " +
+                        "s -> s[1] / s[2])",
                 DOUBLE,
                 10.25);
     }

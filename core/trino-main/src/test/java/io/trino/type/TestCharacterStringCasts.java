@@ -18,14 +18,18 @@ import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.CharacterStringCasts.varcharToCharSaturatedFloorCast;
+import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestCharacterStringCasts
         extends AbstractTestFunctions
 {
+    private static final String NON_BMP_CHARACTER = new String(Character.toChars(0x1F50D));
+
     @Test
     public void testVarcharToVarcharCast()
     {
@@ -59,7 +63,6 @@ public class TestCharacterStringCasts
     @Test
     public void testVarcharToCharSaturatedFloorCast()
     {
-        String nonBmpCharacter = new String(Character.toChars(0x1F50D));
         String nonBmpCharacterMinusOne = new String(Character.toChars(0x1F50C));
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
         String codePointBeforeSpace = new String(Character.toChars(' ' - 1));
@@ -77,12 +80,12 @@ public class TestCharacterStringCasts
                 utf8Slice("1234"));
         assertEquals(varcharToCharSaturatedFloorCast(
                 4L,
-                utf8Slice("123" + nonBmpCharacter)),
-                utf8Slice("123" + nonBmpCharacter));
+                utf8Slice("123" + NON_BMP_CHARACTER)),
+                utf8Slice("123" + NON_BMP_CHARACTER));
         assertEquals(varcharToCharSaturatedFloorCast(
                 4L,
-                utf8Slice("12" + nonBmpCharacter + "3")),
-                utf8Slice("12" + nonBmpCharacter + "3"));
+                utf8Slice("12" + NON_BMP_CHARACTER + "3")),
+                utf8Slice("12" + NON_BMP_CHARACTER + "3"));
 
         // Size fits, preserved except char(4) representation has trailing spaces removed
         assertEquals(varcharToCharSaturatedFloorCast(
@@ -109,12 +112,12 @@ public class TestCharacterStringCasts
                 utf8Slice(codePointBeforeSpace + maxCodePoint + maxCodePoint + maxCodePoint));
         assertEquals(varcharToCharSaturatedFloorCast(
                 4L,
-                utf8Slice("12" + nonBmpCharacter)),
+                utf8Slice("12" + NON_BMP_CHARACTER)),
                 utf8Slice("12" + nonBmpCharacterMinusOne + maxCodePoint));
         assertEquals(varcharToCharSaturatedFloorCast(
                 4L,
-                utf8Slice("1" + nonBmpCharacter + "3")),
-                utf8Slice("1" + nonBmpCharacter + "2" + maxCodePoint));
+                utf8Slice("1" + NON_BMP_CHARACTER + "3")),
+                utf8Slice("1" + NON_BMP_CHARACTER + "2" + maxCodePoint));
 
         // Too short, casted back would be padded with ' ' and thus made greater (VarcharOperators.lessThan), previous to last needs decrementing since last is \0
         assertEquals(varcharToCharSaturatedFloorCast(
@@ -139,5 +142,26 @@ public class TestCharacterStringCasts
                 4L,
                 utf8Slice("")),
                 utf8Slice("\0\0\0\0"));
+    }
+
+    @Test
+    public void testVarcharToVarcharSaturatedFloorCast()
+    {
+        assertVarcharToVarcharSaturatedFloorCast(4L, "12345", "1234");
+        assertVarcharToVarcharSaturatedFloorCast(5L, "12345", "12345");
+        assertVarcharToVarcharSaturatedFloorCast(6L, "12345", "12345");
+
+        assertVarcharToVarcharSaturatedFloorCast(4L, "123  ", "123 ");
+        assertVarcharToVarcharSaturatedFloorCast(5L, "123  ", "123  ");
+
+        assertVarcharToVarcharSaturatedFloorCast(4L, "1234" + NON_BMP_CHARACTER, "1234");
+        assertVarcharToVarcharSaturatedFloorCast(5L, "1234" + NON_BMP_CHARACTER, "1234" + NON_BMP_CHARACTER);
+        assertVarcharToVarcharSaturatedFloorCast(6L, "1234" + NON_BMP_CHARACTER, "1234" + NON_BMP_CHARACTER);
+    }
+
+    private void assertVarcharToVarcharSaturatedFloorCast(long length, String baseString, String expected)
+    {
+        assertThat(varcharToVarcharSaturatedFloorCast(length, utf8Slice(baseString)))
+                .isEqualTo(utf8Slice(expected));
     }
 }

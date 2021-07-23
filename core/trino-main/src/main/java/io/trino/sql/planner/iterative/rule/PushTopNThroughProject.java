@@ -19,6 +19,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.Assignments;
@@ -36,10 +37,11 @@ import java.util.Set;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.iterative.rule.DereferencePushdown.exclusiveDereferences;
-import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractDereferences;
+import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractRowSubscripts;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.topN;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
@@ -69,6 +71,12 @@ public final class PushTopNThroughProject
                                     .capturedAs(PROJECT_CHILD)
                                     // do not push topN between projection and table scan so that they can be merged into a PageProcessor
                                     .with(source().matching(node -> !(node instanceof TableScanNode)))));
+    private final TypeAnalyzer typeAnalyzer;
+
+    public PushTopNThroughProject(TypeAnalyzer typeAnalyzer)
+    {
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+    }
 
     @Override
     public Pattern<TopNNode> getPattern()
@@ -85,7 +93,8 @@ public final class PushTopNThroughProject
         // undoing of PushDownDereferencesThroughTopN. We still push topN in the case of overlapping dereferences since
         // it enables PushDownDereferencesThroughTopN rule to push optimal dereferences.
         Set<Expression> projections = ImmutableSet.copyOf(projectNode.getAssignments().getExpressions());
-        if (!extractDereferences(projections, false).isEmpty() && exclusiveDereferences(projections)) {
+        if (!extractRowSubscripts(projections, false, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes()).isEmpty()
+                && exclusiveDereferences(projections, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes())) {
             return Result.empty();
         }
 

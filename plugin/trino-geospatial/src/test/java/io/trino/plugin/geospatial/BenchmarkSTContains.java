@@ -27,17 +27,14 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.geospatial.serde.GeometrySerde.deserializeEnvelope;
+import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 
 @State(Scope.Thread)
@@ -171,10 +168,6 @@ public class BenchmarkSTContains
             throw new IllegalStateException("ST_Contains for outer point expected to return false, got true.");
         }
 
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkSTContains.class.getSimpleName() + ".*")
-                .build();
-        new Runner(options).run();
+        benchmark(BenchmarkSTContains.class).run();
     }
 }

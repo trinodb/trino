@@ -39,7 +39,7 @@ public class TestMemorySessionProperties
     public void testSessionQueryMemoryPerNodeLimit()
     {
         assertQuery(sql);
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "1kB")
                 .build();
         assertThatThrownBy(() -> getQueryRunner().execute(session, sql))
@@ -51,7 +51,7 @@ public class TestMemorySessionProperties
     public void testSessionQueryMaxTotalMemoryPerNodeLimit()
     {
         assertQuery(sql);
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "1kB")
                 .build();
         assertThatThrownBy(() -> getQueryRunner().execute(session, sql))

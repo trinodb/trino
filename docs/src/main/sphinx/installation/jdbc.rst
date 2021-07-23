@@ -42,6 +42,10 @@ classpath, you'll typically need to restart your application in order to
 recognize the new driver. Then, depending on your application, you
 may need to manually register and configure the driver.
 
+The CLI uses the HTTP protocol and the
+:doc:`Trino client REST API </develop/client-protocol>` to communicate
+with Trino.
+
 Registering and configuring the driver
 --------------------------------------
 
@@ -75,6 +79,12 @@ The following is an example of a JDBC URL used to create a connection:
 This example JDBC URL locates a Trino instance running on port ``8080`` on
 ``example.net``, with the catalog ``hive`` and the schema ``sales`` defined.
 
+.. note::
+
+  Typically, the JDBC driver classname is configured automatically by your
+  client. If it is not, use ``io.trino.jdbc.TrinoDriver`` wherever a driver
+  classname is required.
+
 Connection parameters
 ---------------------
 
@@ -100,6 +110,8 @@ These methods may be mixed; some parameters may be specified in the URL,
 while others are specified using properties. However, the same parameter
 may not be specified using both methods.
 
+.. _jdbc-parameter-reference:
+
 Parameter reference
 -------------------
 
@@ -121,7 +133,7 @@ Name                                                         Description
                                                              if the ``source`` parameter has not been set. If neither this
                                                              property nor ``ApplicationName`` or ``source`` are set, the source
                                                              name for the query is ``trino-jdbc``.
-``accessToken``                                              Access token for token based authentication.
+``accessToken``                                              :doc:`JWT </security/jwt>` access token for token based authentication.
 ``SSL``                                                      Use HTTPS for connections
 ``SSLVerification``                                          The method of SSL verification. There are three modes: ``FULL``
                                                              (default), ``CA`` and ``NONE``. For ``FULL``, the normal TLS
@@ -167,6 +179,11 @@ Name                                                         Description
 ``externalAuthentication``                                   Use a local web browser to authenticate with an identity provider (IdP)
                                                              that has been configured for the Trino coordinator.
                                                              See :doc:`/security/oauth2` for more details.
+``externalAuthenticationTokenCache``                         Allows the sharing of external authentication tokens between different
+                                                             connections for the same authenticated user until the cache is
+                                                             invalidated, such as when a client is restarted or when the classloader
+                                                             reloads the JDBC driver. This is disabled by default, with a value of
+                                                             ``NONE``. To enable, set the value to ``MEMORY``.
 ``disableCompression``                                       Whether compression should be enabled.
 ``assumeLiteralNamesInMetadataCallsForNonConformingClients`` When enabled, the name patterns passed to ``DatabaseMetaData`` methods
                                                              are treated as literals. You can use this as a workaround for

@@ -258,6 +258,27 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanCreateMaterializedView(securityContext, getQualifiedObjectName(materializedViewName));
+    }
+
+    @Override
+    public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanRefreshMaterializedView(securityContext, getQualifiedObjectName(materializedViewName));
+    }
+
+    @Override
+    public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanDropMaterializedView(securityContext, getQualifiedObjectName(materializedViewName));
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
         checkArgument(context == null, "context must be null");

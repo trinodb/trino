@@ -14,8 +14,6 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -96,23 +94,7 @@ public class HiveTableOperations
     private boolean shouldRefresh = true;
     private int version = -1;
 
-    public HiveTableOperations(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext, HiveIdentity identity, String database, String table)
-    {
-        this(new HdfsFileIo(hdfsEnvironment, hdfsContext), metastore, identity, database, table, Optional.empty(), Optional.empty());
-    }
-
-    public HiveTableOperations(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext, HiveIdentity identity, String database, String table, String owner, String location)
-    {
-        this(new HdfsFileIo(hdfsEnvironment, hdfsContext),
-                metastore,
-                identity,
-                database,
-                table,
-                Optional.of(requireNonNull(owner, "owner is null")),
-                Optional.of(requireNonNull(location, "location is null")));
-    }
-
-    private HiveTableOperations(FileIO fileIo, HiveMetastore metastore, HiveIdentity identity, String database, String table, Optional<String> owner, Optional<String> location)
+    HiveTableOperations(FileIO fileIo, HiveMetastore metastore, HiveIdentity identity, String database, String table, Optional<String> owner, Optional<String> location)
     {
         this.fileIo = requireNonNull(fileIo, "fileIo is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -121,6 +103,15 @@ public class HiveTableOperations
         this.tableName = requireNonNull(table, "table is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.location = requireNonNull(location, "location is null");
+    }
+
+    public void initializeFromMetadata(TableMetadata tableMetadata)
+    {
+        checkState(currentMetadata == null, "already initialized");
+        currentMetadata = tableMetadata;
+        currentMetadataLocation = tableMetadata.metadataFileLocation();
+        shouldRefresh = false;
+        version = parseVersion(currentMetadataLocation);
     }
 
     @Override

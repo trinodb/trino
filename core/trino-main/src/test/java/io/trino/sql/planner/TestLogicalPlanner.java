@@ -56,9 +56,13 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.rowpattern.ir.IrLabel;
+import io.trino.sql.planner.rowpattern.ir.IrQuantified;
 import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.tests.QueryTemplate;
@@ -83,10 +87,13 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
@@ -112,11 +119,13 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictConstrainedTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
@@ -124,6 +133,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -139,12 +149,17 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
+import static io.trino.sql.planner.rowpattern.ir.IrQuantifier.oneOrMore;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.tests.QueryTemplate.queryTemplate;
 import static io.trino.util.MorePredicates.isInstanceOfAny;
 import static java.lang.String.format;
@@ -237,8 +252,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression("CAST(\"row\" AS ROW(f0 bigint,f1 varchar(25))).f0"),
-                                        "output_2", expression("CAST(\"row\" AS ROW(f0 bigint,f1 varchar(25))).f1")),
+                                        "output_1", expression("row[1]"),
+                                        "output_2", expression("row[2]")),
                                 project(
                                         ImmutableMap.of("row", expression("ROW(min, max)")),
                                         aggregation(
@@ -258,27 +273,31 @@ public class TestLogicalPlanner
     @Test
     public void testAllFieldsDereferenceFromNonDeterministic()
     {
+        FunctionCall randomFunction = new FunctionCall(
+                getQueryRunner().getMetadata().resolveFunction(QualifiedName.of("rand"), ImmutableList.of()).toQualifiedName(),
+                ImmutableList.of());
+
         assertPlan("SELECT (x, x).* FROM (SELECT rand()) T(x)",
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression("CAST(row AS ROW(f0 double,f1 double)).f0"),
-                                        "output_2", expression("CAST(row AS ROW(f0 double,f1 double)).f1")),
+                                        "output_1", expression("row[1]"),
+                                        "output_2", expression("row[2]")),
                                 project(
                                         ImmutableMap.of("row", expression("ROW(\"rand\", \"rand\")")),
-                                        project(
-                                                ImmutableMap.of("rand", expression("rand()")),
-                                                values())))));
+                                        values(
+                                                ImmutableList.of("rand"),
+                                                ImmutableList.of(ImmutableList.of(randomFunction)))))));
 
         assertPlan("SELECT (rand(), rand()).* FROM (VALUES 1) t(x)",
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression("CAST(r AS ROW(f0 double,f1 double)).f0"),
-                                        "output_2", expression("CAST(r AS ROW(f0 double,f1 double)).f1")),
-                                project(
-                                        ImmutableMap.of("r", expression("ROW(rand(), rand())")),
-                                        values()))));
+                                        "output_1", expression("r[1]"),
+                                        "output_2", expression("r[2]")),
+                                values(
+                                        ImmutableList.of("r"),
+                                        ImmutableList.of(ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))));
 
         // Ensure the calls to rand() are not duplicated by the ORDER BY clause
         assertPlan("SELECT (rand(), rand()).* FROM (VALUES 1, 2) t(x) ORDER BY 1",
@@ -287,11 +306,13 @@ public class TestLogicalPlanner
                                 any(
                                         project(
                                                 ImmutableMap.of(
-                                                        "output_1", expression("CAST(row AS ROW(f0 double,f1 double)).f0"),
-                                                        "output_2", expression("CAST(row AS ROW(f0 double,f1 double)).f1")),
-                                                project(
-                                                        ImmutableMap.of("row", expression("ROW(rand(), rand())")),
-                                                        values()))))));
+                                                        "output_1", expression("row[1]"),
+                                                        "output_2", expression("row[2]")),
+                                                values(
+                                                        ImmutableList.of("row"),
+                                                        ImmutableList.of(
+                                                                ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))),
+                                                                ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))))));
     }
 
     @Test
@@ -902,8 +923,7 @@ public class TestLogicalPlanner
                                                                 "C", "custkey"))),
                                                 project(
                                                         any(
-                                                                any(
-                                                                        tableScan("lineitem", ImmutableMap.of("L", "orderkey"))))))))),
+                                                                tableScan("lineitem", ImmutableMap.of("L", "orderkey")))))))),
                 MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class, CheckSubqueryNodesAreRewritten.class).negate());
     }
 
@@ -958,6 +978,18 @@ public class TestLogicalPlanner
                 "SELECT count(*) FROM (SELECT sum(orderkey) FROM orders GROUP BY custkey)",
                 anyTree(
                         tableScan("orders")));
+    }
+
+    @Test
+    public void testInlineCountOverConstantExpression()
+    {
+        assertPlan(
+                "SELECT regionkey, count(1) FROM nation GROUP BY regionkey",
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("count_0", functionCall("count", ImmutableList.of())),
+                                PARTIAL,
+                                tableScan("nation", ImmutableMap.of("regionkey", "regionkey")))));
     }
 
     @Test
@@ -1147,6 +1179,70 @@ public class TestLogicalPlanner
                                                         tableScan("customer", ImmutableMap.of("CUSTOMER_CUSTKEY", "custkey"))))),
                                 anyTree(
                                         tableScan("orders", ImmutableMap.of("ORDER_CUSTKEY", "custkey"))))));
+    }
+
+    @Test
+    public void testCorrelatedIn()
+    {
+        assertPlan(
+                "SELECT name FROM region r WHERE regionkey IN (SELECT regionkey FROM nation WHERE name < r.name)",
+                anyTree(
+                        filter(
+                                "count_matches > BIGINT '0'",
+                                project(
+                                        aggregation(
+                                                singleGroupingSet("region_regionkey", "region_name", "unique"),
+                                                ImmutableMap.of(Optional.of("count_matches"), functionCall("count", ImmutableList.of())),
+                                                ImmutableList.of("region_regionkey", "region_name", "unique"),
+                                                ImmutableList.of("mask"),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                project(
+                                                        ImmutableMap.of("mask", expression("((NOT (region_regionkey IS NULL)) AND (NOT (nation_regionkey IS NULL)))")),
+                                                        join(
+                                                                LEFT,
+                                                                ImmutableList.of(),
+                                                                Optional.of("((((region_regionkey IS NULL) OR (region_regionkey = nation_regionkey)) OR (nation_regionkey IS NULL)) AND (nation_name < region_name))"),
+                                                                assignUniqueId(
+                                                                        "unique",
+                                                                        tableScan("region", ImmutableMap.of(
+                                                                                "region_regionkey", "regionkey",
+                                                                                "region_name", "name"))),
+                                                                any(
+                                                                        tableScan("nation", ImmutableMap.of(
+                                                                                "nation_name", "name",
+                                                                                "nation_regionkey", "regionkey"))))))))));
+    }
+
+    @Test
+    public void testCorrelatedExists()
+    {
+        assertPlan(
+                "SELECT regionkey, name FROM region r WHERE EXISTS(SELECT regionkey FROM nation WHERE name < r.name)",
+                anyTree(
+                        filter(
+                                "count_matches > BIGINT '0'",
+                                project(
+                                        aggregation(
+                                                singleGroupingSet("region_regionkey", "region_name", "unique"),
+                                                ImmutableMap.of(Optional.of("count_matches"), functionCall("count", ImmutableList.of())),
+                                                ImmutableList.of("region_regionkey", "region_name", "unique"),
+                                                ImmutableList.of("mask"),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                join(
+                                                        LEFT,
+                                                        ImmutableList.of(),
+                                                        Optional.of("nation_name < region_name"),
+                                                        assignUniqueId(
+                                                                "unique",
+                                                                tableScan("region", ImmutableMap.of(
+                                                                        "region_regionkey", "regionkey",
+                                                                        "region_name", "name"))),
+                                                        any(
+                                                                project(
+                                                                        ImmutableMap.of("mask", expression("true")),
+                                                                        tableScan("nation", ImmutableMap.of("nation_name", "name"))))))))));
     }
 
     @Test
@@ -1481,14 +1577,12 @@ public class TestLogicalPlanner
                         filter("REGIONKEY > BIGINT '1'",
                                 tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey")))));
 
-        //TODO (https://github.com/trinodb/trino/issues/2480) Inline constants
         assertPlan("SELECT * FROM nation, (SELECT 1 as a) temp WHERE regionkey = a",
                 output(
-                        node(JoinNode.class,
+                        project(
+                                ImmutableMap.of("expr", expression("1")),
                                 filter("REGIONKEY = BIGINT '1'",
-                                        tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey"))),
-                                node(ProjectNode.class,
-                                        values(ImmutableMap.of())))));
+                                        tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey"))))));
     }
 
     @Test
@@ -1517,6 +1611,93 @@ public class TestLogicalPlanner
         assertPlan("SELECT regionkey FROM nation RIGHT JOIN (SELECT nationkey FROM customer LIMIT 0) USING (nationkey)",
                 output(
                         values(ImmutableList.of("regionkey"))));
+    }
+
+    @Test
+    public void testMergeProjectWithValues()
+    {
+        assertPlan(
+                "SELECT * FROM nation, (SELECT a * 2 FROM (VALUES 1, 2, 3) t(a))",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                tableScan("nation"),
+                                values(ImmutableList.of("a"), ImmutableList.of(
+                                        ImmutableList.of(new LongLiteral("2")),
+                                        ImmutableList.of(new LongLiteral("4")),
+                                        ImmutableList.of(new LongLiteral("6")))))));
+
+        // Constraint is enforced on table scan, based on constant value in the other branch of the join.
+        // The scalar constant branch of the join becomes obsolete, and join is removed.
+        assertPlan(
+                "SELECT orderkey, t2.s " +
+                        "FROM orders " +
+                        "JOIN (SELECT '' || x FROM (VALUES 'F') t(x)) t2(s) " +
+                        "ON orders.orderstatus = t2.s",
+                any(project(
+                        ImmutableMap.of("cast", expression("CAST(ORDER_STATUS AS varchar)")),
+                        strictConstrainedTableScan(
+                                "orders",
+                                ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                ImmutableMap.of("orderstatus", Domain.singleValue(createVarcharType(1), utf8Slice("F")))))));
+
+        // Constraint is enforced on table scan, based on constant values in the other branch of the join.
+        assertPlan(
+                "SELECT orderkey, t2.s " +
+                        "FROM orders " +
+                        "JOIN (SELECT CAST('' || x AS varchar(1)) FROM (VALUES 'O', 'F') t(x)) t2(s) " +
+                        "ON orders.orderstatus = t2.s",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("expr", "ORDER_STATUS")),
+                                project(filter(
+                                        "expr IN ('F', 'O')",
+                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F")))))),
+                                exchange(project(strictConstrainedTableScan(
+                                        "orders",
+                                        ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                        ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O"))))))))));
+
+        // Constraint for the table is derived, based on constant values in the other branch of the join.
+        // It is not accepted by the connector, and remains in form of a filter over TableScan.
+        assertPlan(
+                "SELECT orderstatus, t2.s " +
+                        "FROM orders " +
+                        "JOIN (SELECT x * 1 FROM (VALUES BIGINT '1', BIGINT '2') t(x)) t2(s) " +
+                        "ON orders.orderkey = t2.s",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("expr", "ORDER_KEY")),
+                                project(filter(
+                                        "expr IN (BIGINT '1', BIGINT '2')",
+                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")), ImmutableList.of(new GenericLiteral("BIGINT", "2")))))),
+                                anyTree(filter(
+                                        "ORDER_KEY IN (BIGINT '1', BIGINT '2')",
+                                        strictConstrainedTableScan(
+                                                "orders",
+                                                ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                                ImmutableMap.of()))))));
+    }
+
+    @Test
+    public void testReplaceJoinWithProject()
+    {
+        assertPlan(
+                "SELECT * FROM nation, (SELECT a * 2 FROM (VALUES 1) t(a))",
+                any(
+                        project(
+                                ImmutableMap.of("expr", expression("2")),
+                                tableScan("nation"))));
+
+        assertPlan(
+                "SELECT * FROM nation, (SELECT b * 3 FROM (SELECT a * 2 FROM (VALUES 1) t1(a)) t2(b))",
+                any(
+                        project(
+                                ImmutableMap.of("expr", expression("6")),
+                                tableScan("nation"))));
     }
 
     @Test
@@ -1641,6 +1822,192 @@ public class TestLogicalPlanner
                                                         new Row(ImmutableList.of(new LongLiteral("2"))),
                                                         toSqlType(RowType.anonymous(ImmutableList.of(BIGINT)))),
                                                 toSqlType(RowType.anonymous(ImmutableList.of(DOUBLE)))))))));
+    }
+
+    @Test
+    public void testDoNotPlanUnreferencedRowPatternMeasures()
+    {
+        // row pattern measure `label` is not referenced
+        assertPlan("SELECT val OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES " +
+                        "                            RUNNING LAST(value) AS val, " +
+                        "                            CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addMeasure("val", "LAST(value)", INTEGER)
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+
+        // row pattern measure `label` is not referenced
+        assertPlan("SELECT min(value) OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addFunction("min", functionCall("min", ImmutableList.of("value")))
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+    }
+
+    @Test
+    public void testPruneUnreferencedRowPatternWindowFunctions()
+    {
+        // window function `row_number` is not referenced
+        assertPlan("SELECT id, min FROM " +
+                        "       (SELECT id, min(value) OVER w min, row_number() OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )" +
+                        "       )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addFunction("min", functionCall("min", ImmutableList.of("value")))
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+    }
+
+    @Test
+    public void testPruneUnreferencedRowPatternMeasures()
+    {
+        // row pattern measure `label` is not referenced
+        assertPlan("SELECT id, val FROM " +
+                        "       (SELECT id, val OVER w val, label OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES " +
+                        "                            RUNNING LAST(value) AS val, " +
+                        "                            CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )" +
+                        "       )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addMeasure("val", "LAST(value)", INTEGER)
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+    }
+
+    @Test
+    public void testMergePatternRecognitionNodes()
+    {
+        // The pattern matching window `w` is referenced in three calls: row pattern measure calls: `val OVER w` and `label OVER w`,
+        // and window function call `row_number() OVER w`. They are all planned within a single PatternRecognitionNode.
+        assertPlan("SELECT id, val OVER w, label OVER w, row_number() OVER w " +
+                        "          FROM (VALUES (1, 90)) t(id, value) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES " +
+                        "                            RUNNING LAST(value) AS val, " +
+                        "                            CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )",
+                output(
+                        project(
+                                patternRecognition(builder -> builder
+                                                .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                .addMeasure("val", "LAST(value)", INTEGER)
+                                                .addMeasure("label", "CLASSIFIER()", VARCHAR)
+                                                .addFunction("row_number", functionCall("row_number", ImmutableList.of()))
+                                                .rowsPerMatch(WINDOW)
+                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                        values(
+                                                ImmutableList.of("id", "value"),
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+    }
+
+    @Test
+    public void testMergePatternRecognitionNodesWithProjections()
+    {
+        // The pattern matching window `w` is referenced in three calls: row pattern measure calls: `value OVER w` and `label OVER w`,
+        // and window function call `min(input1) OVER w`. They are all planned within a single PatternRecognitionNode.
+        assertPlan("SELECT id, 2 * value OVER w, lower(label OVER w), 1 + min(input1) OVER w " +
+                        "          FROM (VALUES (1, 2, 3)) t(id, input1, input2) " +
+                        "          WINDOW w AS ( " +
+                        "                   ORDER BY id " +
+                        "                   MEASURES " +
+                        "                            RUNNING LAST(input2) AS value, " +
+                        "                            CLASSIFIER() AS label " +
+                        "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                        "                   PATTERN (A+) " +
+                        "                   DEFINE A AS true " +
+                        "          )",
+                output(
+                        project(
+                                ImmutableMap.of(
+                                        "output1", expression("id"),
+                                        "output2", expression("value * 2"),
+                                        "output3", expression("lower(label)"),
+                                        "output4", expression("min + 1")),
+                                project(
+                                        ImmutableMap.of(
+                                                "id", expression("id"),
+                                                "value", expression("value"),
+                                                "label", expression("label"),
+                                                "min", expression("min")),
+                                        patternRecognition(builder -> builder
+                                                        .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
+                                                        .addMeasure("value", "LAST(input2)", INTEGER)
+                                                        .addMeasure("label", "CLASSIFIER()", VARCHAR)
+                                                        .addFunction("min", functionCall("min", ImmutableList.of("input1")))
+                                                        .rowsPerMatch(WINDOW)
+                                                        .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                        .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
+                                                        .addVariableDefinition(new IrLabel("A"), "true"),
+                                                values(
+                                                        ImmutableList.of("id", "input1", "input2"),
+                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3")))))))));
     }
 
     private Session noJoinReordering()

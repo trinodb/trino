@@ -166,6 +166,7 @@ public class ExpressionRewriteRuleSet
                                         .collect(toImmutableList()))),
                                 aggregation.isDistinct(),
                                 Optional.empty(),
+                                Optional.empty(),
                                 aggregation.getArguments()),
                         context);
                 verify(

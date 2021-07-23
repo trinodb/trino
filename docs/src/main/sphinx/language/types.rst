@@ -168,8 +168,10 @@ Example: ``TIME '01:02:03.456'``
 
 Time of day (hour, minute, second, millisecond) with a time zone.
 Values of this type are rendered using the time zone from the value.
+Time zones are expressed as the numeric UTC offset value::
 
-Example: ``TIME '01:02:03.456 America/Los_Angeles'``
+    SELECT TIME '01:02:03.456 -08:00';
+    -- 1:02:03.456-08:00
 
 .. _timestamp-data-type:
 
@@ -227,8 +229,11 @@ The following examples illustrate the behavior::
 Instant in time that includes the date and time of day with ``P`` digits of
 precision for the fraction of seconds and with a time zone. Values of this
 type are rendered using the time zone from the value.
+Time zones are expressed as the numeric UTC offset value::
 
-Example: ``TIMESTAMP '2001-08-22 03:04:05.321 America/Los_Angeles'``
+    TIMESTAMP '2001-08-22 03:04:05.321 -08:00';
+    -- 2001-08-22 03:04:05.321-08:00
+
 
 ``INTERVAL YEAR TO MONTH``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

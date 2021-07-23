@@ -183,7 +183,7 @@ public interface ThriftMetastoreClient
     String getValidWriteIds(List<String> tableList, long currentTransactionId)
             throws TException;
 
-    String get_config_value(String name, String defaultValue)
+    String getConfigValue(String name, String defaultValue)
             throws TException;
 
     String getDelegationToken(String userName)

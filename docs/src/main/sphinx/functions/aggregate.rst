@@ -213,6 +213,30 @@ Map aggregate functions
    Returns the union of all the input maps. If a key is found in multiple
    input maps, that key's value in the resulting map comes from an arbitrary input map.
 
+   For example, take the following histogram function that creates multiple maps from the Iris dataset::
+
+        SELECT histogram(floor(petal_length_cm)) petal_data
+        FROM memory.default.iris
+        GROUP BY species;
+
+                petal_data
+        -- {4.0=6, 5.0=33, 6.0=11}
+        -- {4.0=37, 5.0=2, 3.0=11}
+        -- {1.0=50}
+
+   You can combine these maps using ``map_union``::
+
+        SELECT map_union(petal_data) petal_data_union
+        FROM (
+               SELECT histogram(floor(petal_length_cm)) petal_data
+               FROM memory.default.iris
+               GROUP BY species
+               );
+
+                     petal_data_union
+        --{4.0=6, 5.0=2, 6.0=11, 1.0=50, 3.0=11}
+
+
 .. function:: multimap_agg(key, value) -> map(K,array(V))
 
     Returns a multimap created from the input ``key`` / ``value`` pairs.

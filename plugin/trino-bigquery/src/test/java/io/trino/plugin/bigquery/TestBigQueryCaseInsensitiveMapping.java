@@ -34,6 +34,7 @@ import static org.testng.Assert.assertEquals;
 // Some tests here create colliding names which can cause any other concurrent test to fail.
 @Test(singleThreaded = true)
 public class TestBigQueryCaseInsensitiveMapping
+        // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
         extends AbstractTestQueryFramework
 {
     private BigQuerySqlExecutor bigQuerySqlExecutor;
@@ -170,6 +171,31 @@ public class TestBigQueryCaseInsensitiveMapping
                 }
             }
         }
+    }
+
+    @Test
+    public void testDropSchema()
+    {
+        String schema = "Test_Drop_Case_Sensitive";
+        bigQuerySqlExecutor.execute(format("DROP SCHEMA IF EXISTS `%s`", schema));
+        bigQuerySqlExecutor.execute(format("CREATE SCHEMA `%s`", schema));
+
+        assertUpdate("DROP SCHEMA " + schema.toLowerCase(ENGLISH));
+    }
+
+    @Test
+    public void testDropSchemaNameClash()
+    {
+        String schema = "Test_Drop_Case_Sensitive_Clash";
+        bigQuerySqlExecutor.execute(format("DROP SCHEMA IF EXISTS `%s`", schema));
+        bigQuerySqlExecutor.execute(format("DROP SCHEMA IF EXISTS `%s`", schema.toLowerCase(ENGLISH)));
+        bigQuerySqlExecutor.execute(format("CREATE SCHEMA `%s`", schema));
+        bigQuerySqlExecutor.execute(format("CREATE SCHEMA `%s`", schema.toLowerCase(ENGLISH)));
+
+        assertQueryFails("DROP SCHEMA " + schema.toLowerCase(ENGLISH), "Found ambiguous names in BigQuery.*");
+
+        bigQuerySqlExecutor.execute(format("DROP SCHEMA `%s`", schema));
+        bigQuerySqlExecutor.execute(format("DROP SCHEMA `%s`", schema.toLowerCase(ENGLISH)));
     }
 
     private AutoCloseable withSchema(String schemaName)

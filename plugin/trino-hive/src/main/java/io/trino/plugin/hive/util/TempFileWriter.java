@@ -82,7 +82,6 @@ public class TempFileWriter
                         .withMaxStringStatisticsLimit(DataSize.ofBytes(0))
                         .withStripeMinSize(DataSize.of(64, MEGABYTE))
                         .withDictionaryMaxMemory(DataSize.of(1, MEGABYTE)),
-                false,
                 ImmutableMap.of(),
                 false,
                 OrcWriteValidationMode.BOTH,

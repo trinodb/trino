@@ -45,6 +45,9 @@ public class TestRedisConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
 

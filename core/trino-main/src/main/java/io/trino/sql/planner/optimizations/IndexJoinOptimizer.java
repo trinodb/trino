@@ -316,7 +316,7 @@ public class IndexJoinOptimizer
                     symbolAllocator.getTypes());
 
             TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
-                    .transform(node.getAssignments()::get)
+                    .transformKeys(node.getAssignments()::get)
                     .intersect(node.getEnforcedConstraint());
 
             checkState(node.getOutputSymbols().containsAll(context.getLookupSymbols()));
@@ -346,7 +346,7 @@ public class IndexJoinOptimizer
 
             Expression resultingPredicate = combineConjuncts(
                     metadata,
-                    domainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transform(inverseAssignments::get)),
+                    domainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
                     decomposedPredicate.getRemainingExpression());
 
             if (!resultingPredicate.equals(TRUE_LITERAL)) {

@@ -24,6 +24,15 @@ JAR file to Accumulo's ``lib/ext`` directory on each TabletServer node.
 
     # TabletServer should pick up new JAR files in ext directory, but may require restart
 
+Requirements
+------------
+
+To connect to Accumulo, you need:
+
+* Accumulo versions 1.x starting with 1.7.4. Versions 2.x are not supported.
+* Network access from the Trino coordinator and workers to the Accumulo
+  Zookeeper server. Port 2181 is the default port.
+
 Connector configuration
 -----------------------
 

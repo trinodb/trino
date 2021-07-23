@@ -11,7 +11,15 @@ broken down into cells by using table definition files.
 Only Redis string and hash value types are supported; sets and zsets cannot be
 queried from Trino.
 
-The connector requires Redis 2.8.0 or later.
+Requirements
+------------
+
+Requirements for using the connector in a catalog to connect to a Redis data
+source are:
+
+* Redis 2.8.0 or higher (Redis Cluster is not supported)
+* Network access, by default on port 6379, from the Trino coordinator and
+  workers to Redis.
 
 Configuration
 -------------
@@ -82,7 +90,7 @@ The ``hostname:port`` pair for the Redis server.
 
 This property is required; there is no default.
 
-Redis clusters are not supported.
+Redis Cluster is not supported.
 
 ``redis.scan-count``
 ^^^^^^^^^^^^^^^^^^^^
@@ -165,8 +173,8 @@ For tables without a table definition file, the ``_key_corrupt`` and
 Table definition files
 ----------------------
 
-With the Redis connector it's possible to further reduce Redis key/value pairs into
-granular cells provided the key/value sting follow a particular format. This process
+With the Redis connector it is possible to further reduce Redis key/value pairs into
+granular cells, provided the key/value string follows a particular format. This process
 defines new columns that can be further queried from Trino.
 
 A table definition file consists of a JSON definition for a table. The

@@ -228,7 +228,6 @@ public class TestStructColumnReader
                         .withStripeMaxRowCount(ORC_STRIPE_SIZE)
                         .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                         .withDictionaryMaxMemory(DataSize.of(32, MEGABYTE)),
-                false,
                 ImmutableMap.of(),
                 true,
                 BOTH,

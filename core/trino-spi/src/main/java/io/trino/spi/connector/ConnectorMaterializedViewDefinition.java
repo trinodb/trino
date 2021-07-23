@@ -13,14 +13,11 @@
  */
 package io.trino.spi.connector;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.TypeId;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
 
@@ -29,103 +26,76 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorMaterializedViewDefinition
 {
     private final String originalSql;
-    private final String storageTable;
+    private final Optional<CatalogSchemaTableName> storageTable;
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final List<Column> columns;
     private final Optional<String> comment;
-    private final Optional<String> owner;
+    private final String owner;
     private final Map<String, Object> properties;
 
     public ConnectorMaterializedViewDefinition(
-            @JsonProperty("originalSql") String originalSql,
-            @JsonProperty("storageTable") Optional<String> storageTable,
-            @JsonProperty("catalog") Optional<String> catalog,
-            @JsonProperty("schema") Optional<String> schema,
-            @JsonProperty("columns") List<Column> columns,
-            @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("owner") Optional<String> owner,
-            @JsonProperty("properties") Map<String, Object> properties)
-    {
-        this(originalSql, requireNonNull(storageTable, "storageTable is null").orElse(null), catalog, schema, columns, comment, owner, properties);
-    }
-
-    /*
-     * This constructor is for JSON deserialization only. Do not use.
-     */
-    @Deprecated
-    @JsonCreator
-    public ConnectorMaterializedViewDefinition(
-            @JsonProperty("originalSql") String originalSql,
-            @JsonProperty("storageTable") @Nullable String storageTable,
-            @JsonProperty("catalog") Optional<String> catalog,
-            @JsonProperty("schema") Optional<String> schema,
-            @JsonProperty("columns") List<Column> columns,
-            @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("owner") Optional<String> owner,
-            @JsonProperty("properties") Map<String, Object> properties)
+            String originalSql,
+            Optional<CatalogSchemaTableName> storageTable,
+            Optional<String> catalog,
+            Optional<String> schema,
+            List<Column> columns,
+            Optional<String> comment,
+            String owner,
+            Map<String, Object> properties)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
-        this.storageTable = storageTable;
+        this.storageTable = requireNonNull(storageTable, "storageTable is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
         this.comment = requireNonNull(comment, "comment is null");
         this.owner = requireNonNull(owner, "owner is null");
+        this.properties = requireNonNull(properties, "properties are null");
 
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
         }
-        this.properties = requireNonNull(properties, "properties are null");
         if (columns.isEmpty()) {
             throw new IllegalArgumentException("columns list is empty");
         }
     }
 
-    @JsonProperty
     public String getOriginalSql()
     {
         return originalSql;
     }
 
-    @JsonProperty
-    @Nullable
-    public String getStorageTable()
+    public Optional<CatalogSchemaTableName> getStorageTable()
     {
         return storageTable;
     }
 
-    @JsonProperty
     public Optional<String> getCatalog()
     {
         return catalog;
     }
 
-    @JsonProperty
     public Optional<String> getSchema()
     {
         return schema;
     }
 
-    @JsonProperty
     public List<Column> getColumns()
     {
         return columns;
     }
 
-    @JsonProperty
     public Optional<String> getComment()
     {
         return comment;
     }
 
-    @JsonProperty
-    public Optional<String> getOwner()
+    public String getOwner()
     {
         return owner;
     }
 
-    @JsonProperty
     public Map<String, Object> getProperties()
     {
         return properties;
@@ -136,14 +106,40 @@ public class ConnectorMaterializedViewDefinition
     {
         StringJoiner joiner = new StringJoiner(", ", "[", "]");
         joiner.add("originalSql=[" + originalSql + "]");
-        joiner.add("storageTable=[" + storageTable + "]");
+        storageTable.ifPresent(value -> joiner.add("storageTable=" + value));
         catalog.ifPresent(value -> joiner.add("catalog=" + value));
         schema.ifPresent(value -> joiner.add("schema=" + value));
         joiner.add("columns=" + columns);
         comment.ifPresent(value -> joiner.add("comment=" + value));
-        owner.ifPresent(value -> joiner.add("owner=" + value));
+        joiner.add("owner=" + owner);
         joiner.add("properties=" + properties);
         return getClass().getSimpleName() + joiner.toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ConnectorMaterializedViewDefinition that = (ConnectorMaterializedViewDefinition) o;
+        return Objects.equals(originalSql, that.originalSql) &&
+                Objects.equals(storageTable, that.storageTable) &&
+                Objects.equals(catalog, that.catalog) &&
+                Objects.equals(schema, that.schema) &&
+                Objects.equals(columns, that.columns) &&
+                Objects.equals(comment, that.comment) &&
+                Objects.equals(owner, that.owner) &&
+                Objects.equals(properties, that.properties);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(originalSql, storageTable, catalog, schema, columns, comment, owner, properties);
     }
 
     public static final class Column
@@ -151,22 +147,17 @@ public class ConnectorMaterializedViewDefinition
         private final String name;
         private final TypeId type;
 
-        @JsonCreator
-        public Column(
-                @JsonProperty("name") String name,
-                @JsonProperty("type") TypeId type)
+        public Column(String name, TypeId type)
         {
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
         }
 
-        @JsonProperty
         public String getName()
         {
             return name;
         }
 
-        @JsonProperty
         public TypeId getType()
         {
             return type;
@@ -176,6 +167,26 @@ public class ConnectorMaterializedViewDefinition
         public String toString()
         {
             return name + " " + type;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Column column = (Column) o;
+            return Objects.equals(name, column.name) &&
+                    Objects.equals(type, column.type);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, type);
         }
     }
 }

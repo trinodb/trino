@@ -58,7 +58,6 @@ import io.trino.split.SplitManager;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.InternalTypeManager;
-import io.trino.version.EmbedVersion;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -129,7 +128,7 @@ public class ConnectorManager
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
             NodeInfo nodeInfo,
-            EmbedVersion embedVersion,
+            VersionEmbedder versionEmbedder,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
@@ -150,7 +149,7 @@ public class ConnectorManager
         this.pageSorter = pageSorter;
         this.pageIndexerFactory = pageIndexerFactory;
         this.nodeInfo = nodeInfo;
-        this.versionEmbedder = embedVersion;
+        this.versionEmbedder = versionEmbedder;
         this.transactionManager = transactionManager;
         this.eventListenerManager = eventListenerManager;
         this.typeOperators = typeOperators;
@@ -299,6 +298,7 @@ public class ConnectorManager
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
 
         metadataManager.getTablePropertyManager().addProperties(catalogName, connector.getTableProperties());
+        metadataManager.getMaterializedViewPropertyManager().addProperties(catalogName, connector.getMaterializedViewProperties());
         metadataManager.getColumnPropertyManager().addProperties(catalogName, connector.getColumnProperties());
         metadataManager.getSchemaPropertyManager().addProperties(catalogName, connector.getSchemaProperties());
         metadataManager.getAnalyzePropertyManager().addProperties(catalogName, connector.getAnalyzeProperties());
@@ -328,6 +328,7 @@ public class ConnectorManager
         metadataManager.getProcedureRegistry().removeProcedures(catalogName);
         accessControlManager.removeCatalogAccessControl(catalogName);
         metadataManager.getTablePropertyManager().removeProperties(catalogName);
+        metadataManager.getMaterializedViewPropertyManager().removeProperties(catalogName);
         metadataManager.getColumnPropertyManager().removeProperties(catalogName);
         metadataManager.getSchemaPropertyManager().removeProperties(catalogName);
         metadataManager.getAnalyzePropertyManager().removeProperties(catalogName);
@@ -403,6 +404,7 @@ public class ConnectorManager
         private final List<EventListener> eventListeners;
         private final List<PropertyMetadata<?>> sessionProperties;
         private final List<PropertyMetadata<?>> tableProperties;
+        private final List<PropertyMetadata<?>> materializedViewProperties;
         private final List<PropertyMetadata<?>> schemaProperties;
         private final List<PropertyMetadata<?>> columnProperties;
         private final List<PropertyMetadata<?>> analyzeProperties;
@@ -493,6 +495,10 @@ public class ConnectorManager
             requireNonNull(tableProperties, format("Connector '%s' returned a null table properties set", catalogName));
             this.tableProperties = ImmutableList.copyOf(tableProperties);
 
+            List<PropertyMetadata<?>> materializedViewProperties = connector.getMaterializedViewProperties();
+            requireNonNull(materializedViewProperties, format("Connector '%s' returned a null materialized view properties set", catalogName));
+            this.materializedViewProperties = ImmutableList.copyOf(materializedViewProperties);
+
             List<PropertyMetadata<?>> schemaProperties = connector.getSchemaProperties();
             requireNonNull(schemaProperties, format("Connector '%s' returned a null schema properties set", catalogName));
             this.schemaProperties = ImmutableList.copyOf(schemaProperties);
@@ -569,6 +575,11 @@ public class ConnectorManager
         public List<PropertyMetadata<?>> getTableProperties()
         {
             return tableProperties;
+        }
+
+        public List<PropertyMetadata<?>> getMaterializedViewProperties()
+        {
+            return materializedViewProperties;
         }
 
         public List<PropertyMetadata<?>> getColumnProperties()

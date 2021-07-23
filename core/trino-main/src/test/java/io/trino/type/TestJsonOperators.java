@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -46,6 +47,7 @@ import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestJsonOperators
         extends AbstractTestFunctions
@@ -401,13 +403,13 @@ public class TestJsonOperators
     {
         // the test is to make sure ExpressionOptimizer works with cast + json_parse
         assertCastWithJsonParse("[[1,1], [2,2]]", "ARRAY(ARRAY(INTEGER))", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 1), ImmutableList.of(2, 2)));
-        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY(INTEGER)", "Cannot cast to array(integer). Cannot cast 'abc' to INT\n[1, \"abc\"]");
+        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY(INTEGER)", "Cannot cast to array(integer). Cannot cast 'abc' to INT\n[1,\"abc\"]");
 
         // Since we will not reformat the JSON string before parse and cast with the optimization,
         // these extra whitespaces in JSON string is to make sure the cast will work in such cases.
         assertCastWithJsonParse("{\"a\"\n:1,  \"b\":\t2}", "MAP(VARCHAR,INTEGER)", mapType(VARCHAR, INTEGER), ImmutableMap.of("a", 1, "b", 2));
         assertInvalidTypeWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP(ARRAY(INTEGER),ARRAY(INTEGER))", "line 1:8: Cannot cast json to map(array(integer), array(integer))");
-        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP(BOOLEAN,BOOLEAN)", "Cannot cast to map(boolean, boolean).\n{true: false, false:false}");
+        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP(BOOLEAN,BOOLEAN)", "Cannot convert value to JSON: '{true: false, false:false}'");
 
         assertCastWithJsonParse(
                 "{\"a\"  \n  :1,  \"b\":  \t  [2, 3]}",
@@ -424,11 +426,11 @@ public class TestJsonOperators
         assertInvalidCastWithJsonParse(
                 "{\"a\" :1,  \"b\": {} }",
                 "ROW(a INTEGER, b ARRAY(INTEGER))",
-                "Cannot cast to row(a integer, b array(integer)). Expected a json array, but got {\n{\"a\" :1,  \"b\": {} }");
+                "Cannot cast to row(a integer, b array(integer)). Expected a json array, but got {\n{\"a\":1,\"b\":{}}");
         assertInvalidCastWithJsonParse(
                 "[  1,  {}  ]",
                 "ROW(INTEGER, ARRAY(INTEGER))",
-                "Cannot cast to row(integer, array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
+                "Cannot cast to row(integer, array(integer)). Expected a json array, but got {\n[1,{}]");
     }
 
     @Test
@@ -473,7 +475,9 @@ public class TestJsonOperators
                 "FROM (VALUES('" + json + "')) AS t(col)";
 
         assertTrinoExceptionThrownBy(() -> runner.execute(query))
-                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .satisfies(exception -> assertTrue(
+                        exception.getErrorCode().equals(INVALID_CAST_ARGUMENT.toErrorCode()) ||
+                                exception.getErrorCode().equals(INVALID_FUNCTION_ARGUMENT.toErrorCode())))
                 .hasMessage(message);
     }
 

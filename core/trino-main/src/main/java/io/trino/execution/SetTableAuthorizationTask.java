@@ -29,7 +29,7 @@ import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -47,7 +47,7 @@ public class SetTableAuthorizationTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             SetTableAuthorization statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -61,8 +61,9 @@ public class SetTableAuthorizationTask
 
         CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
-        metadata.getTableHandle(session, tableName)
-                .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName));
+        if (metadata.getTableHandle(session, tableName).isEmpty()) {
+            throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+        }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
 
@@ -75,6 +76,6 @@ public class SetTableAuthorizationTask
 
         metadata.setTableAuthorization(session, tableName.asCatalogSchemaTableName(), principal);
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

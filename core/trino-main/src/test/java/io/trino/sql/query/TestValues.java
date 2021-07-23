@@ -17,6 +17,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestValues
@@ -103,5 +105,18 @@ public class TestValues
                 .matches("VALUES " +
                         "ROW(null, null), " +
                         "ROW(REAL '1', DOUBLE '1')");
+    }
+
+    @Test
+    public void testFailingExpression()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.query("VALUES 0 / 0"))
+                .hasErrorCode(DIVISION_BY_ZERO);
+
+        assertTrinoExceptionThrownBy(() -> assertions.query("VALUES CASE 1 WHEN 0 THEN true WHEN 0 / 0 THEN false END"))
+                .hasErrorCode(DIVISION_BY_ZERO);
+
+        assertTrinoExceptionThrownBy(() -> assertions.query("VALUES IF(0 / 0 > 0, true, false)"))
+                .hasErrorCode(DIVISION_BY_ZERO);
     }
 }

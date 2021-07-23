@@ -125,7 +125,10 @@ join output rows can be skipped.
 
 Use connector provided table node partitioning when reading tables.
 For example, table node partitioning corresponds to Hive table buckets.
-When set to ``true`` each table partition is read by a separate worker.
+When set to ``true`` and minimal partition to task ratio is matched or exceeded,
+each table partition is read by a separate worker. The minimal ratio is defined in
+``optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio``.
+
 Partition reader assignments are distributed across workers for
 parallel processing. Use of table scan node partitioning can improve
 query performance by reducing query complexity. For example,

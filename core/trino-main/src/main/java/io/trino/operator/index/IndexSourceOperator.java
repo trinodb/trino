@@ -13,6 +13,7 @@
  */
 package io.trino.operator.index;
 
+import com.google.common.base.Suppliers;
 import io.trino.metadata.Split;
 import io.trino.operator.DriverContext;
 import io.trino.operator.FinishedOperator;
@@ -131,7 +132,7 @@ public class IndexSourceOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(split.getCatalogName(), splitInfo));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogName(), splitInfo)));
         }
 
         return Optional::empty;

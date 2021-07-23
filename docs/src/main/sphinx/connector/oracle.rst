@@ -6,6 +6,15 @@ The Oracle connector allows querying and creating tables in an external Oracle
 database. Connectors let Trino join data provided by different databases,
 like Oracle and Hive, or different Oracle database instances.
 
+Requirements
+------------
+
+To connect to Oracle, you need:
+
+* Oracle 12 or higher.
+* Network access from the Trino coordinator and workers to Oracle.
+  Port 1521 is the default port.
+
 Configuration
 -------------
 
@@ -87,8 +96,10 @@ To access the clicks table in the web database, run the following::
 
     SELECT * FROM oracle.web.clicks;
 
-Mapping data types between Trino and Oracle
---------------------------------------------
+.. _oracle-type-mapping:
+
+Type mapping
+------------
 
 Both Oracle and Trino have types that are not supported by the Oracle
 connector. The following sections explain their type mapping.
@@ -158,17 +169,6 @@ Trino data type mapping:
   * - ``TIMESTAMP(p) WITH TIME ZONE``
     - ``TIMESTAMP WITH TIME ZONE``
     - See :ref:`datetime mapping`
-
-If an Oracle table uses a type not listed in the above table, then you can use the
-``unsupported-type-handling`` configuration property to specify Trino behavior.
-For example:
-
-- If ``unsupported-type-handling`` is set to ``FAIL``, then the
-  querying of an unsupported table fails.
-- If ``unsupported-type-handling`` is set to ``IGNORE``,
-  then you can't see the unsupported types in Trino.
-- If ``unsupported-type-handling`` is set to ``CONVERT_TO_VARCHAR``,
-  then the column is exposed as unbounded ``VARCHAR``.
 
 Trino to Oracle type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -300,10 +300,12 @@ example::
 Attempting to write a ``CHAR`` that doesn't fit in the column's actual size
 fails. This is also true for the equivalent ``VARCHAR`` types.
 
-Type mapping configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. include:: jdbc-type-mapping.fragment
 
-.. list-table:: Type Mapping Properties
+Number to decimal configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
   :widths: 20, 20, 50, 10
   :header-rows: 1
 
@@ -311,14 +313,6 @@ Type mapping configuration properties
     - Session property name
     - Description
     - Default
-  * - ``unsupported-type-handling``
-    - ``unsupported_type_handling``
-    - Configures how unsupported column data types are handled:
-
-      - ``IGNORE`` - column is not accessible.
-      - ``CONVERT_TO_VARCHAR`` - column is converted to unbounded ``VARCHAR``.
-
-    - ``IGNORE``
   * - ``oracle.number.default-scale``
     - ``number_default_scale``
     - Default Trino ``DECIMAL`` scale for Oracle ``NUMBER`` (without precision
@@ -363,10 +357,16 @@ include ``SYNONYM``, add the following configuration property:
 
     oracle.synonyms.enabled=true
 
+.. _oracle-pushdown:
+
 Pushdown
 --------
 
-The connector supports :doc:`pushdown </optimizer/pushdown>` for optimized query processing.
+The connector supports pushdown for a number of operations:
+
+* :ref:`join-pushdown`
+* :ref:`limit-pushdown`
+* :ref:`topn-pushdown`
 
 Limitations
 -----------

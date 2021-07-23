@@ -54,9 +54,8 @@ public class NonRegisteringTrinoDriver
 
         OkHttpClient.Builder builder = httpClient.newBuilder();
         uri.setupClient(builder);
-        QueryExecutor executor = new QueryExecutor(builder.build());
 
-        return new TrinoConnection(uri, executor);
+        return new TrinoConnection(uri, builder.build());
     }
 
     @Override

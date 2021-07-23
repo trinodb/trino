@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.SampleNode.Type;
@@ -66,10 +67,10 @@ public class TestPushSampleIntoTableScan
         }
 
         @Override
-        public Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio)
+        public Optional<SampleApplicationResult<TableHandle>> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio)
         {
             if (samplePushdown) {
-                return Optional.of(table);
+                return Optional.of(new SampleApplicationResult<>(table, false));
             }
             return Optional.empty();
         }

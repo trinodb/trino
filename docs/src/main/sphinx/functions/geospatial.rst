@@ -159,6 +159,15 @@ Relationship tests
 Operations
 ----------
 
+.. function:: geometry_nearest_points(Geometry, Geometry) -> row(Point, Point)
+
+    Returns the points on each geometry nearest the other.  If either geometry
+    is empty, return ``NULL``.  Otherwise, return a row of two Points that have
+    the minimum distance of any two points on the geometries.  The first Point
+    will be from the first Geometry argument, the second from the second Geometry
+    argument.  If there are multiple pairs with the minimum distance, one pair
+    is chosen arbitrarily.
+
 .. function:: geometry_union(array(Geometry)) -> Geometry
 
     Returns a geometry that represents the point set union of the input geometries. Performance

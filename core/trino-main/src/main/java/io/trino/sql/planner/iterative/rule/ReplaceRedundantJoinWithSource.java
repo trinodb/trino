@@ -25,6 +25,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import java.util.List;
 
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtLeastScalar;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static io.trino.sql.planner.plan.Patterns.join;
@@ -98,11 +99,11 @@ public class ReplaceRedundantJoinWithSource
                 }
                 break;
             case FULL:
-                if (leftSourceScalarWithNoOutputs) {
+                if (leftSourceScalarWithNoOutputs && isAtLeastScalar(node.getRight(), context.getLookup())) {
                     return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getRight(), ImmutableSet.copyOf(node.getRightOutputSymbols()))
                             .orElse(node.getRight()));
                 }
-                if (rightSourceScalarWithNoOutputs) {
+                if (rightSourceScalarWithNoOutputs && isAtLeastScalar(node.getLeft(), context.getLookup())) {
                     return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getLeft(), ImmutableSet.copyOf(node.getLeftOutputSymbols()))
                             .orElse(node.getLeft()));
                 }

@@ -19,11 +19,17 @@ public class LimitApplicationResult<T>
 {
     private final T handle;
     private final boolean limitGuaranteed;
+    private final boolean precalculateStatistics;
 
-    public LimitApplicationResult(T handle, boolean limitGuaranteed)
+    /**
+     * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
+     * as the connector may be unable to provide good table statistics for {@code handle}.
+     */
+    public LimitApplicationResult(T handle, boolean limitGuaranteed, boolean precalculateStatistics)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.limitGuaranteed = limitGuaranteed;
+        this.precalculateStatistics = precalculateStatistics;
     }
 
     public T getHandle()
@@ -34,5 +40,10 @@ public class LimitApplicationResult<T>
     public boolean isLimitGuaranteed()
     {
         return limitGuaranteed;
+    }
+
+    public boolean isPrecalculateStatistics()
+    {
+        return precalculateStatistics;
     }
 }

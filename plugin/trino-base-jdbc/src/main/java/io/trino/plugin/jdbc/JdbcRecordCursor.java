@@ -29,6 +29,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -40,6 +43,8 @@ public class JdbcRecordCursor
         implements RecordCursor
 {
     private static final Logger log = Logger.get(JdbcRecordCursor.class);
+
+    private final ExecutorService executor;
 
     private final JdbcColumnHandle[] columnHandles;
     private final ReadFunction[] readFunctions;
@@ -56,9 +61,10 @@ public class JdbcRecordCursor
     private ResultSet resultSet;
     private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordCursor(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.executor = requireNonNull(executor, "executor is null");
 
         this.columnHandles = columnHandles.toArray(new JdbcColumnHandle[0]);
 
@@ -135,8 +141,31 @@ public class JdbcRecordCursor
 
         try {
             if (resultSet == null) {
-                log.debug("Executing: %s", statement.toString());
-                resultSet = statement.executeQuery();
+                Future<ResultSet> resultSetFuture = executor.submit(() -> {
+                    log.debug("Executing: %s", statement.toString());
+                    return statement.executeQuery();
+                });
+                try {
+                    // statement.executeQuery() may block uninterruptedly, using async way so we are able to cancel remote query
+                    // See javadoc of java.sql.Connection.setNetworkTimeout
+                    resultSet = resultSetFuture.get();
+                }
+                catch (ExecutionException e) {
+                    if (e.getCause() instanceof SQLException) {
+                        SQLException cause = (SQLException) e.getCause();
+                        SQLException sqlException = new SQLException(cause.getMessage(), cause.getSQLState(), cause.getErrorCode(), e);
+                        if (cause.getNextException() != null) {
+                            sqlException.setNextException(cause.getNextException());
+                        }
+                        throw sqlException;
+                    }
+                    throw new RuntimeException(e);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    resultSetFuture.cancel(true);
+                    throw new RuntimeException(e);
+                }
             }
             return resultSet.next();
         }

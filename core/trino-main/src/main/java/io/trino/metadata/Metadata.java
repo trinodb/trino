@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
@@ -40,9 +41,11 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
@@ -118,17 +121,17 @@ public interface Metadata
      * Return table schema definition for the specified table handle.
      * Table schema definition is a set of information
      * required by semantic analyzer to analyze the query.
-     * @see {@link #getTableMetadata(Session, TableHandle)}
      *
      * @throws RuntimeException if table handle is no longer valid
+     * @see {@link #getTableMetadata(Session, TableHandle)}
      */
     TableSchema getTableSchema(Session session, TableHandle tableHandle);
 
     /**
      * Return the metadata for the specified table handle.
-     * @see {@link #getTableSchema(Session, TableHandle)} which is less expsensive.
      *
      * @throws RuntimeException if table handle is no longer valid
+     * @see {@link #getTableSchema(Session, TableHandle)} which is less expensive.
      */
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
@@ -157,9 +160,10 @@ public interface Metadata
     ColumnMetadata getColumnMetadata(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
 
     /**
-     * Gets the metadata for all columns that match the specified table prefix.
+     * Gets the columns metadata for all tables that match the specified prefix.
+     * TODO: consider returning a stream for more efficient processing
      */
-    Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
+    Map<CatalogName, List<TableColumnsMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Creates a schema.
@@ -286,6 +290,16 @@ public interface Metadata
      * Finish insert query
      */
     Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+
+    /**
+     * Returns true if materialized view refresh should be delegated to connector
+     */
+    boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Refresh materialized view
+     */
+    ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName);
 
     /**
      * Begin refresh materialized view query
@@ -419,7 +433,7 @@ public interface Metadata
 
     Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments);
 
-    Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
+    Optional<SampleApplicationResult<TableHandle>> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
 
     Optional<AggregationApplicationResult<TableHandle>> applyAggregation(
             Session session,
@@ -607,6 +621,8 @@ public interface Metadata
 
     TablePropertyManager getTablePropertyManager();
 
+    MaterializedViewPropertyManager getMaterializedViewPropertyManager();
+
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
@@ -620,6 +636,16 @@ public interface Metadata
      * Drops the specified materialized view.
      */
     void dropMaterializedView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Get the names that match the specified table prefix (never null).
+     */
+    List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Get the materialized view definitions that match the specified table prefix (never null).
+     */
+    Map<QualifiedObjectName, ConnectorMaterializedViewDefinition> getMaterializedViews(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Returns the materialized view definition for the specified view name.
@@ -638,4 +664,9 @@ public interface Metadata
      * This method is called after security checks against the original table.
      */
     Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle);
+
+    /**
+     * Get the target table handle after performing redirection.
+     */
+    RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName);
 }

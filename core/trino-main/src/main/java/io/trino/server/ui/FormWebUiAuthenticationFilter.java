@@ -221,10 +221,8 @@ public class FormWebUiAuthenticationFilter
 
     public Optional<NewCookie> checkLoginCredentials(String username, String password, boolean secure)
     {
-        if (formAuthenticator.isValidCredential(username, password, secure)) {
-            return Optional.of(createAuthenticationCookie(username, secure));
-        }
-        return Optional.empty();
+        return formAuthenticator.isValidCredential(username, password, secure)
+                .map(user -> createAuthenticationCookie(user, secure));
     }
 
     private Optional<String> getAuthenticatedUsername(ContainerRequestContext request)

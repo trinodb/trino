@@ -52,7 +52,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -61,6 +60,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
@@ -194,6 +194,7 @@ public class PushJoinIntoTableScan
                                 ImmutableList.copyOf(assignments.keySet()),
                                 assignments,
                                 newEnforcedConstraint,
+                                deriveTableStatisticsForPushdown(context.getStatsProvider(), context.getSession(), joinApplicationResult.get().isPrecalculateStatistics(), joinNode),
                                 false,
                                 Optional.empty()),
                         Assignments.identity(joinNode.getOutputSymbols())));
@@ -206,13 +207,13 @@ public class PushJoinIntoTableScan
             @Override
             public Optional<BasicRelationStatistics> getLeftStatistics()
             {
-                return getBasicRelationStats(left, join.getLeftOutputSymbols(), context);
+                return getBasicRelationStats(left, left.getOutputSymbols(), context);
             }
 
             @Override
             public Optional<BasicRelationStatistics> getRightStatistics()
             {
-                return getBasicRelationStats(right, join.getRightOutputSymbols(), context);
+                return getBasicRelationStats(right, right.getOutputSymbols(), context);
             }
 
             @Override
@@ -241,11 +242,7 @@ public class PushJoinIntoTableScan
         if (nullable) {
             constraint = constraint.transformDomains((columnHandle, domain) -> domain.union(onlyNull(domain.getType())));
         }
-        return constraint.transform(handle -> {
-            ColumnHandle newHandle = columnMapping.get(handle);
-            checkArgument(newHandle != null, "Mapping not found for handle %s", handle);
-            return newHandle;
-        });
+        return constraint.transformKeys(columnMapping::get);
     }
 
     public Expression getEffectiveFilter(JoinNode node)

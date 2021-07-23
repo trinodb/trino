@@ -388,6 +388,36 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot select from view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCreateMaterializedView(String materializedViewName)
+    {
+        denyCreateMaterializedView(materializedViewName, null);
+    }
+
+    public static void denyCreateMaterializedView(String materializedViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create materialized view %s%s", materializedViewName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyRefreshMaterializedView(String materializedViewName)
+    {
+        denyRefreshMaterializedView(materializedViewName, null);
+    }
+
+    public static void denyRefreshMaterializedView(String materializedViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot refresh materialized view %s%s", materializedViewName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDropMaterializedView(String materializedViewName)
+    {
+        denyDropMaterializedView(materializedViewName, null);
+    }
+
+    public static void denyDropMaterializedView(String materializedViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop materialized view %s%s", materializedViewName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyGrantSchemaPrivilege(String privilege, String schemaName)
     {
         denyGrantSchemaPrivilege(privilege, schemaName, null);

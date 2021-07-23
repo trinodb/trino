@@ -28,7 +28,7 @@ import io.trino.transaction.TransactionManager;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -46,7 +46,7 @@ public class DropColumnTask
     }
 
     @Override
-    public ListenableFuture<?> execute(
+    public ListenableFuture<Void> execute(
             DropColumn statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -63,7 +63,7 @@ public class DropColumnTask
             if (!statement.isTableExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
         TableHandle tableHandle = tableHandleOptional.get();
 
@@ -76,7 +76,7 @@ public class DropColumnTask
             if (!statement.isColumnExists()) {
                 throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", column);
             }
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
 
         if (metadata.getColumnMetadata(session, tableHandle, columnHandle).isHidden()) {
@@ -90,6 +90,6 @@ public class DropColumnTask
 
         metadata.dropColumn(session, tableHandle, columnHandle);
 
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 }

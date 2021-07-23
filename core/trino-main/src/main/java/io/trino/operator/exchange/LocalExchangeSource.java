@@ -31,13 +31,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class LocalExchangeSource
 {
-    private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
+    private static final ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
 
     private final Consumer<LocalExchangeSource> onFinish;
 
@@ -46,7 +46,7 @@ public class LocalExchangeSource
 
     @Nullable
     @GuardedBy("this")
-    private SettableFuture<?> notEmptyFuture; // null indicates no callback has been registered
+    private SettableFuture<Void> notEmptyFuture; // null indicates no callback has been registered
 
     private volatile boolean finishing;
 
@@ -67,7 +67,7 @@ public class LocalExchangeSource
         assertNotHoldsLock();
 
         boolean added = false;
-        SettableFuture<?> notEmptyFuture = null;
+        SettableFuture<Void> notEmptyFuture = null;
         long retainedSizeInBytes = pageReference.getRetainedSizeInBytes();
         synchronized (this) {
             // ignore pages after finish
@@ -106,7 +106,7 @@ public class LocalExchangeSource
                     return ProcessState.finished();
                 }
 
-                ListenableFuture<?> blocked = waitForReading();
+                ListenableFuture<Void> blocked = waitForReading();
                 if (!blocked.isDone()) {
                     return ProcessState.blocked(blocked);
                 }
@@ -139,7 +139,7 @@ public class LocalExchangeSource
         return page;
     }
 
-    public ListenableFuture<?> waitForReading()
+    public ListenableFuture<Void> waitForReading()
     {
         assertNotHoldsLock();
         // Fast path, definitely not blocked
@@ -176,7 +176,7 @@ public class LocalExchangeSource
     {
         assertNotHoldsLock();
 
-        SettableFuture<?> notEmptyFuture;
+        SettableFuture<Void> notEmptyFuture;
         synchronized (this) {
             if (finishing) {
                 return;
@@ -201,7 +201,7 @@ public class LocalExchangeSource
         assertNotHoldsLock();
 
         List<PageReference> remainingPages = new ArrayList<>();
-        SettableFuture<?> notEmptyFuture;
+        SettableFuture<Void> notEmptyFuture;
         synchronized (this) {
             finishing = true;
 

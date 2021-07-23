@@ -79,7 +79,7 @@ public class Driver
     // added to this staging area. This staging area will be drained asynchronously. That's when
     // the new splits get processed.
     private final AtomicReference<TaskSource> pendingTaskSourceUpdates = new AtomicReference<>();
-    private final Map<Operator, ListenableFuture<?>> revokingOperators = new HashMap<>();
+    private final Map<Operator, ListenableFuture<Void>> revokingOperators = new HashMap<>();
 
     private final AtomicReference<State> state = new AtomicReference<>(State.ALIVE);
 
@@ -88,7 +88,7 @@ public class Driver
     @GuardedBy("exclusiveLock")
     private TaskSource currentTaskSource;
 
-    private final AtomicReference<SettableFuture<?>> driverBlockedFuture = new AtomicReference<>();
+    private final AtomicReference<SettableFuture<Void>> driverBlockedFuture = new AtomicReference<>();
 
     private enum State
     {
@@ -148,7 +148,7 @@ public class Driver
 
         currentTaskSource = sourceOperator.map(operator -> new TaskSource(operator.getSourceId(), ImmutableSet.of(), false)).orElse(null);
         // initially the driverBlockedFuture is not blocked (it is completed)
-        SettableFuture<?> future = SettableFuture.create();
+        SettableFuture<Void> future = SettableFuture.create();
         future.set(null);
         driverBlockedFuture.set(future);
     }
@@ -267,28 +267,28 @@ public class Driver
         currentTaskSource = newSource;
     }
 
-    public ListenableFuture<?> processFor(Duration duration)
+    public ListenableFuture<Void> processFor(Duration duration)
     {
         checkLockNotHeld("Cannot process for a duration while holding the driver lock");
 
         requireNonNull(duration, "duration is null");
 
         // if the driver is blocked we don't need to continue
-        SettableFuture<?> blockedFuture = driverBlockedFuture.get();
+        SettableFuture<Void> blockedFuture = driverBlockedFuture.get();
         if (!blockedFuture.isDone()) {
             return blockedFuture;
         }
 
         long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
 
-        Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
+        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
             OperationTimer operationTimer = createTimer();
             driverContext.startProcessTimer();
             driverContext.getYieldSignal().setWithDelay(maxRuntime, driverContext.getYieldExecutor());
             try {
                 long start = System.nanoTime();
                 do {
-                    ListenableFuture<?> future = processInternal(operationTimer);
+                    ListenableFuture<Void> future = processInternal(operationTimer);
                     if (!future.isDone()) {
                         return updateDriverBlockedFuture(future);
                     }
@@ -304,18 +304,18 @@ public class Driver
         return result.orElse(NOT_BLOCKED);
     }
 
-    public ListenableFuture<?> process()
+    public ListenableFuture<Void> process()
     {
         checkLockNotHeld("Cannot process while holding the driver lock");
 
         // if the driver is blocked we don't need to continue
-        SettableFuture<?> blockedFuture = driverBlockedFuture.get();
+        SettableFuture<Void> blockedFuture = driverBlockedFuture.get();
         if (!blockedFuture.isDone()) {
             return blockedFuture;
         }
 
-        Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
-            ListenableFuture<?> future = processInternal(createTimer());
+        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
+            ListenableFuture<Void> future = processInternal(createTimer());
             return updateDriverBlockedFuture(future);
         });
         return result.orElse(NOT_BLOCKED);
@@ -328,11 +328,11 @@ public class Driver
                 driverContext.isCpuTimerEnabled() && driverContext.isPerOperatorCpuTimerEnabled());
     }
 
-    private ListenableFuture<?> updateDriverBlockedFuture(ListenableFuture<?> sourceBlockedFuture)
+    private ListenableFuture<Void> updateDriverBlockedFuture(ListenableFuture<Void> sourceBlockedFuture)
     {
         // driverBlockedFuture will be completed as soon as the sourceBlockedFuture is completed
         // or any of the operators gets a memory revocation request
-        SettableFuture<?> newDriverBlockedFuture = SettableFuture.create();
+        SettableFuture<Void> newDriverBlockedFuture = SettableFuture.create();
         driverBlockedFuture.set(newDriverBlockedFuture);
         sourceBlockedFuture.addListener(() -> newDriverBlockedFuture.set(null), directExecutor());
 
@@ -352,7 +352,7 @@ public class Driver
     }
 
     @GuardedBy("exclusiveLock")
-    private ListenableFuture<?> processInternal(OperationTimer operationTimer)
+    private ListenableFuture<Void> processInternal(OperationTimer operationTimer)
     {
         checkLockHeld("Lock must be held to call processInternal");
 
@@ -430,9 +430,9 @@ public class Driver
             // if we did not move any pages, check if we are blocked
             if (!movedPage) {
                 List<Operator> blockedOperators = new ArrayList<>();
-                List<ListenableFuture<?>> blockedFutures = new ArrayList<>();
+                List<ListenableFuture<Void>> blockedFutures = new ArrayList<>();
                 for (Operator operator : activeOperators) {
-                    Optional<ListenableFuture<?>> blocked = getBlockedFuture(operator);
+                    Optional<ListenableFuture<Void>> blocked = getBlockedFuture(operator);
                     if (blocked.isPresent()) {
                         blockedOperators.add(operator);
                         blockedFutures.add(blocked.get());
@@ -441,7 +441,7 @@ public class Driver
 
                 if (!blockedFutures.isEmpty()) {
                     // unblock when the first future is complete
-                    ListenableFuture<?> blocked = firstFinishedFuture(blockedFutures);
+                    ListenableFuture<Void> blocked = firstFinishedFuture(blockedFutures);
                     // driver records serial blocked time
                     driverContext.recordBlocked(blocked);
                     // each blocked operator is responsible for blocking the execution
@@ -483,7 +483,7 @@ public class Driver
                 checkOperatorFinishedRevoking(operator);
             }
             else if (operator.getOperatorContext().isMemoryRevokingRequested()) {
-                ListenableFuture<?> future = operator.startMemoryRevoke();
+                ListenableFuture<Void> future = operator.startMemoryRevoke();
                 revokingOperators.put(operator, future);
                 checkOperatorFinishedRevoking(operator);
             }
@@ -493,7 +493,7 @@ public class Driver
     @GuardedBy("exclusiveLock")
     private void checkOperatorFinishedRevoking(Operator operator)
     {
-        ListenableFuture<?> future = revokingOperators.get(operator);
+        ListenableFuture<Void> future = revokingOperators.get(operator);
         if (future.isDone()) {
             getFutureValue(future); // propagate exception if there was some
             revokingOperators.remove(operator);
@@ -587,9 +587,9 @@ public class Driver
         return inFlightException;
     }
 
-    private Optional<ListenableFuture<?>> getBlockedFuture(Operator operator)
+    private Optional<ListenableFuture<Void>> getBlockedFuture(Operator operator)
     {
-        ListenableFuture<?> blocked = revokingOperators.get(operator);
+        ListenableFuture<Void> blocked = revokingOperators.get(operator);
         if (blocked != null) {
             // We mark operator as blocked regardless of blocked.isDone(), because finishMemoryRevoke has not been called yet.
             return Optional.of(blocked);
@@ -640,15 +640,15 @@ public class Driver
         checkState(exclusiveLock.isHeldByCurrentThread(), message);
     }
 
-    private static ListenableFuture<?> firstFinishedFuture(List<ListenableFuture<?>> futures)
+    private static ListenableFuture<Void> firstFinishedFuture(List<ListenableFuture<Void>> futures)
     {
         if (futures.size() == 1) {
             return futures.get(0);
         }
 
-        SettableFuture<?> result = SettableFuture.create();
+        SettableFuture<Void> result = SettableFuture.create();
 
-        for (ListenableFuture<?> future : futures) {
+        for (ListenableFuture<Void> future : futures) {
             future.addListener(() -> result.set(null), directExecutor());
         }
 

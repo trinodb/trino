@@ -35,10 +35,12 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
@@ -312,6 +314,13 @@ public class PlanFragmenter
                     .orElse(SOURCE_DISTRIBUTION);
 
             context.get().addSourceDistribution(node.getId(), partitioning, metadata, session);
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitRefreshMaterializedView(RefreshMaterializedViewNode node, RewriteContext<FragmentProperties> context)
+        {
+            context.get().setCoordinatorOnlyDistribution();
             return context.defaultRewrite(node, context.get());
         }
 
@@ -666,6 +675,12 @@ public class PlanFragmenter
         }
 
         @Override
+        public GroupedExecutionProperties visitPatternRecognition(PatternRecognitionNode node, Void context)
+        {
+            return GroupedExecutionProperties.notCapable();
+        }
+
+        @Override
         public GroupedExecutionProperties visitTableScan(TableScanNode node, Void context)
         {
             Optional<TablePartitioning> tablePartitioning = metadata.getTableProperties(session, node.getTable()).getTablePartitioning();
@@ -788,6 +803,7 @@ public class PlanFragmenter
                     node.getOutputSymbols(),
                     node.getAssignments(),
                     node.getEnforcedConstraint(),
+                    node.getStatistics(),
                     node.isUpdateTarget(),
                     // plan was already fragmented with scan node's partitioning
                     // and new partitioning is compatible with previous one

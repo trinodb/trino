@@ -141,7 +141,8 @@ public class OrcMetadataReader
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
                 toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
-                toUserMetadata(footer.getMetadataList()));
+                toUserMetadata(footer.getMetadataList()),
+                Optional.of(footer.getWriter()));
     }
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)

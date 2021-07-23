@@ -154,15 +154,6 @@ public class TestMemSqlConnectorTest
     }
 
     @Override
-    public void testLargeIn(int valuesCount)
-    {
-        // Running this tests on MemSQL results in
-        // "Available disk space is below the value of 'minimal_disk_space' global variable (100 MB). This query cannot be executed"
-        // on followup tests
-        throw new SkipException("Running testLargeIn on MemSQL results in out-of-disk space errors");
-    }
-
-    @Override
     public void testInsertUnicode()
     {
         // MemSQL's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
@@ -278,18 +269,6 @@ public class TestMemSqlConnectorTest
     }
 
     @Test
-    public void testLimitPushdown()
-    {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
-
-        // with filter over numeric column
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
-
-        // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(FilterNode.class);
-    }
-
-    @Test
     public void testColumnComment()
     {
         // TODO add support for setting comments on existing column and replace the test with io.trino.testing.AbstractTestDistributedQueries#testCommentColumn
@@ -381,6 +360,7 @@ public class TestMemSqlConnectorTest
         memSqlServer.execute(sql);
     }
 
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return memSqlServer::execute;

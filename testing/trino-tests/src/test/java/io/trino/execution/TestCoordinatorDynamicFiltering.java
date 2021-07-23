@@ -70,6 +70,7 @@ import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
@@ -85,6 +86,7 @@ public class TestCoordinatorDynamicFiltering
         extends AbstractTestQueryFramework
 {
     private static final TestingMetadata.TestingColumnHandle SUPP_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("suppkey", 2, BIGINT);
+    private static final TestingMetadata.TestingColumnHandle ADDRESS_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("address", 2, createVarcharType(40));
     private static final TestingMetadata.TestingColumnHandle SS_SOLD_SK_HANDLE = new TestingMetadata.TestingColumnHandle("ss_sold_date_sk", 0, BIGINT);
 
     private volatile TupleDomain<ColumnHandle> expectedDynamicFilter;
@@ -102,6 +104,7 @@ public class TestCoordinatorDynamicFiltering
         getQueryRunner().createCatalog("tpcds", "tpcds", ImmutableMap.of());
         getQueryRunner().createCatalog("memory", "memory", ImmutableMap.of());
         computeActual("CREATE TABLE lineitem AS SELECT * FROM tpch.tiny.lineitem");
+        computeActual("CREATE TABLE customer AS SELECT * FROM tpch.tiny.customer");
         computeActual("CREATE TABLE store_sales AS SELECT * FROM tpcds.tiny.store_sales");
     }
 
@@ -234,6 +237,19 @@ public class TestCoordinatorDynamicFiltering
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         multipleValues(BIGINT, LongStream.rangeClosed(80L, 100L).boxed().collect(toImmutableList())))));
+
+        computeActual("CREATE TABLE memory.default.supplier_varchar AS SELECT name, CAST(address as varchar(42)) address FROM tpch.tiny.supplier");
+
+        List<String> values = computeActual("SELECT address FROM memory.default.supplier_varchar WHERE name >= 'Supplier#000000080'")
+                .getOnlyColumn()
+                .map(Object::toString)
+                .collect(toImmutableList());
+
+        assertQueryDynamicFilters(
+                "SELECT * FROM customer JOIN memory.default.supplier_varchar s ON customer.address = s.address AND s.name >= 'Supplier#000000080'",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        ADDRESS_KEY_HANDLE,
+                        multipleValues(createVarcharType(40), values))));
     }
 
     @Test(timeOut = 30_000)
@@ -369,7 +385,7 @@ public class TestCoordinatorDynamicFiltering
 
     private Session withBroadcastJoin()
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .build();
     }
@@ -507,7 +523,7 @@ public class TestCoordinatorDynamicFiltering
                         ConnectorSplit split,
                         ConnectorTableHandle table,
                         List<ColumnHandle> columns,
-                        TupleDomain<ColumnHandle> dynamicFilter)
+                        DynamicFilter dynamicFilter)
                 {
                     return new EmptyPageSource();
                 }

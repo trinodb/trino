@@ -59,6 +59,7 @@ import static io.trino.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static io.trino.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
+import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
 import static io.trino.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.trino.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
@@ -98,7 +99,6 @@ public final class TrinoDriverUri
 {
     private static final String JDBC_URL_PREFIX = "jdbc:";
     private static final String JDBC_URL_START = JDBC_URL_PREFIX + "trino:";
-    private static final String LEGACY_JDBC_URL_START = JDBC_URL_PREFIX + "presto:";
 
     private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();
     private static final Splitter ARG_SPLITTER = Splitter.on('=').limit(2);
@@ -143,7 +143,7 @@ public final class TrinoDriverUri
 
     public static boolean acceptsURL(String url)
     {
-        return url.startsWith(JDBC_URL_START) || url.startsWith(LEGACY_JDBC_URL_START);
+        return url.startsWith(JDBC_URL_START);
     }
 
     public URI getJdbcUri()
@@ -317,7 +317,9 @@ public final class TrinoDriverUri
                         .map(value -> Duration.ofMillis(value.toMillis()))
                         .orElse(Duration.ofMinutes(2));
 
-                ExternalAuthenticator authenticator = new ExternalAuthenticator(REDIRECT_HANDLER.get(), poller, timeout);
+                KnownTokenCache knownTokenCache = EXTERNAL_AUTHENTICATION_TOKEN_CACHE.getValue(properties).get();
+
+                ExternalAuthenticator authenticator = new ExternalAuthenticator(REDIRECT_HANDLER.get(), poller, knownTokenCache.create(), timeout);
 
                 builder.authenticator(authenticator);
                 builder.addInterceptor(authenticator);
@@ -355,11 +357,11 @@ public final class TrinoDriverUri
     private static URI parseDriverUrl(String url)
             throws SQLException
     {
-        if (!url.startsWith(JDBC_URL_START) && !url.startsWith(LEGACY_JDBC_URL_START)) {
+        if (!url.startsWith(JDBC_URL_START)) {
             throw new SQLException("Invalid JDBC URL: " + url);
         }
 
-        if (url.equals(JDBC_URL_START) || url.equals(LEGACY_JDBC_URL_START)) {
+        if (url.equals(JDBC_URL_START)) {
             throw new SQLException("Empty JDBC URL: " + url);
         }
 

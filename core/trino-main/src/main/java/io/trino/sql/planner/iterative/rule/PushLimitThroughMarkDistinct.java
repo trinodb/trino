@@ -25,6 +25,7 @@ import static io.trino.sql.planner.iterative.rule.Util.transpose;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.markDistinct;
 import static io.trino.sql.planner.plan.Patterns.source;
+import static java.util.function.Predicate.isEqual;
 
 public class PushLimitThroughMarkDistinct
         implements Rule<LimitNode>
@@ -44,6 +45,10 @@ public class PushLimitThroughMarkDistinct
     @Override
     public Result apply(LimitNode parent, Captures captures, Context context)
     {
-        return Result.ofPlanNode(transpose(parent, captures.get(CHILD)));
+        MarkDistinctNode child = captures.get(CHILD);
+        if (parent.getPreSortedInputs().stream().anyMatch(isEqual(child.getMarkerSymbol()))) {
+            return Result.empty();
+        }
+        return Result.ofPlanNode(transpose(parent, child));
     }
 }

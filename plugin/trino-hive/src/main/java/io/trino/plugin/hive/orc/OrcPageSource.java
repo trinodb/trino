@@ -229,6 +229,11 @@ public class OrcPageSource
             return new OriginalFileRowIdAdaptation(startingRowId, bucketId);
         }
 
+        static ColumnAdaptation updatedRowColumnsWithOriginalFiles(long startingRowId, int bucketId, HiveUpdateProcessor updateProcessor, List<HiveColumnHandle> dependencyColumns)
+        {
+            return new UpdatedRowAdaptationWithOriginalFiles(startingRowId, bucketId, updateProcessor, dependencyColumns);
+        }
+
         static ColumnAdaptation updatedRowColumns(HiveUpdateProcessor updateProcessor, List<HiveColumnHandle> dependencyColumns)
         {
             return new UpdatedRowAdaptation(updateProcessor, dependencyColumns);
@@ -328,8 +333,8 @@ public class OrcPageSource
                     Optional.empty(),
                     new Block[] {
                             sourcePage.getBlock(ORIGINAL_TRANSACTION_CHANNEL),
-                            sourcePage.getBlock(ROW_ID_CHANNEL),
                             sourcePage.getBlock(BUCKET_CHANNEL),
+                            sourcePage.getBlock(ROW_ID_CHANNEL),
                     }));
             return rowBlock;
         }
@@ -359,6 +364,46 @@ public class OrcPageSource
         }
     }
 
+    /**
+     * This ColumnAdaptation creates a RowBlock column containing the three
+     * ACID columms derived from the startingRowId and bucketId, and a special
+     * original files transaction block, plus a block containing
+     * all the columns not changed by the UPDATE statement.
+     */
+    private static final class UpdatedRowAdaptationWithOriginalFiles
+            implements ColumnAdaptation
+    {
+        private final long startingRowId;
+        private final Block bucketBlock;
+        private final HiveUpdateProcessor updateProcessor;
+        private final List<Integer> nonUpdatedSourceChannels;
+
+        public UpdatedRowAdaptationWithOriginalFiles(long startingRowId, int bucketId, HiveUpdateProcessor updateProcessor, List<HiveColumnHandle> dependencyColumns)
+        {
+            this.startingRowId = startingRowId;
+            this.bucketBlock = nativeValueToBlock(INTEGER, Long.valueOf(computeBucketValue(bucketId, 0)));
+            this.updateProcessor = requireNonNull(updateProcessor, "updateProcessor is null");
+            requireNonNull(dependencyColumns, "dependencyColumns is null");
+            this.nonUpdatedSourceChannels = updateProcessor.makeNonUpdatedSourceChannels(dependencyColumns);
+        }
+
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        {
+            int positionCount = sourcePage.getPositionCount();
+            ImmutableList.Builder<Block> originalFilesBlockBuilder = ImmutableList.builder();
+            originalFilesBlockBuilder.add(
+                    new RunLengthEncodedBlock(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
+                    new RunLengthEncodedBlock(bucketBlock, positionCount),
+                    createOriginalFilesRowIdBlock(startingRowId, filePosition, positionCount));
+            for (int channel = 0; channel < sourcePage.getChannelCount(); channel++) {
+                originalFilesBlockBuilder.add(sourcePage.getBlock(channel));
+            }
+            Page page = new Page(originalFilesBlockBuilder.build().toArray(new Block[]{}));
+            return updateProcessor.createUpdateRowBlock(page, nonUpdatedSourceChannels, maskDeletedRowsFunction);
+        }
+    }
+
     private static class OriginalFileRowIdAdaptation
             implements ColumnAdaptation
     {
@@ -380,19 +425,19 @@ public class OrcPageSource
                     Optional.empty(),
                     new Block[] {
                             new RunLengthEncodedBlock(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
-                            createRowIdBlock(filePosition, positionCount),
-                            new RunLengthEncodedBlock(bucketBlock, positionCount)
+                            new RunLengthEncodedBlock(bucketBlock, positionCount),
+                            createOriginalFilesRowIdBlock(startingRowId, filePosition, positionCount)
                     }));
             return rowBlock;
         }
+    }
 
-        private Block createRowIdBlock(long filePosition, int positionCount)
-        {
-            long[] translatedRowIds = new long[positionCount];
-            for (int index = 0; index < positionCount; index++) {
-                translatedRowIds[index] = filePosition + startingRowId + index;
-            }
-            return new LongArrayBlock(positionCount, Optional.empty(), translatedRowIds);
+    private static Block createOriginalFilesRowIdBlock(long startingRowId, long filePosition, int positionCount)
+    {
+        long[] translatedRowIds = new long[positionCount];
+        for (int index = 0; index < positionCount; index++) {
+            translatedRowIds[index] = startingRowId + filePosition + index;
         }
+        return new LongArrayBlock(positionCount, Optional.empty(), translatedRowIds);
     }
 }

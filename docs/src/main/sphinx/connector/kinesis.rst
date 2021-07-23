@@ -33,22 +33,23 @@ Configuration properties
 
 The following configuration properties are available:
 
-======================================  =======================================================================
-Property Name                           Description
-======================================  =======================================================================
-``kinesis.access-key``                  Access key to AWS account or blank to use default provider chain
-``kinesis.secret-key``                  Secret key to AWS account or blank to use default provider chain
-``kinesis.aws-region``                  AWS region to be used to read kinesis stream from
-``kinesis.default-schema``              Default schema name for tables
-``kinesis.table-description-location``  Directory containing table description files
-``kinesis.hide-internal-columns``       Controls whether internal columns are part of the table schema or not
-``kinesis.batch-size``                  Maximum number of records to return in one batch
-``kinesis.fetch-attempts``              Read attempts made when no records returned and not caught up
-``kinesis.max-batches``                 Maximum batches to read from Kinesis in one single query
-``kinesis.sleep-time``                  Time for thread to sleep waiting to make next attempt to fetch batch
-``kinesis.iterator-from-timestamp``     Begin iterating from a given timestamp instead of the trim horizon
-``kinesis.iterator-offset-seconds``     Number of seconds before current time to start iterating
-======================================  =======================================================================
+==============================================  =======================================================================
+Property Name                                   Description
+==============================================  =======================================================================
+``kinesis.access-key``                          Access key to AWS account or blank to use default provider chain
+``kinesis.secret-key``                          Secret key to AWS account or blank to use default provider chain
+``kinesis.aws-region``                          AWS region to be used to read kinesis stream from
+``kinesis.default-schema``                      Default schema name for tables
+``kinesis.table-description-location``          Directory containing table description files
+``kinesis.table-description-refresh-interval``  How often to get the table description from S3
+``kinesis.hide-internal-columns``               Controls whether internal columns are part of the table schema or not
+``kinesis.batch-size``                          Maximum number of records to return in one batch
+``kinesis.fetch-attempts``                      Read attempts made when no records returned and not caught up
+``kinesis.max-batches``                         Maximum batches to read from Kinesis in one single query
+``kinesis.sleep-time``                          Time for thread to sleep waiting to make next attempt to fetch batch
+``kinesis.iterator-from-timestamp``             Begin iterating from a given timestamp instead of the trim horizon
+``kinesis.iterator-offset-seconds``             Number of seconds before current time to start iterating
+==============================================  =======================================================================
 
 ``kinesis.access-key``
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -94,6 +95,13 @@ References an S3 URL or a folder within Trino deployment that holds one or more 
 The S3 bucket and folder will be checked every 10 minutes for updates and changed files.
 
 This property is optional; the default is ``etc/kinesis``.
+
+``kinesis.table-description-refresh-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This property controls how often the table description is refreshed from S3.
+
+This property is optional; the default is ``10m``.
 
 ``kinesis.batch-size``
 ^^^^^^^^^^^^^^^^^^^^^^

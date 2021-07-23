@@ -47,6 +47,7 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.SymbolReference;
 
 import javax.annotation.Nullable;
+import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;
@@ -83,6 +84,7 @@ public class FilterStatsCalculator
     private final StatsNormalizer normalizer;
     private final LiteralEncoder literalEncoder;
 
+    @Inject
     public FilterStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");

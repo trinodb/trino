@@ -837,11 +837,11 @@ public class QueryStateMachine
 
         Optional<TransactionId> transactionId = session.getTransactionId();
         if (transactionId.isPresent() && transactionManager.transactionExists(transactionId.get()) && transactionManager.isAutoCommit(transactionId.get())) {
-            ListenableFuture<?> commitFuture = transactionManager.asyncCommit(transactionId.get());
-            Futures.addCallback(commitFuture, new FutureCallback<Object>()
+            ListenableFuture<Void> commitFuture = transactionManager.asyncCommit(transactionId.get());
+            Futures.addCallback(commitFuture, new FutureCallback<>()
             {
                 @Override
-                public void onSuccess(@Nullable Object result)
+                public void onSuccess(@Nullable Void result)
                 {
                     transitionToFinished();
                 }
@@ -1007,6 +1007,13 @@ public class QueryStateMachine
     public Optional<DateTime> getExecutionStartTime()
     {
         return queryStateTimer.getExecutionStartTime();
+    }
+
+    public Optional<Duration> getPlanningTime()
+    {
+        // Execution start time is empty if planning has not started
+        return queryStateTimer.getExecutionStartTime()
+                .map(ignored -> queryStateTimer.getPlanningTime());
     }
 
     public DateTime getLastHeartbeat()

@@ -20,7 +20,6 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
@@ -39,9 +38,10 @@ import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.tree.AllColumns;
+import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FieldReference;
@@ -51,6 +51,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
@@ -59,13 +60,16 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
+import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowOperation;
 import io.trino.transaction.TransactionId;
 
 import javax.annotation.Nullable;
@@ -74,6 +78,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -86,13 +91,13 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -124,6 +129,17 @@ public class Analysis
     // a map of users to the columns per table that they access
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
 
+    // Record fields prefixed with labels in row pattern recognition context
+    private final Map<NodeRef<DereferenceExpression>, LabelPrefixedReference> labelDereferences = new LinkedHashMap<>();
+
+    private final Set<NodeRef<FunctionCall>> patternRecognitionFunctions = new LinkedHashSet<>();
+
+    private final Map<NodeRef<RangeQuantifier>, Range> ranges = new LinkedHashMap<>();
+
+    private final Map<NodeRef<RowPattern>, Set<String>> undefinedLabels = new LinkedHashMap<>();
+
+    private final Map<NodeRef<WindowOperation>, MeasureDefinition> measureDefinitions = new LinkedHashMap<>();
+
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, GroupingSetAnalysis> groupingSets = new LinkedHashMap<>();
@@ -137,22 +153,21 @@ public class Analysis
     // Store resolved window specifications defined in WINDOW clause
     private final Map<NodeRef<QuerySpecification>, Map<CanonicalizationAware<Identifier>, ResolvedWindow>> windowDefinitions = new LinkedHashMap<>();
 
-    // Store resolved window specifications for window functions
-    private final Map<NodeRef<FunctionCall>, ResolvedWindow> windows = new LinkedHashMap<>();
+    // Store resolved window specifications for window functions and row pattern measures
+    private final Map<NodeRef<Node>, ResolvedWindow> windows = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> windowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<QuerySpecification>, List<WindowOperation>> windowMeasures = new LinkedHashMap<>();
+    private final Map<NodeRef<OrderBy>, List<WindowOperation>> orderByWindowMeasures = new LinkedHashMap<>();
     private final Map<NodeRef<Offset>, Long> offset = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, OptionalLong> limit = new LinkedHashMap<>();
     private final Map<NodeRef<AllColumns>, List<Field>> selectAllResultFields = new LinkedHashMap<>();
 
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
     private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
-
-    private final ListMultimap<NodeRef<Node>, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
-    private final ListMultimap<NodeRef<Node>, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
-    private final ListMultimap<NodeRef<Node>, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
-    private final ListMultimap<NodeRef<Node>, QuantifiedComparisonExpression> quantifiedComparisonSubqueries = ArrayListMultimap.create();
+    private final Map<NodeRef<Node>, SubqueryAnalysis> subqueries = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
 
     private final Map<NodeRef<Table>, TableEntry> tables = new LinkedHashMap<>();
 
@@ -183,6 +198,7 @@ public class Analysis
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
+    private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
     private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
 
@@ -427,11 +443,11 @@ public class Analysis
 
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
-        NodeRef<Node> key = NodeRef.of(node);
-        this.inPredicatesSubqueries.putAll(key, dereference(expressionAnalysis.getSubqueryInPredicates()));
-        this.scalarSubqueries.putAll(key, dereference(expressionAnalysis.getScalarSubqueries()));
-        this.existsSubqueries.putAll(key, dereference(expressionAnalysis.getExistsSubqueries()));
-        this.quantifiedComparisonSubqueries.putAll(key, dereference(expressionAnalysis.getQuantifiedComparisons()));
+        SubqueryAnalysis subqueries = this.subqueries.computeIfAbsent(NodeRef.of(node), key -> new SubqueryAnalysis());
+        subqueries.addInPredicates(dereference(expressionAnalysis.getSubqueryInPredicates()));
+        subqueries.addSubqueries(dereference(expressionAnalysis.getSubqueries()));
+        subqueries.addExistsSubqueries(dereference(expressionAnalysis.getExistsSubqueries()));
+        subqueries.addQuantifiedComparisons(dereference(expressionAnalysis.getQuantifiedComparisons()));
     }
 
     private <T extends Node> List<T> dereference(Collection<NodeRef<T>> nodeRefs)
@@ -441,24 +457,9 @@ public class Analysis
                 .collect(toImmutableList());
     }
 
-    public List<InPredicate> getInPredicateSubqueries(Node node)
+    public SubqueryAnalysis getSubqueries(Node node)
     {
-        return ImmutableList.copyOf(inPredicatesSubqueries.get(NodeRef.of(node)));
-    }
-
-    public List<SubqueryExpression> getScalarSubqueries(Node node)
-    {
-        return ImmutableList.copyOf(scalarSubqueries.get(NodeRef.of(node)));
-    }
-
-    public List<ExistsPredicate> getExistsSubqueries(Node node)
-    {
-        return ImmutableList.copyOf(existsSubqueries.get(NodeRef.of(node)));
-    }
-
-    public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries(Node node)
-    {
-        return unmodifiableList(quantifiedComparisonSubqueries.get(NodeRef.of(node)));
+        return subqueries.computeIfAbsent(NodeRef.of(node), key -> new SubqueryAnalysis());
     }
 
     public void addWindowDefinition(QuerySpecification query, CanonicalizationAware<Identifier> name, ResolvedWindow window)
@@ -477,14 +478,14 @@ public class Analysis
         return null;
     }
 
-    public void setWindow(FunctionCall functionCall, ResolvedWindow window)
+    public void setWindow(Node node, ResolvedWindow window)
     {
-        windows.put(NodeRef.of(functionCall), window);
+        windows.put(NodeRef.of(node), window);
     }
 
-    public ResolvedWindow getWindow(FunctionCall functionCall)
+    public ResolvedWindow getWindow(Node node)
     {
-        return windows.get(NodeRef.of(functionCall));
+        return windows.get(NodeRef.of(node));
     }
 
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
@@ -505,6 +506,26 @@ public class Analysis
     public List<FunctionCall> getOrderByWindowFunctions(OrderBy query)
     {
         return orderByWindowFunctions.get(NodeRef.of(query));
+    }
+
+    public void setWindowMeasures(QuerySpecification node, List<WindowOperation> measures)
+    {
+        windowMeasures.put(NodeRef.of(node), ImmutableList.copyOf(measures));
+    }
+
+    public List<WindowOperation> getWindowMeasures(QuerySpecification node)
+    {
+        return windowMeasures.get(NodeRef.of(node));
+    }
+
+    public void setOrderByWindowMeasures(OrderBy node, List<WindowOperation> measures)
+    {
+        orderByWindowMeasures.put(NodeRef.of(node), ImmutableList.copyOf(measures));
+    }
+
+    public List<WindowOperation> getOrderByWindowMeasures(OrderBy node)
+    {
+        return orderByWindowMeasures.get(NodeRef.of(node));
     }
 
     public void addColumnReferences(Map<NodeRef<Expression>, ResolvedField> columnReferences)
@@ -567,8 +588,6 @@ public class Analysis
             Table table,
             Optional<TableHandle> handle,
             QualifiedObjectName name,
-            List<ViewExpression> filters,
-            Map<Field, List<ViewExpression>> columnMasks,
             String authorization,
             Scope accessControlScope)
     {
@@ -577,8 +596,6 @@ public class Analysis
                 new TableEntry(
                         handle,
                         name,
-                        filters,
-                        columnMasks,
                         authorization,
                         accessControlScope,
                         tablesForView.isEmpty() &&
@@ -728,6 +745,16 @@ public class Analysis
         return refreshMaterializedView;
     }
 
+    public void setDelegatedRefreshMaterializedView(QualifiedObjectName viewName)
+    {
+        this.delegatedRefreshMaterializedView = Optional.of(viewName);
+    }
+
+    public Optional<QualifiedObjectName> getDelegatedRefreshMaterializedView()
+    {
+        return delegatedRefreshMaterializedView;
+    }
+
     public Query getNamedQuery(Table table)
     {
         return namedQueries.get(NodeRef.of(table));
@@ -850,6 +877,65 @@ public class Analysis
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
         tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
+    }
+
+    public void addLabelDereferences(Map<NodeRef<DereferenceExpression>, LabelPrefixedReference> dereferences)
+    {
+        labelDereferences.putAll(dereferences);
+    }
+
+    public LabelPrefixedReference getLabelDereference(DereferenceExpression expression)
+    {
+        return labelDereferences.get(NodeRef.of(expression));
+    }
+
+    public void addPatternRecognitionFunctions(Set<NodeRef<FunctionCall>> functions)
+    {
+        patternRecognitionFunctions.addAll(functions);
+    }
+
+    public boolean isPatternRecognitionFunction(FunctionCall functionCall)
+    {
+        return patternRecognitionFunctions.contains(NodeRef.of(functionCall));
+    }
+
+    public void setRanges(Map<NodeRef<RangeQuantifier>, Range> quantifierRanges)
+    {
+        ranges.putAll(quantifierRanges);
+    }
+
+    public Range getRange(RangeQuantifier quantifier)
+    {
+        Range range = ranges.get(NodeRef.of(quantifier));
+        checkNotNull(range, "missing range for quantifier ", quantifier);
+        return range;
+    }
+
+    public void setUndefinedLabels(RowPattern pattern, Set<String> labels)
+    {
+        undefinedLabels.put(NodeRef.of(pattern), labels);
+    }
+
+    public void setUndefinedLabels(Map<NodeRef<RowPattern>, Set<String>> labels)
+    {
+        undefinedLabels.putAll(labels);
+    }
+
+    public Set<String> getUndefinedLabels(RowPattern pattern)
+    {
+        Set<String> labels = undefinedLabels.get(NodeRef.of(pattern));
+        checkNotNull(labels, "missing undefined labels for ", pattern);
+        return labels;
+    }
+
+    public void setMeasureDefinitions(Map<NodeRef<WindowOperation>, MeasureDefinition> definitions)
+    {
+        measureDefinitions.putAll(definitions);
+    }
+
+    public MeasureDefinition getMeasureDefinition(WindowOperation measure)
+    {
+        return measureDefinitions.get(NodeRef.of(measure));
     }
 
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
@@ -1007,6 +1093,16 @@ public class Analysis
     public Scope getImplicitFromScope(QuerySpecification node)
     {
         return implicitFromScopes.get(NodeRef.of(node));
+    }
+
+    public void addPredicateCoercions(Map<NodeRef<Expression>, PredicateCoercions> coercions)
+    {
+        predicateCoercions.putAll(coercions);
+    }
+
+    public PredicateCoercions getPredicateCoercions(Expression expression)
+    {
+        return predicateCoercions.get(NodeRef.of(expression));
     }
 
     @Immutable
@@ -1276,6 +1372,86 @@ public class Analysis
         }
     }
 
+    public static class SubqueryAnalysis
+    {
+        private final List<InPredicate> inPredicatesSubqueries = new ArrayList<>();
+        private final List<SubqueryExpression> subqueries = new ArrayList<>();
+        private final List<ExistsPredicate> existsSubqueries = new ArrayList<>();
+        private final List<QuantifiedComparisonExpression> quantifiedComparisonSubqueries = new ArrayList<>();
+
+        public void addInPredicates(List<InPredicate> expressions)
+        {
+            inPredicatesSubqueries.addAll(expressions);
+        }
+
+        public void addSubqueries(List<SubqueryExpression> expressions)
+        {
+            subqueries.addAll(expressions);
+        }
+
+        public void addExistsSubqueries(List<ExistsPredicate> expressions)
+        {
+            existsSubqueries.addAll(expressions);
+        }
+
+        public void addQuantifiedComparisons(List<QuantifiedComparisonExpression> expressions)
+        {
+            quantifiedComparisonSubqueries.addAll(expressions);
+        }
+
+        public List<InPredicate> getInPredicatesSubqueries()
+        {
+            return Collections.unmodifiableList(inPredicatesSubqueries);
+        }
+
+        public List<SubqueryExpression> getSubqueries()
+        {
+            return Collections.unmodifiableList(subqueries);
+        }
+
+        public List<ExistsPredicate> getExistsSubqueries()
+        {
+            return Collections.unmodifiableList(existsSubqueries);
+        }
+
+        public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries()
+        {
+            return Collections.unmodifiableList(quantifiedComparisonSubqueries);
+        }
+    }
+
+    /**
+     * Analysis for predicates such as <code>x IN (subquery)</code> or <code>x = SOME (subquery)</code>
+     */
+    public static class PredicateCoercions
+    {
+        private final Type valueType;
+        private final Optional<Type> valueCoercion;
+        private final Optional<Type> subqueryCoercion;
+
+        public PredicateCoercions(Type valueType, Optional<Type> valueCoercion, Optional<Type> subqueryCoercion)
+        {
+            this.valueType = requireNonNull(valueType, "valueType is null");
+            this.valueCoercion = requireNonNull(valueCoercion, "valueCoercion is null");
+            this.subqueryCoercion = requireNonNull(subqueryCoercion, "subqueryCoercion is null");
+        }
+
+        public Type getValueType()
+        {
+            return valueType;
+        }
+
+        public Optional<Type> getValueCoercion()
+        {
+            return valueCoercion;
+        }
+
+        public Optional<Type> getSubqueryCoercion()
+        {
+            return subqueryCoercion;
+        }
+    }
+
     public static class ResolvedWindow
     {
         private final List<Expression> partitionBy;
@@ -1446,8 +1622,6 @@ public class Analysis
     {
         private final Optional<TableHandle> handle;
         private final QualifiedObjectName name;
-        private final List<ViewExpression> filters;
-        private final Map<Field, List<ViewExpression>> columnMasks;
         private final String authorization;
         private final Scope accessControlScope; // synthetic scope for analysis of row filters and masks
         private final boolean directlyReferenced;
@@ -1455,16 +1629,12 @@ public class Analysis
         public TableEntry(
                 Optional<TableHandle> handle,
                 QualifiedObjectName name,
-                List<ViewExpression> filters,
-                Map<Field, List<ViewExpression>> columnMasks,
                 String authorization,
                 Scope accessControlScope,
                 boolean directlyReferenced)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.name = requireNonNull(name, "name is null");
-            this.filters = requireNonNull(filters, "filters is null");
-            this.columnMasks = requireNonNull(columnMasks, "columnMasks is null");
             this.authorization = requireNonNull(authorization, "authorization is null");
             this.accessControlScope = requireNonNull(accessControlScope, "accessControlScope is null");
             this.directlyReferenced = directlyReferenced;
@@ -1483,16 +1653,6 @@ public class Analysis
         public boolean isDirectlyReferenced()
         {
             return directlyReferenced;
-        }
-
-        public List<ViewExpression> getFilters()
-        {
-            return filters;
-        }
-
-        public Map<Field, List<ViewExpression>> getColumnMasks()
-        {
-            return columnMasks;
         }
 
         public String getAuthorization()
@@ -1604,6 +1764,28 @@ public class Analysis
         public Optional<List<OutputColumn>> getColumns()
         {
             return columns;
+        }
+    }
+
+    public static class Range
+    {
+        private final Optional<Integer> atLeast;
+        private final Optional<Integer> atMost;
+
+        public Range(Optional<Integer> atLeast, Optional<Integer> atMost)
+        {
+            this.atLeast = requireNonNull(atLeast, "atLeast is null");
+            this.atMost = requireNonNull(atMost, "atMost is null");
+        }
+
+        public Optional<Integer> getAtLeast()
+        {
+            return atLeast;
+        }
+
+        public Optional<Integer> getAtMost()
+        {
+            return atMost;
         }
     }
 }

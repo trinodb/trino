@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.Patterns.Sample.sampleType;
 import static io.trino.sql.planner.plan.Patterns.sample;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -68,10 +69,11 @@ public class PushSampleIntoTableScan
         return metadata.applySample(context.getSession(), tableScan.getTable(), getSamplingType(sample.getSampleType()), sample.getSampleRatio())
                 .map(result -> Result.ofPlanNode(new TableScanNode(
                         tableScan.getId(),
-                        result,
+                        result.getHandle(),
                         tableScan.getOutputSymbols(),
                         tableScan.getAssignments(),
                         tableScan.getEnforcedConstraint(),
+                        deriveTableStatisticsForPushdown(context.getStatsProvider(), context.getSession(), result.isPrecalculateStatistics(), sample),
                         tableScan.isUpdateTarget(),
                         // table scan partitioning might have changed with new table handle
                         Optional.empty())))

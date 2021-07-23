@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
@@ -53,9 +54,11 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
@@ -273,6 +276,18 @@ public class UnaliasSymbolReferences
         }
 
         @Override
+        public PlanAndMappings visitPatternRecognition(PatternRecognitionNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            PatternRecognitionNode rewrittenPatternRecognition = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenPatternRecognition, mapping);
+        }
+
+        @Override
         public PlanAndMappings visitTableScan(TableScanNode node, UnaliasContext context)
         {
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
@@ -280,13 +295,26 @@ public class UnaliasSymbolReferences
 
             List<Symbol> newOutputs = mapper.map(node.getOutputSymbols());
 
+            Optional<PlanNodeStatsEstimate> statistics = node.getStatistics();
+            PlanNodeStatsEstimate.Builder newStatistics = PlanNodeStatsEstimate.builder();
+            statistics.ifPresent(stats -> newStatistics.setOutputRowCount(stats.getOutputRowCount()));
             Map<Symbol, ColumnHandle> newAssignments = new HashMap<>();
             node.getAssignments().forEach((symbol, handle) -> {
-                newAssignments.put(mapper.map(symbol), handle);
+                Symbol newSymbol = mapper.map(symbol);
+                newAssignments.put(newSymbol, handle);
+                statistics.ifPresent(stats -> newStatistics.addSymbolStatistics(newSymbol, stats.getSymbolStatistics(symbol)));
             });
 
             return new PlanAndMappings(
-                    new TableScanNode(node.getId(), node.getTable(), newOutputs, newAssignments, node.getEnforcedConstraint(), node.isUpdateTarget(), node.getUseConnectorNodePartitioning()),
+                    new TableScanNode(
+                            node.getId(),
+                            node.getTable(),
+                            newOutputs,
+                            newAssignments,
+                            node.getEnforcedConstraint(),
+                            statistics.isPresent() ? Optional.of(newStatistics.build()) : Optional.empty(),
+                            node.isUpdateTarget(),
+                            node.getUseConnectorNodePartitioning()),
                     mapping);
         }
 
@@ -590,6 +618,12 @@ public class UnaliasSymbolReferences
             StatisticsWriterNode rewrittenStatisticsWriter = mapper.map(node, rewrittenSource.getRoot());
 
             return new PlanAndMappings(rewrittenStatisticsWriter, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitRefreshMaterializedView(RefreshMaterializedViewNode node, UnaliasContext context)
+        {
+            return new PlanAndMappings(node, ImmutableMap.of());
         }
 
         @Override

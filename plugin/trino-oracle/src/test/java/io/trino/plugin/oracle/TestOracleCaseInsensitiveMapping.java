@@ -34,6 +34,7 @@ import static org.testng.Assert.assertEquals;
 // Some tests here create colliding names which can cause any other concurrent test to fail.
 @Test(singleThreaded = true)
 public class TestOracleCaseInsensitiveMapping
+        // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
         extends AbstractTestQueryFramework
 {
     private TestingOracleServer oracleServer;
@@ -127,8 +128,8 @@ public class TestOracleCaseInsensitiveMapping
                         AutoCloseable ignore2 = withSchema(otherSchemaName);
                         AutoCloseable ignore3 = withTable(schemaName + ".some_table_name", "(c varchar(5))")) {
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.trino.plugin.jdbc.JdbcClient.getSchemaNames to return a List
-                    assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name:.*Multiple entries with same key.*");
-                    assertQueryFails("SELECT * FROM casesensitivename.some_table_name", "Failed to find remote schema name:.*Multiple entries with same key.*");
+                    assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name: Ambiguous name: casesensitivename");
+                    assertQueryFails("SELECT * FROM casesensitivename.some_table_name", "Failed to find remote schema name: Ambiguous name: casesensitivename");
                 }
             }
         }
@@ -149,8 +150,8 @@ public class TestOracleCaseInsensitiveMapping
                 try (AutoCloseable ignore1 = withTable(TestingOracleServer.TEST_USER + "." + nameVariants[i], "(c varchar(5))");
                         AutoCloseable ignore2 = withTable(TestingOracleServer.TEST_USER + "." + nameVariants[j], "(d varchar(5))")) {
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO, should be 2
-                    assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name:.*Multiple entries with same key.*");
-                    assertQueryFails("SELECT * FROM casesensitivename", "Failed to find remote table name:.*Multiple entries with same key.*");
+                    assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
+                    assertQueryFails("SELECT * FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
                 }
             }
         }

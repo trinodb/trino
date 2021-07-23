@@ -28,6 +28,7 @@ import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.FeaturesConfig;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -88,7 +89,7 @@ public abstract class AbstractTestFunctions
         functionAssertions = null;
     }
 
-    protected void assertFunction(String projection, Type expectedType, Object expected)
+    protected void assertFunction(@Language("SQL") String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
     }
@@ -104,13 +105,6 @@ public abstract class AbstractTestFunctions
                 statement,
                 createDecimalType(expectedResult.getPrecision(), expectedResult.getScale()),
                 expectedResult);
-    }
-
-    // this is not safe as it catches all RuntimeExceptions
-    @Deprecated
-    protected void assertInvalidFunction(String projection)
-    {
-        functionAssertions.assertInvalidFunction(projection);
     }
 
     protected void assertInvalidFunction(String projection, ErrorCodeSupplier errorCode, String message)

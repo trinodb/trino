@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>355</version>
+        <version>359</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -187,7 +187,7 @@
 
         <dependency>
             <groupId>com.linkedin.coral</groupId>
-            <artifactId>coral-presto</artifactId>
+            <artifactId>coral-trino</artifactId>
         </dependency>
 
         <dependency>
@@ -333,7 +333,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-testng-services</artifactId>
+            <artifactId>trino-testing-services</artifactId>
             <scope>test</scope>
         </dependency>
 

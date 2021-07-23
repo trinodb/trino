@@ -59,7 +59,7 @@ public class TestMetadataQueryOptimization
 
         queryRunner.createCatalog(
                 ICEBERG_CATALOG,
-                new TestingIcebergConnectorFactory(Optional.of(metastore)),
+                new TestingIcebergConnectorFactory(Optional.of(metastore), false),
                 ImmutableMap.of());
 
         Database database = Database.builder()

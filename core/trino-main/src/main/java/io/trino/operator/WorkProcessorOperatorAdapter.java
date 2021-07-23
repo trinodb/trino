@@ -161,7 +161,7 @@ public class WorkProcessorOperatorAdapter
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         if (!pages.isBlocked()) {
             return NOT_BLOCKED;

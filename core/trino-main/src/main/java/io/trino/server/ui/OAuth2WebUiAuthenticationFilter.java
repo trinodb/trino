@@ -100,12 +100,12 @@ public class OAuth2WebUiAuthenticationFilter
         }
         try {
             Object principal = claims.get().get(principalField);
-            if (!hasValidPrincipal(principal)) {
+            if (!isValidPrincipal(principal)) {
                 LOG.debug("Invalid principal field: %s. Expected principal to be non-empty", principalField);
                 sendErrorMessage(request, UNAUTHORIZED, "Unauthorized");
                 return;
             }
-            String principalName = principal.toString();
+            String principalName = (String) principal;
             setAuthenticatedIdentity(request, Identity.forUser(userMapping.mapUser(principalName))
                     .withPrincipal(new BasicPrincipal(principalName))
                     .build());
@@ -159,14 +159,8 @@ public class OAuth2WebUiAuthenticationFilter
         return false;
     }
 
-    private boolean hasValidPrincipal(Object principal)
+    private boolean isValidPrincipal(Object principal)
     {
-        if (principal == null) {
-            return false;
-        }
-        if (principal instanceof String) {
-            return ((String) principal).length() > 0;
-        }
-        return false;
+        return principal instanceof String && !((String) principal).isEmpty();
     }
 }

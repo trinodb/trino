@@ -68,7 +68,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static java.util.Objects.requireNonNull;
 
 public final class InternalHiveConnectorFactory
@@ -96,7 +96,7 @@ public final class InternalHiveConnectorFactory
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
-                    installModuleIf(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
+                    conditionalModule(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(catalogName),
                     new HiveAuthenticationModule(),
@@ -122,7 +122,7 @@ public final class InternalHiveConnectorFactory
                     .initialize();
 
             LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
-            HiveMetadataFactory metadataFactory = injector.getInstance(HiveMetadataFactory.class);
+            TransactionalMetadataFactory metadataFactory = injector.getInstance(TransactionalMetadataFactory.class);
             HiveTransactionManager transactionManager = injector.getInstance(HiveTransactionManager.class);
             ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
@@ -131,6 +131,7 @@ public final class InternalHiveConnectorFactory
             Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
             HiveTableProperties hiveTableProperties = injector.getInstance(HiveTableProperties.class);
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
+            HiveMaterializedViewPropertiesProvider hiveMaterializedViewPropertiesProvider = injector.getInstance(HiveMaterializedViewPropertiesProvider.class);
             ConnectorAccessControl accessControl = new ClassLoaderSafeConnectorAccessControl(
                     new SystemTableAwareAccessControl(injector.getInstance(ConnectorAccessControl.class)),
                     classLoader);
@@ -156,6 +157,7 @@ public final class InternalHiveConnectorFactory
                     HiveSchemaProperties.SCHEMA_PROPERTIES,
                     hiveTableProperties.getTableProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
+                    hiveMaterializedViewPropertiesProvider.getMaterializedViewProperties(),
                     accessControl,
                     classLoader);
         }

@@ -33,10 +33,6 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -46,6 +42,7 @@ import java.util.stream.IntStream;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
+import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -202,10 +199,6 @@ public class BenchmarkDictionaryBlock
         data.setup();
         new BenchmarkDictionaryBlock().getSizeInBytes(data);
 
-        Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkDictionaryBlock.class.getSimpleName() + ".*")
-                .build();
-        new Runner(options).run();
+        benchmark(BenchmarkDictionaryBlock.class).run();
     }
 }

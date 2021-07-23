@@ -22,7 +22,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Test
 public abstract class BaseMongoDistributedQueries
         extends AbstractTestDistributedQueries
 {
@@ -66,12 +65,6 @@ public abstract class BaseMongoDistributedQueries
     public void testRenameColumn()
     {
         // the connector does not support renaming columns
-    }
-
-    @Override
-    public void testDropColumn()
-    {
-        // the connector does not support dropping columns
     }
 
     @Override

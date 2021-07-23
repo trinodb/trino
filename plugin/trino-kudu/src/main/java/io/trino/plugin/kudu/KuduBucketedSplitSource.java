@@ -23,25 +23,26 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.groupingBy;
 
 public class KuduBucketedSplitSource
         implements ConnectorSplitSource
 {
-    private final Map<Integer, KuduSplit> groupedSplits;
+    private final Map<Integer, List<KuduSplit>> groupedSplits;
 
     KuduBucketedSplitSource(List<KuduSplit> splits)
     {
-        this.groupedSplits = new ConcurrentHashMap<>();
-        splits.forEach(split ->
-                groupedSplits.put(split.getBucketNumber(), split));
+        Map<Integer, List<KuduSplit>> map = splits.stream()
+                .collect(groupingBy(KuduSplit::getBucketNumber));
+        this.groupedSplits = new ConcurrentHashMap<>(map);
     }
 
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
     {
         KuduPartitionHandle kuduPartitionHandle = (KuduPartitionHandle) partitionHandle;
-        KuduSplit kuduSplit = groupedSplits.remove(kuduPartitionHandle.getBucket());
-        return completedFuture(new ConnectorSplitBatch(kuduSplit == null ? ImmutableList.of() : ImmutableList.of(kuduSplit), true));
+        List<KuduSplit> kuduSplits = groupedSplits.remove(kuduPartitionHandle.getBucket());
+        return completedFuture(new ConnectorSplitBatch(kuduSplits == null ? ImmutableList.of() : ImmutableList.copyOf(kuduSplits), true));
     }
 
     @Override

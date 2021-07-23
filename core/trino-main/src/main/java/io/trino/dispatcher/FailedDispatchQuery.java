@@ -35,7 +35,7 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.util.Failures.toFailure;
@@ -103,9 +103,9 @@ public class FailedDispatchQuery
     }
 
     @Override
-    public ListenableFuture<?> getDispatchedFuture()
+    public ListenableFuture<Void> getDispatchedFuture()
     {
-        return immediateFuture(null);
+        return immediateVoidFuture();
     }
 
     @Override
@@ -169,6 +169,12 @@ public class FailedDispatchQuery
     public Optional<DateTime> getExecutionStartTime()
     {
         return getEndTime();
+    }
+
+    @Override
+    public Optional<Duration> getPlanningTime()
+    {
+        return Optional.empty();
     }
 
     @Override

@@ -11,7 +11,7 @@ read the data from the tables.
 Beta disclaimer
 ---------------
 
-The BigQuery Storage API and this connector are in Beta and are subject to change.
+This connector is in Beta and is subject to change.
 
 Changes may include, but are not limited to:
 
@@ -45,24 +45,28 @@ that should generally lead to better read performance:
 Requirements
 ------------
 
-Enable the BigQuery Storage API
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To connect to BigQuery, you need:
 
-Follow `these instructions <https://cloud.google.com/bigquery/docs/reference/storage/#enabling_the_api>`_.
+* To enable the `BigQuery Storage Read API
+  <https://cloud.google.com/bigquery/docs/reference/storage/#enabling_the_api>`_.
+* Network access from your Trino coordinator and workers to the
+  Google Cloud API service endpoint. This endpoint uses HTTPS, or port 443.
+* To configure BigQuery so that the Trino coordinator and workers have `permissions
+  in BigQuery <https://cloud.google.com/bigquery/docs/reference/storage#permissions>`_.
+* To set up authentication. Your authentiation options differ depending on whether
+  you are using Dataproc/Google Compute Engine (GCE) or not.
 
-Authentication
-^^^^^^^^^^^^^^
+  **On Dataproc/GCE** the authentication is done from the machine's role.
 
-**On GCE/Dataproc** the authentication is taken from the machine's role.
+  **Outside Dataproc/GCE** you have 3 options:
 
-**Outside GCE/Dataproc** you have 3 options:
-
-* Use a service account JSON key and ``GOOGLE_APPLICATION_CREDENTIALS`` as
-  described `here <https://cloud.google.com/docs/authentication/getting-started>`_.
-* Set ``bigquery.credentials-key`` in the catalog properties file.
-  It should contain the contents of the JSON file, encoded using base64.
-* Set ``bigquery.credentials-file`` in the catalog properties file.
-  It should point to the location of the JSON file.
+  * Use a service account JSON key and ``GOOGLE_APPLICATION_CREDENTIALS`` as
+    described in the Google Cloud authentication `getting started guide
+    <https://cloud.google.com/docs/authentication/getting-started>`_.
+  * Set ``bigquery.credentials-key`` in the catalog properties file. It should
+    contain the contents of the JSON file, encoded using base64.
+  * Set ``bigquery.credentials-file`` in the catalog properties file. It should
+    point to the location of the JSON file.
 
 Configuration
 -------------

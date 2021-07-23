@@ -33,23 +33,64 @@ public class WindowFrame
     private final Type type;
     private final FrameBound start;
     private final Optional<FrameBound> end;
+    private final List<MeasureDefinition> measures;
+    private final Optional<SkipTo> afterMatchSkipTo;
+    private final Optional<PatternSearchMode> patternSearchMode;
+    private final Optional<RowPattern> pattern;
+    private final List<SubsetDefinition> subsets;
+    private final List<VariableDefinition> variableDefinitions;
 
-    public WindowFrame(Type type, FrameBound start, Optional<FrameBound> end)
+    public WindowFrame(
+            Type type,
+            FrameBound start,
+            Optional<FrameBound> end,
+            List<MeasureDefinition> measures,
+            Optional<SkipTo> afterMatchSkipTo,
+            Optional<PatternSearchMode> patternSearchMode,
+            Optional<RowPattern> pattern,
+            List<SubsetDefinition> subsets,
+            List<VariableDefinition> variableDefinitions)
     {
-        this(Optional.empty(), type, start, end);
+        this(Optional.empty(), type, start, end, measures, afterMatchSkipTo, patternSearchMode, pattern, subsets, variableDefinitions);
     }
 
-    public WindowFrame(NodeLocation location, Type type, FrameBound start, Optional<FrameBound> end)
+    public WindowFrame(
+            NodeLocation location,
+            Type type,
+            FrameBound start,
+            Optional<FrameBound> end,
+            List<MeasureDefinition> measures,
+            Optional<SkipTo> afterMatchSkipTo,
+            Optional<PatternSearchMode> patternSearchMode,
+            Optional<RowPattern> pattern,
+            List<SubsetDefinition> subsets,
+            List<VariableDefinition> variableDefinitions)
     {
-        this(Optional.of(location), type, start, end);
+        this(Optional.of(location), type, start, end, measures, afterMatchSkipTo, patternSearchMode, pattern, subsets, variableDefinitions);
     }
 
-    private WindowFrame(Optional<NodeLocation> location, Type type, FrameBound start, Optional<FrameBound> end)
+    private WindowFrame(
+            Optional<NodeLocation> location,
+            Type type,
+            FrameBound start,
+            Optional<FrameBound> end,
+            List<MeasureDefinition> measures,
+            Optional<SkipTo> afterMatchSkipTo,
+            Optional<PatternSearchMode> patternSearchMode,
+            Optional<RowPattern> pattern,
+            List<SubsetDefinition> subsets,
+            List<VariableDefinition> variableDefinitions)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");
         this.start = requireNonNull(start, "start is null");
         this.end = requireNonNull(end, "end is null");
+        this.measures = requireNonNull(measures, "measures is null");
+        this.afterMatchSkipTo = requireNonNull(afterMatchSkipTo, "afterMatchSkipTo is null");
+        this.patternSearchMode = requireNonNull(patternSearchMode, "patternSearchMode is null");
+        this.pattern = requireNonNull(pattern, "pattern is null");
+        this.subsets = requireNonNull(subsets, "subsets is null");
+        this.variableDefinitions = requireNonNull(variableDefinitions, "variableDefinitions is null");
     }
 
     public Type getType()
@@ -67,6 +108,36 @@ public class WindowFrame
         return end;
     }
 
+    public List<MeasureDefinition> getMeasures()
+    {
+        return measures;
+    }
+
+    public Optional<SkipTo> getAfterMatchSkipTo()
+    {
+        return afterMatchSkipTo;
+    }
+
+    public Optional<PatternSearchMode> getPatternSearchMode()
+    {
+        return patternSearchMode;
+    }
+
+    public Optional<RowPattern> getPattern()
+    {
+        return pattern;
+    }
+
+    public List<SubsetDefinition> getSubsets()
+    {
+        return subsets;
+    }
+
+    public List<VariableDefinition> getVariableDefinitions()
+    {
+        return variableDefinitions;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -79,6 +150,12 @@ public class WindowFrame
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
         nodes.add(start);
         end.ifPresent(nodes::add);
+        nodes.addAll(measures);
+        afterMatchSkipTo.ifPresent(nodes::add);
+        patternSearchMode.ifPresent(nodes::add);
+        pattern.ifPresent(nodes::add);
+        nodes.addAll(subsets);
+        nodes.addAll(variableDefinitions);
         return nodes.build();
     }
 
@@ -94,13 +171,19 @@ public class WindowFrame
         WindowFrame o = (WindowFrame) obj;
         return type == o.type &&
                 Objects.equals(start, o.start) &&
-                Objects.equals(end, o.end);
+                Objects.equals(end, o.end) &&
+                Objects.equals(measures, o.measures) &&
+                Objects.equals(afterMatchSkipTo, o.afterMatchSkipTo) &&
+                Objects.equals(patternSearchMode, o.patternSearchMode) &&
+                Objects.equals(pattern, o.pattern) &&
+                Objects.equals(subsets, o.subsets) &&
+                Objects.equals(variableDefinitions, o.variableDefinitions);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, start, end);
+        return Objects.hash(type, start, end, measures, afterMatchSkipTo, patternSearchMode, pattern, subsets, variableDefinitions);
     }
 
     @Override
@@ -110,6 +193,12 @@ public class WindowFrame
                 .add("type", type)
                 .add("start", start)
                 .add("end", end)
+                .add("measures", measures)
+                .add("afterMatchSkipTo", afterMatchSkipTo)
+                .add("patternSearchMode", patternSearchMode)
+                .add("pattern", pattern)
+                .add("subsets", subsets)
+                .add("variableDefinitions", variableDefinitions)
                 .toString();
     }
 

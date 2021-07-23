@@ -93,17 +93,13 @@ Date and time functions
 
 .. function:: from_iso8601_timestamp_nanos(string) -> timestamp(9) with time zone
 
-    Parses the ISO 8601 formatted date ``string``, optionally with time and time
-    zone, into a ``timestamp(9) with time zone``. The time defaults to
-    ``00:00:00.000000000``, and the time zone defaults to the session time zone::
+    Parses the ISO 8601 formatted date and time ``string``. The time zone
+    defaults to the session time zone::
 
-        SELECT from_iso8601_timestamp('2020-05-11');
-        -- 2020-05-11 00:00:00.000000000 America/Vancouver
-
-        SELECT from_iso8601_timestamp('2020-05-11T11:15:05');
+        SELECT from_iso8601_timestamp_nanos('2020-05-11T11:15:05');
         -- 2020-05-11 11:15:05.000000000 America/Vancouver
 
-        SELECT from_iso8601_timestamp('2020-05-11T11:15:05.123456789+01:00');
+        SELECT from_iso8601_timestamp_nanos('2020-05-11T11:15:05.123456789+01:00');
         -- 2020-05-11 11:15:05.123456789 +01:00
 
 .. function:: from_iso8601_date(string) -> date
@@ -153,7 +149,19 @@ Date and time functions
 .. function:: from_unixtime_nanos(unixtime) -> timestamp(9) with time zone
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone. ``unixtime`` is the
-    number of nanoseconds since ``1970-01-01 00:00:00.000000000 UTC``.
+    number of nanoseconds since ``1970-01-01 00:00:00.000000000 UTC``::
+
+        SELECT from_unixtime_nanos(100);
+        -- 1970-01-01 00:00:00.000000100
+
+        SELECT from_unixtime_nanos(DECIMAL '1234');
+        -- 1970-01-01 00:00:00.000001234
+
+        SELECT from_unixtime_nanos(DECIMAL '1234.499');
+        -- 1970-01-01 00:00:00.000001234
+
+        SELECT from_unixtime_nanos(DECIMAL '-1234');
+        -- 1969-12-31 23:59:59.999998766
 
 .. data:: localtime
 
@@ -309,13 +317,17 @@ Unit    Description
 
 .. function:: human_readable_seconds(double) -> varchar
 
-    Returns ``seconds`` expressed in terms of ``human readable interval``::
+    Formats the double value of ``seconds`` into a human readable string containing
+    ``weeks``, ``days``, ``hours``, ``minutes``, and ``seconds``::
+
+        SELECT human_readable_seconds(96);
+        -- 1 minute, 36 seconds
+
+        SELECT human_readable_seconds(3762);
+        -- 1 hour, 2 minutes, 42 seconds
 
         SELECT human_readable_seconds(56363463);
         -- 93 weeks, 1 day, 8 hours, 31 minutes, 3 seconds
-
-        SELECT human_readable_seconds(61);
-        -- 1 minute, 1 second
 
 MySQL date functions
 --------------------

@@ -28,7 +28,7 @@ public interface LocalMemoryContext
      * on memory, and callers blocked on this future will proceed to allocating more memory from the exhausted
      * pools, which will violate the protocol of Trino MemoryPool implementation.
      */
-    ListenableFuture<?> setBytes(long bytes);
+    ListenableFuture<Void> setBytes(long bytes);
 
     /**
      * This method can return false when there is not enough memory available to satisfy a positive delta allocation

@@ -36,7 +36,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static java.lang.String.format;
@@ -94,16 +94,16 @@ public class ClusterSizeMonitor
      * Note: caller should not add a listener using the direct executor, as this can delay the
      * notifications for other listeners.
      */
-    public synchronized ListenableFuture<?> waitForMinimumWorkers(int executionMinCount, Duration executionMaxWait)
+    public synchronized ListenableFuture<Void> waitForMinimumWorkers(int executionMinCount, Duration executionMaxWait)
     {
         checkArgument(executionMinCount > 0, "executionMinCount should be greater than 0");
         requireNonNull(executionMaxWait, "executionMaxWait is null");
 
         if (currentCount >= executionMinCount) {
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
 
-        SettableFuture<?> future = SettableFuture.create();
+        SettableFuture<Void> future = SettableFuture.create();
         MinNodesFuture minNodesFuture = new MinNodesFuture(executionMinCount, future);
         futuresQueue.add(minNodesFuture);
 
@@ -142,7 +142,7 @@ public class ClusterSizeMonitor
             currentCount = Sets.difference(allNodes.getActiveNodes(), allNodes.getActiveCoordinators()).size();
         }
 
-        ImmutableList.Builder<SettableFuture<?>> listenersBuilder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<SettableFuture<Void>> listenersBuilder = new ImmutableList.Builder<>();
         while (!futuresQueue.isEmpty()) {
             MinNodesFuture minNodesFuture = futuresQueue.peek();
             if (minNodesFuture == null || minNodesFuture.getExecutionMinCount() > currentCount) {
@@ -152,7 +152,7 @@ public class ClusterSizeMonitor
             // this should not happen since we have a lock
             checkState(futuresQueue.poll() == minNodesFuture, "Unexpected modifications to MinNodesFuture queue");
         }
-        ImmutableList<SettableFuture<?>> listeners = listenersBuilder.build();
+        ImmutableList<SettableFuture<Void>> listeners = listenersBuilder.build();
         executor.submit(() -> listeners.forEach(listener -> listener.set(null)));
     }
 
@@ -168,9 +168,9 @@ public class ClusterSizeMonitor
     private static class MinNodesFuture
     {
         private final int executionMinCount;
-        private final SettableFuture<?> future;
+        private final SettableFuture<Void> future;
 
-        MinNodesFuture(int executionMinCount, SettableFuture<?> future)
+        MinNodesFuture(int executionMinCount, SettableFuture<Void> future)
         {
             this.executionMinCount = executionMinCount;
             this.future = future;
@@ -181,7 +181,7 @@ public class ClusterSizeMonitor
             return executionMinCount;
         }
 
-        SettableFuture<?> getFuture()
+        SettableFuture<Void> getFuture()
         {
             return future;
         }

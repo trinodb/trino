@@ -290,6 +290,12 @@ public final class SessionRepresentation
         return protocolName;
     }
 
+    @JsonProperty
+    public String getTimeZone()
+    {
+        return timeZoneKey.getId();
+    }
+
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
         return toSession(sessionPropertyManager, emptyMap());

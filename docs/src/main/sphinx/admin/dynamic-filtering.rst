@@ -23,6 +23,11 @@ from the processed dimension table on the right side of join. In the case of bro
 the runtime predicates generated from this collection are pushed into the local table scan
 on the left side of the join running on the same worker.
 
+Dynamic filtering is enabled by default using the ``enable-dynamic-filtering``
+configuration property. To disable dynamic filtering, set the configuration
+property to ``false``. Alternatively, use the session property
+``enable_dynamic_filtering``.
+
 Additionally, these runtime predicates are communicated to the coordinator over the network
 so that dynamic filtering can also be performed on the coordinator during enumeration of
 table scan splits.
@@ -38,7 +43,10 @@ The results of dynamic filtering optimization can include the following benefits
 * reduced load on the remote data source
 
 Support for push down of dynamic filters is specific to each connector,
-and the relevant underlying database or storage system.
+and the relevant underlying database or storage system. The documentation for
+specific connectors with support for dynamic filtering includes further details,
+for example the :ref:`Hive connector <hive_dynamic_filtering>`
+or the :ref:`Memory connector <memory_dynamic_filtering>`.
 
 Analysis and confirmation
 -------------------------
@@ -88,8 +96,8 @@ down to the connector in the query plan.
            │   Layout: []
            │   Estimates: {rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}
            │   Distribution: REPLICATED
-           │   dynamicFilterAssignments = {d_date_sk -> df_370}
-           ├─ ScanFilterProject[table = hive:default:store_sales, grouped = false, filterPredicate = true, dynamicFilter = {""ss_sold_date_sk"" = #df_370}]
+           │   dynamicFilterAssignments = {d_date_sk -> #df_370}
+           ├─ ScanFilterProject[table = hive:default:store_sales, grouped = false, filterPredicate = true, dynamicFilters = {""ss_sold_date_sk"" = #df_370}]
            │      Layout: [ss_sold_date_sk:bigint, $hashvalue:bigint]
            │      Estimates: {rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}/{rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}/{rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}
            │      $hashvalue := combine_hash(bigint '0', COALESCE(""$operator$hash_code""(""ss_sold_date_sk""), 0))
@@ -124,9 +132,7 @@ by the coordinator can be found in the ``dynamicFiltersStats`` structure.
     "dynamicFiltersStats" : {
           "dynamicFilterDomainStats" : [ {
             "dynamicFilterId" : "df_370",
-            "simplifiedDomain" : "[ [[2451546, 2451905]] ]",
-            "rangeCount" : 3,
-            "discreteValuesCount" : 0,
+            "simplifiedDomain" : "[ SortedRangeSet[type=bigint, ranges=3, {[2451546], ..., [2451905]}] ]",
             "collectionDuration" : "2.34s"
           } ],
           "lazyDynamicFilters" : 1,
@@ -151,6 +157,36 @@ processed after a dynamic filter is pushed down to the table scan.
     "physicalInputPositions" : 28800991,
     "inputPositions" : 28800991,
     "dynamicFilterSplitsProcessed" : 1,
+
+Dynamic filters are reported as a part of the
+:doc:`EXPLAIN ANALYZE plan </sql/explain-analyze>` in the statistics for
+``ScanFilterProject`` nodes.
+
+.. code-block:: text
+
+    ...
+
+     └─ InnerJoin[("ss_sold_date_sk" = "d_date_sk")][$hashvalue, $hashvalue_4]
+        │   Layout: []
+        │   Estimates: {rows: 11859 (0B), cpu: 8.84M, memory: 3.19kB, network: 3.19kB}
+        │   CPU: 78.00ms (30.00%), Scheduled: 295.00ms (47.05%), Output: 296 rows (0B)
+        │   Left (probe) Input avg.: 120527.00 rows, Input std.dev.: 0.00%
+        │   Right (build) Input avg.: 0.19 rows, Input std.dev.: 208.17%
+        │   Collisions avg.: 0.00 (0.00% est.), Collisions std.dev.: ?%
+        │   Distribution: REPLICATED
+        │   dynamicFilterAssignments = {d_date_sk -> #df_370}
+        ├─ ScanFilterProject[table = hive:default:store_sales, grouped = false, filterPredicate = true, dynamicFilters = {"ss_sold_date_sk" = #df_370}]
+        │      Layout: [ss_sold_date_sk:bigint, $hashvalue:bigint]
+        │      Estimates: {rows: 120527 (2.03MB), cpu: 1017.64k, memory: 0B, network: 0B}/{rows: 120527 (2.03MB), cpu: 1.99M, memory: 0B, network: 0B}/{rows: 120527 (2.03MB), cpu: 4.02M, memory: 0B, network: 0B}
+        │      CPU: 49.00ms (18.85%), Scheduled: 123.00ms (19.62%), Output: 120527 rows (2.07MB)
+        │      Input avg.: 120527.00 rows, Input std.dev.: 0.00%
+        │      $hashvalue := combine_hash(bigint '0', COALESCE("$operator$hash_code"("ss_sold_date_sk"), 0))
+        │      ss_sold_date_sk := ss_sold_date_sk:bigint:REGULAR
+        │      Input: 120527 rows (1.03MB), Filtered: 0.00%
+        │      Dynamic filters:
+        │          - df_370, [ SortedRangeSet[type=bigint, ranges=3, {[2451546], ..., [2451905]}] ], collection time=2.34s
+        |
+    ...
 
 Dynamic filter collection thresholds
 ------------------------------------
@@ -210,7 +246,6 @@ of selected rows from the dimension table.
 Limitations
 -----------
 
-* Dynamic filtering is currently implemented only for :doc:`/connector/hive` and :doc:`/connector/memory` connectors.
 * Push down of dynamic filters into local table scan on worker nodes is limited to broadcast joins.
 * Min-max dynamic filter collection is not supported for ``DOUBLE``, ``REAL`` and unorderable data types.
 * Dynamic filtering is not supported for ``DOUBLE`` and ``REAL`` data types when using ``IS NOT DISTINCT FROM`` predicate.

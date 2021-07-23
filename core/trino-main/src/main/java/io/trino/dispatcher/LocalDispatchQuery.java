@@ -62,7 +62,7 @@ public class LocalDispatchQuery
     private final Executor queryExecutor;
 
     private final Consumer<QueryExecution> querySubmitter;
-    private final SettableFuture<?> submitted = SettableFuture.create();
+    private final SettableFuture<Void> submitted = SettableFuture.create();
 
     private final AtomicBoolean notificationSentOrGuaranteed = new AtomicBoolean();
 
@@ -121,7 +121,7 @@ public class LocalDispatchQuery
             if (queryExecution.shouldWaitForMinWorkers()) {
                 executionMinCount = getRequiredWorkers(session);
             }
-            ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(executionMinCount, getRequiredWorkersMaxWait(session));
+            ListenableFuture<Void> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(executionMinCount, getRequiredWorkersMaxWait(session));
             // when worker requirement is met, start the execution
             addSuccessCallback(minimumWorkerFuture, () -> startExecution(queryExecution));
             addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> stateMachine.transitionToFailed(throwable)));
@@ -171,7 +171,7 @@ public class LocalDispatchQuery
     }
 
     @Override
-    public ListenableFuture<?> getDispatchedFuture()
+    public ListenableFuture<Void> getDispatchedFuture()
     {
         return nonCancellationPropagating(submitted);
     }
@@ -216,6 +216,12 @@ public class LocalDispatchQuery
     public Optional<DateTime> getExecutionStartTime()
     {
         return stateMachine.getExecutionStartTime();
+    }
+
+    @Override
+    public Optional<Duration> getPlanningTime()
+    {
+        return stateMachine.getPlanningTime();
     }
 
     @Override
@@ -312,6 +318,10 @@ public class LocalDispatchQuery
             return tryGetFutureValue(queryExecutionFuture);
         }
         catch (Exception ignored) {
+            return Optional.empty();
+        }
+        catch (Error e) {
+            log.error(e, "Unhandled Error stored in queryExecutionFuture");
             return Optional.empty();
         }
     }
