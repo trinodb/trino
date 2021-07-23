@@ -13,14 +13,15 @@
  */
 package io.trino.plugin.iceberg;
 
-public enum CatalogType
+import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.HdfsEnvironment;
+import org.apache.iceberg.hadoop.HadoopCatalog;
+
+public class TrinoIcebergHadoopCatalog
+        extends TrinoIcebergCatalog
 {
-    TESTING_FILE_METASTORE,
-    HIVE_METASTORE,
-    GLUE,
-    REST,
-    JDBC,
-    HADOOP,
-    NESSIE,
-    /**/;
+    public TrinoIcebergHadoopCatalog(CatalogName catalogName, IcebergConfig config, HdfsEnvironment hdfsEnvironment)
+    {
+        super(HadoopCatalog.class.getName(), catalogName, config, hdfsEnvironment);
+    }
 }
