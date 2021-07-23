@@ -54,11 +54,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
+import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.Partition.convertBounds;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
@@ -86,9 +86,7 @@ public class PartitionTable
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
-        this.idToTypeMapping = icebergTable.schema().columns().stream()
-                .filter(column -> column.type().isPrimitiveType())
-                .collect(Collectors.toMap(Types.NestedField::fieldId, (column) -> column.type().asPrimitiveType()));
+        this.idToTypeMapping = primitiveFieldTypes(icebergTable.schema());
 
         List<Types.NestedField> columns = icebergTable.schema().columns();
         List<PartitionField> partitionFields = icebergTable.spec().fields();
