@@ -31,6 +31,8 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
+.. include:: jdbc-common-configurations.fragment
+
 Multiple Redshift databases or clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

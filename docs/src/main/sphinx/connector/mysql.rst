@@ -50,6 +50,8 @@ determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
+.. include:: jdbc-common-configurations.fragment
+
 Multiple MySQL servers
 ^^^^^^^^^^^^^^^^^^^^^^
 

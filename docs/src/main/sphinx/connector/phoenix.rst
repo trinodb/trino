@@ -44,10 +44,7 @@ For HBase 2.x and Phoenix 5.x (5.1.0 or later) use:
 
     connector.name=phoenix5
 
-Configuration properties
-------------------------
-
-The following configuration properties are available:
+The following Phoenix-specific configuration properties are available:
 
 ================================================== ========== ===================================================================================
 Property Name                                      Required   Description
@@ -60,6 +57,8 @@ Property Name                                      Required   Description
 ``phoenix.config.resources``                       No         Comma-separated list of configuration files (e.g. ``hbase-site.xml``) to use for
                                                               connection properties.  These files must exist on the machines running Trino.
 ================================================== ========== ===================================================================================
+
+.. include:: jdbc-common-configurations.fragment
 
 Querying Phoenix tables
 -------------------------
