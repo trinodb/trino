@@ -17,7 +17,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.presto.plugin.jdbc.StarburstJdbcMetadataFactory;
-import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedIdentityCacheMappingModule;
+import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedIdentityCacheMapping;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
@@ -43,8 +43,9 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMapping;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
@@ -146,8 +147,20 @@ public class SnowflakeJdbcClientModule
 
     @Provides
     @Singleton
+    public IdentityCacheMapping getIdentityCacheMapping(@ForWarehouseAware IdentityCacheMapping delegate)
+    {
+        return new WarehouseAwareIdentityCacheMapping(delegate);
+    }
+
+    @Provides
+    @Singleton
     @ForImpersonation
-    public ConnectionFactory getBaseConnectionFactory(BaseJdbcConfig config, JdbcConnectionPoolConfig connectionPoolingConfig, CredentialProvider credentialProvider, SnowflakeConfig snowflakeConfig)
+    public ConnectionFactory getBaseConnectionFactory(
+            BaseJdbcConfig config,
+            JdbcConnectionPoolConfig connectionPoolingConfig,
+            CredentialProvider credentialProvider,
+            SnowflakeConfig snowflakeConfig,
+            IdentityCacheMapping identityCacheMapping)
     {
         if (connectionPoolingConfig.isConnectionPoolEnabled()) {
             return new WarehouseAwarePoolingConnectionFactory(
@@ -156,7 +169,8 @@ public class SnowflakeJdbcClientModule
                     getConnectionProperties(snowflakeConfig),
                     config,
                     connectionPoolingConfig,
-                    new DefaultCredentialPropertiesProvider(credentialProvider));
+                    new DefaultCredentialPropertiesProvider(credentialProvider),
+                    identityCacheMapping);
         }
 
         return new WarehouseAwareDriverConnectionFactory(
@@ -177,7 +191,7 @@ public class SnowflakeJdbcClientModule
                     throw new IllegalStateException("Snowflake role should not be set when impersonation is enabled");
                 }
                 install(new AuthToLocalModule());
-                binder.install(new AuthenticationBasedIdentityCacheMappingModule());
+                binder.install(new WarehouseAwareAuthenticationBasedIdentityCacheMappingModule());
 
                 configBinder(binder).bindConfig(OktaConfig.class);
                 configBinder(binder).bindConfig(SnowflakeOauthConfig.class);
@@ -250,7 +264,8 @@ public class SnowflakeJdbcClientModule
                     BaseJdbcConfig config,
                     JdbcConnectionPoolConfig connectionPoolingConfig,
                     SnowflakeOauthService snowflakeOauthService,
-                    SnowflakeConfig snowflakeConfig)
+                    SnowflakeConfig snowflakeConfig,
+                    IdentityCacheMapping identityCacheMapping)
             {
                 if (connectionPoolingConfig.isConnectionPoolEnabled()) {
                     return new WarehouseAwarePoolingConnectionFactory(
@@ -259,7 +274,8 @@ public class SnowflakeJdbcClientModule
                             getConnectionProperties(snowflakeConfig),
                             config,
                             connectionPoolingConfig,
-                            new SnowflakeOauthPropertiesProvider(snowflakeOauthService));
+                            new SnowflakeOauthPropertiesProvider(snowflakeOauthService),
+                            identityCacheMapping);
                 }
 
                 return new WarehouseAwareDriverConnectionFactory(
@@ -285,7 +301,7 @@ public class SnowflakeJdbcClientModule
             @Override
             protected void setup(Binder binder)
             {
-                install(new AuthenticationBasedIdentityCacheMappingModule());
+                install(new WarehouseAwareAuthenticationBasedIdentityCacheMappingModule());
             }
 
             @Provides
@@ -294,7 +310,8 @@ public class SnowflakeJdbcClientModule
             public ConnectionFactory getConnectionFactory(
                     BaseJdbcConfig config,
                     JdbcConnectionPoolConfig connectionPoolingConfig,
-                    SnowflakeConfig snowflakeConfig)
+                    SnowflakeConfig snowflakeConfig,
+                    IdentityCacheMapping identityCacheMapping)
             {
                 if (connectionPoolingConfig.isConnectionPoolEnabled()) {
                     return new WarehouseAwarePoolingConnectionFactory(
@@ -303,7 +320,8 @@ public class SnowflakeJdbcClientModule
                             getConnectionProperties(snowflakeConfig),
                             config,
                             connectionPoolingConfig,
-                            new SnowflakeOAuth2TokenPassthroughProvider());
+                            new SnowflakeOAuth2TokenPassthroughProvider(),
+                            identityCacheMapping);
                 }
                 return new WarehouseAwareDriverConnectionFactory(
                         new SnowflakeDriver(),
@@ -323,7 +341,7 @@ public class SnowflakeJdbcClientModule
             {
                 checkState(buildConfigObject(SnowflakeConfig.class).getRole().isEmpty(), "Snowflake role should not be set when impersonation is enabled");
                 install(new AuthToLocalModule());
-                binder.install(new AuthenticationBasedIdentityCacheMappingModule());
+                binder.install(new WarehouseAwareAuthenticationBasedIdentityCacheMappingModule());
                 binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SnowflakeImpersonationConnectionFactory.class).in(Scopes.SINGLETON);
             }
         };
@@ -336,7 +354,7 @@ public class SnowflakeJdbcClientModule
             @Override
             protected void setup(Binder binder)
             {
-                install(new ExtraCredentialsBasedIdentityCacheMappingModule());
+                install(new WarehouseAwareExtraCredentialsBasedIdentityCacheMappingModule());
             }
 
             @Provides
@@ -369,8 +387,39 @@ public class SnowflakeJdbcClientModule
         return properties;
     }
 
+    private static class WarehouseAwareAuthenticationBasedIdentityCacheMappingModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            binder.bind(IdentityCacheMapping.class)
+                    .annotatedWith(ForWarehouseAware.class)
+                    .to(AuthenticationBasedIdentityCacheMapping.class)
+                    .in(Scopes.SINGLETON);
+        }
+    }
+
+    private static class WarehouseAwareExtraCredentialsBasedIdentityCacheMappingModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            binder.bind(IdentityCacheMapping.class)
+                    .annotatedWith(ForWarehouseAware.class)
+                    .to(ExtraCredentialsBasedIdentityCacheMapping.class)
+                    .in(Scopes.SINGLETON);
+        }
+    }
+
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
     @Qualifier
     public @interface ForOauth {}
+
+    @Retention(RUNTIME)
+    @Target({FIELD, PARAMETER, METHOD})
+    @Qualifier
+    public @interface ForWarehouseAware {}
 }

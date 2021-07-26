@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.presto.plugin.jdbc.PoolingConnectionFactory;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -33,9 +34,17 @@ public class WarehouseAwarePoolingConnectionFactory
             Properties connectionProperties,
             BaseJdbcConfig config,
             JdbcConnectionPoolConfig poolConfig,
-            CredentialPropertiesProvider<String, String> credentialPropertiesProvider)
+            CredentialPropertiesProvider<String, String> credentialPropertiesProvider,
+            IdentityCacheMapping identityCacheMapping)
     {
-        super(catalogName, driverClass, connectionProperties, config, poolConfig, credentialPropertiesProvider);
+        super(
+                catalogName,
+                driverClass,
+                connectionProperties,
+                config,
+                poolConfig,
+                credentialPropertiesProvider,
+                identityCacheMapping);
     }
 
     @Override
