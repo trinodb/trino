@@ -46,7 +46,7 @@ public class TestCreateDropSchema
 
         onTrino().executeQuery("CREATE TABLE test_drop_schema.test_drop (col1 int)");
         assertThat(() -> query("DROP SCHEMA test_drop_schema"))
-                .failsWithMessage("Schema not empty: test_drop_schema");
+                .failsWithMessage("line 1:1: Cannot drop non-empty schema 'test_drop_schema'");
 
         onTrino().executeQuery("DROP TABLE test_drop_schema.test_drop");
 

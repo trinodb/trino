@@ -1135,19 +1135,14 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDropNonEmptySchema()
     {
-        if (!supportsCreateSchema()) {
-            assertQueryFails("DROP SCHEMA " + getSession().getSchema().orElseThrow(), "This connector does not support dropping schemas");
+        String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();
+        if (!supportsDropSchema()) {
             return;
         }
 
-        String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();
         assertUpdate("CREATE SCHEMA " + schemaName);
         assertUpdate("CREATE TABLE " + schemaName + ".t(x int)");
-        assertQueryFails("DROP SCHEMA " + schemaName, "(?si).*" +
-                "(Schema not empty|" +
-                "Cannot drop schema|" +
-                "schema has (\\w+ )?tables|" +
-                "Cannot drop .{0,3}\\Q" + schemaName + "\\E).*");
+        assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
         assertUpdate("DROP TABLE " + schemaName + ".t");
         assertUpdate("DROP SCHEMA " + schemaName);
     }

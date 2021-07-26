@@ -21,7 +21,6 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -34,7 +33,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -178,15 +176,6 @@ public abstract class BaseMySqlConnectorTest
                         "   shippriority integer,\n" +
                         "   comment varchar(255)\n" +
                         ")");
-    }
-
-    @Override
-    public void testDropNonEmptySchema()
-    {
-        assertThatThrownBy(super::testDropNonEmptySchema)
-                .isInstanceOf(AssertionError.class)
-                .hasMessageStartingWith("Expected query to fail: DROP SCHEMA ");
-        throw new SkipException("DROP SCHEMA erases all tables in MySQL connector"); // TODO (https://github.com/trinodb/trino/issues/8634)
     }
 
     @Test
