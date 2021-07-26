@@ -48,6 +48,7 @@ import io.trino.sql.planner.plan.UpdateNode;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -254,7 +255,9 @@ public class BeginTableWrite
         private TableHandle findTableScanHandle(PlanNode node)
         {
             if (node instanceof TableScanNode) {
-                return ((TableScanNode) node).getTable();
+                TableScanNode tableScanNode = (TableScanNode) node;
+                checkArgument(((TableScanNode) node).isUpdateTarget(), "TableScanNode should be an updatable target");
+                return tableScanNode.getTable();
             }
             if (node instanceof FilterNode) {
                 return findTableScanHandle(((FilterNode) node).getSource());
