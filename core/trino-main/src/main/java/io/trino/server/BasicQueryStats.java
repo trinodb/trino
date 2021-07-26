@@ -55,6 +55,7 @@ public class BasicQueryStats
     private final DataSize physicalInputDataSize;
 
     private final double cumulativeUserMemory;
+    private final double cumulativeSystemMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
@@ -82,6 +83,7 @@ public class BasicQueryStats
             @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeSystemMemory") double cumulativeSystemMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
@@ -113,6 +115,7 @@ public class BasicQueryStats
         this.physicalInputDataSize = physicalInputDataSize;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
+        this.cumulativeSystemMemory = cumulativeSystemMemory;
         this.userMemoryReservation = userMemoryReservation;
         this.totalMemoryReservation = totalMemoryReservation;
         this.peakUserMemoryReservation = peakUserMemoryReservation;
@@ -141,6 +144,7 @@ public class BasicQueryStats
                 queryStats.getRawInputPositions(),
                 queryStats.getPhysicalInputDataSize(),
                 queryStats.getCumulativeUserMemory(),
+                queryStats.getCumulativeSystemMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),
@@ -168,6 +172,7 @@ public class BasicQueryStats
                 DataSize.ofBytes(0),
                 0,
                 DataSize.ofBytes(0),
+                0,
                 0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -256,6 +261,12 @@ public class BasicQueryStats
     public double getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
+    }
+
+    @JsonProperty
+    public double getCumulativeSystemMemory()
+    {
+        return cumulativeSystemMemory;
     }
 
     @JsonProperty
