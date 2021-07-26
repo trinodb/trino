@@ -16,6 +16,9 @@ package io.trino.plugin.iceberg;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -110,6 +113,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -201,6 +205,9 @@ public class IcebergMetadata
 
     private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
+
+    private final LoadingCache<String, ConcurrentHashMap<SchemaTableName, Table>> tableCache;
+    private final LoadingCache<String, ConcurrentHashMap<SchemaTableName, TableStatistics>> tableStatisticsCache;
     private final ViewReaderUtil.PrestoViewReader viewReader = new ViewReaderUtil.PrestoViewReader();
 
     private Transaction transaction;
@@ -221,8 +228,16 @@ public class IcebergMetadata
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
+        this.tableCache = CacheBuilder.newBuilder()
+                .maximumSize(100)
+                .expireAfterWrite(5, TimeUnit.MINUTES)
+                .build(new TableCacheLoader());
+        this.tableStatisticsCache = CacheBuilder.newBuilder()
+                .maximumSize(100)
+                .expireAfterWrite(5, TimeUnit.MINUTES)
+                .build(new TableStatisticsCacheLoader());
     }
-
+    
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
@@ -270,7 +285,7 @@ public class IcebergMetadata
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
         verify(name.getTableType() == DATA, "Wrong table type: " + name.getTableType());
 
-        Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
+        Optional<Table> hiveTable = getHiveTable(session, tableName);
         if (hiveTable.isEmpty()) {
             return null;
         }
@@ -293,6 +308,19 @@ public class IcebergMetadata
                 TupleDomain.all());
     }
 
+    Optional<Table> getHiveTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        var queryTableCache = tableCache.getUnchecked(session.getQueryId());
+        Optional<Table> table = Optional.ofNullable(queryTableCache.get(schemaTableName));
+        if (table.isEmpty()) {
+            HiveIdentity identity = new HiveIdentity(session);
+            log.debug("Requesting table from metastore: " + schemaTableName);
+            table = metastore.getTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
+            table.ifPresent(value -> queryTableCache.put(schemaTableName, value));
+        }
+        return table;
+    }
+
     @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
@@ -304,7 +332,7 @@ public class IcebergMetadata
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
 
-        Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
+        Optional<Table> hiveTable = getHiveTable(session, tableName);
         if (hiveTable.isEmpty() || !isIcebergTable(hiveTable.get())) {
             return Optional.empty();
         }
@@ -728,7 +756,7 @@ public class IcebergMetadata
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
     {
-        if (metastore.getTable(new HiveIdentity(session), table.getSchemaName(), table.getTableName()).isEmpty()) {
+        if (getHiveTable(session, table).isEmpty()) {
             throw new TableNotFoundException(table);
         }
 
@@ -1005,8 +1033,12 @@ public class IcebergMetadata
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
+        return tableStatisticsCache.getUnchecked(session.getQueryId()).computeIfAbsent(
+                handle.getSchemaTableName(),
+                stn -> {
+                    org.apache.iceberg.Table icebergTable = getIcebergTable(session, stn);
+                    return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
+                });
     }
 
     private Optional<Long> getSnapshotId(org.apache.iceberg.Table table, Optional<Long> snapshotId)
@@ -1029,7 +1061,7 @@ public class IcebergMetadata
     public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
     {
         HiveIdentity identity = new HiveIdentity(session);
-        Optional<Table> existing = metastore.getTable(identity, viewName.getSchemaName(), viewName.getTableName());
+        Optional<Table> existing = getHiveTable(session, viewName);
 
         // It's a create command where the materialized view already exists and 'if not exists' clause is not specified
         if (!replace && existing.isPresent()) {
@@ -1100,7 +1132,7 @@ public class IcebergMetadata
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         final HiveIdentity identity = new HiveIdentity(session);
-        Table view = metastore.getTable(identity, viewName.getSchemaName(), viewName.getTableName())
+        Table view = getHiveTable(session, viewName)
                 .orElseThrow(() -> new MaterializedViewNotFoundException(viewName));
 
         String storageTableName = view.getParameters().get(STORAGE_TABLE);
@@ -1113,6 +1145,7 @@ public class IcebergMetadata
             }
         }
         metastore.dropTable(identity, viewName.getSchemaName(), viewName.getTableName(), true);
+        tableCache.getUnchecked(session.getQueryId()).remove(viewName);
     }
 
     @Override
@@ -1215,7 +1248,7 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        Optional<Table> tableOptional = metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName());
+        Optional<Table> tableOptional = getHiveTable(session, viewName);
         if (tableOptional.isEmpty()) {
             return Optional.empty();
         }
@@ -1328,6 +1361,28 @@ public class IcebergMetadata
         public long getSnapshotId()
         {
             return this.snapshotId;
+        }
+    }
+
+    private final class TableCacheLoader
+            extends CacheLoader<String, ConcurrentHashMap<SchemaTableName, Table>>
+    {
+        @Override
+        public ConcurrentHashMap<SchemaTableName, Table> load(final String unused)
+                throws Exception
+        {
+            return new ConcurrentHashMap<>();
+        }
+    }
+
+    private final class TableStatisticsCacheLoader
+            extends CacheLoader<String, ConcurrentHashMap<SchemaTableName, TableStatistics>>
+    {
+        @Override
+        public ConcurrentHashMap<SchemaTableName, TableStatistics> load(final String unused)
+                throws Exception
+        {
+            return new ConcurrentHashMap<>();
         }
     }
 }
