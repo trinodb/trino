@@ -51,6 +51,7 @@ public class TaskStats
     private final int completedDrivers;
 
     private final double cumulativeUserMemory;
+    private final double cumulativeSystemMemory;
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
     private final DataSize systemMemoryReservation;
@@ -101,6 +102,7 @@ public class TaskStats
                 0,
                 0,
                 0.0,
+                0.0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -145,6 +147,7 @@ public class TaskStats
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeSystemMemory") double cumulativeSystemMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
@@ -205,6 +208,7 @@ public class TaskStats
         this.completedDrivers = completedDrivers;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
+        this.cumulativeSystemMemory = cumulativeSystemMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
@@ -325,6 +329,12 @@ public class TaskStats
     public double getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
+    }
+
+    @JsonProperty
+    public double getCumulativeSystemMemory()
+    {
+        return cumulativeSystemMemory;
     }
 
     @JsonProperty
@@ -495,6 +505,7 @@ public class TaskStats
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory,
+                cumulativeSystemMemory,
                 userMemoryReservation,
                 revocableMemoryReservation,
                 systemMemoryReservation,
@@ -538,6 +549,7 @@ public class TaskStats
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory,
+                cumulativeSystemMemory,
                 userMemoryReservation,
                 revocableMemoryReservation,
                 systemMemoryReservation,
