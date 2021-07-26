@@ -67,6 +67,7 @@ public final class IcebergSessionProperties
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
+    private static final String STATISTICS_ENABLED = "statistics_enabled";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -198,6 +199,11 @@ public final class IcebergSessionProperties
                         "Duration to wait for completion of dynamic filters during split generation",
                         icebergConfig.getDynamicFilteringWaitTimeout(),
                         false))
+                .add(booleanProperty(
+                        STATISTICS_ENABLED,
+                        "Expose table statistics",
+                        icebergConfig.isTableStatisticsEnabled(),
+                        false))
                 .build();
     }
 
@@ -322,5 +328,10 @@ public final class IcebergSessionProperties
     public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
     {
         return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
+    }
+
+    public static boolean isStatisticsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(STATISTICS_ENABLED, Boolean.class);
     }
 }
