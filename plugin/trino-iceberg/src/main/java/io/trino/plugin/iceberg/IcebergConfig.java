@@ -36,6 +36,7 @@ public class IcebergConfig
     private boolean uniqueTableLocation;
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
+    private boolean tableStatisticsEnabled = true;
 
     public CatalogType getCatalogType()
     {
@@ -135,5 +136,21 @@ public class IcebergConfig
     {
         this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
         return this;
+    }
+
+    // In case of some queries / tables, retrieving table statistics from Iceberg
+    // can take 20+ seconds. This config allows the user / operator the option
+    // to opt out of retrieving table statistics in those cases to speed up query planning.
+    @Config("iceberg.table-statistics-enabled")
+    @ConfigDescription("Enable use of table statistics")
+    public IcebergConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
+    {
+        this.tableStatisticsEnabled = tableStatisticsEnabled;
+        return this;
+    }
+
+    public boolean isTableStatisticsEnabled()
+    {
+        return tableStatisticsEnabled;
     }
 }
