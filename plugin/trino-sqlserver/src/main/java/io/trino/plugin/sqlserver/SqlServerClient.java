@@ -369,11 +369,12 @@ public class SqlServerClient
 
         if (type instanceof TimestampType) {
             TimestampType timestampType = (TimestampType) type;
-            String dataType = format("datetime2(%d)", min(timestampType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION));
+            int precision = min(timestampType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
+            String dataType = format("datetime2(%d)", precision);
             if (timestampType.getPrecision() <= MAX_SHORT_PRECISION) {
                 return WriteMapping.longMapping(dataType, timestampWriteFunction(timestampType));
             }
-            return WriteMapping.objectMapping(dataType, longTimestampWriteFunction(timestampType));
+            return WriteMapping.objectMapping(dataType, longTimestampWriteFunction(timestampType, precision));
         }
 
         // TODO implement proper type mapping
