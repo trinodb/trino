@@ -386,7 +386,7 @@ public class MySqlClient
                 verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
                 return WriteMapping.longMapping(format("datetime(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
             }
-            return WriteMapping.objectMapping(format("datetime(%s)", MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWriteFunction(timestampType));
+            return WriteMapping.objectMapping(format("datetime(%s)", MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWriteFunction(timestampType, MAX_SUPPORTED_TIMESTAMP_PRECISION));
         }
 
         if (VARBINARY.equals(type)) {
