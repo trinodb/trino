@@ -1364,7 +1364,7 @@ public class IcebergMetadata
         }
     }
 
-    private final class TableCacheLoader
+    private static final class TableCacheLoader
             extends CacheLoader<String, ConcurrentHashMap<SchemaTableName, Table>>
     {
         @Override
@@ -1375,7 +1375,7 @@ public class IcebergMetadata
         }
     }
 
-    private final class TableStatisticsCacheLoader
+    private static final class TableStatisticsCacheLoader
             extends CacheLoader<String, ConcurrentHashMap<SchemaTableName, TableStatistics>>
     {
         @Override
