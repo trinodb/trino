@@ -505,7 +505,7 @@ public final class StandardColumnMappings
                 "Precision is out of range: %s", timestampType.getPrecision());
         return ObjectReadFunction.of(
                 LongTimestamp.class,
-                (resultSet, columnIndex) -> toLongTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class)));
+                (resultSet, columnIndex) -> toLongTrinoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class)));
     }
 
     /**
@@ -532,7 +532,7 @@ public final class StandardColumnMappings
         checkArgument(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return ObjectWriteFunction.of(
                 LongTimestamp.class,
-                (statement, index, value) -> statement.setObject(index, fromLongTimestamp(value, timestampType.getPrecision())));
+                (statement, index, value) -> statement.setObject(index, fromLongTrinoTimestamp(value, timestampType.getPrecision())));
     }
 
     public static long toTrinoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
@@ -549,7 +549,7 @@ public final class StandardColumnMappings
         return epochMicros;
     }
 
-    public static LongTimestamp toLongTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
+    public static LongTimestamp toLongTrinoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
     {
         long precision = timestampType.getPrecision();
         checkArgument(precision > TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
@@ -572,7 +572,7 @@ public final class StandardColumnMappings
         return LocalDateTime.ofInstant(instant, UTC);
     }
 
-    public static LocalDateTime fromLongTimestamp(LongTimestamp timestamp, int precision)
+    public static LocalDateTime fromLongTrinoTimestamp(LongTimestamp timestamp, int precision)
     {
         long epochSeconds = floorDiv(timestamp.getEpochMicros(), MICROSECONDS_PER_SECOND);
         int microsOfSecond = floorMod(timestamp.getEpochMicros(), MICROSECONDS_PER_SECOND);
