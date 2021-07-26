@@ -23,6 +23,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 
@@ -60,9 +61,9 @@ public class SapHanaAuthenticationModule
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider, IdentityCacheMapping identityCacheMapping)
         {
-            return createBasicConnectionFactory(catalogName, config, poolConfig, credentialProvider);
+            return createBasicConnectionFactory(catalogName, config, poolConfig, credentialProvider, identityCacheMapping);
         }
     }
 
@@ -79,16 +80,16 @@ public class SapHanaAuthenticationModule
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider, IdentityCacheMapping identityCacheMapping)
         {
-            return createBasicConnectionFactory(catalogName, config, poolConfig, credentialProvider);
+            return createBasicConnectionFactory(catalogName, config, poolConfig, credentialProvider, identityCacheMapping);
         }
     }
 
-    private ConnectionFactory createBasicConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider)
+    private ConnectionFactory createBasicConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider, IdentityCacheMapping identityCacheMapping)
     {
         if (poolConfig.isConnectionPoolEnabled()) {
-            return new PoolingConnectionFactory(catalogName.toString(), Driver.class, config, poolConfig, credentialProvider);
+            return new PoolingConnectionFactory(catalogName.toString(), Driver.class, config, poolConfig, credentialProvider, identityCacheMapping);
         }
         return new DriverConnectionFactory(new Driver(), config, credentialProvider);
     }
