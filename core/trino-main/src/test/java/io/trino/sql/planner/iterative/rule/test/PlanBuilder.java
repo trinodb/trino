@@ -95,7 +95,7 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Row;
 import io.trino.testing.TestingHandle;
-import io.trino.testing.TestingMetadata;
+import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingTransactionHandle;
 
@@ -606,7 +606,7 @@ public class PlanBuilder
 
         public TableScanBuilder setAssignmentsForSymbols(List<Symbol> symbols)
         {
-            return setAssignments(symbols.stream().collect(toImmutableMap(identity(), symbol -> new TestingMetadata.TestingColumnHandle(symbol.getName()))));
+            return setAssignments(symbols.stream().collect(toImmutableMap(identity(), symbol -> new TestingColumnHandle(symbol.getName()))));
         }
 
         public TableScanBuilder setAssignments(Map<Symbol, ColumnHandle> assignments)
