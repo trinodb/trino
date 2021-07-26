@@ -495,7 +495,7 @@ public class TestJdbcConnection
             // verify that the query was cancelled
             assertThatThrownBy(future::get).isNotNull();
             assertThat(listQueryErrorCodes(sql))
-                    .containsExactly("USER_CANCELED")
+                    .allMatch(errorCode -> "TRANSACTION_ALREADY_ABORTED".equals(errorCode) || "USER_CANCELED".equals(errorCode))
                     .hasSize(1);
         }
     }
@@ -535,7 +535,7 @@ public class TestJdbcConnection
         futures.forEach(future -> assertThatThrownBy(future::get).isNotNull());
         assertThat(listQueryErrorCodes(sql))
                 .hasSize(futures.size())
-                .containsOnly("USER_CANCELED");
+                .allMatch(errorCode -> "TRANSACTION_ALREADY_ABORTED".equals(errorCode) || "USER_CANCELED".equals(errorCode));
     }
 
     private Connection createConnection()
