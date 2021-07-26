@@ -816,6 +816,27 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
+    public void testCaseInsensitivePredicate()
+    {
+        assertThat(query("SELECT address FROM customer WHERE address IN ('01bR7OOM6zPqo29DpAq', 'BJYZYJQk4yD5B', 'a6M1wdC44LW')"))
+                .skippingTypesCheck()
+                .matches("VALUES 'BJYZYJQk4yD5B', 'a6M1wdC44LW', '01bR7OOM6zPqo29DpAq'");
+
+        assertThat(query("SELECT COUNT(*) FROM customer WHERE address >= '01bR7OOM6zPqo29DpAq' AND address <= 'a6M1wdC44LW'"))
+                .matches("VALUES BIGINT '858'");
+
+        assertThat(query(
+                // Force conversion to a range predicate which would exclude the row corresponding to 'BJYZYJQk4yD5B'
+                // if the range predicate were pushed into a case insensitive connector
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "domain_compaction_threshold", "1")
+                        .build(),
+                "SELECT address FROM customer WHERE address IN ('01bR7OOM6zPqo29DpAq', 'BJYZYJQk4yD5B', 'a6M1wdC44LW')"))
+                .skippingTypesCheck()
+                .matches("VALUES 'BJYZYJQk4yD5B', 'a6M1wdC44LW', '01bR7OOM6zPqo29DpAq'");
+    }
+
+    @Test
     public void testJoinPushdownDisabled()
     {
         Session noJoinPushdown = Session.builder(getSession())
