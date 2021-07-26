@@ -22,6 +22,7 @@ import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
+import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
 
@@ -45,16 +46,19 @@ public final class TwoMixedHives
 
     private final String hadoopBaseImage;
     private final String hadoopImagesVersion;
+    private final PortBinder portBinder;
 
     @Inject
     public TwoMixedHives(
             DockerFiles dockerFiles,
+            PortBinder portBinder,
             Standard standard,
             HadoopKerberos hadoopKerberos,
             EnvironmentConfig environmentConfig)
     {
         super(ImmutableList.of(standard, hadoopKerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.portBinder = requireNonNull(portBinder, "portBinder is null");
         hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
         hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
     }
@@ -83,7 +87,7 @@ public final class TwoMixedHives
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster2()
     {
-        return createHadoopContainer(dockerFiles, hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP + "-2")
+        return createHadoopContainer(dockerFiles, portBinder, hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP + "-2")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/core-site.xml")),
                         "/etc/hadoop/conf/core-site.xml")

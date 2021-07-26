@@ -60,8 +60,8 @@
         <dep.tempto.version>185</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.7.1</dep.errorprone.version>
-        <dep.testcontainers.version>1.15.3</dep.testcontainers.version>
-        <dep.docker-java.version>3.2.8</dep.docker-java.version>
+        <dep.testcontainers.version>1.16.0</dep.testcontainers.version>
+        <dep.docker-java.version>3.2.11</dep.docker-java.version>
         <dep.coral.version>1.0.60</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
         <!-- TODO: update after moving to Airbase 112 -->
