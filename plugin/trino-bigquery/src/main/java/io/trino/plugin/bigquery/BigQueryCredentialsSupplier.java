@@ -18,14 +18,12 @@ import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.Streams;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -38,13 +36,9 @@ class BigQueryCredentialsSupplier
         requireNonNull(credentialsKey, "credentialsKey is null");
         requireNonNull(credentialsFile, "credentialsFile is null");
         // lazy creation, cache once it's created
-        this.credentialsCreator = Suppliers.memoize(() -> {
-            Optional<Credentials> credentialsFromKey = credentialsKey.map(BigQueryCredentialsSupplier::createCredentialsFromKey);
-            Optional<Credentials> credentialsFromFile = credentialsFile.map(BigQueryCredentialsSupplier::createCredentialsFromFile);
-            return Stream.of(credentialsFromKey, credentialsFromFile)
-                    .flatMap(Streams::stream)
-                    .findFirst();
-        });
+        this.credentialsCreator = Suppliers.memoize(() ->
+            credentialsKey.map(BigQueryCredentialsSupplier::createCredentialsFromKey)
+                    .or(() -> credentialsFile.map(BigQueryCredentialsSupplier::createCredentialsFromFile)));
     }
 
     private static Credentials createCredentialsFromKey(String key)
