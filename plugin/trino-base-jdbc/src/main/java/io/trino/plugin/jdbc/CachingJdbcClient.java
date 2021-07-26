@@ -19,6 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.IdentityCacheMapping.IdentityCacheKey;
@@ -39,6 +40,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
@@ -697,5 +699,40 @@ public class CachingJdbcClient
         {
             return Objects.hash(tableHandle, tupleDomain);
         }
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getSchemaNamesStats()
+    {
+        return new CacheStatsMBean(schemaNamesCache);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getTableNamesCache()
+    {
+        return new CacheStatsMBean(tableNamesCache);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getTableHandleCache()
+    {
+        return new CacheStatsMBean(tableHandleCache);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getColumnsCache()
+    {
+        return new CacheStatsMBean(columnsCache);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getStatisticsCache()
+    {
+        return new CacheStatsMBean(statisticsCache);
     }
 }
