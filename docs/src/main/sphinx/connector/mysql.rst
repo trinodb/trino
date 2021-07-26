@@ -106,7 +106,6 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``mysql`` in the above examples.
 
-
 .. _mysql-pushdown:
 
 Pushdown
@@ -132,15 +131,22 @@ The connector supports pushdown for a number of operations:
 * :func:`var_pop`
 * :func:`var_samp`
 
+.. _mysql-sql-support:
+
 SQL support
 -----------
 
-The following SQL statements are not yet supported:
+The connector provides read access and write access to data and metadata in the
+MySQL database. In addition to the :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements, the connector supports
+the following statements:
 
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
-* :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
-* :doc:`/sql/show-role-grants`
+* :doc:`/sql/insert`
+* :doc:`/sql/delete`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
 
 .. include:: sql-delete-limitation.fragment
