@@ -55,6 +55,7 @@ public class StageStats
     private final int completedDrivers;
 
     private final double cumulativeUserMemory;
+    private final double cumulativeSystemMemory;
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
     private final DataSize totalMemoryReservation;
@@ -107,6 +108,7 @@ public class StageStats
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeSystemMemory") double cumulativeSystemMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
@@ -164,6 +166,8 @@ public class StageStats
         this.completedDrivers = completedDrivers;
         checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
         this.cumulativeUserMemory = cumulativeUserMemory;
+        checkArgument(cumulativeSystemMemory >= 0, "cumulativeSystemMemory is negative");
+        this.cumulativeSystemMemory = cumulativeSystemMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
@@ -269,6 +273,12 @@ public class StageStats
     public double getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
+    }
+
+    @JsonProperty
+    public double getCumulativeSystemMemory()
+    {
+        return cumulativeSystemMemory;
     }
 
     @JsonProperty
@@ -444,6 +454,7 @@ public class StageStats
                 rawInputDataSize,
                 rawInputPositions,
                 (long) cumulativeUserMemory,
+                (long) cumulativeSystemMemory,
                 userMemoryReservation,
                 totalMemoryReservation,
                 totalCpuTime,

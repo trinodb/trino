@@ -186,6 +186,7 @@ public class TestQueryStats
             16,
 
             17.0,
+            11.0,
             DataSize.ofBytes(18),
             DataSize.ofBytes(19),
             DataSize.ofBytes(20),
@@ -274,6 +275,7 @@ public class TestQueryStats
         assertEquals(actual.getCompletedDrivers(), 16);
 
         assertEquals(actual.getCumulativeUserMemory(), 17.0);
+        assertEquals(actual.getCumulativeSystemMemory(), 11.0);
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(18));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(19));
         assertEquals(actual.getTotalMemoryReservation(), DataSize.ofBytes(20));
