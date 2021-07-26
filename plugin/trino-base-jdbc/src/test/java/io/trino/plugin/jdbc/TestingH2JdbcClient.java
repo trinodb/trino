@@ -22,6 +22,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -170,6 +171,12 @@ class TestingH2JdbcClient
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
             String dataType = varcharType.isUnbounded() ? "varchar" : "varchar(" + varcharType.getBoundedLength() + ")";
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
+        }
+
+        if (type instanceof CharType) {
+            CharType charType = (CharType) type;
+            String dataType = "char(" + charType.getLength() + ")";
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
 
