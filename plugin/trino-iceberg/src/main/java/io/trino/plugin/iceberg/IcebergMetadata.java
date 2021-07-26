@@ -237,7 +237,7 @@ public class IcebergMetadata
                 .expireAfterWrite(5, TimeUnit.MINUTES)
                 .build(new TableStatisticsCacheLoader());
     }
-    
+
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
