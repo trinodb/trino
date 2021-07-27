@@ -1436,6 +1436,11 @@ public final class MetadataManager
         requireNonNull(session, "session is null");
         requireNonNull(originalTableName, "originalTableName is null");
 
+        if (originalTableName.getCatalogName().isEmpty() || originalTableName.getSchemaName().isEmpty() || originalTableName.getObjectName().isEmpty()) {
+            // table cannot exist
+            return originalTableName;
+        }
+
         QualifiedObjectName tableName = originalTableName;
         Set<QualifiedObjectName> visitedTableNames = new LinkedHashSet<>();
         visitedTableNames.add(tableName);
