@@ -652,7 +652,11 @@ public final class MetadataManager
             return true;
         }
 
-        return getTableHandle(session, name).isPresent();
+        // If the table is not redirected, table handle existence is checked.
+        // If the table is redirected, the target table handle is retrieved. If it does not exist, an
+        // exception is thrown. This behavior is currently inconsistent with the unfiltered case of table listing.
+        // TODO: the behavior may change with a different way to resolve relation names. https://github.com/trinodb/trino/issues/9400
+        return getRedirectionAwareTableHandle(session, name).getTableHandle().isPresent();
     }
 
     @Override
