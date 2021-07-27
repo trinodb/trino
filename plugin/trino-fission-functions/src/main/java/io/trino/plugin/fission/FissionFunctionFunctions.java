@@ -78,19 +78,21 @@ public class FissionFunctionFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice listDataLake(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice filesystem, @SqlType(StandardTypes.VARCHAR) Slice filepath)
     {
-        // CloseableHttpClient httpClient;
-        // HttpClientBuilder builder = HttpClientBuilder.create().setDefaultCookieStore(cookieStore);
-        // httpClient = builder.build();
-        // String result = "";
-        // try {
-        //     HttpGet getRequest = new HttpGet(String.format("%s/listdatalake?filesystem=%s&filepath=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), filesystem.toStringUtf8(), filepath.toStringUtf8()));
-        //     HttpResponse response = httpClient.execute(getRequest);
-        //     result = EntityUtils.toString(response.getEntity());
-        // }
-        // catch (IOException e) {
-        //     result = e.getMessage();
-        // }
-        System.out.println(session.getIdentity().getExtraCredentials().toString());
-        return Slices.utf8Slice(session.getIdentity().getExtraCredentials().toString());
+        CloseableHttpClient httpClient;
+        HttpClientBuilder builder = HttpClientBuilder.create().setDefaultCookieStore(cookieStore);
+        httpClient = builder.build();
+        String result = "";
+        try {
+            HttpGet getRequest = new HttpGet(String.format("%s/datalakeexplorer?filepath=%s", FissionFunctionConfigProvider.getFissionFunctionBaseURL(), filepath.toStringUtf8()));
+
+            //getRequest.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
+            // getRequest.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + session.getIdentity().getExtraCredentials().get("access-token"));
+            // HttpResponse response = httpClient.execute(getRequest);
+            // result = EntityUtils.toString(response.getEntity());
+        }
+        catch (IOException e) {
+            result = e.getMessage();
+        }
+        return Slices.utf8Slice(session.getIdentity().getExtraCredentials().get("access-token"));
     }
 }
