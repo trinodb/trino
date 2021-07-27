@@ -252,7 +252,7 @@ public class TestDynamicFilter
     }
 
     @Test
-    public void testCrossJoinInequalityDFWithCastOnTheLeft()
+    public void testCrossJoinInequalityWithCastOnTheLeft()
     {
         assertPlan("SELECT o.comment, l.comment FROM lineitem l, orders o WHERE o.comment < l.comment",
                 anyTree(filter("CAST(L_COMMENT AS varchar(79)) > O_COMMENT",
@@ -285,7 +285,7 @@ public class TestDynamicFilter
     }
 
     @Test
-    public void testCrossJoinInequalityNoDFWithCastOnTheRight()
+    public void testCrossJoinInequalityWithCastOnTheRight()
     {
         assertPlan("SELECT o.comment, l.comment FROM orders o, lineitem l WHERE o.comment < l.comment",
                 anyTree(filter("O_COMMENT < CAST(L_COMMENT AS varchar(79))",
