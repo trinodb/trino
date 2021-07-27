@@ -114,6 +114,7 @@ C
 - :func:`crc32`
 - :func:`cume_dist`
 - :data:`current_date`
+- :func:`current_groups`
 - :data:`current_time`
 - :data:`current_timestamp`
 - :func:`current_timezone`
