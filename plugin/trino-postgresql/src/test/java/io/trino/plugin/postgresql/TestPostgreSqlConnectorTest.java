@@ -17,14 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
-import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
-import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -47,10 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
-import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -287,29 +279,15 @@ public class TestPostgreSqlConnectorTest
                 .matches("VALUES " +
                         "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
                         "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
-                // Filter node is retained as only a range predicate is pushed into connector
+                // Filter node is retained as no constraint is pushed into connector.
+                // The compacted domain is a range predicate which can give wrong results
+                // if pushed down as PostgreSQL has different sort ordering for letters from Trino
                 .isNotFullyPushedDown(
                         node(
                                 FilterNode.class,
-                                // verify that pushed down range predicate is applied by the connector
+                                // verify that no constraint is applied by the connector
                                 tableScan(
-                                        tableHandle -> {
-                                            TupleDomain<ColumnHandle> constraint = ((JdbcTableHandle) tableHandle).getConstraint();
-                                            ColumnHandle nameColumn = constraint.getDomains().orElseThrow()
-                                                    .keySet().stream()
-                                                    .map(JdbcColumnHandle.class::cast)
-                                                    .filter(column -> column.getColumnName().equals("name"))
-                                                    .collect(onlyElement());
-                                            return constraint.getDomains().get().get(nameColumn)
-                                                    .equals(Domain.create(ValueSet.ofRanges(
-                                                            Range.range(
-                                                                    createVarcharType(25),
-                                                                    utf8Slice("POLAND"),
-                                                                    true,
-                                                                    utf8Slice("VIETNAM"),
-                                                                    true)),
-                                                            false));
-                                        },
+                                        tableHandle -> ((JdbcTableHandle) tableHandle).getConstraint().isAll(),
                                         TupleDomain.all(),
                                         ImmutableMap.of())));
 
