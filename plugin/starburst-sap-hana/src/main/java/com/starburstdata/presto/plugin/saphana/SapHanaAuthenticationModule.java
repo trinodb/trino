@@ -15,7 +15,7 @@ import com.google.inject.Singleton;
 import com.sap.db.jdbc.Driver;
 import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.presto.plugin.jdbc.PoolingConnectionFactory;
-import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedJdbcIdentityCacheMappingModule;
+import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
@@ -75,7 +75,7 @@ public class SapHanaAuthenticationModule
         {
             configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
             install(new PasswordPassThroughModule<>(SapHanaAuthenticationConfig.class, config -> false));
-            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
+            install(new AuthenticationBasedIdentityCacheMappingModule());
         }
 
         @Provides
