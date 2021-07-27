@@ -730,12 +730,12 @@ public class IcebergMetadata
         icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
     }
 
+    /**
+     * @throws TableNotFoundException when table cannot be found
+     */
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
     {
-        if (metastore.getTable(new HiveIdentity(session), table.getSchemaName(), table.getTableName()).isEmpty()) {
-            throw new TableNotFoundException(table);
-        }
-
+        // getIcebergTable throws TableNotFoundException when table not found
         org.apache.iceberg.Table icebergTable = getIcebergTable(session, table);
 
         List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
