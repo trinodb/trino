@@ -15,8 +15,8 @@ import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 import oracle.jdbc.OracleConnection;
 
 import java.sql.Connection;
@@ -45,7 +45,7 @@ public class OracleImpersonatingConnectionFactory
     {
         OracleConnection oracleConnection = (OracleConnection) connection;
         Properties properties = new Properties();
-        JdbcIdentity identity = JdbcIdentity.from(session);
+        ConnectorIdentity identity = session.getIdentity();
         properties.setProperty(OracleConnection.PROXY_USER_NAME, authToLocal.translate(identity));
         // when working a pooled connection, close() will simply return it to the pool without
         // closing the proxy session; we guard against that condition by making sure that any

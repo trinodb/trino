@@ -13,11 +13,11 @@ import io.airlift.log.Logger;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.oracle.OracleConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.UniversalConnectionPoolAdapter;
 import oracle.ucp.UniversalConnectionPoolException;
@@ -139,7 +139,7 @@ public class OraclePoolingConnectionFactory
     private Connection getPassThroughConnection(ConnectorSession session)
             throws SQLException
     {
-        JdbcIdentity identity = JdbcIdentity.from(session);
+        ConnectorIdentity identity = session.getIdentity();
         String username = identity.getExtraCredentials().getOrDefault(USERNAME_PASSTHROUGH_CREDENTIAL, "");
         String password = identity.getExtraCredentials().getOrDefault(PASSWORD_PASSTHROUGH_CREDENTIAL, "");
 

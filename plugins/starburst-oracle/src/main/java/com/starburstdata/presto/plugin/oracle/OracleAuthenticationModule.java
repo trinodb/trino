@@ -17,7 +17,7 @@ import com.google.inject.Singleton;
 import com.starburstdata.presto.kerberos.ConnectorKerberosManagerModule;
 import com.starburstdata.presto.kerberos.KerberosManager;
 import com.starburstdata.presto.license.LicenseManager;
-import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedJdbcIdentityCacheMappingModule;
+import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
@@ -120,7 +120,7 @@ public class OracleAuthenticationModule
         {
             install(new AuthToLocalModule());
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(OracleImpersonatingConnectionFactory.class).in(Scopes.SINGLETON);
-            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
+            install(new AuthenticationBasedIdentityCacheMappingModule());
         }
     }
 
@@ -184,7 +184,7 @@ public class OracleAuthenticationModule
             checkState(
                     !buildConfigObject(StarburstOracleConfig.class).isImpersonationEnabled(),
                     "Impersonation is not allowed when using credentials pass-through");
-            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
+            install(new AuthenticationBasedIdentityCacheMappingModule());
         }
 
         @Provides
@@ -258,7 +258,7 @@ public class OracleAuthenticationModule
             checkState(
                     !buildConfigObject(StarburstOracleConfig.class).isImpersonationEnabled(),
                     "Impersonation is not allowed when using credentials pass-through");
-            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
+            install(new AuthenticationBasedIdentityCacheMappingModule());
         }
 
         @Provides
