@@ -223,14 +223,12 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testCreateSchema()
     {
+        String schemaName = "test_schema_create_" + randomTableSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            assertQueryFails("CREATE SCHEMA xxxxxx", "This connector does not support creating schemas");
-            getSession().getSchema().ifPresent(
-                    s -> assertQueryFails("DROP SCHEMA " + s, "This connector does not support dropping schemas"));
+            assertQueryFails("CREATE SCHEMA " + schemaName, "This connector does not support creating schemas");
             return;
         }
 
-        String schemaName = "test_schema_create_" + randomTableSuffix();
         assertUpdate("CREATE SCHEMA " + schemaName);
         assertThat(query("SHOW SCHEMAS"))
                 .skippingTypesCheck()
