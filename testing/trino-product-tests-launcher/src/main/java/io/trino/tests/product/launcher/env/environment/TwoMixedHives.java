@@ -87,7 +87,7 @@ public final class TwoMixedHives
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster2()
     {
-        return createHadoopContainer(dockerFiles, portBinder, hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP + "-2")
+        return createHadoopContainer(dockerFiles, new PortBinder.ShiftingPortBinder(portBinder, 10000), hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP + "-2")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/core-site.xml")),
                         "/etc/hadoop/conf/core-site.xml")
