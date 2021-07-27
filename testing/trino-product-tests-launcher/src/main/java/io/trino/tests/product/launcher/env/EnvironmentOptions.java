@@ -31,8 +31,8 @@ public final class EnvironmentOptions
     @Option(names = "--without-trino", description = "Do not start " + COORDINATOR)
     public boolean withoutPrestoMaster;
 
-    @Option(names = "--no-bind", description = "Bind ports on localhost", negatable = true)
-    public boolean bindPorts = true;
+    @Option(names = "--bind", description = "Bind ports on localhost starting from a given base port " + DEFAULT_VALUE, defaultValue = "-1", fallbackValue = "0", arity = "0..1")
+    public int bindPorts = -1;
 
     @Option(names = "--debug", description = "Open Java debug ports")
     public boolean debug;
