@@ -56,4 +56,12 @@ public class TestStargateDynamicFiltering
                 .hasMessageContaining("This connector does not support creating tables with data");
         throw new SkipException("not supported");
     }
+
+    @Override
+    public void testDynamicFilteringCaseInsensitiveDomainCompaction()
+    {
+        assertThatThrownBy(super::testDynamicFilteringCaseInsensitiveDomainCompaction)
+                .hasMessageContaining("This connector does not support creating tables");
+        throw new SkipException("not supported");
+    }
 }
