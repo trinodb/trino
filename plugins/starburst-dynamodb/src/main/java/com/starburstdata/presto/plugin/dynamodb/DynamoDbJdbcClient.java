@@ -19,7 +19,6 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -359,11 +358,10 @@ public class DynamoDbJdbcClient
         }
 
         SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
-        JdbcIdentity identity = JdbcIdentity.from(session);
 
         try (Connection connection = connectionFactory.openConnection(session)) {
-            String remoteSchema = getIdentifierMapping().toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = getIdentifierMapping().toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String remoteSchema = getIdentifierMapping().toRemoteSchemaName(session.getIdentity(), connection, schemaTableName.getSchemaName());
+            String remoteTable = getIdentifierMapping().toRemoteTableName(session.getIdentity(), connection, remoteSchema, schemaTableName.getTableName());
 
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
@@ -551,6 +549,12 @@ public class DynamoDbJdbcClient
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type);
+    }
+
+    @Override
+    public void dropSchema(ConnectorSession session, String schemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 
     private void generateSchemaFile(String tableName, ColumnMetadata partitionKeyMetadata, Optional<ColumnMetadata> sortKeyMetadata, List<ColumnMetadata> columns)

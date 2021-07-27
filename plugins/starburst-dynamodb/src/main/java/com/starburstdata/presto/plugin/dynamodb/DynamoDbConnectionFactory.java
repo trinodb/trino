@@ -11,11 +11,11 @@ package com.starburstdata.presto.plugin.dynamodb;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -129,8 +129,7 @@ public class DynamoDbConnectionFactory
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
-        JdbcIdentity identity = JdbcIdentity.from(session);
-        Properties properties = getCredentialProperties(identity);
+        Properties properties = getCredentialProperties(session.getIdentity());
 
         String url = connectionUrl +
                 "GenerateSchemaFiles=\"" + getGenerateSchemaFiles(session).getJdbcPropertyValue() + "\";" +
@@ -145,7 +144,7 @@ public class DynamoDbConnectionFactory
         return connection;
     }
 
-    private Properties getCredentialProperties(JdbcIdentity identity)
+    private Properties getCredentialProperties(ConnectorIdentity identity)
     {
         Properties properties = new Properties();
         properties.putAll(credentialPropertiesProvider.getCredentialProperties(identity));
