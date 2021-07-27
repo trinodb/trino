@@ -141,7 +141,7 @@ public final class TwoKerberosHives
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster2(String keytabsHostDirectory)
     {
-        return createHadoopContainer(dockerFiles, portBinder, hadoopBaseImage + "-kerberized-2:" + hadoopImagesVersion, HADOOP + "-2")
+        return createHadoopContainer(dockerFiles, new PortBinder.ShiftingPortBinder(portBinder, 10000), hadoopBaseImage + "-kerberized-2:" + hadoopImagesVersion, HADOOP + "-2")
                 .withFileSystemBind(keytabsHostDirectory, "/presto_keytabs", READ_WRITE)
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/hadoop-master-2-copy-keytabs.sh")),
