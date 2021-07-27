@@ -1011,7 +1011,8 @@ public class IcebergMetadata
 
     private Optional<Long> getSnapshotId(org.apache.iceberg.Table table, Optional<Long> snapshotId)
     {
-        return snapshotIds.computeIfAbsent(table.toString(), ignored -> snapshotId
+        // table.name() is an encoded version of SchemaTableName
+        return snapshotIds.computeIfAbsent(table.name(), ignored -> snapshotId
                 .map(id -> IcebergUtil.resolveSnapshotId(table, id))
                 .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId)));
     }
