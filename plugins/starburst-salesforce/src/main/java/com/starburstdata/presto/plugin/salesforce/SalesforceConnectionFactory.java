@@ -10,11 +10,11 @@
 package com.starburstdata.presto.plugin.salesforce;
 
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -83,14 +83,14 @@ public class SalesforceConnectionFactory
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
-        JdbcIdentity identity = JdbcIdentity.from(session);
+        ConnectorIdentity identity = session.getIdentity();
         Properties properties = getCredentialProperties(identity);
         Connection connection = driver.connect(connectionUrl, properties);
         checkState(connection != null, "Driver returned null connection, make sure the connection URL '%s' is valid for the driver %s", connectionUrl, driver);
         return connection;
     }
 
-    private Properties getCredentialProperties(JdbcIdentity identity)
+    private Properties getCredentialProperties(ConnectorIdentity identity)
     {
         Properties properties = new Properties();
         properties.putAll(credentialPropertiesProvider.getCredentialProperties(identity));
