@@ -14,7 +14,6 @@ import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
@@ -45,8 +44,7 @@ public class SqlServerImpersonatingConnectionFactory
             throws SQLException
     {
         try (Statement statement = connection.createStatement()) {
-            JdbcIdentity identity = JdbcIdentity.from(session);
-            statement.execute(format("EXECUTE AS USER = '%s'", authToLocal.translate(identity).replace("'", "''")));
+            statement.execute(format("EXECUTE AS USER = '%s'", authToLocal.translate(session.getIdentity()).replace("'", "''")));
         }
     }
 }
