@@ -16,6 +16,7 @@ package io.trino.connector;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -471,6 +472,21 @@ public class MockConnector
         }
 
         @Override
+        public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            return tableHandle;
+        }
+
+        @Override
+        public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            return new MockConnectorColumnHandle("delete_row_id", BIGINT);
+        }
+
+        @Override
+        public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments) {}
+
+        @Override
         public boolean usesLegacyTableLayouts()
         {
             return false;
@@ -587,5 +603,8 @@ public class MockConnector
     {
         @Override
         public void updateRows(Page page, List<Integer> columnValueAndRowIdChannels) {}
+
+        @Override
+        public void deleteRows(Block rowIds) {}
     }
 }
