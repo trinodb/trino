@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorInsertTableHandle;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -25,7 +26,9 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -361,6 +364,66 @@ public class TestTableRedirection
 
         assertThatThrownBy(() -> query((format("SHOW COLUMNS FROM %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING))))
                 .hasMessageContaining("Table redirections form a loop");
+    }
+
+    @Test
+    public void testInsert()
+    {
+        assertUpdate(
+                getSession(),
+                format("INSERT INTO %s.%s VALUES (5, 6)", SCHEMA_ONE, VALID_REDIRECTION_SRC),
+                1,
+                // Verify the insert plan instead of through a successive SELECT, because insertion is a no-op for Mock connector
+                plan -> {
+                    TableFinishNode finishNode = searchFrom(plan.getRoot())
+                            .where(TableFinishNode.class::isInstance)
+                            .findOnlyElement();
+                    TableWriterNode.InsertTarget insertTarget = ((TableWriterNode.InsertTarget) finishNode.getTarget());
+                    assertEquals(
+                            ((MockConnectorInsertTableHandle) insertTarget.getHandle().getConnectorHandle()).getTableName(),
+                            schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                    assertEquals(insertTarget.getSchemaTableName(), schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                });
+    }
+
+    @Test
+    public void testDelete()
+    {
+        assertUpdate(
+                getSession(),
+                format("DELETE FROM %s.%s WHERE %s = 5", SCHEMA_ONE, VALID_REDIRECTION_SRC, C2),
+                0,
+                // Verify the insert plan instead of through a successive SELECT, because deletion is a no-op for Mock connector
+                plan -> {
+                    TableFinishNode finishNode = searchFrom(plan.getRoot())
+                            .where(TableFinishNode.class::isInstance)
+                            .findOnlyElement();
+                    TableWriterNode.DeleteTarget deleteTarget = ((TableWriterNode.DeleteTarget) finishNode.getTarget());
+                    assertEquals(
+                            ((MockConnectorTableHandle) deleteTarget.getHandle().get().getConnectorHandle()).getTableName(),
+                            schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                    assertEquals(deleteTarget.getSchemaTableName(), schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                });
+    }
+
+    @Test
+    public void testUpdate()
+    {
+        assertUpdate(
+                getSession(),
+                format("UPDATE %s.%s SET %s = 5 WHERE %s = 1", SCHEMA_ONE, VALID_REDIRECTION_SRC, C3, C2),
+                0,
+                // Verify the insert plan instead of through a successive SELECT, because update is a no-op for Mock connector
+                plan -> {
+                    TableFinishNode finishNode = searchFrom(plan.getRoot())
+                            .where(TableFinishNode.class::isInstance)
+                            .findOnlyElement();
+                    TableWriterNode.UpdateTarget updateTarget = ((TableWriterNode.UpdateTarget) finishNode.getTarget());
+                    assertEquals(
+                            ((MockConnectorTableHandle) updateTarget.getHandle().get().getConnectorHandle()).getTableName(),
+                            schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                    assertEquals(updateTarget.getSchemaTableName(), schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                });
     }
 
     // TODO: Add tests for redirection in CommentsSystemTable and CREATE TABLE LIKE
