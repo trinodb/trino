@@ -54,11 +54,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
+import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
+import static io.trino.plugin.iceberg.Partition.convertBounds;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -85,9 +86,7 @@ public class PartitionTable
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
-        this.idToTypeMapping = icebergTable.schema().columns().stream()
-                .filter(column -> column.type().isPrimitiveType())
-                .collect(Collectors.toMap(Types.NestedField::fieldId, (column) -> column.type().asPrimitiveType()));
+        this.idToTypeMapping = primitiveFieldTypes(icebergTable.schema());
 
         List<Types.NestedField> columns = icebergTable.schema().columns();
         List<PartitionField> partitionFields = icebergTable.spec().fields();
@@ -185,8 +184,8 @@ public class PartitionTable
                             partitionStruct,
                             dataFile.recordCount(),
                             dataFile.fileSizeInBytes(),
-                            toMap(dataFile.lowerBounds()),
-                            toMap(dataFile.upperBounds()),
+                            convertBounds(idToTypeMapping, dataFile.lowerBounds()),
+                            convertBounds(idToTypeMapping, dataFile.upperBounds()),
                             dataFile.nullValueCounts(),
                             dataFile.columnSizes());
                     partitions.put(partitionWrapper, partition);
@@ -197,8 +196,8 @@ public class PartitionTable
                 partition.incrementFileCount();
                 partition.incrementRecordCount(dataFile.recordCount());
                 partition.incrementSize(dataFile.fileSizeInBytes());
-                partition.updateMin(toMap(dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                partition.updateMax(toMap(dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                partition.updateMin(convertBounds(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                partition.updateMax(convertBounds(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
                 partition.updateNullCount(dataFile.nullValueCounts());
             }
 
@@ -274,11 +273,6 @@ public class PartitionTable
 
         rowBlockBuilder.closeEntry();
         return columnMetricType.getObject(rowBlockBuilder, 0);
-    }
-
-    private Map<Integer, Object> toMap(Map<Integer, ByteBuffer> idToMetricMap)
-    {
-        return Partition.toMap(idToTypeMapping, idToMetricMap);
     }
 
     /**

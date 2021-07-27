@@ -48,6 +48,8 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.apache.iceberg.types.Type.PrimitiveType;
+import org.apache.iceberg.types.Types;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -57,10 +59,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Lists.reverse;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -227,6 +232,32 @@ final class IcebergUtil
             }
         }
         return columns.build();
+    }
+
+    public static Map<Integer, PrimitiveType> primitiveFieldTypes(Schema schema)
+    {
+        return primitiveFieldTypes(schema.columns())
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    }
+
+    private static Stream<Entry<Integer, PrimitiveType>> primitiveFieldTypes(List<Types.NestedField> nestedFields)
+    {
+        return nestedFields.stream()
+                .flatMap(IcebergUtil::primitiveFieldTypes);
+    }
+
+    private static Stream<Entry<Integer, PrimitiveType>> primitiveFieldTypes(Types.NestedField nestedField)
+    {
+        org.apache.iceberg.types.Type fieldType = nestedField.type();
+        if (fieldType.isPrimitiveType()) {
+            return Stream.of(Map.entry(nestedField.fieldId(), fieldType.asPrimitiveType()));
+        }
+
+        if (fieldType.isNestedType()) {
+            return primitiveFieldTypes(fieldType.asNestedType().fields());
+        }
+
+        throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 
     public static String getDataPath(String location)

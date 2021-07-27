@@ -47,14 +47,19 @@ public interface PredicatePushdownController
             return FULL_PUSHDOWN.apply(session, domain);
         }
 
-        if (domain.getValues().isDiscreteSet()) {
-            return new DomainPushdownResult(
-                    domain.simplify(getDomainCompactionThreshold(session)),
-                    domain);
+        if (!domain.getValues().isDiscreteSet()) {
+            // case insensitive predicate pushdown could return incorrect results for operators like `!=`, `<` or `>`
+            return DISABLE_PUSHDOWN.apply(session, domain);
         }
 
-        // case insensitive predicate pushdown could return incorrect results for operators like `!=`, `<` or `>`
-        return DISABLE_PUSHDOWN.apply(session, domain);
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Domain#simplify can turn a discrete set into a range predicate
+            // Push down of range predicate for varchar/char types could lead to incorrect results
+            // when the remote database is case insensitive
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+        return new DomainPushdownResult(simplifiedDomain, domain);
     };
 
     DomainPushdownResult apply(ConnectorSession session, Domain domain);
