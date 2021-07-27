@@ -11,9 +11,9 @@ package com.starburstdata.trino.plugin.stargate;
 
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Map;
 import java.util.Optional;
@@ -31,7 +31,7 @@ public class StargateImpersonatingCredentialPropertiesProvider
     }
 
     @Override
-    public Map<String, String> getCredentialProperties(JdbcIdentity identity)
+    public Map<String, String> getCredentialProperties(ConnectorIdentity identity)
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         credentialProvider.getConnectionUser(Optional.of(identity)).ifPresent((user) -> {

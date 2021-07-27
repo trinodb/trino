@@ -12,9 +12,9 @@ package com.starburstdata.trino.plugin.stargate;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
-import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedJdbcIdentityCacheMappingModule;
+import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
-import com.starburstdata.presto.plugin.jdbc.auth.SingletonJdbcIdentityCacheMappingModule;
+import com.starburstdata.presto.plugin.jdbc.auth.SingletonIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -81,7 +81,7 @@ public class StargateAuthenticationModule
         protected void setup(Binder binder)
         {
             install(new PasswordPassThroughModule<>(StargateConfig.class, StargateConfig::isImpersonationEnabled));
-            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
+            install(new AuthenticationBasedIdentityCacheMappingModule());
         }
 
         @Provides
@@ -138,7 +138,7 @@ public class StargateAuthenticationModule
         {
             install(new AuthToLocalModule());
             install(new CredentialProviderModule());
-            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
+            install(new AuthenticationBasedIdentityCacheMappingModule());
             configBinder(binder).bindConfig(StargateCredentialConfig.class);
         }
 
@@ -213,7 +213,7 @@ public class StargateAuthenticationModule
         {
             super.setup(binder);
             configBinder(binder).bindConfig(CredentialConfig.class);
-            install(new SingletonJdbcIdentityCacheMappingModule());
+            install(new SingletonIdentityCacheMappingModule());
         }
 
         @Provides
@@ -246,7 +246,7 @@ public class StargateAuthenticationModule
         {
             super.setup(binder);
             install(new AuthToLocalModule());
-            install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
+            install(new AuthenticationBasedIdentityCacheMappingModule());
         }
 
         @Provides

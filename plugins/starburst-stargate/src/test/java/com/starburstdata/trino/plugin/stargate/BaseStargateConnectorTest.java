@@ -19,6 +19,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
@@ -137,6 +138,12 @@ public abstract class BaseStargateConnectorTest
         // considerations, see https://starburstdata.atlassian.net/browse/SEP-4795.
         assertThatThrownBy(() -> query("CREATE VIEW v AS SELECT 1 a"))
                 .hasMessage("This connector does not support creating views");
+    }
+
+    @Override
+    public void testDropNonEmptySchema()
+    {
+        throw new SkipException("Stargate connector not support creating tables");
     }
 
     @Override
