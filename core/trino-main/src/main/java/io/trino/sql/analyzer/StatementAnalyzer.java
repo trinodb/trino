@@ -417,7 +417,9 @@ class StatementAnalyzer
             Scope queryScope = analyze(insert.getQuery(), createScope(scope));
 
             // verify the insert destination columns match the query
-            Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable);
+            Optional<TableHandle> targetTableHandle = redirection.getTableHandle();
+            targetTable = redirection.getRedirectedTableName().orElse(targetTable);
             if (targetTableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, insert, "Table '%s' does not exist", targetTable);
             }
@@ -659,12 +661,14 @@ class StatementAnalyzer
         protected Scope visitDelete(Delete node, Optional<Scope> scope)
         {
             Table table = node.getTable();
-            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
-            if (metadata.getView(session, tableName).isPresent()) {
+            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
+            if (metadata.getView(session, originalName).isPresent()) {
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
-            TableHandle handle = metadata.getTableHandle(session, tableName)
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
+            QualifiedObjectName tableName = redirection.getRedirectedTableName().orElse(originalName);
+            TableHandle handle = redirection.getTableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
@@ -2216,12 +2220,14 @@ class StatementAnalyzer
         protected Scope visitUpdate(Update update, Optional<Scope> scope)
         {
             Table table = update.getTable();
-            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
-            if (metadata.getView(session, tableName).isPresent()) {
+            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
+            if (metadata.getView(session, originalName).isPresent()) {
                 throw semanticException(NOT_SUPPORTED, update, "Updating through views is not supported");
             }
 
-            TableHandle handle = metadata.getTableHandle(session, tableName)
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
+            QualifiedObjectName tableName = redirection.getRedirectedTableName().orElse(originalName);
+            TableHandle handle = redirection.getTableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
