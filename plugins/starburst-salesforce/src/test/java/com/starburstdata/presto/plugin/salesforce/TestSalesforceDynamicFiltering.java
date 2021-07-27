@@ -12,11 +12,13 @@ package com.starburstdata.presto.plugin.salesforce;
 import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.ORDERS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSalesforceDynamicFiltering
         extends AbstractDynamicFilteringTest
@@ -115,6 +117,26 @@ public class TestSalesforceDynamicFiltering
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName + "__c");
+        }
+    }
+
+    @Override
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringCaseInsensitiveDomainCompaction()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_caseinsensitive",
+                "(id__c varchar(1))",
+                ImmutableList.of("'0'", "'a'", "'B'"))) {
+            assertThat(computeActual(
+                    // Force conversion to a range predicate which would exclude the row corresponding to 'B'
+                    // if the range predicate were pushed into a case insensitive connector
+                    dynamicFilteringWithCompactionThreshold(1),
+                    "SELECT COUNT(*) FROM "
+                            + table.getName() + "__c a JOIN " + table.getName() + "__c b ON a.id__c = b.id__c")
+                    .getOnlyValue())
+                    .isEqualTo(3L);
         }
     }
 }
