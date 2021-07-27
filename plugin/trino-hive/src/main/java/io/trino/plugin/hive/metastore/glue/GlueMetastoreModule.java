@@ -37,7 +37,7 @@ import java.util.function.Predicate;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -63,7 +63,7 @@ public class GlueMetastoreModule
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
 
-        install(installModuleIf(
+        install(conditionalModule(
                 HiveConfig.class,
                 HiveConfig::isTableStatisticsEnabled,
                 getGlueStatisticsModule(DefaultGlueColumnStatisticsProviderFactory.class),

@@ -18,6 +18,7 @@ import com.google.common.io.Resources;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import org.apache.hadoop.conf.Configuration;
@@ -44,7 +45,7 @@ public class TestOrcDeleteDeltaPageSource
         File deleteDeltaFile = new File(Resources.getResource("fullacid_delete_delta_test/delete_delta_0000004_0000004_0000/bucket_00000").toURI());
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
                 new OrcReaderOptions(),
-                "test",
+                ConnectorIdentity.ofUser("test"),
                 new JobConf(new Configuration(false)),
                 HDFS_ENVIRONMENT,
                 new FileFormatDataSourceStats());

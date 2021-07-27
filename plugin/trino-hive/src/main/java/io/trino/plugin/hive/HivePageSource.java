@@ -58,6 +58,7 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -255,6 +256,12 @@ public class HivePageSource
     public long getCompletedBytes()
     {
         return delegate.getCompletedBytes();
+    }
+
+    @Override
+    public OptionalLong getCompletedPositions()
+    {
+        return delegate.getCompletedPositions();
     }
 
     @Override

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
@@ -28,7 +29,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
-import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -36,7 +36,6 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
 import io.trino.transaction.TransactionBuilder;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
@@ -81,7 +80,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -94,14 +92,14 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public abstract class AbstractTestIcebergConnectorTest
+public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
 {
     private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
     private final FileFormat format;
 
-    protected AbstractTestIcebergConnectorTest(FileFormat format)
+    protected BaseIcebergConnectorTest(FileFormat format)
     {
         this.format = requireNonNull(format, "format is null");
     }
@@ -118,9 +116,11 @@ public abstract class AbstractTestIcebergConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_CREATE_VIEW:
+                return true;
 
             case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return true;
@@ -136,24 +136,53 @@ public abstract class AbstractTestIcebergConnectorTest
     @Override
     public void testDelete()
     {
-        // Deletes are covered with testMetadata*Delete test methods
+        // Deletes are covered with testMetadataDelete test methods
         assertThatThrownBy(super::testDelete)
+                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+    }
+
+    @Override
+    public void testDeleteWithComplexPredicate()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testDeleteWithComplexPredicate)
+                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+    }
+
+    @Override
+    public void testDeleteWithSemiJoin()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testDeleteWithSemiJoin)
+                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+    }
+
+    @Override
+    public void testDeleteWithSubquery()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testDeleteWithSubquery)
+                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+    }
+
+    @Override
+    public void testDeleteWithVarcharPredicate()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testDeleteWithVarcharPredicate)
+                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
+    }
+
+    @Override
+    public void testRowLevelDelete()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testRowLevelDelete)
                 .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
     }
 
     @Test
     @Override
-    public void testRenameTable()
-    {
-        // Iceberg table rename is not supported in FileHiveMetastore
-        // TODO add a test with a different metastore, or block rename in IcebergMetadata
-        assertThatThrownBy(super::testRenameTable)
-                .hasStackTraceContaining("Rename not supported for Iceberg tables");
-    }
-
-    @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testShowCreateSchema()
     {
         assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
@@ -166,8 +195,6 @@ public abstract class AbstractTestIcebergConnectorTest
 
     @Override
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testDescribeTable()
     {
         MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
@@ -187,8 +214,6 @@ public abstract class AbstractTestIcebergConnectorTest
 
     @Override
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
@@ -217,8 +242,6 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testDecimal()
     {
         testDecimalWithPrecisionAndScale(1, 0);
@@ -258,16 +281,12 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testTime()
     {
         testSelectOrPartitionedByTime(false);
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testPartitionedByTime()
     {
         testSelectOrPartitionedByTime(true);
@@ -276,8 +295,8 @@ public abstract class AbstractTestIcebergConnectorTest
     private void testSelectOrPartitionedByTime(boolean partitioned)
     {
         String tableName = format("test_%s_by_time", partitioned ? "partitioned" : "selected");
-        String partitioning = partitioned ? ", partitioning = ARRAY['x']" : "";
-        assertUpdate(format("CREATE TABLE %s (x TIME(6), y BIGINT) WITH (format = '%s'%s)", tableName, format, partitioning));
+        String partitioning = partitioned ? "WITH(partitioning = ARRAY['x'])" : "";
+        assertUpdate(format("CREATE TABLE %s (x TIME(6), y BIGINT) %s", tableName, partitioning));
         assertUpdate(format("INSERT INTO %s VALUES (TIME '10:12:34', 12345)", tableName), 1);
         assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 1");
         assertQuery(format("SELECT x FROM %s", tableName), "SELECT CAST('10:12:34' AS TIME)");
@@ -291,16 +310,12 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testPartitionByTimestamp()
     {
         testSelectOrPartitionedByTimestamp(true);
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testSelectByTimestamp()
     {
         testSelectOrPartitionedByTimestamp(false);
@@ -329,11 +344,9 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testCreatePartitionedTable()
     {
-        @Language("SQL") String createTable = "" +
+        assertUpdate("" +
                 "CREATE TABLE test_partitioned_table (" +
                 "  _string VARCHAR" +
                 ", _bigint BIGINT" +
@@ -358,12 +371,9 @@ public abstract class AbstractTestIcebergConnectorTest
                 "  '_decimal_long'," +
                 "  '_timestamp'," +
                 "  '_date']" +
-                ")";
+                ")");
 
-        assertUpdate(format(createTable, format));
-
-        MaterializedResult result = computeActual("SELECT * FROM test_partitioned_table");
-        assertEquals(result.getRowCount(), 0);
+        assertQueryReturnsEmptyResult("SELECT * FROM test_partitioned_table");
 
         @Language("SQL") String select = "" +
                 "SELECT" +
@@ -381,48 +391,41 @@ public abstract class AbstractTestIcebergConnectorTest
         assertUpdate(format("INSERT INTO test_partitioned_table %s", select), 1);
         assertQuery("SELECT * FROM test_partitioned_table", select);
 
-        @Language("SQL") String selectAgain = "" +
+        assertQuery(
                 "SELECT * FROM test_partitioned_table WHERE" +
-                " 'foo' = _string" +
-                " AND 456 = _integer" +
-                " AND CAST(123 AS BIGINT) = _bigint" +
-                " AND true = _boolean" +
-                " AND CAST('3.14' AS DECIMAL(3,2)) = _decimal_short" +
-                " AND CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) = _decimal_long" +
-                " AND CAST('2017-05-01 10:12:34' AS TIMESTAMP) = _timestamp" +
-                " AND CAST('2017-05-01' AS DATE) = _date";
-        assertQuery(selectAgain, select);
+                        " 'foo' = _string" +
+                        " AND 456 = _integer" +
+                        " AND CAST(123 AS BIGINT) = _bigint" +
+                        " AND true = _boolean" +
+                        " AND CAST('3.14' AS DECIMAL(3,2)) = _decimal_short" +
+                        " AND CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) = _decimal_long" +
+                        " AND CAST('2017-05-01 10:12:34' AS TIMESTAMP) = _timestamp" +
+                        " AND CAST('2017-05-01' AS DATE) = _date",
+                select);
 
         dropTable("test_partitioned_table");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testCreatePartitionedTableWithNestedTypes()
     {
-        @Language("SQL") String createTable = "" +
+        assertUpdate("" +
                 "CREATE TABLE test_partitioned_table_nested_type (" +
                 "  _string VARCHAR" +
                 ", _struct ROW(_field1 INT, _field2 VARCHAR)" +
                 ", _date DATE" +
                 ") " +
                 "WITH (" +
-                "partitioning = ARRAY['_date']" +
-                ")";
-
-        assertUpdate(createTable);
+                "  partitioning = ARRAY['_date']" +
+                ")");
 
         dropTable("test_partitioned_table_nested_type");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testPartitionedTableWithNullValues()
     {
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_partitioned_table_with_null_values (" +
+        assertUpdate("CREATE TABLE test_partitioned_table_with_null_values (" +
                 "  _string VARCHAR" +
                 ", _bigint BIGINT" +
                 ", _integer INTEGER" +
@@ -446,12 +449,9 @@ public abstract class AbstractTestIcebergConnectorTest
                 "  '_decimal_long'," +
                 "  '_timestamp'," +
                 "  '_date']" +
-                ")";
+                ")");
 
-        assertUpdate(createTable);
-
-        MaterializedResult result = computeActual("SELECT * from test_partitioned_table_with_null_values");
-        assertEquals(result.getRowCount(), 0);
+        assertQueryReturnsEmptyResult("SELECT * from test_partitioned_table_with_null_values");
 
         @Language("SQL") String select = "" +
                 "SELECT" +
@@ -472,38 +472,34 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testCreatePartitionedTableAs()
     {
-        @Language("SQL") String createTable = "" +
+        assertUpdate(
                 "CREATE TABLE test_create_partitioned_table_as " +
-                "WITH (" +
-                "partitioning = ARRAY['ORDER_STATUS', 'Ship_Priority', 'Bucket(order_key,9)']" +
-                ") " +
-                "AS " +
-                "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
-                "FROM tpch.tiny.orders";
+                        "WITH (" +
+                        "partitioning = ARRAY['ORDER_STATUS', 'Ship_Priority', 'Bucket(order_key,9)']" +
+                        ") " +
+                        "AS " +
+                        "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
+                        "FROM tpch.tiny.orders",
+                "SELECT count(*) from orders");
 
-        assertUpdate(createTable, "SELECT count(*) from orders");
-
-        String createTableSql = format("" +
+        assertEquals(
+                computeScalar("SHOW CREATE TABLE test_create_partitioned_table_as"),
+                format(
                         "CREATE TABLE %s.%s.%s (\n" +
-                        "   order_key bigint,\n" +
-                        "   ship_priority integer,\n" +
-                        "   order_status varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
-                        ")",
-                getSession().getCatalog().orElseThrow(),
-                getSession().getSchema().orElseThrow(),
-                "test_create_partitioned_table_as",
-                format);
-
-        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_partitioned_table_as");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+                                "   order_key bigint,\n" +
+                                "   ship_priority integer,\n" +
+                                "   order_status varchar\n" +
+                                ")\n" +
+                                "WITH (\n" +
+                                "   format = '%s',\n" +
+                                "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
+                                ")",
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow(),
+                        "test_create_partitioned_table_as",
+                        format));
 
         assertQuery("SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
@@ -511,22 +507,19 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testColumnComments()
     {
         // TODO add support for setting comments on existing column and replace the test with io.trino.testing.AbstractTestDistributedQueries#testCommentColumn
 
         assertUpdate("CREATE TABLE test_column_comments (_bigint BIGINT COMMENT 'test column comment')");
-        assertQuery("SHOW COLUMNS FROM test_column_comments",
+        assertQuery(
+                "SHOW COLUMNS FROM test_column_comments",
                 "VALUES ('_bigint', 'bigint', '', 'test column comment')");
 
         dropTable("test_column_comments");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testTableComments()
     {
         String createTableTemplate = "" +
@@ -541,10 +534,9 @@ public abstract class AbstractTestIcebergConnectorTest
         assertUpdate(createTableSql);
         MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");
         assertEquals(getOnlyElement(resultOfCreate.getOnlyColumnAsSet()), createTableSql);
-        @Language("SQL") String showCreateTable = "SHOW CREATE TABLE test_table_comments";
 
         assertUpdate("COMMENT ON TABLE test_table_comments IS 'different test table comment'");
-        MaterializedResult resultOfCommentChange = computeActual(showCreateTable);
+        MaterializedResult resultOfCommentChange = computeActual("SHOW CREATE TABLE test_table_comments");
         String afterChangeSql = format(createTableTemplate, "different test table comment", format);
         assertEquals(getOnlyElement(resultOfCommentChange.getOnlyColumnAsSet()), afterChangeSql);
         dropTable("iceberg.tpch.test_table_comments");
@@ -558,33 +550,13 @@ public abstract class AbstractTestIcebergConnectorTest
                 ")";
         assertUpdate(format(createTableWithoutComment, format));
         assertUpdate("COMMENT ON TABLE test_table_comments IS NULL");
-        MaterializedResult resultOfRemovingComment = computeActual(showCreateTable);
+        MaterializedResult resultOfRemovingComment = computeActual("SHOW CREATE TABLE test_table_comments");
         assertEquals(getOnlyElement(resultOfRemovingComment.getOnlyColumnAsSet()), format(createTableWithoutComment, format));
 
         dropTable("iceberg.tpch.test_table_comments");
     }
 
-    // TODO: This test shows that column $snapshot_id doesn't exist at this time.  Decide if we should
-    // add it and $snapshot_timestamp_ms
-    @Test(enabled = false)
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
-    public void testQueryBySnapshotId()
-    {
-        assertUpdate("CREATE TABLE test_query_by_snapshot (col0 INTEGER, col1 BIGINT)");
-        assertUpdate("INSERT INTO test_query_by_snapshot (col0, col1) VALUES (123, CAST(987 AS BIGINT))", 1);
-        long afterFirstInsertId = getLatestSnapshotId("test_query_by_snapshot");
-
-        assertUpdate("INSERT INTO test_query_by_snapshot (col0, col1) VALUES (456, CAST(654 AS BIGINT))", 1);
-        assertQuery("SELECT * FROM test_query_by_snapshot ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT))");
-        assertQuery("SELECT * FROM test_query_by_snapshot WHERE \"$snapshot_id\" = " + afterFirstInsertId, "VALUES (123, CAST(987 AS BIGINT))");
-
-        dropTable("test_query_by_snapshot");
-    }
-
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testRollbackSnapshot()
     {
         assertUpdate("CREATE TABLE test_rollback (col0 INTEGER, col1 BIGINT)");
@@ -612,8 +584,6 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testInsertIntoNotNullColumn()
     {
         assertUpdate("CREATE TABLE test_not_null_table (c1 INTEGER, c2 INTEGER NOT NULL)");
@@ -630,8 +600,6 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testSchemaEvolution()
     {
         assertUpdate("CREATE TABLE test_schema_evolution_drop_end (col0 INTEGER, col1 INTEGER, col2 INTEGER)");
@@ -657,12 +625,11 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testLargeInFailureOnPartitionedColumns()
     {
         QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_large_in_failure");
-        assertUpdate(format("CREATE TABLE %s (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col2'])",
+        assertUpdate(format(
+                "CREATE TABLE %s (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col2'])",
                 tableName));
         assertUpdate(format("INSERT INTO %s VALUES (1, 10)", tableName), 1L);
         assertUpdate(format("INSERT INTO %s VALUES (2, 20)", tableName), 1L);
@@ -681,8 +648,6 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testCreateTableLike()
     {
         FileFormat otherFormat = format == PARQUET ? ORC : PARQUET;
@@ -738,8 +703,6 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testPredicating()
     {
         assertUpdate("CREATE TABLE test_predicating_on_real (col REAL)");
@@ -749,8 +712,6 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testHourTransform()
     {
         assertUpdate("CREATE TABLE test_hour_transform (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['hour(d)'])");
@@ -789,14 +750,23 @@ public abstract class AbstractTestIcebergConnectorTest
 
         assertQuery("SELECT d_hour, row_count, d.min, d.max, b.min, b.max FROM \"test_hour_transform$partitions\"", expected);
 
-        System.out.println(computeActual("SELECT * FROM \"test_hour_transform$files\""));
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(
+                "SELECT * FROM test_hour_transform WHERE day_of_week(d) = 3 AND b % 7 = 3",
+                "VALUES (TIMESTAMP '1969-12-31 23:44:55.567890', 10)");
+
+        assertThat(query("SHOW STATS FOR test_hour_transform"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'1969-12-31 22:22:22.222222', '2020-02-21 13:12:12.654321'") + "), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '11'), " +
+                        "  (NULL, NULL, NULL, 11e0, NULL, NULL)");
 
         dropTable("test_hour_transform");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testDayTransformDate()
     {
         assertUpdate("CREATE TABLE test_day_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
@@ -828,12 +798,23 @@ public abstract class AbstractTestIcebergConnectorTest
                         "(DATE '2015-05-15', 2, DATE '2015-05-15', DATE '2015-05-15', 6, 7), " +
                         "(DATE '2020-02-21', 2, DATE '2020-02-21', DATE '2020-02-21', 8, 9)");
 
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(
+                "SELECT * FROM test_day_transform_date WHERE day_of_week(d) = 3 AND b % 7 = 3",
+                "VALUES (DATE '1969-01-01', 10)");
+
+        assertThat(query("SHOW STATS FOR test_day_transform_date"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0e0, NULL, '1969-01-01', '2020-02-21'), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '11'), " +
+                        "  (NULL, NULL, NULL, 11e0, NULL, NULL)");
+
         dropTable("test_day_transform_date");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testDayTransformTimestamp()
     {
         assertUpdate("CREATE TABLE test_day_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
@@ -863,6 +844,7 @@ public abstract class AbstractTestIcebergConnectorTest
                 "(DATE '2015-05-15', 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
                 "(DATE '2020-02-21', 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
         if (format == ORC) {
+            // Parquet has min/max for timestamps but ORC does not.
             expected = "VALUES " +
                     "(DATE '1969-12-25', 1, NULL, NULL, 8, 8), " +
                     "(DATE '1969-12-30', 1, NULL, NULL, 9, 9), " +
@@ -875,12 +857,23 @@ public abstract class AbstractTestIcebergConnectorTest
 
         assertQuery("SELECT d_day, row_count, d.min, d.max, b.min, b.max FROM \"test_day_transform_timestamp$partitions\"", expected);
 
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(
+                "SELECT * FROM test_day_transform_timestamp WHERE day_of_week(d) = 3 AND b % 7 = 3",
+                "VALUES (TIMESTAMP '1969-12-31 00:00:00.000000', 10)");
+
+        assertThat(query("SHOW STATS FOR test_day_transform_timestamp"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'1969-12-25 15:13:12.876543', '2020-02-21 16:12:12.654321'") + "), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '12'), " +
+                        "  (NULL, NULL, NULL, 12e0, NULL, NULL)");
+
         dropTable("test_day_transform_timestamp");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testMonthTransformDate()
     {
         assertUpdate("CREATE TABLE test_month_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
@@ -916,12 +909,23 @@ public abstract class AbstractTestIcebergConnectorTest
                         "(606, 2, DATE '2020-07-18', DATE '2020-07-28', 12, 13), " +
                         "(611, 1, DATE '2020-12-31', DATE '2020-12-31', 14, 14)");
 
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(
+                "SELECT * FROM test_month_transform_date WHERE day_of_week(d) = 7 AND b % 7 = 3",
+                "VALUES (DATE '2020-06-28', 10)");
+
+        assertThat(query("SHOW STATS FOR test_month_transform_date"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0e0, NULL, '1969-11-13', '2020-12-31'), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '14'), " +
+                        "  (NULL, NULL, NULL, 14e0, NULL, NULL)");
+
         dropTable("test_month_transform_date");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testMonthTransformTimestamp()
     {
         assertUpdate("CREATE TABLE test_month_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
@@ -961,12 +965,23 @@ public abstract class AbstractTestIcebergConnectorTest
 
         assertQuery("SELECT d_month, row_count, d.min, d.max, b.min, b.max FROM \"test_month_transform_timestamp$partitions\"", expected);
 
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(
+                "SELECT * FROM test_month_transform_timestamp WHERE day_of_week(d) = 1 AND b % 7 = 3",
+                "VALUES (TIMESTAMP '1969-12-01 00:00:00.000000', 10)");
+
+        assertThat(query("SHOW STATS FOR test_month_transform_timestamp"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'1969-11-15 15:13:12.876543', '2020-02-21 16:12:12.654321'") + "), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '12'), " +
+                        "  (NULL, NULL, NULL, 12e0, NULL, NULL)");
+
         dropTable("test_month_transform_timestamp");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testYearTransformDate()
     {
         assertUpdate("CREATE TABLE test_year_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
@@ -997,12 +1012,23 @@ public abstract class AbstractTestIcebergConnectorTest
                         "(46, 2, DATE '2016-05-15', DATE '2016-06-06', 9, 10), " +
                         "(50, 2, DATE '2020-02-21', DATE '2020-11-10', 11, 12)");
 
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(
+                "SELECT * FROM test_year_transform_date WHERE day_of_week(d) = 1 AND b % 7 = 3",
+                "VALUES (DATE '2016-06-06', 10)");
+
+        assertThat(query("SHOW STATS FOR test_year_transform_date"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0e0, NULL, '1968-10-13', '2020-11-10'), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '12'), " +
+                        "  (NULL, NULL, NULL, 12e0, NULL, NULL)");
+
         dropTable("test_year_transform_date");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testYearTransformTimestamp()
     {
         assertUpdate("CREATE TABLE test_year_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
@@ -1040,12 +1066,23 @@ public abstract class AbstractTestIcebergConnectorTest
 
         assertQuery("SELECT d_year, row_count, d.min, d.max, b.min, b.max FROM \"test_year_transform_timestamp$partitions\"", expected);
 
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(
+                "SELECT * FROM test_year_transform_timestamp WHERE day_of_week(d) = 2 AND b % 7 = 3",
+                "VALUES (TIMESTAMP '2015-09-15 14:21:02.345678', 10)");
+
+        assertThat(query("SHOW STATS FOR test_year_transform_timestamp"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0e0, NULL, " + (format == ORC ? "NULL, NULL" : "'1968-03-15 15:13:12.876543', '2020-08-21 16:12:12.654321'") + "), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '12'), " +
+                        "  (NULL, NULL, NULL, 12e0, NULL, NULL)");
+
         dropTable("test_year_transform_timestamp");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testTruncateTextTransform()
     {
         assertUpdate("CREATE TABLE test_truncate_text_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 2)'])");
@@ -1071,12 +1108,23 @@ public abstract class AbstractTestIcebergConnectorTest
         assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'Gr'", "VALUES 6, 7");
         assertQuery(select + " WHERE d_trunc = 'Gr'", "VALUES ('Gr', 2, 'Greece', 'Grozny', 6, 7)");
 
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(
+                "SELECT * FROM test_truncate_text_transform WHERE length(d) = 4 AND b % 7 = 2",
+                "VALUES ('abxy', 2)");
+
+        assertThat(query("SHOW STATS FOR test_truncate_text_transform"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0e0, NULL, NULL, NULL), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '7'), " +
+                        "  (NULL, NULL, NULL, 7e0, NULL, NULL)");
+
         dropTable("test_truncate_text_transform");
     }
 
     @Test(dataProvider = "truncateNumberTypesProvider")
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testTruncateIntegerTransform(String dataType)
     {
         String table = format("test_truncate_%s_transform", dataType);
@@ -1120,6 +1168,19 @@ public abstract class AbstractTestIcebergConnectorTest
         assertQuery("SELECT b FROM " + table + " WHERE d IN (-123, -130)", "VALUES 14, 15");
         assertQuery(select + " WHERE d_trunc = -130", "VALUES (-130, 2, -130, -123, 14, 15)");
 
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(
+                "SELECT * FROM " + table + " WHERE d % 10 = -1 AND b % 7 = 3",
+                "VALUES (-1, 10)");
+
+        assertThat(query("SHOW STATS FOR " + table))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0e0, NULL, '-130', '123'), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '15'), " +
+                        "  (NULL, NULL, NULL, 15e0, NULL, NULL)");
+
         dropTable(table);
     }
 
@@ -1133,8 +1194,6 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testTruncateDecimalTransform()
     {
         assertUpdate("CREATE TABLE test_truncate_decimal_transform (d DECIMAL(9, 2), b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])");
@@ -1161,26 +1220,38 @@ public abstract class AbstractTestIcebergConnectorTest
         assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = -0.05", "VALUES 5");
         assertQuery(select + " WHERE d_trunc = -0.10", "VALUES (-0.10, 1, -0.05, -0.05, 5, 5)");
 
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(
+                "SELECT * FROM test_truncate_decimal_transform WHERE d * 100 % 10 = 9 AND b % 7 = 3",
+                "VALUES (12.29, 3)");
+
+        assertThat(query("SHOW STATS FOR test_truncate_decimal_transform"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0e0, NULL, '-0.05', '12.34'), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '5'), " +
+                        "  (NULL, NULL, NULL, 5e0, NULL, NULL)");
+
         dropTable("test_truncate_decimal_transform");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testBucketTransform()
     {
         String select = "SELECT d_bucket, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_bucket_transform$partitions\"";
 
         assertUpdate("CREATE TABLE test_bucket_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['bucket(d, 2)'])");
-        @Language("SQL") String insertSql = "INSERT INTO test_bucket_transform VALUES" +
-                "('abcd', 1)," +
-                "('abxy', 2)," +
-                "('ab598', 3)," +
-                "('mommy', 4)," +
-                "('moscow', 5)," +
-                "('Greece', 6)," +
-                "('Grozny', 7)";
-        assertUpdate(insertSql, 7);
+        assertUpdate(
+                "INSERT INTO test_bucket_transform VALUES" +
+                        "('abcd', 1)," +
+                        "('abxy', 2)," +
+                        "('ab598', 3)," +
+                        "('mommy', 4)," +
+                        "('moscow', 5)," +
+                        "('Greece', 6)," +
+                        "('Grozny', 7)",
+                7);
 
         assertQuery("SELECT COUNT(*) FROM \"test_bucket_transform$partitions\"", "SELECT 2");
 
@@ -1188,12 +1259,23 @@ public abstract class AbstractTestIcebergConnectorTest
 
         assertQuery(select + " WHERE d_bucket = 1", "VALUES(1, 4, 'Greece', 'moscow', 2, 6)");
 
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(
+                "SELECT * FROM test_bucket_transform WHERE length(d) = 4 AND b % 7 = 2",
+                "VALUES ('abxy', 2)");
+
+        assertThat(query("SHOW STATS FOR test_bucket_transform"))
+                .projected(0, 2, 3, 4, 5, 6) // ignore data size which is available for Parquet, but not for ORC
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('d', NULL, 0e0, NULL, NULL, NULL), " +
+                        "  ('b', NULL, 0e0, NULL, '1', '7'), " +
+                        "  (NULL, NULL, NULL, 7e0, NULL, NULL)");
+
         dropTable("test_bucket_transform");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testMetadataDeleteSimple()
     {
         assertUpdate("CREATE TABLE test_metadata_delete_simple (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col1'])");
@@ -1210,23 +1292,19 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testMetadataDelete()
     {
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_metadata_delete (" +
+        assertUpdate("CREATE TABLE test_metadata_delete (" +
                 "  orderkey BIGINT," +
                 "  linenumber INTEGER," +
                 "  linestatus VARCHAR" +
                 ") " +
                 "WITH (" +
-                " partitioning = ARRAY[ 'linenumber', 'linestatus' ]" +
-                ") ";
+                "  partitioning = ARRAY[ 'linenumber', 'linestatus' ]" +
+                ")");
 
-        assertUpdate(createTable);
-
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "INSERT INTO test_metadata_delete " +
                         "SELECT orderkey, linenumber, linestatus " +
                         "FROM tpch.tiny.lineitem",
@@ -1248,8 +1326,6 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testInSet()
     {
         testInSet(31);
@@ -1273,11 +1349,9 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testBasicTableStatistics()
     {
-        String tableName = format("iceberg.tpch.test_basic_%s_table_statistics", format.name().toLowerCase(ENGLISH));
+        String tableName = "test_basic_table_statistics";
         assertUpdate(format("CREATE TABLE %s (col REAL)", tableName));
         String insertStart = format("INSERT INTO %s", tableName);
         assertUpdate(insertStart + " VALUES -10", 1);
@@ -1307,11 +1381,9 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testMultipleColumnTableStatistics()
     {
-        String tableName = format("iceberg.tpch.test_multiple_%s_table_statistics", format.name().toLowerCase(ENGLISH));
+        String tableName = "test_multiple_table_statistics";
         assertUpdate(format("CREATE TABLE %s (col1 REAL, col2 INTEGER, col3 DATE)", tableName));
         String insertStart = format("INSERT INTO %s", tableName);
         assertUpdate(insertStart + " VALUES (-10, -1, DATE '2019-06-28')", 1);
@@ -1362,8 +1434,6 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testPartitionedTableStatistics()
     {
         assertUpdate("CREATE TABLE iceberg.tpch.test_partitioned_table_statistics (col1 REAL, col2 BIGINT) WITH (partitioning = ARRAY['col2'])");
@@ -1439,8 +1509,6 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testStatisticsConstraints()
     {
         String tableName = "iceberg.tpch.test_simple_partitioned_table_statistics";
@@ -1449,31 +1517,33 @@ public abstract class AbstractTestIcebergConnectorTest
         String insertStart = "INSERT INTO iceberg.tpch.test_simple_partitioned_table_statistics";
         assertUpdate(insertStart + " VALUES (1, 101), (2, 102), (3, 103), (4, 104)", 4);
         TableStatistics tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all()));
-
-        // TODO Change to use SHOW STATS FOR table_name when Iceberg applyFilter allows pushdown.
-        // Then I can get rid of the helper methods and direct use of TableStatistics
-
-        Predicate<Map<ColumnHandle, NullableValue>> predicate = new TestRelationalNumberPredicate("col1", 3, i -> i >= 0);
         IcebergColumnHandle col1Handle = getColumnHandleFromStatistics(tableStatistics, "col1");
-        Constraint constraint = new Constraint(TupleDomain.all(), Optional.of(predicate), Optional.of(ImmutableSet.of(col1Handle)));
-        tableStatistics = getTableStatistics(tableName, constraint);
-        assertEquals(tableStatistics.getRowCount().getValue(), 2.0);
-        ColumnStatistics columnStatistics = getStatisticsForColumn(tableStatistics, "col1");
-        assertThat(columnStatistics.getRange()).hasValue(new DoubleRange(3, 4));
 
-        // This shows that Predicate<ColumnHandle, NullableValue> only filters rows for partitioned columns.
-        predicate = new TestRelationalNumberPredicate("col2", 102, i -> i >= 0);
-        tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all(), Optional.of(predicate), Optional.empty()));
-        assertEquals(tableStatistics.getRowCount().getValue(), 4.0);
-        columnStatistics = getStatisticsForColumn(tableStatistics, "col2");
-        assertThat(columnStatistics.getRange()).hasValue(new DoubleRange(101, 104));
+        // Constraint.predicate is currently not supported, because it's never provided by the engine.
+        // TODO add (restore) test coverage when this changes.
+
+        // predicate on a partition column
+        assertThatThrownBy(() ->
+                getTableStatistics(tableName, new Constraint(
+                        TupleDomain.all(),
+                        Optional.of(new TestRelationalNumberPredicate("col1", 3, i1 -> i1 >= 0)),
+                        Optional.of(ImmutableSet.of(col1Handle)))))
+                .isInstanceOf(VerifyException.class)
+                .hasMessage("Unexpected Constraint predicate");
+
+        // predicate on an unspecified set of columns column
+        assertThatThrownBy(() ->
+                getTableStatistics(tableName, new Constraint(
+                        TupleDomain.all(),
+                        Optional.of(new TestRelationalNumberPredicate("col2", 102, i -> i >= 0)),
+                        Optional.empty())))
+                .isInstanceOf(VerifyException.class)
+                .hasMessage("Unexpected Constraint predicate");
 
         dropTable(tableName);
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testPredicatePushdown()
     {
         QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_predicate");
@@ -1482,19 +1552,22 @@ public abstract class AbstractTestIcebergConnectorTest
         assertUpdate(format("INSERT INTO %s VALUES (2, 20, 200)", tableName), 1L);
 
         assertQuery(format("SELECT * FROM %s WHERE col1 = 1", tableName), "VALUES (1, 10, 100)");
-        assertFilterPushdown(tableName,
+        assertFilterPushdown(
+                tableName,
                 ImmutableMap.of("col1", singleValue(BIGINT, 1L)),
                 ImmutableMap.of(),
                 ImmutableMap.of("col1", singleValue(BIGINT, 1L)));
 
         assertQuery(format("SELECT * FROM %s WHERE col2 = 10", tableName), "VALUES (1, 10, 100)");
-        assertFilterPushdown(tableName,
+        assertFilterPushdown(
+                tableName,
                 ImmutableMap.of("col2", singleValue(BIGINT, 10L)),
                 ImmutableMap.of("col2", singleValue(BIGINT, 10L)),
                 ImmutableMap.of());
 
         assertQuery(format("SELECT * FROM %s WHERE col1 = 1 AND col2 = 10", tableName), "VALUES (1, 10, 100)");
-        assertFilterPushdown(tableName,
+        assertFilterPushdown(
+                tableName,
                 ImmutableMap.of("col1", singleValue(BIGINT, 1L), "col2", singleValue(BIGINT, 10L)),
                 ImmutableMap.of("col2", singleValue(BIGINT, 10L)),
                 ImmutableMap.of("col1", singleValue(BIGINT, 1L)));
@@ -1544,11 +1617,13 @@ public abstract class AbstractTestIcebergConnectorTest
             if (result.isPresent()) {
                 IcebergTableHandle newTable = (IcebergTableHandle) result.get().getHandle().getConnectorHandle();
 
-                assertEquals(newTable.getEnforcedPredicate(),
+                assertEquals(
+                        newTable.getEnforcedPredicate(),
                         TupleDomain.withColumnDomains(expectedEnforcedPredicate.entrySet().stream()
                                 .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
 
-                assertEquals(newTable.getUnenforcedPredicate(),
+                assertEquals(
+                        newTable.getUnenforcedPredicate(),
                         TupleDomain.withColumnDomains(expectedUnenforcedPredicate.entrySet().stream()
                                 .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
             }
@@ -1621,7 +1696,10 @@ public abstract class AbstractTestIcebergConnectorTest
         assertNotNull(statistics, "statistics is null");
         // Sadly, statistics.getDataSize().isUnknown() for columns in ORC files. See the TODO
         // in IcebergOrcFileWriter.
-        if (format != ORC) {
+        if (format == ORC) {
+            assertTrue(statistics.getDataSize().isUnknown());
+        }
+        else {
             assertFalse(statistics.getDataSize().isUnknown());
         }
         assertFalse(statistics.getNullsFraction().isUnknown(), "statistics nulls fraction is unknown");
@@ -1642,12 +1720,9 @@ public abstract class AbstractTestIcebergConnectorTest
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testCreateNestedPartitionedTable()
     {
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_nested_table_1 (" +
+        assertUpdate("CREATE TABLE test_nested_table_1 (" +
                 " bool BOOLEAN" +
                 ", int INTEGER" +
                 ", arr ARRAY(VARCHAR)" +
@@ -1661,23 +1736,20 @@ public abstract class AbstractTestIcebergConnectorTest
                 ", ts TIMESTAMP(6)" +
                 ", str ROW(id INTEGER , vc VARCHAR)" +
                 ", dt DATE)" +
-                " WITH (partitioning = ARRAY['int'])";
+                " WITH (partitioning = ARRAY['int'])");
 
-        assertUpdate(createTable);
-
-        @Language("SQL") String insertSql = "INSERT INTO test_nested_table_1 " +
-                " select true, 1, array['uno', 'dos', 'tres'], BIGINT '1', REAL '1.0', DOUBLE '1.0', map(array[1,2,3,4], array['ek','don','teen','char'])," +
-                " CAST(1.0 as DECIMAL(5,2))," +
-                " 'one', VARBINARY 'binary0/1values',\n" +
-                " cast(current_timestamp as TIMESTAMP), (CAST(ROW(null, 'this is a random value') AS ROW(int, varchar))), current_date";
-
-        assertUpdate(insertSql, 1);
-        MaterializedResult result = computeActual("SELECT * from test_nested_table_1");
-        assertEquals(result.getRowCount(), 1);
+        assertUpdate(
+                "INSERT INTO test_nested_table_1 " +
+                        " select true, 1, array['uno', 'dos', 'tres'], BIGINT '1', REAL '1.0', DOUBLE '1.0', map(array[1,2,3,4], array['ek','don','teen','char'])," +
+                        " CAST(1.0 as DECIMAL(5,2))," +
+                        " 'one', VARBINARY 'binary0/1values',\n" +
+                        " cast(current_timestamp as TIMESTAMP), (CAST(ROW(null, 'this is a random value') AS ROW(int, varchar))), current_date",
+                1);
+        assertEquals(computeActual("SELECT * from test_nested_table_1").getRowCount(), 1);
 
         dropTable("test_nested_table_1");
 
-        @Language("SQL") String createTable2 = "" +
+        assertUpdate("" +
                 "CREATE TABLE test_nested_table_2 (" +
                 " int INTEGER" +
                 ", arr ARRAY(ROW(id INTEGER, vc VARCHAR))" +
@@ -1688,34 +1760,25 @@ public abstract class AbstractTestIcebergConnectorTest
                 ", dec DECIMAL(5,2)" +
                 ", str ROW(id INTEGER, vc VARCHAR, arr ARRAY(INTEGER))" +
                 ", vc VARCHAR)" +
-                " WITH (partitioning = ARRAY['int'])";
+                " WITH (partitioning = ARRAY['int'])");
 
-        assertUpdate(createTable2);
+        assertUpdate(
+                "INSERT INTO test_nested_table_2 " +
+                        " select 1, array[cast(row(1, null) as row(int, varchar)), cast(row(2, 'dos') as row(int, varchar))], BIGINT '1', REAL '1.0', DOUBLE '1.0', " +
+                        "map(array[1,2], array[array['ek', 'one'], array['don', 'do', 'two']]), CAST(1.0 as DECIMAL(5,2)), " +
+                        "CAST(ROW(1, 'this is a random value', null) AS ROW(int, varchar, array(int))), 'one'",
+                1);
+        assertEquals(computeActual("SELECT * from test_nested_table_2").getRowCount(), 1);
 
-        insertSql = "INSERT INTO test_nested_table_2 " +
-                " select 1, array[cast(row(1, null) as row(int, varchar)), cast(row(2, 'dos') as row(int, varchar))], BIGINT '1', REAL '1.0', DOUBLE '1.0', " +
-                "map(array[1,2], array[array['ek', 'one'], array['don', 'do', 'two']]), CAST(1.0 as DECIMAL(5,2)), " +
-                "CAST(ROW(1, 'this is a random value', null) AS ROW(int, varchar, array(int))), 'one'";
+        assertUpdate("CREATE TABLE test_nested_table_3 WITH (partitioning = ARRAY['int']) AS SELECT * FROM test_nested_table_2", 1);
 
-        assertUpdate(insertSql, 1);
-        result = computeActual("SELECT * from test_nested_table_2");
-        assertEquals(result.getRowCount(), 1);
-
-        @Language("SQL") String createTable3 = "" +
-                "CREATE TABLE test_nested_table_3 WITH (partitioning = ARRAY['int']) AS SELECT * FROM test_nested_table_2";
-
-        assertUpdate(createTable3, 1);
-
-        result = computeActual("SELECT * FROM test_nested_table_3");
-        assertEquals(result.getRowCount(), 1);
+        assertEquals(computeActual("SELECT * FROM test_nested_table_3").getRowCount(), 1);
 
         dropTable("test_nested_table_2");
         dropTable("test_nested_table_3");
     }
 
     @Test
-    // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testSerializableReadIsolation()
     {
         assertUpdate("CREATE TABLE test_read_isolation (x int)");
@@ -1756,13 +1819,9 @@ public abstract class AbstractTestIcebergConnectorTest
                 .setSystemProperty("optimize_metadata_queries", "true")
                 .build();
 
-        @Language("SQL") String createQuery = "" +
-                "CREATE TABLE test_metadata_optimization (a BIGINT, b BIGINT, c BIGINT) WITH (PARTITIONING = ARRAY['b', 'c'])";
-        assertUpdate(createQuery);
+        assertUpdate("CREATE TABLE test_metadata_optimization (a BIGINT, b BIGINT, c BIGINT) WITH (PARTITIONING = ARRAY['b', 'c'])");
 
-        @Language("SQL") String insertQuery = "" +
-                "INSERT INTO test_metadata_optimization VALUES (5, 6, 7), (8, 9, 10)";
-        assertUpdate(insertQuery, 2);
+        assertUpdate("INSERT INTO test_metadata_optimization VALUES (5, 6, 7), (8, 9, 10)", 2);
 
         assertQuery(session, "SELECT DISTINCT b FROM test_metadata_optimization", "VALUES (6), (9)");
         assertQuery(session, "SELECT DISTINCT b, c FROM test_metadata_optimization", "VALUES (6, 7), (9, 10)");

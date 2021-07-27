@@ -74,7 +74,7 @@ public class S3SelectRecordCursorProvider
         }
 
         try {
-            this.hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
+            this.hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);

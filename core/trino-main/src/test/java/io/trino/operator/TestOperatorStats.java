@@ -13,11 +13,13 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.connector.CatalogName;
 import io.trino.operator.PartitionedOutputOperator.PartitionedOutputInfo;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.Test;
 
@@ -59,6 +61,7 @@ public class TestOperatorStats
             DataSize.ofBytes(12),
             13,
             533,
+            Metrics.EMPTY,
 
             DataSize.ofBytes(14),
 
@@ -106,6 +109,7 @@ public class TestOperatorStats
             DataSize.ofBytes(12),
             13,
             533,
+            Metrics.EMPTY,
 
             DataSize.ofBytes(14),
 
@@ -163,6 +167,7 @@ public class TestOperatorStats
         assertEquals(actual.getOutputPositions(), 13);
 
         assertEquals(actual.getDynamicFilterSplitsProcessed(), 533);
+        assertEquals(actual.getMetrics().getMetrics(), ImmutableMap.of());
 
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(14));
 

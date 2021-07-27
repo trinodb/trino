@@ -112,16 +112,21 @@ SQL Server Type                     Trino Type
 Complete list of `SQL Server data types
 <https://msdn.microsoft.com/en-us/library/ms187752.aspx>`_.
 
-.. include:: jdbc-type-mapping.fragment
+.. _sqlserver-sql-support:
 
 SQL support
 -----------
 
-The following SQL statements are not yet supported:
+The connector provides read access and write access to data and metadata in SQL
+Server. In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following features:
 
+* :doc:`/sql/insert`
 * :doc:`/sql/delete`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
+* :ref:`sql-schema-table-management`
+
+.. include:: sql-delete-limitation.fragment
 
 .. _sqlserver-pushdown:
 

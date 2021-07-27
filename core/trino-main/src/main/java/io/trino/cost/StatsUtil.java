@@ -22,8 +22,10 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
@@ -46,7 +48,14 @@ final class StatsUtil
         }
 
         if (DateType.DATE.equals(type)) {
-            return OptionalDouble.of(((Long) value).doubleValue());
+            return OptionalDouble.of((long) value);
+        }
+
+        if (type instanceof TimestampType) {
+            if (((TimestampType) type).isShort()) {
+                return OptionalDouble.of((long) value);
+            }
+            return OptionalDouble.of(((LongTimestamp) value).getEpochMicros());
         }
 
         return OptionalDouble.empty();

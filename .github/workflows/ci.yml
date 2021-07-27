@@ -248,7 +248,6 @@ jobs:
         modules:
           - ":trino-main"
           - ":trino-tests"
-          - ":trino-tests -P ci-only"
           - ":trino-raptor-legacy"
           - ":trino-accumulo"
           - ":trino-cassandra"

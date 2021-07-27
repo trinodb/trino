@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
@@ -45,6 +44,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
@@ -131,7 +131,6 @@ public class TableStatisticsMaker
                 if (!dataFileMatches(
                         dataFile,
                         constraint,
-                        idToTypeMapping,
                         partitionFields,
                         idToDetails)) {
                     continue;
@@ -196,41 +195,30 @@ public class TableStatisticsMaker
     private boolean dataFileMatches(
             DataFile dataFile,
             Constraint constraint,
-            Map<Integer, Type.PrimitiveType> idToTypeMapping,
             List<PartitionField> partitionFields,
             Map<Integer, ColumnFieldDetails> fieldDetails)
     {
+        // Currently this method is used only for IcebergMetadata.getTableStatistics and there Constraint never carries a predicate.
+        // TODO support pruning with constraint when this changes.
+        verify(constraint.predicate().isEmpty(), "Unexpected Constraint predicate");
+
         TupleDomain<ColumnHandle> constraintSummary = constraint.getSummary();
 
         Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().get();
-
-        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().orElse(value -> true);
-
-        ImmutableMap.Builder<ColumnHandle, NullableValue> nullableValueBuilder = ImmutableMap.builder();
 
         for (int index = 0; index < partitionFields.size(); index++) {
             PartitionField field = partitionFields.get(index);
             int fieldId = field.sourceId();
             ColumnFieldDetails details = fieldDetails.get(fieldId);
             IcebergColumnHandle column = details.getColumnHandle();
-            Object value = PartitionTable.convert(dataFile.partition().get(index, details.getJavaClass()), idToTypeMapping.get(fieldId));
+            Object value = PartitionTable.convert(dataFile.partition().get(index, details.getJavaClass()), details.getIcebergType());
             Domain allowedDomain = domains.get(column);
             if (allowedDomain != null && !allowedDomain.includesNullableValue(value)) {
                 return false;
             }
-            nullableValueBuilder.put(column, makeNullableValue(details.getTrinoType(), value));
-        }
-
-        if (constraint.getPredicateColumns().isPresent()) {
-            return predicate.test(nullableValueBuilder.build());
         }
 
         return true;
-    }
-
-    private NullableValue makeNullableValue(io.trino.spi.type.Type type, Object value)
-    {
-        return value == null ? NullableValue.asNull(type) : NullableValue.of(type, value);
     }
 
     public List<Type> partitionTypes(List<PartitionField> partitionFields, Map<Integer, Type.PrimitiveType> idToTypeMapping)

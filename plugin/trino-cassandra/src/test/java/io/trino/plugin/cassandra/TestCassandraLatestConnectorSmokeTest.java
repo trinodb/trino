@@ -27,6 +27,7 @@ import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraQuer
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCassandraLatestConnectorSmokeTest
         extends BaseConnectorSmokeTest
@@ -67,14 +68,24 @@ public class TestCassandraLatestConnectorSmokeTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_DELETE:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
     }
 
+    @Override
+    public void testDeleteAllDataFromTable()
+    {
+        assertThatThrownBy(super::testDeleteAllDataFromTable)
+                .hasMessageContaining("Deleting without partition key is not supported");
+    }
+
     @Test
     @Override
-    public void testDelete()
+    public void testRowLevelDelete()
     {
         String keyspaceAndTable = format("%s.%s", KEYSPACE, TABLE_DELETE_DATA);
         assertQuery("SELECT COUNT(*) FROM " + keyspaceAndTable, "VALUES 15");

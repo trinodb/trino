@@ -45,7 +45,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 public interface ConnectorMetadata
 {
@@ -393,7 +393,7 @@ public interface ConnectorMetadata
                             .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
                     List<String> partitionColumns = partitioning.getPartitioningColumns().stream()
                             .map(columnNamesByHandle::get)
-                            .collect(toList());
+                            .collect(toUnmodifiableList());
 
                     return new ConnectorNewTableLayout(partitioning.getPartitioningHandle(), partitionColumns);
                 });
@@ -662,7 +662,7 @@ public interface ConnectorMetadata
      */
     default Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support schema properties");
+        return Map.of();
     }
 
     /**
@@ -670,7 +670,7 @@ public interface ConnectorMetadata
      */
     default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support schema ownership");
+        return Optional.empty();
     }
 
     /**

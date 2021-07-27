@@ -18,8 +18,8 @@ and authenticators are available:
 
 * ``OAUTH2`` for :doc:`oauth2`
 * ``KERBEROS`` for :doc:`kerberos`
+* ``CERTIFICATE`` for :doc:`certificate`
 * ``JWT`` for :doc:`jwt`
-* ``CERTIFICATE`` for certificate authentication
 
 Get started with a basic password authentication configuration backed by a
 :doc:`password file <password-file>`:

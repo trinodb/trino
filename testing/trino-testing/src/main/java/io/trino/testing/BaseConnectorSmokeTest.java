@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
@@ -167,27 +168,56 @@ public abstract class BaseConnectorSmokeTest
     }
 
     @Test
-    public void testDelete()
+    public void verifySupportsDeleteDeclaration()
     {
-        if (!hasBehavior(SUPPORTS_DELETE)) {
-            assertQueryFails("DELETE FROM region", "This connector does not support deletes");
+        if (hasBehavior(SUPPORTS_DELETE)) {
+            // Covered by testDeleteAllDataFromTable
             return;
         }
 
-        if (!hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
-            assertQueryFails("DELETE FROM region WHERE regionkey = 2", ".*[Dd]elet(e|ing).*(not |un)supported.*");
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+        }
+    }
+
+    @Test
+    public void verifySupportsRowLevelDeleteDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
+            // Covered by testRowLevelDelete
             return;
         }
 
-        String tableName = "test_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM region", 5);
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", "This connector does not support deletes");
+        }
+    }
 
-        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 2", 1);
-        assertThat(query("SELECT regionkey FROM " + tableName))
-                .skippingTypesCheck()
-                .matches("VALUES 0, 1, 3, 4");
+    @Test
+    public void testDeleteAllDataFromTable()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            // not using assertUpdate as some connectors provide update count and some do not
+            getQueryRunner().execute("DELETE FROM " + table.getName());
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
+        }
+    }
 
-        assertUpdate("DROP TABLE " + tableName);
+    @Test
+    public void testRowLevelDelete()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE regionkey = 2"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT cast(regionkey AS integer) FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES 0, 1, 3, 4");
+        }
     }
 
     @Test

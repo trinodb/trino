@@ -31,11 +31,11 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.TypeAnalyzer;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.sanity.ValidateLimitWithPresortedInput;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.testing.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -55,6 +55,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -177,6 +178,23 @@ public class TestPartialTopNWithPresortedInput
                                                                         tableScan("table_a", ImmutableMap.of("col_b", "col_b"))))))))));
     }
 
+    @Test
+    public void testWithConstantProperty()
+    {
+        assertPlanWithValidation(
+                "SELECT * FROM (VALUES (1), (1)) AS t (id) WHERE id = 1 ORDER BY 1 LIMIT 1",
+                output(
+                        topN(1, ImmutableList.of(sort("id", ASCENDING, LAST)), FINAL,
+                                exchange(LOCAL, GATHER, ImmutableList.of(),
+                                        limit(1, ImmutableList.of(), true, ImmutableList.of("id"),
+                                                anyTree(
+                                                        values(
+                                                                ImmutableList.of("id"),
+                                                                ImmutableList.of(
+                                                                        ImmutableList.of(new LongLiteral("1")),
+                                                                        ImmutableList.of(new LongLiteral("1"))))))))));
+    }
+
     private void assertPlanWithValidation(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         LocalQueryRunner queryRunner = getQueryRunner();
@@ -184,7 +202,7 @@ public class TestPartialTopNWithPresortedInput
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             Metadata metadata = queryRunner.getMetadata();
-            new ValidateLimitWithPresortedInput().validate(actualPlan.getRoot(), transactionSession, metadata, queryRunner.getTypeOperators(), new TypeAnalyzer(new SqlParser(), metadata), TypeProvider.empty(), WarningCollector.NOOP);
+            new ValidateLimitWithPresortedInput().validate(actualPlan.getRoot(), transactionSession, metadata, queryRunner.getTypeOperators(), new TypeAnalyzer(new SqlParser(), metadata), actualPlan.getTypes(), WarningCollector.NOOP);
             return null;
         });
     }

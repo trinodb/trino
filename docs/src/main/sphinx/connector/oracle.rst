@@ -368,15 +368,16 @@ The connector supports pushdown for a number of operations:
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
 
-Limitations
+SQL support
 -----------
 
 The following SQL statements are not supported:
 
-* :doc:`/sql/delete`
 * :doc:`/sql/alter-table`
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 * :doc:`/sql/show-grants`
 * :doc:`/sql/show-roles`
 * :doc:`/sql/show-role-grants`
+
+.. include:: sql-delete-limitation.fragment

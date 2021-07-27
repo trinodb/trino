@@ -17,10 +17,13 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 
 public class JdbcMetadataConfig
 {
+    static final int MAX_ALLOWED_WRITE_BATCH_SIZE = 1_000_000;
+
     private boolean allowDropTable;
     /*
      * Join pushdown is disabled by default as this is the safer option.
@@ -39,6 +42,12 @@ public class JdbcMetadataConfig
     // Use 32 as compaction threshold as it provides reasonable balance
     // between performance and pushdown capabilities
     private int domainCompactionThreshold = 32;
+
+    private int writeBatchSize = 1000;
+
+    // Do not create temporary table during insert.
+    // This means that the write operation can fail and leave the table in an inconsistent state.
+    private boolean nonTransactionalInsert;
 
     public boolean isAllowDropTable()
     {
@@ -105,6 +114,35 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setDomainCompactionThreshold(int domainCompactionThreshold)
     {
         this.domainCompactionThreshold = domainCompactionThreshold;
+        return this;
+    }
+
+    @Min(1)
+    @Max(MAX_ALLOWED_WRITE_BATCH_SIZE)
+    public int getWriteBatchSize()
+    {
+        return writeBatchSize;
+    }
+
+    @Config("write.batch-size")
+    @ConfigDescription("Maximum number of rows to write in a single batch")
+    public JdbcMetadataConfig setWriteBatchSize(int writeBatchSize)
+    {
+        this.writeBatchSize = writeBatchSize;
+        return this;
+    }
+
+    public boolean isNonTransactionalInsert()
+    {
+        return nonTransactionalInsert;
+    }
+
+    @Config("insert.non-transactional-insert.enabled")
+    @ConfigDescription("Do not create temporary table during insert. " +
+            "This means that the write operation can fail and leave the table in an inconsistent state.")
+    public JdbcMetadataConfig setNonTransactionalInsert(boolean nonTransactionalInsert)
+    {
+        this.nonTransactionalInsert = nonTransactionalInsert;
         return this;
     }
 }

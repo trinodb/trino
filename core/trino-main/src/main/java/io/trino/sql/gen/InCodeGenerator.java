@@ -25,11 +25,11 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.SwitchStatement.SwitchBuilder;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.plugin.base.util.FastutilSetHelper;
 import io.trino.spi.type.Type;
 import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
-import io.trino.util.FastutilSetHelper;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -43,6 +43,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
+import static io.trino.plugin.base.util.FastutilSetHelper.toFastutilHashSet;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -53,7 +54,6 @@ import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
-import static io.trino.util.FastutilSetHelper.toFastutilHashSet;
 import static java.lang.Math.toIntExact;
 
 public class InCodeGenerator

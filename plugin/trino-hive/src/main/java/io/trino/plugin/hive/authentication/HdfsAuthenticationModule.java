@@ -16,17 +16,17 @@ package io.trino.plugin.hive.authentication;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.hive.authentication.HiveAuthenticationConfig.HdfsAuthenticationType;
+import io.trino.plugin.hive.authentication.HdfsAuthenticationConfig.HdfsAuthenticationType;
 
 import java.util.function.Predicate;
 
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.trino.plugin.hive.authentication.AuthenticationModules.kerberosHdfsAuthenticationModule;
 import static io.trino.plugin.hive.authentication.AuthenticationModules.kerberosImpersonatingHdfsAuthenticationModule;
 import static io.trino.plugin.hive.authentication.AuthenticationModules.noHdfsAuthenticationModule;
 import static io.trino.plugin.hive.authentication.AuthenticationModules.simpleImpersonatingHdfsAuthenticationModule;
 
-public class HiveAuthenticationModule
+public class HdfsAuthenticationModule
         extends AbstractConfigurationAwareModule
 {
     @Override
@@ -49,17 +49,17 @@ public class HiveAuthenticationModule
                 kerberosImpersonatingHdfsAuthenticationModule());
     }
 
-    private void bindAuthenticationModule(Predicate<HiveAuthenticationConfig> predicate, Module module)
+    private void bindAuthenticationModule(Predicate<HdfsAuthenticationConfig> predicate, Module module)
     {
-        install(installModuleIf(HiveAuthenticationConfig.class, predicate, module));
+        install(conditionalModule(HdfsAuthenticationConfig.class, predicate, module));
     }
 
-    private static boolean noHdfsAuth(HiveAuthenticationConfig config)
+    private static boolean noHdfsAuth(HdfsAuthenticationConfig config)
     {
         return config.getHdfsAuthenticationType() == HdfsAuthenticationType.NONE;
     }
 
-    private static boolean kerberosHdfsAuth(HiveAuthenticationConfig config)
+    private static boolean kerberosHdfsAuth(HdfsAuthenticationConfig config)
     {
         return config.getHdfsAuthenticationType() == HdfsAuthenticationType.KERBEROS;
     }

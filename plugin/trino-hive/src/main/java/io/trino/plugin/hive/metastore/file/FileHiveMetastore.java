@@ -158,7 +158,7 @@ public class FileHiveMetastore
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(
-                new NodeVersion("test_version"),
+                new NodeVersion("testversion"),
                 hdfsEnvironment,
                 new MetastoreConfig(),
                 new FileHiveMetastoreConfig()
@@ -556,10 +556,6 @@ public class FileHiveMetastore
         Table table = getRequiredTable(databaseName, tableName);
         getRequiredDatabase(newDatabaseName);
 
-        if (isIcebergTable(table)) {
-            throw new TrinoException(NOT_SUPPORTED, "Rename not supported for Iceberg tables");
-        }
-
         // verify new table does not exist
         verifyTableNotExists(newDatabaseName, newTableName);
 
@@ -567,8 +563,20 @@ public class FileHiveMetastore
         Path newPath = getTableMetadataDirectory(newDatabaseName, newTableName);
 
         try {
-            if (!metadataFileSystem.rename(oldPath, newPath)) {
-                throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename table directory");
+            if (isIcebergTable(table)) {
+                if (!metadataFileSystem.mkdirs(newPath)) {
+                    throw new TrinoException(HIVE_METASTORE_ERROR, "Could not create new table directory");
+                }
+                // Iceberg metadata references files in old path, so these cannot be moved. Moving table description (metadata from metastore perspective) only.
+                if (!metadataFileSystem.rename(new Path(oldPath, TRINO_SCHEMA_FILE_NAME), new Path(newPath, TRINO_SCHEMA_FILE_NAME))) {
+                    throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename table schema file");
+                }
+                // TODO drop data files when table is being dropped
+            }
+            else {
+                if (!metadataFileSystem.rename(oldPath, newPath)) {
+                    throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename table directory");
+                }
             }
         }
         catch (IOException e) {

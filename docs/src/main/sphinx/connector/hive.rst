@@ -707,11 +707,14 @@ with keys ``p2_value1, p2_value2``.
 Note that if statistics were previously collected for all columns, they need to be dropped
 before re-analyzing just a subset::
 
-    CALL system.drop_stats(schema_name, table_name)
+    CALL system.drop_stats('schema_name', 'table_name')
 
 You can also drop statistics for selected partitions only::
 
-    CALL system.drop_stats(schema_name, table_name, ARRAY[ARRAY['p2_value1', 'p2_value2']])
+    CALL system.drop_stats(
+        schema_name => 'schema', 
+        table_name => 'table', 
+        partition_values => ARRAY[ARRAY['p2_value1', 'p2_value2']])
 
 .. _hive_dynamic_filtering:
 
@@ -1000,9 +1003,9 @@ Hive connector limitations
 --------------------------
 
 * :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
-* :doc:`/sql/delete` applied to non-transactional tables is only supported if the ``WHERE`` clause matches entire partitions.
-  Transactional Hive tables with format ORC support "row-by-row" deletion, in which the ``WHERE`` clause may match arbitrary
-  sets of rows.
+* :doc:`/sql/delete` applied to non-transactional tables is only supported if the table is partitioned and
+  the ``WHERE`` clause matches entire partitions. Transactional Hive tables with ORC format support
+  "row-by-row" deletion, in which the ``WHERE`` clause may match arbitrary sets of rows.
 * :doc:`/sql/update` is only supported for transactional Hive tables with format ORC.  ``UPDATE`` of partition or bucket
   columns is not supported.
 

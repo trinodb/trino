@@ -18,7 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
 
-public class HiveAuthenticationConfig
+public class HdfsAuthenticationConfig
 {
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
     private boolean hdfsImpersonationEnabled;
@@ -37,7 +37,7 @@ public class HiveAuthenticationConfig
 
     @Config("hive.hdfs.authentication.type")
     @ConfigDescription("HDFS authentication type")
-    public HiveAuthenticationConfig setHdfsAuthenticationType(HdfsAuthenticationType hdfsAuthenticationType)
+    public HdfsAuthenticationConfig setHdfsAuthenticationType(HdfsAuthenticationType hdfsAuthenticationType)
     {
         this.hdfsAuthenticationType = hdfsAuthenticationType;
         return this;
@@ -50,7 +50,7 @@ public class HiveAuthenticationConfig
 
     @Config("hive.hdfs.impersonation.enabled")
     @ConfigDescription("Should Trino user be impersonated when communicating with HDFS")
-    public HiveAuthenticationConfig setHdfsImpersonationEnabled(boolean hdfsImpersonationEnabled)
+    public HdfsAuthenticationConfig setHdfsImpersonationEnabled(boolean hdfsImpersonationEnabled)
     {
         this.hdfsImpersonationEnabled = hdfsImpersonationEnabled;
         return this;

@@ -36,6 +36,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -1312,7 +1313,7 @@ public class TestBackgroundHiveSplitLoader
         }
 
         @Override
-        public FileSystem getFileSystem(String user, Path path, Configuration configuration)
+        public FileSystem getFileSystem(ConnectorIdentity identity, Path path, Configuration configuration)
         {
             return new TestingHdfsFileSystem(files);
         }

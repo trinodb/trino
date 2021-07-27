@@ -21,6 +21,7 @@ import io.trino.cost.StatsCalculator;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.BigintType;
@@ -28,6 +29,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.QueryUtil;
@@ -72,6 +74,7 @@ import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static java.lang.Double.isFinite;
+import static java.lang.Math.min;
 import static java.lang.Math.round;
 import static java.util.Objects.requireNonNull;
 
@@ -218,6 +221,12 @@ public class ShowStatsRewrite
             }
             if (type.equals(DATE)) {
                 return new StringLiteral(LocalDate.ofEpochDay(round(value)).toString());
+            }
+            if (type instanceof TimestampType) {
+                @SuppressWarnings("NumericCastThatLosesPrecision")
+                long epochMicros = (long) value;
+                int outputPrecision = min(((TimestampType) type).getPrecision(), TimestampType.MAX_SHORT_PRECISION);
+                return new StringLiteral(TimestampToVarcharCast.cast(outputPrecision, epochMicros).toStringUtf8());
             }
             throw new IllegalArgumentException("Unexpected type: " + type);
         }

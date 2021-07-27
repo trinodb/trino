@@ -20,7 +20,6 @@ import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -95,18 +94,6 @@ public class BlackHoleMetadata
             throw new TrinoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
         }
         schemas.add(schemaName);
-    }
-
-    @Override
-    public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
-    {
-        return ImmutableMap.of();
     }
 
     @Override
