@@ -439,6 +439,7 @@ Session
 For more details, see :doc:`session`
 
 * :data:`current_catalog`
+* :func:`current_groups`
 * :data:`current_schema`
 * :data:`current_user`
 
