@@ -15,8 +15,8 @@ import com.google.common.collect.ImmutableMap;
 import com.jayway.jsonpath.DocumentContext;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import io.airlift.log.Logger;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.ConnectorIdentity;
 import okhttp3.Credentials;
 import okhttp3.FormBody;
 import okhttp3.HttpUrl;
@@ -70,7 +70,7 @@ public class NativeSnowflakeAuthClient
     }
 
     @Override
-    public SamlRequest generateSamlRequest(JdbcIdentity identity)
+    public SamlRequest generateSamlRequest(ConnectorIdentity identity)
     {
         try {
             log.debug("Generating Snowflake SAML request");

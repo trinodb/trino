@@ -10,8 +10,8 @@
 package com.starburstdata.presto.plugin.snowflake.auth;
 
 import com.starburstdata.presto.okta.OktaAuthenticationResult;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;
 
@@ -32,7 +32,7 @@ public class DefaultSnowflakeOauthService
     }
 
     @Override
-    public OauthCredential getCredential(JdbcIdentity identity)
+    public OauthCredential getCredential(ConnectorIdentity identity)
     {
         SamlRequest samlRequest = snowflakeAuthClient.generateSamlRequest(identity);
         String user = credentialProvider.getConnectionUser(Optional.of(identity))

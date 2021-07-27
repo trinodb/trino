@@ -17,7 +17,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.presto.plugin.jdbc.StarburstJdbcMetadataFactory;
-import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedJdbcIdentityCacheMappingModule;
+import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
@@ -283,7 +283,7 @@ public class SnowflakeJdbcClientModule
             @Override
             protected void setup(Binder binder)
             {
-                install(new AuthenticationBasedJdbcIdentityCacheMappingModule());
+                install(new AuthenticationBasedIdentityCacheMappingModule());
             }
 
             @Provides

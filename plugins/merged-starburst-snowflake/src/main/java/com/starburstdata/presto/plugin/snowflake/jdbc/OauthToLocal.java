@@ -11,7 +11,7 @@ package com.starburstdata.presto.plugin.snowflake.jdbc;
 
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.snowflake.auth.SnowflakeOauthService;
-import io.trino.plugin.jdbc.JdbcIdentity;
+import io.trino.spi.security.ConnectorIdentity;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +33,7 @@ public class OauthToLocal
     }
 
     @Override
-    public String translate(JdbcIdentity identity)
+    public String translate(ConnectorIdentity identity)
     {
         return snowflakeOauthService.getCredential(identity).getSnowflakeUsername();
     }

@@ -15,9 +15,9 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -55,7 +55,7 @@ public class CachingSnowflakeOauthService
     }
 
     @Override
-    public OauthCredential getCredential(JdbcIdentity identity)
+    public OauthCredential getCredential(ConnectorIdentity identity)
     {
         try {
             return accessTokenCache.get(new UserPassword(identity, credentialProvider));
@@ -74,10 +74,10 @@ public class CachingSnowflakeOauthService
 
     private static class UserPassword
     {
-        private final JdbcIdentity identity;
+        private final ConnectorIdentity identity;
         private final String serializedCredential;
 
-        public UserPassword(JdbcIdentity identity, CredentialProvider credentialProvider)
+        public UserPassword(ConnectorIdentity identity, CredentialProvider credentialProvider)
         {
             this.identity = identity;
             String user = credentialProvider.getConnectionUser(Optional.of(identity))
@@ -87,7 +87,7 @@ public class CachingSnowflakeOauthService
             serializedCredential = format("%s:%s", user, password);
         }
 
-        public JdbcIdentity getIdentity()
+        public ConnectorIdentity getIdentity()
         {
             return identity;
         }

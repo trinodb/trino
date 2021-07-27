@@ -9,11 +9,11 @@
  */
 package com.starburstdata.presto.plugin.snowflake.auth;
 
-import io.trino.plugin.jdbc.JdbcIdentity;
+import io.trino.spi.security.ConnectorIdentity;
 
 public interface SnowflakeOauthService
 {
-    OauthCredential getCredential(JdbcIdentity identity);
+    OauthCredential getCredential(ConnectorIdentity identity);
 
     OauthCredential refreshCredential(OauthCredential credential);
 }

@@ -142,7 +142,7 @@ class SnowflakePageSourceProvider
                 true,
                 hdfsEnvironment,
                 configuration,
-                session.getUser(),
+                session.getIdentity(),
                 parquetTimeZone,
                 stats,
                 parquetReaderConfig.toParquetReaderOptions()
@@ -156,7 +156,7 @@ class SnowflakePageSourceProvider
     // for more information see https://en.wikipedia.org/wiki/Padding_(cryptography)#PKCS%235_and_PKCS%237
     private static int getPaddedBytes(ConnectorSession session, HdfsEnvironment hdfsEnvironment, Configuration configuration, SnowflakeSplit split, Path path)
     {
-        try (FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration).open(path)) {
+        try (FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration).open(path)) {
             byte[] buffer = new byte[SYMMETRIC_CIPHER_BLOCK_SIZE];
             int readBytes = inputStream.read(split.getFileSize() - SYMMETRIC_CIPHER_BLOCK_SIZE, buffer, 0, SYMMETRIC_CIPHER_BLOCK_SIZE);
 

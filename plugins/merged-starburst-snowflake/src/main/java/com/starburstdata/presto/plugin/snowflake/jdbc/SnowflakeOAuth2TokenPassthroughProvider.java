@@ -10,9 +10,9 @@
 package com.starburstdata.presto.plugin.snowflake.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Map;
 
@@ -23,7 +23,7 @@ public class SnowflakeOAuth2TokenPassthroughProvider
         implements CredentialPropertiesProvider
 {
     @Override
-    public Map<String, String> getCredentialProperties(JdbcIdentity identity)
+    public Map<String, String> getCredentialProperties(ConnectorIdentity identity)
     {
         String token = identity.getExtraCredentials().getOrDefault(OAUTH2_ACCESS_TOKEN_PASSTHROUGH_CREDENTIAL, "");
         if (token.isEmpty()) {

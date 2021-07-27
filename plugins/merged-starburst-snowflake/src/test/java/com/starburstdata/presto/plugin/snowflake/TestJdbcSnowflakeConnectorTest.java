@@ -14,6 +14,7 @@ import io.trino.Session;
 import io.trino.spi.security.Identity;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -22,6 +23,7 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TES
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.jdbcBuilder;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestJdbcSnowflakeConnectorTest
         extends BaseSnowflakeConnectorTest
@@ -46,6 +48,16 @@ public class TestJdbcSnowflakeConnectorTest
             return Optional.of(new DataMappingTestSetup("double", "DOUBLE '123456789012.123'", "DOUBLE '999999999999.999'"));
         }
         return super.filterDataMappingSmokeTestData(dataMappingTestSetup);
+    }
+
+    @Override
+    @Test
+    public void testDropNonEmptySchema()
+    {
+        assertThatThrownBy(super::testDropNonEmptySchema)
+                .isInstanceOf(AssertionError.class)
+                .hasMessageStartingWith("Expected query to fail: DROP SCHEMA ");
+        throw new SkipException("DROP SCHEMA erases all tables in Snowflake connector"); // TODO (https://github.com/trinodb/trino/issues/8634)
     }
 
     @Override

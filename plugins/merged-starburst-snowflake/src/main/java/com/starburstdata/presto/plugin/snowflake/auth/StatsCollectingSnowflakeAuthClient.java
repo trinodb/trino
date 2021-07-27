@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake.auth;
 
-import io.trino.plugin.jdbc.JdbcIdentity;
+import io.trino.spi.security.ConnectorIdentity;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -34,7 +34,7 @@ public class StatsCollectingSnowflakeAuthClient
     }
 
     @Override
-    public SamlRequest generateSamlRequest(JdbcIdentity identity)
+    public SamlRequest generateSamlRequest(ConnectorIdentity identity)
     {
         return stats.getGenerateSamlRequest().call(() -> delegate.generateSamlRequest(identity));
     }

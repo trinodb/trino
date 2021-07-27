@@ -12,8 +12,8 @@ package com.starburstdata.presto.plugin.snowflake.jdbc;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.snowflake.auth.OauthCredential;
 import com.starburstdata.presto.plugin.snowflake.auth.SnowflakeOauthService;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Map;
 
@@ -30,7 +30,7 @@ public class SnowflakeOauthPropertiesProvider
     }
 
     @Override
-    public Map<String, String> getCredentialProperties(JdbcIdentity identity)
+    public Map<String, String> getCredentialProperties(ConnectorIdentity identity)
     {
         OauthCredential cred = snowflakeOauthService.getCredential(identity);
 

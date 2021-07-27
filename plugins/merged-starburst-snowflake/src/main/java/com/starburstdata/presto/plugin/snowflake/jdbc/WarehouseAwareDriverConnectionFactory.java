@@ -10,11 +10,11 @@
 package com.starburstdata.presto.plugin.snowflake.jdbc;
 
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -59,7 +59,7 @@ public class WarehouseAwareDriverConnectionFactory
 
     private Properties getConnectionProperties(ConnectorSession session)
     {
-        JdbcIdentity identity = JdbcIdentity.from(session);
+        ConnectorIdentity identity = session.getIdentity();
         Properties properties = new Properties();
         properties.putAll(connectionProperties);
         properties.putAll(credentialPropertiesProvider.getCredentialProperties(identity));
