@@ -10,7 +10,7 @@
 package com.starburstdata.trino.plugin.stargate;
 
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
+import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocal;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.spi.security.ConnectorIdentity;
