@@ -307,12 +307,14 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
-        Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
-        if (hiveTable.isEmpty() || !isIcebergTable(hiveTable.get())) {
+        org.apache.iceberg.Table table;
+        try {
+            table = getIcebergTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
+        }
+        catch (TableNotFoundException | UnknownTableTypeException e) {
+            // not found or not an Iceberg table
             return Optional.empty();
         }
-
-        org.apache.iceberg.Table table = getIcebergTable(session, hiveTable.get().getSchemaTableName());
 
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
         switch (name.getTableType()) {
