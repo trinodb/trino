@@ -179,31 +179,31 @@ public class TestIcebergMetastoreAccessOperations
         // select from $history
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$history\"",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 17)
+                        .addCopies(GET_TABLE, 1)
                         .build());
 
         // select from $snapshots
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$snapshots\"",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 19)
+                        .addCopies(GET_TABLE, 1)
                         .build());
 
         // select from $manifests
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$manifests\"",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 21)
+                        .addCopies(GET_TABLE, 1)
                         .build());
 
         // select from $partitions
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$partitions\"",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 17)
+                        .addCopies(GET_TABLE, 1)
                         .build());
 
         // select from $files
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$files\"",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 24)
+                        .addCopies(GET_TABLE, 1)
                         .build());
 
         // This test should get updated if a new system table is added.
