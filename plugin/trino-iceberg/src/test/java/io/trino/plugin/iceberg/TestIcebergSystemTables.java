@@ -90,6 +90,14 @@ public class TestIcebergSystemTables
         assertQuery("SELECT count(*) FROM test_schema.test_table_multilevel_partitions", "VALUES 3");
     }
 
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
+        assertUpdate("DROP SCHEMA IF EXISTS test_schema");
+    }
+
     @Test
     public void testPartitionTable()
     {
@@ -182,13 +190,5 @@ public class TestIcebergSystemTables
                         "('split_offsets', 'array(bigint)', '', '')," +
                         "('equality_ids', 'array(integer)', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
-        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
-        assertUpdate("DROP SCHEMA IF EXISTS test_schema");
     }
 }
