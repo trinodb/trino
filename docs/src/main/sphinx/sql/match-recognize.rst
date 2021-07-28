@@ -181,6 +181,8 @@ Otherwise, they are considered as starting rows of empty matches. The option
 recognition is expected to pass all input rows, and it is not certain whether
 the pattern allows an empty match.
 
+.. _after_match_skip:
+
 After match skip
 ----------------
 
