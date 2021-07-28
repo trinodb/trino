@@ -28,8 +28,6 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
-import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergSystemTables
@@ -163,73 +161,23 @@ public class TestIcebergSystemTables
     {
         String catalog = getSession().getCatalog().orElseThrow();
 
-        assertThatThrownBy(() -> computeActual("SELECT * FROM test_schema.\"non_existent_table$snapshots\""))
-                // TODO (https://github.com/trinodb/trino/issues/8690) should be "table not found"
-                .hasMessage("Wrong table type: non_existent_table$snapshots")
-                .satisfies(e -> {
-                    // TODO replace `assertThatThrownBy(() -> computeActual(...))` with assertQueryFails when proper TrinoException is thrown
-                    //noinspection ThrowableNotThrown
-                    assertThatThrownBy(() -> getTrinoExceptionCause(e))
-                            .hasMessage("Exception does not have TrinoException cause");
-                });
-        assertThatThrownBy(() -> computeActual("DESCRIBE test_schema.\"non_existent_table$snapshots\""))
-                // TODO (https://github.com/trinodb/trino/issues/8690) should be "table not found"
-                .hasMessage("Wrong table type: non_existent_table$snapshots")
-                .satisfies(e -> {
-                    // TODO replace `assertThatThrownBy(() -> computeActual(...))` with assertQueryFails when proper TrinoException is thrown
-                    //noinspection ThrowableNotThrown
-                    assertThatThrownBy(() -> getTrinoExceptionCause(e))
-                            .hasMessage("Exception does not have TrinoException cause");
-                });
-        assertThatThrownBy(() -> computeActual("SHOW STATS FOR test_schema.\"non_existent_table$snapshots\""))
-                // TODO (https://github.com/trinodb/trino/issues/8690) should be "table not found"
-                .hasMessage("Wrong table type: non_existent_table$snapshots")
-                .satisfies(e -> {
-                    // TODO replace `assertThatThrownBy(() -> computeActual(...))` with assertQueryFails when proper TrinoException is thrown
-                    //noinspection ThrowableNotThrown
-                    assertThatThrownBy(() -> getTrinoExceptionCause(e))
-                            .hasMessage("Exception does not have TrinoException cause");
-                });
+        assertQueryFails(
+                "SELECT * FROM test_schema.\"non_existent_table$snapshots\"",
+                "\\Qline 1:15: Table 'iceberg.test_schema.non_existent_table$snapshots' does not exist");
+        assertQueryFails(
+                "DESCRIBE test_schema.\"non_existent_table$snapshots\"",
+                "\\Qline 1:1: Table 'iceberg.test_schema.non_existent_table$snapshots' does not exist");
+        assertQueryFails(
+                "SHOW STATS FOR test_schema.\"non_existent_table$snapshots\"",
+                "\\QTable 'iceberg.test_schema.non_existent_table$snapshots' does not exist");
 
-        // TODO (https://github.com/trinodb/trino/issues/8690) should return empty results (assertQueryReturnsEmptyResult)
-        assertThatThrownBy(() -> computeActual("SELECT * FROM information_schema.tables WHERE table_schema = 'test_schema' AND table_name  = 'non_existent_table$snapshots'"))
-                .hasMessage("Wrong table type: non_existent_table$snapshots")
-                .satisfies(e -> {
-                    // TODO replace `assertThatThrownBy(() -> computeActual(...))` with assertQueryFails when proper TrinoException is thrown
-                    //noinspection ThrowableNotThrown
-                    assertThatThrownBy(() -> getTrinoExceptionCause(e))
-                            .hasMessage("Exception does not have TrinoException cause");
-                });
-        // TODO (https://github.com/trinodb/trino/issues/8690) should return empty results (assertQueryReturnsEmptyResult)
-        assertThatThrownBy(() -> computeActual("SELECT * FROM information_schema.columns WHERE table_schema = 'test_schema' AND table_name  = 'non_existent_table$snapshots'"))
-                .hasMessage("Wrong table type: non_existent_table$snapshots")
-                .satisfies(e -> {
-                    // TODO replace `assertThatThrownBy(() -> computeActual(...))` with assertQueryFails when proper TrinoException is thrown
-                    //noinspection ThrowableNotThrown
-                    assertThatThrownBy(() -> getTrinoExceptionCause(e))
-                            .hasMessage("Exception does not have TrinoException cause");
-                });
+        assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test_schema' AND table_name  = 'non_existent_table$snapshots'");
+        assertQueryReturnsEmptyResult("SELECT * FROM information_schema.columns WHERE table_schema = 'test_schema' AND table_name  = 'non_existent_table$snapshots'");
         assertQueryReturnsEmptyResult("SELECT * FROM information_schema.views WHERE table_schema = 'test_schema' AND table_name  = 'non_existent_table$snapshots'");
 
-        // TODO (https://github.com/trinodb/trino/issues/8690) should return empty results (assertQueryReturnsEmptyResult)
-        assertThatThrownBy(() -> computeActual("SELECT * FROM system.metadata.table_comments WHERE catalog_name = '" + catalog + "' AND schema_name = 'test_schema' AND table_name  = 'non_existent_table$snapshots'"))
-                .hasMessage("Wrong table type: non_existent_table$snapshots")
-                .satisfies(e -> {
-                    // TODO replace `assertThatThrownBy(() -> computeActual(...))` with assertQueryFails when proper TrinoException is thrown
-                    //noinspection ThrowableNotThrown
-                    assertThatThrownBy(() -> getTrinoExceptionCause(e))
-                            .hasMessage("Exception does not have TrinoException cause");
-                });
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.table_comments WHERE catalog_name = '" + catalog + "' AND schema_name = 'test_schema' AND table_name  = 'non_existent_table$snapshots'");
 
-        // TODO (https://github.com/trinodb/trino/issues/8690) should return empty results (assertQueryReturnsEmptyResult)
-        assertThatThrownBy(() -> computeActual("SELECT * FROM system.jdbc.tables WHERE table_cat = '" + catalog + "' AND table_schem = 'test_schema' AND table_name  = 'non_existent_table$snapshots'"))
-                .hasMessage("Wrong table type: non_existent_table$snapshots")
-                .satisfies(e -> {
-                    // TODO replace `assertThatThrownBy(() -> computeActual(...))` with assertQueryFails when proper TrinoException is thrown
-                    //noinspection ThrowableNotThrown
-                    assertThatThrownBy(() -> getTrinoExceptionCause(e))
-                            .hasMessage("Exception does not have TrinoException cause");
-                });
+        assertQueryReturnsEmptyResult("SELECT * FROM system.jdbc.tables WHERE table_cat = '" + catalog + "' AND table_schem = 'test_schema' AND table_name  = 'non_existent_table$snapshots'");
         assertQueryReturnsEmptyResult("SELECT * FROM system.jdbc.columns WHERE table_cat = '" + catalog + "' AND table_schem = 'test_schema' AND table_name  = 'non_existent_table$snapshots'");
     }
 
