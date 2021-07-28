@@ -44,6 +44,7 @@ public class OAuth2Config
     private String authUrl;
     private String tokenUrl;
     private String jwksUrl;
+    private Optional<String> userinfoUrl = Optional.empty();
     private String clientId;
     private String clientSecret;
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
@@ -133,6 +134,19 @@ public class OAuth2Config
     public OAuth2Config setJwksUrl(String jwksUrl)
     {
         this.jwksUrl = jwksUrl;
+        return this;
+    }
+
+    public Optional<String> getUserinfoUrl()
+    {
+        return userinfoUrl;
+    }
+
+    @Config("http-server.authentication.oauth2.userinfo-url")
+    @ConfigDescription("URL of the userinfo endpoint")
+    public OAuth2Config setUserinfoUrl(String userinfoUrl)
+    {
+        this.userinfoUrl = Optional.ofNullable(userinfoUrl);
         return this;
     }
 

@@ -45,6 +45,7 @@ public class OAuth2ServiceModule
 
         configBinder(binder).bindConfig(OAuth2Config.class);
         binder.bind(OAuth2Service.class).in(Scopes.SINGLETON);
+        binder.bind(OAuth2TokenHandler.class).to(OAuth2TokenExchange.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, OAuth2Client.class)
                 .setDefault()
                 .to(ScribeJavaOAuth2Client.class)

@@ -18,17 +18,22 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.Resources;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.JsonResponseHandler;
+import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SigningKeyResolver;
+import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.server.security.oauth2.OAuth2Client.AccessToken;
 import io.trino.server.ui.OAuth2WebUiInstalled;
 import io.trino.server.ui.OAuthWebUiCookie;
 
 import javax.inject.Inject;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
 import java.io.IOException;
@@ -47,6 +52,9 @@ import java.util.Set;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.hash.Hashing.sha256;
+import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
@@ -54,6 +62,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.HttpMethod.POST;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 
 public class OAuth2Service
@@ -69,6 +78,7 @@ public class OAuth2Service
     private static final String FAILURE_REPLACEMENT_TEXT = "<!-- ERROR_MESSAGE -->";
     private static final Random SECURE_RANDOM = new SecureRandom();
     public static final String HANDLER_STATE_CLAIM = "handler_state";
+    private static final JsonResponseHandler<Map<String, Object>> USERINFO_RESPONSE_HANDLER = createJsonResponseHandler(mapJsonCodec(String.class, Object.class));
 
     private final OAuth2Client client;
     private final SigningKeyResolver signingKeyResolver;
@@ -80,9 +90,11 @@ public class OAuth2Service
     private final TemporalAmount challengeTimeout;
     private final byte[] stateHmac;
 
+    private final HttpClient httpClient;
     private final String issuer;
     private final String accessTokenIssuer;
     private final String clientId;
+    private final Optional<URI> userinfoUri;
     private final Set<String> allowedAudiences;
 
     private final OAuth2TokenHandler tokenHandler;
@@ -90,7 +102,7 @@ public class OAuth2Service
     private final boolean webUiOAuthEnabled;
 
     @Inject
-    public OAuth2Service(OAuth2Client client, @ForOAuth2 SigningKeyResolver signingKeyResolver, OAuth2Config oauth2Config, OAuth2TokenHandler tokenHandler, Optional<OAuth2WebUiInstalled> webUiOAuthEnabled)
+    public OAuth2Service(OAuth2Client client, @ForOAuth2 SigningKeyResolver signingKeyResolver, @ForOAuth2 HttpClient httpClient, OAuth2Config oauth2Config, OAuth2TokenHandler tokenHandler, Optional<OAuth2WebUiInstalled> webUiOAuthEnabled)
             throws IOException
     {
         this.client = requireNonNull(client, "client is null");
@@ -107,9 +119,11 @@ public class OAuth2Service
                 .map(key -> sha256().hashString(key, UTF_8).asBytes())
                 .orElseGet(() -> secureRandomBytes(32));
 
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.issuer = oauth2Config.getIssuer();
         this.accessTokenIssuer = oauth2Config.getAccessTokenIssuer().orElse(issuer);
         this.clientId = oauth2Config.getClientId();
+        this.userinfoUri = oauth2Config.getUserinfoUrl().map(url -> UriBuilder.fromUri(url).build());
         this.allowedAudiences = ImmutableSet.<String>builder()
                 .addAll(oauth2Config.getAdditionalAudiences())
                 .add(clientId)
@@ -304,6 +318,25 @@ public class OAuth2Service
     private Optional<Claims> internalConvertTokenToClaims(String accessToken)
             throws ChallengeFailedException
     {
+        if (userinfoUri.isPresent()) {
+            // validate access token is trusted by remote userinfo endpoint
+            Request request = Request.builder()
+                    .setMethod(POST)
+                    .addHeader(AUTHORIZATION, "Bearer " + accessToken)
+                    .setUri(userinfoUri.get())
+                    .build();
+            try {
+                Map<String, Object> userinfoClaims = httpClient.execute(request, USERINFO_RESPONSE_HANDLER);
+                Claims claims = new DefaultClaims(userinfoClaims);
+                validateAudience(claims, true);
+                return Optional.of(claims);
+            }
+            catch (RuntimeException e) {
+                LOG.error(e, "Received bad response from userinfo endpoint");
+                return Optional.empty();
+            }
+        }
+
         // validate access token is trusted by this server
         Claims claims = Jwts.parser()
                 .setSigningKeyResolver(signingKeyResolver)
