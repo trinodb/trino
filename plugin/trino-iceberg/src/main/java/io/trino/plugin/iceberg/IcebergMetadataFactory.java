@@ -33,6 +33,7 @@ public class IcebergMetadataFactory
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final HiveTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
+    private final boolean useUniqueTableLocation;
 
     @Inject
     public IcebergMetadataFactory(
@@ -45,7 +46,7 @@ public class IcebergMetadataFactory
             HiveTableOperationsProvider tableOperationsProvider,
             NodeVersion nodeVersion)
     {
-        this(catalogName, metastore, hdfsEnvironment, typeManager, commitTaskDataJsonCodec, tableOperationsProvider, nodeVersion);
+        this(catalogName, metastore, hdfsEnvironment, typeManager, commitTaskDataJsonCodec, tableOperationsProvider, nodeVersion, config.isUniqueTableLocation());
     }
 
     public IcebergMetadataFactory(
@@ -55,7 +56,8 @@ public class IcebergMetadataFactory
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
             HiveTableOperationsProvider tableOperationsProvider,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            boolean useUniqueTableLocation)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -64,10 +66,11 @@ public class IcebergMetadataFactory
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
+        this.useUniqueTableLocation = useUniqueTableLocation;
     }
 
     public IcebergMetadata create()
     {
-        return new IcebergMetadata(catalogName, metastore, hdfsEnvironment, typeManager, commitTaskCodec, tableOperationsProvider, trinoVersion);
+        return new IcebergMetadata(catalogName, metastore, hdfsEnvironment, typeManager, commitTaskCodec, tableOperationsProvider, trinoVersion, useUniqueTableLocation);
     }
 }
