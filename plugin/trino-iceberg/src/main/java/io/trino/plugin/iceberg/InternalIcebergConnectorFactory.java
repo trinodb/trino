@@ -96,7 +96,6 @@ public final class InternalIcebergConnectorFactory
                     });
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
