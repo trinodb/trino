@@ -82,6 +82,10 @@ The following configuration properties are available:
      - The URL of the JSON Web Key Set (JWKS) endpoint on the authorization
        server. It provides Trino the set of keys containing the public key
        to verify any JSON Web Token (JWT) from the authorization server.
+   * - ``http-server.authentication.oauth2.userinfo-url``
+     - The URL of the IdPs ``/userinfo`` endpoint. If supplied then this URL is used
+       to validate the OAuth access token and retrieve any associated claims. This
+       is required if the IdP issues opaque tokens.
    * - ``http-server.authentication.oauth2.client-id``
      - The public identifier of the Trino client.
    * - ``http-server.authentication.oauth2.client-secret``
