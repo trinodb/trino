@@ -631,7 +631,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO test_large_in_failure VALUES (1, 10)", 1L);
         assertUpdate("INSERT INTO test_large_in_failure VALUES (2, 20)", 1L);
 
-        List<String> predicates = IntStream.range(0, 5000).boxed()
+        List<String> predicates = IntStream.range(0, 25_000).boxed()
                 .map(Object::toString)
                 .collect(toImmutableList());
 
