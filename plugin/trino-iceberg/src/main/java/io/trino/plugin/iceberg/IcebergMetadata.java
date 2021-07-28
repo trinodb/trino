@@ -108,7 +108,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
@@ -166,6 +165,7 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
@@ -198,6 +198,7 @@ public class IcebergMetadata
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final HiveTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
+    private final boolean useUniqueTableLocation;
 
     private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
@@ -212,7 +213,8 @@ public class IcebergMetadata
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
             HiveTableOperationsProvider tableOperationsProvider,
-            String trinoVersion)
+            String trinoVersion,
+            boolean useUniqueTableLocation)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -221,6 +223,7 @@ public class IcebergMetadata
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
+        this.useUniqueTableLocation = useUniqueTableLocation;
     }
 
     @Override
@@ -575,7 +578,11 @@ public class IcebergMetadata
         HiveIdentity identity = new HiveIdentity(session);
         String targetPath = getTableLocation(tableMetadata.getProperties());
         if (targetPath == null) {
-            targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableName).toString();
+            String tableNameForLocation = tableName;
+            if (useUniqueTableLocation) {
+                tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
+            }
+            targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableNameForLocation).toString();
         }
 
         TableOperations operations = tableOperationsProvider.createTableOperations(
@@ -1044,7 +1051,7 @@ public class IcebergMetadata
 
         // Generate a storage table name and create a storage table. The properties in the definition are table properties for the
         // storage table as indicated in the materialized view definition.
-        String storageTableName = "st_" + UUID.randomUUID().toString().replace("-", "");
+        String storageTableName = "st_" + randomUUID().toString().replace("-", "");
         Map<String, Object> storageTableProperties = new HashMap<>(definition.getProperties());
         storageTableProperties.putIfAbsent(FILE_FORMAT_PROPERTY, DEFAULT_FILE_FORMAT_DEFAULT);
 
