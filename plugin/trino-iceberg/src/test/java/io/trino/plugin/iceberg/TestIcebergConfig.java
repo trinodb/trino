@@ -35,7 +35,8 @@ public class TestIcebergConfig
                 .setFileFormat(ORC)
                 .setCompressionCodec(GZIP)
                 .setUseFileSizeFromMetadata(true)
-                .setMaxPartitionsPerWriter(100));
+                .setMaxPartitionsPerWriter(100)
+                .setUniqueTableLocation(false));
     }
 
     @Test
@@ -46,13 +47,15 @@ public class TestIcebergConfig
                 .put("iceberg.compression-codec", "NONE")
                 .put("iceberg.use-file-size-from-metadata", "false")
                 .put("iceberg.max-partitions-per-writer", "222")
+                .put("iceberg.unique-table-location", "true")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(HiveCompressionCodec.NONE)
                 .setUseFileSizeFromMetadata(false)
-                .setMaxPartitionsPerWriter(222);
+                .setMaxPartitionsPerWriter(222)
+                .setUniqueTableLocation(true);
 
         assertFullMapping(properties, expected);
     }

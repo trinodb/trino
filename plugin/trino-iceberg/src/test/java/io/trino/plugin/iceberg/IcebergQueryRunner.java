@@ -72,6 +72,17 @@ public final class IcebergQueryRunner
             List<TpchTable<?>> tables,
             Optional<File> metastoreDirectory)
             throws Exception
+    {
+        return createIcebergQueryRunner(extraProperties, ImmutableMap.of(), format, tables, metastoreDirectory);
+    }
+
+    public static DistributedQueryRunner createIcebergQueryRunner(
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            FileFormat format,
+            List<TpchTable<?>> tables,
+            Optional<File> metastoreDirectory)
+            throws Exception
 
     {
         Session session = testSessionBuilder()
@@ -93,6 +104,7 @@ public final class IcebergQueryRunner
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", dataDir.toString())
                 .put("iceberg.file-format", format.name())
+                .putAll(connectorProperties)
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
