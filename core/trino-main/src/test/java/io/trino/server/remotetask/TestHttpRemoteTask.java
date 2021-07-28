@@ -477,7 +477,6 @@ public class TestHttpRemoteTask
                     }
                 });
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();
