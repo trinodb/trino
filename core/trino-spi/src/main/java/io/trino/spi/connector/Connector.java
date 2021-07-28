@@ -183,7 +183,10 @@ public interface Connector
      * {@link #commit(ConnectorTransactionHandle)} is called.
      * Note: calls to this method may race with calls to the ConnectorMetadata.
      */
-    default void rollback(ConnectorTransactionHandle transactionHandle) {}
+    default void rollback(ConnectorTransactionHandle transactionHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * True if the connector only supports write statements in independent transactions.
