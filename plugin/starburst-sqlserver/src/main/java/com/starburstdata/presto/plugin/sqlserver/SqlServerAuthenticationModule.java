@@ -12,12 +12,15 @@ package com.starburstdata.presto.plugin.sqlserver;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
+import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedIdentityCacheMapping;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
-import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
+import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocalModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 
 import static com.google.inject.Scopes.SINGLETON;
@@ -71,6 +74,7 @@ public class SqlServerAuthenticationModule
         public void configure(Binder binder)
         {
             binder.install(new AuthToLocalModule());
+            binder.bind(IdentityCacheMapping.class).to(AuthenticationBasedIdentityCacheMapping.class).in(Scopes.SINGLETON);
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SqlServerImpersonatingConnectionFactory.class).in(SINGLETON);
         }
     }

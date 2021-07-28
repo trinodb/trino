@@ -12,7 +12,7 @@ package com.starburstdata.presto.plugin.sqlserver;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
-import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
+import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocal;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.spi.connector.ConnectorSession;
 
