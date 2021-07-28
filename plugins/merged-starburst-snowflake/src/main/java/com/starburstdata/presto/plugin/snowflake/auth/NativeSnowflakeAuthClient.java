@@ -13,7 +13,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.jayway.jsonpath.DocumentContext;
-import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
+import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocal;
 import io.airlift.log.Logger;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ConnectorIdentity;

@@ -9,8 +9,8 @@
  */
 package com.starburstdata.presto.plugin.snowflake.jdbc;
 
-import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.snowflake.auth.SnowflakeOauthService;
+import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocal;
 import io.trino.spi.security.ConnectorIdentity;
 
 import static java.util.Objects.requireNonNull;
