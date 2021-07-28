@@ -18,7 +18,6 @@ import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.Resources;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SigningKeyResolver;
@@ -34,6 +33,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.TemporalAmount;
 import java.util.Date;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -177,11 +177,12 @@ public class OAuth2Service
         }
     }
 
-    public Jws<Claims> parseClaimsJws(String token)
+    public Optional<Map<String, Object>> convertTokenToClaims(String token)
     {
-        return Jwts.parser()
+        return Optional.of(Jwts.parser()
                 .setSigningKeyResolver(signingKeyResolver)
-                .parseClaimsJws(token);
+                .parseClaimsJws(token)
+                .getBody());
     }
 
     public String getSuccessHtml()
