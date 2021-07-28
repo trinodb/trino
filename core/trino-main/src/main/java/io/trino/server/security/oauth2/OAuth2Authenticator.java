@@ -13,15 +13,16 @@
  */
 package io.trino.server.security.oauth2;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
+import io.trino.spi.security.BasicPrincipal;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
 import java.net.URI;
+import java.security.Principal;
+import java.util.Optional;
 import java.util.UUID;
 
 import static io.trino.server.security.UserMapping.createUserMapping;
@@ -34,18 +35,23 @@ public class OAuth2Authenticator
         extends AbstractBearerAuthenticator
 {
     private final OAuth2Service service;
+    private final String principalField;
 
     @Inject
     public OAuth2Authenticator(OAuth2Service service, OAuth2Config config)
     {
-        super(config.getPrincipalField(), createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
+        super(createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
         this.service = requireNonNull(service, "service is null");
+        this.principalField = config.getPrincipalField();
     }
 
     @Override
-    protected Jws<Claims> parseClaimsJws(String jws)
+    protected Optional<Principal> extractPrincipalFromToken(String token)
     {
-        return service.parseClaimsJws(jws);
+        return service.convertTokenToClaims(token)
+                .map(claims -> claims.get(principalField))
+                .map(String.class::cast)
+                .map(BasicPrincipal::new);
     }
 
     @Override
