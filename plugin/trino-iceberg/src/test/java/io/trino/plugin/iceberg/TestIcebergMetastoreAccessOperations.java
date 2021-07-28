@@ -83,7 +83,7 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.builder()
                         .add(CREATE_TABLE)
                         .add(GET_DATABASE)
-                        .addCopies(GET_TABLE, 2)
+                        .add(GET_TABLE)
                         .build());
     }
 
@@ -94,7 +94,7 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.builder()
                         .add(GET_DATABASE)
                         .add(CREATE_TABLE)
-                        .addCopies(GET_TABLE, 2)
+                        .add(GET_TABLE)
                         .build());
     }
 
@@ -105,7 +105,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_from",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 12)
+                        .addCopies(GET_TABLE, 8)
                         .build());
     }
 
@@ -116,7 +116,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_from_where WHERE age = 2",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 12)
+                        .addCopies(GET_TABLE, 8)
                         .build());
     }
 
@@ -128,7 +128,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 24)
+                        .addCopies(GET_TABLE, 16)
                         .build());
     }
 
@@ -139,7 +139,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("EXPLAIN SELECT * FROM test_explain",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 11)
+                        .addCopies(GET_TABLE, 7)
                         .build());
     }
 
@@ -150,7 +150,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SHOW STATS FOR test_show_stats",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 9)
+                        .addCopies(GET_TABLE, 5)
                         .build());
     }
 
@@ -161,7 +161,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SHOW STATS FOR (SELECT * FROM test_show_stats_with_filter where age >= 2)",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 9)
+                        .addCopies(GET_TABLE, 5)
                         .build());
     }
 
