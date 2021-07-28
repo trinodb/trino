@@ -95,7 +95,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
 {
-    private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
+    private static final Pattern WITH_CLAUSE_EXTRACTOR = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
     private final FileFormat format;
 
@@ -694,7 +694,7 @@ public abstract class BaseIcebergConnectorTest
     {
         MaterializedResult showCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
         String createTable = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
-        Matcher matcher = WITH_CLAUSE_EXTRACTER.matcher(createTable);
+        Matcher matcher = WITH_CLAUSE_EXTRACTOR.matcher(createTable);
         return matcher.matches() ? matcher.group(1) : null;
     }
 
