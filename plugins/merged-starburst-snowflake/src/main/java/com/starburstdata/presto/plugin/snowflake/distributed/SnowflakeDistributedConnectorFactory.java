@@ -60,7 +60,6 @@ public class SnowflakeDistributedConnectorFactory
                     binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()));
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(requiredConfig)
                     .initialize();
