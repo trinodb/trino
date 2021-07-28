@@ -37,6 +37,7 @@ import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
 
 import java.util.Map;
 import java.util.UUID;
@@ -44,6 +45,7 @@ import java.util.UUID;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.oauth2.OAuth2TokenExchange.MAX_POLL_TIME;
+import static io.trino.server.security.oauth2.OAuth2TokenExchange.hashAuthId;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 
@@ -55,19 +57,30 @@ public class OAuth2TokenExchangeResource
     private static final JsonCodec<Map<String, Object>> MAP_CODEC = new JsonCodecFactory().mapJsonCodec(String.class, Object.class);
 
     private final OAuth2TokenExchange tokenExchange;
+    private final OAuth2Service service;
     private final ListeningExecutorService responseExecutor;
 
     @Inject
-    public OAuth2TokenExchangeResource(OAuth2TokenExchange tokenExchange, DispatchExecutor executor)
+    public OAuth2TokenExchangeResource(OAuth2TokenExchange tokenExchange, OAuth2Service service, DispatchExecutor executor)
     {
         this.tokenExchange = requireNonNull(tokenExchange, "tokenExchange is null");
+        this.service = requireNonNull(service, "service is null");
         this.responseExecutor = requireNonNull(executor, "executor is null").getExecutor();
+    }
+
+    @ResourceSecurity(PUBLIC)
+    @Path("initiate/{authIdHash}")
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response initiateTokenExchange(@PathParam("authIdHash") String authIdHash, @Context UriInfo uriInfo)
+    {
+        return service.startOAuth2Challenge(uriInfo, authIdHash);
     }
 
     @ResourceSecurity(PUBLIC)
     @Path("{authId}")
     @GET
-    @Produces(MediaType.TEXT_PLAIN)
+    @Produces(MediaType.APPLICATION_JSON)
     public void getAuthenticationToken(@PathParam("authId") UUID authId, @Suspended AsyncResponse asyncResponse, @Context HttpServletRequest request)
     {
         if (authId == null) {
@@ -113,6 +126,11 @@ public class OAuth2TokenExchangeResource
     public static String getTokenUri(UUID authId)
     {
         return TOKEN_ENDPOINT + authId;
+    }
+
+    public static String getInitiateUri(UUID authId)
+    {
+        return TOKEN_ENDPOINT + "initiate/" + hashAuthId(authId);
     }
 
     private static String jsonMap(String key, Object value)

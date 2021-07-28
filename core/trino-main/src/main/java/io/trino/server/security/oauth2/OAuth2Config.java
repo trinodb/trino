@@ -14,10 +14,12 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -25,6 +27,8 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -35,14 +39,16 @@ import static io.trino.server.security.oauth2.OAuth2Service.OPENID_SCOPE;
 public class OAuth2Config
 {
     private Optional<String> stateKey = Optional.empty();
+    private String issuer;
+    private Optional<String> accessTokenIssuer = Optional.empty();
     private String authUrl;
     private String tokenUrl;
     private String jwksUrl;
     private String clientId;
     private String clientSecret;
-    private Optional<String> audience = Optional.empty();
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
     private String principalField = "sub";
+    private List<String> additionalAudiences = Collections.emptyList();
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
@@ -57,6 +63,34 @@ public class OAuth2Config
     public OAuth2Config setStateKey(String stateKey)
     {
         this.stateKey = Optional.ofNullable(stateKey);
+        return this;
+    }
+
+    @NotNull
+    public String getIssuer()
+    {
+        return issuer;
+    }
+
+    @Config("http-server.authentication.oauth2.issuer")
+    @ConfigDescription("The required issuer of a token")
+    public OAuth2Config setIssuer(String issuer)
+    {
+        this.issuer = issuer;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getAccessTokenIssuer()
+    {
+        return accessTokenIssuer;
+    }
+
+    @Config("http-server.authentication.oauth2.access-token-issuer")
+    @ConfigDescription("The required issuer for access tokens")
+    public OAuth2Config setAccessTokenIssuer(String accessTokenIssuer)
+    {
+        this.accessTokenIssuer = Optional.ofNullable(accessTokenIssuer);
         return this;
     }
 
@@ -131,16 +165,18 @@ public class OAuth2Config
         return this;
     }
 
-    public Optional<String> getAudience()
+    @NotNull
+    public List<String> getAdditionalAudiences()
     {
-        return audience;
+        return additionalAudiences;
     }
 
-    @Config("http-server.authentication.oauth2.audience")
-    @ConfigDescription("The required audience of a token")
-    public OAuth2Config setAudience(String audience)
+    @LegacyConfig("http-server.authentication.oauth2.audience")
+    @Config("http-server.authentication.oauth2.additional-audiences")
+    @ConfigDescription("Additional audiences to trust in addition to the Client ID")
+    public OAuth2Config setAdditionalAudiences(List<String> additionalAudiences)
     {
-        this.audience = Optional.ofNullable(audience);
+        this.additionalAudiences = ImmutableList.copyOf(additionalAudiences);
         return this;
     }
 
@@ -165,6 +201,7 @@ public class OAuth2Config
     }
 
     @Config("http-server.authentication.oauth2.principal-field")
+    @ConfigDescription("The claim to use as the principal")
     public OAuth2Config setPrincipalField(String principalField)
     {
         this.principalField = principalField;

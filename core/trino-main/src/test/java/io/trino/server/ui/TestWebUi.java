@@ -115,13 +115,16 @@ public class TestWebUi
             .put("http-server.authentication.allow-insecure-over-http", "true")
             .build();
     private static final String STATE_KEY = "test-state-key";
+    public static final String TOKEN_ISSUER = "http://example.com/";
+    public static final String OAUTH_CLIENT_ID = "client";
     private static final ImmutableMap<String, String> OAUTH2_PROPERTIES = ImmutableMap.<String, String>builder()
             .putAll(SECURE_PROPERTIES)
             .put("web-ui.authentication.type", "oauth2")
             .put("http-server.authentication.oauth2.state-key", STATE_KEY)
+            .put("http-server.authentication.oauth2.issuer", TOKEN_ISSUER)
             .put("http-server.authentication.oauth2.auth-url", "http://example.com/")
             .put("http-server.authentication.oauth2.token-url", "http://example.com/")
-            .put("http-server.authentication.oauth2.client-id", "client")
+            .put("http-server.authentication.oauth2.client-id", OAUTH_CLIENT_ID)
             .put("http-server.authentication.oauth2.client-secret", "client-secret")
             .build();
     private static final String TEST_USER = "test-user";
@@ -1031,6 +1034,8 @@ public class TestWebUi
         return Jwts.builder()
                 .signWith(SignatureAlgorithm.RS256, JWK_PRIVATE_KEY)
                 .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
+                .setIssuer(TOKEN_ISSUER)
+                .setAudience(OAUTH_CLIENT_ID)
                 .setSubject("test-user")
                 .setExpiration(tokenExpiration);
     }
