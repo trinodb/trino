@@ -50,6 +50,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.ColorType.COLOR;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.multiplyExact;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
@@ -71,7 +72,7 @@ public final class BlockAssertions
                 values.add(type.getObjectValue(SESSION, block, position));
             }
         }
-        return Collections.unmodifiableList(values);
+        return unmodifiableList(values);
     }
 
     public static List<Object> toValues(Type type, Block block)
@@ -80,7 +81,7 @@ public final class BlockAssertions
         for (int position = 0; position < block.getPositionCount(); position++) {
             values.add(type.getObjectValue(SESSION, block, position));
         }
-        return Collections.unmodifiableList(values);
+        return unmodifiableList(values);
     }
 
     public static void assertBlockEquals(Type type, Block actual, Block expected)
