@@ -24,7 +24,7 @@ import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
-import io.trino.testing.datatype.DataTypeTest;
+import io.trino.testing.datatype.DataTypeTestToSqlDataTypeTestConverter;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.tpch.TpchTable;
@@ -86,7 +86,7 @@ public class TestPhoenixTypeMapping
     @Test
     public void testBasicTypes()
     {
-        DataTypeTest.create()
+        DataTypeTestToSqlDataTypeTestConverter.create()
                 .addRoundTrip(booleanDataType(), true)
                 .addRoundTrip(booleanDataType(), false)
                 .addRoundTrip(bigintDataType(), 123_456_789_012L)
@@ -101,7 +101,7 @@ public class TestPhoenixTypeMapping
     @Test
     public void testVarchar()
     {
-        DataTypeTest varcharTypeTest = stringDataTypeTest(DataType::varcharDataType)
+        DataTypeTestToSqlDataTypeTestConverter varcharTypeTest = stringSqlDataTypeTest(DataType::varcharDataType)
                 .addRoundTrip(varcharDataType(10485760), "text_f")
                 .addRoundTrip(varcharDataType(), "unbounded");
 
@@ -113,9 +113,9 @@ public class TestPhoenixTypeMapping
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_varchar"));
     }
 
-    private DataTypeTest stringDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
+    private DataTypeTestToSqlDataTypeTestConverter stringSqlDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
     {
-        return DataTypeTest.create()
+        return DataTypeTestToSqlDataTypeTestConverter.create()
                 .addRoundTrip(dataTypeFactory.apply(10), "text_a")
                 .addRoundTrip(dataTypeFactory.apply(255), "text_b")
                 .addRoundTrip(dataTypeFactory.apply(65535), "text_d");
@@ -124,10 +124,10 @@ public class TestPhoenixTypeMapping
     @Test
     public void testChar()
     {
-        stringDataTypeTest(DataType::charDataType)
+        stringSqlDataTypeTest(DataType::charDataType)
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
 
-        stringDataTypeTest(DataType::charDataType)
+        stringSqlDataTypeTest(DataType::charDataType)
                 .addRoundTrip(primaryKey(), 1)
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_char"));
     }
@@ -168,9 +168,9 @@ public class TestPhoenixTypeMapping
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_decimal"));
     }
 
-    private DataTypeTest decimalTests(BiFunction<Integer, Integer, DataType<BigDecimal>> dataTypeFactory)
+    private DataTypeTestToSqlDataTypeTestConverter decimalTests(BiFunction<Integer, Integer, DataType<BigDecimal>> dataTypeFactory)
     {
-        return DataTypeTest.create()
+        return DataTypeTestToSqlDataTypeTestConverter.create()
                 .addRoundTrip(dataTypeFactory.apply(3, 0), new BigDecimal("193"))
                 .addRoundTrip(dataTypeFactory.apply(3, 0), new BigDecimal("19"))
                 .addRoundTrip(dataTypeFactory.apply(3, 0), new BigDecimal("-193"))
@@ -215,13 +215,13 @@ public class TestPhoenixTypeMapping
         LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
         checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
-        DataTypeTest trinoTestCases = dateTests(
+        DataTypeTestToSqlDataTypeTestConverter trinoTestCases = dateTests(
                 dateOfLocalTimeChangeForwardAtMidnightInJvmZone,
                 dateOfLocalTimeChangeForwardAtMidnightInSomeZone,
                 dateOfLocalTimeChangeBackwardAtMidnightInSomeZone,
                 dateDataType());
 
-        DataTypeTest phoenixTestCases = dateTests(
+        DataTypeTestToSqlDataTypeTestConverter phoenixTestCases = dateTests(
                 dateOfLocalTimeChangeForwardAtMidnightInJvmZone,
                 dateOfLocalTimeChangeForwardAtMidnightInSomeZone,
                 dateOfLocalTimeChangeBackwardAtMidnightInSomeZone,
@@ -243,7 +243,7 @@ public class TestPhoenixTypeMapping
     public void testArray()
     {
         // basic types
-        DataTypeTest.create()
+        DataTypeTestToSqlDataTypeTestConverter.create()
                 .addRoundTrip(arrayDataType(booleanDataType()), asList(true, false))
                 .addRoundTrip(arrayDataType(bigintDataType()), asList(123_456_789_012L))
                 .addRoundTrip(arrayDataType(integerDataType()), asList(1, 2, 1_234_567_890))
@@ -284,16 +284,16 @@ public class TestPhoenixTypeMapping
     @Test
     public void testArrayNulls()
     {
-        DataTypeTest.create()
+        DataTypeTestToSqlDataTypeTestConverter.create()
                 .addRoundTrip(arrayDataType(booleanDataType()), null)
                 .addRoundTrip(arrayDataType(varcharDataType()), singletonList(null))
                 .addRoundTrip(arrayDataType(varcharDataType()), asList("foo", null, "bar", null))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_array_nulls"));
     }
 
-    private DataTypeTest arrayDecimalTest(Function<DataType<BigDecimal>, DataType<List<BigDecimal>>> arrayTypeFactory, BiFunction<Integer, Integer, DataType<BigDecimal>> decimalTypeFactory)
+    private DataTypeTestToSqlDataTypeTestConverter arrayDecimalTest(Function<DataType<BigDecimal>, DataType<List<BigDecimal>>> arrayTypeFactory, BiFunction<Integer, Integer, DataType<BigDecimal>> decimalTypeFactory)
     {
-        return DataTypeTest.create()
+        return DataTypeTestToSqlDataTypeTestConverter.create()
                 .addRoundTrip(arrayTypeFactory.apply(decimalTypeFactory.apply(3, 0)), asList(new BigDecimal("193"), new BigDecimal("19"), new BigDecimal("-193")))
                 .addRoundTrip(arrayTypeFactory.apply(decimalTypeFactory.apply(3, 1)), asList(new BigDecimal("10.0"), new BigDecimal("10.1"), new BigDecimal("-10.1")))
                 .addRoundTrip(arrayTypeFactory.apply(decimalTypeFactory.apply(4, 2)), asList(new BigDecimal("2"), new BigDecimal("2.3")))
@@ -305,15 +305,15 @@ public class TestPhoenixTypeMapping
                         new BigDecimal("-27182818284590452353602874713526624977")));
     }
 
-    private DataTypeTest arrayStringDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory, Function<Integer, DataType<String>> dataTypeFactory)
+    private DataTypeTestToSqlDataTypeTestConverter arrayStringDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory, Function<Integer, DataType<String>> dataTypeFactory)
     {
-        return DataTypeTest.create()
+        return DataTypeTestToSqlDataTypeTestConverter.create()
                 .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(10)), asList("text_a"))
                 .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(255)), asList("text_b"))
                 .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(65535)), asList("text_d"));
     }
 
-    private DataTypeTest arrayDateTest(Function<DataType<LocalDate>, DataType<List<LocalDate>>> arrayTypeFactory, DataType<LocalDate> dateDataType)
+    private DataTypeTestToSqlDataTypeTestConverter arrayDateTest(Function<DataType<LocalDate>, DataType<List<LocalDate>>> arrayTypeFactory, DataType<LocalDate> dateDataType)
     {
         ZoneId jvmZone = ZoneId.systemDefault();
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
@@ -326,7 +326,7 @@ public class TestPhoenixTypeMapping
         LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
         checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
-        return DataTypeTest.create()
+        return DataTypeTestToSqlDataTypeTestConverter.create()
                 .addRoundTrip(arrayTypeFactory.apply(dateDataType), asList(LocalDate.of(1952, 4, 3))) // before epoch
                 .addRoundTrip(arrayTypeFactory.apply(dateDataType), asList(LocalDate.of(1970, 1, 1)))
                 .addRoundTrip(arrayTypeFactory.apply(dateDataType), asList(LocalDate.of(1970, 2, 3)))
@@ -337,13 +337,13 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip(arrayTypeFactory.apply(dateDataType), asList(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone));
     }
 
-    private DataTypeTest dateTests(
+    private DataTypeTestToSqlDataTypeTestConverter dateTests(
             LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone,
             LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone,
             LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone,
             DataType<LocalDate> dateDataType)
     {
-        return DataTypeTest.create()
+        return DataTypeTestToSqlDataTypeTestConverter.create()
                 .addRoundTrip(dateDataType, LocalDate.of(1952, 4, 3)) // before epoch
                 .addRoundTrip(dateDataType, LocalDate.of(1970, 1, 1))
                 .addRoundTrip(dateDataType, LocalDate.of(1970, 2, 3))
