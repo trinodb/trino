@@ -599,12 +599,12 @@ public class TestResourceSecurity
                             }
 
                             @Override
-                            public AccessToken getAccessToken(String code, URI callbackUri)
+                            public OAuth2Response getOAuth2Response(String code, URI callbackUri)
                             {
                                 if (!"TEST_CODE".equals(code)) {
                                     throw new IllegalArgumentException("Expected TEST_CODE");
                                 }
-                                return new AccessToken(accessToken, Optional.of(now().plus(5, ChronoUnit.MINUTES)), Optional.of(idTokenBuilder.compact()));
+                                return new OAuth2Response(accessToken, Optional.of(now().plus(5, ChronoUnit.MINUTES)), Optional.of(idTokenBuilder.compact()));
                             }
                         }))
                 .build()) {

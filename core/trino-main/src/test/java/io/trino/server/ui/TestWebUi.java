@@ -1081,12 +1081,12 @@ public class TestWebUi
         }
 
         @Override
-        public AccessToken getAccessToken(String code, URI callbackUri)
+        public OAuth2Response getOAuth2Response(String code, URI callbackUri)
         {
             if (!"TEST_CODE".equals(code)) {
                 throw new IllegalArgumentException("Expected TEST_CODE");
             }
-            return new AccessToken(accessToken, Optional.empty(), idTokenBuilder.map(JwtBuilder::compact));
+            return new OAuth2Response(accessToken, Optional.empty(), idTokenBuilder.map(JwtBuilder::compact));
         }
     }
 
