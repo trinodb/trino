@@ -26,17 +26,22 @@ public class TestingIcebergPlugin
         implements Plugin
 {
     private final Optional<HiveMetastore> metastore;
-    private final boolean trackMetadataIo;
+    private final Optional<FileIoProvider> fileIoProvider;
 
-    public TestingIcebergPlugin(HiveMetastore metastore, boolean trackMetadataIo)
+    public TestingIcebergPlugin(HiveMetastore metastore)
+    {
+        this(metastore, Optional.empty());
+    }
+
+    public TestingIcebergPlugin(HiveMetastore metastore, Optional<FileIoProvider> fileIoProvider)
     {
         this.metastore = Optional.of(requireNonNull(metastore, "metastore is null"));
-        this.trackMetadataIo = trackMetadataIo;
+        this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new TestingIcebergConnectorFactory(metastore, trackMetadataIo));
+        return ImmutableList.of(new TestingIcebergConnectorFactory(metastore, fileIoProvider));
     }
 }
