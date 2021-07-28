@@ -26,7 +26,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static io.trino.server.security.UserMapping.createUserMapping;
-import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
+import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getInitiateUri;
 import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getTokenUri;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -48,18 +48,23 @@ public class OAuth2Authenticator
     @Override
     protected Optional<Principal> extractPrincipalFromToken(String token)
     {
-        return service.convertTokenToClaims(token)
-                .map(claims -> claims.get(principalField))
-                .map(String.class::cast)
-                .map(BasicPrincipal::new);
+        try {
+            return service.convertTokenToClaims(token)
+                    .map(claims -> claims.get(principalField))
+                    .map(String.class::cast)
+                    .map(BasicPrincipal::new);
+        }
+        catch (ChallengeFailedException e) {
+            return Optional.empty();
+        }
     }
 
     @Override
     protected AuthenticationException needAuthentication(ContainerRequestContext request, String message)
     {
         UUID authId = UUID.randomUUID();
-        URI redirectUri = service.startRestChallenge(request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT), authId);
+        URI initiateUri = request.getUriInfo().getBaseUri().resolve(getInitiateUri(authId));
         URI tokenUri = request.getUriInfo().getBaseUri().resolve(getTokenUri(authId));
-        return new AuthenticationException(message, format("Bearer x_redirect_server=\"%s\", x_token_server=\"%s\"", redirectUri, tokenUri));
+        return new AuthenticationException(message, format("Bearer x_redirect_server=\"%s\", x_token_server=\"%s\"", initiateUri, tokenUri));
     }
 }

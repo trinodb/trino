@@ -42,6 +42,7 @@ to the coordinator's ``config.properties`` file:
     http-server.https.port=8443
     http-server.https.enabled=true
 
+    http-server.authentication.oauth2.issuer=https://authorization-server.com
     http-server.authentication.oauth2.auth-url=https://authorization-server.com/authorize
     http-server.authentication.oauth2.token-url=https://authorization-server.com/token
     http-server.authentication.oauth2.jwks-url=https://authorization-server.com/.well-known/jwks.json
@@ -66,6 +67,11 @@ The following configuration properties are available:
    * - ``http-server.authentication.type``
      - The type of authentication to use. Must  be set to ``oauth2`` to enable
        OAuth2 authentication for the Trino coordinator.
+   * - ``http-server.authentication.oauth2.issuer``
+     - The issuer URL of the IdP. All issued tokens must have this in the ``iss`` field.
+   * - ``http-server.authentication.oauth2.access-token-issuer``
+     - The issuer URL of the IdP for access tokens, if different. All issued access tokens must
+       have this in the ``iss`` field. Defaults to ``http-server.authentication.oauth2.issuer``.
    * - ``http-server.authentication.oauth2.auth-url``
      - The authorization URL. The URL a user's browser will be redirected to in
        order to begin the OAuth 2.0 authorization process.
@@ -80,10 +86,9 @@ The following configuration properties are available:
      - The public identifier of the Trino client.
    * - ``http-server.authentication.oauth2.client-secret``
      - The secret used to authorize Trino client with the authorization server.
-   * - ``http-server.authentication.oauth2.audience``
-     - The audience of a JSON Web Token is used as the target audience of an
-       access token requested by the Trino coordinator as well as the required
-       audience of an access token included in user requests to the coordinator.
+   * - ``http-server.authentication.oauth2.additional-audiences``
+     - Additional audiences to trust in addition to the client ID which is
+       always a trusted audience.
    * - ``http-server.authentication.oauth2.scopes``
      - Scopes requested by the server during the authorization challenge. See:
        https://tools.ietf.org/html/rfc6749#section-3.3
