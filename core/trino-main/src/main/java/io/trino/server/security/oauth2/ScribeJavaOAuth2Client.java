@@ -39,7 +39,6 @@ public class ScribeJavaOAuth2Client
         implements OAuth2Client
 {
     private final DynamicCallbackOAuth2Service service;
-    private final Optional<String> audience;
 
     @Inject
     public ScribeJavaOAuth2Client(OAuth2Config config, @ForOAuth2 HttpClient httpClient)
@@ -47,7 +46,6 @@ public class ScribeJavaOAuth2Client
         requireNonNull(config, "config is null");
         requireNonNull(httpClient, "httpClient is null");
         service = new DynamicCallbackOAuth2Service(config, httpClient);
-        audience = config.getAudience();
     }
 
     @Override
@@ -56,7 +54,6 @@ public class ScribeJavaOAuth2Client
         ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
         parameters.put(REDIRECT_URI, callbackUri.toString());
         parameters.put(STATE, state);
-        audience.ifPresent(audience -> parameters.put("audience", audience));
         nonceHash.ifPresent(n -> parameters.put(NONCE, n));
         return URI.create(service.getAuthorizationUrl(parameters.build()));
     }

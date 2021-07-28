@@ -80,6 +80,7 @@ public class TestDynamicCallbackOAuth2Service
     {
         DynamicCallbackOAuth2Service service = new DynamicCallbackOAuth2Service(
                 new OAuth2Config()
+                        .setIssuer(hydraUrl)
                         .setAuthUrl(hydraUrl + "/oauth2/auth")
                         .setTokenUrl(hydraUrl + "/oauth2/token")
                         .setJwksUrl(hydraUrl + "/.well-known/jwks.json")

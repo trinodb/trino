@@ -42,7 +42,6 @@ public class OAuth2ServiceModule
     {
         jaxrsBinder(binder).bind(OAuth2CallbackResource.class);
         newOptionalBinder(binder, OAuth2WebUiInstalled.class);
-        newOptionalBinder(binder, OAuth2TokenExchange.class);
 
         configBinder(binder).bindConfig(OAuth2Config.class);
         binder.bind(OAuth2Service.class).in(Scopes.SINGLETON);
