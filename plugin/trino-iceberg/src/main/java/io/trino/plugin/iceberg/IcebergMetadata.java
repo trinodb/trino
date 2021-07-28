@@ -303,6 +303,9 @@ public class IcebergMetadata
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
+        if (name.getTableType() == DATA) {
+            return Optional.empty();
+        }
 
         Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
         if (hiveTable.isEmpty() || !isIcebergTable(hiveTable.get())) {
@@ -314,6 +317,7 @@ public class IcebergMetadata
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
         switch (name.getTableType()) {
             case DATA:
+                // Handled above.
                 break;
             case HISTORY:
                 if (name.getSnapshotId().isPresent()) {
