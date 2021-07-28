@@ -11,21 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.testing;
+package io.trino.plugin.iceberg;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.iceberg.FileIoProvider;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.io.PositionOutputStream;
 import org.apache.iceberg.io.SeekableInputStream;
-import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.Immutable;
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Objects;
@@ -34,16 +30,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType.INPUT_FILE_EXISTS;
-import static io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType.INPUT_FILE_GET_LENGTH;
-import static io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType.INPUT_FILE_NEW_STREAM;
-import static io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE;
-import static io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
-import static io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType.OUTPUT_FILE_LOCATION;
-import static io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType.OUTPUT_FILE_TO_INPUT_FILE;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_EXISTS;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_GET_LENGTH;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_NEW_STREAM;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_LOCATION;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_TO_INPUT_FILE;
 import static java.util.Objects.requireNonNull;
 
-@VisibleForTesting
 public class TrackingFileIoProvider
         implements FileIoProvider
 {
@@ -63,19 +58,16 @@ public class TrackingFileIoProvider
 
     private final Map<OperationContext, Integer> operationCounts = new ConcurrentHashMap<>();
 
-    @Inject
-    public TrackingFileIoProvider(@ForTrackingFileIoProvider FileIoProvider delegate)
+    public TrackingFileIoProvider(FileIoProvider delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
-    @Managed
     public Map<OperationContext, Integer> getOperationCounts()
     {
         return ImmutableMap.copyOf(operationCounts);
     }
 
-    @Managed
     public void reset()
     {
         operationCounts.clear();

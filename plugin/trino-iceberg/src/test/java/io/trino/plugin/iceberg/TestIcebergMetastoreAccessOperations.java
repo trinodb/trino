@@ -69,7 +69,7 @@ public class TestIcebergMetastoreAccessOperations
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
         metastore = new CountingAccessFileHiveMetastore(hiveMetastore);
-        queryRunner.installPlugin(new TestingIcebergPlugin(metastore, true));
+        queryRunner.installPlugin(new TestingIcebergPlugin(metastore));
         queryRunner.createCatalog("iceberg", "iceberg");
 
         queryRunner.execute("CREATE SCHEMA test_schema");

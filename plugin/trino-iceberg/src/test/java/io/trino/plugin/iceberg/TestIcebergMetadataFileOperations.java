@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.trino.Session;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationContext;
-import io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType;
+import io.trino.plugin.iceberg.TrackingFileIoProvider.OperationContext;
+import io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -27,25 +27,22 @@ import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
-
 import java.io.File;
-import java.lang.management.ManagementFactory;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.MANIFEST;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.METADATA_JSON;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.SNAPSHOT;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.fromFilePath;
-import static io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType.INPUT_FILE_GET_LENGTH;
-import static io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType.INPUT_FILE_NEW_STREAM;
-import static io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE;
-import static io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
-import static io.trino.plugin.iceberg.testing.TrackingFileIoProvider.OperationType.OUTPUT_FILE_LOCATION;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_GET_LENGTH;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.INPUT_FILE_NEW_STREAM;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
+import static io.trino.plugin.iceberg.TrackingFileIoProvider.OperationType.OUTPUT_FILE_LOCATION;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -54,16 +51,16 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true)
+@Test(singleThreaded = true) // e.g. trackingFileIoProvider is shared mutable state
 public class TestIcebergMetadataFileOperations
         extends AbstractTestQueryFramework
 {
-    private static final MBeanServer BEAN_SERVER = ManagementFactory.getPlatformMBeanServer();
-    private static final String BEAN_NAME = "trino.plugin.iceberg.testing:type=TrackingFileIoProvider,name=iceberg";
     private static final Session TEST_SESSION = testSessionBuilder()
             .setCatalog("iceberg")
             .setSchema("test_schema")
             .build();
+
+    private TrackingFileIoProvider trackingFileIoProvider;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
@@ -82,7 +79,9 @@ public class TestIcebergMetadataFileOperations
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
-        queryRunner.installPlugin(new TestingIcebergPlugin(metastore, true));
+
+        trackingFileIoProvider = new TrackingFileIoProvider(new HdfsFileIoProvider(HDFS_ENVIRONMENT));
+        queryRunner.installPlugin(new TestingIcebergPlugin(metastore, Optional.of(trackingFileIoProvider)));
         queryRunner.createCatalog("iceberg", "iceberg");
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -97,7 +96,6 @@ public class TestIcebergMetadataFileOperations
 
     @Test
     public void testCreateTable()
-            throws Exception
     {
         assertFileSystemAccesses("CREATE TABLE test_create (id VARCHAR, age INT)",
                 ImmutableMultiset.builder()
@@ -112,7 +110,6 @@ public class TestIcebergMetadataFileOperations
 
     @Test
     public void testCreateTableAsSelect()
-            throws Exception
     {
         assertFileSystemAccesses("CREATE TABLE test_create_as_select AS SELECT 1 col_name",
                 ImmutableMultiset.builder()
@@ -129,7 +126,6 @@ public class TestIcebergMetadataFileOperations
 
     @Test
     public void testSelect()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_select AS SELECT 1 col_name", 1);
         assertFileSystemAccesses("SELECT * FROM test_select",
@@ -144,7 +140,6 @@ public class TestIcebergMetadataFileOperations
 
     @Test
     public void testSelectWithFilter()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_select_with_filter AS SELECT 1 col_name", 1);
         assertFileSystemAccesses("SELECT * FROM test_select_with_filter WHERE col_name = 1",
@@ -159,7 +154,6 @@ public class TestIcebergMetadataFileOperations
 
     @Test
     public void testJoin()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_join_t1 AS SELECT 2 AS age, 'id1' AS id", 1);
         assertUpdate("CREATE TABLE test_join_t2 AS SELECT 'name1' AS name, 'id1' AS id", 1);
@@ -176,7 +170,6 @@ public class TestIcebergMetadataFileOperations
 
     @Test
     public void testJoinWithPartitionedTable()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_join_partitioned_t1 (a BIGINT, b TIMESTAMP(6) with time zone) WITH (partitioning = ARRAY['a', 'day(b)'])");
         assertUpdate("CREATE TABLE test_join_partitioned_t2 (foo BIGINT)");
@@ -195,7 +188,6 @@ public class TestIcebergMetadataFileOperations
 
     @Test
     public void testExplainSelect()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_explain AS SELECT 2 AS age", 1);
 
@@ -211,7 +203,6 @@ public class TestIcebergMetadataFileOperations
 
     @Test
     public void testShowStatsForTable()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_show_stats AS SELECT 2 AS age", 1);
 
@@ -227,7 +218,6 @@ public class TestIcebergMetadataFileOperations
 
     @Test
     public void testShowStatsForPartitionedTable()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_show_stats_partitioned " +
                 "WITH (partitioning = ARRAY['regionkey']) " +
@@ -245,7 +235,6 @@ public class TestIcebergMetadataFileOperations
 
     @Test
     public void testShowStatsForTableWithFilter()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_show_stats_with_filter AS SELECT 2 AS age", 1);
 
@@ -260,24 +249,20 @@ public class TestIcebergMetadataFileOperations
     }
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<Object> expectedAccesses)
-            throws Exception
     {
         resetCounts();
         getDistributedQueryRunner().executeWithQueryId(TEST_SESSION, query);
         assertThat(ImmutableMultiset.<Object>copyOf(getOperations())).containsExactlyInAnyOrderElementsOf(expectedAccesses);
     }
 
-    private static void resetCounts()
-            throws Exception
+    private void resetCounts()
     {
-        BEAN_SERVER.invoke(new ObjectName(BEAN_NAME), "reset", null, null);
+        trackingFileIoProvider.reset();
     }
 
-    @SuppressWarnings("unchecked")
-    private static Multiset<FileOperation> getOperations()
-            throws Exception
+    private Multiset<FileOperation> getOperations()
     {
-        return ((Map<OperationContext, Integer>) BEAN_SERVER.getAttribute(new ObjectName(BEAN_NAME), "OperationCounts"))
+        return trackingFileIoProvider.getOperationCounts()
                 .entrySet().stream()
                 .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(entry.getKey())).stream())
                 .collect(toCollection(HashMultiset::create));

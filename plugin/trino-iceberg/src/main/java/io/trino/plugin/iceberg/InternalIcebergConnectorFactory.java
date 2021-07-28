@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.Module;
 import com.google.inject.util.Types;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
@@ -36,7 +37,6 @@ import io.trino.plugin.hive.azure.HiveAzureModule;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.s3.HiveS3Module;
-import io.trino.plugin.iceberg.testing.TrackingFileIoModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -65,7 +65,7 @@ public final class InternalIcebergConnectorFactory
             Map<String, String> config,
             ConnectorContext context,
             Optional<HiveMetastore> metastore,
-            boolean trackMetadataIo)
+            Optional<FileIoProvider> fileIoProvider)
     {
         ClassLoader classLoader = InternalIcebergConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -82,9 +82,9 @@ public final class InternalIcebergConnectorFactory
                     new HiveAzureModule(),
                     new HdfsAuthenticationModule(),
                     new MBeanServerModule(),
-                    trackMetadataIo
-                            ? new TrackingFileIoModule()
-                            : binder -> binder.bind(FileIoProvider.class).to(HdfsFileIoProvider.class).in(SINGLETON),
+                    fileIoProvider
+                            .<Module>map(provider -> binder -> binder.bind(FileIoProvider.class).toInstance(provider))
+                            .orElse(binder -> binder.bind(FileIoProvider.class).to(HdfsFileIoProvider.class).in(SINGLETON)),
                     binder -> {
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
