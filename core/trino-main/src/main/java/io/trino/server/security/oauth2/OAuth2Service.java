@@ -27,7 +27,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.impl.DefaultClaims;
-import io.trino.server.security.oauth2.OAuth2Client.AccessToken;
+import io.trino.server.security.oauth2.OAuth2Client.OAuth2Response;
 import io.trino.server.ui.OAuth2WebUiInstalled;
 import io.trino.server.ui.OAuthWebUiCookie;
 
@@ -215,7 +215,7 @@ public class OAuth2Service
         // Note: the Web UI may be disabled, so REST requests can not redirect to a success or error page inside of the Web UI
         try {
             // fetch access token
-            AccessToken oauth2Response = client.getAccessToken(code, callbackUri);
+            OAuth2Response oauth2Response = client.getOAuth2Response(code, callbackUri);
             Claims parsedToken = validateAndParseOAuth2Response(oauth2Response, nonce).orElseThrow(() -> new ChallengeFailedException("invalid access token"));
 
             // determine expiration
@@ -280,7 +280,7 @@ public class OAuth2Service
         }
     }
 
-    private Optional<Claims> validateAndParseOAuth2Response(AccessToken oauth2Response, Optional<String> nonce)
+    private Optional<Claims> validateAndParseOAuth2Response(OAuth2Response oauth2Response, Optional<String> nonce)
             throws ChallengeFailedException
     {
         validateIdTokenAndNonce(oauth2Response, nonce);
@@ -288,7 +288,7 @@ public class OAuth2Service
         return internalConvertTokenToClaims(oauth2Response.getAccessToken());
     }
 
-    private void validateIdTokenAndNonce(AccessToken oauth2Response, Optional<String> nonce)
+    private void validateIdTokenAndNonce(OAuth2Response oauth2Response, Optional<String> nonce)
             throws ChallengeFailedException
     {
         if (nonce.isPresent() && oauth2Response.getIdToken().isPresent()) {

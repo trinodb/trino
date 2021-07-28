@@ -59,13 +59,13 @@ public class ScribeJavaOAuth2Client
     }
 
     @Override
-    public AccessToken getAccessToken(String code, URI callbackUri)
+    public OAuth2Response getOAuth2Response(String code, URI callbackUri)
             throws ChallengeFailedException
     {
         OpenIdOAuth2AccessToken accessToken = (OpenIdOAuth2AccessToken) service.getAccessToken(code, callbackUri.toString());
         Optional<Instant> validUntil = Optional.ofNullable(accessToken.getExpiresIn()).map(expiresSeconds -> Instant.now().plusSeconds(expiresSeconds));
         Optional<String> idToken = Optional.ofNullable(accessToken.getOpenIdToken());
-        return new AccessToken(accessToken.getAccessToken(), validUntil, idToken);
+        return new OAuth2Response(accessToken.getAccessToken(), validUntil, idToken);
     }
 
     // Callback URI must be relative to client's view of the server.
