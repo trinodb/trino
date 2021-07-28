@@ -37,6 +37,12 @@ import java.io.File;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.CREATE_TABLE;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.GET_DATABASE;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.GET_TABLE;
+import static io.trino.plugin.iceberg.TableType.DATA;
+import static io.trino.plugin.iceberg.TableType.FILES;
+import static io.trino.plugin.iceberg.TableType.HISTORY;
+import static io.trino.plugin.iceberg.TableType.MANIFESTS;
+import static io.trino.plugin.iceberg.TableType.PARTITIONS;
+import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -163,6 +169,46 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.builder()
                         .addCopies(GET_TABLE, 4)
                         .build());
+    }
+
+    @Test
+    public void testSelectSystemTable()
+    {
+        assertUpdate("CREATE TABLE test_select_snapshots AS SELECT 2 AS age", 1);
+
+        // select from $history
+        assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$history\"",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 17)
+                        .build());
+
+        // select from $snapshots
+        assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$snapshots\"",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 19)
+                        .build());
+
+        // select from $manifests
+        assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$manifests\"",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 21)
+                        .build());
+
+        // select from $partitions
+        assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$partitions\"",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 17)
+                        .build());
+
+        // select from $files
+        assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$files\"",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 24)
+                        .build());
+
+        // This test should get updated if a new system table is added.
+        assertThat(TableType.values())
+                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES);
     }
 
     private void assertMetastoreInvocations(String query, Multiset expectedInvocations)
