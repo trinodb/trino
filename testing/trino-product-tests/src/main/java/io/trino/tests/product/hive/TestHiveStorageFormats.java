@@ -70,6 +70,7 @@ public class TestHiveStorageFormats
         extends ProductTest
 {
     private static final String TPCH_SCHEMA = "tiny";
+    private static final String OPTIMIZED_PARQUET_WRITER_PROPERTY = "hive.experimental_parquet_optimized_writer_enabled";
 
     @Inject(optional = true)
     @Named("databases.presto.admin_role_enabled")
@@ -215,6 +216,7 @@ public class TestHiveStorageFormats
         return new StorageFormat[] {
                 storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")),
                 storageFormat("PARQUET"),
+                storageFormat("PARQUET", ImmutableMap.of(OPTIMIZED_PARQUET_WRITER_PROPERTY, "true")),
                 storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
                 storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
                 storageFormat("SEQUENCEFILE"),
@@ -237,10 +239,22 @@ public class TestHiveStorageFormats
     @DataProvider
     public static Iterator<StorageFormat> storageFormatsWithNanosecondPrecision()
     {
+        // everything but Parquet (using the optimized writer) and Avro supports nanoseconds
         return Stream.of(storageFormats())
-                // everything but Avro supports nanoseconds
-                .filter(format -> !"AVRO".equals(format.getName()))
+                .filter(format -> !format.getName().equals("AVRO"))
+                // TODO test optimized parquet writer against timestamp types https://github.com/trinodb/trino/issues/8715
+                .filter(TestHiveStorageFormats::isOptimizedParquetWriterDisabled)
                 .iterator();
+    }
+
+    private static boolean isOptimizedParquetWriterDisabled(StorageFormat format)
+    {
+        boolean isNonParquetFormat = !format.getName().equals("PARQUET");
+        boolean isOptimizedParquetWriterDisabled =
+                !format.getSessionProperties().containsKey(OPTIMIZED_PARQUET_WRITER_PROPERTY) ||
+                        format.getSessionProperties().get(OPTIMIZED_PARQUET_WRITER_PROPERTY).equals("false");
+
+        return isNonParquetFormat || isOptimizedParquetWriterDisabled;
     }
 
     @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
