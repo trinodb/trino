@@ -267,7 +267,6 @@ public class TestingTrinoServer
         environment.ifPresent(env -> optionalProperties.put("node.environment", env));
 
         injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(serverProperties.build())
                 .setOptionalConfigurationProperties(optionalProperties)
