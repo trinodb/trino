@@ -17,7 +17,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
@@ -111,16 +110,6 @@ public class TestDistributedSnowflakeConnectorTest
         // TODO https://starburstdata.atlassian.net/browse/SEP-4739
         assertThatThrownBy(super::testNumericAggregationPushdown)
                 .hasMessageContaining("Error encountered when unloading FIXED data to PARQUET: SFLogicalType: FIXED, SFPhysicalType: SB8, length: 4, precision: 9, scale: 3");
-    }
-
-    @Override
-    @Test
-    public void testDropNonEmptySchema()
-    {
-        assertThatThrownBy(super::testDropNonEmptySchema)
-                .isInstanceOf(AssertionError.class)
-                .hasMessageStartingWith("Expected query to fail: DROP SCHEMA ");
-        throw new SkipException("DROP SCHEMA erases all tables in Snowflake connector"); // TODO (https://github.com/trinodb/trino/issues/8634)
     }
 
     private Session fixedBroadcastJoinDistribution(boolean dynamicFilteringEnabled)
