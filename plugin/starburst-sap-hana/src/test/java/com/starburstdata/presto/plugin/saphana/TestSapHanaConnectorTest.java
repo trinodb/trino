@@ -26,7 +26,6 @@ import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -312,19 +311,6 @@ public class TestSapHanaConnectorTest
                         "   fiscal_period varchar(3),\n" +
                         "   current_year_adjustment varchar(2)\n" +
                         ")");
-    }
-
-    // TODO: Remove once https://github.com/trinodb/trino/pull/8660 is moved to SEP
-    @Override
-    public void testDropNonEmptySchema()
-    {
-        String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
-        assertUpdate("CREATE TABLE " + schemaName + ".t(x int)");
-        assertQueryFails("DROP SCHEMA " + schemaName,
-                format("SAP DBTech JDBC: \\[417\\] \\(at 12\\): can't drop without CASCADE specification: %s: line 1 col 13 \\(at pos 12\\)", schemaName.toUpperCase(ENGLISH)));
-        assertUpdate("DROP TABLE " + schemaName + ".t");
-        assertUpdate("DROP SCHEMA " + schemaName);
     }
 
     @Override
