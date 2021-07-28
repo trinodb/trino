@@ -13,14 +13,11 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.spi.TrinoException;
-
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -73,7 +70,7 @@ public class IcebergTableName
     {
         Matcher match = TABLE_PATTERN.matcher(name);
         if (!match.matches()) {
-            throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name: " + name);
+            throw new InvalidIcebergTableName("Invalid Iceberg table name: " + name);
         }
 
         String table = match.group("table");
@@ -87,14 +84,14 @@ public class IcebergTableName
                 type = TableType.valueOf(typeString.toUpperCase(Locale.ROOT));
             }
             catch (IllegalArgumentException e) {
-                throw new TrinoException(NOT_SUPPORTED, format("Invalid Iceberg table name (unknown type '%s'): %s", typeString, name));
+                throw new InvalidIcebergTableName(format("Invalid Iceberg table name (unknown type '%s'): %s", typeString, name));
             }
         }
 
         Optional<Long> version = Optional.empty();
         if (type == TableType.DATA || type == TableType.PARTITIONS || type == TableType.MANIFESTS || type == TableType.FILES) {
             if (ver1 != null && ver2 != null) {
-                throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name (cannot specify two @ versions): " + name);
+                throw new InvalidIcebergTableName("Invalid Iceberg table name (cannot specify two @ versions): " + name);
             }
             if (ver1 != null) {
                 version = Optional.of(parseLong(ver1));
@@ -104,7 +101,7 @@ public class IcebergTableName
             }
         }
         else if (ver1 != null || ver2 != null) {
-            throw new TrinoException(NOT_SUPPORTED, format("Invalid Iceberg table name (cannot use @ version with table type '%s'): %s", type, name));
+            throw new InvalidIcebergTableName(format("Invalid Iceberg table name (cannot use @ version with table type '%s'): %s", type, name));
         }
 
         return new IcebergTableName(table, type, version);

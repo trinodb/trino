@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HiveWrittenPartitions;
@@ -110,6 +111,8 @@ import static java.util.stream.Collectors.joining;
 public class IcebergMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(IcebergMetadata.class);
+
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalog catalog;
@@ -149,7 +152,14 @@ public class IcebergMetadata
     @Override
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
+        IcebergTableName name;
+        try {
+            name = IcebergTableName.from(tableName.getTableName());
+        }
+        catch (InvalidIcebergTableName e) {
+            log.debug(e, "Invalid table name when looking for a table");
+            return null;
+        }
         if (name.getTableType() != DATA) {
             // If we get here for a system table, it means it does not exist (e.g. its base table does not exist).
             return null;
@@ -182,7 +192,14 @@ public class IcebergMetadata
 
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
+        IcebergTableName name;
+        try {
+            name = IcebergTableName.from(tableName.getTableName());
+        }
+        catch (InvalidIcebergTableName e) {
+            log.debug(e, "Invalid table name when looking for system table");
+            return Optional.empty();
+        }
         if (name.getTableType() == DATA) {
             return Optional.empty();
         }

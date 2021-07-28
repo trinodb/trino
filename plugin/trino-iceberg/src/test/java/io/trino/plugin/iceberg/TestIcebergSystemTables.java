@@ -189,32 +189,17 @@ public class TestIcebergSystemTables
         // Verify the base table exists
         assertQuerySucceeds("SELECT * FROM test_schema.test_table");
 
-        // TODO (https://github.com/trinodb/trino/issues/8690) should be "table not found"
-        assertQueryFails("SELECT * FROM test_schema.\"test_table$blah\"", "\\QInvalid Iceberg table name (unknown type 'blah'): test_table$blah");
-        // TODO (https://github.com/trinodb/trino/issues/8690) should be "table not found"
-        assertQueryFails("DESCRIBE test_schema.\"test_table$blah\"", "\\QInvalid Iceberg table name (unknown type 'blah'): test_table$blah");
-        // TODO (https://github.com/trinodb/trino/issues/8690) should be "table not found"
-        assertQueryFails("SHOW STATS FOR test_schema.\"test_table$blah\"", "\\QInvalid Iceberg table name (unknown type 'blah'): test_table$blah");
+        assertQueryFails("SELECT * FROM test_schema.\"test_table$blah\"", "\\Qline 1:15: Table 'iceberg.test_schema.test_table$blah' does not exist");
+        assertQueryFails("DESCRIBE test_schema.\"test_table$blah\"", "\\Qline 1:1: Table 'iceberg.test_schema.test_table$blah' does not exist");
+        assertQueryFails("SHOW STATS FOR test_schema.\"test_table$blah\"", "\\QTable 'iceberg.test_schema.test_table$blah' does not exist");
 
-        // TODO (https://github.com/trinodb/trino/issues/8690) should return empty results (assertQueryReturnsEmptyResult)
-        assertQueryFails(
-                "SELECT * FROM information_schema.tables WHERE table_schema = 'test_schema' AND table_name  = 'test_table$blah'",
-                "\\QInvalid Iceberg table name (unknown type 'blah'): test_table$blah");
-        // TODO (https://github.com/trinodb/trino/issues/8690) should return empty results (assertQueryReturnsEmptyResult)
-        assertQueryFails(
-                "SELECT * FROM information_schema.columns WHERE table_schema = 'test_schema' AND table_name  = 'test_table$blah'",
-                "\\QInvalid Iceberg table name (unknown type 'blah'): test_table$blah");
+        assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test_schema' AND table_name  = 'test_table$blah'");
+        assertQueryReturnsEmptyResult("SELECT * FROM information_schema.columns WHERE table_schema = 'test_schema' AND table_name  = 'test_table$blah'");
         assertQueryReturnsEmptyResult("SELECT * FROM information_schema.views WHERE table_schema = 'test_schema' AND table_name  = 'test_table$blah'");
 
         assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.table_comments WHERE catalog_name = '" + catalog + "' AND schema_name = 'test_schema' AND table_name  = 'test_table$blah'");
 
-        // TODO (https://github.com/trinodb/trino/issues/8690) should return empty results (assertQueryReturnsEmptyResult)
-        assertQueryFails(
-                "SELECT * FROM system.jdbc.tables WHERE table_cat = '" + catalog + "' AND table_schem = 'test_schema' AND table_name  = 'test_table$blah'",
-                "\\QInvalid Iceberg table name (unknown type 'blah'): test_table$blah");
-        // TODO (https://github.com/trinodb/trino/issues/8690) should return empty results (assertQueryReturnsEmptyResult)
-        assertQueryFails(
-                "SELECT * FROM system.jdbc.columns WHERE table_cat = '" + catalog + "' AND table_schem = 'test_schema' AND table_name  = 'test_table$blah'",
-                "\\QInvalid Iceberg table name (unknown type 'blah'): test_table$blah");
+        assertQueryReturnsEmptyResult("SELECT * FROM system.jdbc.tables WHERE table_cat = '" + catalog + "' AND table_schem = 'test_schema' AND table_name  = 'test_table$blah'");
+        assertQueryReturnsEmptyResult("SELECT * FROM system.jdbc.columns WHERE table_cat = '" + catalog + "' AND table_schem = 'test_schema' AND table_name  = 'test_table$blah'");
     }
 }

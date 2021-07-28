@@ -17,8 +17,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergTableName
@@ -46,8 +45,8 @@ public class TestIcebergTableName
 
     private static void assertInvalid(String inputName, String message)
     {
-        assertTrinoExceptionThrownBy(() -> IcebergTableName.from(inputName))
-                .hasErrorCode(NOT_SUPPORTED)
+        assertThatThrownBy(() -> IcebergTableName.from(inputName))
+                .isInstanceOf(InvalidIcebergTableName.class)
                 .hasMessage(message);
     }
 
