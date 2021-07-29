@@ -40,7 +40,7 @@ public class JdbcPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new JdbcConnectorFactory(
+        return ImmutableList.of(new JdbcExtendedClassloaderConnectorFactory(
                 name,
                 combine(
                         new CredentialProviderModule(),

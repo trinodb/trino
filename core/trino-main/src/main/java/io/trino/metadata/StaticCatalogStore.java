@@ -14,7 +14,6 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
@@ -85,7 +84,7 @@ public class StaticCatalogStore
         String connectorName = properties.remove("connector.name");
         checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
 
-        connectorManager.createCatalog(catalogName, connectorName, ImmutableMap.copyOf(properties));
+        connectorManager.createCatalog(catalogName, connectorName, properties);
         log.info("-- Added catalog %s using connector %s --", catalogName, connectorName);
     }
 
