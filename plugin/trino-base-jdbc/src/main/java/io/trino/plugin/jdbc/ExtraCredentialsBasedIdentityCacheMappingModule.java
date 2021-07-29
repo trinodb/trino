@@ -17,7 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-public class ExtraCredentialsBasedJdbcIdentityCacheMappingModule
+public class ExtraCredentialsBasedIdentityCacheMappingModule
         implements Module
 {
     @Override
