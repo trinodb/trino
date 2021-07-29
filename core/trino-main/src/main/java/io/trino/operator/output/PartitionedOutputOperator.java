@@ -185,7 +185,7 @@ public class PartitionedOutputOperator
 
     private final OperatorContext operatorContext;
     private final Function<Page, Page> pagePreprocessor;
-    private final PagePartitioner partitionFunction;
+    private final DefaultPagePartitioner partitionFunction;
     private final LocalMemoryContext systemMemoryContext;
     private final long partitionsInitialRetainedSize;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
@@ -206,7 +206,7 @@ public class PartitionedOutputOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        this.partitionFunction = new PagePartitioner(
+        this.partitionFunction = new DefaultPagePartitioner(
                 partitionFunction,
                 partitionChannels,
                 partitionConstants,
