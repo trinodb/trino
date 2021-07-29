@@ -40,7 +40,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -159,15 +158,6 @@ public class TestMemSqlConnectorTest
     {
         // MemSQL's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
         throw new SkipException("MemSQL doesn't support utf8mb4");
-    }
-
-    @Override
-    public void testDropNonEmptySchema()
-    {
-        assertThatThrownBy(super::testDropNonEmptySchema)
-                .isInstanceOf(AssertionError.class)
-                .hasMessageStartingWith("Expected query to fail: DROP SCHEMA ");
-        throw new SkipException("DROP SCHEMA erases all tables in MemSQL connector"); // TODO (https://github.com/trinodb/trino/issues/8634)
     }
 
     @Test

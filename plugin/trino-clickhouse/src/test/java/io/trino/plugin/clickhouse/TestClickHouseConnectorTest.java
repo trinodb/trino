@@ -33,7 +33,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -79,15 +78,6 @@ public class TestClickHouseConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
-    }
-
-    @Override
-    public void testDropNonEmptySchema()
-    {
-        assertThatThrownBy(super::testDropNonEmptySchema)
-                .isInstanceOf(AssertionError.class)
-                .hasMessageStartingWith("Expected query to fail: DROP SCHEMA ");
-        throw new SkipException("DROP SCHEMA erases all tables in ClickHouse connector"); // TODO (https://github.com/trinodb/trino/issues/8634)
     }
 
     @Override

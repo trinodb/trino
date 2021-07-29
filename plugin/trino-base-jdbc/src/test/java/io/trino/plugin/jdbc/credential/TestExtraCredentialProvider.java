@@ -94,7 +94,6 @@ public class TestExtraCredentialProvider
     private static CredentialProvider getCredentialProvider(Map<String, String> properties)
     {
         return new Bootstrap(new CredentialProviderModule())
-                .strictConfig()
                 .doNotInitializeLogging()
                 .quiet()
                 .setRequiredConfigurationProperties(properties)

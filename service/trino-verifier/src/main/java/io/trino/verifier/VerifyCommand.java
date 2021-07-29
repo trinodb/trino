@@ -128,7 +128,7 @@ public class VerifyCommand
         Bootstrap app = new Bootstrap(builder.build());
         Injector injector;
         try {
-            injector = app.strictConfig().initialize();
+            injector = app.initialize();
         }
         catch (Exception e) {
             throwIfUnchecked(e);

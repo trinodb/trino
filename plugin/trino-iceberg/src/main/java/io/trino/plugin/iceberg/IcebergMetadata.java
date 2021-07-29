@@ -334,6 +334,9 @@ public class IcebergMetadata
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
+        if (name.getTableType() == DATA) {
+            return Optional.empty();
+        }
 
         org.apache.iceberg.Table table;
         if (useMetastore(session)) {
@@ -354,6 +357,7 @@ public class IcebergMetadata
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
         switch (name.getTableType()) {
             case DATA:
+                // Handled above.
                 break;
             case HISTORY:
                 if (name.getSnapshotId().isPresent()) {
@@ -847,6 +851,9 @@ public class IcebergMetadata
         icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
     }
 
+    /**
+     * @throws TableNotFoundException when table cannot be found
+     */
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
     {
         if (useMetastore(session)) {
@@ -860,6 +867,7 @@ public class IcebergMetadata
             }
         }
 
+        // getIcebergTable throws TableNotFoundException when table not found
         org.apache.iceberg.Table icebergTable = getIcebergTable(session, table);
 
         List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
