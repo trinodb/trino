@@ -49,7 +49,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class PagePartitioner
+public class DefaultPagePartitioner
 {
     private final OutputBuffer outputBuffer;
     private final Type[] sourceTypes;
@@ -66,7 +66,7 @@ public class PagePartitioner
     private boolean hasAnyRowBeenReplicated;
     private final OperatorContext operatorContext;
 
-    public PagePartitioner(
+    public DefaultPagePartitioner(
             PartitionFunction partitionFunction,
             List<Integer> partitionChannels,
             List<Optional<NullableValue>> partitionConstants,
