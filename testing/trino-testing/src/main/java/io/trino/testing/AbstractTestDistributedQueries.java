@@ -1217,7 +1217,7 @@ public abstract class AbstractTestDistributedQueries
         return false;
     }
 
-    private static boolean requiresDelimiting(String identifierName)
+    protected static boolean requiresDelimiting(String identifierName)
     {
         return !identifierName.matches("[a-zA-Z][a-zA-Z0-9_]*");
     }
