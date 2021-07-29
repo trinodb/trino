@@ -324,8 +324,17 @@ Additionally, the following options need to be configured appropriately:
 Property Name                                    Description
 ================================================ ==================================================================
 ``elasticsearch.aws.region``                     AWS region or the Elasticsearch endpoint. This option is required.
+
 ``elasticsearch.aws.access-key``                 AWS access key to use to connect to the Elasticsearch domain.
+                                                 If not set, the Default AWS Credentials Provider chain will be used.
+
 ``elasticsearch.aws.secret-key``                 AWS secret key to use to connect to the Elasticsearch domain.
+                                                 If not set, the Default AWS Credentials Provider chain will be used.
+
+``elasticsearch.aws.iam-role``                   Optional ARN of an IAM Role to assume to connect to the Elasticsearch domain.
+                                                 Note: the configured IAM user has to be able to assume this role.
+
+``elasticsearch.aws.external-id``                Optional external ID to pass while assuming an AWS IAM Role.
 ================================================ ==================================================================
 
 Password authentication
