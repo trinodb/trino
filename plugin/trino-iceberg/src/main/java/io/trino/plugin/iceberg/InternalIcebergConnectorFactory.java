@@ -35,7 +35,6 @@ import io.trino.plugin.hive.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreModule;
 import io.trino.plugin.hive.s3.HiveS3Module;
 import io.trino.plugin.iceberg.testing.TrackingFileIoModule;
 import io.trino.spi.NodeManager;
@@ -76,13 +75,12 @@ public final class InternalIcebergConnectorFactory
                     new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.iceberg", "trino.plugin.iceberg"),
                     new JsonModule(),
                     new IcebergModule(),
-                    new IcebergMetastoreModule(),
+                    new IcebergMetastoreModule(metastore),
                     new HiveHdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
                     new HdfsAuthenticationModule(),
-                    new HiveMetastoreModule(metastore),
                     new MBeanServerModule(),
                     trackMetadataIo
                             ? new TrackingFileIoModule()
