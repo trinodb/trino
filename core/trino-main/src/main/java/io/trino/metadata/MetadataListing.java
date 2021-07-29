@@ -98,6 +98,10 @@ public final class MetadataListing
         Set<SchemaTableName> tableNames = metadata.listTables(session, prefix).stream()
                 .map(QualifiedObjectName::asSchemaTableName)
                 .collect(toImmutableSet());
+
+        // Table listing operation only involves getting table names, but not any metadata. So redirected tables are not
+        // handled any differently. The target table or catalog are not involved. Thus the following filter is only called
+        // for the source catalog on source table names.
         return accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), tableNames);
     }
 
@@ -185,7 +189,8 @@ public final class MetadataListing
                 boolean redirectionSucceeded = false;
 
                 try {
-                    // Handle redirection before filterColumns check
+                    // For redirected tables, column listing requires special handling, because the column metadata is unavailable
+                    // at the source table, and needs to be fetched from the target table.
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
                     targetTableName = redirection.getRedirectedTableName();
 
@@ -213,7 +218,7 @@ public final class MetadataListing
 
             Set<String> allowedColumns = accessControl.filterColumns(
                     session.toSecurityContext(),
-                    // Use redirected table name for applying column filters
+                    // Use redirected table name for applying column filters, since the source does not know the column metadata
                     targetTableName.orElse(originalTableName).asCatalogSchemaTableName(),
                     columns.stream()
                             .map(ColumnMetadata::getName)
