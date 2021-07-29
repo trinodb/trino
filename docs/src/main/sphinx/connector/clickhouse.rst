@@ -146,3 +146,5 @@ statements, the connector supports the following features:
 * :doc:`/sql/drop-table`
 * :doc:`/sql/create-schema`
 * :doc:`/sql/drop-schema`
+
+.. include:: jdbc-batch-size.fragment

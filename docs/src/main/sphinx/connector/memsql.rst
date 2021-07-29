@@ -104,3 +104,5 @@ statements, the connector supports the following features:
 * :doc:`/sql/drop-schema`
 
 .. include:: sql-delete-limitation.fragment
+
+.. include:: jdbc-batch-size.fragment

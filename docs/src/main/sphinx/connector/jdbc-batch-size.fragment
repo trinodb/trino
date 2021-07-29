@@ -1,0 +1,20 @@
+Manage write batch size
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector supports manual control of the JDBC batch size used during write
+operations, which can be increased or decreased to improve performance. Set the
+batch size with the following connection property, where ``<size>`` is the
+maximum number of rows to write in a single batch:
+
+.. code-block:: none
+
+    write.batch-size=<size>
+
+You can also control the write batch size for a single session with the
+``write_batch_size`` session property.
+
+.. caution::
+
+    Only set this property if it's explicitly needed. Setting this property can
+    dramatically impact performance and memory usage on the target database,
+    because Trino can use multiple workers to write data at once.

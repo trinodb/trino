@@ -183,3 +183,5 @@ SQL support
 -----------
 
 .. include:: sql-delete-limitation.fragment
+
+.. include:: jdbc-batch-size.fragment

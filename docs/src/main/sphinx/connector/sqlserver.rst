@@ -128,6 +128,8 @@ supports the following features:
 
 .. include:: sql-delete-limitation.fragment
 
+.. include:: jdbc-batch-size.fragment
+
 .. _sqlserver-pushdown:
 
 Pushdown

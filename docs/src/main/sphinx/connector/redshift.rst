@@ -97,3 +97,5 @@ statements, the connector supports the following features:
 * :doc:`/sql/comment`
 
 .. include:: sql-delete-limitation.fragment
+
+.. include:: jdbc-batch-size.fragment

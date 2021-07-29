@@ -388,3 +388,5 @@ supports the following statements:
 * :doc:`/sql/comment`
 
 .. include:: sql-delete-limitation.fragment
+
+.. include:: jdbc-batch-size.fragment
