@@ -64,8 +64,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 
-public class TestPhoenixTypeMapping
-        extends AbstractTestQueryFramework
+public class TestPhoenixTypeMapping extends AbstractTestQueryFramework
 {
     private TestingPhoenixServer phoenixServer;
 
