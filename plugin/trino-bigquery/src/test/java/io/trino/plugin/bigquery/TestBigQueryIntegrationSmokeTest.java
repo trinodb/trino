@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -34,13 +35,18 @@ public class TestBigQueryIntegrationSmokeTest
         // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private BigQuerySqlExecutor bigQuerySqlExecutor;
+    protected BigQuerySqlExecutor bigQuerySqlExecutor;
+
+    @BeforeClass
+    public void initBigQueryExecutor()
+    {
+        this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of());

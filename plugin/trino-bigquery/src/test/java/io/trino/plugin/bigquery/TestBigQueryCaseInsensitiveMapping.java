@@ -19,6 +19,7 @@ import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.stream.Stream;
@@ -37,13 +38,18 @@ public class TestBigQueryCaseInsensitiveMapping
         // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
         extends AbstractTestQueryFramework
 {
-    private BigQuerySqlExecutor bigQuerySqlExecutor;
+    protected BigQuerySqlExecutor bigQuerySqlExecutor;
+
+    @BeforeClass
+    public void initBigQueryExecutor()
+    {
+        this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of("bigquery.case-insensitive-name-matching", "true"));
