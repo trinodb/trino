@@ -38,7 +38,7 @@ public class TestMetrics
                 "b", new LongCount(3),
                 "c", new LongCount(4)));
         Metrics merged = merge(m1, m2);
-        Map<String, Metric> expectedMap = ImmutableMap.of(
+        Map<String, Metric<?>> expectedMap = ImmutableMap.of(
                 "a", new LongCount(1),
                 "b", new LongCount(5),
                 "c", new LongCount(4));

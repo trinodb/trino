@@ -23,7 +23,6 @@ import io.trino.operator.OperatorStats;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Count;
-import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
@@ -40,7 +39,6 @@ import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
@@ -152,22 +150,22 @@ public class TestMemoryConnectorTest
     @Test
     public void testCustomMetricsScanFilter()
     {
-        Map<String, Metric> metrics = collectCustomMetrics("SELECT partkey FROM part WHERE partkey % 1000 > 0");
-        assertThat(metrics.get("rows")).isEqualTo(new LongCount(PART_COUNT));
-        assertThat(metrics.get("started")).isEqualTo(metrics.get("finished"));
-        assertThat(((Count) metrics.get("finished")).getTotal()).isGreaterThan(0);
+        Metrics metrics = collectCustomMetrics("SELECT partkey FROM part WHERE partkey % 1000 > 0");
+        assertThat(metrics.getMetrics().get("rows")).isEqualTo(new LongCount(PART_COUNT));
+        assertThat(metrics.getMetrics().get("started")).isEqualTo(metrics.getMetrics().get("finished"));
+        assertThat(((Count) metrics.getMetrics().get("finished")).getTotal()).isGreaterThan(0);
     }
 
     @Test
     public void testCustomMetricsScanOnly()
     {
-        Map<String, Metric> metrics = collectCustomMetrics("SELECT partkey FROM part");
-        assertThat(metrics.get("rows")).isEqualTo(new LongCount(PART_COUNT));
-        assertThat(metrics.get("started")).isEqualTo(metrics.get("finished"));
-        assertThat(((Count) metrics.get("finished")).getTotal()).isGreaterThan(0);
+        Metrics metrics = collectCustomMetrics("SELECT partkey FROM part");
+        assertThat(metrics.getMetrics().get("rows")).isEqualTo(new LongCount(PART_COUNT));
+        assertThat(metrics.getMetrics().get("started")).isEqualTo(metrics.getMetrics().get("finished"));
+        assertThat(((Count) metrics.getMetrics().get("finished")).getTotal()).isGreaterThan(0);
     }
 
-    private Map<String, Metric> collectCustomMetrics(String sql)
+    private Metrics collectCustomMetrics(String sql)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(getSession(), sql);
@@ -179,8 +177,7 @@ public class TestMemoryConnectorTest
                 .getOperatorSummaries()
                 .stream()
                 .map(OperatorStats::getMetrics)
-                .reduce(Metrics.EMPTY, Metrics::mergeWith)
-                .getMetrics();
+                .reduce(Metrics.EMPTY, Metrics::mergeWith);
     }
 
     @Test(timeOut = 30_000)
