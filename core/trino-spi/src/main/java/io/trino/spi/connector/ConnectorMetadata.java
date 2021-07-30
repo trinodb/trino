@@ -207,7 +207,7 @@ public interface ConnectorMetadata
     }
 
     /**
-     * List table and view names, possibly filtered by schema. An empty list is returned if none match.
+     * List table, view and materialized view names, possibly filtered by schema. An empty list is returned if none match.
      */
     default List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
