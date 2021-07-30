@@ -28,6 +28,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.BaseTable;
@@ -59,6 +60,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -89,6 +91,7 @@ import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
@@ -280,6 +283,9 @@ final class IcebergUtil
             }
             if (type.equals(VarbinaryType.VARBINARY)) {
                 return utf8Slice(valueString);
+            }
+            if (type.equals(UuidType.UUID)) {
+                return javaUuidToTrinoUuid(UUID.fromString(valueString));
             }
             if (isShortDecimal(type) || isLongDecimal(type)) {
                 DecimalType decimalType = (DecimalType) type;

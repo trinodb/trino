@@ -36,6 +36,7 @@ import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
@@ -70,6 +71,7 @@ import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -375,6 +377,9 @@ public class IcebergPageSink
         }
         if (type instanceof VarcharType) {
             return type.getSlice(block, position).toStringUtf8();
+        }
+        if (type instanceof UuidType) {
+            return trinoUuidToJavaUuid(type.getSlice(block, position));
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
     }
