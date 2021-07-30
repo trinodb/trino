@@ -100,6 +100,7 @@ public final class PartitionFields
             case "month":
             case "day":
             case "hour":
+            case "void":
                 return format("%s(%s)", transform, name);
         }
 
