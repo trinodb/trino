@@ -73,6 +73,7 @@ import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
@@ -87,6 +88,7 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Update;
+import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
 import io.trino.type.TypeCoercion;
@@ -1016,6 +1018,8 @@ class QueryPlanner
             }
 
             if (window.getFrame().isPresent() && window.getFrame().get().getPattern().isPresent()) {
+                WindowFrame frame = window.getFrame().get();
+                subPlan = subqueryPlanner.handleSubqueries(subPlan, extractPatternRecognitionExpressions(frame.getVariableDefinitions(), frame.getMeasures()), analysis.getSubqueries(node));
                 subPlan = planPatternRecognition(subPlan, windowFunction, window, coercions, frameEnd);
             }
             else {
@@ -1413,7 +1417,8 @@ class QueryPlanner
                     .addAll(getSortItemsFromOrderBy(window.getOrderBy()).stream()
                             .map(SortItem::getSortKey)
                             .iterator());
-            Optional<Expression> endValue = window.getFrame().get().getEnd().get().getValue();
+            WindowFrame frame = window.getFrame().get();
+            Optional<Expression> endValue = frame.getEnd().get().getValue();
             endValue.ifPresent(inputsBuilder::add);
 
             List<Expression> inputs = inputsBuilder.build();
@@ -1426,10 +1431,26 @@ class QueryPlanner
             subPlan = plan.getSubPlan();
             Optional<Symbol> frameEnd = plan.getFrameOffsetSymbol();
 
+            subPlan = subqueryPlanner.handleSubqueries(subPlan, extractPatternRecognitionExpressions(frame.getVariableDefinitions(), frame.getMeasures()), analysis.getSubqueries(node));
             subPlan = planPatternRecognition(subPlan, windowMeasure, window, frameEnd);
         }
 
         return subPlan;
+    }
+
+    private static List<Expression> extractPatternRecognitionExpressions(List<VariableDefinition> variableDefinitions, List<MeasureDefinition> measureDefinitions)
+    {
+        ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
+
+        variableDefinitions.stream()
+                .map(VariableDefinition::getExpression)
+                .forEach(expressions::add);
+
+        measureDefinitions.stream()
+                .map(MeasureDefinition::getExpression)
+                .forEach(expressions::add);
+
+        return expressions.build();
     }
 
     private PlanBuilder planPatternRecognition(
