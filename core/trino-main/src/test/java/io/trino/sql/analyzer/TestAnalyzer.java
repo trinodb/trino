@@ -4470,6 +4470,25 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testLambdaInPatternRecognition()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (ARRAY[1]), (ARRAY[2])) Ticker(Value) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS %s " +
+                "                ) AS M";
+
+        assertFails(format(query, "transform(A.Value, x -> x + 100)", "true"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:161: Lambda expression in pattern recognition context is not yet supported");
+        assertFails(format(query, "true", "transform(A.Value, x -> x + 100) = ARRAY[50]"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:242: Lambda expression in pattern recognition context is not yet supported");
+    }
+
+    @Test
     public void testRowPatternRecognitionFunctions()
     {
         String query = "SELECT M.Measure " +
