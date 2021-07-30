@@ -68,9 +68,6 @@ public class IcebergSplitManager
                                 // (See AbstractTestIcebergSmoke#testLargeInFailureOnPartitionedColumns)
                                 .intersect(table.getUnenforcedPredicate().simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD))))
                 .useSnapshot(table.getSnapshotId().get());
-
-        // TODO Use residual. Right now there is no way to propagate residual to Trino but at least we can
-        //      propagate it at split level so the parquet pushdown can leverage it.
         IcebergSplitSource splitSource = new IcebergSplitSource(table.getSchemaTableName(), tableScan.planTasks());
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());

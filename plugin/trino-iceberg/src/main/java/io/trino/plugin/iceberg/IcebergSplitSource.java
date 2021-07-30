@@ -91,11 +91,6 @@ public class IcebergSplitSource
 
     private ConnectorSplit toIcebergSplit(FileScanTask task)
     {
-        // TODO: We should leverage residual expression and convert that to TupleDomain.
-        //       The predicate here is used by readers for predicate push down at reader level,
-        //       so when we do not use residual expression, we are just wasting CPU cycles
-        //       on reader side evaluating a condition that we know will always be true.
-
         return new IcebergSplit(
                 task.file().path().toString(),
                 task.start(),
