@@ -42,7 +42,8 @@ import static java.nio.file.Files.walkFileTree;
 final class PluginDiscovery
 {
     private static final String CLASS_FILE_SUFFIX = ".class";
-    private static final String SERVICES_FILE = "META-INF/services/" + Plugin.class.getName();
+    private static final char OS_FILE_SEPARATOR = File.separatorChar;
+    private static final String SERVICES_FILE = "META-INF" + OS_FILE_SEPARATOR + "services" + OS_FILE_SEPARATOR + Plugin.class.getName();
 
     private PluginDiscovery() {}
 
@@ -54,7 +55,7 @@ final class PluginDiscovery
         }
 
         File file = artifact.getFile();
-        if (!file.getPath().endsWith("/target/classes")) {
+        if (!file.getPath().endsWith(OS_FILE_SEPARATOR+"target"+OS_FILE_SEPARATOR+"classes")) {
             throw new RuntimeException("Unexpected file for main artifact: " + file);
         }
         if (!file.exists()) {
@@ -137,6 +138,9 @@ final class PluginDiscovery
 
     private static String javaName(String binaryName)
     {
-        return binaryName.replace('/', '.');
+        if(binaryName.contains("/")){
+            return binaryName.replace('/', '.');
+        }
+        return binaryName.replace(OS_FILE_SEPARATOR, '.');
     }
 }
