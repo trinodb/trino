@@ -39,6 +39,7 @@ import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -53,6 +54,8 @@ import static io.trino.parquet.ValuesType.DEFINITION_LEVEL;
 import static io.trino.parquet.ValuesType.REPETITION_LEVEL;
 import static io.trino.parquet.ValuesType.VALUES;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 
 public abstract class PrimitiveColumnReader
@@ -118,10 +121,35 @@ public abstract class PrimitiveColumnReader
             case BINARY:
                 return createDecimalColumnReader(descriptor).orElse(new BinaryColumnReader(descriptor));
             case FIXED_LEN_BYTE_ARRAY:
-                return createDecimalColumnReader(descriptor)
-                        .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, " type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
+                Optional<PrimitiveColumnReader> decimalColumnReader = createDecimalColumnReader(descriptor);
+                if (decimalColumnReader.isPresent()) {
+                    return decimalColumnReader.get();
+                }
+                if (isLogicalUuid(descriptor.getPrimitiveType())) {
+                    return new UuidColumnReader(descriptor);
+                }
+                if (descriptor.getPrimitiveType().getLogicalTypeAnnotation() == null) {
+                    // Iceberg 0.11.1 writes UUID as FIXED_LEN_BYTE_ARRAY without logical type annotation (see https://github.com/apache/iceberg/pull/2913)
+                    // To support such files, we bet on the type to be UUID, which gets verified later, when reading the column data.
+                    return new UuidColumnReader(descriptor);
+                }
+                break;
         }
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column: " + descriptor);
+    }
+
+    private static boolean isLogicalUuid(PrimitiveType type)
+    {
+        return Optional.ofNullable(type.getLogicalTypeAnnotation())
+                .flatMap(logicalTypeAnnotation -> logicalTypeAnnotation.accept(new LogicalTypeAnnotation.LogicalTypeAnnotationVisitor<Boolean>()
+                {
+                    @Override
+                    public Optional<Boolean> visit(LogicalTypeAnnotation.UUIDLogicalTypeAnnotation uuidLogicalType)
+                    {
+                        return Optional.of(TRUE);
+                    }
+                }))
+                .orElse(FALSE);
     }
 
     private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)

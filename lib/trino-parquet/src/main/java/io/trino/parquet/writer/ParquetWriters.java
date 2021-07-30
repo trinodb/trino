@@ -28,10 +28,12 @@ import io.trino.parquet.writer.valuewriter.TimestampMillisValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampNanosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMicrosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMillisValueWriter;
+import io.trino.parquet.writer.valuewriter.UuidValueWriter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -220,6 +222,9 @@ final class ParquetWriters
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
             // Binary writer is suitable also for char data, as UTF-8 encoding is used on both sides.
             return new BinaryValueWriter(valuesWriter, type, parquetType);
+        }
+        if (type instanceof UuidType) {
+            return new UuidValueWriter(valuesWriter, parquetType);
         }
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported type for Parquet writer: %s", type));
     }
