@@ -23,11 +23,11 @@ data warehouse. Hive is a combination of three components:
 * Data files in varying formats, that are typically stored in the
   Hadoop Distributed File System (HDFS) or in object storage systems
   such as Amazon S3.
-* Metadata about how the data files are mapped to schemas and tables.
-  This metadata is stored in a database, such as MySQL, and is accessed
-  via the Hive metastore service.
-* A query language called HiveQL. This query language is executed
-  on a distributed computing framework such as MapReduce or Tez.
+* Metadata about how the data files are mapped to schemas and tables. This
+  metadata is stored in a database, such as MySQL, and is accessed via the Hive
+  metastore service.
+* A query language called HiveQL. This query language is executed on a
+  distributed computing framework such as MapReduce or Tez.
 
 Trino only uses the first two components: the data and the metadata.
 It does not use HiveQL or any part of Hive's execution environment.
@@ -147,28 +147,34 @@ executed.
 
 **Experimental**
 
-The new behavior is better engineered, and has the potential to become a lot
+The new behavior is better engineered and has the potential to become a lot
 more powerful than the legacy implementation. It can analyze, process, and
 rewrite Hive views and contained expressions and statements.
 
-It is considered an experimental feature and continues to change with each
-release. However it is already suitable for many use cases, and usage is
-encouraged.
+It supports the following Hive view functionality:
+
+* ``UNION [DISTINCT]`` and ``UNION ALL`` against Hive views
+* Nested ``GROUP BY`` clauses
+* ``current_user()``
+* ``LATERAL VIEW OUTER EXPLODE``
+* ``LATERAL VIEW [OUTER] EXPLODE`` on array of struct
+* ``LATERAL VIEW json_tuple``
 
 You can enable the experimental behavior with
-``hive.translate-hive-views=true``.
+``hive.translate-hive-views=true``. Remove the
+``hive.legacy-hive-view-translation`` property or set it to ``false`` to make
+sure legacy is not enabled.
 
 Keep in mind that numerous features are not yet implemented when experimenting
 with this feature. The following is an incomplete list of **missing**
 functionality:
 
 * HiveQL ``current_date``, ``current_timestamp``, and others
-* Hive function calls including ``translate()``, window functions and others
+* Hive function calls including ``translate()``, window functions, and others
 * Common table expressions and simple case expressions
 * Honor timestamp precision setting
 * Support all Hive data types and correct mapping to Trino types
 * Ability to process custom UDFs
-
 
 Configuration
 -------------
