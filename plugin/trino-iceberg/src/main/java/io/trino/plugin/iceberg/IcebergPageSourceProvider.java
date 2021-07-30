@@ -114,8 +114,11 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxRead
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
+import static io.trino.plugin.iceberg.TypeConverter.ICEBERG_BINARY_TYPE;
 import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -297,8 +300,21 @@ public class IcebergPageSourceProvider
                 else {
                     orcColumn = fileColumnsByIcebergId.get(column.getId());
                 }
-                Type readType = column.getType();
+
                 if (orcColumn != null) {
+                    Type readType;
+                    if (column.getType() == UUID) {
+                        if (!"UUID".equals(orcColumn.getAttributes().get(ICEBERG_BINARY_TYPE))) {
+                            throw new TrinoException(ICEBERG_BAD_DATA, format("Expected ORC column for UUID data to be annotated with %s=UUID: %s", ICEBERG_BINARY_TYPE, orcColumn));
+                        }
+                        // ORC spec doesn't have UUID
+                        // TODO read into Int128ArrayBlock for better performance when operating on read values
+                        readType = VARBINARY;
+                    }
+                    else {
+                        readType = column.getType();
+                    }
+
                     int sourceIndex = fileReadColumns.size();
                     columnAdaptations.add(ColumnAdaptation.sourceColumn(sourceIndex));
                     fileReadColumns.add(orcColumn);
@@ -310,7 +326,7 @@ public class IcebergPageSourceProvider
                     }
                 }
                 else {
-                    columnAdaptations.add(ColumnAdaptation.nullColumn(readType));
+                    columnAdaptations.add(ColumnAdaptation.nullColumn(column.getType()));
                 }
             }
 

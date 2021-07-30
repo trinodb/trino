@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -278,6 +279,26 @@ public class TestIcebergSparkCompatibility
                         new Object[] {storageFormat, CREATE_TABLE_AS_SELECT},
                         new Object[] {storageFormat, CREATE_TABLE_WITH_NO_DATA_AND_INSERT}))
                 .toArray(Object[][]::new);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkReadTrinoUuid(StorageFormat storageFormat)
+    {
+        String tableName = "test_spark_read_trino_uuid_" + storageFormat;
+        String trinoTableName = trinoTableName(tableName);
+        String sparkTableName = sparkTableName(tableName);
+
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s AS SELECT UUID '406caec7-68b9-4778-81b2-a12ece70c8b1' u",
+                trinoTableName));
+
+        assertQueryFailure(() -> onSpark().executeQuery("SELECT * FROM " + sparkTableName))
+                // TODO Iceberg Spark integration needs yet to gain support
+                //  once this is supported, merge this test with testSparkReadingTrinoData()
+                .isInstanceOf(SQLException.class)
+                .hasMessageStartingWith("Error running query: java.lang.ClassCastException: class [B cannot be cast to class org.apache.spark.unsafe.types.UTF8String");
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
