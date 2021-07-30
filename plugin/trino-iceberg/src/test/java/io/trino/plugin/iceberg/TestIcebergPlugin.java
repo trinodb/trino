@@ -15,38 +15,15 @@ package io.trino.plugin.iceberg;
 
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.nio.file.Path;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergPlugin
 {
-    private Path tempDirectory;
-
-    @BeforeClass
-    public void setup()
-            throws IOException
-    {
-        tempDirectory = createTempDirectory(getClass().getSimpleName());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-            throws IOException
-    {
-        deleteRecursively(tempDirectory, ALLOW_INSECURE);
-    }
-
     @Test
     public void testCreateConnector()
     {
