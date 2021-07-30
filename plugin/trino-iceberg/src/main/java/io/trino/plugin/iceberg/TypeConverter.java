@@ -38,6 +38,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.Schema;
@@ -53,6 +54,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.String.format;
 
 public final class TypeConverter
@@ -60,6 +62,7 @@ public final class TypeConverter
     public static final String ORC_ICEBERG_ID_KEY = "iceberg.id";
     public static final String ORC_ICEBERG_REQUIRED_KEY = "iceberg.required";
     public static final String ICEBERG_LONG_TYPE = "iceberg.long-type";
+    public static final String ICEBERG_BINARY_TYPE = "iceberg.binary-type";
 
     private TypeConverter() {}
 
@@ -91,8 +94,7 @@ public final class TypeConverter
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
             case UUID:
-                // TODO (https://github.com/trinodb/trino/issues/6663) unsupported
-                break;
+                return UuidType.UUID;
             case LIST:
                 Types.ListType listType = (Types.ListType) type;
                 return new ArrayType(toTrinoType(listType.elementType(), typeManager));
@@ -147,6 +149,9 @@ public final class TypeConverter
         }
         if (type.equals(TIMESTAMP_TZ_MICROS)) {
             return Types.TimestampType.withZone();
+        }
+        if (type.equals(UUID)) {
+            return Types.UUIDType.get();
         }
         if (type instanceof RowType) {
             return fromRow((RowType) type);
@@ -234,8 +239,11 @@ public final class TypeConverter
                 Types.DecimalType decimalType = (Types.DecimalType) type;
                 return ImmutableList.of(new OrcType(OrcTypeKind.DECIMAL, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.of(decimalType.precision()), Optional.of(decimalType.scale()), attributes));
             case UUID:
-                // TODO (https://github.com/trinodb/trino/issues/6663) unsupported
-                break;
+                attributes = ImmutableMap.<String, String>builder()
+                        .putAll(attributes)
+                        .put(ICEBERG_BINARY_TYPE, "UUID")
+                        .build();
+                return ImmutableList.of(new OrcType(OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case STRUCT:
                 return toOrcStructType(nextFieldTypeIndex, (Types.StructType) type, attributes);
             case LIST:
