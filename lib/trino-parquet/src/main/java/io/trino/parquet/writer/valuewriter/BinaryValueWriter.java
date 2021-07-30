@@ -22,13 +22,13 @@ import org.apache.parquet.schema.PrimitiveType;
 
 import static java.util.Objects.requireNonNull;
 
-public class CharValueWriter
+public class BinaryValueWriter
         extends PrimitiveValueWriter
 {
     private final ValuesWriter valuesWriter;
     private final Type type;
 
-    public CharValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public BinaryValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
         this.valuesWriter = requireNonNull(valuesWriter, "valuesWriter is null");

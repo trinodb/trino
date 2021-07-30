@@ -15,8 +15,8 @@ package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.parquet.writer.valuewriter.BigintValueWriter;
+import io.trino.parquet.writer.valuewriter.BinaryValueWriter;
 import io.trino.parquet.writer.valuewriter.BooleanValueWriter;
-import io.trino.parquet.writer.valuewriter.CharValueWriter;
 import io.trino.parquet.writer.valuewriter.DateValueWriter;
 import io.trino.parquet.writer.valuewriter.DecimalValueWriter;
 import io.trino.parquet.writer.valuewriter.DoubleValueWriter;
@@ -204,7 +204,8 @@ final class ParquetWriters
             return new RealValueWriter(valuesWriter, parquetType);
         }
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
-            return new CharValueWriter(valuesWriter, type, parquetType);
+            // Binary writer is suitable also for char data, as UTF-8 encoding is used on both sides.
+            return new BinaryValueWriter(valuesWriter, type, parquetType);
         }
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported type for Parquet writer: %s", type));
     }
