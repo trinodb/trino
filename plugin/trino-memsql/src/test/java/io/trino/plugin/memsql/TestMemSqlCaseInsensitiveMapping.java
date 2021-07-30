@@ -50,11 +50,6 @@ public class TestMemSqlCaseInsensitiveMapping
         memSqlServer.close();
     }
 
-    private void execute(String sql)
-    {
-        memSqlServer.execute(sql);
-    }
-
     @Override
     protected Path getMappingFile()
     {
@@ -64,6 +59,6 @@ public class TestMemSqlCaseInsensitiveMapping
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return memSqlServer::execute;
+        return sql -> memSqlServer.execute(sql);
     }
 }

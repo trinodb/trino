@@ -67,7 +67,9 @@ public class TestOracleCaseInsensitiveMapping
         return oracleServer::execute;
     }
 
-    @Test @Override
+    @Test
+    @Override
+    //Oracle Tests need to use TestingOracleServer.TEST_USER schema, so some methods have been overriden 
     public void testTableNameClash()
             throws Exception
     {
@@ -79,10 +81,9 @@ public class TestOracleCaseInsensitiveMapping
 
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
-                try (AutoCloseable ignore1 = withSchema(TestingOracleServer.TEST_USER);
-                        AutoCloseable ignore2 = withTable(TestingOracleServer.TEST_USER, nameVariants[i], "(c varchar(5))");
-                        AutoCloseable ignore3 = withTable(TestingOracleServer.TEST_USER, nameVariants[j], "(d varchar(5))");
-                        AutoCloseable ignore4 = withTable(TestingOracleServer.TEST_USER, "some_table", "(d varchar(5))")) {
+                try (AutoCloseable ignore1 = withTable(TestingOracleServer.TEST_USER, nameVariants[i], "(c varchar(5))");
+                        AutoCloseable ignore2 = withTable(TestingOracleServer.TEST_USER, nameVariants[j], "(d varchar(5))");
+                        AutoCloseable ignore3 = withTable(TestingOracleServer.TEST_USER, "some_table", "(d varchar(5))")) {
                     assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1);
                     assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
                     assertQueryFails("SELECT * FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
