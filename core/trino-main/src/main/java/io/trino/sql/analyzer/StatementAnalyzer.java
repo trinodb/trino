@@ -1735,6 +1735,7 @@ class StatementAnalyzer
             for (VariableDefinition variableDefinition : relation.getVariableDefinitions()) {
                 Expression expression = variableDefinition.getExpression();
                 ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.getAllLabels());
+                analysis.recordSubqueries(relation, expressionAnalysis);
                 Type type = expressionAnalysis.getType(expression);
                 if (!type.equals(BOOLEAN)) {
                     throw semanticException(TYPE_MISMATCH, expression, "Expression defining a label must be boolean (actual type: %s)", type);
@@ -1744,6 +1745,7 @@ class StatementAnalyzer
             for (MeasureDefinition measureDefinition : relation.getMeasures()) {
                 Expression expression = measureDefinition.getExpression();
                 ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.getAllLabels());
+                analysis.recordSubqueries(relation, expressionAnalysis);
                 measureTypesBuilder.put(NodeRef.of(expression), expressionAnalysis.getType(expression));
             }
             Map<NodeRef<Node>, Type> measureTypes = measureTypesBuilder.build();

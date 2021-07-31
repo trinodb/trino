@@ -113,6 +113,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.coerce;
 import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
+import static io.trino.sql.planner.QueryPlanner.extractPatternRecognitionExpressions;
 import static io.trino.sql.planner.QueryPlanner.planWindowSpecification;
 import static io.trino.sql.planner.QueryPlanner.pruneInvisibleFields;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -359,6 +360,8 @@ class RelationPlanner
                     .map(planBuilder::translate)
                     .forEach(outputLayout::add);
         }
+
+        planBuilder = subqueryPlanner.handleSubqueries(planBuilder, extractPatternRecognitionExpressions(node.getVariableDefinitions(), node.getMeasures()), analysis.getSubqueries(node));
 
         PatternRecognitionComponents components = planPatternRecognitionComponents(
                 planBuilder::rewrite,
