@@ -1314,4 +1314,63 @@ public class TestRowPatternMatching
                         "     ('A', 'B', 'C')," +
                         "     ('A', 'B', 'C') ");
     }
+
+    @Test
+    public void testSubqueries()
+    {
+        String query = "SELECT m.val " +
+                "          FROM (VALUES " +
+                "                   (1, 100), " +
+                "                   (2, 200), " +
+                "                   (3, 300), " +
+                "                   (4, 400) " +
+                "               ) t(id, value) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   ORDER BY id " +
+                "                   MEASURES %s AS val " +
+                "                   ONE ROW PER MATCH " +
+                "                   AFTER MATCH SKIP TO NEXT ROW " +
+                "                   PATTERN (A+) " +
+                "                   DEFINE A AS %s " +
+                "                ) AS m";
+
+        assertThat(assertions.query(format(query, "(SELECT 'x')", "(SELECT true)")))
+                .matches("VALUES " +
+                        "     ('x'), " +
+                        "     ('x'), " +
+                        "     ('x'), " +
+                        "     ('x') ");
+
+        // subquery nested in navigation
+        assertThat(assertions.query(format(query, "FINAL LAST(A.value + (SELECT 1000))", "FIRST(A.value < 0 OR (SELECT true))")))
+                .matches("VALUES " +
+                        "     (1400), " +
+                        "     (1400), " +
+                        "     (1400), " +
+                        "     (1400) ");
+
+        // IN-predicate: value and value list without column references
+        assertThat(assertions.query(format(query, "LAST(A.id < 0 OR 1 IN (SELECT 1))", "FIRST(A.id > 0 AND 1 IN (SELECT 1))")))
+                .matches("VALUES " +
+                        "     (true), " +
+                        "     (true), " +
+                        "     (true), " +
+                        "     (true) ");
+
+        // IN-predicate: unlabeled column reference in value
+        assertThat(assertions.query(format(query, "FIRST(id % 2 IN (SELECT 0))", "FIRST(value * 0 IN (SELECT 0))")))
+                .matches("VALUES " +
+                        "     (false), " +
+                        "     (true), " +
+                        "     (false), " +
+                        "     (true) ");
+
+        // EXISTS-predicate
+        assertThat(assertions.query(format(query, "LAST(A.value < 0 OR EXISTS(SELECT 1))", "FIRST(A.value < 0 OR EXISTS(SELECT 1))")))
+                .matches("VALUES " +
+                        "     (true), " +
+                        "     (true), " +
+                        "     (true), " +
+                        "     (true) ");
+    }
 }
