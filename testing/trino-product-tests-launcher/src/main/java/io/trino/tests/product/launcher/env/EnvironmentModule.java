@@ -31,7 +31,6 @@ import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.trino.tests.product.launcher.env.Environments.nameForConfigClass;
@@ -90,15 +89,15 @@ public final class EnvironmentModule
     @Singleton
     public PortBinder providePortBinder(EnvironmentOptions options)
     {
-        switch (options.bindPorts) {
-            case -1:
-                return new PortBinder.DefaultPortBinder();
-            case 0:
-                return new PortBinder.FixedPortBinder();
-            default:
-                checkArgument(options.bindPorts > 0, "Ports base must be greater than 0");
-                return new PortBinder.ShiftingPortBinder(new PortBinder.FixedPortBinder(), options.bindPorts);
+        if (options.bindPorts) {
+            if (options.bindPortsBase > 0) {
+                return new PortBinder.ShiftingPortBinder(new PortBinder.FixedPortBinder(), options.bindPortsBase);
+            }
+
+            return new PortBinder.FixedPortBinder();
         }
+
+        return new PortBinder.DefaultPortBinder();
     }
 
     @Provides
