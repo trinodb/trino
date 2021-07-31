@@ -3514,6 +3514,18 @@ public class TestSqlParser
     }
 
     @Test
+    public void testAllRowsReference()
+    {
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("SELECT 1 + A.*", new ParsingOptions(REJECT)))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 1:13: mismatched input '.'.*");
+
+        assertThat(statement("SELECT A.*"))
+                .ignoringLocation()
+                .isEqualTo(simpleQuery(new Select(false, ImmutableList.of(new AllColumns(new Identifier("A"), ImmutableList.of())))));
+    }
+
+    @Test
     public void testUpdate()
     {
         assertStatement("" +

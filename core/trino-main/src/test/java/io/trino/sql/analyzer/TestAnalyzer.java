@@ -4599,6 +4599,31 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testTryInPatternRecognition()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (ARRAY[1]), (ARRAY[2])) Ticker(Value) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS %s " +
+                "                ) AS M";
+
+        assertFails(format(query, "TRY(1)", "true"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:142: TRY expression in pattern recognition context is not yet supported");
+        assertFails(format(query, "sum(TRY(1))", "true"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:146: TRY expression in pattern recognition context is not yet supported");
+        assertFails(format(query, "true", "TRY(1) = 1"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:223: TRY expression in pattern recognition context is not yet supported");
+        assertFails(format(query, "true", "sum(TRY(1)) = 2"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:227: TRY expression in pattern recognition context is not yet supported");
+    }
+
+    @Test
     public void testRowPatternRecognitionFunctions()
     {
         String query = "SELECT M.Measure " +
@@ -4707,11 +4732,6 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_PROCESSING_MODE)
                 .hasMessage("line 1:195: FINAL semantics is not supported with match_number pattern recognition function");
 
-        // aggregation function in pattern recognition context
-        assertFails(format(query, "FINAL avg(Tradeday)", define))
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:195: Aggregations in pattern recognition context are not yet supported");
-
         // scalar function in pattern recognition context
         assertFails(format(query, "FINAL lower(Tradeday)", define))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
@@ -4775,6 +4795,10 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
                 .hasMessage("line 1:200: Immediate nesting is required for pattern navigation functions");
 
+        assertFails(format(query, "PREV(avg(Price) + 5)"))
+                .hasErrorCode(NESTED_AGGREGATION)
+                .hasMessage("line 1:200: Cannot nest avg aggregate function inside prev function");
+
         // navigation function must column reference or CLASSIFIER()
         assertFails(format(query, "PREV(LAST('no_column'))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
@@ -4791,31 +4815,31 @@ public class TestAnalyzer
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:205: Column references inside pattern navigation function last must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:205: Column references inside argument of function last must all either be prefixed with the same label or be not prefixed");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + B.Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:205: Column references inside pattern navigation function last must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:205: Column references inside argument of function last must all either be prefixed with the same label or be not prefixed");
 
         assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: CLASSIFIER() calls inside pattern navigation function last must all either have the same label as the argument or have no arguments");
+                .hasMessage("line 1:200: CLASSIFIER() calls inside argument of function last must all either have the same label as the argument or have no arguments");
 
         assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: CLASSIFIER() calls inside pattern navigation function last must all either have the same label as the argument or have no arguments");
+                .hasMessage("line 1:200: CLASSIFIER() calls inside argument of function last must all either have the same label as the argument or have no arguments");
 
         assertFails(format(query, "PREV(LAST(Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside pattern navigation function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside pattern navigation function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside pattern navigation function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
     }
 
     @Test
@@ -4870,6 +4894,214 @@ public class TestAnalyzer
         assertFails(format(query, "MATCH_NUMBER(A)"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:195: MATCH_NUMBER pattern recognition function takes no arguments");
+    }
+
+    @Test
+    public void testPatternAggregations()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS %s " +
+                "                 ) AS M";
+
+        // test illegal clauses in MEASURES
+        String define = "true";
+        assertFails(format(query, "max(Price) OVER ()", define))
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:158: Cannot nest window functions or row pattern measures inside pattern recognition expressions");
+
+        assertFails(format(query, "max(Price) FILTER (WHERE true)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:158: Cannot use FILTER with max aggregate function in pattern recognition context");
+
+        assertFails(format(query, "max(Price ORDER BY Tradeday)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:158: Cannot use ORDER BY with max aggregate function in pattern recognition context");
+
+        assertFails(format(query, "LISTAGG(Price) WITHIN GROUP (ORDER BY Tradeday)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:158: Cannot use ORDER BY with listagg aggregate function in pattern recognition context");
+
+        assertFails(format(query, "max(DISTINCT Price)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:158: Cannot use DISTINCT with max aggregate function in pattern recognition context");
+
+        // test illegal clauses in DEFINE
+        String measure = "true";
+        assertFails(format(query, measure, "max(Price) OVER () > 0"))
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:276: Cannot nest window functions or row pattern measures inside pattern recognition expressions");
+
+        assertFails(format(query, measure, "max(Price) FILTER (WHERE true) > 0"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:276: Cannot use FILTER with max aggregate function in pattern recognition context");
+
+        assertFails(format(query, measure, "max(Price ORDER BY Tradeday) > 0"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:276: Cannot use ORDER BY with max aggregate function in pattern recognition context");
+
+        assertFails(format(query, measure, "LISTAGG(Price) WITHIN GROUP (ORDER BY Tradeday) IS NOT NULL"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:276: Cannot use ORDER BY with listagg aggregate function in pattern recognition context");
+
+        assertFails(format(query, measure, "max(DISTINCT Price) > 0"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:276: Cannot use DISTINCT with max aggregate function in pattern recognition context");
+    }
+
+    @Test
+    public void testInvalidNestingInPatternAggregations()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS true " +
+                "                 ) AS M";
+
+        assertFails(format(query, "max(1 + min(Price))"))
+                .hasErrorCode(NESTED_AGGREGATION)
+                .hasMessage("line 1:166: Cannot nest min aggregate function inside max function");
+        assertFails(format(query, "max(1 + LAST(Price))"))
+                .hasErrorCode(INVALID_NAVIGATION_NESTING)
+                .hasMessage("line 1:166: Cannot nest last pattern navigation function inside max function");
+    }
+
+    @Test
+    public void testLabelsInPatternAggregations()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS true " +
+                "                ) AS M";
+
+        // at most one label inside argument
+        analyze(format(query, "count()"));
+        analyze(format(query, "count(Symbol)"));
+        analyze(format(query, "count(A.Symbol)"));
+        analyze(format(query, "count(U.Symbol)"));
+        analyze(format(query, "count(CLASSIFIER())"));
+        analyze(format(query, "count(CLASSIFIER(A))"));
+        analyze(format(query, "count(CLASSIFIER(U))"));
+
+        // consistent labels inside argument
+        analyze(format(query, "count(Price < 5 OR CLASSIFIER() > 'X')"));
+        analyze(format(query, "count(B.Price < 5 OR CLASSIFIER(B) > 'X')"));
+        analyze(format(query, "count(U.Price < 5 OR CLASSIFIER(U) > 'X')"));
+
+        // inconsistent labels inside argument
+        assertFails(format(query, "count(B.Price < 5 OR Price > 5)"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:164: Column references inside argument of function count must all either be prefixed with the same label or be not prefixed");
+        assertFails(format(query, "count(B.Price < 5 OR A.Price > 5)"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:164: Column references inside argument of function count must all either be prefixed with the same label or be not prefixed");
+        assertFails(format(query, "count(CLASSIFIER(A) < 'X' OR CLASSIFIER(B) > 'Y')"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:158: CLASSIFIER() calls inside argument of function count must all either have the same label as the argument or have no arguments");
+        assertFails(format(query, "count(Price < 5 OR CLASSIFIER(B) > 'Y')"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:158: Column references inside argument of function count must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+        assertFails(format(query, "count(A.Price < 5 OR CLASSIFIER(B) > 'Y')"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:158: Column references inside argument of function count must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+
+        // multiple aggregation arguments
+        analyze(format(query, "max_by(Price, Symbol)"));
+        analyze(format(query, "max_by(A.Price, A.Symbol)"));
+        analyze(format(query, "max_by(U.Price, U.Symbol)"));
+
+        analyze(format(query, "max_by(Price, 1)"));
+        analyze(format(query, "max_by(A.Price, 1)"));
+        analyze(format(query, "max_by(U.Price, 1)"));
+        analyze(format(query, "max_by(1, 1)"));
+        analyze(format(query, "max_by(1, Price)"));
+        analyze(format(query, "max_by(1, A.Price)"));
+        analyze(format(query, "max_by(1, U.Price)"));
+
+        assertFails(format(query, "max_by(U.Price, A.Price)"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:158: All aggregate function arguments must apply to rows matched with the same label");
+
+        // inconsistent labels in second argument
+        assertFails(format(query, "max_by(A.Symbol, A.Price + B.price)"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:175: Column references inside argument of function max_by must all either be prefixed with the same label or be not prefixed");
+    }
+
+    @Test
+    public void testRunningAndFinalPatternAggregations()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS %s " +
+                "                ) AS M";
+
+        // in MEASURES clause
+        analyze(format(query, "RUNNING avg(A.Price)", "true"));
+        analyze(format(query, "FINAL avg(A.Price)", "true"));
+
+        // in DEFINE clause
+        analyze(format(query, "true", "RUNNING avg(A.Price) > 5"));
+        assertFails(format(query, "true", "FINAL avg(A.Price) > 5"))
+                .hasErrorCode(INVALID_PROCESSING_MODE)
+                .hasMessage("line 1:276: FINAL semantics is not supported in DEFINE clause");
+
+        // count star aggregation
+        analyze(format(query, "RUNNING count(*)", "count(*) >= 0"));
+        analyze(format(query, "FINAL count(*)", "count(*) >= 0"));
+        analyze(format(query, "RUNNING count()", "count() >= 0"));
+        analyze(format(query, "FINAL count()", "count() >= 0"));
+        analyze(format(query, "RUNNING count(A.*)", "count(B.*) >= 0"));
+        analyze(format(query, "FINAL count(U.*)", "count(U.*) >= 0"));
+    }
+
+    @Test
+    public void testRowPatternCountFunction()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE A AS true " +
+                "                ) AS M";
+
+        analyze(format(query, "count(*)"));
+        analyze(format(query, "count()"));
+        analyze(format(query, "count(B.*)"));
+        analyze(format(query, "count(U.*)"));
+
+        assertFails("SELECT count(A.*) FROM (VALUES 1) t(a)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:14: label.* syntax is only supported as the only argument of row pattern count function");
+
+        assertFails(format(query, "lower(A.*)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:164: label.* syntax is only supported as the only argument of row pattern count function");
+
+        assertFails(format(query, "min(A.*)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:162: label.* syntax is only supported as the only argument of row pattern count function");
+
+        assertFails(format(query, "count(X.*)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:164: X is not a primary pattern variable or subset name");
     }
 
     @Test

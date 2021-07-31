@@ -433,6 +433,16 @@ class RelationPlanner
             rewrittenSubsets.put(label, elements);
         }
 
+        // NOTE: There might be aggregate functions in measure definitions and variable definitions.
+        // They are handled different than top level aggregations in a query:
+        // 1. Their arguments are not pre-projected and replaced with single symbols. This is because the arguments might
+        //    not be eligible for pre-projection, when they contain references to CLASSIFIER() or MATCH_NUMBER() functions
+        //    which are evaluated at runtime. If some aggregation arguments can be pre-projected, it will be done in the
+        //    Optimizer.
+        // 2. Their arguments do not need to be coerced by hand. Since the pattern aggregation arguments are rewritten as
+        //    parts of enclosing expressions, and not as standalone expressions, all necessary coercions will be applied by the
+        //    TranslationMap.
+
         // rewrite measures
         ImmutableMap.Builder<Symbol, Measure> rewrittenMeasures = ImmutableMap.builder();
         ImmutableList.Builder<Symbol> measureOutputs = ImmutableList.builder();
@@ -440,7 +450,7 @@ class RelationPlanner
             Type type = analysis.getType(measureDefinition.getExpression());
             Symbol symbol = symbolAllocator.newSymbol(measureDefinition.getName().getValue().toLowerCase(ENGLISH), type);
             Expression expression = expressionRewrite.apply(measureDefinition.getExpression());
-            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.build(), symbolAllocator);
+            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.build(), symbolAllocator, metadata);
             rewrittenMeasures.put(symbol, new Measure(measure, type));
             measureOutputs.add(symbol);
         }
@@ -453,7 +463,7 @@ class RelationPlanner
         for (VariableDefinition variableDefinition : variableDefinitions) {
             IrLabel label = irLabel(variableDefinition.getName());
             Expression expression = expressionRewrite.apply(variableDefinition.getExpression());
-            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.build(), symbolAllocator);
+            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.build(), symbolAllocator, metadata);
             rewrittenVariableDefinitions.put(label, definition);
         }
         // add `true` definition for undefined labels

@@ -103,9 +103,11 @@ import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
+import io.trino.sql.planner.rowpattern.AggregationValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.ScalarValuePointer;
+import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
@@ -770,8 +772,25 @@ public class PlanPrinter
                     continue;
                 }
                 ValuePointer pointer = expressionAndPointers.getValuePointers().get(i);
-                String sourceSymbolName = expressionAndPointers.getClassifierSymbols().contains(symbol) ? "classifier" : pointer.getInputSymbol().getName();
-                nodeOutput.appendDetailsLine(indentString(1) + symbol + " := " + sourceSymbolName + "[" + formatLogicalIndexPointer(pointer.getLogicalIndexPointer()) + "]");
+
+                if (pointer instanceof ScalarValuePointer) {
+                    ScalarValuePointer scalarPointer = (ScalarValuePointer) pointer;
+                    String sourceSymbolName = expressionAndPointers.getClassifierSymbols().contains(symbol) ? "classifier" : scalarPointer.getInputSymbol().getName();
+                    nodeOutput.appendDetailsLine(indentString(1) + symbol + " := " + sourceSymbolName + "[" + formatLogicalIndexPointer(scalarPointer.getLogicalIndexPointer()) + "]");
+                }
+                else if (pointer instanceof AggregationValuePointer) {
+                    AggregationValuePointer aggregationPointer = (AggregationValuePointer) pointer;
+                    String processingMode = aggregationPointer.getSetDescriptor().isRunning() ? "RUNNING " : "FINAL ";
+                    String name = aggregationPointer.getFunction().getSignature().getName();
+                    String arguments = Joiner.on(", ").join(aggregationPointer.getArguments());
+                    String labels = aggregationPointer.getSetDescriptor().getLabels().stream()
+                            .map(IrLabel::getName)
+                            .collect(joining(", ", "{", "}"));
+                    nodeOutput.appendDetailsLine(indentString(1) + symbol + " := " + processingMode + name + "(" + arguments + ")" + labels);
+                }
+                else {
+                    throw new UnsupportedOperationException("unexpected ValuePointer type: " + pointer.getClass().getSimpleName());
+                }
             }
         }
 

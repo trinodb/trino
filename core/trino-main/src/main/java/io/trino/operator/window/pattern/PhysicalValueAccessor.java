@@ -11,16 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.window;
+package io.trino.operator.window.pattern;
 
-import io.trino.memory.context.AggregatedMemoryContext;
-
-public class RegularPartitionerSupplier
-        implements PartitionerSupplier
+public interface PhysicalValueAccessor
 {
-    @Override
-    public Partitioner get(AggregatedMemoryContext memoryContext)
-    {
-        return new RegularWindowPartitioner();
-    }
 }

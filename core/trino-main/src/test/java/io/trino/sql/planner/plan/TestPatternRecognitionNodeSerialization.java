@@ -30,8 +30,9 @@ import io.trino.sql.planner.plan.WindowNode.Frame;
 import io.trino.sql.planner.plan.WindowNode.Function;
 import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.ScalarValuePointer;
+import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrConcatenation;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -69,11 +70,11 @@ public class TestPatternRecognitionNodeSerialization
     {
         JsonCodec<ValuePointer> codec = new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ValuePointer.class);
 
-        assertJsonRoundTrip(codec, new ValuePointer(
+        assertJsonRoundTrip(codec, new ScalarValuePointer(
                 new LogicalIndexPointer(ImmutableSet.of(), false, false, 5, 5),
                 new Symbol("input_symbol")));
 
-        assertJsonRoundTrip(codec, new ValuePointer(
+        assertJsonRoundTrip(codec, new ScalarValuePointer(
                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true, true, 1, -1),
                 new Symbol("input_symbol")));
     }
@@ -94,7 +95,7 @@ public class TestPatternRecognitionNodeSerialization
                         new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()),
                         new ArithmeticUnaryExpression(MINUS, new SymbolReference("match_number"))),
                 ImmutableList.of(new Symbol("classifier"), new Symbol("x"), new Symbol("match_number")),
-                ImmutableList.of(new ValuePointer(
+                ImmutableList.of(new ScalarValuePointer(
                         new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), false, true, 1, -1),
                         new Symbol("input_symbol_a"))),
                 ImmutableSet.of(new Symbol("classifier")),
@@ -123,10 +124,10 @@ public class TestPatternRecognitionNodeSerialization
                                 new ArithmeticUnaryExpression(MINUS, new SymbolReference("y"))),
                         ImmutableList.of(new Symbol("match_number"), new Symbol("x"), new Symbol("y")),
                         ImmutableList.of(
-                                new ValuePointer(
+                                new ScalarValuePointer(
                                         new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A")), false, true, 1, -1),
                                         new Symbol("input_symbol_a")),
-                                new ValuePointer(
+                                new ScalarValuePointer(
                                         new LogicalIndexPointer(ImmutableSet.of(new IrLabel("B")), false, true, 1, -1),
                                         new Symbol("input_symbol_b"))),
                         ImmutableSet.of(),
