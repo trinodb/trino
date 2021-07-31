@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafka;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafkaSaslPlaintext;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafkaSsl;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodePhoenix4;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodePhoenix5;
@@ -45,6 +46,7 @@ public class Suite6NonGeneric
                 testOnEnvironment(EnvSinglenodeCassandra.class).withGroups("cassandra").build(),
                 testOnEnvironment(EnvMultinodeKafka.class).withGroups("kafka").build(),
                 testOnEnvironment(EnvMultinodeKafkaSsl.class).withGroups("kafka").build(),
+                testOnEnvironment(EnvMultinodeKafkaSaslPlaintext.class).withGroups("kafka").build(),
                 testOnEnvironment(EnvMultinodePhoenix4.class).withGroups("phoenix").build(),
                 testOnEnvironment(EnvMultinodePhoenix5.class).withGroups("phoenix").build());
     }

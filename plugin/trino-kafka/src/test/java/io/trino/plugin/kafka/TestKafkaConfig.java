@@ -13,10 +13,15 @@
  */
 package io.trino.plugin.kafka;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.kafka.schema.file.FileTableDescriptionSupplier;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -35,12 +40,17 @@ public class TestKafkaConfig
                 .setTableDescriptionSupplier(FileTableDescriptionSupplier.NAME)
                 .setHideInternalColumns(true)
                 .setMessagesPerSplit(100_000)
-                .setTimestampUpperBoundPushDownEnabled(false));
+                .setTimestampUpperBoundPushDownEnabled(false)
+                .setResourceConfigFiles(List.of()));
     }
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path resource1 = Files.createTempFile(null, null);
+        Path resource2 = Files.createTempFile(null, null);
+
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kafka.default-schema", "kafka")
                 .put("kafka.table-description-supplier", "test")
@@ -49,6 +59,7 @@ public class TestKafkaConfig
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.messages-per-split", "1")
                 .put("kafka.timestamp-upper-bound-force-push-down-enabled", "true")
+                .put("kafka.config.resources", resource1.toString() + "," + resource2.toString())
                 .buildOrThrow();
 
         KafkaConfig expected = new KafkaConfig()
@@ -58,7 +69,8 @@ public class TestKafkaConfig
                 .setKafkaBufferSize("1MB")
                 .setHideInternalColumns(false)
                 .setMessagesPerSplit(1)
-                .setTimestampUpperBoundPushDownEnabled(true);
+                .setTimestampUpperBoundPushDownEnabled(true)
+                .setResourceConfigFiles(ImmutableList.of(resource1.toString(), resource2.toString()));
 
         assertFullMapping(properties, expected);
     }
