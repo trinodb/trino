@@ -11,16 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.window;
+package io.trino.sql.planner.rowpattern;
 
-import io.trino.memory.context.AggregatedMemoryContext;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-public class RegularPartitionerSupplier
-        implements PartitionerSupplier
-{
-    @Override
-    public Partitioner get(AggregatedMemoryContext memoryContext)
-    {
-        return new RegularWindowPartitioner();
-    }
-}
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        property = "@type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = ScalarValuePointer.class, name = "scalar"),
+        @JsonSubTypes.Type(value = AggregationValuePointer.class, name = "aggregation"),
+})
+public abstract class ValuePointer
+{}

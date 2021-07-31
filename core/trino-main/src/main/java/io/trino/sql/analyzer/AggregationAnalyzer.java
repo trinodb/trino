@@ -527,7 +527,7 @@ class AggregationAnalyzer
         {
             ExpressionAnalyzer.LabelPrefixedReference labelDereference = analysis.getLabelDereference(node);
             if (labelDereference != null) {
-                return process(labelDereference.getColumn());
+                return labelDereference.getColumn().map(this::process).orElse(true);
             }
 
             if (!hasReferencesToScope(node, analysis, sourceScope)) {

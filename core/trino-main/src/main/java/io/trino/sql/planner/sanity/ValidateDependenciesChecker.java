@@ -21,7 +21,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -72,6 +71,7 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.tree.Expression;
 
 import java.util.Collection;
@@ -196,7 +196,7 @@ public final class ValidateDependenciesChecker
 
             Set<Symbol> measuresSymbols = node.getMeasures().values().stream()
                     .map(Measure::getExpressionAndValuePointers)
-                    .map(SymbolsExtractor::extractUnique)
+                    .map(ExpressionAndValuePointers::getInputSymbols)
                     .flatMap(Collection::stream)
                     .collect(toImmutableSet());
             checkDependencies(inputs, measuresSymbols, "Invalid node. Symbols used in measures (%s) not in source plan output (%s)", measuresSymbols, node.getSource().getOutputSymbols());
@@ -206,7 +206,7 @@ public final class ValidateDependenciesChecker
                     .ifPresent(symbol -> checkDependencies(inputs, ImmutableSet.of(symbol), "Invalid node. Frame offset symbol (%s) not in source plan output (%s)", symbol, node.getSource().getOutputSymbols()));
 
             Set<Symbol> variableDefinitionsSymbols = node.getVariableDefinitions().values().stream()
-                    .map(SymbolsExtractor::extractUnique)
+                    .map(ExpressionAndValuePointers::getInputSymbols)
                     .flatMap(Collection::stream)
                     .collect(toImmutableSet());
             checkDependencies(inputs, variableDefinitionsSymbols, "Invalid node. Symbols used in measures (%s) not in source plan output (%s)", variableDefinitionsSymbols, node.getSource().getOutputSymbols());

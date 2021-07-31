@@ -235,11 +235,13 @@ class TranslationMap
                             rewrittenArguments.build()));
                 }
 
-                // TODO handle aggregation in pattern recognition context (and handle its processingMode)
-
-                Optional<Expression> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                // Do not use the mapping for aggregate functions in pattern recognition context. They have different semantics
+                // than aggregate functions outside pattern recognition.
+                if (!analysis.isPatternAggregation(node)) {
+                    Optional<Expression> mapped = tryGetMapping(node);
+                    if (mapped.isPresent()) {
+                        return coerceIfNecessary(node, mapped.get());
+                    }
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
@@ -264,9 +266,12 @@ class TranslationMap
             {
                 LabelPrefixedReference labelDereference = analysis.getLabelDereference(node);
                 if (labelDereference != null) {
-                    Expression rewritten = treeRewriter.rewrite(labelDereference.getColumn(), null);
-                    checkState(rewritten instanceof SymbolReference, "expected symbol reference, got: " + rewritten);
-                    return coerceIfNecessary(node, new LabelDereference(labelDereference.getLabel(), (SymbolReference) rewritten));
+                    if (labelDereference.getColumn().isPresent()) {
+                        Expression rewritten = treeRewriter.rewrite(labelDereference.getColumn().get(), null);
+                        checkState(rewritten instanceof SymbolReference, "expected symbol reference, got: " + rewritten);
+                        return coerceIfNecessary(node, new LabelDereference(labelDereference.getLabel(), (SymbolReference) rewritten));
+                    }
+                    return new LabelDereference(labelDereference.getLabel());
                 }
 
                 Optional<Expression> mapped = tryGetMapping(node);
@@ -283,7 +288,7 @@ class TranslationMap
                 }
 
                 RowType rowType = (RowType) analysis.getType(node.getBase());
-                String fieldName = node.getField().getValue();
+                String fieldName = node.getField().orElseThrow().getValue();
 
                 List<RowType.Field> fields = rowType.getFields();
                 int index = -1;
@@ -295,7 +300,7 @@ class TranslationMap
                     }
                 }
 
-                checkState(index >= 0, "could not find field name: %s", node.getField());
+                checkState(index >= 0, "could not find field name: %s", fieldName);
 
                 return coerceIfNecessary(
                         node,

@@ -144,6 +144,8 @@ public class Analysis
 
     private final Map<NodeRef<WindowOperation>, MeasureDefinition> measureDefinitions = new LinkedHashMap<>();
 
+    private final Set<NodeRef<FunctionCall>> patternAggregations = new LinkedHashSet<>();
+
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, GroupingSetAnalysis> groupingSets = new LinkedHashMap<>();
@@ -948,6 +950,16 @@ public class Analysis
     public MeasureDefinition getMeasureDefinition(WindowOperation measure)
     {
         return measureDefinitions.get(NodeRef.of(measure));
+    }
+
+    public void setPatternAggregations(Set<NodeRef<FunctionCall>> aggregations)
+    {
+        patternAggregations.addAll(aggregations);
+    }
+
+    public boolean isPatternAggregation(FunctionCall function)
+    {
+        return patternAggregations.contains(NodeRef.of(function));
     }
 
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()

@@ -896,7 +896,7 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitLabelDereference(LabelDereference node, C context)
     {
-        process(node.getReference(), context);
+        node.getReference().ifPresent(reference -> process(reference, context));
 
         return null;
     }

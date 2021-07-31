@@ -439,7 +439,8 @@ primaryExpression
     | name=LISTAGG '(' setQuantifier? expression (',' string)?
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' ORDER BY sortItem (',' sortItem)* ')')                          #listagg
-    | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
+    | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
+        filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
         (ORDER BY sortItem (',' sortItem)*)? ')' filter? (nullTreatment? over)?           #functionCall
     | identifier over                                                                     #measure

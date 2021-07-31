@@ -47,6 +47,7 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
@@ -171,7 +172,7 @@ public class PatternRecognitionMatcher
         Expression expression = rewriteIdentifiers(new SqlParser().createExpression(definition, new ParsingOptions()));
         Map<Symbol, Type> types = extractExpressions(ImmutableList.of(expression), SymbolReference.class).stream()
                 .collect(toImmutableMap(Symbol::from, reference -> BIGINT));
-        return LogicalIndexExtractor.rewrite(expression, subsets, new SymbolAllocator(types));
+        return LogicalIndexExtractor.rewrite(expression, subsets, new SymbolAllocator(types), createTestMetadataManager());
     }
 
     @Override
