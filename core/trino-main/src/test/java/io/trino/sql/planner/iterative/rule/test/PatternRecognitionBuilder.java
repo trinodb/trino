@@ -52,6 +52,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
@@ -185,7 +186,7 @@ public class PatternRecognitionBuilder
         Expression expression = rewriteIdentifiers(new SqlParser().createExpression(sql, new ParsingOptions()));
         Map<Symbol, Type> types = extractExpressions(ImmutableList.of(expression), SymbolReference.class).stream()
                 .collect(toImmutableMap(Symbol::from, reference -> BIGINT));
-        return LogicalIndexExtractor.rewrite(expression, subsets, new SymbolAllocator(types));
+        return LogicalIndexExtractor.rewrite(expression, subsets, new SymbolAllocator(types), createTestMetadataManager());
     }
 
     public static Expression rewriteIdentifiers(Expression expression)
@@ -196,7 +197,7 @@ public class PatternRecognitionBuilder
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 checkArgument(node.getBase() instanceof Identifier, "chained dereferences not supported");
-                return new LabelDereference(((Identifier) node.getBase()).getCanonicalValue(), new SymbolReference(node.getField().getValue()));
+                return new LabelDereference(((Identifier) node.getBase()).getCanonicalValue(), new SymbolReference(node.getField().orElseThrow().getValue()));
             }
 
             @Override

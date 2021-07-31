@@ -2252,6 +2252,11 @@ class AstBuilder
             }
         }
 
+        List<Expression> arguments = visit(context.expression(), Expression.class);
+        if (context.label != null) {
+            arguments = ImmutableList.of(new DereferenceExpression(getLocation(context.label), (Identifier) visit(context.label)));
+        }
+
         return new FunctionCall(
                 Optional.of(getLocation(context)),
                 name,
@@ -2261,7 +2266,7 @@ class AstBuilder
                 distinct,
                 nulls,
                 mode,
-                visit(context.expression(), Expression.class));
+                arguments);
     }
 
     @Override

@@ -170,7 +170,7 @@ public class WindowOperator
                     spillerFactory,
                     orderingCompiler,
                     measureTypes,
-                    partitionerSupplier.get());
+                    partitionerSupplier.get(operatorContext.aggregateUserMemoryContext()));
         }
 
         @Override

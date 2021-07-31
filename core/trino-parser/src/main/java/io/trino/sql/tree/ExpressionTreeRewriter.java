@@ -819,7 +819,10 @@ public final class ExpressionTreeRewriter<C>
 
             Expression base = rewrite(node.getBase(), context.get());
             if (base != node.getBase()) {
-                return new DereferenceExpression(base, node.getField());
+                if (node.getField().isPresent()) {
+                    return new DereferenceExpression(base, node.getField().get());
+                }
+                return new DereferenceExpression((Identifier) base);
             }
 
             return node;
@@ -1125,9 +1128,11 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            SymbolReference reference = rewrite(node.getReference(), context.get());
-            if (node.getReference() != reference) {
-                return new LabelDereference(node.getLabel(), reference);
+            if (node.getReference().isPresent()) {
+                SymbolReference reference = rewrite(node.getReference().get(), context.get());
+                if (node.getReference().get() != reference) {
+                    return new LabelDereference(node.getLabel(), reference);
+                }
             }
 
             return node;

@@ -136,6 +136,7 @@ import io.trino.type.UnknownType;
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -169,6 +170,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_MEASURE;
 import static io.trino.spi.StandardErrorCode.MISSING_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.MISSING_ROW_PATTERN;
 import static io.trino.spi.StandardErrorCode.MISSING_VARIABLE_DEFINITIONS;
+import static io.trino.spi.StandardErrorCode.NESTED_AGGREGATION;
 import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -208,6 +210,7 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
+import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
@@ -285,6 +288,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<RangeQuantifier>, Range> ranges = new LinkedHashMap<>();
     private final Map<NodeRef<RowPattern>, Set<String>> undefinedLabels = new LinkedHashMap<>();
     private final Map<NodeRef<WindowOperation>, MeasureDefinition> measureDefinitions = new LinkedHashMap<>();
+    private final Set<NodeRef<FunctionCall>> patternAggregations = new LinkedHashSet<>();
 
     private final Session session;
     private final Map<NodeRef<Parameter>, Expression> parameters;
@@ -483,6 +487,11 @@ public class ExpressionAnalyzer
         return measureDefinitions;
     }
 
+    public Set<NodeRef<FunctionCall>> getPatternAggregations()
+    {
+        return patternAggregations;
+    }
+
     private class Visitor
             extends StackableAstVisitor<Type, Context>
     {
@@ -604,6 +613,10 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitDereferenceExpression(DereferenceExpression node, StackableAstVisitorContext<Context> context)
         {
+            if (isQualifiedAllFieldsReference(node)) {
+                throw semanticException(NOT_SUPPORTED, node, "<identifier>.* not allowed in this context");
+            }
+
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
 
             // If this Dereference looks like column reference, try match it to column first.
@@ -651,14 +664,15 @@ public class ExpressionAnalyzer
             }
 
             RowType rowType = (RowType) baseType;
-            String fieldName = node.getField().getValue();
+            Identifier field = node.getField().orElseThrow();
+            String fieldName = field.getValue();
 
             boolean foundFieldName = false;
             Type rowFieldType = null;
             for (RowType.Field rowField : rowType.getFields()) {
                 if (fieldName.equalsIgnoreCase(rowField.getName().orElse(null))) {
                     if (foundFieldName) {
-                        throw semanticException(AMBIGUOUS_NAME, node.getField(), "Ambiguous row field reference: " + fieldName);
+                        throw semanticException(AMBIGUOUS_NAME, field, "Ambiguous row field reference: " + fieldName);
                     }
                     foundFieldName = true;
                     rowFieldType = rowField.getType();
@@ -1085,11 +1099,24 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
         {
+            boolean isRowPatternCount = context.getContext().isPatternRecognition() &&
+                    metadata.isAggregationFunction(node.getName()) &&
+                    node.getName().getSuffix().equalsIgnoreCase("count");
+            // argument of the form `label.*` is only allowed for row pattern count function
+            node.getArguments().stream()
+                    .filter(DereferenceExpression::isQualifiedAllFieldsReference)
+                    .findAny()
+                    .ifPresent(allRowsReference -> {
+                        if (!isRowPatternCount || node.getArguments().size() > 1) {
+                            throw semanticException(INVALID_FUNCTION_ARGUMENT, allRowsReference, "label.* syntax is only supported as the only argument of row pattern count function");
+                        }
+                    });
             if (context.getContext().isPatternRecognition() && isPatternRecognitionFunction(node)) {
                 return analyzePatternRecognitionFunction(node, context);
             }
             if (context.getContext().isPatternRecognition() && metadata.isAggregationFunction(node.getName())) {
-                throw semanticException(NOT_SUPPORTED, node, "Aggregations in pattern recognition context are not yet supported");
+                analyzePatternAggregation(node);
+                patternAggregations.add(NodeRef.of(node));
             }
             if (node.getProcessingMode().isPresent()) {
                 ProcessingMode processingMode = node.getProcessingMode().get();
@@ -1133,6 +1160,11 @@ public class ExpressionAnalyzer
                 }
             }
 
+            // must run after arguments are processed and labels are recorded
+            if (context.getContext().isPatternRecognition() && metadata.isAggregationFunction(node.getName())) {
+                validateAggregationLabelConsistency(node);
+            }
+
             ResolvedFunction function;
             try {
                 function = metadata.resolveFunction(session, node.getName(), argumentTypes);
@@ -1171,7 +1203,7 @@ public class ExpressionAnalyzer
             }
 
             BoundSignature signature = function.getSignature();
-            for (int i = 0; i < node.getArguments().size(); i++) {
+            for (int i = 0; i < argumentTypes.size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type expectedType = signature.getArgumentTypes().get(i);
                 requireNonNull(expectedType, format("Type '%s' not found", signature.getArgumentTypes().get(i)));
@@ -1511,7 +1543,19 @@ public class ExpressionAnalyzer
                             }));
                 }
                 else {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(process(argument, context).getTypeSignature()));
+                    if (isQualifiedAllFieldsReference(argument)) {
+                        // to resolve `count(label.*)` correctly, we should skip the argument, like for `count(*)`
+                        // process the argument but do not include it in the list
+                        DereferenceExpression allRowsDereference = (DereferenceExpression) argument;
+                        String label = label((Identifier) allRowsDereference.getBase());
+                        if (!context.getContext().getLabels().contains(label)) {
+                            throw semanticException(INVALID_FUNCTION_ARGUMENT, allRowsDereference.getBase(), "%s is not a primary pattern variable or subset name", label);
+                        }
+                        labelDereferences.put(NodeRef.of(allRowsDereference), new LabelPrefixedReference(label));
+                    }
+                    else {
+                        argumentTypesBuilder.add(new TypeSignatureProvider(process(argument, context).getTypeSignature()));
+                    }
                 }
             }
 
@@ -1566,8 +1610,10 @@ public class ExpressionAnalyzer
                         }
                     }
                     validateNavigationNesting(node);
+                    checkNoNestedAggregations(node);
+
                     // must run after the argument is processed and labels in the argument are recorded
-                    validateLabelConsistency(node);
+                    validateNavigationLabelConsistency(node);
                     return setExpressionType(node, resultType);
                 case "MATCH_NUMBER":
                     if (!node.getArguments().isEmpty()) {
@@ -1634,34 +1680,71 @@ public class ExpressionAnalyzer
             }
         }
 
-        private void validateLabelConsistency(FunctionCall node)
+        /**
+         * Check that all aggregation arguments refer consistently to the same label.
+         */
+        private void validateAggregationLabelConsistency(FunctionCall node)
+        {
+            if (node.getArguments().isEmpty()) {
+                return;
+            }
+
+            Set<Optional<String>> argumentLabels = new HashSet<>();
+            for (int i = 0; i < node.getArguments().size(); i++) {
+                ArgumentLabel argumentLabel = validateLabelConsistency(node, false, i);
+                if (argumentLabel.hasLabel()) {
+                    argumentLabels.add(argumentLabel.getLabel());
+                }
+            }
+            if (argumentLabels.size() > 1) {
+                throw semanticException(INVALID_ARGUMENTS, node, "All aggregate function arguments must apply to rows matched with the same label");
+            }
+        }
+
+        /**
+         * Check that the navigated expression refers consistently to the same label.
+         */
+        private void validateNavigationLabelConsistency(FunctionCall node)
         {
             checkArgument(isPatternNavigationFunction(node));
+            validateLabelConsistency(node, true, 0);
+        }
+
+        private ArgumentLabel validateLabelConsistency(FunctionCall node, boolean labelRequired, int argumentIndex)
+        {
             String name = node.getName().getSuffix();
 
-            // Pattern navigation function must contain at least one column reference or CLASSIFIER() function
             List<Expression> unlabeledInputColumns = Streams.concat(
-                    extractExpressions(ImmutableList.of(node.getArguments().get(0)), Identifier.class).stream(),
-                    extractExpressions(ImmutableList.of(node.getArguments().get(0)), DereferenceExpression.class).stream())
+                    extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), Identifier.class).stream(),
+                    extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), DereferenceExpression.class).stream())
                     .filter(expression -> columnReferences.containsKey(NodeRef.of(expression)))
                     .collect(toImmutableList());
-            List<Expression> labeledInputColumns = extractExpressions(ImmutableList.of(node.getArguments().get(0)), DereferenceExpression.class).stream()
+            List<Expression> labeledInputColumns = extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), DereferenceExpression.class).stream()
                     .filter(expression -> labelDereferences.containsKey(NodeRef.of(expression)))
                     .collect(toImmutableList());
-            List<FunctionCall> classifiers = extractExpressions(ImmutableList.of(node.getArguments().get(0)), FunctionCall.class).stream()
+            List<FunctionCall> classifiers = extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), FunctionCall.class).stream()
                     .filter(this::isClassifierFunction)
                     .collect(toImmutableList());
+
+            // Pattern navigation function must contain at least one column reference or CLASSIFIER() function. There is no such requirement for the argument of an aggregate function.
             if (unlabeledInputColumns.isEmpty() && labeledInputColumns.isEmpty() && classifiers.isEmpty()) {
-                throw semanticException(INVALID_ARGUMENTS, node, "Pattern navigation function %s must contain at least one column reference or CLASSIFIER()", name);
+                if (labelRequired) {
+                    throw semanticException(INVALID_ARGUMENTS, node, "Pattern navigation function %s must contain at least one column reference or CLASSIFIER()", name);
+                }
+                else {
+                    return ArgumentLabel.noLabel();
+                }
             }
-            // All column references inside pattern navigation function must be prefixed with the same label.
+
+            // Label consistency rules:
+            // All column references must be prefixed with the same label.
             // Alternatively, all column references can have no label. In such case they are considered as prefixed with universal row pattern variable.
-            // CLASSIFIER() must have the same label or no label as its argument, respectively.
+            // All CLASSIFIER() calls must have the same label or no label, respectively, as their argument.
             if (!unlabeledInputColumns.isEmpty() && !labeledInputColumns.isEmpty()) {
                 throw semanticException(
                         INVALID_ARGUMENTS,
                         labeledInputColumns.get(0),
-                        "Column references inside pattern navigation function %s must all either be prefixed with the same label or be not prefixed", name);
+                        "Column references inside argument of function %s must all either be prefixed with the same label or be not prefixed", name);
             }
             Set<String> inputColumnLabels = labeledInputColumns.stream()
                     .map(expression -> labelDereferences.get(NodeRef.of(expression)))
@@ -1671,7 +1754,7 @@ public class ExpressionAnalyzer
                 throw semanticException(
                         INVALID_ARGUMENTS,
                         labeledInputColumns.get(0),
-                        "Column references inside pattern navigation function %s must all either be prefixed with the same label or be not prefixed", name);
+                        "Column references inside argument of function %s must all either be prefixed with the same label or be not prefixed", name);
             }
             Set<Optional<String>> classifierLabels = classifiers.stream()
                     .map(functionCall -> {
@@ -1685,14 +1768,14 @@ public class ExpressionAnalyzer
                 throw semanticException(
                         INVALID_ARGUMENTS,
                         node,
-                        "CLASSIFIER() calls inside pattern navigation function %s must all either have the same label as the argument or have no arguments", name);
+                        "CLASSIFIER() calls inside argument of function %s must all either have the same label as the argument or have no arguments", name);
             }
             if (!unlabeledInputColumns.isEmpty() && !classifiers.isEmpty()) {
                 if (!getOnlyElement(classifierLabels).equals(Optional.empty())) {
                     throw semanticException(
                             INVALID_ARGUMENTS,
                             node,
-                            "Column references inside pattern navigation function %s must all be prefixed with the same label that all CLASSIFIER() calls have as the argument", name);
+                            "Column references inside argument of function %s must all be prefixed with the same label that all CLASSIFIER() calls have as the argument", name);
                 }
             }
             if (!labeledInputColumns.isEmpty() && !classifiers.isEmpty()) {
@@ -1700,9 +1783,23 @@ public class ExpressionAnalyzer
                     throw semanticException(
                             INVALID_ARGUMENTS,
                             node,
-                            "Column references inside pattern navigation function %s must all be prefixed with the same label that all CLASSIFIER() calls have as the argument", name);
+                            "Column references inside argument of function %s must all be prefixed with the same label that all CLASSIFIER() calls have as the argument", name);
                 }
             }
+
+            // For aggregate functions: return the label for the current argument to check if all arguments apply to the same set of rows.
+            if (!inputColumnLabels.isEmpty()) {
+                return ArgumentLabel.explicitLabel(getOnlyElement(inputColumnLabels));
+            }
+            else if (!classifierLabels.isEmpty()) {
+                return getOnlyElement(classifierLabels)
+                        .map(ArgumentLabel::explicitLabel)
+                        .orElse(ArgumentLabel.universalLabel());
+            }
+            else if (!unlabeledInputColumns.isEmpty()) {
+                return ArgumentLabel.universalLabel();
+            }
+            return ArgumentLabel.noLabel();
         }
 
         private boolean isPatternNavigationFunction(FunctionCall node)
@@ -1728,6 +1825,55 @@ public class ExpressionAnalyzer
         private String label(Identifier identifier)
         {
             return identifier.getCanonicalValue();
+        }
+
+        private void analyzePatternAggregation(FunctionCall node)
+        {
+            if (node.getWindow().isPresent()) {
+                throw semanticException(NESTED_WINDOW, node, "Cannot use OVER with %s aggregate function in pattern recognition context", node.getName());
+            }
+            if (node.getFilter().isPresent()) {
+                throw semanticException(NOT_SUPPORTED, node, "Cannot use FILTER with %s aggregate function in pattern recognition context", node.getName());
+            }
+            if (node.getOrderBy().isPresent()) {
+                throw semanticException(NOT_SUPPORTED, node, "Cannot use ORDER BY with %s aggregate function in pattern recognition context", node.getName());
+            }
+            if (node.isDistinct()) {
+                throw semanticException(NOT_SUPPORTED, node, "Cannot use DISTINCT with %s aggregate function in pattern recognition context", node.getName());
+            }
+
+            checkNoNestedAggregations(node);
+            checkNoNestedNavigations(node);
+        }
+
+        private void checkNoNestedAggregations(FunctionCall node)
+        {
+            extractExpressions(node.getArguments(), FunctionCall.class).stream()
+                    .filter(function -> metadata.isAggregationFunction(function.getName()))
+                    .findFirst()
+                    .ifPresent(aggregation -> {
+                        throw semanticException(
+                                NESTED_AGGREGATION,
+                                aggregation,
+                                "Cannot nest %s aggregate function inside %s function",
+                                aggregation.getName(),
+                                node.getName());
+                    });
+        }
+
+        private void checkNoNestedNavigations(FunctionCall node)
+        {
+            extractExpressions(node.getArguments(), FunctionCall.class).stream()
+                    .filter(this::isPatternNavigationFunction)
+                    .findFirst()
+                    .ifPresent(navigation -> {
+                        throw semanticException(
+                                INVALID_NAVIGATION_NESTING,
+                                navigation,
+                                "Cannot nest %s pattern navigation function inside %s function",
+                                navigation.getName().getSuffix(),
+                                node.getName());
+                    });
         }
 
         @Override
@@ -1929,6 +2075,11 @@ public class ExpressionAnalyzer
         @Override
         public Type visitTryExpression(TryExpression node, StackableAstVisitorContext<Context> context)
         {
+            // TRY is rewritten to lambda, and lambda is not supported in pattern recognition
+            if (context.getContext().isPatternRecognition()) {
+                throw semanticException(NOT_SUPPORTED, node, "TRY expression in pattern recognition context is not yet supported");
+            }
+
             Type type = process(node.getInnerExpression(), context);
             return setExpressionType(node, type);
         }
@@ -2655,6 +2806,7 @@ public class ExpressionAnalyzer
         analysis.setRanges(analyzer.getRanges());
         analysis.setUndefinedLabels(analyzer.getUndefinedLabels());
         analysis.setMeasureDefinitions(analyzer.getMeasureDefinitions());
+        analysis.setPatternAggregations(analyzer.getPatternAggregations());
         analysis.addPredicateCoercions(analyzer.getPredicateCoercions());
     }
 
@@ -2787,9 +2939,19 @@ public class ExpressionAnalyzer
     public static class LabelPrefixedReference
     {
         private final String label;
-        private final Identifier column;
+        private final Optional<Identifier> column;
 
         public LabelPrefixedReference(String label, Identifier column)
+        {
+            this(label, Optional.of(requireNonNull(column, "column is null")));
+        }
+
+        public LabelPrefixedReference(String label)
+        {
+            this(label, Optional.empty());
+        }
+
+        private LabelPrefixedReference(String label, Optional<Identifier> column)
         {
             this.label = requireNonNull(label, "label is null");
             this.column = requireNonNull(column, "column is null");
@@ -2800,9 +2962,47 @@ public class ExpressionAnalyzer
             return label;
         }
 
-        public Identifier getColumn()
+        public Optional<Identifier> getColumn()
         {
             return column;
+        }
+    }
+
+    private static class ArgumentLabel
+    {
+        private final boolean hasLabel;
+        private final Optional<String> label;
+
+        private ArgumentLabel(boolean hasLabel, Optional<String> label)
+        {
+            this.hasLabel = hasLabel;
+            this.label = label;
+        }
+
+        public static ArgumentLabel noLabel()
+        {
+            return new ArgumentLabel(false, Optional.empty());
+        }
+
+        public static ArgumentLabel universalLabel()
+        {
+            return new ArgumentLabel(true, Optional.empty());
+        }
+
+        public static ArgumentLabel explicitLabel(String label)
+        {
+            return new ArgumentLabel(true, Optional.of(label));
+        }
+
+        public boolean hasLabel()
+        {
+            return hasLabel;
+        }
+
+        public Optional<String> getLabel()
+        {
+            checkState(hasLabel, "no label available");
+            return label;
         }
     }
 }

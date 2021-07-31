@@ -11,16 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.window;
+package io.trino.operator.window.pattern;
 
-import io.trino.memory.context.AggregatedMemoryContext;
-
-public class RegularPartitionerSupplier
-        implements PartitionerSupplier
+public class MatchAggregationPointer
+        implements PhysicalValueAccessor
 {
-    @Override
-    public Partitioner get(AggregatedMemoryContext memoryContext)
+    private final int index;
+
+    public MatchAggregationPointer(int index)
     {
-        return new RegularWindowPartitioner();
+        this.index = index;
+    }
+
+    public int getIndex()
+    {
+        return index;
     }
 }

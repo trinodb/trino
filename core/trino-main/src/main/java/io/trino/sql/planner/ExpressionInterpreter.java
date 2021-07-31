@@ -145,6 +145,7 @@ import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter
 import static io.trino.sql.planner.iterative.rule.DesugarCurrentCatalog.desugarCurrentCatalog;
 import static io.trino.sql.planner.iterative.rule.DesugarCurrentSchema.desugarCurrentSchema;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
+import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
 import static io.trino.util.Failures.checkCondition;
@@ -318,6 +319,9 @@ public class ExpressionInterpreter
         @Override
         protected Object visitDereferenceExpression(DereferenceExpression node, Object context)
         {
+            checkArgument(!isQualifiedAllFieldsReference(node), "unexpected expression: all fields labeled reference " + node);
+            Identifier fieldIdentifier = node.getField().orElseThrow();
+
             Type type = type(node.getBase());
             // if there is no type for the base of Dereference, it must be QualifiedName
             if (type == null) {
@@ -332,13 +336,13 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue(base)) {
-                return new DereferenceExpression(toExpression(base, type), node.getField());
+                return new DereferenceExpression(toExpression(base, type), fieldIdentifier);
             }
 
             RowType rowType = (RowType) type;
             Block row = (Block) base;
             Type returnType = type(node);
-            String fieldName = node.getField().getValue();
+            String fieldName = fieldIdentifier.getValue();
             List<Field> fields = rowType.getFields();
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
@@ -349,7 +353,7 @@ public class ExpressionInterpreter
                 }
             }
 
-            checkState(index >= 0, "could not find field name: %s", node.getField());
+            checkState(index >= 0, "could not find field name: %s", fieldName);
             return readNativeValue(returnType, row, index);
         }
 
