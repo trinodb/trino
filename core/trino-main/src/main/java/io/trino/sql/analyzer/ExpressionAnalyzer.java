@@ -1952,9 +1952,40 @@ public class ExpressionAnalyzer
         protected Type visitInPredicate(InPredicate node, StackableAstVisitorContext<Context> context)
         {
             Expression value = node.getValue();
+            Expression valueList = node.getValueList();
+
+            // When an IN-predicate containing a subquery: `x IN (SELECT ...)` is planned, both `value` and `valueList` are pre-planned.
+            // In the row pattern matching context, expressions can contain labeled column references, navigations, CALSSIFIER(), and MATCH_NUMBER() calls.
+            // None of these can be pre-planned. Instead, the query fails:
+            // - if such elements are in the `value list` (subquery), the analysis of the subquery fails as it is done in a non-pattern-matching context.
+            // - if such elements are in `value`, they are captured by the below check.
+            //
+            // NOTE: Theoretically, if the IN-predicate does not contain CLASSIFIER() or MATCH_NUMBER() calls, it could be pre-planned
+            // on the condition that all column references of the `value` are consistently navigated (i.e., the expression is effectively evaluated within a single row),
+            // and that the same navigation should be applied to the resulting symbol.
+            // Currently, we only support the case when there are no explicit labels or navigations. This is a special case of such
+            // consistent navigating, as the column reference `x` defaults to `RUNNING LAST(universal_pattern_variable.x)`.
+            if (context.getContext().isPatternRecognition() && valueList instanceof SubqueryExpression) {
+                extractExpressions(ImmutableList.of(value), FunctionCall.class).stream()
+                        .filter(ExpressionAnalyzer::isPatternRecognitionFunction)
+                        .findFirst()
+                        .ifPresent(function -> {
+                            throw semanticException(NOT_SUPPORTED, function, "IN-PREDICATE with %s function is not yet supported", function.getName().getSuffix());
+                        });
+                extractExpressions(ImmutableList.of(value), DereferenceExpression.class).stream()
+                        .forEach(dereference -> {
+                            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(dereference);
+                            if (qualifiedName != null) {
+                                String label = label(qualifiedName.getOriginalParts().get(0));
+                                if (context.getContext().getLabels().contains(label)) {
+                                    throw semanticException(NOT_SUPPORTED, dereference, "IN-PREDICATE with labeled column reference is not yet supported");
+                                }
+                            }
+                        });
+            }
+
             Type declaredValueType = process(value, context);
 
-            Expression valueList = node.getValueList();
             if (valueList instanceof InListExpression) {
                 process(valueList, context);
                 InListExpression inListExpression = (InListExpression) valueList;
