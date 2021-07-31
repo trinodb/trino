@@ -4439,6 +4439,63 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testInPredicateWithSubquery()
+    {
+        // value can use plain column references
+        analyze(("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS 5 + x in (SELECT 1)" +
+                "                 ) "));
+
+        // value must not use pattern variables
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS A.x in (SELECT 1)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:176: IN-PREDICATE with labeled column reference is not yet supported");
+
+        // value must not use navigations
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS LAST(x) in (SELECT 1)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:176: IN-PREDICATE with last function is not yet supported");
+
+        // value must not use CLASSIFIER()
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS CLASSIFIER() in (SELECT 1)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:176: IN-PREDICATE with classifier function is not yet supported");
+
+        // value must not use MATCH_NUMBER()
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS MATCH_NUMBER() in (SELECT 1)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:176: IN-PREDICATE with match_number function is not yet supported");
+    }
+
+    @Test
     public void testPatternRecognitionConcatenation()
     {
         analyze("SELECT * " +
