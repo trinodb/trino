@@ -1438,7 +1438,7 @@ class QueryPlanner
         return subPlan;
     }
 
-    private static List<Expression> extractPatternRecognitionExpressions(List<VariableDefinition> variableDefinitions, List<MeasureDefinition> measureDefinitions)
+    public static List<Expression> extractPatternRecognitionExpressions(List<VariableDefinition> variableDefinitions, List<MeasureDefinition> measureDefinitions)
     {
         ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
 
