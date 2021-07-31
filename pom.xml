@@ -1534,6 +1534,7 @@
                 <artifactId>snakeyaml</artifactId>
                 <version>1.26</version>
             </dependency>
+
         </dependencies>
     </dependencyManagement>
 

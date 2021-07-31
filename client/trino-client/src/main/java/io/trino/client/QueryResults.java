@@ -45,6 +45,7 @@ public class QueryResults
     private final List<Warning> warnings;
     private final String updateType;
     private final Long updateCount;
+    private final String arrowStream;
 
     @JsonCreator
     public QueryResults(
@@ -67,6 +68,37 @@ public class QueryResults
                 nextUri,
                 columns,
                 fixData(columns, data),
+                null,
+                stats,
+                error,
+                firstNonNull(warnings, ImmutableList.of()),
+                updateType,
+                updateCount);
+    }
+
+    @JsonCreator
+    public QueryResults(
+            @JsonProperty("id") String id,
+            @JsonProperty("infoUri") URI infoUri,
+            @JsonProperty("partialCancelUri") URI partialCancelUri,
+            @JsonProperty("nextUri") URI nextUri,
+            @JsonProperty("columns") List<Column> columns,
+            @JsonProperty("data") List<List<Object>> data,
+            @JsonProperty("arrowStream") String arrowStream,
+            @JsonProperty("stats") StatementStats stats,
+            @JsonProperty("error") QueryError error,
+            @JsonProperty("warnings") List<Warning> warnings,
+            @JsonProperty("updateType") String updateType,
+            @JsonProperty("updateCount") Long updateCount)
+    {
+        this(
+                id,
+                infoUri,
+                partialCancelUri,
+                nextUri,
+                columns,
+                fixData(columns, data),
+                arrowStream,
                 stats,
                 error,
                 firstNonNull(warnings, ImmutableList.of()),
@@ -81,6 +113,7 @@ public class QueryResults
             URI nextUri,
             List<Column> columns,
             Iterable<List<Object>> data,
+            String arrowStream,
             StatementStats stats,
             QueryError error,
             List<Warning> warnings,
@@ -93,7 +126,8 @@ public class QueryResults
         this.nextUri = nextUri;
         this.columns = (columns != null) ? ImmutableList.copyOf(columns) : null;
         this.data = (data != null) ? unmodifiableIterable(data) : null;
-        checkArgument(data == null || columns != null, "data present without columns");
+        this.arrowStream = arrowStream;
+        checkArgument((data == null && arrowStream == null) || columns != null, "data present without columns");
         this.stats = requireNonNull(stats, "stats is null");
         this.error = error;
         this.warnings = ImmutableList.copyOf(requireNonNull(warnings, "warnings is null"));
@@ -145,6 +179,14 @@ public class QueryResults
     public Iterable<List<Object>> getData()
     {
         return data;
+    }
+
+    @Nullable
+    @JsonProperty
+    @Override
+    public String getArrowStream()
+    {
+        return arrowStream;
     }
 
     @JsonProperty

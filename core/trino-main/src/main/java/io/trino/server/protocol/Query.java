@@ -119,6 +119,12 @@ class Query
 {
     private static final Logger log = Logger.get(Query.class);
 
+    public enum ResultFormat
+    {
+        JSON,
+        ARROW,
+    }
+
     private final QueryManager queryManager;
     private final QueryId queryId;
     private final Session session;
@@ -332,7 +338,7 @@ class Query
         return clearTransactionId;
     }
 
-    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, Duration wait, DataSize targetResultSize)
+    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, Duration wait, DataSize targetResultSize, ResultFormat resultFormat)
     {
         // before waiting, check if this request has already been processed and cached
         Optional<QueryResults> cachedResult = getCachedResult(token);
@@ -348,7 +354,7 @@ class Query
                 timeoutExecutor);
 
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize, resultFormat), resultsProcessorExecutor);
     }
 
     private synchronized ListenableFuture<Void> getFutureStateChange()
@@ -401,8 +407,7 @@ class Query
         return Optional.empty();
     }
 
-    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, DataSize targetResultSize)
-    {
+    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, DataSize targetResultSize, Query.ResultFormat resultFormat) {
         // check if the result for the token have already been created
         Optional<QueryResults> cachedResult = getCachedResult(token);
         if (cachedResult.isPresent()) {
@@ -470,14 +475,27 @@ class Query
         startedTransactionId = queryInfo.getStartedTransactionId();
         clearTransactionId = queryInfo.isClearTransactionId();
 
+        String arrowStream = null;
+        List<Column> columns = resultRows.getColumns().orElse(null);
+        if(resultFormat == ResultFormat.ARROW && !resultRows.isEmpty()) {
+            try {
+                arrowStream = getArrowStream(resultRows);
+                resultRows = null;
+            } catch (Exception e) {
+                //TODO
+                e.printStackTrace();
+            }
+        }
+
         // first time through, self is null
         QueryResults queryResults = new QueryResults(
                 queryId.toString(),
                 getQueryInfoUri(queryInfoUrl, queryId, uriInfo),
                 partialCancelUri,
                 nextResultsUri,
-                resultRows.getColumns().orElse(null),
-                resultRows.isEmpty() ? null : resultRows, // client excepts null that indicates "no data"
+                columns,
+                (resultRows != null && resultRows.isEmpty()) ? null : resultRows, // client excepts null that indicates "no data"
+                arrowStream,
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo, typeSerializationException),
                 mappedCopy(queryInfo.getWarnings(), Query::toClientWarning),
@@ -489,6 +507,12 @@ class Query
         lastResult = queryResults;
 
         return queryResults;
+    }
+
+    private String getArrowStream(QueryResultRows resultRows) throws Exception {
+        ArrowStreamUtil arrowStreamUtil = new ArrowStreamUtil();
+        String arrowStream = arrowStreamUtil.getArrowStream(resultRows.getColumns().get(), resultRows);
+        return arrowStream;
     }
 
     private synchronized QueryResultRows removePagesFromExchange(QueryInfo queryInfo, long targetResultBytes)

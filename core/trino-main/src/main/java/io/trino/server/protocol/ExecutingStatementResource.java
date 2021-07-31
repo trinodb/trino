@@ -32,6 +32,7 @@ import io.trino.server.ServerConfig;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.BlockEncodingSerde;
+import org.eclipse.jetty.util.StringUtil;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -81,6 +82,8 @@ public class ExecutingStatementResource
 
     private static final DataSize DEFAULT_TARGET_RESULT_SIZE = DataSize.of(1, MEGABYTE);
     private static final DataSize MAX_TARGET_RESULT_SIZE = DataSize.of(128, MEGABYTE);
+    private static final String DEFAULT_RESULT_FORMAT = "JSON";
+    private static final String ARROW_RESULT_FORMAT = "ARROW";
 
     private final QueryManager queryManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
@@ -150,11 +153,12 @@ public class ExecutingStatementResource
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
             @QueryParam("targetResultSize") DataSize targetResultSize,
+            @QueryParam("resultFormat") Query.ResultFormat resultFormat,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
-        asyncQueryResults(query, token, maxWait, targetResultSize, uriInfo, asyncResponse);
+        asyncQueryResults(query, token, maxWait, targetResultSize, resultFormat, uriInfo, asyncResponse);
     }
 
     protected Query getQuery(QueryId queryId, String slug, long token)
@@ -201,6 +205,7 @@ public class ExecutingStatementResource
             long token,
             Duration maxWait,
             DataSize targetResultSize,
+            Query.ResultFormat resultFormat,
             UriInfo uriInfo,
             AsyncResponse asyncResponse)
     {
@@ -211,7 +216,12 @@ public class ExecutingStatementResource
         else {
             targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
         }
-        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, wait, targetResultSize);
+
+        if(resultFormat == null) {
+            resultFormat = Query.ResultFormat.JSON;
+        }
+
+        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, wait, targetResultSize, resultFormat);
 
         ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults, compressionEnabled), directExecutor());
 

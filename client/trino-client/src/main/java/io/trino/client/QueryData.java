@@ -18,4 +18,5 @@ import java.util.List;
 public interface QueryData
 {
     Iterable<List<Object>> getData();
+    String getArrowStream();
 }
