@@ -409,4 +409,4 @@ jobs:
       - name: Product Tests
         run: |
           bin/ptl suite run \
-            --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --logs-dir logs/ --timeout 2h
+            --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h
