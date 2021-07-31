@@ -43,13 +43,19 @@ Configuration
 
 To configure the Kafka connector, create a catalog properties file
 ``etc/catalog/kafka.properties`` with the following contents,
-replacing the properties as appropriate:
+replacing the properties as appropriate.
+
+In some cases, such as when using specialized authentication methods, it is necessary to specify
+additional Kafka client properties in order to access your Kafka cluster. To do so,
+add the ``kafka.config.resources`` property to reference your Kafka config files. Note that configs
+can be overwritten if defined explicitly in ``kafka.properties``:
 
 .. code-block:: text
 
     connector.name=kafka
     kafka.table-names=table1,table2
     kafka.nodes=host1:port,host2:port
+    kafka.config.resources=/etc/kafka-configuration.properties
 
 Multiple Kafka clusters
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -65,9 +71,9 @@ Configuration properties
 
 The following configuration properties are available:
 
-========================================================== ==============================================================================
+========================================================== ======================================================================================================
 Property Name                                              Description
-========================================================== ==============================================================================
+========================================================== ======================================================================================================
 ``kafka.default-schema``                                   Default schema name for tables
 ``kafka.nodes``                                            List of nodes in the Kafka cluster
 ``kafka.buffer-size``                                      Kafka read buffer size
@@ -83,7 +89,10 @@ Property Name                                              Description
 ``kafka.ssl.truststore.type``                              File format of the truststore file, defaults to ``JKS``
 ``kafka.ssl.key.password``                                 Password for the private key in the keystore file
 ``kafka.ssl.endpoint-identification-algorithm``            Endpoint identification algorithm used by clients to validate server host name, defaults to ``https``
-========================================================== ==============================================================================
+``kafka.config.resources``                                 A comma-separated list of Kafka client configuration files. These files must exist on the
+                                                           machines running Trino. Only specify this if absolutely necessary to access Kafka.
+                                                           Example: ``/etc/kafka-configuration.properties``
+========================================================== ======================================================================================================
 
 In addition, you need to configure :ref:`table schema and schema registry usage
 <kafka-table-schema-registry>` with the relevant properties.
