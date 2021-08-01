@@ -1373,4 +1373,48 @@ public class TestRowPatternMatching
                         "     (true), " +
                         "     (true) ");
     }
+
+    @Test
+    public void testInPredicateWithoutSubquery()
+    {
+        String query = "SELECT m.val " +
+                "          FROM (VALUES " +
+                "                   (1, 100), " +
+                "                   (2, 200), " +
+                "                   (3, 300), " +
+                "                   (4, 400) " +
+                "               ) t(id, value) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   ORDER BY id " +
+                "                   MEASURES %s AS val " +
+                "                   ONE ROW PER MATCH " +
+                "                   AFTER MATCH SKIP TO NEXT ROW " +
+                "                   PATTERN (A+) " +
+                "                   DEFINE A AS true " +
+                "                ) AS m";
+
+        // navigations and labeled column references
+        assertThat(assertions.query(format(query, "FIRST(A.value) IN (300, LAST(A.value))")))
+                .matches("VALUES " +
+                        "     (false), " +
+                        "     (false), " +
+                        "     (true), " +
+                        "     (true) ");
+
+        // CLASSIFIER()
+        assertThat(assertions.query(format(query, "CLASSIFIER() IN ('X', lower(CLASSIFIER()))")))
+                .matches("VALUES " +
+                        "     (false), " +
+                        "     (false), " +
+                        "     (false), " +
+                        "     (false) ");
+
+        // MATCH_NUMBER()
+        assertThat(assertions.query(format(query, "MATCH_NUMBER() IN (0, MATCH_NUMBER())")))
+                .matches("VALUES " +
+                        "     (true), " +
+                        "     (true), " +
+                        "     (true), " +
+                        "     (true) ");
+    }
 }
