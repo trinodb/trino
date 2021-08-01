@@ -18,9 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
@@ -38,6 +41,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
@@ -193,6 +197,30 @@ public class TestPrunePattenRecognitionColumns
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a")),
                                                 values("a", "b")))));
+
+        // inputs "a", "b" are used as aggregation arguments
+        QualifiedName maxBy = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("max_by"), fromTypes(BIGINT, BIGINT)).toQualifiedName();
+        tester().assertThat(new PrunePattenRecognitionColumns())
+                .on(p -> p.project(
+                        Assignments.of(),
+                        p.patternRecognition(builder -> builder
+                                .addMeasure(p.symbol("measure"), "1", BIGINT)
+                                .pattern(new IrLabel("X"))
+                                .addVariableDefinition(
+                                        new IrLabel("X"),
+                                        new ComparisonExpression(GREATER_THAN, new FunctionCall(maxBy, ImmutableList.of(PlanBuilder.expression("a"), PlanBuilder.expression("b"))), PlanBuilder.expression("5")))
+                                .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"))))))
+                .matches(
+                        strictProject(
+                                ImmutableMap.of(),
+                                patternRecognition(builder -> builder
+                                                .pattern(new IrLabel("X"))
+                                                .addVariableDefinition(
+                                                        new IrLabel("X"),
+                                                        new ComparisonExpression(GREATER_THAN, new FunctionCall(maxBy, ImmutableList.of(PlanBuilder.expression("a"), PlanBuilder.expression("b"))), PlanBuilder.expression("5"))),
+                                        strictProject(
+                                                ImmutableMap.of("a", expression("a"), "b", expression("b")),
+                                                values("a", "b", "c")))));
     }
 
     @Test

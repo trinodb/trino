@@ -29,6 +29,8 @@ import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.WindowNode.Frame;
 import io.trino.sql.planner.plan.WindowNode.Function;
 import io.trino.sql.planner.plan.WindowNode.Specification;
+import io.trino.sql.planner.rowpattern.AggregatedSetDescriptor;
+import io.trino.sql.planner.rowpattern.AggregationValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
@@ -54,6 +56,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
@@ -66,7 +69,7 @@ import static org.testng.Assert.assertEquals;
 public class TestPatternRecognitionNodeSerialization
 {
     @Test
-    public void testValuePointerRoundtrip()
+    public void testScalarValuePointerRoundtrip()
     {
         JsonCodec<ValuePointer> codec = new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ValuePointer.class);
 
@@ -77,6 +80,35 @@ public class TestPatternRecognitionNodeSerialization
         assertJsonRoundTrip(codec, new ScalarValuePointer(
                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true, true, 1, -1),
                 new Symbol("input_symbol")));
+    }
+
+    @Test
+    public void testAggregationValuePointerRoundtrip()
+    {
+        ObjectMapperProvider provider = new ObjectMapperProvider();
+        provider.setJsonSerializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionSerializer()));
+        provider.setJsonDeserializers(ImmutableMap.of(
+                Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser()),
+                Type.class, new TypeDeserializer(createTestMetadataManager())));
+        provider.setKeyDeserializers(ImmutableMap.of(
+                TypeSignature.class, new TypeSignatureKeyDeserializer()));
+        JsonCodec<ValuePointer> codec = new JsonCodecFactory(provider).jsonCodec(ValuePointer.class);
+
+        ResolvedFunction countFunction = createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("count"), ImmutableList.of());
+        assertJsonRoundTrip(codec, new AggregationValuePointer(
+                countFunction,
+                new AggregatedSetDescriptor(ImmutableSet.of(), false),
+                ImmutableList.of(),
+                new Symbol("classifier"),
+                new Symbol("match_number")));
+
+        ResolvedFunction maxFunction = createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(BIGINT));
+        assertJsonRoundTrip(codec, new AggregationValuePointer(
+                maxFunction,
+                new AggregatedSetDescriptor(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true),
+                ImmutableList.of(new NullLiteral()),
+                new Symbol("classifier"),
+                new Symbol("match_number")));
     }
 
     @Test
