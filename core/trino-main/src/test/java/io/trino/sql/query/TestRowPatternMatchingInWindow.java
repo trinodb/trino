@@ -1479,4 +1479,40 @@ public class TestRowPatternMatchingInWindow
                         "     (3, 400), " +
                         "     (4, 400) ");
     }
+
+    @Test
+    public void testInPredicateWithoutSubquery()
+    {
+        String query = "SELECT id, val OVER w " +
+                "          FROM (VALUES " +
+                "                   (1, 100), " +
+                "                   (2, 200), " +
+                "                   (3, 300), " +
+                "                   (4, 400) " +
+                "               ) t(id, value) " +
+                "                 WINDOW w AS ( " +
+                "                   ORDER BY id " +
+                "                   MEASURES %s AS val " +
+                "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                "                   AFTER MATCH SKIP TO NEXT ROW " +
+                "                   PATTERN (A+) " +
+                "                   DEFINE A AS true " +
+                "                )";
+
+        // navigations and labeled column references
+        assertThat(assertions.query(format(query, "FIRST(A.value) IN (300, LAST(A.value))")))
+                .matches("VALUES " +
+                        "     (1, false), " +
+                        "     (2, false), " +
+                        "     (3, true), " +
+                        "     (4, true) ");
+
+        // CLASSIFIER()
+        assertThat(assertions.query(format(query, "CLASSIFIER() IN ('X', lower(CLASSIFIER()))")))
+                .matches("VALUES " +
+                        "     (1, false), " +
+                        "     (2, false), " +
+                        "     (3, false), " +
+                        "     (4, false) ");
+    }
 }
