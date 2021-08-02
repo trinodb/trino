@@ -20,12 +20,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.datatype.CreateAndInsertDataSetup;
-import io.trino.testing.datatype.CreateAsSelectDataSetup;
-import io.trino.testing.datatype.DataSetup;
-import io.trino.testing.datatype.DataType;
-import io.trino.testing.datatype.DataTypeTest;
-import io.trino.testing.datatype.SqlDataTypeTest;
+import io.trino.testing.datatype.*;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -48,16 +43,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.testing.datatype.DataType.bigintDataType;
-import static io.trino.testing.datatype.DataType.booleanDataType;
-import static io.trino.testing.datatype.DataType.dataType;
-import static io.trino.testing.datatype.DataType.dateDataType;
-import static io.trino.testing.datatype.DataType.doubleDataType;
-import static io.trino.testing.datatype.DataType.integerDataType;
-import static io.trino.testing.datatype.DataType.realDataType;
-import static io.trino.testing.datatype.DataType.smallintDataType;
-import static io.trino.testing.datatype.DataType.tinyintDataType;
-import static io.trino.testing.datatype.DataType.varcharDataType;
+import static io.trino.testing.datatype.DataType.*;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Arrays.asList;
@@ -65,27 +51,23 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 
 public class TestPhoenixTypeMapping
-        extends AbstractTestQueryFramework
-{
+        extends AbstractTestQueryFramework {
     private TestingPhoenixServer phoenixServer;
 
     @Override
     protected QueryRunner createQueryRunner()
-            throws Exception
-    {
+            throws Exception {
         phoenixServer = TestingPhoenixServer.getInstance();
         return createPhoenixQueryRunner(phoenixServer, ImmutableMap.of(), TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
+    public void destroy() {
         TestingPhoenixServer.shutDown();
     }
 
     @Test
-    public void testBasicTypes()
-    {
+    public void testBasicTypes() {
         DataTypeTestToSqlDataTypeTestConverter.create()
                 .addRoundTrip(booleanDataType(), true)
                 .addRoundTrip(booleanDataType(), false)
@@ -99,8 +81,7 @@ public class TestPhoenixTypeMapping
     }
 
     @Test
-    public void testVarchar()
-    {
+    public void testVarchar() {
         DataTypeTest varcharTypeTest = stringDataTypeTest(DataType::varcharDataType)
                 .addRoundTrip(varcharDataType(10485760), "text_f")
                 .addRoundTrip(varcharDataType(), "unbounded");
@@ -113,8 +94,7 @@ public class TestPhoenixTypeMapping
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_varchar"));
     }
 
-    private DataTypeTest stringDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
-    {
+    private DataTypeTest stringDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory) {
         return DataTypeTest.create()
                 .addRoundTrip(dataTypeFactory.apply(10), "text_a")
                 .addRoundTrip(dataTypeFactory.apply(255), "text_b")
@@ -122,8 +102,7 @@ public class TestPhoenixTypeMapping
     }
 
     @Test
-    public void testChar()
-    {
+    public void testChar() {
         stringDataTypeTest(DataType::charDataType)
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
 
@@ -133,8 +112,7 @@ public class TestPhoenixTypeMapping
     }
 
     @Test
-    public void testVarbinary()
-    {
+    public void testVarbinary() {
         SqlDataTypeTest.create()
                 .addRoundTrip("varbinary", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("varbinary", "X''", VARBINARY, "CAST(NULL AS varbinary)") // empty stored as NULL
@@ -158,8 +136,7 @@ public class TestPhoenixTypeMapping
     }
 
     @Test
-    public void testDecimal()
-    {
+    public void testDecimal() {
         decimalTests(DataType::decimalDataType)
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
 
@@ -168,8 +145,7 @@ public class TestPhoenixTypeMapping
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_decimal"));
     }
 
-    private DataTypeTest decimalTests(BiFunction<Integer, Integer, DataType<BigDecimal>> dataTypeFactory)
-    {
+    private DataTypeTest decimalTests(BiFunction<Integer, Integer, DataType<BigDecimal>> dataTypeFactory) {
         return DataTypeTest.create()
                 .addRoundTrip(dataTypeFactory.apply(3, 0), new BigDecimal("193"))
                 .addRoundTrip(dataTypeFactory.apply(3, 0), new BigDecimal("19"))
@@ -189,8 +165,7 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip(dataTypeFactory.apply(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
     }
 
-    private static DataType<BigDecimal> phoenixDecimalDataType(int precision, int scale)
-    {
+    private static DataType<BigDecimal> phoenixDecimalDataType(int precision, int scale) {
         String databaseType = format("decimal(%s, %s)", precision, scale);
         return dataType(
                 databaseType,
@@ -200,8 +175,7 @@ public class TestPhoenixTypeMapping
     }
 
     @Test
-    public void testDate()
-    {
+    public void testDate() {
         // Note: there is identical test for MySQL
 
         ZoneId jvmZone = ZoneId.systemDefault();
@@ -240,8 +214,7 @@ public class TestPhoenixTypeMapping
     }
 
     @Test
-    public void testArray()
-    {
+    public void testArray() {
         // basic types
         DataTypeTest.create()
                 .addRoundTrip(arrayDataType(booleanDataType()), asList(true, false))
@@ -282,8 +255,7 @@ public class TestPhoenixTypeMapping
     }
 
     @Test
-    public void testArrayNulls()
-    {
+    public void testArrayNulls() {
         DataTypeTest.create()
                 .addRoundTrip(arrayDataType(booleanDataType()), null)
                 .addRoundTrip(arrayDataType(varcharDataType()), singletonList(null))
@@ -291,8 +263,7 @@ public class TestPhoenixTypeMapping
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_array_nulls"));
     }
 
-    private DataTypeTest arrayDecimalTest(Function<DataType<BigDecimal>, DataType<List<BigDecimal>>> arrayTypeFactory, BiFunction<Integer, Integer, DataType<BigDecimal>> decimalTypeFactory)
-    {
+    private DataTypeTest arrayDecimalTest(Function<DataType<BigDecimal>, DataType<List<BigDecimal>>> arrayTypeFactory, BiFunction<Integer, Integer, DataType<BigDecimal>> decimalTypeFactory) {
         return DataTypeTest.create()
                 .addRoundTrip(arrayTypeFactory.apply(decimalTypeFactory.apply(3, 0)), asList(new BigDecimal("193"), new BigDecimal("19"), new BigDecimal("-193")))
                 .addRoundTrip(arrayTypeFactory.apply(decimalTypeFactory.apply(3, 1)), asList(new BigDecimal("10.0"), new BigDecimal("10.1"), new BigDecimal("-10.1")))
@@ -305,16 +276,14 @@ public class TestPhoenixTypeMapping
                         new BigDecimal("-27182818284590452353602874713526624977")));
     }
 
-    private DataTypeTest arrayStringDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory, Function<Integer, DataType<String>> dataTypeFactory)
-    {
+    private DataTypeTest arrayStringDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory, Function<Integer, DataType<String>> dataTypeFactory) {
         return DataTypeTest.create()
                 .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(10)), asList("text_a"))
                 .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(255)), asList("text_b"))
                 .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(65535)), asList("text_d"));
     }
 
-    private DataTypeTest arrayDateTest(Function<DataType<LocalDate>, DataType<List<LocalDate>>> arrayTypeFactory, DataType<LocalDate> dateDataType)
-    {
+    private DataTypeTest arrayDateTest(Function<DataType<LocalDate>, DataType<List<LocalDate>>> arrayTypeFactory, DataType<LocalDate> dateDataType) {
         ZoneId jvmZone = ZoneId.systemDefault();
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
         LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
@@ -341,8 +310,7 @@ public class TestPhoenixTypeMapping
             LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone,
             LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone,
             LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone,
-            DataType<LocalDate> dateDataType)
-    {
+            DataType<LocalDate> dateDataType) {
         return DataTypeTest.create()
                 .addRoundTrip(dateDataType, LocalDate.of(1952, 4, 3)) // before epoch
                 .addRoundTrip(dateDataType, LocalDate.of(1970, 1, 1))
@@ -354,18 +322,15 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip(dateDataType, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
     }
 
-    private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType)
-    {
+    private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType) {
         return arrayDataType(elementType, format("ARRAY(%s)", elementType.getInsertType()));
     }
 
-    private static <E> DataType<List<E>> phoenixArrayDataType(DataType<E> elementType)
-    {
+    private static <E> DataType<List<E>> phoenixArrayDataType(DataType<E> elementType) {
         return arrayDataType(elementType, elementType.getInsertType() + " ARRAY");
     }
 
-    private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType, String insertType)
-    {
+    private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType, String insertType) {
         return dataType(
                 insertType,
                 new ArrayType(elementType.getTrinoResultType()),
@@ -373,51 +338,42 @@ public class TestPhoenixTypeMapping
                 valuesList -> valuesList == null ? null : valuesList.stream().map(elementType::toTrinoQueryResult).collect(toList()));
     }
 
-    public static DataType<LocalDate> phoenixDateDataType()
-    {
+    public static DataType<LocalDate> phoenixDateDataType() {
         return dataType(
                 "date",
                 DATE,
                 value -> format("TO_DATE('%s', 'yyyy-MM-dd', 'local')", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(value)));
     }
 
-    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
-    {
+    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime) {
         verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
     }
 
-    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
-    {
+    private static boolean isGap(ZoneId zone, LocalDateTime dateTime) {
         return zone.getRules().getValidOffsets(dateTime).isEmpty();
     }
 
-    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
-    {
+    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime) {
         verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 
-    private DataType<Integer> primaryKey()
-    {
+    private DataType<Integer> primaryKey() {
         return dataType("integer primary key", INTEGER, Object::toString);
     }
 
-    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
-    {
+    private DataSetup trinoCreateAsSelect(String tableNamePrefix) {
         return trinoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
-    {
+    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix) {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
-    {
+    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix) {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup phoenixCreateAndInsert(String tableNamePrefix)
-    {
+    private DataSetup phoenixCreateAndInsert(String tableNamePrefix) {
         return new CreateAndInsertDataSetup(new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()), tableNamePrefix);
     }
 }
