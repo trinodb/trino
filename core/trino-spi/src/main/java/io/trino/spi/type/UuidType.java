@@ -35,6 +35,7 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Long.reverseBytes;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 /**
@@ -152,6 +153,23 @@ public class UuidType
         return Slices.wrappedLongArray(
                 block.getLong(position, 0),
                 block.getLong(position, SIZE_OF_LONG));
+    }
+
+    public static Slice javaUuidToTrinoUuid(UUID uuid)
+    {
+        return Slices.wrappedLongArray(
+                reverseBytes(uuid.getMostSignificantBits()),
+                reverseBytes(uuid.getLeastSignificantBits()));
+    }
+
+    public static UUID trinoUuidToJavaUuid(Slice uuid)
+    {
+        if (uuid.length() != INT128_BYTES) {
+            throw new IllegalStateException(format("Expected value to be exactly %d bytes but was %d", INT128_BYTES, uuid.length()));
+        }
+        return new UUID(
+                reverseBytes(uuid.getLong(0)),
+                reverseBytes(uuid.getLong(SIZE_OF_LONG)));
     }
 
     @ScalarOperator(EQUAL)
