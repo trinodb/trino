@@ -354,7 +354,7 @@ public final class PartitionTransforms
 
     private static Block bucketVarbinary(Block block, int count)
     {
-        return bucketBlock(block, count, position -> bucketHash(VARCHAR.getSlice(block, position)));
+        return bucketBlock(block, count, position -> bucketHash(VARBINARY.getSlice(block, position)));
     }
 
     private static Block bucketBlock(Block block, int count, IntUnaryOperator hasher)
