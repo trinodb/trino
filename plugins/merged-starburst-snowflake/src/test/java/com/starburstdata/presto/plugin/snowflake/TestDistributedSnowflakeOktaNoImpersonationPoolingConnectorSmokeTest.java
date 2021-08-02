@@ -25,7 +25,7 @@ import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
 public class TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTest
-        extends BaseDistbutedSnowflakeConnectorSmokeTest
+        extends BaseDistributedSnowflakeConnectorSmokeTest
 {
     private final SnowflakeServer server = new SnowflakeServer();
 

@@ -15,7 +15,7 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.dis
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationEnabled;
 
 public class TestDistributedSnowflakeWithImpersonationConnectorSmokeTest
-        extends BaseDistbutedSnowflakeConnectorSmokeTest
+        extends BaseDistributedSnowflakeConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()

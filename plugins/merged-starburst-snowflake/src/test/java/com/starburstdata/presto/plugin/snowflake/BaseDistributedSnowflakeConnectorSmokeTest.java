@@ -15,7 +15,7 @@ import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public abstract class BaseDistbutedSnowflakeConnectorSmokeTest
+public abstract class BaseDistributedSnowflakeConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
     @Override

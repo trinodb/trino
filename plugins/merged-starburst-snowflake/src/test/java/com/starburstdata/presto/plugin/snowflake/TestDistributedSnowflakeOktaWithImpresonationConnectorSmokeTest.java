@@ -22,7 +22,7 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_USE
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDistributedSnowflakeOktaWithImpresonationConnectorSmokeTest
-        extends BaseDistbutedSnowflakeConnectorSmokeTest
+        extends BaseDistributedSnowflakeConnectorSmokeTest
 {
     private final SnowflakeServer server = new SnowflakeServer();
 
